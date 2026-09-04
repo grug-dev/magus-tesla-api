@@ -5,7 +5,7 @@
   "module": "account",
   "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
   "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
@@ -15,16 +15,15 @@
       "T2",
       "T3",
       "T4",
+      "T5",
       "T6",
       "T7",
       "T8"
     ],
-    "awaiting_user_verification": [
-      "T5"
-    ]
+    "awaiting_user_verification": []
   },
   "created_at": "2026-09-04T10:26:38Z",
-  "updated_at": "2026-09-04T12:11:41Z",
+  "updated_at": "2026-09-04T12:25:05Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -50,7 +49,7 @@
       "started_at": "2026-09-04T10:43:15Z",
       "completed_at": "2026-09-04T10:45:26Z",
       "duration_seconds": 131,
-      "notes": "Migration created with design.md D2 DDL verbatim; timestamp collision check re-run, 20260904000001 free. Header cites D1/D2/D5.",
+      "notes": "Migration created with design.md D2 DDL verbatim; timestamp collision check re-run, 20260904000001 free. Header cites D1/D2/D5. Up backfill AND Down restore verified 2026-09-04 on a disposable container (review F1).",
       "budget": {
         "five_hour_pct_start": 51.0,
         "five_hour_pct_end": 57.0,
@@ -147,13 +146,13 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-04T11:18:25Z",
       "completed_at": "2026-09-04T11:22:21Z",
       "duration_seconds": 236,
-      "notes": "Added TestNormalizeTheme (pure) and TestAccountSettings_RoundTrip (Contract items 2/3/4/6); repaired TestLanguagePreference_RoundTrip's out-of-band write to target account.settings. Not executed per Test-Execution-Policy.",
+      "notes": "Added TestNormalizeTheme (pure) and TestAccountSettings_RoundTrip (Contract items 2/3/4/6); repaired TestLanguagePreference_RoundTrip's out-of-band write to target account.settings. Not executed per Test-Execution-Policy. Suite reported passing by the owner (make test), 2026-09-04.",
       "budget": {
         "five_hour_pct_start": 72.0,
         "five_hour_pct_end": 78.0,
@@ -242,10 +241,47 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "account-reviewer",
+    "brief": "Review RM42-account-add-settings-table (tier 1 of RM42), module internal/account. Read the DIFF (0b9897f..HEAD), not the whole module. Validate: (1) module-boundary compliance \u2014 no writes outside internal/account except the leader-owned sibling test-fake fix and the gateway doc/test fixes recorded in events; internal/account imports neither internal/tesla nor internal/gateway; no pgtype in any public signature; (2) every doc-pack convention \u2014 CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/account/AGENTS.md; (3) DB objects match the USER-CONFIRMED design gate (decision D1): account.settings DDL, the CREATE->backfill->DROP COLUMN order, the data-restoring Down, and the PK-only index plan. Any mismatch is a BLOCKER finding; (4) the RM34 status='Active' gating carried forward per decision D2 \u2014 EXISTS on GetAccountSettings/UpdateAccountLanguage/UpdateAccountTheme, InsertSettingsIfMissing deliberately ungated; (5) spec/tasks coverage \u2014 every tasks.md checkbox reflects real work, specs/account/spec.md matches what shipped; (6) integration tests assert design.md's Test Contract expectations authored BEFORE implementation, not whatever the code happens to do. Test Contract item 1 (backfill) has NO Go test \u2014 decision D6 explains why (the harness applies all migrations before TestMain hands over). Judge whether that justification holds; (7) Performance-Profile compliance: read-heavy. PreferencesFor must serve both preferences in ONE query (decision D7) so no render path costs two reads; (8) anti-gaming: no weakened acceptance criteria, no deleted tasks, no self-approved statuses. TEST SIGNALS \u2014 assistant-run vs user-reported: go build ./..., go vet ./..., gofmt -l, make migration-guard and make boundary-guard were run by the ASSISTANT and were clean. The TEST SUITE was run by the OWNER, who reported `make test` passing. You must NOT run the suite yourself (Test-Execution-Policy). Judge test quality by READING the tests. NOTE two commits on this branch that are NOT RM42 work: e132741 swept an unrelated internal/gateway/templates/pages/dashboard.go edit into a checkpoint commit, and 1bf8736 fixes a pre-existing stale nav-header assertion at the user's explicit direction. Neither is tier-1 scope; flag if you disagree, do not treat as tier-1 defects.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-04T13:00:00Z",
+        "agent": "account-reviewer",
+        "verdict": "changes-requested",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/account/AGENTS.md",
+          "openspec/changes/RM42-account-add-settings-table/proposal.md",
+          "openspec/changes/RM42-account-add-settings-table/design.md",
+          "openspec/changes/RM42-account-add-settings-table/specs/account/spec.md",
+          "openspec/changes/RM42-account-add-settings-table/tasks.md",
+          "openspec/changes/RM42-account-add-settings-table/progress.json"
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "internal/account/db/migrations/20260904000001_add_account_settings.sql -- +goose Down block; tasks.md T1.1 acceptance criterion ('goose down (one step) restores the column with current values and drops account.settings without error (Test Contract items 1 and 5)'). Test Contract item 5 (design.md, 'The Down migration restores accounts.language with the current values') has never been executed or verified by anyone -- not an automated Go test (TestMain in internal/account/testdb_test.go applies only Up migrations before handing control to the suite, so no test exercises `goose down`), and no event/decision in progress.json records a manual `make migrate-down`/`goose down` run either. Decision D6 in progress.json explicitly justifies the missing Go test for Test Contract item 1 (the backfill) but says nothing about item 5, and T1 was still marked status=done with its acceptance criteria stated as met. This is inconsistent with how the pipeline otherwise handles unverified work: T5 (the test suite) was correctly left at awaiting-user-verification until the owner reported `make test` passing; T1's Down-migration claim was not given the same honesty treatment even though running `make migrate-down` is itself gated ('Still gated: ... make migrate-down' per CLAUDE.md \u00a7Builds) and so could not have been run by the assistant unprompted. The DDL text itself was user-confirmed at the design gate (D1) and reads as correct on inspection, but an unexercised rollback path on a schema migration is a real risk in a project whose own record (dev DB holds hand-entered, irreplaceable history) treats destructive/rollback DB operations as high-stakes. Ask the leader to either (a) get the owner's explicit go-ahead to run `goose down` once against the test/dev DB and report the result, mirroring how T5's test-suite verification was handled, or (b) if that is not practical here, add an explicit 'not verified, pending owner action' note next to T1 in tasks.md/progress.json instead of an unqualified done, so the state file does not overclaim.",
+            "status": "open"
+          }
+        ],
+        "checks": {
+          "1_module_boundaries": "Read every file in the diff (git diff 0b9897f...HEAD --stat, then per-file diffs). Confirmed via `grep -n \"internal/tesla|internal/gateway\" internal/account/*.go` that internal/account imports neither (one hit is a doc-comment mention, not an import). Confirmed `pgtype` appears only in internal/account/service.go's unexported helper functions (textFromString, nullableTextToPtr, textPtrToNullable, timestamp), never in account.go's public types/interface. Ran `make boundary-guard` myself (assistant-run, allowed) -- clean. Files touched outside internal/account are exactly the three sibling test fakes (internal/app/processor_test.go, internal/telemetry/service_test.go, internal/gateway/handlers/handlers_test.go) plus internal/gateway/AGENTS.md (one-line doc fix) and internal/gateway/templates/pages/dashboard.go (the flagged unrelated change) -- matches the brief's allowance.",
+          "2_doc_pack_conventions": "Read CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/account/AGENTS.md in full before judging. Checked: interface-first port (account.go), sqlc/goose conventions (pgtype converted at DB->domain boundary, module-scoped db package), unit-suffix rule (no unit-bearing columns added, N/A), account_id-leading index (PK itself), no HTML/no cross-module DB access. No violations found.",
+          "3_db_design_gate_D1": "Compared the shipped migration (internal/account/db/migrations/20260904000001_add_account_settings.sql) line-for-line against design.md D1/D2's DDL and against progress.json decision D1 (user-confirmed). DDL, CREATE->INSERT..SELECT->DROP COLUMN order, and the Down (ADD COLUMN->UPDATE..FROM->DROP TABLE) all match verbatim. Index plan matches design.md D9: no secondary index, PK-only on both settings.account_id and accounts.id. No mismatch found (see F1 for the separate concern that the Down path was never executed, which is a verification gap, not a DDL mismatch).",
+          "4_rm34_gating_D2": "Read internal/account/db/query.sql diff: GetAccountSettings, UpdateAccountLanguage, and UpdateAccountTheme all carry the identical `EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active')` predicate; InsertSettingsIfMissing has no such gate, mirroring UpsertAccountFromOAuth's existing exemption. Confirmed against generated query.sql.go. Confirmed the integration test (TestAccountSettings_RoundTrip) exercises the Inactive-account case for all three gated reads and the two silent-no-op writes. Correct.",
+          "5_spec_tasks_coverage": "Walked every tasks.md checkbox (T1-T8) against its corresponding diff hunk; all reflect real, matching work except the unverified Down-migration claim in T1 (F1). specs/account/spec.md's two new requirements and their scenarios were checked against account.go/service.go/query.sql and match what shipped (theme vocabulary, default graphite, normalize-on-read, reject-on-write, settings row guaranteed at creation, single-query PreferencesFor).",
+          "6_test_contract": "Read service_test.go (TestNormalizeTheme) and service_integration_test.go (TestAccountSettings_RoundTrip, and the TestLanguagePreference_RoundTrip out-of-band-write repair) against design.md's Test Contract items 1-6. Items 2, 3, 4, and 6 are asserted with the exact values design.md authored up front (Settings{Language: LanguageES, Theme: ThemeGraphite}, ThemeHalloween round-trip, ErrUnsupportedTheme rejection, normalized 'neon'/'fr' -> graphite/es) -- these read as contract-first, not back-fitted. Item 1 (backfill) has no Go test; decision D6's justification (TestMain applies every migration before handing over, so no in-process test can seed pre-migration rows) is a genuine constraint of the shared testdb harness, not an excuse -- I judge it holds, and the migration's Up path is still exercised indirectly by every integration test run (a failure would abort TestMain via log.Fatalf). Item 5 (Down migration restore) has neither a Go test nor a documented manual verification -- see F1.",
+          "7_performance_profile": "Read service.go: PreferencesFor calls s.q.GetAccountSettings exactly once; LanguageFor and ThemeFor both delegate to PreferencesFor, so every caller path costs exactly one query regardless of how many of the two preferences it needs. GetAccountSettings itself is a single SELECT with an EXISTS subquery, both riding PK indexes -- no join, no N+1. Meets decision D7 / the read-heavy performance profile.",
+          "8_anti_gaming": "Diffed tasks.md and specs/account/spec.md against a clean checkout of the change's own history (no earlier version to diff against since this is the first review round) and read progress.json's task/decision/event history for edits. No task or acceptance criterion was weakened, no deleted checkbox, no self-approved review status (review.status was 'pending' with agent null before this round). The one integrity concern is F1: T1 was marked 'done' with an acceptance criterion (Down-migration verification) that was not actually executed or explicitly deferred the way T5's test-suite verification correctly was -- flagged as a major finding rather than a blocker because the DDL itself is correct and user-confirmed, and running `goose down` is a gated action the assistant could not take unprompted."
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -304,6 +340,14 @@
       "made_by": "leader",
       "decision": "Gateway fake's PreferencesFor delegates to its own LanguageFor rather than adding a recording field",
       "why": "No gateway handler reads a theme until RM42 tier 2, which will extend the fake itself. Delegating keeps the two preference reads from disagreeing."
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-04T12:25:05Z",
+      "scope": "review:F1",
+      "made_by": "user",
+      "decision": "Verify the Up backfill and the Down restore on a disposable postgres:16-alpine container rather than the dev DB or a paper 'unverified' note",
+      "why": "The dev DB holds history Tesla cannot backfill. A throwaway container proves the rollback path at zero risk."
     }
   ],
   "events": [
@@ -416,6 +460,31 @@
       "at": "2026-09-04T12:11:41Z",
       "agent": "leader",
       "event": "User ran make test: one failure, TestNavHeaderFragment_ConnectedHTTP, PRE-EXISTING and unrelated to RM42. badge-success was asserted since MAG-12 (1201133); MAG-44 removed the status dot from the markup and left the assertion behind. Fixed in its own commit 1bf8736 at the user's direction (assertion only, not the whole test). RM42 tier 1 did not cause it."
+    },
+    {
+      "at": "2026-09-04T12:13:32Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE USER: the owner ran `make test` and reported it passing. This is the owner's report, not an assistant run \u2014 the assistant never executed the suite. T5 awaiting-user-verification -> done; change status -> verified. Proceeding to the reviewer gate."
+    },
+    {
+      "at": "2026-09-04T12:25:05Z",
+      "agent": "leader",
+      "event": "Review round 1 F1 (major) TRIAGED AND ACCEPTED: T1 was marked done while the Down-migration half of its acceptance criterion had never been executed. The reviewer was right; this is the anti-gaming rail working."
+    },
+    {
+      "at": "2026-09-04T12:25:05Z",
+      "agent": "leader",
+      "event": "F1 CLOSED by real execution on a disposable postgres:16-alpine container (user chose this over touching the dev DB \u2014 decision D8). Seeded es/en/fr; up -> 3 settings rows with those exact languages, theme=graphite, accounts.language dropped (Test Contract item 1). Mutated a row es->en; down -> accounts.language restored with the CURRENT values (en, not es), settings dropped (item 5). up again -> repeatable. Container destroyed; the dev DB was never touched. Evidence appended to tasks.md T1.1."
+    },
+    {
+      "at": "2026-09-04T12:25:05Z",
+      "agent": "leader",
+      "event": "D6 SUPERSEDED by D8's run: item 1 is now verified by execution. D6's reasoning was only that the GO TEST HARNESS cannot seed pre-migration rows (TestMain applies all migrations before handing over) \u2014 that remains true and is why there is still no Go test, but the behavior itself is no longer unverified."
+    },
+    {
+      "at": "2026-09-04T12:25:05Z",
+      "agent": "leader",
+      "event": "SEPARATE FINDING, pre-existing, NOT caused by RM42: all four modules share one goose_db_version table, so a per-dir `goose ... down` fails unless its migration is the GLOBAL newest. Observed directly: `goose -dir internal/account/db/migrations ... down` on a fully-migrated DB errored `migration 20260902000004: no current version found` (that version belongs to internal/analytics). This means `make migrate-down` is unreliable past the first dir. Not fixed here \u2014 flagged to the user for its own ticket."
     }
   ]
 }

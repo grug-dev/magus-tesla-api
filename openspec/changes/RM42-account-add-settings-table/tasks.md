@@ -75,6 +75,16 @@
       `language` column; `goose down` (one step) restores the column with current values and drops
       `account.settings` without error (Test Contract items 1 and 5).
 
+      VERIFIED 2026-09-04 (review round 1, finding F1) against a disposable `postgres:16-alpine`
+      container — never the dev database. Seeded three accounts with `es`/`en`/`fr`, applied the
+      migration, and confirmed three `account.settings` rows carrying those exact languages with
+      `theme = 'graphite'`, and `accounts.language` dropped (item 1). Then mutated one settings row
+      `es` -> `en`, ran `goose down`, and confirmed `accounts.language` came back holding the
+      CURRENT values (the mutated `en`, not the original `es`) with `account.settings` dropped
+      (item 5). Re-ran `up` to confirm the cycle is repeatable. This closes the gap decision D6
+      recorded for item 1 as well: the constraint was only that the *Go test harness* cannot seed
+      pre-migration rows, not that the behavior is unverifiable.
+
 ## T2. Domain type + port interface (`internal/account/account.go`) — no dependencies, parallel-ok with T1
 
 - [x] T2.1 Add the closed theme vocabulary + sentinel error to `account.go`, near the existing
