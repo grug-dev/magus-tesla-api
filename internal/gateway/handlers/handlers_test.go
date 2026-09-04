@@ -1261,8 +1261,12 @@ func navHeaderEngine(h *Handler, uid uuid.UUID) *gin.Engine {
 
 // TestNavHeaderFragment_ConnectedHTTP exercises the full fragment route with a
 // seeded session: an authenticated GET /ui/nav-header returns 200 and the rendered
-// fragment contains the vehicle name, the success-colored status dot
-// (badge-success), and the pre-computed battery percentage.
+// fragment contains the vehicle name and the pre-computed battery percentage.
+//
+// It used to assert a badge-success status dot too. MAG-44 removed that dot —
+// the app never observes whether a vehicle is reachable, it only renders the
+// latest stored reading — but the assertion outlived the markup and had been
+// failing since. Do not reintroduce it: there is no connection state to show.
 func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
@@ -1290,7 +1294,6 @@ func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 	for _, want := range []string{
 		`id="nav-header"`,
 		"Magus",
-		"badge-success",
 		"94%",
 	} {
 		if !strings.Contains(body, want) {
