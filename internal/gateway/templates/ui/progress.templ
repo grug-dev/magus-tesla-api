@@ -1,0 +1,29 @@
+package ui
+
+import "strconv"
+
+// ProgressProps configures a Progress meter. Value and Max are plain numbers —
+// the kit owns their conversion to the HTML attributes, so no call site formats
+// them. Class carries layout utilities (width, height) AND the colour token that
+// drives the fill: DaisyUI's progress value paints with currentColor, so passing
+// a text-* token (e.g. ui.BatteryBandClass) colours the bar. Attrs carries extra
+// attributes, most often an aria-label, mirroring SelectProps.
+type ProgressProps struct {
+	Value int
+	Max   int
+	Class string
+	Attrs templ.Attributes
+}
+
+// Progress renders a themed meter bar. The DaisyUI `progress` component class is
+// OWNED here — the second call site (the sidebar vehicle block) is what earned
+// this wrapper, per AGENTS.md's "a repeated element with no wrapper gets one
+// added to ui/ rather than inlined".
+templ Progress(p ProgressProps) {
+	<progress
+		class={ "progress", p.Class }
+		max={ strconv.Itoa(p.Max) }
+		value={ strconv.Itoa(p.Value) }
+		{ p.Attrs... }
+	></progress>
+}

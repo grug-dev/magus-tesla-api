@@ -150,7 +150,7 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
 - **The `ui/` kit is an anti-corruption adapter around DaisyUI** — an external library that
   ships breaking changes across majors. Routing every DaisyUI **component class** through a
   `ui.*` wrapper makes a version bump a one-file edit per component, not an app-wide sweep.
-- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Dot, Table, PageHeader,
+- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Dot, Progress, Table, PageHeader,
   NavShell, ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline
   a DaisyUI component class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a
   bug. If a repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme
@@ -178,6 +178,20 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   (design.md §D-Dot, `RM33-gateway-add-entries-dashboard`). Reuse this pairing shape for any
   future dot+badge combination; never repurpose `success`/`warning` for a badge that sits next to
   a dot.
+- **`ui.Progress`** (`templates/ui/progress.templ`, `ProgressProps{Value, Max, Class, Attrs}`) —
+  the meter bar; the kit owns the DaisyUI `progress` class and converts `Value`/`Max` (plain
+  ints) to the HTML attributes, so no call site formats them. DaisyUI paints a progress fill
+  with **currentColor**, so the bar's colour comes from a `text-*` token passed in `Class`.
+  `Attrs` carries an `aria-label` (mirrors `SelectProps`). Added by MAG-44 when the battery
+  meter gained its second call site — per the rule above, a repeated element with no wrapper
+  gets one added to `ui/` rather than inlined a second time.
+- **`ui.BatteryBandClass(pct int, hasValue bool)`** (`templates/ui/ui.go`) — the SINGLE
+  definition of the battery colour bands (`0–10` low, `11–20` mid, `21–40` warn, `41+` full;
+  no value → `text-primary`). Both surfaces that render a battery level go through it: the
+  dashboard card (`pages.dashBatteryColorClass` is now a thin adapter that only parses the
+  VM's string percentage and delegates) and the sidebar vehicle block. Do not re-derive the
+  bands anywhere else — that is the drift this function exists to prevent. Tokens themselves
+  live in `static/themes/_shared.css` §"Battery-level metric colors".
 - **Semantic tokens only — never hex / raw palette** (`bg-base-100`, `primary`,
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
@@ -200,6 +214,40 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `htmx.min.js`); the Tailwind binary in `tools/` is git-ignored (`make ui-toolchain`).
 - **New pages go through `kkpa-goth-scaffold-ui scaffold <concept> [module]`**, which
   mirrors the `charges` gold-standard slice.
+
+## Chrome surfaces & the honest vehicle block (MAG-44, 2026-09-03)
+
+**The authenticated chrome is ONE surface.** The sidebar column wrapper in
+`layouts.BaseAuth` owns `bg-base-200` plus `border-r border-base-300`, and the navbar
+carries `bg-base-200 border-b border-base-300`. Everything inside the sidebar — the
+`#nav-header` vehicle block and `ui.NavShell`'s `<ul class="menu">` — is **transparent**
+and must stay that way. Before this change the three regions painted `base-200`,
+`base-300` and (by falling through) `base-100`; in the `graphite` theme those are
+`#0e1013 / #161a1f / #252b33` with no borders, so the chrome read as a stack of slightly
+different greys rather than one panel. If you are tempted to add a background to a region
+inside the sidebar, you are re-creating that bug — add a border instead.
+
+**The active nav item is a primary tint, not `menu-active`.** `ui.NavShell`'s
+`navActiveClass` constant (`bg-primary/15 text-primary font-semibold border-l-2
+border-primary rounded-l-none`) replaced DaisyUI's `menu-active`, which forces
+`bg-neutral` — a flat grey that read as a fourth chrome layer instead of a selection. The
+icon and label both inherit `currentColor`, so they tint together. `Pronto`/`Soon`
+placeholder badges are `ghost` + `badge-sm`, deliberately quiet: a `warning` yellow made
+unfinished pages shout louder than the working ones.
+
+**There is NO live connection state anywhere in this module, and none may be added.**
+The app renders the latest stored `vehicle_metrics` row; it never observes whether a
+vehicle is reachable right now. MAG-44 therefore deleted the entire
+`NavHeaderStatusKind` vocabulary (`connected`/`asleep`/`awaiting`/`unavailable`), its 48 h
+`connectedFreshnessWindow`, `handlers.connectedAt`, `handlers.relativeLastSeen`, and the
+eleven `KeyNavHeaderStatus*` / `KeyNavHeaderLastSeen*` catalogue entries. `navHeaderFor`
+now does no `CapturedAt` branching at all: it reports the vehicle name, the stored battery
+level, and the stored range, and renders an em dash with no bar when there is no row.
+
+A **data-age** label ("updated 2 days ago") would be honest and is wanted — but it is
+deliberately NOT in this change. It is backlog item **24**, written as a restore: the
+formatter and all seven bilingual catalogue entries are recoverable from the MAG-44 commit.
+Do not re-introduce a connectivity *word* on the way to building it.
 
 ## Identifiable cards & sections
 

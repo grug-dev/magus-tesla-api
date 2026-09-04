@@ -12,7 +12,7 @@ import (
 )
 
 // TestNavShell_RendersIconsAndSoonBadges asserts the evolved NavShell renders an
-// inline <svg> icon per item, lights the active item with menu-active, and appends
+// inline <svg> icon per item, lights the active item with navActiveClass, and appends
 // a "Soon" badge ONLY on placeholder items (which also force Href="#"). No external
 // CDN / Material Symbols stylesheet is involved — icons are inline SVG via ui.Icon.
 func TestNavShell_RendersIconsAndSoonBadges(t *testing.T) {
@@ -52,9 +52,11 @@ func TestNavShell_RendersIconsAndSoonBadges(t *testing.T) {
 	if got := strings.Count(body, `href="#"`); got != 2 {
 		t.Errorf("want 2 placeholder '#' hrefs, got %d", got)
 	}
-	// Exactly one active item lit (Dashboard).
-	if got := strings.Count(body, "menu-active"); got != 1 {
-		t.Errorf("want exactly 1 menu-active entry, got %d", got)
+	// Exactly one active item lit (Dashboard). MAG-44 replaced DaisyUI's
+	// menu-active with the primary-tinted navActiveClass; asserting on the
+	// constant keeps this test tied to the component rather than to a literal.
+	if got := strings.Count(body, navActiveClass); got != 1 {
+		t.Errorf("want exactly 1 active nav entry, got %d", got)
 	}
 }
 

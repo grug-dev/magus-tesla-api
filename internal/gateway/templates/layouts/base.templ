@@ -82,7 +82,7 @@ templ BaseAuth(title, path string) {
 		<div class="drawer lg:drawer-open">
 			<input id="nav-drawer" type="checkbox" class="drawer-toggle"/>
 			<div class="drawer-content flex flex-col">
-			<nav class="navbar bg-base-300 w-full sticky top-0 z-40">
+			<nav class="navbar bg-base-200 border-b border-base-300 w-full sticky top-0 z-40">
 			<label for="nav-drawer" aria-label={ i18n.T(ctx, i18n.KeyNavOpenSidebar) } class="btn btn-square btn-ghost lg:hidden">
 				@ui.Icon(ui.IconProps{Name: "menu", Class: "h-6 w-6"})
 			</label>
@@ -105,10 +105,14 @@ templ BaseAuth(title, path string) {
 			// sidebar's full height instead of stacking. The drawer-side grid aligns
 			// items to its start; without this wrapper the menu's min-h-full would
 			// push the footer logout BELOW the viewport and off-screen.
-			<div class="flex flex-col h-full w-64">
+			// It also OWNS the sidebar surface (bg-base-200) and its edge against the
+			// content (border-r): the nav-header and ui.NavShell inside it are
+			// deliberately transparent, so the header, the menu and the navbar read as
+			// ONE continuous chrome instead of three near-identical greys (MAG-44).
+			<div class="flex flex-col h-full w-64 bg-base-200 border-r border-base-300">
 			// placeholder: the nav-header fragment (GET /ui/nav-header) is swapped in by
 			// htmx on load and re-fetched on the "vehicle-changed" event the vehicle
-			// switcher (POST /ui/vehicle/select) fires, so the status dot/battery
+			// switcher (POST /ui/vehicle/select) fires, so the battery and range
 			// reflect the newly-selected vehicle.
 			<div id="nav-header" hx-get="/ui/nav-header" hx-trigger="load, vehicle-changed from:body" hx-swap="outerHTML"></div>
 				@ui.NavShell(navItems(ctx, path), ui.NavLogout())

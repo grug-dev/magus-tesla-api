@@ -11,12 +11,16 @@ import templruntime "github.com/a-h/templ/runtime"
 // SelectProps configures a Select. Required/Disabled map to the HTML boolean
 // attributes. Attrs carries any extra attributes; Class is for extra layout
 // utilities. Size adds a DaisyUI size modifier ("sm" | "xs" | "lg"), owned here
-// so a size class never leaks into a fragment. The caller supplies the <option>
-// elements as the slot (they are data-driven, so they stay with the caller).
+// so a size class never leaks into a fragment. Ghost drops the border for a
+// control that sits in chrome rather than in a form — it is what makes the
+// navbar's vehicle switcher match the ghost language button beside it (MAG-44).
+// The caller supplies the <option> elements as the slot (they are data-driven,
+// so they stay with the caller).
 type SelectProps struct {
 	Name     string
 	Required bool
 	Disabled bool
+	Ghost    bool // borderless chrome variant (navbar controls); default is bordered
 	Class    string
 	Size     string // "sm" | "xs" | "lg" | "" (default)
 	Attrs    templ.Attributes
@@ -45,7 +49,7 @@ func Select(p SelectProps) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var2 = []any{"select select-bordered font-mono w-full", selectSizeClass(p.Size), p.Class}
+		var templ_7745c5c3_Var2 = []any{"select font-mono w-full", selectVariantClass(p.Ghost), selectSizeClass(p.Size), p.Class}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -57,7 +61,7 @@ func Select(p SelectProps) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/select.templ`, Line: 21, Col: 15}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/select.templ`, Line: 25, Col: 15}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 		if templ_7745c5c3_Err != nil {
@@ -125,6 +129,16 @@ func selectSizeClass(size string) string {
 	default:
 		return ""
 	}
+}
+
+// selectVariantClass maps the Ghost flag to the DaisyUI variant modifier. Owned
+// here with the rest of the component's classes so no fragment ever writes
+// `select-ghost` or `select-bordered` itself.
+func selectVariantClass(ghost bool) string {
+	if ghost {
+		return "select-ghost"
+	}
+	return "select-bordered"
 }
 
 var _ = templruntime.GeneratedTemplate

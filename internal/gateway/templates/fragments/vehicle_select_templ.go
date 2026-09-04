@@ -53,7 +53,9 @@ type VehicleSelectVM struct {
 // #vehicle-select placeholder rendered by layouts.BaseAuth) — the required
 // htmx-swap invariant. The form posts to /ui/vehicle/select targeting itself
 // (outerHTML swap) and fires "vehicle-changed" via the handler's HX-Trigger header;
-// nav-header / dashboard / charges re-fetch themselves on that event.
+// nav-header / dashboard / charges re-fetch themselves on that event. The
+// switcher stays a native select element; only its look is aligned with the ghost
+// language button beside it (MAG-44) — no dropdown rewrite, no new htmx wiring.
 //
 // The title shows the selected vehicle's name; when there is none (no vehicles /
 // read error) it falls back to the app brand so the navbar is never blank. The
@@ -101,7 +103,7 @@ func VehicleSelect(vm VehicleSelectVM) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.SelectedVehicleName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 60, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 62, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -111,7 +113,7 @@ func VehicleSelect(vm VehicleSelectVM) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyBrandMagus))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 62, Col: 38}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 64, Col: 38}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -130,7 +132,7 @@ func VehicleSelect(vm VehicleSelectVM) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.CSRFToken)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 73, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 75, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 				if templ_7745c5c3_Err != nil {
@@ -164,7 +166,7 @@ func VehicleSelect(vm VehicleSelectVM) templ.Component {
 						var templ_7745c5c3_Var7 string
 						templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(opt.Value)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 77, Col: 32}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 79, Col: 32}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 						if templ_7745c5c3_Err != nil {
@@ -187,7 +189,7 @@ func VehicleSelect(vm VehicleSelectVM) templ.Component {
 						var templ_7745c5c3_Var8 string
 						templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(firstWord(opt.DisplayName))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 77, Col: 90}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/vehicle_select.templ`, Line: 79, Col: 90}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 						if templ_7745c5c3_Err != nil {
@@ -200,7 +202,7 @@ func VehicleSelect(vm VehicleSelectVM) templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderSwitchVehicleAria)}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Ghost: true, Class: "w-auto", Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderSwitchVehicleAria)}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

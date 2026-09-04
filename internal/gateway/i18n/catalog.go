@@ -44,10 +44,7 @@ const (
 	KeyNavHeaderNoTesla           Key = "nav_header.no_tesla"
 	KeyNavHeaderConnectLink       Key = "nav_header.connect_link"
 	KeyNavHeaderSwitchVehicleAria Key = "nav_header.switch_vehicle_aria"
-	KeyNavHeaderStatusConnected   Key = "nav_header.status_connected"
-	KeyNavHeaderStatusAsleep      Key = "nav_header.status_asleep"
-	KeyNavHeaderStatusAwaiting    Key = "nav_header.status_awaiting"
-	KeyNavHeaderStatusUnavailable Key = "nav_header.status_unavailable"
+	KeyNavHeaderBatteryAria       Key = "nav_header.battery_aria"
 
 	// --- language switcher (templates/ui/lang_switcher.templ) ---
 	KeyLangSwitcherAria    Key = "lang_switcher.aria"
@@ -223,16 +220,6 @@ const (
 	KeyVehiclesStaleBadge       Key = "vehicles.stale_badge"
 	KeyVehiclesNoDataYet        Key = "vehicles.no_data_yet"
 
-	// --- nav-header "Last seen" (templates/fragments/nav_header.templ,
-	// handlers.go: relativeLastSeen — design.md D3/Discoveries #2, closes tier 2's D9) ---
-	KeyNavHeaderLastSeen              Key = "nav_header.last_seen"
-	KeyNavHeaderLastSeenDays          Key = "nav_header.last_seen_days"
-	KeyNavHeaderLastSeenDaysPlural    Key = "nav_header.last_seen_days_plural"
-	KeyNavHeaderLastSeenHours         Key = "nav_header.last_seen_hours"
-	KeyNavHeaderLastSeenHoursPlural   Key = "nav_header.last_seen_hours_plural"
-	KeyNavHeaderLastSeenMinutesPlural Key = "nav_header.last_seen_minutes_plural"
-	KeyNavHeaderLastSeenJustNow       Key = "nav_header.last_seen_just_now"
-
 	// --- confirm dialog (templates/ui/confirm_dialog.templ) ---
 	KeyConfirmDialogTitle   Key = "confirm_dialog.title"
 	KeyConfirmDialogCancel  Key = "confirm_dialog.cancel"
@@ -391,10 +378,7 @@ var catalog = map[Key]entry{
 	KeyNavHeaderNoTesla:           {ES: "Ningún Tesla conectado.", EN: "No Tesla connected."},
 	KeyNavHeaderConnectLink:       {ES: "Conecta tu Tesla", EN: "Connect your Tesla"},
 	KeyNavHeaderSwitchVehicleAria: {ES: "Cambiar de vehículo", EN: "Switch vehicle"},
-	KeyNavHeaderStatusConnected:   {ES: "Conectado", EN: "Connected"},
-	KeyNavHeaderStatusAsleep:      {ES: "Dormido", EN: "Asleep"},
-	KeyNavHeaderStatusAwaiting:    {ES: "Esperando primer dato", EN: "Awaiting first snapshot"},
-	KeyNavHeaderStatusUnavailable: {ES: "No disponible", EN: "Unavailable"},
+	KeyNavHeaderBatteryAria:       {ES: "Nivel de batería", EN: "Battery level"},
 
 	// Language names are conventionally not translated — both fields carry the
 	// same string. This is NOT a special case for TestCatalog_AllKeysHaveBothLanguages
@@ -546,14 +530,6 @@ var catalog = map[Key]entry{
 	KeyVehiclesLastUpdatedLabel: {ES: "Última actualización:", EN: "Last updated:"},
 	KeyVehiclesStaleBadge:       {ES: "⚠ Desactualizado", EN: "⚠ Stale"},
 	KeyVehiclesNoDataYet:        {ES: "Aún no hay datos — esperando el primer dato nocturno.", EN: "No data yet — awaiting first nightly snapshot."},
-
-	KeyNavHeaderLastSeen:              {ES: "Visto por última vez", EN: "Last seen"},
-	KeyNavHeaderLastSeenDays:          {ES: "hace 1 día", EN: "1 day ago"},
-	KeyNavHeaderLastSeenDaysPlural:    {ES: "hace %d días", EN: "%d days ago"},
-	KeyNavHeaderLastSeenHours:         {ES: "hace 1 hora", EN: "1 hour ago"},
-	KeyNavHeaderLastSeenHoursPlural:   {ES: "hace %d horas", EN: "%d hours ago"},
-	KeyNavHeaderLastSeenMinutesPlural: {ES: "hace %d minutos", EN: "%d minutes ago"},
-	KeyNavHeaderLastSeenJustNow:       {ES: "justo ahora", EN: "just now"},
 
 	KeyConfirmDialogTitle:   {ES: "¿Estás seguro?", EN: "Are you sure?"},
 	KeyConfirmDialogCancel:  {ES: "Cancelar", EN: "Cancel"},
