@@ -244,10 +244,18 @@ eleven `KeyNavHeaderStatus*` / `KeyNavHeaderLastSeen*` catalogue entries. `navHe
 now does no `CapturedAt` branching at all: it reports the vehicle name, the stored battery
 level, and the stored range, and renders an em dash with no bar when there is no row.
 
-A **data-age** label ("updated 2 days ago") would be honest and is wanted — but it is
-deliberately NOT in this change. It is backlog item **24**, written as a restore: the
-formatter and all seven bilingual catalogue entries are recoverable from the MAG-44 commit.
-Do not re-introduce a connectivity *word* on the way to building it.
+**What replaced it is a data-age label, and it counts CALENDAR days, not elapsed hours.**
+`navHeaderFor` receives `browserToday(c)` and `calendarDaysAgo` compares midnights in the
+user's own zone: `0` → *hoy/today*, `1` → *ayer/yesterday*, `2`+ → *hace N días/N days ago*
+coloured `text-error` (`dataAgeStaleDays`). A nil `CapturedAt` renders **nothing** — an
+unknown age is never guessed.
+
+The distinction is the reason MAG-44's deleted `relativeLastSeen` could NOT simply be
+restored, and it is worth keeping straight: the nightly poll runs at 03:30, so last night's
+reading is ~22 h old when viewed before midnight. An elapsed-hours helper calls that
+"22 hours ago"; the user calls it "yesterday". Do not reintroduce a duration-based label
+here, and do not let `dataAgeStaleDays` grow back into a connectivity claim — it drives
+**emphasis only**. It says the data is old, never that the vehicle is unreachable.
 
 ## Identifiable cards & sections
 

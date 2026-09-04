@@ -851,48 +851,6 @@ each per-module one.
 interview, before any artifact was written).
 
 
-## 24. gateway — Show how long ago the vehicle data was updated
-
-### PROPOSAL
-
-The sidebar vehicle block used to show `Conectado` / `Dormido` next to the vehicle name. That
-was **not true**: the page always renders the latest stored `vehicle_metrics` row and never
-checks a live connection, so the word described a state nothing observed. MAG-44 removed the
-whole vocabulary rather than keep a claim the app cannot support.
-
-The honest signal it should have been is still missing: **how old the displayed data is**. A
-user looking at `61% · 312 km` has no way to tell whether that reading is from last night or
-from four days ago.
-
-**This is a restore, not a rewrite.** MAG-44 deleted working, tested code that already
-computed exactly this, and it can be recovered from that change's commit:
-
-* `handlers.relativeLastSeen(capturedAt, now, ctx)` — the "2 days ago" / "3 hours ago" /
-  "just now" formatter, whole units, rounded down, fully i18n-resolved.
-* `connectedFreshnessWindow` (48 h) — reusable if a threshold is wanted for *emphasis*
-  (e.g. muted under 48 h, warning-coloured over it). It must NOT come back as a
-  connected/asleep claim.
-* The seven `KeyNavHeaderLastSeen*` catalogue entries — `nav_header.last_seen`,
-  `…_days`, `…_days_plural`, `…_hours`, `…_hours_plural`, `…_minutes_plural`,
-  `…_just_now` — each already had both ES and EN.
-
-`analytics.VehicleStatus.CapturedAt` (a `*time.Time`, nil on rows predating the RM38
-migration) is still the input, and `navHeaderFor` still reads the row that carries it, so the
-data side needs no change at all. A nil `CapturedAt` must render no label rather than a
-fabricated age.
-
-**TRIGGER — pick this up when** a user asks how fresh the dashboard/sidebar numbers are, or
-when a missed nightly poll goes unnoticed because the stale data looked current. It is small:
-one VM field, one template line, and `git show` of the MAG-44 commit for the helper and the
-catalogue entries.
-
-### ORIGIN
-
-MAG-44 (`gateway chrome polish — sidebar, top bar, and honest vehicle block`), decision **5**:
-"the connected/asleep status is removed entirely — no freshness label in this change; it goes
-to the backlog."
-
-
 
 # BRAINSTORMING
 

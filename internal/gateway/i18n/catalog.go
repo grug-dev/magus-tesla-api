@@ -45,6 +45,9 @@ const (
 	KeyNavHeaderConnectLink       Key = "nav_header.connect_link"
 	KeyNavHeaderSwitchVehicleAria Key = "nav_header.switch_vehicle_aria"
 	KeyNavHeaderBatteryAria       Key = "nav_header.battery_aria"
+	KeyNavHeaderUpdatedToday      Key = "nav_header.updated_today"
+	KeyNavHeaderUpdatedYesterday  Key = "nav_header.updated_yesterday"
+	KeyNavHeaderUpdatedDaysAgo    Key = "nav_header.updated_days_ago"
 
 	// --- language switcher (templates/ui/lang_switcher.templ) ---
 	KeyLangSwitcherAria    Key = "lang_switcher.aria"
@@ -379,6 +382,9 @@ var catalog = map[Key]entry{
 	KeyNavHeaderConnectLink:       {ES: "Conecta tu Tesla", EN: "Connect your Tesla"},
 	KeyNavHeaderSwitchVehicleAria: {ES: "Cambiar de vehículo", EN: "Switch vehicle"},
 	KeyNavHeaderBatteryAria:       {ES: "Nivel de batería", EN: "Battery level"},
+	KeyNavHeaderUpdatedToday:      {ES: "hoy", EN: "today"},
+	KeyNavHeaderUpdatedYesterday:  {ES: "ayer", EN: "yesterday"},
+	KeyNavHeaderUpdatedDaysAgo:    {ES: "hace %d días", EN: "%d days ago"},
 
 	// Language names are conventionally not translated — both fields carry the
 	// same string. This is NOT a special case for TestCatalog_AllKeysHaveBothLanguages

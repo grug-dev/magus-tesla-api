@@ -1005,6 +1005,11 @@ func TestSeedAccessTypeMapping_Empty(t *testing.T) {
 // Retyped from the retired snapshot-based reader (RM40) to analytics.Reader
 // (RM38-gateway-read-dashboard-from-metrics, design.md D8): navHeaderFor now
 // reads h.analyticsReader.LatestMetricsByAccount.
+// navTestToday is the fixed "browser today" the nav-header tests pass in place of
+// browserToday(c) — midnight UTC, so the calendar-day age assertions below are
+// deterministic instead of depending on when the suite runs.
+var navTestToday = time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)
+
 func newNavHeaderHandler(acct account.Service, reader analytics.Reader) *Handler {
 	return newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 }
@@ -1016,12 +1021,13 @@ func TestNavHeaderFor_WithStoredRow(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
-	capturedAt := time.Now().Add(-1 * time.Hour)
+	// Same calendar day as navTestToday -> "today", not stale.
+	capturedAt := navTestToday.Add(4 * time.Hour)
 	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
 		{TeslaID: 42, CapturedAt: &capturedAt, BatteryLevelPct: 61, BatteryRangeKm: 312.4},
 	}}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0, navTestToday)
 
 	if vm.NeedsConnect {
 		t.Fatalf("want NeedsConnect false, got true")
@@ -1041,6 +1047,12 @@ func TestNavHeaderFor_WithStoredRow(t *testing.T) {
 	if vm.RangeKm != "312 km" {
 		t.Errorf("want RangeKm %q, got %q", "312 km", vm.RangeKm)
 	}
+	if vm.DataAge == "" {
+		t.Errorf("want a data-age label for a stored row, got empty")
+	}
+	if vm.DataAgeStale {
+		t.Errorf("want DataAgeStale false for a same-day reading, got true")
+	}
 }
 
 // TestNavHeaderFor_OldRowStillRendersBattery is the MAG-44 regression: the block
@@ -1051,12 +1063,13 @@ func TestNavHeaderFor_OldRowStillRendersBattery(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
-	capturedAt := time.Now().Add(-72 * time.Hour)
+	// Three calendar days before navTestToday -> "3 days ago", stale.
+	capturedAt := navTestToday.AddDate(0, 0, -3).Add(4 * time.Hour)
 	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
 		{TeslaID: 42, CapturedAt: &capturedAt, BatteryLevelPct: 50, BatteryRangeKm: 250},
 	}}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0, navTestToday)
 
 	if !vm.HasBattery {
 		t.Errorf("want HasBattery true for an old row (age is not a gate), got false")
@@ -1066,6 +1079,11 @@ func TestNavHeaderFor_OldRowStillRendersBattery(t *testing.T) {
 	}
 	if vm.RangeKm != "250 km" {
 		t.Errorf("want RangeKm %q, got %q", "250 km", vm.RangeKm)
+	}
+	// The age is reported and flagged stale — but the battery above is still
+	// rendered, which is the whole point: old data is labelled, never hidden.
+	if !vm.DataAgeStale {
+		t.Errorf("want DataAgeStale true for a 3-day-old reading, got false")
 	}
 }
 
@@ -1080,13 +1098,17 @@ func TestNavHeaderFor_NilCapturedAtStillRendersBattery(t *testing.T) {
 		{TeslaID: 1001, BatteryLevelPct: 72, BatteryRangeKm: 300, CapturedAt: nil},
 	}}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0, navTestToday)
 
 	if vm.VehicleName != "Magus" {
 		t.Errorf("want VehicleName preserved, got %q", vm.VehicleName)
 	}
 	if !vm.HasBattery || vm.BatteryLevel != 72 {
 		t.Errorf("want the stored battery rendered for a nil CapturedAt, got has=%v level=%d", vm.HasBattery, vm.BatteryLevel)
+	}
+	// An unknown age renders nothing — never a fabricated "today".
+	if vm.DataAge != "" || vm.DataAgeStale {
+		t.Errorf("want no data-age label for a nil CapturedAt, got age=%q stale=%v", vm.DataAge, vm.DataAgeStale)
 	}
 }
 
@@ -1099,7 +1121,7 @@ func TestNavHeaderFor_NoStoredRow(t *testing.T) {
 	}}
 	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0, navTestToday)
 
 	if vm.NeedsConnect {
 		t.Fatalf("want NeedsConnect false (vehicle registered), got true")
@@ -1117,7 +1139,7 @@ func TestNavHeaderFor_NeedsConnect(t *testing.T) {
 	acct := &fakeAccount{registered: nil}
 	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0, navTestToday)
 
 	if !vm.NeedsConnect {
 		t.Fatalf("want NeedsConnect true when no vehicles registered, got false")
@@ -1135,7 +1157,7 @@ func TestNavHeaderFor_AccountError(t *testing.T) {
 	acct := &fakeAccount{regErr: errFake}
 	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0, navTestToday)
 
 	if vm.NeedsConnect {
 		t.Errorf("want NeedsConnect false on account error (don't pretend to know), got true")
@@ -1156,7 +1178,7 @@ func TestNavHeaderFor_AnalyticsReaderError(t *testing.T) {
 	}}
 	reader := &fakeAnalyticsReader{statusesErr: errFake}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0, navTestToday)
 
 	if vm.VehicleName != "Magus" {
 		t.Errorf("want VehicleName preserved on analytics reader error, got %q", vm.VehicleName)

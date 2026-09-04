@@ -47,6 +47,18 @@ type NavHeaderVM struct {
 	// RangeKm is the pre-formatted "312 km" string, formatted exactly as the
 	// dashboard formats its own range. Empty when there is no stored row.
 	RangeKm string
+
+	// DataAge is the pre-translated calendar-day age of the displayed reading
+	// ("hoy" / "ayer" / "hace 3 días"). Empty when there is no stored row, or
+	// when the row's CapturedAt is nil — an unknown age renders NOTHING rather
+	// than a guess.
+	DataAge string
+
+	// DataAgeStale is true once the reading is dataAgeStaleDays (2) or more
+	// calendar days old, which colours the label with the error token. It is an
+	// emphasis flag only: it says the data is old, never that the vehicle is
+	// unreachable — the app cannot observe that.
+	DataAgeStale bool
 }
 
 // NavHeader is the sidebar vehicle block swapped in by htmx at GET /ui/nav-header.
@@ -89,6 +101,9 @@ templ NavHeader(vm NavHeaderVM) {
 							Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderBatteryAria)},
 						})
 					}
+					if vm.DataAge != "" {
+						<span class={ "text-xs mt-1", navDataAgeClass(vm.DataAgeStale) }>{ vm.DataAge }</span>
+					}
 				</div>
 			}
 		</div>
@@ -104,4 +119,15 @@ func navBatteryText(vm NavHeaderVM) string {
 		return "—"
 	}
 	return vm.BatteryPct
+}
+
+// navDataAgeClass colours the data-age label: muted while the reading is recent,
+// the error token once it is dataAgeStaleDays or more old, so a missed nightly
+// poll is visible instead of silently looking current. A presentation mapping
+// from a bool the handler computed — no business logic, no time arithmetic.
+func navDataAgeClass(stale bool) string {
+	if stale {
+		return "text-error"
+	}
+	return "text-base-content/60"
 }

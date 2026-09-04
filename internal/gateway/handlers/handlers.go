@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -540,7 +541,7 @@ func (h *Handler) NavHeaderFragment(c *gin.Context) {
 	if sOK {
 		selectedTeslaID = selected.TeslaID
 	}
-	vm := h.navHeaderFor(c.Request.Context(), uid, selectedTeslaID)
+	vm := h.navHeaderFor(c.Request.Context(), uid, selectedTeslaID, browserToday(c))
 	renderFragment(c, http.StatusOK, fragments.NavHeader(vm), "nav-header")
 }
 
@@ -679,7 +680,7 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 //
 // The vehicle context-switcher option list lives in vehicleSelectFor; this
 // helper resolves the primary (selected) vehicle only.
-func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64) fragments.NavHeaderVM {
+func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64, today time.Time) fragments.NavHeaderVM {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
 		log.Printf("gateway: nav-header RegisteredVehicles error for account %s: %v", uid, err)
@@ -731,7 +732,63 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	// Same precision as the dashboard's own range field (mapDashboardSnapshot),
 	// deliberately — one range format across the app, not two.
 	vm.RangeKm = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)
+
+	// Data age. A nil CapturedAt (a row predating the RM38 migration) leaves both
+	// fields zero, so the template renders NO label — never a guessed age.
+	if vs.CapturedAt != nil {
+		days := calendarDaysAgo(*vs.CapturedAt, today)
+		vm.DataAge = dataAgeLabel(ctx, days)
+		vm.DataAgeStale = days >= dataAgeStaleDays
+	}
 	return vm
+}
+
+// calendarDaysAgo returns how many whole CALENDAR days separate capturedAt from
+// today, both read in today's location — 0 for the same day, 1 for the previous
+// one, and so on. today is expected to be midnight in the user's zone
+// (browserToday), so "yesterday" means the user's yesterday, not UTC's.
+//
+// Calendar days, NOT elapsed hours, and the difference is the whole point: the
+// nightly poll runs at 03:30, so a reading taken last night is ~22 h old when
+// looked at before midnight. An elapsed-duration label would call that
+// "22 hours ago" while the user reasonably calls it "yesterday". This is why the
+// helper MAG-44 deleted (relativeLastSeen, which measured now.Sub(capturedAt))
+// could not simply be restored.
+//
+// The subtraction goes through midnights rather than the raw instants so a DST
+// transition inside the window cannot shift the answer: two midnights in the same
+// zone are n*24 h apart give or take an hour, which the rounding absorbs. A
+// capturedAt in the future (clock skew between the poller's host and this one)
+// clamps to 0 rather than reporting a negative age.
+func calendarDaysAgo(capturedAt, today time.Time) int {
+	capturedDay := startOfDayIn(capturedAt, today.Location())
+	days := int(math.Round(today.Sub(capturedDay).Hours() / 24))
+	if days < 0 {
+		return 0
+	}
+	return days
+}
+
+// dataAgeStaleDays is the age at which the data-age label switches from muted to
+// error-coloured: two calendar days back means the nightly poll has missed at
+// least once, which is worth showing in red. It is deliberately NOT the old 48 h
+// connectedFreshnessWindow — that was an elapsed-hours window used to assert
+// connectivity, a claim this app cannot make. This constant only drives emphasis.
+const dataAgeStaleDays = 2
+
+// dataAgeLabel resolves the translated data-age phrase for a calendar-day
+// distance: 0 -> "today", 1 -> "yesterday", 2+ -> "N days ago". Resolved here in
+// the handler (not the template) so the fragment receives a finished string, the
+// same shape every other pre-computed label in this file follows.
+func dataAgeLabel(ctx context.Context, days int) string {
+	switch days {
+	case 0:
+		return i18n.T(ctx, i18n.KeyNavHeaderUpdatedToday)
+	case 1:
+		return i18n.T(ctx, i18n.KeyNavHeaderUpdatedYesterday)
+	default:
+		return fmt.Sprintf(i18n.T(ctx, i18n.KeyNavHeaderUpdatedDaysAgo), days)
+	}
 }
 
 // vehicleSelectFor builds the vehicle context-switcher view model, decoupled from
