@@ -171,13 +171,13 @@ same file, `preferences.go`, as `ThemeSwitch` and its constant (mirrors `Superch
 and `csrfSuperchargerKey` living together in `supercharger.go` — do not split them across
 files or reintroduce a `settings.go`).
 
-- [ ] T6.1 Create `internal/gateway/templates/pages/settings.templ`: `templ
+- [x] T6.1 Create `internal/gateway/templates/pages/settings.templ`: `templ
       SettingsPage(theme, csrfToken string)` — `layouts.BaseAuth("Settings — Magus", "/settings")`
       + `ui.PageHeader({Title: i18n.T(ctx, i18n.KeyNavSettings)})` + `ui.Card({})` wrapping
       `ui.ThemeSwitcher(ui.ThemeSwitcherProps{Current: theme, CSRFToken: csrfToken})`. No
       `@templ.Fragment` swap region — design.md's "no htmx fragment counterpart" call (the
       switcher's own POST is self-contained, D6).
-- [ ] T6.2 In `preferences.go`: `func (h *Handler) SettingsPage(c *gin.Context)` — auth guard
+- [x] T6.2 In `preferences.go`: `func (h *Handler) SettingsPage(c *gin.Context)` — auth guard
       first (redirect `/login` on failure, Test Contract 13, no token minted); then mint the
       CSRF token EXACTLY as `SuperchargerStatsPage` does — `csrfToken, err := generateCSRFToken()`
       (the EXISTING helper in `charges.go`, same package, no new helper), on error render a
@@ -186,14 +186,14 @@ files or reintroduce a `settings.go`).
       ui.ThemeFromContext(c.Request.Context()), csrfToken))` — theme comes from CONTEXT, never a
       second `acct.PreferencesFor`/`ThemeFor` call (Test Contract 14 — this is the line that
       keeps the "ONE query" invariant on this specific page).
-- [ ] T6.3 `internal/gateway/handlers/preferences_test.go` additions:
+- [x] T6.3 `internal/gateway/handlers/preferences_test.go` additions:
       `TestSettingsPage_Unauthenticated_RedirectsToLogin` (Test Contract 13 — no session value
       set for `csrfThemeKey`), `TestSettingsPage_Authenticated_MintsTokenAndRendersCurrentTheme`
       (Test Contract 14 — build the request through the FULL middleware+handler stack via
       `NewEngine` so `PreferencesMiddleware` actually runs first, assert the fake's
       `preferencesForCalls == 1` for the whole request, AND assert the session holds a non-empty
       `csrfThemeKey` value equal to the token passed into `ui.ThemeSwitcherProps.CSRFToken`).
-- [ ] T6.4 Run `make templ`.
+- [x] T6.4 Run `make templ`.
 
 ## T7. Wire routes + rename the middleware registration — depends on T3, T4, T6
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -507,5 +508,124 @@ func TestThemeSwitch_SetThemeErrorLeavesCookieUnchanged(t *testing.T) {
 	}
 	if tc := findCookie(w, themeCookieName); tc != nil {
 		t.Fatalf("want NO theme Set-Cookie when SetTheme errors, got %+v", tc)
+	}
+}
+
+// --- SettingsPage (design.md D3, Test Contract 13-14) ---
+
+// settingsEngine wires sessions + PreferencesMiddleware + GET /settings
+// (SettingsPage) + POST /ui/theme/switch (ThemeSwitch) on ONE engine —
+// mirroring gateway.NewEngine's own middleware order (sessions, then
+// PreferencesMiddleware immediately after; see gateway.go) without
+// importing the gateway package itself, which would cycle back to this one
+// (gateway imports handlers). This is the "full middleware+handler stack"
+// Test Contract 14 asks for: PreferencesMiddleware genuinely resolves theme
+// from acct.PreferencesFor before SettingsPage ever runs, so asserting
+// PreferencesFor was called exactly once holds against the real call path,
+// not a hand-populated context. The actual GET /settings route is not yet
+// registered in gateway.go (T7, a later wave — see AGENTS.md/tasks.md), so
+// this local wiring is this wave's only way to exercise SettingsPage
+// through the real middleware stack.
+func settingsEngine(h *Handler, acct account.Service) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.Use(PreferencesMiddleware(acct))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", c.Query("uid"))
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/settings", h.SettingsPage)
+	r.POST("/ui/theme/switch", h.ThemeSwitch)
+	return r
+}
+
+// csrfTokenPattern extracts the csrf_token value from ui.ThemeSwitcher's
+// rendered hx-vals JSON, as templ's HTML-attribute escaping writes it
+// (the same &#34; numeric-entity escaping ui/theme_switcher_test.go's own
+// jsonAttrEscape helper relies on). generateCSRFToken always emits
+// lowercase hex.
+var csrfTokenPattern = regexp.MustCompile(`csrf_token&#34;:&#34;([0-9a-f]+)&#34;`)
+
+// TestSettingsPage_Unauthenticated_RedirectsToLogin is Test Contract item
+// 13: an unauthenticated caller is redirected to /login, and NOTHING is
+// minted — the auth guard returns before sess.Save() is ever reached, so
+// there is no session Set-Cookie at all for this response (and therefore no
+// csrf_theme session value either).
+func TestSettingsPage_Unauthenticated_RedirectsToLogin(t *testing.T) {
+	acct := &fakeAccount{}
+	h := newHandler(acct, &fakeTesla{})
+	eng := settingsEngine(h, acct)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/settings", nil)
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("want 302 for an unauthenticated request, got %d body=%q", w.Code, w.Body.String())
+	}
+	if loc := w.Header().Get("Location"); loc != "/login" {
+		t.Errorf("want redirect to /login, got %q", loc)
+	}
+	if sc := findCookie(w, "test"); sc != nil {
+		t.Errorf("want no session Set-Cookie for an unauthenticated /settings request (nothing minted), got %+v", sc)
+	}
+}
+
+// TestSettingsPage_Authenticated_MintsTokenAndRendersCurrentTheme is Test
+// Contract item 14: 200, a fresh non-empty csrf_theme session token minted
+// via generateCSRFToken(), ui.ThemeSwitcher rendered with Current equal to
+// the request's already-resolved theme, and — the invariant this whole tier
+// exists to protect — PreferencesFor called EXACTLY ONCE for the whole
+// request (asserted against the real PreferencesMiddleware call path, per
+// settingsEngine's doc comment above, not a second handler-side call).
+func TestSettingsPage_Authenticated_MintsTokenAndRendersCurrentTheme(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{theme: account.ThemeApex}
+	h := newHandler(acct, &fakeTesla{})
+	eng := settingsEngine(h, acct)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/_session?uid="+uid.String(), nil)
+	eng.ServeHTTP(w, req)
+	sessCookie := findCookie(w, "test")
+	if sessCookie == nil {
+		t.Fatalf("want a session cookie from /_session")
+	}
+
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodGet, "/settings", nil)
+	req2.AddCookie(sessCookie)
+	eng.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d body=%q", w2.Code, w2.Body.String())
+	}
+	if acct.preferencesForCalls != 1 {
+		t.Fatalf("want PreferencesFor called exactly once for the whole request (design.md D1's ONE-query invariant), got %d", acct.preferencesForCalls)
+	}
+
+	body := w2.Body.String()
+	if !strings.Contains(body, "Apex") {
+		t.Errorf("want the rendered page to show the request's already-resolved theme (Apex) as the current selection:\n%s", body)
+	}
+
+	m := csrfTokenPattern.FindStringSubmatch(body)
+	if m == nil {
+		t.Fatalf("want a non-empty csrf_token embedded in the rendered ThemeSwitcher options:\n%s", body)
+	}
+	mintedToken := m[1]
+
+	// Prove the SESSION actually holds mintedToken under csrfThemeKey — not
+	// merely that the page shows SOME token — by using it on a follow-up
+	// ThemeSwitch POST over the SAME session cookie: checkCSRFKey compares
+	// the submitted token against the session's own csrfThemeKey value, so
+	// acceptance here is exactly the equality Test Contract 14 asks for.
+	w3 := postThemeSwitch(eng, sessCookie, account.ThemeGraphite, mintedToken)
+	if w3.Code != http.StatusOK {
+		t.Fatalf("want the token embedded in SettingsPage's render to be accepted by ThemeSwitch (proving the session holds it under csrfThemeKey), got %d body=%q", w3.Code, w3.Body.String())
 	}
 }

@@ -1,0 +1,30 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// SettingsPage renders the authenticated /settings page: the theme selector,
+// seeded with theme (the request's already-resolved value — handlers.SettingsPage
+// reads it via ui.ThemeFromContext, never a second account.Service preference
+// call — design.md D1/D3, RM42-gateway-add-theme-selector tier 2 T6) and
+// csrfToken (minted fresh by handlers.SettingsPage on every load, design.md D3).
+//
+// No @templ.Fragment swap region here, unlike every other page in this module's
+// "How to add or modify a page" recipe — design.md D6 explicitly rejects any
+// htmx swap for a theme change (a theme is pure CSS with nothing to
+// re-render), so ui.ThemeSwitcher's own POST (hx-swap="none") is entirely
+// self-contained: there is no region on THIS page that a switch needs to
+// refresh.
+templ SettingsPage(theme, csrfToken string) {
+	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyNavSettings)), "/settings") {
+		@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyNavSettings)})
+		@ui.Card(ui.CardProps{ID: "theme-settings"}) {
+			@ui.ThemeSwitcher(ui.ThemeSwitcherProps{Current: theme, CSRFToken: csrfToken})
+		}
+	}
+}

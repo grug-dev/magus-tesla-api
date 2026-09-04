@@ -10,17 +10,21 @@
 // also live in this file — the write handler that persists a theme change,
 // CSRF-protected the same way the Supercharger session-verification write
 // is (design.md D8 amendment in AGENTS.md), NOT the way lang.go's
-// LangSwitch is. SettingsPage (T6, which mints the csrfThemeKey token this
-// handler checks) is NOT in this file yet — it lands in a later wave.
+// LangSwitch is. SettingsPage (T6) mints the csrfThemeKey token ThemeSwitch
+// checks, so it lives here too — the same file-locality
+// SuperchargerStatsPage/csrfSuperchargerKey already follow in
+// supercharger.go (design.md T6, "do not split them across files").
 package handlers
 
 import (
 	"net/http"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
@@ -204,4 +208,44 @@ func (h *Handler) ThemeSwitch(c *gin.Context) {
 
 	setThemeCookie(c, theme)
 	c.Status(http.StatusOK)
+}
+
+// SettingsPage handles GET /settings — the authenticated page hosting
+// ui.ThemeSwitcher (design.md D3, roadmap RM42 tier 2 task T6). Mints a
+// fresh csrfThemeKey session token on EVERY load, exactly the way
+// SuperchargerStatsPage mints csrfSuperchargerKey (supercharger.go) — read
+// that shape before touching this one, do not invent a variant.
+//
+// Order (Test Contract 13/14):
+//  1. Auth guard first — an unauthenticated caller is redirected to /login
+//     and NOTHING is minted (Test Contract 13): there is no session to hold
+//     a token for, and minting one before the guard would waste a
+//     crypto/rand read on a request that can never use it.
+//  2. Mint the CSRF token via the EXISTING generateCSRFToken() (charges.go,
+//     same package, no new helper) and store it under csrfThemeKey — a
+//     generation error (crypto/rand exhaustion) renders a plain-text 500,
+//     mirroring SuperchargerStatsPage's own identical failure branch.
+//  3. Render pages.SettingsPage with the token just minted AND the
+//     request's THEME FROM CONTEXT (ui.ThemeFromContext(c.Request.Context()))
+//     — never a second acct.PreferencesFor/ThemeFor call. This is the line
+//     that keeps the "ONE query per request" invariant true on the very
+//     page most tempted to re-read it: PreferencesMiddleware already
+//     resolved the theme for this request before this handler ever ran.
+func (h *Handler) SettingsPage(c *gin.Context) {
+	_, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyThemeSwitchErrorCouldNotSaveTheme))
+		return
+	}
+	sess := sessions.Default(c)
+	sess.Set(csrfThemeKey, csrfToken)
+	_ = sess.Save()
+
+	render(c, http.StatusOK, pages.SettingsPage(ui.ThemeFromContext(c.Request.Context()), csrfToken))
 }

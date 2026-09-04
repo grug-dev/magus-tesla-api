@@ -9,7 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T6",
       "T7",
       "T10",
       "T11"
@@ -24,11 +23,12 @@
     "awaiting_user_verification": [
       "T1",
       "T3",
-      "T4"
+      "T4",
+      "T6"
     ]
   },
   "created_at": "2026-09-04T13:39:02Z",
-  "updated_at": "2026-09-04T14:02:08Z",
+  "updated_at": "2026-09-04T14:09:57Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -180,14 +180,23 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T14:02:53Z",
+      "completed_at": "2026-09-04T14:09:02Z",
+      "duration_seconds": 369,
+      "notes": "Added pages.SettingsPage and handlers.SettingsPage (auth guard, mint CSRF, render from context). Tests for Contract 13/14; item 14 drives the real PreferencesMiddleware stack and asserts preferencesForCalls==1. Leader confirmed by grep that SettingsPage makes no account call. Tests unrun.",
+      "budget": {
+        "five_hour_pct_start": 77.0,
+        "five_hour_pct_end": 90.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 6.0,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "single-task wave, exact"
+      }
     },
     {
       "id": "T7",
@@ -346,6 +355,22 @@
       "made_by": "autopilot",
       "decision": "Fold T7.1's gateway.go middleware-registration rename into wave 2's T3, leaving only the two route additions in T7",
       "why": "T3 deletes LanguageMiddleware and T7 is three waves later, so the build would be red across waves 2-4 for one line."
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-04T14:08:39Z",
+      "scope": "budget",
+      "made_by": "user",
+      "decision": "Do not stop at the wave-4 budget checkpoint; run waves 5 and 6 in this same session",
+      "why": "User said 'keep going' when told the checkpoint was likely after wave 4. Their call to make."
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-04T14:09:57Z",
+      "scope": "T6",
+      "made_by": "leader",
+      "decision": "Accept the worker's page-title deviation: the title resolves through i18n.T rather than the literal string tasks.md printed",
+      "why": "AGENTS.md's i18n rule binds every user-facing string including <title>; the literal in tasks.md was the EN-rendered output, not Go source."
     }
   ],
   "events": [
@@ -403,6 +428,21 @@
       "at": "2026-09-04T14:02:08Z",
       "agent": "leader",
       "event": "Worker again could not give an honest started_at despite the dispatch asking it to call date first; it said so rather than inventing one. The leader's bracket timestamp stands. Two waves running: worth stating in the wave-4 dispatch as a hard first step."
+    },
+    {
+      "at": "2026-09-04T14:02:22Z",
+      "agent": "leader",
+      "event": "Wave 4 dispatched: T6 alone (sonnet). Budget at dispatch: five_hour 77% (gate 90), context 25% (gate 40). A single-task wave costs ~7 points, so it is not projected to cross; the checkpoint is likely at the wave-4 boundary."
+    },
+    {
+      "at": "2026-09-04T14:08:39Z",
+      "agent": "leader",
+      "event": "User waived the wave-4 budget checkpoint ('keep going'). The leader will continue into waves 5 and 6 in this session rather than handing over a /clear + resume. The gate still applies if five_hour actually reaches 90 or context reaches 40 at a boundary \u2014 a waiver of the recommendation is not a waiver of the hard stop."
+    },
+    {
+      "at": "2026-09-04T14:09:57Z",
+      "agent": "leader",
+      "event": "Wave 4 reconciled: T6 awaiting-user-verification. Leader verified the wave's key line by grep \u2014 SettingsPage renders ui.ThemeFromContext and makes NO account call, so the only two account calls in non-test gateway code remain the middleware's single PreferencesFor and ThemeSwitch's SetTheme. go build + go vet ./... clean repo-wide; ui/i18n/theme guards clean."
     }
   ]
 }
