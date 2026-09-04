@@ -77,7 +77,7 @@ templ Dashboard(d fragments.DashboardData) {
 								<span class={ "text-4xl font-extrabold", dashBatteryColorClass(d) }>{ dashStat(d.HasSnapshot, d.Battery) }</span>
 								@ui.Icon(ui.IconProps{Name: "battery", Class: "h-8 w-8 text-primary/60"})
 							</div>
-							<progress class={ "progress w-full", dashBatteryColorClass(d) } max="100" value={ dashPctAttr(d) }></progress>
+							@ui.Progress(ui.ProgressProps{Value: dashPctAttr(d), Max: 100, Class: "w-full " + dashBatteryColorClass(d)})
 								<div class="flex justify-between mt-3 text-sm text-base-content/70">
 									<span>{ i18n.T(ctx, i18n.KeyDashboardRangePrefix) } { dashStat(d.HasSnapshot, d.RangeNow) }</span>
 									<span>{ dashChargeLimit(d) }</span>

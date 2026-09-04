@@ -3,7 +3,6 @@ package fragments
 import (
 	"bytes"
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/a-h/templ"
@@ -27,52 +26,10 @@ func renderNavHeader(t *testing.T, lang string, vm NavHeaderVM) string {
 	return buf.String()
 }
 
-// TestNavHeader_StatusLabelTranslatesPerLanguage is the T6.4 coverage for
-// design.md D9: the status word is derived from the Status enum through
-// statusLabelKeyFor + i18n.T, NOT from a handler-computed English string field.
-// It asserts every status kind renders its catalogue value in both languages and
-// that the two languages actually differ — a regression that dropped the ctx
-// lookup and hardcoded English would pass an ES-only assertion, so both halves
-// matter.
-func TestNavHeader_StatusLabelTranslatesPerLanguage(t *testing.T) {
-	cases := []struct {
-		name   string
-		status NavHeaderStatusKind
-		key    i18n.Key
-	}{
-		{"connected", NavStatusConnected, i18n.KeyNavHeaderStatusConnected},
-		{"asleep", NavStatusAsleep, i18n.KeyNavHeaderStatusAsleep},
-		{"awaiting", NavStatusAwaiting, i18n.KeyNavHeaderStatusAwaiting},
-		{"unavailable", NavStatusUnavailable, i18n.KeyNavHeaderStatusUnavailable},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			vm := NavHeaderVM{VehicleName: "Magus", Status: tc.status}
-
-			es := renderNavHeader(t, account.LanguageES, vm)
-			en := renderNavHeader(t, account.LanguageEN, vm)
-
-			wantES := i18n.T(i18n.WithLang(context.Background(), account.LanguageES), tc.key)
-			wantEN := i18n.T(i18n.WithLang(context.Background(), account.LanguageEN), tc.key)
-
-			if !strings.Contains(es, wantES) {
-				t.Errorf("ES render missing catalogue value %q for status %q", wantES, tc.status)
-			}
-			if !strings.Contains(en, wantEN) {
-				t.Errorf("EN render missing catalogue value %q for status %q", wantEN, tc.status)
-			}
-			// The catalogue defines a distinct word per language for all four
-			// statuses, so identical renders mean the ctx language was ignored.
-			if es == en {
-				t.Errorf("ES and EN renders are identical for status %q — the language is not reaching the template", tc.status)
-			}
-		})
-	}
-}
-
-// TestNavHeader_ConnectPromptTranslates covers the other user-facing string this
-// fragment owns: the "no vehicle connected" prompt shown when NeedsConnect is set.
+// TestNavHeader_ConnectPromptTranslates covers the only translated string this
+// fragment still owns: the "no vehicle connected" prompt shown when NeedsConnect
+// is set. MAG-44 deleted the status vocabulary this file also used to cover — the
+// block now renders stored numbers (battery, range) and an aria-label, not words.
 func TestNavHeader_ConnectPromptTranslates(t *testing.T) {
 	vm := NavHeaderVM{NeedsConnect: true}
 

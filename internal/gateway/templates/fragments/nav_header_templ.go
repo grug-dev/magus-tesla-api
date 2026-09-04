@@ -13,73 +13,73 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// NavHeaderStatusKind is the closed status vocabulary the nav-header fragment can
-// render. The handler computes it (DD3/DD10); the template maps it to a ui.Badge
-// kind (presentation-only mapping — no time arithmetic, no domain-method calls).
-type NavHeaderStatusKind string
-
-const (
-	// NavStatusConnected is shown when the primary vehicle's latest snapshot is
-	// within connectedFreshnessWindow (48 h). Renders a success-colored dot.
-	NavStatusConnected NavHeaderStatusKind = "connected"
-	// NavStatusAsleep is shown when the snapshot is older than the window. Renders
-	// a warning-colored dot and a pre-computed "Last seen" label.
-	NavStatusAsleep NavHeaderStatusKind = "asleep"
-	// NavStatusAwaiting is shown when the vehicle is registered but has no stored
-	// snapshot yet. Renders a neutral (ghost) dot, no battery %.
-	NavStatusAwaiting NavHeaderStatusKind = "awaiting"
-	// NavStatusUnavailable is the degraded state when a read port errors. Renders a
-	// ghost dot; the vehicle name may still be present (account read ok, telemetry
-	// failed) or empty (account read failed).
-	NavStatusUnavailable NavHeaderStatusKind = "unavailable"
-)
-
-// NavHeaderVM is the nav-header presentation model. Every display field is
-// pre-computed by the handler so the template does no business logic — it only
-// maps Status to a ui.Badge color and lays out the pre-formed strings.
+// NavHeaderVM is the sidebar vehicle block's presentation model. Every display
+// field is pre-computed by the handler so the template does no business logic —
+// it lays out pre-formed strings and asks the ui/ kit for the battery band colour.
 //
 // NeedsConnect is the no-vehicles state: it renders a "Connect your Tesla" link
-// and NO status dot / battery / vehicle name (mirrors the dashboard's
-// NeedsConnect). It is distinct from Status (which carries a dot).
+// and NO vehicle name or battery (mirrors the dashboard's NeedsConnect).
 //
-// The vehicle context-switcher <select> used to live here; it now lives in its
-// own fragment (VehicleSelectVM / vehicle_select.templ), mounted in the navbar
-// by layouts.BaseAuth. This region shows the primary vehicle's status only and
-// re-fetches itself on the "vehicle-changed" event the switcher fires.
+// There is deliberately NO connected/asleep status here. The app only ever shows
+// the latest STORED vehicle_metrics row; it never observes a live connection, so
+// a "Connected"/"Asleep" word described a state nothing measured. The whole
+// NavHeaderStatusKind vocabulary, its 48 h freshness window, and the "last seen"
+// relative labels were removed by MAG-44 — see openspec/roadmaps/backlog.md for
+// the honest replacement (how long ago the data was updated), which is a restore
+// from this change's commit rather than a rewrite.
+//
+// The vehicle context-switcher <select> lives in its own fragment
+// (VehicleSelectVM / vehicle_select.templ), mounted in the navbar by
+// layouts.BaseAuth. This region re-fetches itself on the "vehicle-changed" event
+// the switcher fires.
 type NavHeaderVM struct {
 	// NeedsConnect is true when the account has no registered vehicles.
 	NeedsConnect bool
 
-	// VehicleName is the primary vehicle's display name (first
-	// account.RegisteredVehicles entry, DD4). Empty when NeedsConnect or when the
-	// account read itself failed.
+	// VehicleName is the primary (selected, else first registered) vehicle's
+	// display name. Empty when NeedsConnect or when the account read failed.
 	VehicleName string
 
-	// Status is the connected/asleep/awaiting/unavailable kind (DD10). Drives the
-	// status-dot color AND the translated status word via statusLabelKeyFor
-	// below (design.md D9 — the enum is the single source of truth; there is
-	// deliberately no separate handler-computed English status string).
-	Status NavHeaderStatusKind
-
-	// BatteryPct is the pre-computed "94%" string shown only when connected; empty
-	// otherwise (the template composes "Connected • 94%" — display assembly, not
-	// arithmetic).
+	// BatteryPct is the pre-formatted "61%" string. Empty when there is no
+	// stored row; the template then renders an em dash.
 	BatteryPct string
 
-	// LastSeenLabel is the pre-computed relative label (e.g. "2 days ago") shown
-	// only when asleep; empty otherwise. The template composes
-	// "Asleep • Last seen 2 days ago".
-	LastSeenLabel string
+	// BatteryLevel is the bare 0–100 level driving the meter's value and the
+	// band colour. Meaningless unless HasBattery is true.
+	BatteryLevel int
+
+	// HasBattery reports whether a stored metrics row supplied a battery level.
+	// False renders the em-dash placeholder and NO bar.
+	HasBattery bool
+
+	// RangeKm is the pre-formatted "312 km" string, formatted exactly as the
+	// dashboard formats its own range. Empty when there is no stored row.
+	RangeKm string
+
+	// DataAge is the pre-translated calendar-day age of the displayed reading
+	// ("hoy" / "ayer" / "hace 3 días"). Empty when there is no stored row, or
+	// when the row's CapturedAt is nil — an unknown age renders NOTHING rather
+	// than a guess.
+	DataAge string
+
+	// DataAgeStale is true once the reading is dataAgeStaleDays (2) or more
+	// calendar days old, which colours the label with the error token. It is an
+	// emphasis flag only: it says the data is old, never that the vehicle is
+	// unreachable — the app cannot observe that.
+	DataAgeStale bool
 }
 
-// NavHeader is the nav-header region swapped in by htmx at GET /ui/nav-header.
+// NavHeader is the sidebar vehicle block swapped in by htmx at GET /ui/nav-header.
 // Its body is wrapped in a @templ.Fragment("nav-header") block whose root
 // <div id="nav-header"> matches the fragment id (and the #nav-header placeholder
-// rendered by layouts.BaseAuth) — the required htmx-swap invariant. As a
-// standalone fragment (not nested in a page), the @templ.Fragment declaration is
-// what lets renderFragment(..., "nav-header") emit only this region. It composes
-// the ui/ kit (ui.Badge for the status dot) and semantic tokens only; never a raw
-// DaisyUI component class, never a hex color.
+// rendered by layouts.BaseAuth) — the required htmx-swap invariant, which must not
+// move. As a standalone fragment (not nested in a page), the @templ.Fragment
+// declaration is what lets renderFragment(..., "nav-header") emit only this region.
+//
+// It composes the ui/ kit (ui.Progress for the battery meter) and semantic tokens
+// only; never a raw DaisyUI component class, never a hex colour. The bottom border
+// separates it from the menu below — both now share the sidebar column's single
+// bg-base-200 surface, which the column wrapper in layouts.BaseAuth owns.
 func NavHeader(vm NavHeaderVM) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -113,7 +113,7 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"nav-header\" class=\"px-4 py-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"nav-header\" class=\"px-4 py-3 border-b border-base-300\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -172,88 +172,122 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"flex items-center gap-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"flex items-baseline justify-between gap-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = ui.Badge(ui.BadgeProps{Kind: navBadgeKind(vm.Status), Text: ""}).Render(ctx, templ_7745c5c3_Buffer)
+				var templ_7745c5c3_Var6 = []any{"text-2xl font-mono font-bold leading-none", ui.BatteryBandClass(vm.BatteryLevel, vm.HasBattery)}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var6...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<span class=\"text-xs\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<span class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var6 string
-				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, statusLabelKeyFor(vm.Status)))
+				var templ_7745c5c3_Var7 string
+				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var6).String())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 91, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 1, Col: 0}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, " ")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if vm.BatteryPct != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<span>• ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var7 string
-					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(vm.BatteryPct)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 93, Col: 33}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</span> ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
 				}
-				if vm.LastSeenLabel != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<span>• ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var8 string
-					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyNavHeaderLastSeen))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 96, Col: 58}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " ")
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(navBatteryText(vm))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 90, Col: 27}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</span> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if vm.RangeKm != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<span class=\"text-xs text-base-content/60\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var9 string
-					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vm.LastSeenLabel)
+					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vm.RangeKm)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 96, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 93, Col: 62}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</span></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if vm.HasBattery {
+					templ_7745c5c3_Err = ui.Progress(ui.ProgressProps{
+						Value: vm.BatteryLevel,
+						Max:   100,
+						Class: "w-full h-1.5 mt-2 " + ui.BatteryBandClass(vm.BatteryLevel, true),
+						Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderBatteryAria)},
+					}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				if vm.DataAge != "" {
+					var templ_7745c5c3_Var10 = []any{"text-xs mt-1", navDataAgeClass(vm.DataAgeStale)}
+					templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var10...)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<span class=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var11 string
+					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var10).String())
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 1, Col: 0}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var12 string
+					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(vm.DataAge)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 105, Col: 83}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -267,38 +301,26 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 	})
 }
 
-// navBadgeKind maps a NavHeaderStatusKind to the ui.Badge Kind that colors the
-// status dot (DD10 — semantic tokens only): connected → success, asleep →
-// warning, awaiting/unavailable → ghost. This is presentation logic (StatusKind
-// → badge color), which the template owns; the closed status vocabulary is
-// defined above (the constants). No business logic, no time math.
-func navBadgeKind(s NavHeaderStatusKind) string {
-	switch s {
-	case NavStatusConnected:
-		return "success"
-	case NavStatusAsleep:
-		return "warning"
-	default:
-		return "ghost"
+// navBatteryText returns the battery figure to print, or an em dash when no
+// stored row supplied one. Centralising the placeholder keeps the branch out of
+// the markup, mirroring pages.dashStat. The em dash is a typographic glyph, not
+// app copy, so it needs no catalogue key.
+func navBatteryText(vm NavHeaderVM) string {
+	if !vm.HasBattery {
+		return "—"
 	}
+	return vm.BatteryPct
 }
 
-// statusLabelKeyFor maps a NavHeaderStatusKind to its translation catalogue Key
-// (design.md D9 — the closed enum is the single source of truth; there is no
-// parallel handler-computed English string to keep in sync with it). Same file,
-// same "presentation mapping from a closed enum, not business logic" precedent
-// as navBadgeKind above.
-func statusLabelKeyFor(s NavHeaderStatusKind) i18n.Key {
-	switch s {
-	case NavStatusConnected:
-		return i18n.KeyNavHeaderStatusConnected
-	case NavStatusAsleep:
-		return i18n.KeyNavHeaderStatusAsleep
-	case NavStatusAwaiting:
-		return i18n.KeyNavHeaderStatusAwaiting
-	default:
-		return i18n.KeyNavHeaderStatusUnavailable
+// navDataAgeClass colours the data-age label: muted while the reading is recent,
+// the error token once it is dataAgeStaleDays or more old, so a missed nightly
+// poll is visible instead of silently looking current. A presentation mapping
+// from a bool the handler computed — no business logic, no time arithmetic.
+func navDataAgeClass(stale bool) string {
+	if stale {
+		return "text-error"
 	}
+	return "text-base-content/60"
 }
 
 var _ = templruntime.GeneratedTemplate

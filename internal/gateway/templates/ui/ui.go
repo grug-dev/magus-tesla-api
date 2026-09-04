@@ -97,3 +97,36 @@ func badgeClass(kind string) string {
 		return "badge-neutral"
 	}
 }
+
+// BatteryBandClass returns the theme token that colours a battery level, driving
+// currentColor for BOTH a big "%" number and a Progress fill (DaisyUI's progress
+// value reads currentColor). Bands are end-inclusive at the lower bound:
+//
+//	0–10  → text-battery-low  (red)
+//	11–20 → text-battery-mid  (orange)
+//	21–40 → text-battery-warn (yellow)
+//	41+   → text-battery-full (green)
+//
+// hasValue false (no stored reading) returns "text-primary", so a placeholder
+// keeps the brand look instead of going colourless.
+//
+// This is the SINGLE definition of the band switch. It lives in the kit because
+// two surfaces now render it — the dashboard battery card (via
+// pages.dashBatteryColorClass, a thin adapter over this) and the sidebar vehicle
+// block. See internal/gateway/static/themes/_shared.css §"Battery-level metric
+// colors" for the tokens themselves.
+func BatteryBandClass(pct int, hasValue bool) string {
+	if !hasValue {
+		return "text-primary"
+	}
+	switch {
+	case pct <= 10:
+		return "text-battery-low"
+	case pct <= 20:
+		return "text-battery-mid"
+	case pct <= 40:
+		return "text-battery-warn"
+	default:
+		return "text-battery-full"
+	}
+}

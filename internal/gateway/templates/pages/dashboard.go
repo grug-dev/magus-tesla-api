@@ -6,6 +6,7 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
 // dashStat returns the snapshot's display value, or "—" when there is no snapshot
@@ -35,14 +36,18 @@ func dashSubtitle(ctx context.Context, d fragments.DashboardData) string {
 	return sub
 }
 
-// dashPctAttr returns the bare battery percentage string for the <progress value="">
-// attribute. "0" when there is no snapshot or no value, so the bar renders empty in
-// the placeholder state rather than as an indeterminate progress widget.
-func dashPctAttr(d fragments.DashboardData) string {
+// dashPctAttr returns the battery percentage as the plain number ui.Progress takes
+// for its Value. 0 when there is no snapshot or no parseable value, so the bar
+// renders empty in the placeholder state rather than as an indeterminate widget.
+func dashPctAttr(d fragments.DashboardData) int {
 	if !d.HasSnapshot || d.BatteryPct == "" {
-		return "0"
+		return 0
 	}
-	return d.BatteryPct
+	p, err := strconv.Atoi(d.BatteryPct)
+	if err != nil {
+		return 0
+	}
+	return p
 }
 
 // dashChargeLimit returns the charge-limit label, or "—" when there is no snapshot
@@ -55,37 +60,20 @@ func dashChargeLimit(d fragments.DashboardData) string {
 	return d.ChargeLimit
 }
 
-// dashBatteryColorClass returns the token-backed color utility for the battery
-// level, driving currentColor for BOTH the big % number and the <progress> fill
-// (DaisyUI's progress value reads currentColor). Bands — end inclusive at the
-// lower bound (10 = low/red, 20 = mid/orange, 40 = warn/yellow):
-//
-//	0–10  → text-battery-low  (red)
-//	11–20 → text-battery-mid  (orange)
-//	21–40 → text-battery-warn (yellow)
-//	41+   → text-battery-full (green)
-//
-// Returns "text-primary" when there is no snapshot or the value won't parse, so
-// the placeholder state keeps the current brand-red look instead of going colorless.
-// See internal/gateway/static/themes/apex.css §"Battery-level metric colors".
+// dashBatteryColorClass adapts the dashboard's DashboardData to the kit's single
+// band definition, ui.BatteryBandClass. It only parses the VM's string percentage
+// and reports whether there is a value at all; the bands themselves live in one
+// place (templates/ui/ui.go) so the sidebar vehicle block and this card can never
+// drift apart.
 func dashBatteryColorClass(d fragments.DashboardData) string {
 	if !d.HasSnapshot || d.BatteryPct == "" {
-		return "text-primary"
+		return ui.BatteryBandClass(0, false)
 	}
 	p, err := strconv.Atoi(d.BatteryPct)
 	if err != nil {
-		return "text-primary"
+		return ui.BatteryBandClass(0, false)
 	}
-	switch {
-	case p <= 10:
-		return "text-battery-low"
-	case p <= 20:
-		return "text-battery-mid"
-	case p <= 40:
-		return "text-battery-warn"
-	default:
-		return "text-battery-full"
-	}
+	return ui.BatteryBandClass(p, true)
 }
 
 // dashLockedBadge returns the ui.Badge text/kind for the locked/unlocked pill and

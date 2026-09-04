@@ -74,8 +74,17 @@ func navHref(it NavItem) string {
 
 // NavShell renders the drawer sidebar menu so BaseAuth and pages never re-author nav
 // markup. The caller (layouts.navItems) owns the link list, section labels, and
-// active state. The `menu`/`menu-active`/`menu-title`/`badge` DaisyUI component
-// classes live ONLY here — pages compose this wrapper, never the raw classes.
+// active state. The `menu`/`menu-title`/`badge` DaisyUI component classes live
+// ONLY here — pages compose this wrapper, never the raw classes.
+//
+// The menu is deliberately TRANSPARENT: the sidebar column wrapper in
+// layouts.BaseAuth owns the bg-base-200 surface, so the vehicle block and this
+// menu sit on one continuous chrome (MAG-44).
+//
+// The active item uses a primary tint + left rail rather than DaisyUI's
+// `menu-active`, which forces bg-neutral — a flat grey that read as another
+// chrome layer instead of a selection. The icon and label inherit currentColor,
+// so both tint together.
 //
 // footer is an optional slot rendered as a trailing <li> pinned to the bottom of
 // the menu, used by BaseAuth for the logout form. Stays inside the <ul> so the
@@ -102,7 +111,7 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<ul class=\"menu bg-base-200 flex-1 min-h-0 w-64 p-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<ul class=\"menu flex-1 min-h-0 w-64 p-3\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -113,14 +122,14 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else if r.Kind == "title" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<li class=\"menu-title mt-2 uppercase tracking-wider\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<li class=\"menu-title mt-2 uppercase tracking-wider text-xs text-base-content/50\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var2 string
 				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(r.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 82, Col: 66}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 91, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 				if templ_7745c5c3_Err != nil {
@@ -153,7 +162,7 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var5 = []any{templ.KV("menu-active", r.Item.Active)}
+				var templ_7745c5c3_Var5 = []any{templ.KV(navActiveClass, r.Item.Active)}
 				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var5...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -165,7 +174,7 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 				var templ_7745c5c3_Var6 templ.SafeURL
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(navHref(r.Item)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 85, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 94, Col: 45}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -209,7 +218,7 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(r.Item.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 91, Col: 26}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 100, Col: 26}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -220,7 +229,7 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				if r.Item.Placeholder {
-					templ_7745c5c3_Err = Badge(BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyNavSoonBadge)}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = Badge(BadgeProps{Kind: "ghost", Text: i18n.T(ctx, i18n.KeyNavSoonBadge), Class: "badge-sm"}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -252,5 +261,12 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 		return nil
 	})
 }
+
+// navActiveClass is the selected nav item's treatment: a primary tint, a primary
+// left rail, and semibold text. It replaces DaisyUI's `menu-active`, whose
+// bg-neutral fill painted a fourth near-identical grey onto the chrome instead of
+// reading as a selection. Kept as one named constant so the string is written
+// once and the template stays a single templ.KV call.
+const navActiveClass = "bg-primary/15 text-primary font-semibold border-l-2 border-primary rounded-l-none"
 
 var _ = templruntime.GeneratedTemplate

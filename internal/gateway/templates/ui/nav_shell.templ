@@ -66,23 +66,32 @@ func navHref(it NavItem) string {
 
 // NavShell renders the drawer sidebar menu so BaseAuth and pages never re-author nav
 // markup. The caller (layouts.navItems) owns the link list, section labels, and
-// active state. The `menu`/`menu-active`/`menu-title`/`badge` DaisyUI component
-// classes live ONLY here — pages compose this wrapper, never the raw classes.
+// active state. The `menu`/`menu-title`/`badge` DaisyUI component classes live
+// ONLY here — pages compose this wrapper, never the raw classes.
+//
+// The menu is deliberately TRANSPARENT: the sidebar column wrapper in
+// layouts.BaseAuth owns the bg-base-200 surface, so the vehicle block and this
+// menu sit on one continuous chrome (MAG-44).
+//
+// The active item uses a primary tint + left rail rather than DaisyUI's
+// `menu-active`, which forces bg-neutral — a flat grey that read as another
+// chrome layer instead of a selection. The icon and label inherit currentColor,
+// so both tint together.
 //
 // footer is an optional slot rendered as a trailing <li> pinned to the bottom of
 // the menu, used by BaseAuth for the logout form. Stays inside the <ul> so the
 // `menu` class still owns all sidebar styling; a post is a <form>, not a link, so
 // it can't be a normal NavItem.
 templ NavShell(items []NavItem, footer templ.Component) {
-	<ul class="menu bg-base-200 flex-1 min-h-0 w-64 p-4">
+	<ul class="menu flex-1 min-h-0 w-64 p-3">
 		for _, r := range navRows(items) {
 			if r.Kind == "divider" {
 				<li class="divider"></li>
 			} else if r.Kind == "title" {
-				<li class="menu-title mt-2 uppercase tracking-wider">{ r.Title }</li>
+				<li class="menu-title mt-2 uppercase tracking-wider text-xs text-base-content/50">{ r.Title }</li>
 			} else {
 				<li class={ templ.KV("mt-2", r.TopMargin) }>
-					<a href={ templ.SafeURL(navHref(r.Item)) } class={ templ.KV("menu-active", r.Item.Active) }>
+					<a href={ templ.SafeURL(navHref(r.Item)) } class={ templ.KV(navActiveClass, r.Item.Active) }>
 						if r.Item.Icon != "" {
 							<span>
 								@Icon(IconProps{Name: r.Item.Icon, Class: "h-5 w-5"})
@@ -90,7 +99,7 @@ templ NavShell(items []NavItem, footer templ.Component) {
 						}
 						<span>{ r.Item.Label }</span>
 						if r.Item.Placeholder {
-							@Badge(BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyNavSoonBadge)})
+							@Badge(BadgeProps{Kind: "ghost", Text: i18n.T(ctx, i18n.KeyNavSoonBadge), Class: "badge-sm"})
 						}
 					</a>
 				</li>
@@ -104,3 +113,10 @@ templ NavShell(items []NavItem, footer templ.Component) {
 		}
 	</ul>
 }
+
+// navActiveClass is the selected nav item's treatment: a primary tint, a primary
+// left rail, and semibold text. It replaces DaisyUI's `menu-active`, whose
+// bg-neutral fill painted a fourth near-identical grey onto the chrome instead of
+// reading as a selection. Kept as one named constant so the string is written
+// once and the template stays a single templ.KV call.
+const navActiveClass = "bg-primary/15 text-primary font-semibold border-l-2 border-primary rounded-l-none"

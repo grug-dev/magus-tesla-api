@@ -85,9 +85,17 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
 - `use-case/gateway/read-dashboard-history.md` — the `#dashboard-history` region on the same
   page; a separate request with its own window parameters
 
-- `GET /ui/nav-header` — the navigation vehicle header reads the **same**
-  `analytics.Reader.LatestMetricsByAccount` port and shares this use case's nil-`CapturedAt`
-  rule (absent capture instant ⇒ Asleep, never Connected, and no relative "last seen" label).
+- `GET /ui/nav-header` — the sidebar vehicle block reads the **same**
+  `analytics.Reader.LatestMetricsByAccount` port, but it does **not** share this use case's
+  `CapturedAt` handling: since MAG-44 it does no capture-instant branching at all. It renders
+  the stored battery level and range whatever their age, and an em dash with no bar when there
+  is no row. The connected/asleep vocabulary, its 48 h freshness window and the relative
+  "last seen" label were deleted and replaced by a **calendar-day** data-age label
+  ("hoy" / "ayer" / "hace N días", red from two days back) computed against `browserToday(c)`
+  — see `internal/gateway/AGENTS.md` §"Chrome surfaces & the honest vehicle block". That
+  label is the block's ONLY use of `CapturedAt`, and a nil value renders nothing. The
+  `IsStale` badge on THIS page's Vehicle Status card is a different signal, measured in
+  elapsed hours (36 h), and is unaffected.
   Not yet curated as its own use-case file.
 
 ## Conventions & gotchas

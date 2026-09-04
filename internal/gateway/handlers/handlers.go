@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,14 +38,6 @@ import (
 // stalenessThreshold is the duration after which a snapshot is considered stale.
 // At ~36 h a missed 03:30 nightly poll has elapsed (24 h cycle + 12 h buffer).
 const stalenessThreshold = 36 * time.Hour
-
-// connectedFreshnessWindow is how recent a snapshot's CapturedAt must be for the
-// primary vehicle to show as "Connected" in the nav header (DD3). It tolerates
-// ONE missed nightly poll (24 h cycle + 24 h buffer); the vehicle only flips to
-// "Asleep" after two missed polls. DISTINCT from stalenessThreshold (≈36 h),
-// which gates the dashboard CARD stale marker — a stricter signal about a single
-// reading's freshness, not ongoing connectivity. Both are named (no magic 48).
-const connectedFreshnessWindow = 48 * time.Hour
 
 // Deps are the gateway handlers' dependencies.
 type Deps struct {
@@ -307,49 +300,6 @@ func isStale(capturedAt, now time.Time) bool {
 	return now.Sub(capturedAt) > stalenessThreshold
 }
 
-// connectedAt reports whether a snapshot captured at capturedAt is fresh enough
-// (within connectedFreshnessWindow) for the nav header to show "Connected". Pure
-// function of (capturedAt, now) so the exact-at-threshold boundary is
-// deterministically testable, mirroring isStale. Boundary semantics: at exactly
-// the window the snapshot is still connected (<= window, strict inverse of
-// isStale's strict >), one nanosecond older is asleep.
-func connectedAt(capturedAt, now time.Time) bool {
-	return now.Sub(capturedAt) <= connectedFreshnessWindow
-}
-
-// relativeLastSeen returns a human-readable "N days ago" / "N hours ago" /
-// "N minutes ago" label for a captured-at time relative to now. Pre-computed by
-// the handler so the template does no time arithmetic (gateway spec invariant).
-// Whole units, rounded down. Used for the "Asleep • Last seen …" label (>=48 h,
-// so typically "2 days ago" or coarser); the same helper works for any age.
-// ctx is an explicit third parameter (its one call site, inside navHeaderFor,
-// already has ctx in scope) so each branch can resolve its translated phrasing
-// via i18n.T (design.md D3/D5) — singular/plural pairs for days and hours, a
-// plural-only form for minutes, and a single "just now" phrase for the zero case.
-func relativeLastSeen(capturedAt, now time.Time, ctx context.Context) string {
-	d := now.Sub(capturedAt)
-	switch {
-	case d >= 48*time.Hour:
-		days := int(d.Hours() / 24)
-		if days == 1 {
-			return i18n.T(ctx, i18n.KeyNavHeaderLastSeenDays)
-		}
-		return fmt.Sprintf(i18n.T(ctx, i18n.KeyNavHeaderLastSeenDaysPlural), days)
-	case d >= time.Hour:
-		hours := int(d.Hours())
-		if hours == 1 {
-			return i18n.T(ctx, i18n.KeyNavHeaderLastSeenHours)
-		}
-		return fmt.Sprintf(i18n.T(ctx, i18n.KeyNavHeaderLastSeenHoursPlural), hours)
-	default:
-		minutes := int(d.Minutes())
-		if minutes <= 1 {
-			return i18n.T(ctx, i18n.KeyNavHeaderLastSeenJustNow)
-		}
-		return fmt.Sprintf(i18n.T(ctx, i18n.KeyNavHeaderLastSeenMinutesPlural), minutes)
-	}
-}
-
 // mergeVehicleStatuses builds a map from TeslaID to VehicleStatus for O(1) lookup
 // per vehicle. A nil or empty slice produces an empty map (no panic on range).
 // Renamed from mergeSnapshots (RM38-gateway-read-dashboard-from-metrics): same
@@ -591,7 +541,7 @@ func (h *Handler) NavHeaderFragment(c *gin.Context) {
 	if sOK {
 		selectedTeslaID = selected.TeslaID
 	}
-	vm := h.navHeaderFor(c.Request.Context(), uid, selectedTeslaID)
+	vm := h.navHeaderFor(c.Request.Context(), uid, selectedTeslaID, browserToday(c))
 	renderFragment(c, http.StatusOK, fragments.NavHeader(vm), "nav-header")
 }
 
@@ -709,43 +659,45 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 	renderFragment(c, http.StatusOK, fragments.VehicleSelect(vm), "vehicle-select")
 }
 
-// navHeaderFor is the nav-header's core logic, decoupled from gin/session so it
-// is unit-testable with fake account/analytics implementations. It calls ONLY
-// Reader ports — account.RegisteredVehicles + analytics.Reader.
-// LatestMetricsByAccount (never a Writer/Collector, never Tesla). It never
-// imports a DB package. Retyped from the retired snapshot-based reader (RM40) by
-// RM38-gateway-read-dashboard-from-metrics, design.md D8.
+// navHeaderFor is the sidebar vehicle block's core logic, decoupled from
+// gin/session so it is unit-testable with fake account/analytics
+// implementations. It calls ONLY Reader ports — account.RegisteredVehicles +
+// analytics.Reader.LatestMetricsByAccount (never a Writer/Collector, never
+// Tesla). It never imports a DB package.
+//
+// It reports only what is actually stored: the primary vehicle's name, its
+// latest battery level, and its latest range. MAG-44 removed the
+// connected/asleep status this helper used to compute — the app never observes a
+// live connection, it renders the newest vehicle_metrics row, so a freshness
+// window could not honestly produce a connectivity word. All CapturedAt
+// branching went with it.
 //
 // Degradation rules (DD2 resilience): a read error never returns a 500 — the
-// fragment degrades to a name-only "unavailable" state (analytics reader error) or
-// a no-name "unavailable" state (account error), so the page that already
-// rendered stays intact.
+// fragment degrades to a name-only block (analytics reader error) or an empty
+// block (account error), so the page that already rendered stays intact. Both
+// degraded states render the em-dash placeholder and no bar, because HasBattery
+// stays false.
 //
-// The vehicle context-switcher option list used to be built here; it now lives
-// in vehicleSelectFor. This helper resolves the primary (selected) vehicle only
-// to drive the status dot/battery/name — the switcher's option list is a
-// separate read that does not depend on this one.
-func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64) fragments.NavHeaderVM {
+// The vehicle context-switcher option list lives in vehicleSelectFor; this
+// helper resolves the primary (selected) vehicle only.
+func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64, today time.Time) fragments.NavHeaderVM {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
 		log.Printf("gateway: nav-header RegisteredVehicles error for account %s: %v", uid, err)
-		// No vehicles, no name — degraded Unavailable state (no dot color useful
-		// since there is no vehicle to describe). NeedsConnect stays false: we
-		// don't know the account state, so the connect-prompt is misleading.
-		return fragments.NavHeaderVM{
-			Status: fragments.NavStatusUnavailable,
-		}
+		// No vehicles, no name — degraded empty block. NeedsConnect stays false:
+		// we don't know the account state, so the connect-prompt is misleading.
+		return fragments.NavHeaderVM{}
 	}
 	if len(registered) == 0 {
-		// No vehicles registered → "awaiting connect" state: connect link, no
-		// dot, no name, no battery (mirrors the dashboard's NeedsConnect).
+		// No vehicles registered → connect link, no name, no battery (mirrors
+		// the dashboard's NeedsConnect).
 		return fragments.NavHeaderVM{NeedsConnect: true}
 	}
 
 	// Primary = the selected vehicle when known, else the first registered entry
 	// (the auto-select policy in resolveSelectedVehicle picks the first OWNER,
-	// which is also registered[0] in the single-vehicle case). The status dot +
-	// battery reflect THIS vehicle's latest snapshot, not just registered[0].
+	// which is also registered[0] in the single-vehicle case). The battery
+	// reflects THIS vehicle's latest stored row, not just registered[0].
 	primary := registered[0]
 	if selectedTeslaID != 0 {
 		for _, v := range registered {
@@ -756,51 +708,87 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		}
 	}
 
-	vm := fragments.NavHeaderVM{}
+	vm := fragments.NavHeaderVM{VehicleName: primary.DisplayName}
 
 	// Read the latest status per vehicle for this account. On error: degrade —
-	// keep the vehicle name, show "Unavailable", no analytics. Never return early.
+	// keep the vehicle name, no battery. Never return early with a 500.
 	statuses, statusErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
 	if statusErr != nil {
 		log.Printf("gateway: nav-header analytics reader error for account %s: %v", uid, statusErr)
-		vm.VehicleName = primary.DisplayName
-		vm.Status = fragments.NavStatusUnavailable
 		return vm
 	}
 
-	// Merge by TeslaID to find the primary vehicle's latest status.
+	// Merge by TeslaID to find the primary vehicle's latest stored row. No row
+	// yet (freshly registered vehicle) → name only, em dash, no bar.
 	statusMap := mergeVehicleStatuses(statuses)
 	vs, ok := statusMap[primary.TeslaID]
 	if !ok {
-		// Registered vehicle, but no stored status yet → awaiting.
-		vm.VehicleName = primary.DisplayName
-		vm.Status = fragments.NavStatusAwaiting
 		return vm
 	}
 
-	if vs.CapturedAt == nil {
-		// design.md D8 (roadmap D9): a NULL CapturedAt can only mean this row
-		// predates the RM38 migration -- there is no fresher timestamp to prove
-		// connectivity with, so this is Asleep, never Connected, and there is
-		// nothing to compute a relative "Last seen" label from.
-		vm.VehicleName = primary.DisplayName
-		vm.Status = fragments.NavStatusAsleep
-		return vm
-	}
+	vm.HasBattery = true
+	vm.BatteryLevel = vs.BatteryLevelPct
+	vm.BatteryPct = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
+	// Same precision as the dashboard's own range field (mapDashboardSnapshot),
+	// deliberately — one range format across the app, not two.
+	vm.RangeKm = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)
 
-	now := clock.Now()
-	if connectedAt(*vs.CapturedAt, now) {
-		// Fresh status → Connected + battery %.
-		vm.VehicleName = primary.DisplayName
-		vm.Status = fragments.NavStatusConnected
-		vm.BatteryPct = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
-		return vm
+	// Data age. A nil CapturedAt (a row predating the RM38 migration) leaves both
+	// fields zero, so the template renders NO label — never a guessed age.
+	if vs.CapturedAt != nil {
+		days := calendarDaysAgo(*vs.CapturedAt, today)
+		vm.DataAge = dataAgeLabel(ctx, days)
+		vm.DataAgeStale = days >= dataAgeStaleDays
 	}
-	// Stale status → Asleep + relative "Last seen" label.
-	vm.VehicleName = primary.DisplayName
-	vm.Status = fragments.NavStatusAsleep
-	vm.LastSeenLabel = relativeLastSeen(*vs.CapturedAt, now, ctx)
 	return vm
+}
+
+// calendarDaysAgo returns how many whole CALENDAR days separate capturedAt from
+// today, both read in today's location — 0 for the same day, 1 for the previous
+// one, and so on. today is expected to be midnight in the user's zone
+// (browserToday), so "yesterday" means the user's yesterday, not UTC's.
+//
+// Calendar days, NOT elapsed hours, and the difference is the whole point: the
+// nightly poll runs at 03:30, so a reading taken last night is ~22 h old when
+// looked at before midnight. An elapsed-duration label would call that
+// "22 hours ago" while the user reasonably calls it "yesterday". This is why the
+// helper MAG-44 deleted (relativeLastSeen, which measured now.Sub(capturedAt))
+// could not simply be restored.
+//
+// The subtraction goes through midnights rather than the raw instants so a DST
+// transition inside the window cannot shift the answer: two midnights in the same
+// zone are n*24 h apart give or take an hour, which the rounding absorbs. A
+// capturedAt in the future (clock skew between the poller's host and this one)
+// clamps to 0 rather than reporting a negative age.
+func calendarDaysAgo(capturedAt, today time.Time) int {
+	capturedDay := startOfDayIn(capturedAt, today.Location())
+	days := int(math.Round(today.Sub(capturedDay).Hours() / 24))
+	if days < 0 {
+		return 0
+	}
+	return days
+}
+
+// dataAgeStaleDays is the age at which the data-age label switches from muted to
+// error-coloured: two calendar days back means the nightly poll has missed at
+// least once, which is worth showing in red. It is deliberately NOT the old 48 h
+// connectedFreshnessWindow — that was an elapsed-hours window used to assert
+// connectivity, a claim this app cannot make. This constant only drives emphasis.
+const dataAgeStaleDays = 2
+
+// dataAgeLabel resolves the translated data-age phrase for a calendar-day
+// distance: 0 -> "today", 1 -> "yesterday", 2+ -> "N days ago". Resolved here in
+// the handler (not the template) so the fragment receives a finished string, the
+// same shape every other pre-computed label in this file follows.
+func dataAgeLabel(ctx context.Context, days int) string {
+	switch days {
+	case 0:
+		return i18n.T(ctx, i18n.KeyNavHeaderUpdatedToday)
+	case 1:
+		return i18n.T(ctx, i18n.KeyNavHeaderUpdatedYesterday)
+	default:
+		return fmt.Sprintf(i18n.T(ctx, i18n.KeyNavHeaderUpdatedDaysAgo), days)
+	}
 }
 
 // vehicleSelectFor builds the vehicle context-switcher view model, decoupled from

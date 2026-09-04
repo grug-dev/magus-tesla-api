@@ -45,7 +45,9 @@ type VehicleSelectVM struct {
 // #vehicle-select placeholder rendered by layouts.BaseAuth) — the required
 // htmx-swap invariant. The form posts to /ui/vehicle/select targeting itself
 // (outerHTML swap) and fires "vehicle-changed" via the handler's HX-Trigger header;
-// nav-header / dashboard / charges re-fetch themselves on that event.
+// nav-header / dashboard / charges re-fetch themselves on that event. The
+// switcher stays a native select element; only its look is aligned with the ghost
+// language button beside it (MAG-44) — no dropdown rewrite, no new htmx wiring.
 //
 // The title shows the selected vehicle's name; when there is none (no vehicles /
 // read error) it falls back to the app brand so the navbar is never blank. The
@@ -72,7 +74,7 @@ templ VehicleSelect(vm VehicleSelectVM) {
 				>
 					<input type="hidden" name="csrf_token" value={ vm.CSRFToken }/>
 					@ui.Icon(ui.IconProps{Name: "car", Class: "h-6 w-6"})
-					@ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderSwitchVehicleAria)}}) {
+					@ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Ghost: true, Class: "w-auto", Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderSwitchVehicleAria)}}) {
 						for _, opt := range vm.Vehicles {
 							<option value={ opt.Value } selected?={ opt.Selected }>{ firstWord(opt.DisplayName) }</option>
 						}

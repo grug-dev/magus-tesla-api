@@ -26,13 +26,13 @@ The files that render this page. A UI-only change should never need the use-case
 | File | Role |
 |---|---|
 | `internal/gateway/templates/pages/dashboard.templ` | The page. Bento grid, `Vehicle Status` hero, battery card, and the empty `#dashboard-history` container. Wraps everything in `@templ.Fragment("dashboard")` so the htmx swap can re-emit just this region. |
-| `internal/gateway/templates/pages/dashboard.go` | Template helpers: `dashSubtitle`, `dashStat` (`—` placeholder), `dashBatteryColorClass`, `dashPctAttr`, `dashChargeLimit`. |
+| `internal/gateway/templates/pages/dashboard.go` | Template helpers: `dashSubtitle`, `dashStat` (`—` placeholder), `dashBatteryColorClass` (a thin adapter over `ui.BatteryBandClass`), `dashPctAttr` (returns an `int` for `ui.Progress`), `dashChargeLimit`. |
 | `internal/gateway/templates/fragments/dashboard_vm.go` | `fragments.DashboardData` — the logic-free view model. Every metric is a pre-computed display string. |
 | `internal/gateway/templates/pages/dashboard_history.templ` | The `#dashboard-history` **contents**: the three charts + the window preset selector. Wrapped in `@templ.Fragment("dashboard-history")`. |
 | `internal/gateway/templates/fragments/history_vm.go` | `fragments.HistoryView` / `HistoryChart` / `HistoryBar` — the charts' view model, also fully pre-computed. |
 | `internal/gateway/templates/fragments/vehicle_select.templ` | The sidebar vehicle switcher. Fires the `vehicle-changed` event that re-renders this page's bento. |
 | `internal/gateway/templates/layouts/` (`BaseAuth`, `nav.go`) | Top nav + left sidebar shell. |
-| `internal/gateway/templates/ui/` | The owned kit: `PageHeader`, `Card`, `StatTile`, `Badge`, `Button`, `Alert`, `Icon`, `progress`. Never inline a raw DaisyUI component class — `make ui-guard` fails. |
+| `internal/gateway/templates/ui/` | The owned kit: `PageHeader`, `Card`, `StatTile`, `Badge`, `Dot`, `Button`, `Alert`, `Icon`, `Progress`. Also `BatteryBandClass` in `ui.go` — the single definition of the battery colour bands, which `dashBatteryColorClass` adapts. Never inline a raw DaisyUI component class — `make ui-guard` fails. |
 
 ## Gateway
 
