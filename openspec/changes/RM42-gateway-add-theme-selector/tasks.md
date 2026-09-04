@@ -245,7 +245,7 @@ sufficient if this is done before T6 lands)
 
 ## T11. Docs — depends on T1, T3, T4, T6, T8, T9 (documents the finished behavior)
 
-- [ ] T11.1 `internal/gateway/AGENTS.md`:
+- [x] T11.1 `internal/gateway/AGENTS.md`:
       - Add the new **RD15** section (design.md D6), in the same What/Why/Boundary/Graceful-
         degradation shape as RD9–RD14, inserted after the existing RD14 section.
       - Fix both "exactly **FIVE** sanctioned exceptions" mentions (near the existing line ~200
@@ -261,12 +261,12 @@ sufficient if this is done before T6 lands)
         its exception does not apply). Also state the cookie-ordering divergence: the `theme`
         cookie is set only AFTER a successful `SetTheme`, not unconditionally first like `lang`'s
         — so a future agent does not "simplify" this file by copying `lang.go`'s shape onto it.
-- [ ] T11.2 Root `README.md`, "Switching the theme" section: rewrite per design.md D8 — how a
+- [x] T11.2 Root `README.md`, "Switching the theme" section: rewrite per design.md D8 — how a
       user changes their own theme now (`/settings`), the still-accurate "adding a new palette"
       recipe extended with the `ui.Themes` + `make theme-guard` steps. Verify the "Project
       Structure" tree needs no change (design.md D8 — it lists directories, not files, and no
       new package is introduced).
-- [ ] T11.3 Grep `kkpa/context/` for `gateway`/`theme`/`settings` and fix any guide whose
+- [x] T11.3 Grep `kkpa/context/` for `gateway`/`theme`/`settings` and fix any guide whose
       consumer map, file map, or title this change invalidates (`CLAUDE.md` docs-track-change
       rule). If no KB exists or no guide references these, say so explicitly rather than
       skipping silently.

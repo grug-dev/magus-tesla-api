@@ -5,12 +5,10 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
   "request": "Source ticket: MAG-43 — Theme selector - Settings page. Tier 2 of RM42: real /settings page at /settings (nav item loses Placeholder), ui.Themes closed vocabulary + ui.ThemeSwitcher, POST /ui/theme/switch with CSRF, theme cookie as a read path, data-theme from ctx, instant client-side apply, ES+EN catalogue, new make theme-guard.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "T11"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "T1",
@@ -22,12 +20,13 @@
       "T7",
       "T8",
       "T9",
-      "T10"
+      "T10",
+      "T11"
     ],
     "awaiting_user_verification": []
   },
   "created_at": "2026-09-04T13:39:02Z",
-  "updated_at": "2026-09-04T16:46:56Z",
+  "updated_at": "2026-09-04T16:52:55Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -316,14 +315,23 @@
         "T9"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T16:48:00Z",
+      "completed_at": "2026-09-04T16:52:55Z",
+      "duration_seconds": 207,
+      "notes": "AGENTS.md: RD15 section, both FIVE->SIX counts, the D10 add-a-theme recipe, and a new 'Exception: theme switch' sibling section. README 'Switching the theme' rewritten. KB checked: no guide's file map or consumer list names the middleware, so nothing to fix.",
+      "budget": {
+        "five_hour_pct_start": 7.0,
+        "five_hour_pct_end": 15,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "single-task wave, exact"
+      }
     }
   ],
   "review": {
@@ -511,6 +519,21 @@
       "at": "2026-09-04T16:46:56Z",
       "agent": "leader",
       "event": "RESUMED after the wave-5 budget checkpoint. five_hour reset to 3% (was 92%), context 9%, tree clean. NOTE: seven_day is at 87% — not a gate this skill enforces, but the owner should know before a long tier. T10 closed by the leader with a STATIC analysis, not the browser pass tasks.md asks for: halloween's --color-primary oklch(77.48% 0.204 60.62) sits ~5.6 hue degrees from --color-battery-mid oklch(74.96% 0.18 55.04), violating _shared.css's stated invariant that a palette's primary stays out of the battery band. halloween is a DaisyUI builtin, outside themes/, so it never followed that rule. Verified NOT broken: _shared.css keys fonts/battery/divider to bare [data-theme] so they apply under halloween; history fills primary(60)/secondary(305)/accent(136) stay distinct; depth:1 and radius-box:1rem are cosmetic. Owner accepted (D9) — no code change, no backlog entry."
+    },
+    {
+      "at": "2026-09-04T16:48:00Z",
+      "agent": "leader",
+      "event": "Wave 6 (final) dispatched: T11 alone, gateway worker on sonnet — docs-only, no code. Granted two paths outside the module sandbox: README.md (T11.2) and kkpa/context/** (T11.3). Budget at dispatch: five_hour 7.000000000000001%, context 12% — both far under the 90/40 gates after the reset."
+    },
+    {
+      "at": "2026-09-04T16:52:55Z",
+      "agent": "leader",
+      "event": "Wave 6 reconciled: T11 done. ALL 11 TASKS COMPLETE. Leader independently verified the worker's edits: both FIVE->SIX counts fixed, RD15 section present, 'Exception: theme switch' sits as a sibling of the language one, README rewrite is accurate and honest about halloween. Leader re-ran the KB check itself rather than trusting the report — no kkpa/context/ guide names LanguageMiddleware, LanguageFor or GetAccountLanguage, and no gateway guide carries a middleware file map, so the worker's 'nothing to fix' holds. build/vet clean; theme/i18n/ui/boundary guards all clean."
+    },
+    {
+      "at": "2026-09-04T16:52:55Z",
+      "agent": "leader",
+      "event": "LEADER FIX at reconcile (worker flagged it, correctly refused to expand scope): AGENTS.md lines 329/725/728 still named the DELETED handlers.LanguageMiddleware after T3 replaced it with PreferencesMiddleware. The worker's T11.1 was scoped verbatim to four bullets that did not include them. Repointed all three; the line-329 bullet also now says the same middleware carries the theme. Zero LanguageMiddleware references remain. Also corrected README's 'four steps' over a five-item list."
     }
   ]
 }
