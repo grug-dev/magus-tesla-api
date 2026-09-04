@@ -105,11 +105,12 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	})
 	r.Use(sessions.Sessions("magus", store))
 
-	// handlers.LanguageMiddleware resolves the active render language exactly
-	// once per request (design.md D3, RM24-gateway-add-i18n-foundation) and
-	// MUST be registered after sessions: its signed-in branch calls
+	// handlers.PreferencesMiddleware resolves the active render language AND
+	// theme in ONE account.Service.PreferencesFor call per request (RM42 tier 2
+	// design.md D1; it replaced LanguageMiddleware, which resolved language
+	// alone). It MUST be registered after sessions: its signed-in branch calls
 	// currentUID, which reads the session set up just above.
-	r.Use(handlers.LanguageMiddleware(d.Account))
+	r.Use(handlers.PreferencesMiddleware(d.Account))
 
 	// Static assets at /static — dev vs production.
 	//

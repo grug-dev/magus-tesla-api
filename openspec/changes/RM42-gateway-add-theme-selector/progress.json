@@ -9,26 +9,26 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T3",
       "T4",
-      "T5",
       "T6",
       "T7",
-      "T8",
-      "T9",
       "T10",
       "T11"
     ],
     "blocked": [],
     "done": [
-      "T2"
+      "T2",
+      "T5",
+      "T8",
+      "T9"
     ],
     "awaiting_user_verification": [
-      "T1"
+      "T1",
+      "T3"
     ]
   },
   "created_at": "2026-09-04T13:39:02Z",
-  "updated_at": "2026-09-04T13:46:14Z",
+  "updated_at": "2026-09-04T13:57:17Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -98,14 +98,23 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T13:46:40Z",
+      "completed_at": "2026-09-04T13:55:49Z",
+      "duration_seconds": 549,
+      "notes": "New handlers/preferences.go: PreferencesMiddleware, theme cookie helpers, normalizeTheme, cookieOrDefault. LanguageMiddleware deleted from lang.go. fakeAccount widened with a preferencesForCalls counter. preferences_test.go ports the 5 language cases and adds Contract 3/4/5/6 plus handlers-side TestNormalizeTheme. Tests unrun.",
+      "budget": {
+        "five_hour_pct_start": 54.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 6.3,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T5+T8+T9 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T4",
@@ -134,14 +143,23 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T13:46:40Z",
+      "completed_at": "2026-09-04T13:55:49Z",
+      "duration_seconds": 549,
+      "notes": "base.templ data-theme={ ui.ThemeFromContext(ctx) } and its doc comments rewritten; nav.go Settings entry gains Href/Active and drops Placeholder. nav_test.go covers Contract 7/15/16. make templ regenerated base_templ.go. Leader verified the attribute and the comments by reading the file.",
+      "budget": {
+        "five_hour_pct_start": 54.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 6.3,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T5+T8+T9 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T6",
@@ -189,14 +207,23 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T13:46:40Z",
+      "completed_at": "2026-09-04T13:55:49Z",
+      "duration_seconds": 549,
+      "notes": "RD15 click + htmx:afterRequest listeners appended to app.js, body-delegated in the file's existing style. No JS test harness exists in this project (Contract 21, same precedent as RD9-RD14); verified by reading.",
+      "budget": {
+        "five_hour_pct_start": 54.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 6.3,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T5+T8+T9 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T9",
@@ -206,14 +233,23 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T13:46:40Z",
+      "completed_at": "2026-09-04T13:55:49Z",
+      "duration_seconds": 549,
+      "notes": "make theme-guard added, in .PHONY and in check's prerequisites. Reconciles ui.Themes, account's Theme* constants and input.css's two registration shapes. Leader re-ran it independently: passes, exit 0, names all three agreeing on apex/graphite/halloween.",
+      "budget": {
+        "five_hour_pct_start": 54.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 6.3,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T5+T8+T9 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T10",
@@ -293,6 +329,14 @@
       "made_by": "autopilot",
       "decision": "Artifacts worker ran on Sonnet",
       "why": "Artifact authoring against a fully-decided roadmap; no cross-cutting ambiguity that needed Opus."
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-04T13:46:40Z",
+      "scope": "wave-2",
+      "made_by": "autopilot",
+      "decision": "Fold T7.1's gateway.go middleware-registration rename into wave 2's T3, leaving only the two route additions in T7",
+      "why": "T3 deletes LanguageMiddleware and T7 is three waves later, so the build would be red across waves 2-4 for one line."
     }
   ],
   "events": [
@@ -315,6 +359,26 @@
       "at": "2026-09-04T13:46:14Z",
       "agent": "leader",
       "event": "WORKER FINDING carried forward to wave 2: tasks.md T1.3 asks for TestNormalizeTheme in ui/theme_test.go, but normalizeTheme is a T3 function that lives in handlers/preferences.go per design.md's file table. The worker tested the equivalent ui.IsSupportedTheme+DefaultTheme composition and documented it rather than faking a call to a function that does not exist yet. T3 must still give handlers.normalizeTheme its own coverage."
+    },
+    {
+      "at": "2026-09-04T13:46:40Z",
+      "agent": "leader",
+      "event": "Wave 2 dispatched: T3+T5+T8+T9 as ONE serial gateway worker (sonnet). Makefile granted as an extra path for T9 (outside the module sandbox). Budget at dispatch: five_hour 54%, context 22%."
+    },
+    {
+      "at": "2026-09-04T13:57:17Z",
+      "agent": "leader",
+      "event": "Wave 2 reconciled: T5/T8/T9 done, T3 awaiting-user-verification. Leader independently verified the wave's core constraint by grep: exactly ONE PreferencesFor call site in non-test gateway code (preferences.go:113) and ZERO LanguageFor/ThemeFor calls, so the one-query-per-request guarantee holds. go build + go vet ./... clean repo-wide; make theme-guard exit 0; ui/i18n/boundary guards clean."
+    },
+    {
+      "at": "2026-09-04T13:57:17Z",
+      "agent": "leader",
+      "event": "LEADER FIX (integration, outside the worker's granted line): gateway.go's doc comment above the middleware still named the deleted handlers.LanguageMiddleware. The worker correctly refused to touch it, having been granted only the one code line. Repointed to PreferencesMiddleware and its one-call contract."
+    },
+    {
+      "at": "2026-09-04T13:57:17Z",
+      "agent": "leader",
+      "event": "Worker reported it could not give an honest per-task started_at (it never called date at dispatch time) and declined to invent one. The leader's own bracket timestamps stand; only completed_at came from the worker."
     }
   ]
 }

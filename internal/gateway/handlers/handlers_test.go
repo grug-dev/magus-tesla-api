@@ -57,6 +57,17 @@ type fakeAccount struct {
 		ID   uuid.UUID
 		Lang string
 	}
+
+	// theme is the value PreferencesFor's Settings.Theme returns. The zero
+	// value ("") falls back to account.ThemeGraphite, mirroring language's
+	// own empty-defaults-to-ES convention, so every pre-existing test (which
+	// never sets this field) keeps its original PreferencesFor behavior.
+	theme string
+	// preferencesForCalls counts every PreferencesFor invocation, regardless
+	// of outcome — RM42 tier 2's "ONE query per request, one query both
+	// values" invariant (design.md D1) is asserted directly against this
+	// counter, not inferred from side effects.
+	preferencesForCalls int
 }
 
 func (f fakeAccount) UpsertFromOAuth(context.Context, account.OAuthIdentity) (account.Account, error) {
@@ -107,16 +118,24 @@ func (f *fakeAccount) SetLanguage(_ context.Context, id uuid.UUID, lang string) 
 }
 
 // PreferencesFor / ThemeFor / SetTheme satisfy the widened account.Service
-// (RM42 tier 1). No gateway handler reads a theme yet — that arrives in RM42
-// tier 2, which extends this fake with recording fields of its own. Until then
-// PreferencesFor reuses LanguageFor so the two can never disagree, and the
-// theme methods are stubs.
+// (RM42 tier 1/2). PreferencesFor is the ONE call PreferencesMiddleware makes
+// per signed-in request (design.md D1) — it counts every invocation via
+// preferencesForCalls (so a test can assert the "one query, both values"
+// invariant directly) and reuses LanguageFor's own error/default handling for
+// the language half, so the two can never disagree, while resolving theme
+// from f.theme (defaulting to account.ThemeGraphite, mirroring language's
+// empty-defaults-to-ES convention).
 func (f *fakeAccount) PreferencesFor(ctx context.Context, id uuid.UUID) (account.Settings, error) {
+	f.preferencesForCalls++
 	lang, err := f.LanguageFor(ctx, id)
 	if err != nil {
 		return account.Settings{}, err
 	}
-	return account.Settings{Language: lang, Theme: account.ThemeGraphite}, nil
+	theme := f.theme
+	if theme == "" {
+		theme = account.ThemeGraphite
+	}
+	return account.Settings{Language: lang, Theme: theme}, nil
 }
 
 func (f *fakeAccount) ThemeFor(_ context.Context, _ uuid.UUID) (string, error) {

@@ -70,7 +70,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -587,7 +587,77 @@ boundary-guard: ## Fail if internal/gateway/ imports internal/telemetry (escape 
 		echo "boundary-guard: internal/gateway/ does not import internal/telemetry"; \
 	fi
 
-check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + test
+# theme-guard mirrors boundary-guard's grep-based shape and escape-hatch convention
+# (design.md D5, RM42-gateway-add-theme-selector tier 2). It reconciles THREE
+# independent copies of the theme vocabulary that must never drift apart:
+#   1. ui.Themes (internal/gateway/templates/ui/theme.go) — the presentation-facing
+#      slice the dropdown iterates and the sole source of the closed vocabulary the
+#      switch endpoint validates against.
+#   2. account's Theme* constants (internal/account/account.go) — the domain
+#      module's own independent copy (roadmap RM42 tier 1), validated by SetTheme.
+#   3. static/input.css's two theme-registration shapes — the
+#      @plugin "./daisyui.mjs" { themes: ...; } block (halloween, a daisyUI builtin
+#      with no CSS file of its own) and the @import "./themes/<name>.css" lines
+#      (apex, graphite; _shared.css is excluded — it is shared infrastructure, not
+#      a theme).
+#
+# Three independent, guarded copies (rather than deriving one from another at
+# build/run time) keep the failure mode a clear, localized `make check` error
+# naming exactly which list disagrees, instead of a silently wrong dropdown at
+# runtime — see design.md D5's own rejection of a runtime-parsed alternative.
+#
+# Escape hatch: a trailing `// theme:allow: <reason>` comment on the same line as
+# a Go-side entry (ui.Themes' slice literal, or one account Theme* constant) that
+# is deliberately excluded from a comparison — e.g. a theme intentionally staged
+# in ui.Themes before its CSS file lands. input.css has no comment syntax usable
+# mid-line for this purpose, so the hatch is only ever placed on the Go-side lines
+# being compared.
+theme-guard: ## Fail if ui.Themes, account's Theme* constants, and input.css's registered themes disagree (escape hatch: // theme:allow: <reason>)
+	@ui_themes=$$(grep -A1 'Themes = \[\]string{' internal/gateway/templates/ui/theme.go \
+		| grep -v 'theme:allow' \
+		| grep -oE '"[a-z]+"' | tr -d '"' | sort -u); \
+	account_themes=$$(grep -E '^\s*Theme[A-Z][A-Za-z]*\s*=\s*"[a-z]+"' internal/account/account.go \
+		| grep -v 'theme:allow' \
+		| grep -oE '"[a-z]+"' | tr -d '"' | sort -u); \
+	plugin_themes=$$(grep -oE 'themes:\s*[a-z, ]+;' internal/gateway/static/input.css \
+		| grep -oE '[a-z]+' | grep -v themes); \
+	import_themes=$$(grep -oE '@import "\./themes/[a-z]+\.css";' internal/gateway/static/input.css \
+		| grep -oE '/[a-z]+\.css' | sed -E 's#/([a-z]+)\.css#\1#' | grep -v shared); \
+	css_themes=$$(printf '%s\n%s\n' "$$plugin_themes" "$$import_themes" | sort -u); \
+	fail=0; \
+	if [ "$$ui_themes" != "$$account_themes" ]; then \
+		echo "ERROR: ui.Themes and account's Theme* constants disagree:"; \
+		echo ""; \
+		echo "  ui.Themes (internal/gateway/templates/ui/theme.go):"; \
+		echo "$$ui_themes" | sed 's/^/    /'; \
+		echo "  account Theme* (internal/account/account.go):"; \
+		echo "$$account_themes" | sed 's/^/    /'; \
+		echo ""; \
+		fail=1; \
+	fi; \
+	if [ "$$ui_themes" != "$$css_themes" ]; then \
+		echo "ERROR: ui.Themes and static/input.css's registered themes disagree:"; \
+		echo ""; \
+		echo "  ui.Themes (internal/gateway/templates/ui/theme.go):"; \
+		echo "$$ui_themes" | sed 's/^/    /'; \
+		echo "  input.css themes (static/input.css):"; \
+		echo "$$css_themes" | sed 's/^/    /'; \
+		echo ""; \
+		fail=1; \
+	fi; \
+	if [ "$$fail" = "1" ]; then \
+		echo "Every theme code must appear in ALL THREE places: ui.Themes, account's"; \
+		echo "Theme* constants, and static/input.css (via @plugin { themes: ...; } or an"; \
+		echo "@import \"./themes/<name>.css\" line). Add or remove it in whichever list is"; \
+		echo "missing it. Genuinely unavoidable (a theme staged in one list before its"; \
+		echo "counterpart lands)? Mark the Go-side line with // theme:allow: <reason> as a"; \
+		echo "trailing comment. Never weaken this pattern to silence a true positive."; \
+		exit 1; \
+	else \
+		echo "theme-guard: ui.Themes, account's Theme* constants, and input.css agree ($$ui_themes)"; \
+	fi
+
+check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + theme-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

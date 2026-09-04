@@ -51,53 +51,6 @@ func setLangCookie(c *gin.Context, lang string) {
 	c.SetCookie(langCookieName, lang, langCookieMaxAge, "/", "", false, true)
 }
 
-// LanguageMiddleware resolves the active render language EXACTLY ONCE per
-// request (design.md D3 — the read-heavy performance profile's discipline for
-// this tier) and stores it on the request's context.Context via
-// i18n.WithLang, so every handler and every nested Templ component downstream
-// reads it via i18n.FromContext/i18n.T with zero additional plumbing
-// (design.md D5). Registered in gateway.go immediately AFTER the sessions
-// middleware, because the signed-in branch below needs currentUID, which
-// reads the session — ordering matters. Exported (design.md's sketch names it
-// lowercase as if gateway.go and this file shared a package; they don't —
-// gateway.go is package gateway, this is package handlers — so registering it
-// from NewEngine requires an exported name).
-//
-//   - Signed in: acct.LanguageFor(ctx, uid). Any error falls back to
-//     account.LanguageES (never breaks the render over a transient DB error).
-//     If the incoming cookie is absent or differs from this resolved value,
-//     the cookie is re-synced to match (design.md D4.1 — "cookie follows DB"),
-//     at no extra DB-read cost since lang was already fetched for this
-//     request's render.
-//   - Anonymous: reads the lang cookie via normalizeLang. No DB call.
-func LanguageMiddleware(acct account.Service) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var lang string
-
-		if uid, ok := currentUID(c); ok {
-			resolved, err := acct.LanguageFor(c.Request.Context(), uid)
-			if err != nil {
-				lang = account.LanguageES
-			} else {
-				lang = resolved
-			}
-			if cookieVal, cerr := c.Cookie(langCookieName); cerr != nil || cookieVal != lang {
-				setLangCookie(c, lang)
-			}
-		} else {
-			cookieVal, cerr := c.Cookie(langCookieName)
-			if cerr != nil {
-				lang = account.LanguageES
-			} else {
-				lang = normalizeLang(cookieVal)
-			}
-		}
-
-		c.Request = c.Request.WithContext(i18n.WithLang(c.Request.Context(), lang))
-		c.Next()
-	}
-}
-
 // LangSwitch handles POST /ui/lang/switch (design.md D7/D8). It works for
 // BOTH anonymous and signed-in callers with NO auth guard (redirect-to-login
 // would defeat the anonymous cookie path entirely), NO tenant-ownership check

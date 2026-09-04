@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,129 +14,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 )
 
-// --- languageMiddleware tests (T2.4) ---
-
-// langMiddlewareEngine builds a minimal Gin engine with session middleware,
-// LanguageMiddleware, and a downstream /_lang route that echoes
-// i18n.FromContext(c.Request.Context()) as the response body — the only way
-// to observe what the middleware carried through, mirroring the
-// navHeaderEngine/dashboardEngine pattern elsewhere in this package.
-func langMiddlewareEngine(acct account.Service) *gin.Engine {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	store := cookie.NewStore([]byte("test-secret"))
-	r.Use(sessions.Sessions("test", store))
-	r.Use(LanguageMiddleware(acct))
-	r.GET("/_session", func(c *gin.Context) {
-		sess := sessions.Default(c)
-		if uid := c.Query("uid"); uid != "" {
-			sess.Set("uid", uid)
-		}
-		_ = sess.Save()
-		c.String(http.StatusOK, "ok")
-	})
-	r.GET("/_lang", func(c *gin.Context) {
-		c.String(http.StatusOK, i18n.FromContext(c.Request.Context()))
-	})
-	return r
-}
-
-func TestLanguageMiddleware_SignedInReadsAccount(t *testing.T) {
-	uid := uuid.New()
-	acct := &fakeAccount{language: account.LanguageEN}
-	eng := langMiddlewareEngine(acct)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/_session?uid="+uid.String(), nil)
-	eng.ServeHTTP(w, req)
-	sessCookie := findCookie(w, "test")
-
-	w2 := httptest.NewRecorder()
-	req2 := httptest.NewRequest(http.MethodGet, "/_lang", nil)
-	if sessCookie != nil {
-		req2.AddCookie(sessCookie)
-	}
-	eng.ServeHTTP(w2, req2)
-
-	if got := w2.Body.String(); got != account.LanguageEN {
-		t.Fatalf("signed-in request context language = %q, want %q", got, account.LanguageEN)
-	}
-}
-
-func TestLanguageMiddleware_AnonymousReadsCookie(t *testing.T) {
-	eng := langMiddlewareEngine(&fakeAccount{})
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/_lang", nil)
-	req.AddCookie(&http.Cookie{Name: langCookieName, Value: account.LanguageEN})
-	eng.ServeHTTP(w, req)
-
-	if got := w.Body.String(); got != account.LanguageEN {
-		t.Fatalf("anonymous request context language = %q, want %q", got, account.LanguageEN)
-	}
-}
-
-func TestLanguageMiddleware_AnonymousNoCookieDefaultsToSpanish(t *testing.T) {
-	eng := langMiddlewareEngine(&fakeAccount{})
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/_lang", nil)
-	eng.ServeHTTP(w, req)
-
-	if got := w.Body.String(); got != account.LanguageES {
-		t.Fatalf("anonymous, no cookie: context language = %q, want %q", got, account.LanguageES)
-	}
-}
-
-func TestLanguageMiddleware_SignedInLanguageForErrorDefaultsToSpanish(t *testing.T) {
-	uid := uuid.New()
-	acct := &fakeAccount{languageErr: errors.New("db down")}
-	eng := langMiddlewareEngine(acct)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/_session?uid="+uid.String(), nil)
-	eng.ServeHTTP(w, req)
-	sessCookie := findCookie(w, "test")
-
-	w2 := httptest.NewRecorder()
-	req2 := httptest.NewRequest(http.MethodGet, "/_lang", nil)
-	if sessCookie != nil {
-		req2.AddCookie(sessCookie)
-	}
-	eng.ServeHTTP(w2, req2)
-
-	if got := w2.Body.String(); got != account.LanguageES {
-		t.Fatalf("LanguageFor error: context language = %q, want fallback %q", got, account.LanguageES)
-	}
-}
-
-func TestLanguageMiddleware_SyncsStaleCookieToDBValue(t *testing.T) {
-	uid := uuid.New()
-	acct := &fakeAccount{language: account.LanguageEN}
-	eng := langMiddlewareEngine(acct)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/_session?uid="+uid.String(), nil)
-	eng.ServeHTTP(w, req)
-	sessCookie := findCookie(w, "test")
-
-	w2 := httptest.NewRecorder()
-	req2 := httptest.NewRequest(http.MethodGet, "/_lang", nil)
-	req2.AddCookie(sessCookie)
-	req2.AddCookie(&http.Cookie{Name: langCookieName, Value: account.LanguageES})
-	eng.ServeHTTP(w2, req2)
-
-	lc := findCookie(w2, langCookieName)
-	if lc == nil {
-		t.Fatalf("want a fresh lang cookie set when the incoming cookie (es) diverges from the DB value (en)")
-	}
-	if lc.Value != account.LanguageEN {
-		t.Fatalf("resynced lang cookie value = %q, want %q", lc.Value, account.LanguageEN)
-	}
-}
+// --- LanguageMiddleware's own tests were ported to PreferencesMiddleware ---
+//
+// LanguageMiddleware itself was removed from lang.go and replaced by
+// PreferencesMiddleware (preferences.go), which resolves language AND theme
+// from the SAME account.Service.PreferencesFor call (design.md D1,
+// RM42-gateway-add-theme-selector tier 2). Every TestLanguageMiddleware_*
+// case that lived here was renamed onto PreferencesMiddleware in
+// preferences_test.go, with the same assertions — language behavior is
+// unchanged. findCookie (below) stays here: it is also used by the
+// LangSwitch tests in this file, and preferences_test.go reuses it directly
+// (same package, no import needed).
 
 func TestNormalizeLang_UnrecognizedFallsBack(t *testing.T) {
 	cases := []struct {

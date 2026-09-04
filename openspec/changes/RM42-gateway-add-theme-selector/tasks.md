@@ -71,13 +71,13 @@ New file `internal/gateway/handlers/preferences.go` (design.md D1/D2). `Language
 REMOVED from `lang.go`; everything else in `lang.go` (`LangSwitch`, `syncLoginLanguageCookie`,
 `hxLocation`, `pathAndQuery`, `normalizeLang`, `setLangCookie`) is untouched.
 
-- [ ] T3.1 In `preferences.go`: `const themeCookieName = "theme"`,
+- [x] T3.1 In `preferences.go`: `const themeCookieName = "theme"`,
       `const themeCookieMaxAge = 365 * 24 * 60 * 60` (identical to `langCookieMaxAge` —
       design.md D2); `func normalizeTheme(v string) string` (`ui.IsSupportedTheme(v)` → `v`,
       else `ui.DefaultTheme` — Test Contract 1); `func setThemeCookie(c *gin.Context, theme
       string)` — structural copy of `setLangCookie`: `c.SetSameSite(http.SameSiteLaxMode)`
       BEFORE `c.SetCookie(themeCookieName, theme, themeCookieMaxAge, "/", "", false, true)`.
-- [ ] T3.2 In `preferences.go`: `func cookieOrDefault(c *gin.Context, name string) string`
+- [x] T3.2 In `preferences.go`: `func cookieOrDefault(c *gin.Context, name string) string`
       (returns the cookie value or `""` on error — a two-line helper factoring the anonymous
       branch's repeated shape, design.md D1) and `func PreferencesMiddleware(acct
       account.Service) gin.HandlerFunc` per design.md D1's pseudocode exactly: signed-in branch
@@ -86,8 +86,8 @@ REMOVED from `lang.go`; everything else in `lang.go` (`LangSwitch`, `syncLoginLa
       anonymous branch reads both cookies via `normalizeLang`/`normalizeTheme`, zero DB calls.
       Ends with `ctx := i18n.WithLang(...); ctx = ui.WithTheme(ctx, theme); c.Request =
       c.Request.WithContext(ctx)`.
-- [ ] T3.3 Delete `LanguageMiddleware` from `lang.go` (moved above, renamed).
-- [ ] T3.4 `internal/gateway/handlers/preferences_test.go`: port every existing
+- [x] T3.3 Delete `LanguageMiddleware` from `lang.go` (moved above, renamed).
+- [x] T3.4 `internal/gateway/handlers/preferences_test.go`: port every existing
       `TestLanguageMiddleware_*` case from `lang_test.go` onto `PreferencesMiddleware` (rename,
       same assertions — language behavior is unchanged), PLUS the new theme-specific cases:
       `TestPreferencesMiddleware_SignedInResolvesBothFromOneCall` (Test Contract 3 — fake
@@ -141,15 +141,15 @@ writing this task — mirror it, do not invent a variant.
 
 ## T5. `base.templ` theme attribute + `nav.go` Settings entry — depends on T1
 
-- [ ] T5.1 In `internal/gateway/templates/layouts/base.templ`'s `baseShell`, change
+- [x] T5.1 In `internal/gateway/templates/layouts/base.templ`'s `baseShell`, change
       `data-theme="graphite"` to `data-theme={ ui.ThemeFromContext(ctx) }` (design.md D1's whole
       point). Update the surrounding doc comment (it currently explains the hardcoded value) to
       describe the new per-request source.
-- [ ] T5.2 In `internal/gateway/templates/layouts/nav.go`'s `navItems`, change the Settings
+- [x] T5.2 In `internal/gateway/templates/layouts/nav.go`'s `navItems`, change the Settings
       entry from `{Label: i18n.T(ctx, i18n.KeyNavSettings), Icon: "settings", Placeholder:
       true}` to `{Label: i18n.T(ctx, i18n.KeyNavSettings), Href: "/settings", Active: active ==
       "/settings", Icon: "settings"}` (roadmap D8).
-- [ ] T5.3 `internal/gateway/templates/layouts/base_test.go` (or wherever `Base`/`BaseAuth`
+- [x] T5.3 `internal/gateway/templates/layouts/base_test.go` (or wherever `Base`/`BaseAuth`
       tests live today): `TestBase_RendersResolvedThemeAttribute` and
       `TestBaseAuth_RendersResolvedThemeAttribute` (Test Contract 16 — both shells, since
       `baseShell` is shared), PLUS `TestBase_RendersCookieThemeAfterLogout` (Test Contract 7 —
@@ -158,10 +158,10 @@ writing this task — mirror it, do not invent a variant.
       `data-theme="apex"` — this is the scenario `specs/gateway/spec.md`'s "A theme chosen
       before logout still renders after logout" describes; no new production code, just proving
       `Base`'s existing rendering already honors it once T5.1 lands).
-- [ ] T5.4 `internal/gateway/templates/layouts/nav_test.go`: extend the existing nav-items test
+- [x] T5.4 `internal/gateway/templates/layouts/nav_test.go`: extend the existing nav-items test
       table with the Settings row's new `Placeholder: false`/`Href`/`Active` expectations (Test
       Contract 15) rather than adding a new test function.
-- [ ] T5.5 Run `make templ` (both `.templ` files changed).
+- [x] T5.5 Run `make templ` (both `.templ` files changed).
 
 ## T6. `/settings` page — depends on T1, T3, T4
 
@@ -197,32 +197,38 @@ files or reintroduce a `settings.go`).
 
 ## T7. Wire routes + rename the middleware registration — depends on T3, T4, T6
 
-- [ ] T7.1 In `internal/gateway/gateway.go`: change `r.Use(handlers.LanguageMiddleware(d.Account))`
-      to `r.Use(handlers.PreferencesMiddleware(d.Account))`; add `r.GET("/settings",
-      h.SettingsPage)` and `r.POST("/ui/theme/switch", h.ThemeSwitch)`.
+- [x] T7.1a (rename clause only) In `internal/gateway/gateway.go`: changed
+      `r.Use(handlers.LanguageMiddleware(d.Account))` to
+      `r.Use(handlers.PreferencesMiddleware(d.Account))`. Done in wave 2 (T3), per the leader's
+      explicit instruction, so the build would not stay red for three waves over one line while
+      `LanguageMiddleware` no longer existed after T3.3 deleted it. `h.SettingsPage`/
+      `h.ThemeSwitch` do not exist yet — their handlers land in T4/T6 — so the route clause below
+      is NOT done and stays for whichever wave completes T4/T6.
+- [ ] T7.1b (route clause, still open) add `r.GET("/settings", h.SettingsPage)` and
+      `r.POST("/ui/theme/switch", h.ThemeSwitch)` to `internal/gateway/gateway.go`.
 - [ ] T7.2 If any existing `gateway_test.go` route-table test enumerates registered routes by
       name, add the two new ones.
 
 ## T8. Instant-apply JS (RD15) — depends on T1
 
-- [ ] T8.1 Append the two delegated listeners from design.md D6 to
+- [x] T8.1 Append the two delegated listeners from design.md D6 to
       `internal/gateway/static/app.js`: the `click` listener on
       `button[hx-post="/ui/theme/switch"]` (optimistic apply, stashes
       `document.documentElement.dataset.themePrevious`), and the `htmx:afterRequest` listener
       that reverts on `!evt.detail.successful` and clears the stashed previous value on success.
       Follow the file's existing comment style (cite RD15, explain why, link design.md D6).
-- [ ] T8.2 No `go test` coverage exists for this (Test Contract 21 — no JS harness in this
+- [x] T8.2 No `go test` coverage exists for this (Test Contract 21 — no JS harness in this
       project, matching RD9–RD14's own precedent). Verify manually per T11 below.
 
 ## T9. `make theme-guard` — depends on T1
 
-- [ ] T9.1 Add a `theme-guard` target to the `Makefile`, in the grep-based shape design.md D5
+- [x] T9.1 Add a `theme-guard` target to the `Makefile`, in the grep-based shape design.md D5
       specifies exactly (three extraction passes — `ui.Themes`, `account`'s `Theme*` constants,
       `input.css`'s `@plugin`/`@import` shapes — sorted-unique diff, escape hatch `//
       theme:allow: <reason>`). Add `theme-guard` to `.PHONY` and to `check`'s prerequisite list:
       `check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard
       theme-guard test`.
-- [ ] T9.2 Run `make theme-guard` directly (allowed per `Test-Execution-Policy` — a Makefile
+- [x] T9.2 Run `make theme-guard` directly (allowed per `Test-Execution-Policy` — a Makefile
       guard is not `go test`) and confirm it passes (Test Contract 19). Then temporarily remove
       one entry from `ui.Themes`, re-run to confirm the target fails and names the mismatch
       (Test Contract 20), then restore it. Do NOT leave the repo in the broken state.
