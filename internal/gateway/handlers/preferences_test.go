@@ -621,10 +621,21 @@ func TestSettingsPage_Authenticated_MintsTokenAndRendersCurrentTheme(t *testing.
 
 	// Prove the SESSION actually holds mintedToken under csrfThemeKey — not
 	// merely that the page shows SOME token — by using it on a follow-up
-	// ThemeSwitch POST over the SAME session cookie: checkCSRFKey compares
-	// the submitted token against the session's own csrfThemeKey value, so
-	// acceptance here is exactly the equality Test Contract 14 asks for.
-	w3 := postThemeSwitch(eng, sessCookie, account.ThemeGraphite, mintedToken)
+	// ThemeSwitch POST: checkCSRFKey compares the submitted token against the
+	// session's own csrfThemeKey value, so acceptance here is exactly the
+	// equality Test Contract 14 asks for.
+	//
+	// The POST MUST carry the cookie /settings just returned, not the one
+	// /_session issued. The store here is cookie.NewStore, so the session
+	// lives entirely IN the cookie: SettingsPage's sess.Save() re-issues it
+	// with csrf_theme added, and the older /_session cookie still holds only
+	// uid. A browser sends the refreshed cookie; replaying the stale one
+	// reaches checkCSRFKey with an empty want and is correctly refused 403.
+	postCookie := findCookie(w2, "test")
+	if postCookie == nil {
+		t.Fatalf("want /settings to re-issue the session cookie carrying the minted token")
+	}
+	w3 := postThemeSwitch(eng, postCookie, account.ThemeGraphite, mintedToken)
 	if w3.Code != http.StatusOK {
 		t.Fatalf("want the token embedded in SettingsPage's render to be accepted by ThemeSwitch (proving the session holds it under csrfThemeKey), got %d body=%q", w3.Code, w3.Body.String())
 	}
