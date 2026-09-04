@@ -106,6 +106,27 @@ func (f *fakeAccount) SetLanguage(_ context.Context, id uuid.UUID, lang string) 
 	return f.setLanguageErr
 }
 
+// PreferencesFor / ThemeFor / SetTheme satisfy the widened account.Service
+// (RM42 tier 1). No gateway handler reads a theme yet — that arrives in RM42
+// tier 2, which extends this fake with recording fields of its own. Until then
+// PreferencesFor reuses LanguageFor so the two can never disagree, and the
+// theme methods are stubs.
+func (f *fakeAccount) PreferencesFor(ctx context.Context, id uuid.UUID) (account.Settings, error) {
+	lang, err := f.LanguageFor(ctx, id)
+	if err != nil {
+		return account.Settings{}, err
+	}
+	return account.Settings{Language: lang, Theme: account.ThemeGraphite}, nil
+}
+
+func (f *fakeAccount) ThemeFor(_ context.Context, _ uuid.UUID) (string, error) {
+	return account.ThemeGraphite, nil
+}
+
+func (f *fakeAccount) SetTheme(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {
 	f.seedCalls++
 	f.lastSeedVehicles = vs

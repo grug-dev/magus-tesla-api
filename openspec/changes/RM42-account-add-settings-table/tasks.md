@@ -320,19 +320,19 @@
 
 ## T8. Verification — depends on T1–T7
 
-- [ ] T8.1 `go build ./...` and `go vet ./...` pass repo-wide. If the widened `account.Service`
+- [x] T8.1 `go build ./...` and `go vet ./...` pass repo-wide. If the widened `account.Service`
       interface breaks compilation of a fake/double in a sibling module's test file (the same class
       of issue prior tiers hit — see RM6/RM24's precedent), that is a leader-owned cross-module fix
       — flag it, do not edit outside `internal/account`.
-- [ ] T8.2 `gofmt -l` reports no diff for any file this tier touched.
-- [ ] T8.3 Boundary check: `internal/account` still does not import `internal/tesla` or
+- [x] T8.2 `gofmt -l` reports no diff for any file this tier touched.
+- [x] T8.3 Boundary check: `internal/account` still does not import `internal/tesla` or
       `internal/gateway`; `pgtype` does not appear in any public type or interface signature; no
       file outside `internal/account` (other than a leader-owned cross-module fix per T8.1) was
       touched.
-- [ ] T8.4 Report the exact test-suite commands the owner must run (`go test
+- [x] T8.4 Report the exact test-suite commands the owner must run (`go test
       ./internal/account/... -run TestAccountSettings_RoundTrip` and the full `go test ./...` /
       `make test-with-db`) — this tier writes tests but does not execute them
       (`Test-Execution-Policy`); the owner's run is what turns T5 from `awaiting-user-verification`
       into `done`.
-- [ ] T8.5 `openspec validate RM42-account-add-settings-table --strict` passes and every tasks.md
+- [x] T8.5 `openspec validate RM42-account-add-settings-table --strict` passes and every tasks.md
       checkbox above reflects real completion.

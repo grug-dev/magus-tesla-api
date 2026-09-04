@@ -173,6 +173,21 @@ func (f *fakeAccountEmpty) SetLanguage(_ context.Context, _ uuid.UUID, _ string)
 	return nil
 }
 
+// PreferencesFor / ThemeFor / SetTheme satisfy the widened account.Service
+// (RM42 tier 1). The processor never reads a user preference, so all three are
+// inert stubs.
+func (f *fakeAccountEmpty) PreferencesFor(_ context.Context, _ uuid.UUID) (account.Settings, error) {
+	return account.Settings{}, nil
+}
+
+func (f *fakeAccountEmpty) ThemeFor(_ context.Context, _ uuid.UUID) (string, error) {
+	return "", nil
+}
+
+func (f *fakeAccountEmpty) SetTheme(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
 var _ account.Service = (*fakeAccountEmpty)(nil)
 
 // fakeSuperchargerHistoryReader satisfies telemetry.SuperchargerHistoryReader. Every method
