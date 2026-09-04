@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM42-settings-theme-selector",
+  "intention": "A real /settings page with a working theme selector, backed by one account.settings table that is the single home for every per-user preference.",
+  "request": "Source ticket: MAG-43 — Theme selector - Settings page. It's possible to allow selecting a theme for the entire website, and applying that theme in runtime? Like a Theme selector dropdown? Currently, I think the theme is set in data-theme=\"graphite\" (base.templ), I think the app currently supports halloween, apex and graphite. Let me know your thoughts. If that would be possible, add the theme selector into the settings page (new page that has a label \"soon\") on the menu",
+  "status": "in-progress",
+  "autopilot": false,
+  "updated_at": "2026-09-04T10:12:58Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM42-MAG-43-settings-theme-selector",
+    "base": "0b9897f",
+    "ticket": "MAG-43",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-43/theme-selector-settings-page",
+    "created_at": "2026-09-04T10:12:58Z"
+  },
+  "rollup": {
+    "current": [1],
+    "pending": [2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D-RM42-1",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "New account.settings table with typed language+theme columns; accounts.language migrates in and is dropped",
+      "why": "Split storage (theme in a new table, language left on accounts) rejected: two homes for preferences makes every future setting ambiguous"
+    },
+    {
+      "id": "D-RM42-2",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Settings row created at signup in the same transaction; existing rows backfilled by the migration",
+      "why": "Reads stay a plain PK lookup with no COALESCE and no missing-row branch"
+    },
+    {
+      "id": "D-RM42-3",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Theme applies instantly via JS data-theme, no HX-Location reload",
+      "why": "Language is server-rendered text and needs a re-render; a theme is CSS-only and does not"
+    },
+    {
+      "id": "D-RM42-4",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "ui.Themes is the single closed vocabulary, enforced by a new make theme-guard wired into make check",
+      "why": "Parsing input.css at startup rejected: halloween is not an @import, so the parser needs two shapes and moves errors to run time"
+    },
+    {
+      "id": "D-RM42-5",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Read caching is out of scope; filed as MAG-47 blocked by MAG-43",
+      "why": "LanguageMiddleware's per-request DB read (incl. /static) is a separate blast radius touching middleware and its tests"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM42-account-add-settings-table",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": "2026-09-04T10:12:58Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "change": "RM42-gateway-add-theme-selector",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "events": [
+    { "at": "2026-09-04T10:12:58Z", "agent": "leader", "event": "roadmap RM42 created from MAG-43; branch ft/RM42-MAG-43-settings-theme-selector off 0b9897f; work-counter 42 -> 43" },
+    { "at": "2026-09-04T10:12:58Z", "agent": "leader", "event": "Step 2 interview skipped as already complete: all 11 design decisions (D1-D11) were settled with the user before pipeline invocation, including the database-gated schema. Recorded verbatim in the roadmap .md Decisions section." },
+    { "at": "2026-09-04T10:12:58Z", "agent": "leader", "event": "run scope: HALT AFTER STEP 4 per the pickup-linear-ticket payload — artifacts + progress.json for tier 1 only, no implementation workers, no reviewer, no archive. autopilot disabled for this reason." }
+  ]
+}

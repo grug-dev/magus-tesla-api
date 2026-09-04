@@ -852,6 +852,38 @@ interview, before any artifact was written).
 
 
 
+## 24. gateway — Settings reads hit the DB on every request (tracked as MAG-47)
+
+### PROPOSAL
+
+`handlers.LanguageMiddleware` (`internal/gateway/handlers/lang.go`) calls `acct.LanguageFor`
+— a real DB query — on **every request from a signed-in user**. It reads the `lang` cookie
+but treats the DB as authoritative anyway.
+
+It is registered at `internal/gateway/gateway.go:108` with `r.Use`, **before** `r.Static` at
+line 128. Gin applies global middleware to every route registered after it, and the session
+cookie is `Path: /`, so `/static/app.css`, the fonts, the images and `/healthz` all pay that
+query too.
+
+The agreed fix: cookies become the per-request cache for `lang` and `theme`; the DB is read
+only at login and on a cookie miss; writes go DB-first then cookie; and `/static` +
+`/healthz` are excluded from the middleware entirely. localStorage was considered and
+rejected — `i18n.T` renders text server-side, so localStorage (unreadable by the server,
+reachable only after the HTML is parsed) cannot carry the language.
+
+**Trigger:** RM42 tier 1 must land first — `account.settings` has to exist so one query
+returns `language` and `theme` together.
+
+**Filed in Linear as MAG-47**, blocked by MAG-43:
+https://linear.app/magus-monitor/issue/MAG-47/cache-settings-in-cookies-stop-reading-the-db-on-every-request
+
+### ORIGIN
+
+Discovered while designing RM42 (MAG-43, theme selector). Scope split confirmed with the
+owner on 2026-09-04: keep MAG-43 to the settings table + page, do the caching separately.
+
+
+
 # BRAINSTORMING
 
 
