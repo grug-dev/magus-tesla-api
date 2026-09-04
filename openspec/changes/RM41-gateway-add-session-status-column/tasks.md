@@ -28,7 +28,7 @@ assigns work, design.md is the source of truth for content.
 
 ## Wave 1 — independent, file-scoped edits (module: gateway worker)
 
-- [ ] **1.1** `internal/gateway/i18n/catalog.go` — add the five new keys and
+- [x] **1.1** `internal/gateway/i18n/catalog.go` — add the five new keys and
   their catalogue entries exactly as given in design.md "i18n keys" (constant
   block insertion points: after `KeySuperchargerDate` for the header key, a new
   comment-headed block after `KeySuperchargerRowCancel` for the three badge
@@ -40,7 +40,7 @@ assigns work, design.md is the source of truth for content.
   disambiguates them from `KeySuperchargerStatusHelp`/`KeySuperchargerBadgeDoneCalculated`).
   `depends_on`: — · `parallel_ok`: with 1.2, 5.1
 
-- [ ] **1.2** `internal/gateway/templates/fragments/supercharger_vm.go` — add the
+- [x] **1.2** `internal/gateway/templates/fragments/supercharger_vm.go` — add the
   `RawStatus string` field (with its doc comment) to `SuperchargerRowVM`, per
   design.md "View model change". Acceptance:
   `grep -c "RawStatus string" internal/gateway/templates/fragments/supercharger_vm.go`
@@ -49,7 +49,7 @@ assigns work, design.md is the source of truth for content.
 
 ## Wave 2 — dependent template/handler edits (module: gateway worker)
 
-- [ ] **2.1** `internal/gateway/templates/fragments/supercharger_row.templ` —
+- [x] **2.1** `internal/gateway/templates/fragments/supercharger_row.templ` —
   - In `SuperchargerRow`, insert the Status `<td>` as the row's 2nd cell (right
     after the Date `<td>`, before Site), using the exact `if/else if/else`
     three-way badge block from design.md "Template changes" §`supercharger_row.templ`.
@@ -61,7 +61,7 @@ assigns work, design.md is the source of truth for content.
     returns `3` (one per branch).
   `depends_on`: 1.1, 1.2 · `parallel_ok`: with 2.2, 2.3, 2.4
 
-- [ ] **2.2** `internal/gateway/templates/fragments/supercharger_row_edit.templ` —
+- [x] **2.2** `internal/gateway/templates/fragments/supercharger_row_edit.templ` —
   change `<td colspan="7">` to `<td colspan="8">` (design.md "Finding: a second
   colspan" — the edit row's full-width cell, missed by the dispatch's own
   colspan callout). No other line in this file changes — the edit row itself
@@ -71,7 +71,7 @@ assigns work, design.md is the source of truth for content.
   returns `1`.
   `depends_on`: 1.1, 1.2 · `parallel_ok`: with 2.1, 2.3, 2.4
 
-- [ ] **2.3** `internal/gateway/templates/fragments/supercharger_stats.templ` —
+- [x] **2.3** `internal/gateway/templates/fragments/supercharger_stats.templ` —
   - In `superchargerTable`'s `ui.Table` call, insert
     `i18n.T(ctx, i18n.KeySuperchargerStatus)` as the Headers slice's 2nd entry
     (right after `KeySuperchargerDate`, before `KeySuperchargerSite`).
@@ -87,7 +87,7 @@ assigns work, design.md is the source of truth for content.
     occurrences.
   `depends_on`: 1.1, 1.2 · `parallel_ok`: with 2.1, 2.2, 2.4
 
-- [ ] **2.4** `internal/gateway/handlers/supercharger.go` — add
+- [x] **2.4** `internal/gateway/handlers/supercharger.go` — add
   `RawStatus: string(s.Status),` to the `fragments.SuperchargerRowVM{...}` literal
   returned by `superchargerRowVMFromSession`. Do NOT touch `charging.Session`,
   any other field mapping in this function, or any other handler in the file.
@@ -97,7 +97,7 @@ assigns work, design.md is the source of truth for content.
 
 ## Wave 3 — codegen (module: gateway worker)
 
-- [ ] **3.1** Run `make templ` (pinned `go tool templ generate`) to regenerate
+- [x] **3.1** Run `make templ` (pinned `go tool templ generate`) to regenerate
   `supercharger_row_templ.go`, `supercharger_row_edit_templ.go`, and
   `supercharger_stats_templ.go` from the three edited `.templ` files. Never
   hand-edit a `*_templ.go` file. `make css` is NOT needed — `ui.Badge`/`ui.Alert`
@@ -115,7 +115,7 @@ assigns work, design.md is the source of truth for content.
 
 ## Wave 4 — test verification / repair (module: gateway worker)
 
-- [ ] **4.1** `internal/gateway/handlers/supercharger_test.go` — verify against
+- [x] **4.1** `internal/gateway/handlers/supercharger_test.go` — verify against
   design.md's Test Contract (items 1–12):
   - Confirm the file still compiles as-is (`go vet ./internal/gateway/...` is the
     cheap signal — see 6.1). Because every existing assertion in this file is
@@ -141,7 +141,7 @@ assigns work, design.md is the source of truth for content.
 
 ## Wave 5 — docs (doc: gateway worker, granted path)
 
-- [ ] **5.1** `kkpa/context/workflows/supercharger-stats-read.md` — apply
+- [x] **5.1** `kkpa/context/workflows/supercharger-stats-read.md` — apply
   design.md "Docs" findings 1–3 verbatim:
   1. Append `, and `RawStatus` (RM41 tier 5)` to the `SuperchargerRowVM` clause
      in the Component map row for `supercharger_vm.go`.

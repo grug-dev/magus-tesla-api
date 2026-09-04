@@ -88,4 +88,9 @@ type SuperchargerRowVM struct {
 	// matching ChargeEntryVM.RawEndBatteryPct's convention exactly
 	// (RM31-gateway-add-session-battery-edit).
 	RawEndBatteryPct string
+	// RawStatus is the raw charging.SessionStatus code ("IN_PROGRESS" |
+	// "DONE_CALCULATED" | "DONE"), mirroring ChargeEntryVM.RawStatus's identical
+	// convention exactly — the template resolves the Badge Kind + label from this
+	// code (see SuperchargerRow's doc comment), not a precomputed label field.
+	RawStatus string
 }

@@ -160,25 +160,42 @@ const (
 	KeyHistoryChargeTypeSupercharger Key = "history.charge_type_supercharger"
 
 	// --- supercharger stats (templates/fragments/supercharger_stats.templ) ---
-	KeySuperchargerMonthsPreset   Key = "supercharger.months_preset"
-	KeySuperchargerSessions       Key = "supercharger.sessions"
-	KeySuperchargerEnergy         Key = "supercharger.energy"
-	KeySuperchargerCost           Key = "supercharger.cost"
-	KeySuperchargerAvgKWhSession  Key = "supercharger.avg_kwh_session"
-	KeySuperchargerKWhPerMonth    Key = "supercharger.kwh_per_month"
-	KeySuperchargerEmpty          Key = "supercharger.empty"
-	KeySuperchargerDate           Key = "supercharger.date"
+	KeySuperchargerMonthsPreset  Key = "supercharger.months_preset"
+	KeySuperchargerSessions      Key = "supercharger.sessions"
+	KeySuperchargerEnergy        Key = "supercharger.energy"
+	KeySuperchargerCost          Key = "supercharger.cost"
+	KeySuperchargerAvgKWhSession Key = "supercharger.avg_kwh_session"
+	KeySuperchargerKWhPerMonth   Key = "supercharger.kwh_per_month"
+	KeySuperchargerEmpty         Key = "supercharger.empty"
+	KeySuperchargerDate          Key = "supercharger.date"
+
+	// --- supercharger status column header (fragments/supercharger_stats.templ) ---
+	KeySuperchargerStatus Key = "supercharger.status"
+
 	KeySuperchargerSite           Key = "supercharger.site"
 	KeySuperchargerStartBattery   Key = "supercharger.start_battery"
 	KeySuperchargerEndBattery     Key = "supercharger.end_battery"
 	KeySuperchargerBatteryPctHelp Key = "supercharger.battery_pct_help"
-	KeySuperchargerActions        Key = "supercharger.actions"
+
+	// --- supercharger in-progress-session guidance alert
+	// (fragments/supercharger_stats.templ), owner decision 2026-09-04 ---
+	KeySuperchargerStatusHelp Key = "supercharger.status_help"
+
+	KeySuperchargerActions Key = "supercharger.actions"
 
 	// --- supercharger row edit (fragments/supercharger_row.templ, supercharger_row_edit.templ)
 	// RM31-gateway-add-session-battery-edit design.md D3/D8/D9/D10 ---
 	KeySuperchargerRowEdit   Key = "supercharger_row.edit"
 	KeySuperchargerRowSave   Key = "supercharger_row.save"
 	KeySuperchargerRowCancel Key = "supercharger_row.cancel"
+
+	// --- supercharger status badge (fragments/supercharger_row.templ),
+	// RM41-gateway-add-session-status-column design.md, roadmap D11 — deliberately
+	// NOT reusing KeyChargesBadgeInProgress/KeyChargesBadgeDone: a different table's
+	// badge is its own semantic role, same precedent as charges_list's header block ---
+	KeySuperchargerBadgeInProgress     Key = "supercharger_badge.in_progress"
+	KeySuperchargerBadgeDoneCalculated Key = "supercharger_badge.done_calculated"
+	KeySuperchargerBadgeDone           Key = "supercharger_badge.done"
 
 	// --- supercharger row validation + errors (handlers/supercharger.go)
 	// RM31-gateway-add-session-battery-edit design.md D3/D8/D9/D10 ---
@@ -481,18 +498,31 @@ var catalog = map[Key]entry{
 	KeySuperchargerKWhPerMonth:   {ES: "kWh por mes", EN: "kWh per month"},
 	KeySuperchargerEmpty:         {ES: "No hay sesiones de Supercharger en esta ventana.", EN: "No Supercharger sessions in this window."},
 	KeySuperchargerDate:          {ES: "Fecha", EN: "Date"},
-	KeySuperchargerSite:          {ES: "Sitio", EN: "Site"},
-	KeySuperchargerStartBattery:  {ES: "Batería inicial", EN: "Start battery"},
-	KeySuperchargerEndBattery:    {ES: "Batería final", EN: "End battery"},
+
+	KeySuperchargerStatus: {ES: "Estado", EN: "Status"},
+
+	KeySuperchargerSite:         {ES: "Sitio", EN: "Site"},
+	KeySuperchargerStartBattery: {ES: "Batería inicial", EN: "Start battery"},
+	KeySuperchargerEndBattery:   {ES: "Batería final", EN: "End battery"},
 	KeySuperchargerBatteryPctHelp: {
 		ES: "Tesla no nos provee los porcentajes de batería inicial y final. Te aconsejamos que siempre intentes recordarlos al usar un Supercharger, para tener mejor precisión en los análisis. Sin embargo, conociendo solo el porcentaje final, el sistema calculará el porcentaje inicial aproximado que tenía el vehículo.",
 		EN: "Tesla does not give us the start and end battery percentages. We recommend you always try to remember them when you use a Supercharger, so the analysis is more accurate. Still, if you only know the end percentage, the system will calculate the approximate start percentage the vehicle had.",
 	},
+
+	KeySuperchargerStatusHelp: {
+		ES: "Si una sesión aparece como «En progreso», te falta registrar sus porcentajes. Edítala y completa el porcentaje final para que el sistema pueda calcular el inicial.",
+		EN: `If a session shows as "In progress", its percentages are still missing. Edit it and fill in the end percentage so the system can calculate the start one.`,
+	},
+
 	KeySuperchargerActions: {ES: "Acciones", EN: "Actions"},
 
 	KeySuperchargerRowEdit:   {ES: "Editar", EN: "Edit"},
 	KeySuperchargerRowSave:   {ES: "Guardar", EN: "Save"},
 	KeySuperchargerRowCancel: {ES: "Cancelar", EN: "Cancel"},
+
+	KeySuperchargerBadgeInProgress:     {ES: "En progreso", EN: "In progress"},
+	KeySuperchargerBadgeDoneCalculated: {ES: "Finalizada (calculada)", EN: "Done (calculated)"},
+	KeySuperchargerBadgeDone:           {ES: "Finalizada", EN: "Done"},
 
 	KeySuperchargerErrorInvalidID:       {ES: "id inválido", EN: "invalid id"},
 	KeySuperchargerErrorSessionNotFound: {ES: "sesión no encontrada", EN: "session not found"},

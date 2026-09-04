@@ -39,7 +39,7 @@ import (
 // accepted; the port and the schema both deliberately have no such check).
 templ SuperchargerRowEdit(vm SuperchargerRowVM, csrfToken, windowStartStr, windowEndStr string, validationErrors map[string]string) {
 	<tr id={ "supercharger-row-" + vm.ID }>
-		<td colspan="7">
+		<td colspan="8">
 			if validationErrors["_top"] != "" {
 				@ui.Alert(ui.AlertProps{Kind: "error"}) {
 					{ validationErrors["_top"] }

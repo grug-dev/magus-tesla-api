@@ -496,6 +496,7 @@ func superchargerRowVMFromSession(s charging.Session) fragments.SuperchargerRowV
 		EndBatteryPctLabel:   formatBatteryPct(s.EndBatteryPct),
 		RawStartBatteryPct:   rawStartPct,
 		RawEndBatteryPct:     rawEndPct,
+		RawStatus:            string(s.Status),
 	}
 }
 

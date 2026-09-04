@@ -1,0 +1,344 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM41-gateway-add-session-status-column",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
+  "request": "Roadmap RM41 tier 5, ticket MAG-45. Render the lifecycle status tier 4 stores as a ui.Badge in the sessions table's 2nd column on /supercharger-stats: five new bilingual i18n keys, a RawStatus view-model field, the badge cell, two colspan fixes, a second info Alert, templ codegen, and one KB doc file. No database, no charging code.",
+  "status": "in-progress",
+  "created_at": "2026-09-04T01:32:00Z",
+  "updated_at": "2026-09-04T01:46:00Z",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "6.2"
+    ],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "5.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "4.1",
+      "6.1"
+    ],
+    "awaiting_user_verification": [
+      "6.2"
+    ]
+  },
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
+    "base": "main",
+    "ticket": "MAG-45",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-45/supercharger-sessions-status-column-in-progress-done-calculated-done",
+    "created_at": "2026-09-03T17:38:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "i18n/catalog.go: the five new keys + ES/EN entries",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "Five keys added (const + catalogue entry), ES and EN non-empty. Leader read all ten lines from disk: labels match D11 exactly and the owner's help copy is verbatim, guillemets and accents included.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "supercharger_vm.go: RawStatus field on SuperchargerRowVM",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "RawStatus string added to SuperchargerRowVM with its doc comment, mirroring ChargeEntryVM.RawStatus.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "supercharger_row.templ: Status badge as the 2nd cell + colspan 7->8",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "Status td inserted as the 2nd cell with the three-way badge branch (primary/neutral/ghost); SuperchargerRowError colspan 7 to 8 plus its doc comment.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "supercharger_row_edit.templ: colspan 7->8 (the second colspan)",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "The second colspan, the one the leader's brief missed: supercharger_row_edit.templ:42 now 8. Nothing else in the file touched.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "supercharger_stats.templ: Status header 2nd + the second info Alert",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "Status header inserted 2nd in the Headers slice; the second info Alert sits below the existing one, both unconditional above the Presets block.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "2.4",
+      "title": "handlers/supercharger.go: map RawStatus from charging.Session.Status",
+      "module": "gateway",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "RawStatus: string(s.Status) added to the row VM literal; no other field mapping touched.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "make templ - regenerate the three *_templ.go files",
+      "module": "gateway",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "make templ regenerated all three *_templ.go files. No generated file hand-edited.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "supercharger_test.go: verify against the Test Contract; repair only if broken",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "2.4",
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "Verification only, no new tests per the roadmap default. go vet compiles the package including _test.go; no existing assertion broke, so nothing needed repair.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "[granted] kkpa/context/workflows/supercharger-stats-read.md: 3 doc edits",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T01:38:18Z",
+      "completed_at": "2026-09-04T01:43:31Z",
+      "duration_seconds": null,
+      "notes": "Three KB edits applied to supercharger-stats-read.md: component map, glossary intro, and a new Status-badge gotcha bullet.",
+      "budget": {
+        "five_hour_pct_start": 27,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 4.12,
+        "approx": true,
+        "note": "One serial worker over all nine tasks; the delta covers the wave plus the leader's own verification of the three reported grep mismatches."
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "Assistant-run signals: build, vet, gofmt, i18n-guard, ui-guard",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "3.1",
+        "4.1",
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": null,
+      "started_at": "2026-09-04T01:43:31Z",
+      "completed_at": "2026-09-04T01:46:00Z",
+      "duration_seconds": null,
+      "notes": "Leader ran go build ./..., go vet ./internal/gateway/..., gofmt -l, make i18n-guard, make ui-guard. All clean; no changed file flagged by gofmt.",
+      "budget": null
+    },
+    {
+      "id": "6.2",
+      "title": "Owner runs go test ./internal/gateway/... and reports",
+      "module": "gateway",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "decisions": [
+    {
+      "scope": "design:badge-kind",
+      "made_by": "user",
+      "what": "DONE_CALCULATED renders Kind neutral; DONE stays primary and IN_PROGRESS stays ghost, matching /charges.",
+      "why": "D14 barred success/warning and left the third Kind open. neutral keeps the two shared states identical to /charges and makes weight rise with completeness.",
+      "at": "2026-09-04T01:20:00Z"
+    },
+    {
+      "scope": "design:second-notice",
+      "made_by": "user",
+      "what": "The second recommendation is its own ui.Alert{Kind:\"info\"} below the existing one under a new key, with owner-approved ES+EN copy.",
+      "why": "Two short notices read faster than one six-line paragraph. A warning Kind was rejected to keep warning off this page.",
+      "at": "2026-09-04T01:20:00Z"
+    },
+    {
+      "scope": "artifacts:grill-me-location",
+      "made_by": "autopilot",
+      "what": "config.yaml's rules.proposal grill-me requirement was satisfied by the leader's Step 2 interview with the owner, not by the worker.",
+      "why": "Subagents cannot talk to the user, so the interview can only happen leader-side. The worker flagged the discrepancy rather than deviating silently.",
+      "at": "2026-09-04T01:30:00Z"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-04T01:32:00Z",
+      "by": "leader",
+      "what": "Artifacts created and validated (openspec validate --strict clean), committed as bc0b040. Design gate does NOT apply - no database object is touched. The worker found a second colspan=\"7\" the leader's brief missed (supercharger_row_edit.templ:42, the edit form's full-width cell); leader verified it from disk and it has its own task 2.2."
+    },
+    {
+      "at": "2026-09-04T01:33:00Z",
+      "by": "leader",
+      "what": "WAVE 1 DISPATCHED: all nine implementation tasks (1.1, 1.2, 5.1, 2.1-2.4, 3.1, 4.1) to ONE serial gateway worker on Sonnet. Batched rather than split because every edit is small, mechanical and prescribed verbatim by design.md with an acceptance grep; one dispatch reads the doc pack once. Dependency order is preserved inside the batch. Budget at dispatch: five_hour_pct=27, context_pct=19."
+    },
+    {
+      "at": "2026-09-04T01:46:00Z",
+      "by": "leader",
+      "what": "WAVE 1 RECONCILED: all nine tasks done. The worker reported three acceptance greps returning less than tasks.md predicted and did NOT adjust them - the leader verified all three from disk and they are gofmt artifacts, not defects: gofmt column-aligns struct-literal colons and never puts a space before one, and design.md's own badge template references vm.RawStatus twice because the else is a catch-all. Content is byte-correct in every case. Worker timestamps were session-relative placeholders again (claimed a 01:20 start, before the 01:38 dispatch); the leader wrote the real dispatch and return times instead. Leader signals all clean. Only the owner's suite run remains."
+    }
+  ],
+  "review": {
+    "brief": null,
+    "status": null,
+    "agent": null,
+    "rounds": []
+  }
+}
