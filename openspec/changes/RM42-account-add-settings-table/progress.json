@@ -4,17 +4,30 @@
   "change": "RM42-account-add-settings-table",
   "module": "account",
   "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
-  "request": "Source ticket: MAG-43 — Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
-  "status": "proposed",
+  "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+    "pending": [
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T1",
+      "T2"
+    ]
   },
   "created_at": "2026-09-04T10:26:38Z",
-  "updated_at": "2026-09-04T10:26:38Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-04T10:45:26Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM42-MAG-43-settings-theme-selector",
@@ -24,16 +37,170 @@
     "created_at": "2026-09-04T10:26:38Z"
   },
   "tasks": [
-    { "id": "T1", "title": "Goose migration 20260904000001_add_account_settings.sql", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T2", "title": "Domain type + port interface (account.go): Settings, theme vocabulary, ErrUnsupportedTheme, PreferencesFor/ThemeFor/SetTheme", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3", "title": "sqlc query edits + regen: GetAccountSettings, UpdateAccountLanguage/Theme, InsertSettingsIfMissing", "module": "account", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T4", "title": "Service implementation: transactional UpsertFromOAuth, PreferencesFor, rewritten LanguageFor/SetLanguage, ThemeFor/SetTheme", "module": "account", "depends_on": ["T2", "T3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T5", "title": "Tests: pure normalizeTheme unit test + DATABASE_URL-gated TestAccountSettings_RoundTrip and language round-trip", "module": "account", "depends_on": ["T4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T6", "title": "Makefile/guard verification: MIGRATIONS_DIRS, db-setup/db-reset ownership, sqlc.yaml, migration-guard", "module": "account", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7", "title": "Docs: account/AGENTS.md public interface + kkpa/context/ KB grep and fix", "module": "account", "depends_on": ["T2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T8", "title": "Verification: build, vet, gofmt, boundary check, openspec validate --strict; report suite commands for the owner", "module": "account", "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+    {
+      "id": "T1",
+      "title": "Goose migration 20260904000001_add_account_settings.sql",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:43:15Z",
+      "completed_at": "2026-09-04T10:45:26Z",
+      "duration_seconds": 131,
+      "notes": "Migration created with design.md D2 DDL verbatim; timestamp collision check re-run, 20260904000001 free. Header cites D1/D2/D5.",
+      "budget": {
+        "five_hour_pct_start": 51.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 1.49,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T1+T2 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Domain type + port interface (account.go): Settings, theme vocabulary, ErrUnsupportedTheme, PreferencesFor/ThemeFor/SetTheme",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:43:15Z",
+      "completed_at": "2026-09-04T10:45:26Z",
+      "duration_seconds": 131,
+      "notes": "Theme constants, ErrUnsupportedTheme, Settings type and the three Service methods added; LanguageFor/SetLanguage doc comments repointed. Expected red build confirmed.",
+      "budget": {
+        "five_hour_pct_start": 51.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 1.49,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T1+T2 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "sqlc query edits + regen: GetAccountSettings, UpdateAccountLanguage/Theme, InsertSettingsIfMissing",
+      "module": "account",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Service implementation: transactional UpsertFromOAuth, PreferencesFor, rewritten LanguageFor/SetLanguage, ThemeFor/SetTheme",
+      "module": "account",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Tests: pure normalizeTheme unit test + DATABASE_URL-gated TestAccountSettings_RoundTrip and language round-trip",
+      "module": "account",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Makefile/guard verification: MIGRATIONS_DIRS, db-setup/db-reset ownership, sqlc.yaml, migration-guard",
+      "module": "account",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "Docs: account/AGENTS.md public interface + kkpa/context/ KB grep and fix",
+      "module": "account",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "Verification: build, vet, gofmt, boundary check, openspec validate --strict; report suite commands for the owner",
+      "module": "account",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
   "decisions": [
     {
       "id": "D1",
@@ -58,12 +225,52 @@
       "made_by": "autopilot",
       "decision": "Dispatched the artifacts worker on Sonnet rather than Opus",
       "why": "All 11 design decisions were pre-settled and handed over verbatim, so this was artifact authoring, not design discovery"
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-04T10:45:26Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Sibling-module account.Service test fakes will be fixed by the leader in wave 4, not now",
+      "why": "Fakes only break once the interface is implementable (T4); fixing them before that just churns. go build is red until T4 regardless.",
+      "covered_by": "tasks.md T8.1"
     }
   ],
   "events": [
-    { "at": "2026-09-04T10:26:38Z", "agent": "leader", "event": "dispatched account worker (sonnet) for artifact creation; returned 4 artifacts, openspec validate --strict passed" },
-    { "at": "2026-09-04T10:26:38Z", "agent": "leader", "event": "worker flagged an unanticipated finding: RM34's status='Active' gating would be silently dropped by the storage move. Escalated to the user, who confirmed carrying it forward (decision D2)." },
-    { "at": "2026-09-04T10:26:38Z", "agent": "leader", "event": "database design gate PASSED with the user (decision D1). Budget at gate: five_hour 47%, context 18%." },
-    { "at": "2026-09-04T10:26:38Z", "agent": "leader", "event": "RUN HALTED AFTER STEP 4 by design — the kkpa-pickup-linear-ticket payload scoped this run to artifacts + progress.json only. No implementation worker was dispatched, no reviewer ran, nothing was archived. Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table" }
+    {
+      "at": "2026-09-04T10:26:38Z",
+      "agent": "leader",
+      "event": "dispatched account worker (sonnet) for artifact creation; returned 4 artifacts, openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-04T10:26:38Z",
+      "agent": "leader",
+      "event": "worker flagged an unanticipated finding: RM34's status='Active' gating would be silently dropped by the storage move. Escalated to the user, who confirmed carrying it forward (decision D2)."
+    },
+    {
+      "at": "2026-09-04T10:26:38Z",
+      "agent": "leader",
+      "event": "database design gate PASSED with the user (decision D1). Budget at gate: five_hour 47%, context 18%."
+    },
+    {
+      "at": "2026-09-04T10:26:38Z",
+      "agent": "leader",
+      "event": "RUN HALTED AFTER STEP 4 by design \u2014 the kkpa-pickup-linear-ticket payload scoped this run to artifacts + progress.json only. No implementation worker was dispatched, no reviewer ran, nothing was archived. Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+    },
+    {
+      "at": "2026-09-04T10:43:15Z",
+      "agent": "leader",
+      "event": "RESUMED at Step 5. Wave plan: W1=T1+T2, W2=T3+T6+T7, W3=T4+T5, W4=T8(leader). Dispatched account worker (sonnet) for wave 1. Budget at dispatch: five_hour 51%, context 10%."
+    },
+    {
+      "at": "2026-09-04T10:45:26Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: T1+T2 done, verified against design.md D1/D2/D5/D6/D7 by reading the migration and account.go diff. Leader fixed one wrong decision reference (D7->D6) in a doc comment."
+    },
+    {
+      "at": "2026-09-04T10:45:26Z",
+      "agent": "leader",
+      "event": "worker finding accepted: 5 sibling test files reference account.Service (internal/app, internal/telemetry, internal/gateway/handlers x2, internal/analytics). Widened interface will break their fakes under vet. Leader-owned cross-module fix scheduled for wave 4 (decision D4)."
+    }
   ]
 }

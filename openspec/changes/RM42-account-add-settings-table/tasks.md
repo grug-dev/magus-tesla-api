@@ -30,7 +30,7 @@
 
 ## T1. Goose migration (`internal/account/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create `internal/account/db/migrations/20260904000001_add_account_settings.sql` with
+- [x] T1.1 Create `internal/account/db/migrations/20260904000001_add_account_settings.sql` with
       the exact DDL from `design.md` D2:
 
       ```sql
@@ -77,7 +77,7 @@
 
 ## T2. Domain type + port interface (`internal/account/account.go`) — no dependencies, parallel-ok with T1
 
-- [ ] T2.1 Add the closed theme vocabulary + sentinel error to `account.go`, near the existing
+- [x] T2.1 Add the closed theme vocabulary + sentinel error to `account.go`, near the existing
       `LanguageES`/`LanguageEN`/`ErrUnsupportedLanguage` declarations, with the doc comments from
       `design.md` D6:
       ```go
@@ -89,14 +89,14 @@
 
       var ErrUnsupportedTheme = errors.New("account: unsupported theme code")
       ```
-- [ ] T2.2 Add the `Settings` domain type from `design.md` D7:
+- [x] T2.2 Add the `Settings` domain type from `design.md` D7:
       ```go
       type Settings struct {
           Language string
           Theme    string
       }
       ```
-- [ ] T2.3 Add `PreferencesFor`, `ThemeFor`, and `SetTheme` to the `Service` interface, with the
+- [x] T2.3 Add `PreferencesFor`, `ThemeFor`, and `SetTheme` to the `Service` interface, with the
       doc comments from `design.md` D6/D7. Update `LanguageFor`/`SetLanguage`'s existing doc
       comments to note they are now backed by `account.settings` rather than a column on
       `accounts` (external behavior/signature unchanged). Place the three new methods after
