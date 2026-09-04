@@ -320,7 +320,7 @@
     {
       "at": "2026-09-04T10:52:11Z",
       "agent": "leader",
-      "event": "wave 2 reconciled: T3+T6+T7 done. Leader independently verified query.sql (EXISTS gates on all three gated queries, InsertSettingsIfMissing ungated per D10), the four generated types (all plain string), Account.Language gone from models.go, both doc diffs, and re-ran make migration-guard clean."
+      "event": "wave 2 reconciled: T3+T6+T7 done. Leader independently verified query.sql (EXISTS gates on all three gated queries, InsertSettingsIfMissing ungated per D10), the four generated types (all plain string), Account.Language gone from models.go, both doc diffs, and re-ran make migration-guard clean. Wave commit: d49ca7b."
     },
     {
       "at": "2026-09-04T10:52:11Z",
@@ -331,6 +331,11 @@
       "at": "2026-09-04T10:52:11Z",
       "agent": "leader",
       "event": "leader-owned cross-module doc fix applied: internal/gateway/AGENTS.md GetAccountLanguage -> GetAccountSettings (decision D5). Still outstanding for wave 4: the 5 sibling test fakes (decision D4)."
+    },
+    {
+      "at": "2026-09-04T10:52:40Z",
+      "agent": "leader",
+      "event": "Wave-2 boundary checkpoint gate evaluated: five_hour 68% (gate 90), context 12% (gate 40) — NEITHER tripped. Checkpoint RECOMMENDED anyway per the 3+-wave rule; awaiting the user's choice. Next: wave 3 = T4 + T5 (serial, one worker). Then wave 4 = T8 + leader-owned sibling test-fake fix (D4). Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
     }
   ]
 }
