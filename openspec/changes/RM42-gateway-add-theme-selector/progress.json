@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
   "request": "Source ticket: MAG-43 — Theme selector - Settings page. Tier 2 of RM42: real /settings page at /settings (nav item loses Placeholder), ui.Themes closed vocabulary + ui.ThemeSwitcher, POST /ui/theme/switch with CSRF, theme cookie as a read path, data-theme from ctx, instant client-side apply, ES+EN catalogue, new make theme-guard.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
@@ -26,7 +26,7 @@
     "awaiting_user_verification": []
   },
   "created_at": "2026-09-04T13:39:02Z",
-  "updated_at": "2026-09-04T16:52:55Z",
+  "updated_at": "2026-09-04T17:09:13Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -335,9 +335,9 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
+    "status": "in-review",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM42-gateway-add-theme-selector (tier 2, MAG-43) against the DIFF on ft/RM42-MAG-43-settings-theme-selector, not the whole module. Validate: (1) module-boundary compliance — every change inside internal/gateway/ except the two explicitly granted paths (Makefile theme-guard target, README.md) plus AGENTS.md docs; no gateway->telemetry import; the gateway calls account only through its public interface. (2) The one-query guarantee: exactly ONE PreferencesFor call site in non-test gateway code, zero LanguageFor/ThemeFor. This is the tier's core read-performance contract. (3) ThemeSwitch's ordering: auth guard -> checkCSRFKey(csrfThemeKey) -> vocabulary validation -> SetTheme -> setThemeCookie ONLY after a successful persist (the deliberate reversal of lang.go, design D2/D3). A cookie set before or without a successful SetTheme is a blocker. (4) No anonymous write path to POST /ui/theme/switch. (5) i18n: every new user-facing string resolves through i18n.T with both ES and EN non-empty. (6) ui.Themes is the single closed vocabulary; theme-guard reconciles it with account's Theme* constants and input.css. (7) Tests assert the expectations design.md authored UP FRONT (the test-contract rule), not whatever the implementation happens to do — read them, do not run them. (8) Docs: AGENTS.md RD15, the SIX exception count, the theme-switch exception subsection, and the README rewrite must match the real code. (9) Anti-gaming: no acceptance criterion weakened or deleted, no self-approved status. TEST SIGNALS — the ASSISTANT ran go build, go vet, gofmt -l and the six standalone guards (all clean). The OWNER ran `make test` and `make check` and reported both passing; make check's migration WARNING is a pre-existing backlog item unrelated to this change. Judge test QUALITY by reading the tests. KNOWN ACCEPTED ISSUE, do not re-raise as a finding: halloween's --color-primary sits ~5.6 hue degrees from --color-battery-mid. The owner reviewed this and accepted it as-is (decision D9). Escalate on doubt: return changes-requested rather than approving anything you are unsure about.",
     "rounds": []
   },
   "decisions": [
@@ -534,6 +534,16 @@
       "at": "2026-09-04T16:52:55Z",
       "agent": "leader",
       "event": "LEADER FIX at reconcile (worker flagged it, correctly refused to expand scope): AGENTS.md lines 329/725/728 still named the DELETED handlers.LanguageMiddleware after T3 replaced it with PreferencesMiddleware. The worker's T11.1 was scoped verbatim to four bullets that did not include them. Repointed all three; the line-329 bullet also now says the same middleware carries the theme. Zero LanguageMiddleware references remain. Also corrected README's 'four steps' over a five-item list."
+    },
+    {
+      "at": "2026-09-04T17:08:33Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE USER: the owner ran `make test` (passed) and `make check` (all eight phases clean — build, vet, ui/i18n/money/tz/migration/boundary/theme guards). This is the owner's report, not an assistant run. make check printed its known un-renumbered migration collision WARNING (20260720000001), a pre-existing backlog item whose migration is applied in no database and which this change does not touch. Change status -> verified. Proceeding to the reviewer gate."
+    },
+    {
+      "at": "2026-09-04T17:09:13Z",
+      "agent": "leader",
+      "event": "Reviewer gate opened: gateway-reviewer dispatched on sonnet, told to escalate on doubt. Brief stored in review.brief. It reviews the DIFF (0b9897f..HEAD), not the module, and is told which signals were assistant-run vs owner-reported so it judges test quality by reading rather than running. D9's accepted halloween colour overlap is named as a do-not-re-raise. Budget at dispatch: five_hour 15%, context 15%."
     }
   ]
 }
