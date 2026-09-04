@@ -24,7 +24,7 @@
     ]
   },
   "created_at": "2026-09-04T10:26:38Z",
-  "updated_at": "2026-09-04T12:02:58Z",
+  "updated_at": "2026-09-04T12:11:41Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -411,6 +411,11 @@
       "at": "2026-09-04T12:02:58Z",
       "agent": "leader",
       "event": "UNRELATED CHANGE FOUND ON THIS BRANCH: internal/gateway/templates/pages/dashboard.go was swept into the wave-1 checkpoint commit e132741. It comments out dashSubtitle's StatusLabel line and drops the bullet separator \u2014 nothing to do with RM42. Left untouched; flagged to the user."
+    },
+    {
+      "at": "2026-09-04T12:11:41Z",
+      "agent": "leader",
+      "event": "User ran make test: one failure, TestNavHeaderFragment_ConnectedHTTP, PRE-EXISTING and unrelated to RM42. badge-success was asserted since MAG-12 (1201133); MAG-44 removed the status dot from the markup and left the assertion behind. Fixed in its own commit 1bf8736 at the user's direction (assertion only, not the whole test). RM42 tier 1 did not cause it."
     }
   ]
 }
