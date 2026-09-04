@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. It's possible to allow selecting a theme for the entire website, and applying that theme in runtime? Like a Theme selector dropdown? Currently, I think the theme is set in data-theme=\"graphite\" (base.templ), I think the app currently supports halloween, apex and graphite. Let me know your thoughts. If that would be possible, add the theme selector into the settings page (new page that has a label \"soon\") on the menu",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-04T10:12:58Z",
+  "updated_at": "2026-09-04T12:38:30Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM42-MAG-43-settings-theme-selector",
@@ -16,14 +16,14 @@
     "created_at": "2026-09-04T10:12:58Z"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -74,14 +74,20 @@
       "module": "account",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "claude-sonnet-5 (workers) / claude-opus-5 (leader)",
       "started_at": "2026-09-04T10:12:58Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "completed_at": "2026-09-04T12:38:30Z",
+      "duration_seconds": 8732,
+      "budget": {
+        "five_hour_pct_delta": 19.0,
+        "cost_usd_delta": 6.08,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of 3 worker wave deltas; leader-owned T8 and both review rounds not separately bracketed"
+      },
+      "notes": "Archived as 2026-09-04-RM42-account-add-settings-table. 8/8 tasks done, suite passed per the OWNER, 2 review rounds (F1 major, resolved)."
     },
     {
       "id": 2,
@@ -121,6 +127,11 @@
       "at": "2026-09-04T10:12:58Z",
       "agent": "leader",
       "event": "tier 1 artifacts created and database design gate passed; tier 1 -> proposed. Run halted after Step 4 per the pickup payload."
+    },
+    {
+      "at": "2026-09-04T12:38:30Z",
+      "agent": "leader",
+      "event": "Tier 1 (RM42-account-add-settings-table) archived after reviewer-approved in round 2. Tier 2 (RM42-gateway-add-theme-selector) is now unblocked. autopilot=false, so it does NOT start automatically."
     }
   ]
 }

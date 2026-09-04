@@ -5,7 +5,7 @@
   "module": "account",
   "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
   "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
-  "status": "changes-requested",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -23,7 +23,7 @@
     "awaiting_user_verification": []
   },
   "created_at": "2026-09-04T10:26:38Z",
-  "updated_at": "2026-09-04T12:25:28Z",
+  "updated_at": "2026-09-04T12:38:02Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -241,7 +241,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "account-reviewer",
     "brief": "Review RM42-account-add-settings-table (tier 1 of RM42), module internal/account. Read the DIFF (0b9897f..HEAD), not the whole module. Validate: (1) module-boundary compliance \u2014 no writes outside internal/account except the leader-owned sibling test-fake fix and the gateway doc/test fixes recorded in events; internal/account imports neither internal/tesla nor internal/gateway; no pgtype in any public signature; (2) every doc-pack convention \u2014 CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/account/AGENTS.md; (3) DB objects match the USER-CONFIRMED design gate (decision D1): account.settings DDL, the CREATE->backfill->DROP COLUMN order, the data-restoring Down, and the PK-only index plan. Any mismatch is a BLOCKER finding; (4) the RM34 status='Active' gating carried forward per decision D2 \u2014 EXISTS on GetAccountSettings/UpdateAccountLanguage/UpdateAccountTheme, InsertSettingsIfMissing deliberately ungated; (5) spec/tasks coverage \u2014 every tasks.md checkbox reflects real work, specs/account/spec.md matches what shipped; (6) integration tests assert design.md's Test Contract expectations authored BEFORE implementation, not whatever the code happens to do. Test Contract item 1 (backfill) has NO Go test \u2014 decision D6 explains why (the harness applies all migrations before TestMain hands over). Judge whether that justification holds; (7) Performance-Profile compliance: read-heavy. PreferencesFor must serve both preferences in ONE query (decision D7) so no render path costs two reads; (8) anti-gaming: no weakened acceptance criteria, no deleted tasks, no self-approved statuses. TEST SIGNALS \u2014 assistant-run vs user-reported: go build ./..., go vet ./..., gofmt -l, make migration-guard and make boundary-guard were run by the ASSISTANT and were clean. The TEST SUITE was run by the OWNER, who reported `make test` passing. You must NOT run the suite yourself (Test-Execution-Policy). Judge test quality by READING the tests. NOTE two commits on this branch that are NOT RM42 work: e132741 swept an unrelated internal/gateway/templates/pages/dashboard.go edit into a checkpoint commit, and 1bf8736 fixes a pre-existing stale nav-header assertion at the user's explicit direction. Neither is tier-1 scope; flag if you disagree, do not treat as tier-1 defects.",
     "rounds": [
@@ -280,6 +280,39 @@
           "7_performance_profile": "Read service.go: PreferencesFor calls s.q.GetAccountSettings exactly once; LanguageFor and ThemeFor both delegate to PreferencesFor, so every caller path costs exactly one query regardless of how many of the two preferences it needs. GetAccountSettings itself is a single SELECT with an EXISTS subquery, both riding PK indexes -- no join, no N+1. Meets decision D7 / the read-heavy performance profile.",
           "8_anti_gaming": "Diffed tasks.md and specs/account/spec.md against a clean checkout of the change's own history (no earlier version to diff against since this is the first review round) and read progress.json's task/decision/event history for edits. No task or acceptance criterion was weakened, no deleted checkbox, no self-approved review status (review.status was 'pending' with agent null before this round). The one integrity concern is F1: T1 was marked 'done' with an acceptance criterion (Down-migration verification) that was not actually executed or explicitly deferred the way T5's test-suite verification correctly was -- flagged as a major finding rather than a blocker because the DDL itself is correct and user-confirmed, and running `goose down` is a gated action the assistant could not take unprompted."
         }
+      },
+      {
+        "round": 2,
+        "at": "2026-09-04T12:36:40Z",
+        "agent": "account-reviewer",
+        "verdict": "reviewer-approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/account/AGENTS.md",
+          "openspec/changes/RM42-account-add-settings-table/design.md",
+          "openspec/changes/RM42-account-add-settings-table/tasks.md",
+          "openspec/changes/RM42-account-add-settings-table/progress.json"
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "RESOLVED. `git log --oneline 0b9897f..HEAD` confirms the only commits since round 1 are 940a68e (the fix) and 98cbfc5 (a progress.json-only checkpoint) -- nothing else slipped in. `git show 940a68e` touches exactly two files, progress.json and tasks.md; no Go code, no migration SQL, no specs/account/spec.md. tasks.md T1.1 now carries an explicit 'VERIFIED 2026-09-04 (review round 1, finding F1)' paragraph naming what was run (a disposable postgres:16-alpine container, never the dev DB), the exact seed values (es/en/fr), and the exact observed outcome for both Up (three settings rows with those languages, theme=graphite, accounts.language dropped) and Down (accounts.language restored with the CURRENT value en -- not the stale es -- after a mutation, and account.settings dropped). This is honest, specific, additive evidence, not an unqualified 'done' -- exactly what round 1 asked for. Re-read the migration's `-- +goose Down` block directly: `ADD COLUMN` -> `UPDATE account.accounts a SET language = s.language FROM account.settings s WHERE s.account_id = a.id` -> `DROP TABLE account.settings`. The UPDATE reads from account.settings AT ROLLBACK TIME, so it necessarily copies whatever value is currently stored there, not any earlier value -- the SQL can only produce the reported 'restores with current values' behavior, confirming the leader's report is consistent with what the code actually does. Decision D8 records this was the user's explicit choice over touching the dev DB or leaving a paper note, matching the project's 'dev DB holds irreplaceable history' stance. No new finding.",
+            "status": "resolved"
+          }
+        ],
+        "checks": {
+          "1_commit_scope": "git log --oneline 0b9897f..HEAD and git show --stat on both 940a68e and 98cbfc5: only those two commits followed round 1, both touch progress.json (+98cbfc5 touches only that) and tasks.md, nothing else. No Go/SQL/spec files changed after round 1.",
+          "2_honesty_of_record": "tasks.md T1.1's new paragraph and progress.json's T1 task note both name the execution environment, the seed data, and the exact observed values for both directions of the migration -- specific and falsifiable, not a bare status flip. progress.json also correctly marks D6 as superseded rather than deleted, and adds a new decision D8 recording the user's explicit choice of verification method. This is the honest-record shape round 1 asked for.",
+          "3_down_sql_matches_claim": "Read internal/account/db/migrations/20260904000001_add_account_settings.sql in full again. Down block: ADD COLUMN language TEXT NOT NULL DEFAULT 'es' -> UPDATE ... FROM account.settings s WHERE s.account_id = a.id (copies the CURRENT stored value, not any historical one) -> DROP TABLE account.settings. This can only produce exactly the reported behavior; no mismatch, not a blocker.",
+          "4_anti_gaming_on_fix_commit": "940a68e diff reviewed line by line: no tasks.md checkbox was unchecked or reworded to be weaker, no specs/account/spec.md scenario touched, no acceptance-criteria text removed -- only an evidence paragraph appended to T1.1 and progress.json's task/decision/event history extended. The fix is additive, not a softened criterion.",
+          "5_review_status_not_self_approved": "review.status read 'changes-requested' at the start of this round (confirmed before any edit); review.agent/review.rounds are written exclusively by this reviewer role. No leader write to review.status/review.rounds occurred between round 1 and this round."
+        },
+        "cheap_signals": "go build ./... clean; go vet ./... clean repo-wide; gofmt -l internal/account flags only testdb_test.go, pre-existing and unmodified by this tier (consistent with round 1's and the leader's own findings); make migration-guard clean for this tier's timestamp (one unrelated pre-existing warning about a different, already-known un-renumbered collision, not touched by RM42); make boundary-guard clean.",
+        "goose_db_version_finding": "Agree it is out of tier-1 scope. It is a pre-existing, cross-module infrastructure fact (all four modules share one goose_db_version table) that RM42 did not create and that RM42's own migration does not depend on to function correctly -- RM42's Down was verified to work in isolation on a throwaway database. Correctly flagged for its own ticket rather than blocking this one."
       }
     ]
   },
@@ -490,6 +523,11 @@
       "at": "2026-09-04T12:25:28Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT at the review-round boundary. five_hour 93% (gate 90) TRIPPED; context 17% (gate 40) fine; seven_day 87%. five_hour_resets_at 2026-09-04 08:30 local. All work is committed and every status is truthful: 8/8 tasks done, suite passed per the OWNER's report, review round 1 changes-requested with its single finding F1 fixed and committed (940a68e). NEXT STEP: signal account-reviewer for round 2 re-verification of F1 only, then Step 8 archive. Resume after the bucket resets with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+    },
+    {
+      "at": "2026-09-04T12:38:02Z",
+      "agent": "leader",
+      "event": "Review round 2 (fresh account-reviewer, prior session gone): APPROVED. F1 resolved \u2014 the reviewer re-read the +goose Down SQL itself and confirmed the UPDATE..FROM can only restore current values, and verified 940a68e is additive evidence with no criterion weakened. No new findings. Reviewer re-ran build/vet/gofmt/migration-guard/boundary-guard clean. Top-level status transcribed from the reviewer's review.status \u2014 the leader did not self-approve."
     }
   ]
 }
