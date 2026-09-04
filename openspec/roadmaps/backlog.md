@@ -845,10 +845,21 @@ collision actually bites. Requires either a `make db-reset` (acceptable — the 
 public) or a seeding migration that copies applied version rows from the shared table into
 each per-module one.
 
+**A SECOND symptom of the same root cause, observed directly on 2026-09-04:** the shared
+table also breaks *rollback*. `goose -dir internal/<module>/db/migrations ... down` fails
+unless that module's migration happens to be the **globally** newest, because goose looks up
+the current version in the one shared table and finds a version belonging to another module.
+Reproduced against a fully-migrated DB: `goose -dir internal/account/db/migrations ... down`
+errored `migration 20260902000004: no current version found` — a version owned by
+`internal/analytics`. So **`make migrate-down` is unreliable past the first directory**, and
+verifying any module's Down migration currently needs a disposable container instead. The
+per-module version table fixes this at the same time as the collision problem.
+
 ### ORIGIN
 
 `RM39-schema-per-module` roadmap, decision **D4** (settled with the owner during the design
-interview, before any artifact was written).
+interview, before any artifact was written). The rollback symptom was found while verifying
+RM42 tier 1's Down migration (review round 1, finding F1).
 
 
 
