@@ -54,6 +54,12 @@ const (
 	KeyLangSwitcherSpanish Key = "lang_switcher.spanish"
 	KeyLangSwitcherEnglish Key = "lang_switcher.english"
 
+	// --- theme switcher (templates/ui/theme_switcher.templ) — RM42 tier 2.
+	// Theme NAMES (Apex/Graphite/Halloween) are deliberately NOT catalogue keys
+	// (roadmap D11) — only the switcher's own label + accessible name are here.
+	KeyThemeSwitcherLabel Key = "theme_switcher.label"
+	KeyThemeSwitcherAria  Key = "theme_switcher.aria"
+
 	// ==========================================================================
 	// RM24-gateway-translate-all-pages (tier 3): every remaining page, fragment,
 	// and handler-produced string across the gateway. Added in one single-writer
@@ -305,6 +311,10 @@ const (
 	KeyLangSwitchErrorCouldNotSaveLanguage  Key = "lang_switch_error.could_not_save_language"
 	KeyLangSwitchErrorCouldNotBuildRedirect Key = "lang_switch_error.could_not_build_redirect"
 
+	// --- theme switch errors (handlers/preferences.go) — RM42 tier 2 ---
+	KeyThemeSwitchErrorUnsupportedTheme  Key = "theme_switch_error.unsupported_theme"
+	KeyThemeSwitchErrorCouldNotSaveTheme Key = "theme_switch_error.could_not_save_theme"
+
 	// --- charges list table headers (fragments/charges_list.templ) ---
 	// Deliberately NOT reusing KeyChargesFormDate/Vehicle/Price, KeySuperchargerEnergy,
 	// or KeyDashboardBatteryTitle: a table column header is a different semantic role
@@ -393,6 +403,9 @@ var catalog = map[Key]entry{
 	KeyLangSwitcherAria:    {ES: "Cambiar idioma", EN: "Change language"},
 	KeyLangSwitcherSpanish: {ES: "Español", EN: "Español"},
 	KeyLangSwitcherEnglish: {ES: "English", EN: "English"},
+
+	KeyThemeSwitcherLabel: {ES: "Tema", EN: "Theme"},
+	KeyThemeSwitcherAria:  {ES: "Cambiar tema", EN: "Change theme"},
 
 	// --- RM24-gateway-translate-all-pages (tier 3) ---
 
@@ -597,6 +610,9 @@ var catalog = map[Key]entry{
 	KeyLangSwitchErrorUnsupportedLanguage:   {ES: "idioma no soportado", EN: "unsupported language"},
 	KeyLangSwitchErrorCouldNotSaveLanguage:  {ES: "no se pudo guardar la preferencia de idioma", EN: "could not save language preference"},
 	KeyLangSwitchErrorCouldNotBuildRedirect: {ES: "no se pudo construir la redirección", EN: "could not build redirect"},
+
+	KeyThemeSwitchErrorUnsupportedTheme:  {ES: "tema no soportado", EN: "unsupported theme"},
+	KeyThemeSwitchErrorCouldNotSaveTheme: {ES: "no se pudo guardar el tema", EN: "could not save theme"},
 
 	KeyChargesListHeaderDate:       {ES: "Fecha", EN: "Date"},
 	KeyChargesListHeaderEnergy:     {ES: "Energía", EN: "Energy"},

@@ -18,7 +18,7 @@
 
 New files only, in the existing `internal/gateway/templates/ui` package (design.md D1/D4).
 
-- [ ] T1.1 Create `internal/gateway/templates/ui/theme.go`: `var Themes = []string{"apex",
+- [x] T1.1 Create `internal/gateway/templates/ui/theme.go`: `var Themes = []string{"apex",
       "graphite", "halloween"}`; `const DefaultTheme = "graphite"`; `func IsSupportedTheme(v
       string) bool` (loop over `Themes`); an unexported `ctxKey struct{}` + `var themeCtxKey
       ctxKey`; `func WithTheme(ctx context.Context, theme string) context.Context`; `func
@@ -26,7 +26,7 @@ New files only, in the existing `internal/gateway/templates/ui` package (design.
       check, default to `DefaultTheme` on anything else — mirrors `i18n.FromContext`'s shape
       exactly, design.md D1). Package imports NOTHING from `internal/account` (`ui.go`'s
       package doc: "no domain imports" — Test Contract 1/2).
-- [ ] T1.2 Create `internal/gateway/templates/ui/theme_switcher.templ`: `ThemeSwitcherProps{
+- [x] T1.2 Create `internal/gateway/templates/ui/theme_switcher.templ`: `ThemeSwitcherProps{
       Current, CSRFToken string}` (design.md D3 — `CSRFToken` is minted by `SettingsPage`, T6,
       and has nothing to do with T1 itself beyond carrying it through); `templ ThemeSwitcher(p
       ThemeSwitcherProps)` — CSS-only DaisyUI `dropdown` (mirrors `lang_switcher.templ`'s markup
@@ -40,18 +40,18 @@ New files only, in the existing `internal/gateway/templates/ui` package (design.
       normally; the header trick is reserved for the DELETE-body case it was built for). Trigger
       text uses `i18n.T(ctx, i18n.KeyThemeSwitcherLabel)` + the title-cased `Current` value;
       `aria-label={ i18n.T(ctx, i18n.KeyThemeSwitcherAria) }`.
-- [ ] T1.3 `internal/gateway/templates/ui/theme_test.go`: `TestNormalizeTheme`/
+- [x] T1.3 `internal/gateway/templates/ui/theme_test.go`: `TestNormalizeTheme`/
       `TestIsSupportedTheme` (Test Contract 1, 2) and `TestThemeFromContext_DefaultsAndPanicSafety`
       (mirrors `TestFromContext_DefaultsAndPanicSafety` in `i18n_test.go` — missing key, wrong
       type, unsupported value all default to `graphite`; no panic).
-- [ ] T1.4 `internal/gateway/templates/ui/theme_switcher_test.go`: `TestThemeSwitcher_ListsAllThemesInOrder`
+- [x] T1.4 `internal/gateway/templates/ui/theme_switcher_test.go`: `TestThemeSwitcher_ListsAllThemesInOrder`
       (Test Contract 18 — exactly `len(Themes)` options, in `Themes` order, each `hx-vals`
       carrying both its own theme code AND the passed-in `CSRFToken`) and
       `TestThemeSwitcher_TriggerShowsCurrentTitleCased`.
 
 ## T2. i18n catalogue — no dependencies
 
-- [ ] T2.1 In `internal/gateway/i18n/catalog.go`, add four `Key` constants + `catalog` entries
+- [x] T2.1 In `internal/gateway/i18n/catalog.go`, add four `Key` constants + `catalog` entries
       (ES/EN on the same line each, per the file's existing convention): `KeyThemeSwitcherLabel`
       (`"Tema"` / `"Theme"`), `KeyThemeSwitcherAria` (`"Cambiar tema"` / `"Change theme"`),
       `KeyThemeSwitchErrorUnsupportedTheme` (mirrors `KeyLangSwitchErrorUnsupportedLanguage`'s
@@ -60,7 +60,7 @@ New files only, in the existing `internal/gateway/templates/ui` package (design.
       Theme NAMES (`Apex`/`Graphite`/`Halloween`) are explicitly NOT added here — roadmap D11 —
       they render as literal Go string constants from `ui.Themes`/`titleCase`, never through
       `i18n.T`.
-- [ ] T2.2 No new test needed (Test Contract 17) — the existing
+- [x] T2.2 No new test needed (Test Contract 17) — the existing
       `TestCatalog_AllKeysHaveBothLanguages` in `catalog_test.go` covers every key added above
       automatically; confirm it still passes by inspection (both languages non-empty on each new
       line).

@@ -1,0 +1,320 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM42-gateway-add-theme-selector",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
+  "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. Tier 2 of RM42: real /settings page at /settings (nav item loses Placeholder), ui.Themes closed vocabulary + ui.ThemeSwitcher, POST /ui/theme/switch with CSRF, theme cookie as a read path, data-theme from ctx, instant client-side apply, ES+EN catalogue, new make theme-guard.",
+  "status": "in-progress",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10",
+      "T11"
+    ],
+    "blocked": [],
+    "done": [
+      "T2"
+    ],
+    "awaiting_user_verification": [
+      "T1"
+    ]
+  },
+  "created_at": "2026-09-04T13:39:02Z",
+  "updated_at": "2026-09-04T13:46:14Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM42-MAG-43-settings-theme-selector",
+    "base": "0b9897f",
+    "ticket": "MAG-43",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-43/theme-selector-settings-page",
+    "created_at": "2026-09-04T13:39:02Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "ui.Themes closed vocabulary + ui.WithTheme/ThemeFromContext carrier + ui.ThemeSwitcher",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T13:34:00Z",
+      "completed_at": "2026-09-04T13:48:00Z",
+      "duration_seconds": 840,
+      "notes": "Created theme.go (Themes/DefaultTheme/IsSupportedTheme/WithTheme/ThemeFromContext, no domain imports), theme_switcher.templ (ranges over Themes, CSRFToken in hx-vals, titleCase not ToUpper), theme_test.go, theme_switcher_test.go. make templ generated the _templ.go. Tests written, not executed.",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 48.0,
+        "five_hour_pct_delta": 3.0,
+        "cost_usd_delta": 1.6,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T1+T2 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "i18n catalogue entries (ES+EN) for the settings page and theme control",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T13:29:00Z",
+      "completed_at": "2026-09-04T13:32:00Z",
+      "duration_seconds": 180,
+      "notes": "Added KeyThemeSwitcherLabel/Aria and KeyThemeSwitchErrorUnsupportedTheme/CouldNotSaveTheme. Leader verified by inspection that all four carry non-empty ES and EN; make i18n-guard clean. No theme-name keys (D11).",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 48.0,
+        "five_hour_pct_delta": 3.0,
+        "cost_usd_delta": 1.6,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T1+T2 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "PreferencesMiddleware (one PreferencesFor call) + theme cookie helpers",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "ThemeSwitch handler + csrfThemeKey CSRF check",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "base.templ data-theme from ctx + nav.go Settings entry loses Placeholder",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "/settings page, mints the CSRF token",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "Wire routes + rename the middleware registration in gateway.go",
+      "module": "gateway",
+      "depends_on": [
+        "T3",
+        "T4",
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "Instant-apply JS (RD15) in app.js",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T9",
+      "title": "make theme-guard + wire into make check",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T10",
+      "title": "D7 manual Halloween check of dashboard charts and tiles \u2014 report only",
+      "module": "gateway",
+      "depends_on": [
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T11",
+      "title": "Docs: gateway AGENTS.md (RD15 + add-a-theme recipe + theme-switch CSRF note), README",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T3",
+        "T4",
+        "T6",
+        "T8",
+        "T9"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-04T13:39:02Z",
+      "scope": "security",
+      "made_by": "user",
+      "decision": "POST /ui/theme/switch REQUIRES CSRF (Supercharger pattern), not the language switch's no-CSRF exception",
+      "why": "LangSwitcher earned the exception by mounting on every page; ThemeSwitcher mounts on one authenticated page, so minting a token is cheap."
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-04T13:39:02Z",
+      "scope": "design",
+      "made_by": "user",
+      "decision": "The theme cookie stays but is a READ path only; the write is authenticated-only, so no anonymous POST path exists",
+      "why": "Its only job is post-logout continuity \u2014 home and login still render the chosen theme."
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-04T13:39:02Z",
+      "scope": "scope",
+      "made_by": "autopilot",
+      "decision": "ThemeSwitcher mounts only on /settings (not the navbar), and /settings renders the theme control only",
+      "why": "Roadmap tier-2 scope column and the ticket title; the owner's standing preference is minimal scope."
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-04T13:39:02Z",
+      "scope": "dispatch",
+      "made_by": "autopilot",
+      "decision": "Artifacts worker ran on Sonnet",
+      "why": "Artifact authoring against a fully-decided roadmap; no cross-cutting ambiguity that needed Opus."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-04T13:39:02Z",
+      "agent": "leader",
+      "event": "Tier 2 opened under AUTOPILOT. Artifacts created and validated --strict, then revised after the user settled the CSRF posture (D1) and the cookie's role (D2). 11 tasks, 6 waves from depends_on: [T1,T2] -> [T3,T5,T8,T9] -> [T4] -> [T6] -> [T7,T10] -> [T11]."
+    },
+    {
+      "at": "2026-09-04T13:39:12Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched: T1+T2 as ONE serial gateway worker (sonnet). Budget at dispatch: five_hour 45%, context 20%, seven_day 27%."
+    },
+    {
+      "at": "2026-09-04T13:46:14Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled: T2 done, T1 awaiting-user-verification (tests written, never executed). Leader independently re-ran go build ./... and go vet ./internal/gateway/... (both clean), confirmed the diff is gateway-only, and read catalog.go's diff to confirm all four new keys carry non-empty ES and EN."
+    },
+    {
+      "at": "2026-09-04T13:46:14Z",
+      "agent": "leader",
+      "event": "WORKER FINDING carried forward to wave 2: tasks.md T1.3 asks for TestNormalizeTheme in ui/theme_test.go, but normalizeTheme is a T3 function that lives in handlers/preferences.go per design.md's file table. The worker tested the equivalent ui.IsSupportedTheme+DefaultTheme composition and documented it rather than faking a call to a function that does not exist yet. T3 must still give handlers.normalizeTheme its own coverage."
+    }
+  ]
+}
