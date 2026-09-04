@@ -94,7 +94,7 @@ functions.
 **Downstream consumers never re-call `PreferencesFor`.** `pages.SettingsPage`'s handler reads
 the current theme via `ui.ThemeFromContext(c.Request.Context())` — the same value the middleware
 already resolved for this request — never a second `acct.PreferencesFor`/`acct.ThemeFor` call.
-This is asserted directly in the Test Contract (item 9) via a call-counting fake, not left as an
+This is asserted directly in the Test Contract (item 14) via a call-counting fake, not left as an
 unverified claim.
 
 ---
@@ -119,58 +119,103 @@ below) reads and writes `document.documentElement.dataset.theme`, a DOM attribut
 `document.cookie`. The cookie exists purely so the SERVER can resolve the right theme on the
 next request; the JS-side instant apply is a separate, parallel mechanism that doesn't touch it.
 
-**Is the anonymous read path meaningful, given the switcher only renders on the authenticated
-`/settings` page?** Yes, for the same reason the `lang` cookie's anonymous path matters even
-though `LangSwitcher` (mounted on `Base`) is the only place that writes it before login: the
-value this cookie carries is READ on every `Base`-shell page too, not only `BaseAuth` ones. A
-user who set their theme on `/settings`, then logs out, still lands on the `Home`/`Login` pages
-with their chosen palette — the cookie is what carries the preference across that boundary,
-exactly as `lang` already does. The asymmetry is real but narrow: `theme`'s WRITE path is
-currently reachable only from an authenticated page (no anonymous UI control exists to change
-it), while `lang`'s write path is reachable from both. Both cookies' READ path is exercised on
-every page regardless of auth state. `ThemeSwitch` itself stays structurally permissive (no auth
-guard — see D3) so this asymmetry is a UI-surface decision, not a handler-level restriction; a
-future anonymous theme control (e.g. on the login page) would need no handler change.
+**Settled with the user: the cookie is a READ-only mechanism — there is no anonymous write
+path, and none should be designed.** `POST /ui/theme/switch` is authenticated-only (D3 below):
+the only control that can submit to it lives on `/settings`, which already requires a session.
+So unlike `lang` — whose cookie is written by BOTH an anonymous caller (via `LangSwitcher` on
+`Base`) and a signed-in one — `theme`'s cookie has exactly ONE writer: `ThemeSwitch`, and it is
+only ever reachable from a signed-in request. `PreferencesMiddleware`'s anonymous branch never
+writes this cookie; it only ever READS it.
+
+**The cookie's entire justification is that read path, and nothing else — say so plainly, or a
+future reader will wonder why it exists.** A signed-in user's switch writes BOTH the
+`account.settings` row AND the `theme` cookie, in the same request (D3 below). The reason to
+also write the cookie, rather than relying solely on the DB row, is continuity across a session
+boundary the DB alone cannot cover: `Base`-shell pages (`/`, `/login`) and any page loaded AFTER
+logout have no session, hence no `account.Service.PreferencesFor` call at all — `data-theme` on
+those pages can ONLY come from the cookie. Without it, a user who picked `apex` on `/settings`
+would see the default `graphite` flash back the moment they logged out, even though their
+account still remembers `apex` for their next login. The cookie exists purely to keep that one
+moment — logged-out pages, and the brief pre-login `Base` shell — visually consistent with the
+preference the account already has on file. It is not a parallel write target a forged or
+anonymous request can ever reach; `ThemeSwitch`'s auth guard removes that surface entirely.
 
 ---
 
-## D3 — The CSRF posture
+## D3 — The CSRF posture (SETTLED)
 
-**Proposed: mirror the language switch's no-CSRF exception — `theme` cookie's `SameSite=Lax` is
-the sole defence, no `csrf_token` check on `POST /ui/theme/switch`.**
+**Decision, confirmed by the user: `POST /ui/theme/switch` requires CSRF. It follows the
+charging/D4 write-exception pattern (as refined by the Supercharger/D8 amendment), NOT the
+language switch's no-CSRF exception.** This reverses the recommendation this design.md
+originally proposed — the analysis below explains why the language precedent looked applicable
+at first, and exactly which premise breaks it.
 
-The risk profile is structurally identical to `LangSwitch`'s, on every axis
-`internal/gateway/AGENTS.md`'s "Exception: language switch" section uses to justify it:
+**Why the language precedent does NOT transfer, in the user's own words back to the original
+proposal.** The original D3 draft leaned on `AGENTS.md`'s "Exception: language switch" cost
+argument: requiring CSRF would mean minting a session token "on every page in the module... for
+a control mounted on every page." That argument's force comes entirely from `LangSwitcher`
+being mounted EVERYWHERE, including anonymous pages (`Base`) — a session CSRF token cannot even
+exist for an anonymous visitor, so requiring one would have meant a much larger redesign, not a
+small addition. `ThemeSwitcher` mounts on exactly ONE page, `/settings`, which is already
+authenticated (D2 above — there never was an anonymous write path once D2 settled that). Minting
+one CSRF token from one already-authenticated page handler is precisely the case
+`AGENTS.md`'s language section's own cost argument does NOT cover — the "mounted everywhere,
+including where no session exists" problem simply does not exist here. Every other axis of the
+language exception's reasoning (own-account-only mutation, reversible, low stakes) is still
+true of theme, but the ONE axis that actually forced the CSRF question to be waived for language
+— nowhere to mint a token — does not hold for theme. That is the whole decision.
 
-1. **No auth guard, no redirect-to-login** — same reasoning: this endpoint must work for
-   anonymous callers too (D2 above), so a redirect-to-login would defeat that path entirely.
-2. **No tenant-ownership check** — `SetTheme(ctx, uid, theme)` always targets the CALLER'S OWN
-   session `uid`. There is no user-submitted resource identifier (unlike D4's vehicle
-   `(TeslaID, VIN)` pair) for a forged request to redirect at a different account.
-3. **No CSRF token** — a forged cross-site request against this endpoint can only ever change
-   the caller's own display theme: no data mutation beyond a cosmetic preference, nothing to
-   exfiltrate, reversible in one click on `/settings`. This is the identical trade-off
-   `AGENTS.md` already accepted for language, for the identical reason.
-4. **Scope stays narrow** — only `SetTheme` is permitted under this exception; every other
-   handler in this tier's slice not covered by an existing D4/D-lang exception is Reader-only
-   (in fact `ThemeSwitch` is the only write this tier adds at all).
+**Implementation — mirrors the Supercharger/D8 amendment exactly** (read
+`internal/gateway/handlers/supercharger.go`'s `csrfSuperchargerKey`/`SuperchargerStatsPage`/
+`checkCSRFKey` shape; do not invent a variant):
 
-**Why this is a PROPOSAL, not yet a decision this tier is entitled to make unilaterally.**
-`internal/gateway/AGENTS.md`'s own language-switch section is explicit: *"This trade-off was put
-to the user and explicitly approved on 2026-08-13, conditional on `SameSite=Lax`. It is not a
-worker's unilateral call."* That sentence describes exactly the situation here — the reasoning
-transfers cleanly, but the sign-off does not. This design.md records the recommendation and its
-full justification so the decision is ready to confirm, but implementation of `ThemeSwitch`
-MUST NOT be treated as final until the user has explicitly approved the no-CSRF posture for
-theme specifically (tasks.md T4 gates on this explicitly). If the user instead wants the
-charging/D4 CSRF pattern applied here, the change is small — one `checkCSRFKey(c,
-csrfThemeKey)` call plus issuing that session key from `SettingsPage` — but it also means
-`SettingsPage` must mint a token even though it renders no other write-capable form, which is
-the exact cost `AGENTS.md`'s language section weighs against requiring CSRF for a
-mounted-everywhere control. That cost argument is weaker here (the theme switcher, unlike the
-language one, mounts on exactly ONE page), so if CSRF is required after review, minting the
-token only on `/settings` is cheap and does not generalize into every other Reader-only page
-gaining a CSRF token the way the language exception worried about.
+1. **`csrfThemeKey = "csrf_theme"`** — a new session key, declared in the new
+   `preferences.go` (D1) alongside `PreferencesMiddleware`/`ThemeSwitch`, distinct from
+   `csrfManualChargeKey`, `csrfVehicleSelectKey`, and `csrfSuperchargerKey`.
+2. **`SettingsPage` mints the token.** On every `GET /settings`, after the auth guard, call the
+   EXISTING `generateCSRFToken()` (`charges.go` — same package, no new helper), `sess.Set(
+   csrfThemeKey, csrfToken)`, `sess.Save()` — the exact `ChargePage`/`SuperchargerStatsPage`
+   shape. `SettingsPage` therefore now lives in `preferences.go` too (not `handlers.go`, and not
+   a separate `settings.go`), the same way `SuperchargerStatsPage` and `csrfSuperchargerKey` sit
+   together in `supercharger.go` — the page that mints a CSRF token and the key it mints live in
+   one file, so a future reader finds both without hunting.
+3. **`pages.SettingsPage(theme, csrfToken string)`** passes the minted token down to
+   `ui.ThemeSwitcherProps.CSRFToken` (D4 below).
+4. **`ThemeSwitch` checks it.** `h.checkCSRFKey(c, csrfThemeKey)` — the EXISTING generic checker
+   (`charges.go`), unchanged. Order mirrors the Supercharger amendment's own point 1/2 exactly:
+   auth guard FIRST (D2 — no session, no token could ever have been minted, so checking CSRF
+   before auth would just be checking against an empty session value), THEN the CSRF check,
+   THEN the submitted-value validation.
+5. **No separate tenant-ownership check** — same divergence the Supercharger amendment itself
+   already documents for its own case, for the identical reason: `SetTheme(ctx, uid, theme)`
+   targets the caller's OWN session `uid`, so there is no submitted resource identifier
+   (`TeslaID`/`VIN`-shaped) to validate against `RegisteredVehicles`. This one point is where
+   theme's shape still resembles the language exception's own reasoning (D4's ownership check
+   exists because a vehicle id is submitted; neither language nor theme submits one) — it is
+   the CSRF requirement specifically that does not transfer, not every point of the analogy.
+
+**How the token travels on the wire.** `ThemeSwitcher`'s options are buttons, not a `<form>`
+(same shape as `LangSwitcher`), so there is no natural hidden `<input name="csrf_token">` to
+place it in. Unlike the Charges row-delete button (which sends its CSRF token on the
+`X-CSRF-Token` HEADER specifically because Go's `net/http` does not parse a request BODY for
+`DELETE`), `ThemeSwitch` is a `POST`, whose body Go parses normally — so the simpler, precedent-
+consistent choice is embedding `csrf_token` as a second key in the SAME `hx-vals` JSON blob that
+already carries `theme`, exactly as `LangSwitcher`'s buttons already put `lang` there:
+`hx-vals='{"theme":"apex","csrf_token":"<token>"}'`. `checkCSRFKey`'s `c.PostForm("csrf_token")`
+reads it with zero handler-side change. The `X-CSRF-Token`-header mechanism stays reserved for
+the `DELETE`-body case it was built for; using it here would be copying a workaround this
+endpoint does not need.
+
+**One more place this tier deliberately does NOT mirror `lang.go`: cookie-write ordering.**
+`LangSwitch` sets its cookie FIRST, unconditionally, before attempting any DB write — correct
+there because the cookie is that endpoint's ONLY persistence for an anonymous caller. `theme`
+has no anonymous caller anymore (D2): the cookie is now purely a mirror of what the account row
+actually holds. `ThemeSwitch` therefore sets `theme`'s cookie ONLY AFTER `SetTheme` succeeds —
+setting it earlier (or unconditionally) would let the cookie claim a value the database write
+never actually reached, which is exactly the kind of lie D2's "read path only, mirrors the DB"
+framing rules out. See the Test Contract (items 9/12) and `AGENTS.md`'s new "Exception: theme
+switch" subsection (D8) for this called out explicitly, so a future agent does not "fix" the
+ordering back to match `lang.go` by mistake.
 
 ---
 
@@ -205,7 +250,8 @@ func IsSupportedTheme(v string) bool {
 
 ```go
 type ThemeSwitcherProps struct {
-    Current string // one of ui.Themes; caller normalizes before passing in
+    Current   string // one of ui.Themes; caller normalizes before passing in
+    CSRFToken string // minted by SettingsPage (design.md D3); embedded in each option's hx-vals
 }
 
 templ ThemeSwitcher(p ThemeSwitcherProps) {
@@ -216,7 +262,7 @@ templ ThemeSwitcher(p ThemeSwitcherProps) {
         <ul tabindex="-1" class="dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-sm">
             for _, t := range Themes {
                 <li>
-                    <button type="button" hx-post="/ui/theme/switch" hx-swap="none" hx-vals={ themeVals(t) }>
+                    <button type="button" hx-post="/ui/theme/switch" hx-swap="none" hx-vals={ themeVals(t, p.CSRFToken) }>
                         { titleCase(t) }
                     </button>
                 </li>
@@ -229,7 +275,9 @@ templ ThemeSwitcher(p ThemeSwitcherProps) {
 (`titleCase`/`themeVals` are small unexported helpers in the same file — `titleCase` upper-cases
 the first rune only, since roadmap D11 requires theme names render exactly as `Apex`/
 `Graphite`/`Halloween`, not `strings.ToUpper` as `LangSwitcher` does for two-letter codes;
-`themeVals(t)` returns the literal `{"theme":"apex"}`-shaped JSON string per option.)
+`themeVals(t, csrfToken)` returns the literal `{"theme":"apex","csrf_token":"<token>"}`-shaped
+JSON string per option — see design.md D3 for why the token rides in `hx-vals` rather than an
+`X-CSRF-Token` header.)
 
 **Why `Options`-less like `LangSwitcherProps`, but internally range over `Themes` where
 `LangSwitcher` hardcodes two `<li>`s.** `LangSwitcherProps`'s own doc comment states its
@@ -409,10 +457,19 @@ documented with their steps" rules:
     roadmap D10's four-step "add a theme" recipe verbatim (new CSS file → `@import` line →
     `ui.Themes` entry → `make css`), since D10 requires it recorded in AGENTS.md specifically,
     not only in README.
-  - Document the `PreferencesMiddleware` rename, the new `theme` cookie, and (once the D3
-    sign-off lands) the finalized CSRF posture — mirroring the existing "Exception: language
-    switch" subsection's shape, added as a new "Exception: theme switch" subsection referencing
-    it rather than duplicating its prose.
+  - Document the `PreferencesMiddleware` rename and the new `theme` cookie (read-only, D2).
+  - A new "Exception: theme switch" subsection, sibling to the existing "Exception: language
+    switch" one, recording D3's SETTLED outcome: `ThemeSwitch` requires auth + CSRF
+    (`csrfThemeKey`), mirroring the Supercharger/D8 amendment, NOT the language exception.
+    State explicitly, in these words or near them: *"Unlike the language switch, the theme
+    switch is CSRF-protected — the analogy to the language exception breaks on exactly one
+    point (where the control mounts; see design.md D3), so do not 'simplify' this endpoint by
+    copying `lang.go`'s no-CSRF, cookie-first-unconditionally shape. `ThemeSwitch` sets its
+    cookie ONLY after a successful `SetTheme` write, deliberately diverging from `LangSwitch`'s
+    ordering — see design.md D3."* This sentence exists specifically so a future agent who
+    reads `lang.go` as "the" gateway CSRF-exception pattern does not port its shape onto
+    `preferences.go` and silently reopen an anonymous write path or the cookie-lies-about-
+    the-DB bug D3 rejected.
   - `Deps`/"Public interface" section needs NO new entry — this tier adds no new module
     dependency; `account.Service` is already listed.
 - **Root `README.md`, "Switching the theme" section** — rewritten. The mechanism it documents
@@ -432,6 +489,9 @@ documented with their steps" rules:
 
 Authored up front, before implementation, per `ai/go-conventions.md`'s "author their expected
 values up front" rule. `tasks.md` cites these item numbers in its acceptance criteria.
+**Revision note:** items 7–12 were rewritten (and the count grew from 19 to 21) when D2/D3
+settled — there is no anonymous `ThemeSwitch` path anywhere in this contract; every write-path
+item below requires an authenticated session and a valid CSRF token.
 
 1. **`normalizeTheme`** — `"apex"`→`"apex"`, `"graphite"`→`"graphite"`, `"halloween"`→
    `"halloween"`; `""`, `"cyberpunk"`, `"APEX"` (case-sensitive, no fuzzy match) all →
@@ -452,46 +512,68 @@ values up front" rule. `tasks.md` cites these item numbers in its acceptance cri
 6. **`PreferencesMiddleware`, anonymous** — no `PreferencesFor` call at all (fake asserts zero
    calls); `theme` cookie present and valid → context carries that value; absent/invalid →
    `ui.DefaultTheme`.
-7. **`ThemeSwitch`, anonymous** — valid `theme` form value → `theme` cookie set, `SetTheme` NOT
-   called (fake asserts zero calls), `200` response with **no** `HX-Location` header (contrast
-   with `LangSwitch`, which always sets one).
-8. **`ThemeSwitch`, signed-in, happy path** — valid `theme` → cookie set AND
-   `SetTheme(ctx, uid, theme)` called with the exact submitted value, `200`, no `HX-Location`.
-9. **`ThemeSwitch`, unsupported value** — `theme=cyberpunk` → `400`, no cookie set, `SetTheme`
-   NOT called.
-10. **`ThemeSwitch`, `SetTheme` returns an error** — `500`; the `theme` cookie WAS already set
-    (mirrors `LangSwitch`'s "always set the cookie first" ordering) even though the DB write
-    failed.
-11. **`SettingsPage`, unauthenticated** — redirects to `/login`, no render.
-12. **`SettingsPage`, authenticated** — `200`; renders `ui.ThemeSwitcher` with `Current` equal
-    to the request context's already-resolved theme; **`PreferencesFor` is called exactly ONCE
-    for the whole request** (asserted via the shared middleware call, not a second call from the
-    handler) — this is the test that directly proves the "ONE query per request" invariant holds
-    for the settings page specifically, not just for pages that don't need theme.
-13. **`nav.go`, `navItems`** — the Settings entry has `Placeholder: false`, `Href: "/settings"`,
+7. **Cookie read path survives logout (D2's stated justification, tested directly)** — a
+   request carrying NO session cookie (the post-logout/never-logged-in state) but a
+   `theme=apex` cookie set by an earlier signed-in switch → `PreferencesMiddleware` resolves
+   `apex` with zero `PreferencesFor` calls, AND rendering `layouts.Base` (the anonymous shell)
+   with that context produces `data-theme="apex"`. This is the same mechanism as item 6, tested
+   end-to-end through `Base` specifically because it is the exact scenario D2 exists to cover —
+   "a theme chosen before logout still renders after logout."
+8. **`ThemeSwitch`, unauthenticated** — `currentUID(c)` fails → redirects to `/login`; the
+   `theme` cookie is untouched; `SetTheme` and `checkCSRFKey` are never reached (fake asserts
+   zero `SetTheme` calls). There is no anonymous variant of this endpoint to test separately —
+   this IS the anonymous-caller case, and its only behavior is the redirect.
+9. **`ThemeSwitch`, authenticated, valid CSRF token, valid theme — happy path** —
+   `SetTheme(ctx, uid, theme)` is called with the exact submitted value; **only after that call
+   succeeds** is the `theme` cookie set to the submitted value (design.md D3 — deliberately
+   AFTER the write, not before, unlike `LangSwitch`); `200`; no `HX-Location` header (contrast
+   with `LangSwitch`, which always sets one — D6 never reloads).
+10. **`ThemeSwitch`, authenticated, missing or mismatched CSRF token** — `403` (via the shared
+    `checkCSRFKey`'s fail-closed contract — an empty session token, e.g. a POST issued before
+    `/settings` was ever loaded, never matches); `SetTheme` is NOT called; the `theme` cookie is
+    NOT changed.
+11. **`ThemeSwitch`, authenticated, valid CSRF token, unsupported theme value** —
+    `theme=cyberpunk` → `400`; `SetTheme` NOT called; cookie NOT changed. (The CSRF check must
+    run BEFORE this validation per D3's stated order, so this case is tested with a valid token
+    to isolate the value-validation behavior from the CSRF behavior covered by item 10.)
+12. **`ThemeSwitch`, authenticated, valid CSRF token, `SetTheme` returns an error** — `500`; the
+    `theme` cookie is **NOT** set (this is the point that most directly diverges from
+    `LangSwitch`'s "always set the cookie first" ordering — design.md D3 — so it gets its own
+    explicit assertion rather than being folded into item 9).
+13. **`SettingsPage`, unauthenticated** — redirects to `/login`; no render; no `csrf_theme`
+    session value is set (nothing is minted for a request that never authenticates).
+14. **`SettingsPage`, authenticated** — `200`; mints a fresh `csrf_theme` session token (assert
+    the session value is set to a non-empty string via `generateCSRFToken()`); renders
+    `ui.ThemeSwitcher` with `Current` equal to the request context's already-resolved theme AND
+    `CSRFToken` equal to the freshly minted token; **`PreferencesFor` is called exactly ONCE for
+    the whole request** (asserted via the shared middleware call, not a second call from the
+    handler) — this is the test that directly proves the "ONE query per request" invariant
+    holds for the settings page specifically, not just for pages that don't need theme.
+15. **`nav.go`, `navItems`** — the Settings entry has `Placeholder: false`, `Href: "/settings"`,
     and `Active: true` when `active == "/settings"`, `false` otherwise (extends the existing
     nav-items test table with one more row rather than a new test function).
-14. **`base.templ` / `BaseAuth`+`Base`** — rendering with `ui.WithTheme(ctx, "apex")` on the
+16. **`base.templ` / `BaseAuth`+`Base`** — rendering with `ui.WithTheme(ctx, "apex")` on the
     context produces `data-theme="apex"` in the output HTML (both anonymous `Base` and
     authenticated `BaseAuth` paths, since `baseShell` is shared by both).
-15. **i18n catalogue** — the four new keys (`KeyThemeSwitcherLabel`, `KeyThemeSwitcherAria`,
+17. **i18n catalogue** — the four new keys (`KeyThemeSwitcherLabel`, `KeyThemeSwitcherAria`,
     `KeyThemeSwitchErrorUnsupportedTheme`, `KeyThemeSwitchErrorCouldNotSaveTheme`) are covered
     by the EXISTING `TestCatalog_AllKeysHaveBothLanguages` — no new test needed, only new map
     entries; theme NAME strings (`Apex`/`Graphite`/`Halloween`) are never catalogue keys
     (roadmap D11) and so are explicitly out of that test's scope.
-16. **`ui.ThemeSwitcher`** — renders exactly `len(ui.Themes)` `<li>` options in `ui.Themes`
-    order, each with `hx-vals` carrying that option's own theme code, and the trigger's visible
-    text includes the title-cased `Current` value.
-17. **`make theme-guard`, passing case** — run against the repo as this tier leaves it: exits
+18. **`ui.ThemeSwitcher`** — renders exactly `len(ui.Themes)` `<li>` options in `ui.Themes`
+    order, each option's `hx-vals` carrying BOTH that option's own theme code AND the passed-in
+    `CSRFToken` (design.md D3), and the trigger's visible text includes the title-cased
+    `Current` value.
+19. **`make theme-guard`, passing case** — run against the repo as this tier leaves it: exits
     `0`. (Exercised by running the target directly per `Test-Execution-Policy` — this is a
     Makefile guard, not a `go test`, so it is one of the cheap signals the assistant runs itself,
     not deferred to the owner.)
-18. **`make theme-guard`, failing case** — a deliberately introduced one-item mismatch (e.g.
+20. **`make theme-guard`, failing case** — a deliberately introduced one-item mismatch (e.g.
     `ui.Themes` temporarily missing `"halloween"`) makes the target exit non-zero and name the
     disagreeing list. This is a manual verification step during implementation (temporarily
     break, confirm the failure, restore) — not a checked-in automated test, since the guard
     itself IS the automation.
-19. **RD15 client-side behavior** — not covered by `go test` (no JS test harness exists in this
+21. **RD15 client-side behavior** — not covered by `go test` (no JS test harness exists in this
     project for RD9–RD14 either). The exact behavior (optimistic apply on click, revert on
     `htmx:afterRequest` failure) is the AGENTS.md RD15 prose itself, verified manually in a
     browser during implementation; this is a documented, not automated, contract item.
@@ -503,12 +585,12 @@ values up front" rule. `tasks.md` cites these item numbers in its acceptance cri
 | File | Change |
 |---|---|
 | `internal/gateway/templates/ui/theme.go` | new — `Themes`, `DefaultTheme`, `IsSupportedTheme`, `WithTheme`, `ThemeFromContext` |
-| `internal/gateway/templates/ui/theme_switcher.templ` | new — `ui.ThemeSwitcher` |
-| `internal/gateway/handlers/preferences.go` | new — `PreferencesMiddleware` (moved+renamed from `lang.go`), `themeCookieName`/`themeCookieMaxAge`/`normalizeTheme`/`setThemeCookie`, `ThemeSwitch` |
+| `internal/gateway/templates/ui/theme_switcher.templ` | new — `ui.ThemeSwitcher` (`Current` + `CSRFToken` props) |
+| `internal/gateway/handlers/preferences.go` | new — `PreferencesMiddleware` (moved+renamed from `lang.go`), `themeCookieName`/`themeCookieMaxAge`/`normalizeTheme`/`setThemeCookie`, `csrfThemeKey`, `SettingsPage` (mints the CSRF token), `ThemeSwitch` (auth-guarded, CSRF-checked, cookie set only after a successful `SetTheme`) |
 | `internal/gateway/handlers/lang.go` | `LanguageMiddleware` removed (moved to `preferences.go` as `PreferencesMiddleware`); everything else unchanged |
 | `internal/gateway/templates/layouts/base.templ` | `data-theme` reads `ui.ThemeFromContext(ctx)` |
 | `internal/gateway/templates/layouts/nav.go` | Settings entry: `Placeholder` dropped, `Href`/`Active` added |
-| `internal/gateway/templates/pages/settings.templ` | new — `pages.SettingsPage` |
+| `internal/gateway/templates/pages/settings.templ` | new — `pages.SettingsPage(theme, csrfToken string)` |
 | `internal/gateway/gateway.go` | middleware registration renamed; `GET /settings`, `POST /ui/theme/switch` routes added |
 | `internal/gateway/static/app.js` | RD15 listeners appended |
 | `internal/gateway/i18n/catalog.go` | 4 new keys |

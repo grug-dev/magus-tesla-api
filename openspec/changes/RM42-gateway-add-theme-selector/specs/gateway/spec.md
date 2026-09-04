@@ -141,6 +141,16 @@ request's context, mirroring how the resolved language is made available.
 - **AND** a request whose incoming cookie already matches the stored value triggers no new
   `Set-Cookie` for `theme`
 
+#### Scenario: A theme chosen before logout still renders after logout
+
+- **GIVEN** a user who, while signed in, changed their theme to `apex` (the change succeeded and
+  the `theme` cookie was refreshed to `apex`)
+- **WHEN** that user signs out and then loads an anonymous page (e.g. `/`, `/login`)
+- **THEN** the response's `data-theme` attribute is `apex`
+- **AND** no `account.Service` call is made to obtain it — the value comes entirely from the
+  `theme` cookie, which is the ONLY reason this cookie exists (there is no anonymous write path
+  to this cookie; see "Theme Switch Endpoint")
+
 ### Requirement: Theme Presentation Vocabulary and Switcher
 
 The gateway SHALL expose a single, closed, exported list of supported theme codes
@@ -180,7 +190,8 @@ accessible name are translated.
 
 The gateway SHALL serve an authenticated `/settings` page rendering the theme selector, seeded
 with the request's already-resolved theme. The page SHALL require an authenticated session, and
-SHALL NOT issue any preference read beyond the one already performed for the request.
+SHALL NOT issue any preference read beyond the one already performed for the request. The page
+SHALL issue a fresh per-session CSRF token for the theme switch endpoint on every load.
 
 #### Scenario: An authenticated user views their current theme on the Settings page
 
@@ -189,6 +200,7 @@ SHALL NOT issue any preference read beyond the one already performed for the req
 - **THEN** the response renders the theme selector showing `apex` as the current selection
 - **AND** rendering the page issues no `account.Service` preference call beyond the one already
   made for the request by the per-request resolution requirement above
+- **AND** a fresh CSRF token for the theme switch endpoint is issued for this session
 
 #### Scenario: An anonymous visitor cannot view the Settings page
 
@@ -196,44 +208,62 @@ SHALL NOT issue any preference read beyond the one already performed for the req
 - **WHEN** they request `/settings`
 - **THEN** they are redirected to `/login`
 - **AND** no page content is rendered
+- **AND** no CSRF token is issued
 
 ### Requirement: Theme Switch Endpoint
 
-The gateway SHALL expose an endpoint that persists a theme change for the calling user (when
-signed in) and always refreshes the `theme` cookie, regardless of session state. Submitting a
-value outside the supported vocabulary SHALL be rejected without persisting anything and without
-altering the existing cookie. The endpoint's response SHALL NOT instruct the client to reload or
-re-navigate — a theme change never triggers a page re-render.
+The gateway SHALL expose an endpoint that persists a theme change for the calling user. This
+endpoint SHALL require an authenticated session — there is no anonymous path to it, since the
+only control capable of submitting to it is rendered on the authenticated Settings page. The
+endpoint SHALL require a valid per-session CSRF token issued by the Settings page, matching the
+same write-protection pattern the platform already applies to other authenticated writes
+(e.g. the Supercharger session-verification endpoint). On a successful persist, the endpoint
+SHALL refresh the `theme` cookie to the newly persisted value; on any rejected or failed attempt,
+the existing `theme` cookie SHALL be left unchanged. Submitting a value outside the supported
+vocabulary SHALL be rejected without persisting anything. The endpoint's response SHALL NOT
+instruct the client to reload or re-navigate — a theme change never triggers a page re-render.
+
+#### Scenario: An anonymous caller cannot reach the endpoint
+
+- **GIVEN** an anonymous visitor
+- **WHEN** they submit any value to the theme switch endpoint
+- **THEN** they are redirected to `/login`
+- **AND** no theme preference is persisted
+- **AND** the `theme` cookie is not changed
 
 #### Scenario: A signed-in user changes their theme
 
-- **GIVEN** a signed-in user
-- **WHEN** they submit a supported theme value to the switch endpoint
+- **GIVEN** a signed-in user who has loaded the Settings page (and therefore holds a valid CSRF
+  token for this endpoint)
+- **WHEN** they submit a supported theme value together with that CSRF token
 - **THEN** the account's stored theme preference is updated to the submitted value
-- **AND** the `theme` cookie is refreshed to the submitted value
+- **AND** only after that update succeeds is the `theme` cookie refreshed to the submitted value
 - **AND** the response carries no reload/redirect instruction
 
-#### Scenario: An anonymous visitor's submission only updates the cookie
+#### Scenario: A request without a valid CSRF token is refused
 
-- **GIVEN** an anonymous visitor
-- **WHEN** they submit a supported theme value to the switch endpoint
-- **THEN** the `theme` cookie is refreshed to the submitted value
-- **AND** no account preference write is attempted (there is no signed-in account to update)
+- **GIVEN** a signed-in user
+- **WHEN** they submit a supported theme value with a missing or incorrect CSRF token (including
+  the case where no token was ever issued for this session)
+- **THEN** the request is rejected
+- **AND** no theme preference is persisted
+- **AND** the `theme` cookie is not changed
 
 #### Scenario: An unsupported theme value is rejected
 
-- **GIVEN** any caller, signed in or anonymous
+- **GIVEN** a signed-in user submitting with a valid CSRF token
 - **WHEN** they submit a value outside the supported theme vocabulary
 - **THEN** the request is rejected
 - **AND** neither the `theme` cookie nor any stored account preference is changed
 
-#### Scenario: A failed persistence attempt still leaves the cookie refreshed
+#### Scenario: A failed persistence attempt leaves the cookie unchanged
 
-- **GIVEN** a signed-in user whose underlying preference write fails
-- **WHEN** they submit a supported theme value
+- **GIVEN** a signed-in user submitting with a valid CSRF token and a supported theme value,
+  whose underlying preference write fails
+- **WHEN** the write fails
 - **THEN** the request fails with a server error
-- **AND** the `theme` cookie was already refreshed to the submitted value before the failed
-  write was attempted
+- **AND** the `theme` cookie is left unchanged — it is never advanced to a value the write never
+  actually reached
 
 ### Requirement: Instant Client-Side Theme Apply
 

@@ -45,23 +45,27 @@ for every decision below lives in `design.md`, split into D1–D8.
   request context's already-resolved theme (no extra read). No htmx fragment counterpart —
   the switcher's own POST is self-contained and does not swap the page.
 - **`POST /ui/theme/switch`** — the switch handler (`handlers.ThemeSwitch`, new file
-  `handlers/preferences.go`, alongside the renamed middleware). Mirrors `LangSwitch`'s
-  anonymous/signed-in branching (no auth guard, no tenant-ownership check — `SetTheme` always
-  targets the caller's own session uid) but returns a bare `200`/`4xx`/`5xx` with **no
-  `HX-Location`** — D6 is explicit that a theme change never reloads or re-renders the page.
-  CSRF posture: proposed to mirror the language switch's user-approved no-CSRF exception
-  (`SameSite=Lax` on the `theme` cookie as the sole defence), for the same reason MAG-8's
-  language exception was approved — a forged request can only change the caller's own cosmetic
-  preference, is reversible in one click, and exfiltrates nothing. **This is a proposal, not a
-  decision**: `internal/gateway/AGENTS.md`'s own language-switch section states in as many
-  words that its CSRF omission "was explicitly approved... not a worker's unilateral call," so
-  this tier's design.md flags the same sign-off as still outstanding for theme and must not be
-  treated as settled until the user confirms it (design.md D3).
-- **`theme` cookie** — name, 1-year max-age, `SameSite=Lax`, `HttpOnly=true`: identical
-  attributes to `lang`. Its anonymous branch is exercised even though the switcher itself only
-  renders on the authenticated `/settings` page: the cookie is what keeps a chosen theme
-  applied on `Base`-shell pages (home, login) and after logout, exactly as `lang`'s anonymous
-  cookie does today (design.md D2).
+  `handlers/preferences.go`, alongside the renamed middleware and the new `SettingsPage`).
+  **Settled with the user: this endpoint is authenticated-only and CSRF-protected**, following
+  the charging/D4 write-exception pattern as refined by the Supercharger/D8 amendment — NOT the
+  language switch's no-CSRF exception. There is **no anonymous write path**: the only control
+  that can reach this endpoint lives on `/settings`, which already requires a session, so the
+  cost argument that earned language its exception (a token would have to be minted on every
+  page, including anonymous ones) does not apply here. `SettingsPage` mints a `csrf_theme`
+  session token (reusing the existing `generateCSRFToken()`); `ThemeSwitch` checks it via the
+  existing `checkCSRFKey`, auth guard first, in the same order the Supercharger amendment uses.
+  On success, `SetTheme(ctx, uid, theme)` is called with the submitted value and the `theme`
+  cookie is refreshed only AFTER that write succeeds — deliberately not mirroring `LangSwitch`'s
+  "always set the cookie first" ordering, since the cookie now only ever mirrors what the
+  account row actually holds (design.md D2/D3). The response is a bare `200`/`4xx`/`5xx` with
+  **no `HX-Location`** — D6 is explicit that a theme change never reloads or re-renders the
+  page.
+- **`theme` cookie — read path only.** Name, 1-year max-age, `SameSite=Lax`, `HttpOnly=true`:
+  identical attributes to `lang`, but unlike `lang` it has exactly one writer
+  (the now-authenticated-only `ThemeSwitch`) and no anonymous write path at all. Its sole job is
+  letting `Base`-shell pages (home, login) and any page loaded after logout keep rendering the
+  user's chosen theme even though those requests carry no session and therefore make no
+  `PreferencesFor` call (design.md D2).
 - **`data-theme` on `templates/layouts/base.templ`** reads `ui.ThemeFromContext(ctx)` instead
   of the hardcoded literal `"graphite"` — the one-line change every other piece of this tier
   exists to make possible.
@@ -84,10 +88,13 @@ for every decision below lives in `design.md`, split into D1–D8.
   mirroring `KeyLangSwitchError*`.
 - **Docs** — `internal/gateway/AGENTS.md` gains: the RD15 entry (and the "exactly FIVE" →
   "exactly SIX" count fix at both existing mentions), the four-step "add a theme" recipe
-  (roadmap D10), and updated middleware/CSRF documentation. Root `README.md`'s "Switching the
-  theme" section is rewritten — the mechanism it documents today (hand-edit `base.templ` line
-  17) no longer exists once this tier ships; it becomes "change your preference on `/settings`"
-  plus the still-accurate "adding a new palette" recipe, now mentioning `ui.Themes` and
+  (roadmap D10), and a new "Exception: theme switch" subsection recording the settled CSRF
+  decision — explicitly stating that this endpoint does NOT take the language exception's
+  shape (no CSRF, cookie-set-first) and why, so a future agent does not "simplify" it back
+  toward `lang.go` (design.md D3/D8). Root `README.md`'s "Switching the theme" section is
+  rewritten — the mechanism it documents today (hand-edit `base.templ` line 17) no longer
+  exists once this tier ships; it becomes "change your preference on `/settings`" plus the
+  still-accurate "adding a new palette" recipe, now mentioning `ui.Themes` and
   `make theme-guard` as the two additional steps a new palette requires beyond the CSS file.
 - **D7 manual check** — tier 2 carries an explicit, non-automated task: view the dashboard's
   charts and tiles under `halloween` and report anything that looks broken. A report, not a
@@ -125,12 +132,16 @@ only — no new method requested).
   `IsSupportedTheme`, `WithTheme`, `ThemeFromContext`) and new `theme_switcher.templ`
   (`ui.ThemeSwitcher`).
 - `internal/gateway/handlers` — `lang.go`'s `LanguageMiddleware` is removed; a new
-  `preferences.go` holds the renamed `PreferencesMiddleware`, the theme cookie helpers, and
-  `ThemeSwitch`. `lang.go` keeps everything else (`LangSwitch`, `syncLoginLanguageCookie`,
-  `hxLocation`, `pathAndQuery`, `normalizeLang`, `setLangCookie`) unchanged.
+  `preferences.go` holds the renamed `PreferencesMiddleware`, the theme cookie helpers,
+  `csrfThemeKey`, the new `SettingsPage` handler (mints the CSRF token, mirroring
+  `SuperchargerStatsPage`), and `ThemeSwitch` (auth-guarded, CSRF-checked, mirroring the
+  Supercharger/D4 write pattern — see `design.md` D3). `lang.go` keeps everything else
+  (`LangSwitch`, `syncLoginLanguageCookie`, `hxLocation`, `pathAndQuery`, `normalizeLang`,
+  `setLangCookie`) unchanged.
 - `internal/gateway/templates/layouts` — `base.templ`'s `data-theme` attribute becomes
   context-driven; `nav.go`'s Settings entry becomes a live link.
-- `internal/gateway/templates/pages` — new `settings.templ` (`pages.SettingsPage`).
+- `internal/gateway/templates/pages` — new `settings.templ` (`pages.SettingsPage(theme,
+  csrfToken string)`).
 - `internal/gateway/gateway.go` — the middleware registration is renamed; two new routes
   (`GET /settings`, `POST /ui/theme/switch`).
 - `internal/gateway/static/app.js` — one new delegated listener (RD15).
