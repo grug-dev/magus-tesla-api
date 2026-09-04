@@ -4,12 +4,11 @@
   "change": "RM42-gateway-add-theme-selector",
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
-  "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. Tier 2 of RM42: real /settings page at /settings (nav item loses Placeholder), ui.Themes closed vocabulary + ui.ThemeSwitcher, POST /ui/theme/switch with CSRF, theme cookie as a read path, data-theme from ctx, instant client-side apply, ES+EN catalogue, new make theme-guard.",
+  "request": "Source ticket: MAG-43 — Theme selector - Settings page. Tier 2 of RM42: real /settings page at /settings (nav item loses Placeholder), ui.Themes closed vocabulary + ui.ThemeSwitcher, POST /ui/theme/switch with CSRF, theme cookie as a read path, data-theme from ctx, instant client-side apply, ES+EN catalogue, new make theme-guard.",
   "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "T10",
       "T11"
     ],
     "blocked": [],
@@ -22,12 +21,13 @@
       "T6",
       "T7",
       "T8",
-      "T9"
+      "T9",
+      "T10"
     ],
     "awaiting_user_verification": []
   },
   "created_at": "2026-09-04T13:39:02Z",
-  "updated_at": "2026-09-04T14:31:02Z",
+  "updated_at": "2026-09-04T16:46:56Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -279,20 +279,29 @@
     },
     {
       "id": "T10",
-      "title": "D7 manual Halloween check of dashboard charts and tiles \u2014 report only",
+      "title": "D7 manual Halloween check of dashboard charts and tiles — report only",
       "module": "gateway",
       "depends_on": [
         "T6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-04T16:46:56Z",
+      "completed_at": "2026-09-04T16:46:56Z",
+      "duration_seconds": 0,
+      "notes": "Static check instead of a browser pass (the leader cannot run make dev). Fonts, battery scale and divider survive under halloween ([data-theme] is a bare attribute selector); the three history fills stay distinct. One collision found: halloween's primary is orange, ~5.6 hue degrees from --color-battery-mid. Owner reviewed and accepted it (D9).",
+      "budget": {
+        "five_hour_pct_start": 3.0,
+        "five_hour_pct_end": 3.0,
+        "five_hour_pct_delta": 0.0,
+        "cost_usd_delta": 0.0,
+        "context_pct_end": 10,
+        "source": "leader-owned, no dispatch",
+        "approx": true,
+        "note": "static analysis by the leader; no worker dispatch"
+      }
     },
     {
       "id": "T11",
@@ -338,7 +347,7 @@
       "scope": "design",
       "made_by": "user",
       "decision": "The theme cookie stays but is a READ path only; the write is authenticated-only, so no anonymous POST path exists",
-      "why": "Its only job is post-logout continuity \u2014 home and login still render the chosen theme."
+      "why": "Its only job is post-logout continuity — home and login still render the chosen theme."
     },
     {
       "id": "D3",
@@ -387,6 +396,14 @@
       "made_by": "autopilot",
       "decision": "Leader implemented T7 directly instead of dispatching a worker",
       "why": "Two route lines plus one test at 88% of the 5-hour bucket; a dispatch would have cost ~13 points and crossed the gate mid-wave."
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-04T16:46:56Z",
+      "scope": "T10",
+      "made_by": "user",
+      "decision": "Keep halloween as-is; its primary/battery-mid orange overlap is accepted, no backlog follow-up",
+      "why": "Owner reviewed the collision and does not consider it a problem. Cosmetic only, on one card; nothing renders wrong."
     }
   ],
   "events": [
@@ -433,12 +450,12 @@
     {
       "at": "2026-09-04T13:57:35Z",
       "agent": "leader",
-      "event": "Wave 3 dispatched: T4 alone (sonnet). Budget at dispatch: five_hour 70% (gate 90), context 24% (gate 40) \u2014 not projected to cross during a single-task wave, so no checkpoint yet. Re-evaluate at the wave-3 boundary."
+      "event": "Wave 3 dispatched: T4 alone (sonnet). Budget at dispatch: five_hour 70% (gate 90), context 24% (gate 40) — not projected to cross during a single-task wave, so no checkpoint yet. Re-evaluate at the wave-3 boundary."
     },
     {
       "at": "2026-09-04T14:02:08Z",
       "agent": "leader",
-      "event": "Wave 3 reconciled: T4 awaiting-user-verification. Leader read ThemeSwitch directly and confirmed D3's ordering holds \u2014 auth guard, then checkCSRFKey, then vocabulary validation, then SetTheme, and setThemeCookie ONLY after a successful persist (the deliberate reversal of lang.go). No HX-Location, per roadmap D6. go build + go vet ./... clean repo-wide."
+      "event": "Wave 3 reconciled: T4 awaiting-user-verification. Leader read ThemeSwitch directly and confirmed D3's ordering holds — auth guard, then checkCSRFKey, then vocabulary validation, then SetTheme, and setThemeCookie ONLY after a successful persist (the deliberate reversal of lang.go). No HX-Location, per roadmap D6. go build + go vet ./... clean repo-wide."
     },
     {
       "at": "2026-09-04T14:02:08Z",
@@ -453,17 +470,17 @@
     {
       "at": "2026-09-04T14:08:39Z",
       "agent": "leader",
-      "event": "User waived the wave-4 budget checkpoint ('keep going'). The leader will continue into waves 5 and 6 in this session rather than handing over a /clear + resume. The gate still applies if five_hour actually reaches 90 or context reaches 40 at a boundary \u2014 a waiver of the recommendation is not a waiver of the hard stop."
+      "event": "User waived the wave-4 budget checkpoint ('keep going'). The leader will continue into waves 5 and 6 in this session rather than handing over a /clear + resume. The gate still applies if five_hour actually reaches 90 or context reaches 40 at a boundary — a waiver of the recommendation is not a waiver of the hard stop."
     },
     {
       "at": "2026-09-04T14:09:57Z",
       "agent": "leader",
-      "event": "Wave 4 reconciled: T6 awaiting-user-verification. Leader verified the wave's key line by grep \u2014 SettingsPage renders ui.ThemeFromContext and makes NO account call, so the only two account calls in non-test gateway code remain the middleware's single PreferencesFor and ThemeSwitch's SetTheme. go build + go vet ./... clean repo-wide; ui/i18n/theme guards clean."
+      "event": "Wave 4 reconciled: T6 awaiting-user-verification. Leader verified the wave's key line by grep — SettingsPage renders ui.ThemeFromContext and makes NO account call, so the only two account calls in non-test gateway code remain the middleware's single PreferencesFor and ThemeSwitch's SetTheme. go build + go vet ./... clean repo-wide; ui/i18n/theme guards clean."
     },
     {
       "at": "2026-09-04T14:11:13Z",
       "agent": "leader",
-      "event": "T7 done by the leader: both routes registered. Also added a router-level TestSettings_AnonymousRedirectedToLogin covering GET /settings AND POST /ui/theme/switch through the real NewEngine \u2014 the handler test only drives a locally-wired engine, and this tier's write must have no anonymous path. build/vet clean; theme/i18n/ui guards clean."
+      "event": "T7 done by the leader: both routes registered. Also added a router-level TestSettings_AnonymousRedirectedToLogin covering GET /settings AND POST /ui/theme/switch through the real NewEngine — the handler test only drives a locally-wired engine, and this tier's write must have no anonymous path. build/vet clean; theme/i18n/ui guards clean."
     },
     {
       "at": "2026-09-04T14:11:29Z",
@@ -478,7 +495,7 @@
     {
       "at": "2026-09-04T14:24:33Z",
       "agent": "leader",
-      "event": "The fix is also diagnostic: it now fails loudly if /settings does NOT re-issue the session cookie, which is what a genuine sess.Save() failure would look like. Re-run pending \u2014 the assistant never runs the suite."
+      "event": "The fix is also diagnostic: it now fails loudly if /settings does NOT re-issue the session cookie, which is what a genuine sess.Save() failure would look like. Re-run pending — the assistant never runs the suite."
     },
     {
       "at": "2026-09-04T14:30:47Z",
@@ -489,6 +506,11 @@
       "at": "2026-09-04T14:31:02Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT, hard stop. five_hour 92% (gate 90) TRIPPED; context 29% (gate 40) fine. five_hour_resets_at epoch 1788543000 = 12:30 local. Stopping rather than starting T11, which spans AGENTS.md + README and would be cut off mid-file. State is truthful: 9/11 done and owner-verified, T10 + T11 pending. NEXT on resume: T10 (Halloween check, report only), T11 (docs), then ask the owner for make test again before the reviewer gate (Step 6), then the reviewer, then archive. Resume with: /kkpa-dev-harness-pipeline resume RM42-gateway-add-theme-selector"
+    },
+    {
+      "at": "2026-09-04T16:46:56Z",
+      "agent": "leader",
+      "event": "RESUMED after the wave-5 budget checkpoint. five_hour reset to 3% (was 92%), context 9%, tree clean. NOTE: seven_day is at 87% — not a gate this skill enforces, but the owner should know before a long tier. T10 closed by the leader with a STATIC analysis, not the browser pass tasks.md asks for: halloween's --color-primary oklch(77.48% 0.204 60.62) sits ~5.6 hue degrees from --color-battery-mid oklch(74.96% 0.18 55.04), violating _shared.css's stated invariant that a palette's primary stays out of the battery band. halloween is a DaisyUI builtin, outside themes/, so it never followed that rule. Verified NOT broken: _shared.css keys fonts/battery/divider to bare [data-theme] so they apply under halloween; history fills primary(60)/secondary(305)/accent(136) stay distinct; depth:1 and radius-box:1rem are cosmetic. Owner accepted (D9) — no code change, no backlog entry."
     }
   ]
 }

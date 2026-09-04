@@ -237,7 +237,7 @@ files or reintroduce a `settings.go`).
 switch themes through the real UI, though setting the `theme` cookie by hand earlier is also
 sufficient if this is done before T6 lands)
 
-- [ ] T10.1 With `make dev` running, select `halloween` on `/settings`, then visually inspect
+- [x] T10.1 With `make dev` running, select `halloween` on `/settings`, then visually inspect
       the dashboard's charts and tiles (battery bar, history bars, KPI tiles, badges/dots).
       Record findings — anything that looks broken (the theme is an unstyled DaisyUI builtin,
       per roadmap D7) — in this change's final worker report. A report, not a redesign: fix
