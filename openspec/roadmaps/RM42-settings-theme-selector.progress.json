@@ -5,8 +5,8 @@
   "intention": "A real /settings page with a working theme selector, backed by one account.settings table that is the single home for every per-user preference.",
   "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. It's possible to allow selecting a theme for the entire website, and applying that theme in runtime? Like a Theme selector dropdown? Currently, I think the theme is set in data-theme=\"graphite\" (base.templ), I think the app currently supports halloween, apex and graphite. Let me know your thoughts. If that would be possible, add the theme selector into the settings page (new page that has a label \"soon\") on the menu",
   "status": "in-progress",
-  "autopilot": false,
-  "updated_at": "2026-09-04T12:42:14Z",
+  "autopilot": true,
+  "updated_at": "2026-09-04T12:42:51Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM42-MAG-43-settings-theme-selector",
@@ -16,10 +16,10 @@
     "created_at": "2026-09-04T10:12:58Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       2
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1
@@ -65,6 +65,14 @@
       "made_by": "user",
       "decision": "Read caching is out of scope; filed as MAG-47 blocked by MAG-43",
       "why": "LanguageMiddleware's per-request DB read (incl. /static) is a separate blast radius touching middleware and its tests"
+    },
+    {
+      "id": "D-RM42-6",
+      "at": "2026-09-04T12:42:51Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Autopilot ON from tier 2 onward",
+      "why": "User turned it on after tier 1 archived; tier 2 now runs to archive without a go-ahead between steps."
     }
   ],
   "tiers": [
@@ -97,10 +105,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
+      "status": "in-progress",
       "assistant": "Claude Code",
       "model": null,
-      "started_at": null,
+      "started_at": "2026-09-04T12:42:51Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -137,6 +145,11 @@
       "at": "2026-09-04T12:42:14Z",
       "agent": "leader",
       "event": "STOPPED after tier 1 at the user's choice (autopilot off). Tier 2 unblocked, not started. User also chose to LEAVE the stray internal/gateway/templates/pages/dashboard.go edit on the branch for now, and declined a push. The shared goose_db_version rollback symptom was folded into backlog item 23 rather than filed as a new item, same root cause."
+    },
+    {
+      "at": "2026-09-04T12:42:51Z",
+      "agent": "leader",
+      "event": "AUTOPILOT ENABLED by the user, reversing the stop-after-tier-1 choice. Tier 2 (RM42-gateway-add-theme-selector) started at Step 2. Budget clear at the tier boundary."
     }
   ]
 }
