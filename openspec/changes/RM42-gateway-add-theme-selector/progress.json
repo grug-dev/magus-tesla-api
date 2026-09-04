@@ -14,21 +14,20 @@
     ],
     "blocked": [],
     "done": [
+      "T1",
       "T2",
+      "T3",
+      "T4",
       "T5",
+      "T6",
+      "T7",
       "T8",
       "T9"
     ],
-    "awaiting_user_verification": [
-      "T1",
-      "T3",
-      "T4",
-      "T6",
-      "T7"
-    ]
+    "awaiting_user_verification": []
   },
   "created_at": "2026-09-04T13:39:02Z",
-  "updated_at": "2026-09-04T14:24:33Z",
+  "updated_at": "2026-09-04T14:31:02Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -48,13 +47,13 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-04T13:34:00Z",
       "completed_at": "2026-09-04T13:48:00Z",
       "duration_seconds": 840,
-      "notes": "Created theme.go (Themes/DefaultTheme/IsSupportedTheme/WithTheme/ThemeFromContext, no domain imports), theme_switcher.templ (ranges over Themes, CSRFToken in hx-vals, titleCase not ToUpper), theme_test.go, theme_switcher_test.go. make templ generated the _templ.go. Tests written, not executed.",
+      "notes": "Created theme.go (Themes/DefaultTheme/IsSupportedTheme/WithTheme/ThemeFromContext, no domain imports), theme_switcher.templ (ranges over Themes, CSRFToken in hx-vals, titleCase not ToUpper), theme_test.go, theme_switcher_test.go. make templ generated the _templ.go. Tests written, not executed. Suite reported passing by the owner (make test), 2026-09-04.",
       "budget": {
         "five_hour_pct_start": 45.0,
         "five_hour_pct_end": 48.0,
@@ -98,13 +97,13 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-04T13:46:40Z",
       "completed_at": "2026-09-04T13:55:49Z",
       "duration_seconds": 549,
-      "notes": "New handlers/preferences.go: PreferencesMiddleware, theme cookie helpers, normalizeTheme, cookieOrDefault. LanguageMiddleware deleted from lang.go. fakeAccount widened with a preferencesForCalls counter. preferences_test.go ports the 5 language cases and adds Contract 3/4/5/6 plus handlers-side TestNormalizeTheme. Tests unrun.",
+      "notes": "New handlers/preferences.go: PreferencesMiddleware, theme cookie helpers, normalizeTheme, cookieOrDefault. LanguageMiddleware deleted from lang.go. fakeAccount widened with a preferencesForCalls counter. preferences_test.go ports the 5 language cases and adds Contract 3/4/5/6 plus handlers-side TestNormalizeTheme. Tests unrun. Suite reported passing by the owner (make test), 2026-09-04.",
       "budget": {
         "five_hour_pct_start": 54.0,
         "five_hour_pct_end": 68.0,
@@ -126,13 +125,13 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-04T13:57:35Z",
       "completed_at": "2026-09-04T14:01:14Z",
       "duration_seconds": 219,
-      "notes": "Added csrfThemeKey + ThemeSwitch in preferences.go, mirroring SuperchargerRowUpdate's auth-CSRF-validate-persist-cookie order. 5 handler tests for Contract 8/9/10/11/12; fakeAccount.SetTheme now records calls. Leader read the handler and confirmed the order and the absent HX-Location. Tests unrun.",
+      "notes": "Added csrfThemeKey + ThemeSwitch in preferences.go, mirroring SuperchargerRowUpdate's auth-CSRF-validate-persist-cookie order. 5 handler tests for Contract 8/9/10/11/12; fakeAccount.SetTheme now records calls. Leader read the handler and confirmed the order and the absent HX-Location. Tests unrun. Suite reported passing by the owner (make test), 2026-09-04.",
       "budget": {
         "five_hour_pct_start": 70.0,
         "five_hour_pct_end": 77.0,
@@ -180,13 +179,13 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-04T14:02:53Z",
       "completed_at": "2026-09-04T14:09:02Z",
       "duration_seconds": 369,
-      "notes": "Added pages.SettingsPage and handlers.SettingsPage (auth guard, mint CSRF, render from context). Tests for Contract 13/14; item 14 drives the real PreferencesMiddleware stack and asserts preferencesForCalls==1. Leader confirmed by grep that SettingsPage makes no account call. Tests unrun.",
+      "notes": "Added pages.SettingsPage and handlers.SettingsPage (auth guard, mint CSRF, render from context). Tests for Contract 13/14; item 14 drives the real PreferencesMiddleware stack and asserts preferencesForCalls==1. Leader confirmed by grep that SettingsPage makes no account call. Tests unrun. Suite reported passing by the owner (make test), 2026-09-04.",
       "budget": {
         "five_hour_pct_start": 77.0,
         "five_hour_pct_end": 90.0,
@@ -208,13 +207,13 @@
         "T6"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-04T14:11:13Z",
       "completed_at": "2026-09-04T14:11:13Z",
       "duration_seconds": 0,
-      "notes": "Leader-owned (decision D8): registered GET /settings and POST /ui/theme/switch in gateway.go, with a comment recording why theme takes CSRF and language does not. Added TestSettings_AnonymousRedirectedToLogin to gateway_test.go, mirroring the Supercharger router-level guard test. Unrun.",
+      "notes": "Leader-owned (decision D8): registered GET /settings and POST /ui/theme/switch in gateway.go, with a comment recording why theme takes CSRF and language does not. Added TestSettings_AnonymousRedirectedToLogin to gateway_test.go, mirroring the Supercharger router-level guard test. Unrun. Suite reported passing by the owner (make test), 2026-09-04.",
       "budget": {
         "five_hour_pct_start": 88.0,
         "five_hour_pct_end": 88.0,
@@ -480,6 +479,16 @@
       "at": "2026-09-04T14:24:33Z",
       "agent": "leader",
       "event": "The fix is also diagnostic: it now fails loudly if /settings does NOT re-issue the session cookie, which is what a genuine sess.Save() failure would look like. Re-run pending \u2014 the assistant never runs the suite."
+    },
+    {
+      "at": "2026-09-04T14:30:47Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE USER: the owner re-ran `make test` after the test fix and reported it passing. This is the owner's report, not an assistant run. T1/T3/T4/T6/T7 awaiting-user-verification -> done. 9/11 tasks done; T10 and T11 remain, so the change stays in-progress rather than advancing to verified."
+    },
+    {
+      "at": "2026-09-04T14:31:02Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT, hard stop. five_hour 92% (gate 90) TRIPPED; context 29% (gate 40) fine. five_hour_resets_at epoch 1788543000 = 12:30 local. Stopping rather than starting T11, which spans AGENTS.md + README and would be cut off mid-file. State is truthful: 9/11 done and owner-verified, T10 + T11 pending. NEXT on resume: T10 (Halloween check, report only), T11 (docs), then ask the owner for make test again before the reviewer gate (Step 6), then the reviewer, then archive. Resume with: /kkpa-dev-harness-pipeline resume RM42-gateway-add-theme-selector"
     }
   ]
 }
