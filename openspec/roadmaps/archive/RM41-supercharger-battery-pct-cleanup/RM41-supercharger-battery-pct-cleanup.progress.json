@@ -4,9 +4,9 @@
   "roadmap": "RM41-supercharger-battery-pct-cleanup",
   "intention": "/supercharger-stats explains in ES+EN that Tesla supplies no battery percentages and that an end-only entry derives the start; and the four dead start/end_battery_pct_est columns are gone from both charging and telemetry. Tiers 4-5 (MAG-45, added 2026-09-03) additionally give a Supercharger session a stored, auto-set three-state status rendered as a ui.Badge, mirroring /charges.",
   "request": "Source ticket MAG-36. Part 1 (derive start_battery_pct) already shipped as charging-add-derived-start-battery-pct on 2026-09-01. This roadmap covers the two remaining parts: the bilingual UI help text, and removing the *_pct_est columns the ticket found unpopulated.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": false,
-  "updated_at": "2026-09-04T01:20:00Z",
+  "updated_at": "2026-09-04T02:05:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
@@ -16,16 +16,15 @@
     "created_at": "2026-09-03T17:38:00Z"
   },
   "rollup": {
-    "current": [
-      5
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       1,
       2,
       3,
-      4
+      4,
+      5
     ]
   },
   "decisions": [
@@ -242,13 +241,13 @@
       "depends_on": [
         4
       ],
-      "status": "in-progress",
+      "status": "archived",
       "ticket": "MAG-45",
       "ticket_url": "https://linear.app/magus-monitor/issue/MAG-45/supercharger-sessions-status-column-in-progress-done-calculated-done",
       "assistant": null,
       "model": null,
       "started_at": "2026-09-04T01:20:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-04T02:05:00Z",
       "duration_seconds": null,
       "budget": null,
       "notes": "MAG-45, not MAG-36. ui.Badge in the 2nd column mirroring charge_row.templ, plus the second recommendation alert."
@@ -299,6 +298,11 @@
       "at": "2026-09-04T01:20:00Z",
       "by": "leader",
       "what": "Tier 5 started at Step 2. The roadmap Decisions bind everything except two the leader had to open: D14 deliberately left the third Badge Kind unchosen (three states, /charges has two), and the tier's 'second bilingual recommendation' had no drafted copy. Both taken with the owner before dispatch. No database gate and no Performance-Profile exposure - this tier is pure rendering - so no grill-me pass."
+    },
+    {
+      "at": "2026-09-04T02:05:00Z",
+      "by": "leader",
+      "what": "Tier 5 archived and RM41 is COMPLETE - all five tiers done. Review round 1 approved with no findings; the reviewer independently re-derived the three acceptance-grep mismatches from disk and confirmed the leader's gofmt triage rather than taking it on trust, and verified both colspan fixes including the one the leader's own dispatch brief had missed. openspec archive synced the gateway delta into openspec/specs/gateway/spec.md (+2 added, ~1 modified); the folder moved under archive/gateway/ per this repo's module-grouped layout. tasks.md checkboxes 6.1/6.2 were ticked at archive time with a provenance note - neither is worker-owned (6.1 is the leader's signals, 6.2 the owner's suite run), so no worker had ticked them."
     }
   ]
 }

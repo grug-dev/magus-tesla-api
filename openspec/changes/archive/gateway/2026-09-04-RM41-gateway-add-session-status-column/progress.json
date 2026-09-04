@@ -5,9 +5,9 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
   "request": "Roadmap RM41 tier 5, ticket MAG-45. Render the lifecycle status tier 4 stores as a ui.Badge in the sessions table's 2nd column on /supercharger-stats: five new bilingual i18n keys, a RawStatus view-model field, the badge cell, two colspan fixes, a second info Alert, templ codegen, and one KB doc file. No database, no charging code.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "created_at": "2026-09-04T01:32:00Z",
-  "updated_at": "2026-09-04T01:56:00Z",
+  "updated_at": "2026-09-04T02:01:21Z",
   "rollup": {
     "current": [],
     "pending": [],
@@ -344,8 +344,41 @@
   ],
   "review": {
     "brief": "Review RM41 tier 5 (gateway, ticket MAG-45): render the charge-session lifecycle status, shipped by tier 4, as a ui.Badge column on /supercharger-stats. Read the diff bc0b040..HEAD, not the whole module. bc0b040 is the artifacts commit; fa13a1a is the whole implementation.\n\nVALIDATE:\n1. Module boundary. gateway-owned. ONE path outside internal/gateway/ was explicitly granted: kkpa/context/workflows/supercharger-stats-read.md (task 5.1). Confirm NOTHING else outside the module changed - in particular no internal/charging/ file. Tier 4 owns the column; this tier only reads it. A charging edit is a blocker finding.\n2. Badge Kind mapping is a BINDING owner decision, not a style choice: DONE -> primary, DONE_CALCULATED -> neutral, IN_PROGRESS -> ghost. Roadmap D14 bars success and warning on this page because they would collide with the completeness-dot colour vocabulary. Any success/warning Kind, or a different mapping, is a blocker.\n3. The third branch is a catch-all by design (design.md D2): an unset/zero-value RawStatus renders as In progress + ghost rather than becoming an undefined fourth state. Confirm the else branch does this and is not a bug.\n4. Column position and count. Status is the 2nd column, right after the date, in BOTH the header slice (superchargerTable) and the row (SuperchargerRow). Table goes 7 -> 8. Check BOTH colspan cells moved 7 -> 8: SuperchargerRowError in supercharger_row.templ AND supercharger_row_edit.templ:42. The second one was found by the artifacts worker, not the leader; verify it is actually fixed, because a miss there renders the edit row one column narrow on every Edit click.\n5. i18n. Five new keys, every one with BOTH ES and EN non-empty, all resolved through i18n.T. The three badge labels must match roadmap D11 exactly: En progreso/In progress, Finalizada (calculada)/Done (calculated), Finalizada/Done. The status_help copy is owner-approved and must be verbatim, accents and guillemets included. Note its EN value uses a Go raw string literal (backticks) because the copy itself contains double quotes - that is correct, not a slip. D11 requires NEW keys; reusing charges_badge.* would be a finding.\n6. Both guidance alerts render unconditionally, above the 'if v.Presets != nil' block, the new one BELOW the existing battery_pct_help one, both Kind info (design.md D3). A warning Kind here was explicitly rejected by the owner.\n7. No generated file was hand-edited. The three *_templ.go files must be consistent with their .templ sources as make templ produces them.\n8. Test contract. Per the roadmap's standing no-new-tests default, this tier adds NO test functions; design.md's Test Contract is the authored expected-values record. Judge whether the existing tests still hold and whether the contract was authored before implementation - do NOT report the absence of new tests as a gap, and do not run the suite.\n\nANTI-GAMING: no weakened acceptance criteria, no self-approved statuses. Note specifically that the implementation worker reported three acceptance greps in tasks.md returning fewer hits than predicted and did NOT adjust them; the leader verified all three from disk as gofmt artifacts (gofmt column-aligns struct-literal colons; the badge template references vm.RawStatus twice because the third branch is a catch-all). Confirm that triage was right rather than taking the leader's word for it.\n\nSIGNAL PROVENANCE - read carefully. Assistant-run and clean: go build ./..., go vet ./internal/gateway/..., gofmt -l internal/gateway, make i18n-guard, make ui-guard. USER-REPORTED: the owner ran make test AND make test-with-db and reported both passing (2026-09-04T01:56:00Z) - that is the suite, and it is the owner's result, not the assistant's. You must NOT run the suite yourself: judge test quality by READING the tests. Note this tier adds no new test functions by the owner's standing default, so what the suite proves here is that the new column broke no existing gateway test.",
-    "status": null,
-    "agent": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-04T02:01:21Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "ai/agentic-workflow.md",
+          "internal/gateway/AGENTS.md",
+          "openspec/changes/RM41-gateway-add-session-status-column/proposal.md",
+          "openspec/changes/RM41-gateway-add-session-status-column/design.md",
+          "openspec/changes/RM41-gateway-add-session-status-column/tasks.md",
+          "openspec/changes/RM41-gateway-add-session-status-column/specs/gateway/spec.md",
+          "openspec/changes/RM41-gateway-add-session-status-column/progress.json (review.brief)"
+        ],
+        "findings": [],
+        "checked": {
+          "1_boundary": "git diff --stat bc0b040..HEAD shows exactly: internal/gateway/handlers/supercharger.go, internal/gateway/i18n/catalog.go, three .templ + their *_templ.go siblings, internal/gateway/templates/fragments/supercharger_vm.go, kkpa/context/workflows/supercharger-stats-read.md (the one granted path), and the change's own progress.json/tasks.md. No internal/charging/ file touched, no other module touched.",
+          "2_badge_kind_mapping": "Confirmed in supercharger_row.templ: DONE->primary/KeySuperchargerBadgeDone, DONE_CALCULATED->neutral/KeySuperchargerBadgeDoneCalculated, else->ghost/KeySuperchargerBadgeInProgress. No success/warning Kind anywhere in the diff.",
+          "3_catchall_branch": "The else branch (no third `if`) renders ghost+KeySuperchargerBadgeInProgress for IN_PROGRESS and for a zero-value Status, matching design.md D2 exactly - confirmed by design's own explanation and the rendered template.",
+          "4_colspan_both_fixed": "Both colspan cells verified at colspan=8: supercharger_row.templ (SuperchargerRowError, doc comment also updated to '7 data cells + Actions') and supercharger_row_edit.templ:42 (SuperchargerRowEdit). grep -c 'colspan=\"7\"' returns 0 in both files; grep -c 'colspan=\"8\"' returns 1 in each.",
+          "5_i18n": "Five new keys (KeySuperchargerStatus, KeySuperchargerBadgeInProgress, KeySuperchargerBadgeDoneCalculated, KeySuperchargerBadgeDone, KeySuperchargerStatusHelp) all present with both ES and EN non-empty, verified byte-for-byte against design.md's specified strings including the EN status_help raw-string literal (backticks, correct because the copy contains literal double quotes). None reuse KeyChargesBadge*. make i18n-guard passes clean (independently re-run).",
+          "6_alerts_unconditional": "Both ui.Alert{Kind:\"info\"} calls sit at the top of SuperchargerStatsContent, before `if v.Presets != nil`, before the Empty/tiles/chart/table branch - unconditional as required. New alert (status_help) is below the existing battery_pct_help alert. No warning Kind used.",
+          "7_no_hand_edited_generated_files": "Diffed *_templ.go files show plausible real templ-codegen output (shifted line-number literals in templ.Error{...} calls, consistent buffer-write restructuring around the new conditional block) - not a hand edit. Confirmed no supercharger_test.go changes (task 4.1 was verification-only, matching its notes).",
+          "8_test_contract": "No new test functions added (git diff shows supercharger_test.go untouched), matching the roadmap's standing D7 default. Spot-checked TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues and TestSuperchargerStatsContent_RendersEnglishHeadersAndNilBatteryValues: both use strings.Contains/count assertions, not index- or DeepEqual-based checks, so the inserted 2nd column cannot break them - confirmed no reflect.DeepEqual/reflect. usage anywhere in the file. design.md's Test Contract (items 1-12) reads as authored up front from the confirmed-inputs/mapping-table work, not back-fitted from the implementation - it documents expected values in a table format that matches the implementation's structure but adds no post-hoc detail the implementation wouldn't have needed to satisfy the same table. Independently re-ran go vet ./internal/gateway/... (clean) and gofmt -l internal/gateway (four pre-existing unformatted files, none touched by this diff) to corroborate the leader's signal-run claim.",
+          "anti_gaming_grep_mismatches": "Independently reproduced all three acceptance-grep shortfalls from disk (not taking the leader's word): (a) task 1.1's grep expected 10, got 8 - the two map-entry lines for KeySuperchargerStatus and KeySuperchargerBadgeDone have gofmt-aligned colons immediately after the key name with no space (`KeySuperchargerStatus: {...`), so the grep's disambiguating trailing-space pattern (`KeySuperchargerStatus \\|...`) does not match those two lines, while the const-block lines (which gofmt pads with a space before `Key`) do match - both entries are present and byte-correct, confirmed by direct sed/grep of the lines. (b) task 2.1's grep expected 3 'vm.RawStatus' occurrences, got 2 - the third branch is the bare `else` (design.md's explicit catch-all), so it contains no `vm.RawStatus` comparison at all; the template code matches design.md's authored template verbatim. (c) task 2.4's grep expected 'RawStatus: string(s.Status)' (single space), got 0 - gofmt column-aligned the struct literal to match longer sibling field names (`RawStatus:            string(s.Status),`), so the single-space pattern doesn't match a multi-space-padded line; the field and its value are correct. All three are confirmed formatting/pattern-assumption artifacts, not defects - the leader's triage was correct."
+        }
+      }
+    ]
   }
 }

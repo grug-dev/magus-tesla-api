@@ -158,7 +158,7 @@ assigns work, design.md is the source of truth for content.
 
 ## Wave 6 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **6.1** Run and report: `go build ./internal/gateway/...`, `go vet
+- [x] **6.1** Run and report: `go build ./internal/gateway/...`, `go vet
   ./internal/gateway/...`, `gofmt -l internal/gateway`, `make i18n-guard`, `make
   ui-guard`. This tier's own definition of done: every Test Contract item in
   design.md holds (verified by reading the rendered output, since no new test
@@ -168,7 +168,15 @@ assigns work, design.md is the source of truth for content.
   test`, `make test-with-db`, or `make check`.
   `depends_on`: 1.1, 1.2, 2.1, 2.2, 2.3, 2.4, 3.1, 4.1, 5.1 · `parallel_ok`: no
 
-- [ ] **6.2** Hand off to the owner the exact command to run and report:
+- [x] **6.2** Hand off to the owner the exact command to run and report:
   `go test ./internal/gateway/...`. Until the owner reports a pass, this tier's
   implementation status is **awaiting-user-verification**, never "done."
   `depends_on`: 6.1 · `parallel_ok`: no
+
+> **6.1 / 6.2 ticked at archive time by the leader.** Neither is worker-owned, so no
+> worker ever ticked them: 6.1 is the leader's own signal run (`go build ./...`, `go vet
+> ./internal/gateway/...`, `gofmt -l`, `make i18n-guard`, `make ui-guard` — all clean) and
+> 6.2 is the owner's suite run (`make test` and `make test-with-db`, both reported passing
+> 2026-09-04T01:56:00Z). progress.json recorded both as done with their agents at the time;
+> this note reconciles the checkboxes to match rather than leaving the archived file
+> claiming work was skipped.
