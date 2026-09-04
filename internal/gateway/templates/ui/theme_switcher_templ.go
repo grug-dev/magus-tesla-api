@@ -63,6 +63,16 @@ func themeVals(t, csrfToken string) string {
 // up the persisted value on the next full render (design.md D6). No client-side JS is
 // needed to open or display the dropdown itself: the DaisyUI "dropdown" pattern is
 // :focus-driven CSS, already on the module's sanctioned zero-JS list.
+//
+// Why the trigger is btn-outline + a chevron, where LangSwitcher's is a bare
+// btn-ghost: btn-ghost is transparent until hover, so it only reads as a control
+// when something else marks it as one. In the navbar that job is done by
+// LangSwitcher's globe icon and by the surrounding bar. This switcher sits alone on
+// an otherwise empty settings card, where a ghost button with no icon renders as
+// plain text — the owner reported not realising it could be clicked. The outline
+// supplies the edge and the chevron supplies the "opens a menu" signal. Do NOT
+// "align" this back to btn-ghost to match LangSwitcher: the two live in different
+// contexts, and this one has no other affordance to lean on.
 func ThemeSwitcher(p ThemeSwitcherProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -84,27 +94,27 @@ func ThemeSwitcher(p ThemeSwitcherProps) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"dropdown\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-ghost btn-sm\" aria-label=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"dropdown\"><div tabindex=\"0\" role=\"button\" class=\"btn btn-outline btn-sm\" aria-label=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyThemeSwitcherAria))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 60, Col: 114}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 70, Col: 116}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyThemeSwitcherLabel))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 61, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 71, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -117,49 +127,57 @@ func ThemeSwitcher(p ThemeSwitcherProps) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(titleCase(p.Current))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 61, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 71, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div><ul tabindex=\"-1\" class=\"dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-sm\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = Icon(IconProps{Name: "chevron_down", Class: "h-4 w-4"}).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><ul tabindex=\"-1\" class=\"dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-sm\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, t := range Themes {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<li><button type=\"button\" hx-post=\"/ui/theme/switch\" hx-swap=\"none\" hx-vals=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<li><button type=\"button\" hx-post=\"/ui/theme/switch\" hx-swap=\"none\" hx-vals=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(themeVals(t, p.CSRFToken))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 66, Col: 104}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 77, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(titleCase(t))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 67, Col: 20}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/theme_switcher.templ`, Line: 78, Col: 20}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</button></li>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</button></li>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</ul></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</ul></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

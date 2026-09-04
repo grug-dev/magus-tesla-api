@@ -55,10 +55,21 @@ func themeVals(t, csrfToken string) string {
 // up the persisted value on the next full render (design.md D6). No client-side JS is
 // needed to open or display the dropdown itself: the DaisyUI "dropdown" pattern is
 // :focus-driven CSS, already on the module's sanctioned zero-JS list.
+//
+// Why the trigger is btn-outline + a chevron, where LangSwitcher's is a bare
+// btn-ghost: btn-ghost is transparent until hover, so it only reads as a control
+// when something else marks it as one. In the navbar that job is done by
+// LangSwitcher's globe icon and by the surrounding bar. This switcher sits alone on
+// an otherwise empty settings card, where a ghost button with no icon renders as
+// plain text — the owner reported not realising it could be clicked. The outline
+// supplies the edge and the chevron supplies the "opens a menu" signal. Do NOT
+// "align" this back to btn-ghost to match LangSwitcher: the two live in different
+// contexts, and this one has no other affordance to lean on.
 templ ThemeSwitcher(p ThemeSwitcherProps) {
 	<div class="dropdown">
-		<div tabindex="0" role="button" class="btn btn-ghost btn-sm" aria-label={ i18n.T(ctx, i18n.KeyThemeSwitcherAria) }>
-			{ i18n.T(ctx, i18n.KeyThemeSwitcherLabel) }: { titleCase(p.Current) }
+		<div tabindex="0" role="button" class="btn btn-outline btn-sm" aria-label={ i18n.T(ctx, i18n.KeyThemeSwitcherAria) }>
+			<span>{ i18n.T(ctx, i18n.KeyThemeSwitcherLabel) }: { titleCase(p.Current) }</span>
+			@Icon(IconProps{Name: "chevron_down", Class: "h-4 w-4"})
 		</div>
 		<ul tabindex="-1" class="dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-sm">
 			for _, t := range Themes {
