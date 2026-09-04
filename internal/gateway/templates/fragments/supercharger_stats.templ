@@ -97,13 +97,12 @@ templ superchargerChart(chart HistoryChart) {
 templ superchargerTable(sessions []SuperchargerRowVM, csrfToken, windowStartStr, windowEndStr string) {
 	@ui.Table(ui.TableProps{Headers: []string{
 		i18n.T(ctx, i18n.KeySuperchargerDate),
+		i18n.T(ctx, i18n.KeySuperchargerStatus),
 		i18n.T(ctx, i18n.KeySuperchargerSite),
 		i18n.T(ctx, i18n.KeySuperchargerEnergy),
 		i18n.T(ctx, i18n.KeySuperchargerCost),
 		i18n.T(ctx, i18n.KeySuperchargerStartBattery),
 		i18n.T(ctx, i18n.KeySuperchargerEndBattery),
-		i18n.T(ctx, i18n.KeySuperchargerStartEstimate),
-		i18n.T(ctx, i18n.KeySuperchargerEndEstimate),
 		i18n.T(ctx, i18n.KeySuperchargerActions),
 	}}) {
 		for _, s := range sessions {
@@ -131,6 +130,12 @@ templ superchargerTable(sessions []SuperchargerRowVM, csrfToken, windowStartStr,
 // it is just not displayed. To bring the chart back, delete the wrapping
 // <div class="hidden"> and re-run `make templ`.
 templ SuperchargerStatsContent(v SuperchargerStatsView) {
+	@ui.Alert(ui.AlertProps{Kind: "info", Class: "mb-4"}) {
+		{ i18n.T(ctx, i18n.KeySuperchargerBatteryPctHelp) }
+	}
+	@ui.Alert(ui.AlertProps{Kind: "info", Class: "mb-4"}) {
+		{ i18n.T(ctx, i18n.KeySuperchargerStatusHelp) }
+	}
 	if v.Presets != nil {
 		@superchargerMonthsSelector(v.Presets)
 	}

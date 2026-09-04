@@ -120,6 +120,22 @@ const (
 	// The source read, aliased `s` in the shipped statement.
 	sourceTableOld = "FROM supercharger_sessions s"
 	sourceTableNew = "FROM telemetry.supercharger_history s"
+
+	// The two frozen estimate columns are the one case that is a REMOVAL, not a move:
+	// RM41-charging-drop-estimate-columns dropped them from charging.supercharger_sessions,
+	// so unlike the three names above there is no forward name to map to and the shipped
+	// text must be deleted instead. Replaying it unedited fails with
+	// `column "start_battery_pct_est" of relation "supercharger_sessions" does not exist`.
+	// Both halves are rewritten — the INSERT column list and the matching SELECT items —
+	// because dropping one without the other leaves the statement's two lists misaligned.
+	// The source columns still exist on telemetry.supercharger_history until RM41 tier 3
+	// drops them there too; that is why the SELECT items are removed by this rewrite and
+	// not by any change to the source fixture (which stays untouched, see below).
+	estInsertColsOld = "        start_battery_pct_est, end_battery_pct_est,\n"
+	estInsertColsNew = ""
+
+	estSelectColsOld = "        s.start_battery_pct_est,\n        s.end_battery_pct_est,\n"
+	estSelectColsNew = ""
 )
 
 func runBackfill(t *testing.T, pool *pgxpool.Pool) {
@@ -133,6 +149,8 @@ func runBackfill(t *testing.T, pool *pgxpool.Pool) {
 		{insertTargetOld, insertTargetNew, "INSERT target"},
 		{guardTargetOld, guardTargetNew, "to_regclass guard"},
 		{sourceTableOld, sourceTableNew, "source table read"},
+		{estInsertColsOld, estInsertColsNew, "dropped est columns (INSERT list)"},
+		{estSelectColsOld, estSelectColsNew, "dropped est columns (SELECT list)"},
 	} {
 		if n := strings.Count(stmt, m.old); n != 1 {
 			t.Fatalf("expected exactly 1 occurrence of %q (%s) in the shipped backfill statement, got %d — "+
@@ -165,11 +183,9 @@ type superchargerFixtureRow struct {
 	IsPaid              bool
 	CreatedAt           time.Time
 
-	StartBatteryPct    *int
-	EndBatteryPct      *int
-	BatteryPctSource   *string
-	StartBatteryPctEst *int
-	EndBatteryPctEst   *int
+	StartBatteryPct  *int
+	EndBatteryPct    *int
+	BatteryPctSource *string
 }
 
 // insertSuperchargerSessionFixture seeds one telemetry.supercharger_history row via direct
@@ -186,20 +202,17 @@ func insertSuperchargerSessionFixture(t *testing.T, pool *pgxpool.Pool, accountI
 			session_id, account_id, vin, tesla_id, site_location_name, country_code,
 			charge_start_date_time, charge_stop_date_time, billing_type, vehicle_make_type,
 			energy_kwh, total_cost, currency, is_paid, raw_data, created_at,
-			start_battery_pct, end_battery_pct, battery_pct_source,
-			start_battery_pct_est, end_battery_pct_est
+			start_battery_pct, end_battery_pct, battery_pct_source
 		) VALUES (
 			$1, $2, $3, $4, $5, $6,
 			$7, $8, $9, $10,
 			$11, $12, $13, $14, '{}'::jsonb, $15,
-			$16, $17, $18,
-			$19, $20
+			$16, $17, $18
 		)`,
 		r.SessionID, accountID, r.VIN, r.TeslaID, r.SiteLocationName, r.CountryCode,
 		r.ChargeStartDateTime, r.ChargeStopDateTime, r.BillingType, r.VehicleMakeType,
 		r.EnergyKWh, r.TotalCost, r.Currency, r.IsPaid, r.CreatedAt,
 		r.StartBatteryPct, r.EndBatteryPct, r.BatteryPctSource,
-		r.StartBatteryPctEst, r.EndBatteryPctEst,
 	)
 	if err != nil {
 		t.Fatalf("seeding telemetry.supercharger_history fixture (session %d): %v", r.SessionID, err)
@@ -383,12 +396,6 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 			if row.BatteryPctSource == nil || *row.BatteryPctSource != "user_verified" {
 				t.Errorf("session %d: BatteryPctSource got %v, want 'user_verified' (resolved from NULL by the backfill's COALESCE)", sessionID, row.BatteryPctSource)
 			}
-			if row.StartBatteryPctEst != nil {
-				t.Errorf("session %d: StartBatteryPctEst got %v, want nil", sessionID, *row.StartBatteryPctEst)
-			}
-			if row.EndBatteryPctEst != nil {
-				t.Errorf("session %d: EndBatteryPctEst got %v, want nil", sessionID, *row.EndBatteryPctEst)
-			}
 		} else {
 			if row.StartBatteryPct != nil {
 				t.Errorf("session %d: StartBatteryPct got %v, want nil", sessionID, *row.StartBatteryPct)
@@ -398,12 +405,6 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 			}
 			if row.BatteryPctSource != nil {
 				t.Errorf("session %d: BatteryPctSource got %v, want nil (must NOT be fabricated for a row with no percentages)", sessionID, *row.BatteryPctSource)
-			}
-			if row.StartBatteryPctEst != nil {
-				t.Errorf("session %d: StartBatteryPctEst got %v, want nil", sessionID, *row.StartBatteryPctEst)
-			}
-			if row.EndBatteryPctEst != nil {
-				t.Errorf("session %d: EndBatteryPctEst got %v, want nil", sessionID, *row.EndBatteryPctEst)
 			}
 		}
 	}

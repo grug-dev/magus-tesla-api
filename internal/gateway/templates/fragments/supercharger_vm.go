@@ -74,10 +74,6 @@ type SuperchargerRowVM struct {
 	StartBatteryPctLabel string
 	// EndBatteryPctLabel is "N%", or "—" when EndBatteryPct is nil.
 	EndBatteryPctLabel string
-	// StartBatteryPctEstLabel is "N%", or "—" when StartBatteryPctEst is nil.
-	StartBatteryPctEstLabel string
-	// EndBatteryPctEstLabel is "N%", or "—" when EndBatteryPctEst is nil.
-	EndBatteryPctEstLabel string
 	// ID is the session's UUID, formatted as a string for URL path params
 	// (RM31-gateway-add-session-battery-edit) — the row's addressable id
 	// (id="supercharger-row-{ID}") and the row-level route parameter.
@@ -92,4 +88,9 @@ type SuperchargerRowVM struct {
 	// matching ChargeEntryVM.RawEndBatteryPct's convention exactly
 	// (RM31-gateway-add-session-battery-edit).
 	RawEndBatteryPct string
+	// RawStatus is the raw charging.SessionStatus code ("IN_PROGRESS" |
+	// "DONE_CALCULATED" | "DONE"), mirroring ChargeEntryVM.RawStatus's identical
+	// convention exactly — the template resolves the Badge Kind + label from this
+	// code (see SuperchargerRow's doc comment), not a precomputed label field.
+	RawStatus string
 }

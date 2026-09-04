@@ -1,0 +1,551 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM41-telemetry-drop-estimate-columns",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
+  "request": "Roadmap RM41 tier 3, ticket MAG-36. Drop start_battery_pct_est / end_battery_pct_est from telemetry.supercharger_history: one migration, the two struct fields and the RM27-D6 comment block, the two mappings, two stale comments, sqlc regeneration, one telemetry test repair, and four doc/KB files across three granted paths.",
+  "status": "archived",
+  "created_at": "2026-09-03T19:56:52Z",
+  "updated_at": "2026-09-03T21:17:00Z",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "awaiting_user_verification": [],
+    "done": [
+      "0.1",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "2.1",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "5.1",
+      "5.2"
+    ],
+    "cancelled": [
+      "1.6"
+    ]
+  },
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
+    "base": "main",
+    "ticket": "MAG-36",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-36/supercharger-session-battery-start-calculated",
+    "created_at": "2026-09-03T17:38:00Z"
+  },
+  "tasks": [
+    {
+      "id": "0.1",
+      "title": "Leader presents the database design to the owner and gets confirmation",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-09-03T19:56:52Z",
+      "completed_at": "2026-09-03T19:56:52Z",
+      "duration_seconds": null,
+      "notes": "Owner confirmed the design as written, choosing it over an abort-if-non-NULL guard. Leader had verified 0 non-NULL values across all 8 rows first.",
+      "budget": null
+    },
+    {
+      "id": "1.1",
+      "title": "Create migration 20260903000003_drop_supercharger_est_columns.sql",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T19:57:28Z",
+      "completed_at": "2026-09-03T20:00:53Z",
+      "duration_seconds": null,
+      "notes": "Migration created and leader-verified: DROP COLUMN x2, both goose sections, sorts last repo-wide, Down column defs match 20260815000001 lines 46-47 exactly.",
+      "budget": {
+        "five_hour_pct_start": 63,
+        "context_pct_start": 25,
+        "cost_usd_start": 26.3142
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "telemetry.go: remove the two struct fields and the RM27-D6 comment block",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:01:15Z",
+      "completed_at": "2026-09-03T20:25:17Z",
+      "duration_seconds": null,
+      "notes": "Done. Tombstone reworded to tier-2 descriptive style. All 3 acceptance greps pass (0/0/0).",
+      "budget": {
+        "five_hour_pct_start": 70,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "Two workers ran concurrently over this range; the delta covers both plus the leader's verification."
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "mapping.go: remove the two mappings",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:01:15Z",
+      "completed_at": "2026-09-03T20:25:17Z",
+      "duration_seconds": null,
+      "notes": "Done. All 3 greps pass (0/0/1). Also fixed the 'all four SMALLINT columns' doc comment worker 1 flagged.",
+      "budget": {
+        "five_hour_pct_start": 70,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "Two workers ran concurrently over this range; the delta covers both plus the leader's verification."
+      }
+    },
+    {
+      "id": "1.4",
+      "title": "service.go: rewrite the stale comment",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:01:15Z",
+      "completed_at": "2026-09-03T20:25:17Z",
+      "duration_seconds": null,
+      "notes": "Done. Both greps pass (0/1).",
+      "budget": {
+        "five_hour_pct_start": 70,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "Two workers ran concurrently over this range; the delta covers both plus the leader's verification."
+      }
+    },
+    {
+      "id": "1.5",
+      "title": "db/query.sql: rewrite the UpsertSuperchargerHistory guarding comment",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:01:15Z",
+      "completed_at": "2026-09-03T20:25:17Z",
+      "duration_seconds": null,
+      "notes": "Done. Both greps pass (0/1). No SQL statement changed.",
+      "budget": {
+        "five_hour_pct_start": 70,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "Two workers ran concurrently over this range; the delta covers both plus the leader's verification."
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "Run make sqlc to regenerate the generated types",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1",
+        "1.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:01:15Z",
+      "completed_at": "2026-09-03T20:25:17Z",
+      "duration_seconds": null,
+      "notes": "Acceptance passes: 0 identifiers in both generated files, go build clean. But see new task 1.6 - the table's COMMENT ON TABLE text sqlc copies is now false.",
+      "budget": {
+        "five_hour_pct_start": 70,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "Two workers ran concurrently over this range; the delta covers both plus the leader's verification."
+      }
+    },
+    {
+      "id": "1.6",
+      "title": "[NEW, blocked on design gate] Refresh COMMENT ON TABLE telemetry.supercharger_history in migration 20260903000003",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "cancelled",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-09-03T20:34:28Z",
+      "duration_seconds": null,
+      "notes": "Owner decided at the design gate: leave the table comment stale. No COMMENT ON TABLE statement is added; models.go keeps the outdated text. Task closed without work.",
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "db_supercharger_battery_pct_integration_test.go: Test Contract repairs",
+      "module": "telemetry",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:37:02Z",
+      "completed_at": "2026-09-03T20:43:40Z",
+      "duration_seconds": null,
+      "notes": "Done. All 4 greps pass and the leftover doc-comment line is gone (_est now 0 in the file).",
+      "budget": {
+        "five_hour_pct_start": 86,
+        "five_hour_pct_end": 97,
+        "cost_usd_delta": 3.82,
+        "approx": true
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "[granted] charging/db_backfill_integration_test.go: drop both est columns from the telemetry-side INSERT",
+      "module": "telemetry (granted paths on 3.2, 4.2, 4.3, 4.4)",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:01:15Z",
+      "completed_at": "2026-09-03T20:25:17Z",
+      "duration_seconds": null,
+      "notes": "Done. Both greps pass. The 3 remaining battery_pct_est strings are tier 2's own replay-rewrite constants, not this fixture.",
+      "budget": {
+        "five_hour_pct_start": 70,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "Two workers ran concurrently over this range; the delta covers both plus the leader's verification."
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "telemetry/AGENTS.md: the six doc edits",
+      "module": "telemetry",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:37:02Z",
+      "completed_at": "2026-09-03T20:43:40Z",
+      "duration_seconds": null,
+      "notes": "Done. Both greps pass (0 / 1). Worker dropped design.md's literal identifiers to satisfy the acceptance grep - same binding correction already applied to 1.2/1.4/1.5.",
+      "budget": {
+        "five_hour_pct_start": 86,
+        "five_hour_pct_end": 97,
+        "cost_usd_delta": 3.82,
+        "approx": true
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "[granted] charging/AGENTS.md: the forward-reference sentence tier 2 left open",
+      "module": "telemetry (granted paths on 3.2, 4.2, 4.3, 4.4)",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:37:02Z",
+      "completed_at": "2026-09-03T20:43:40Z",
+      "duration_seconds": null,
+      "notes": "Done. Both greps pass. One-sentence diff; the remaining column names are prose in the new past-tense sentence.",
+      "budget": {
+        "five_hour_pct_start": 86,
+        "five_hour_pct_end": 97,
+        "cost_usd_delta": 3.82,
+        "approx": true
+      }
+    },
+    {
+      "id": "4.3",
+      "title": "[granted] historic migration 20260823000001: comment-only correction it pre-scoped to this change",
+      "module": "telemetry (granted paths on 3.2, 4.2, 4.3, 4.4)",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:37:02Z",
+      "completed_at": "2026-09-03T20:43:40Z",
+      "duration_seconds": null,
+      "notes": "Done. Comment-only: leader confirmed no ALTER/INSERT/DROP/CREATE/UPDATE/SELECT line differs, and the first paragraph is intact.",
+      "budget": {
+        "five_hour_pct_start": 86,
+        "five_hour_pct_end": 97,
+        "cost_usd_delta": 3.82,
+        "approx": true
+      }
+    },
+    {
+      "id": "4.4",
+      "title": "[granted, leader-added at the gate] kkpa/context/architecture/nightly-cycle.md: the stale 'five' count",
+      "module": "telemetry (granted paths on 3.2, 4.2, 4.3, 4.4)",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T20:37:02Z",
+      "completed_at": "2026-09-03T20:43:40Z",
+      "duration_seconds": null,
+      "notes": "Done. Both greps pass; correctly attributed to tier 2, not this tier.",
+      "budget": {
+        "five_hour_pct_start": 86,
+        "five_hour_pct_end": 97,
+        "cost_usd_delta": 3.82,
+        "approx": true
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "Assistant-run signals: build, vet, gofmt, migration-guard, boundary-guard",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "2.1",
+        "3.1",
+        "3.2",
+        "4.1",
+        "4.2",
+        "4.3",
+        "4.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": null,
+      "started_at": "2026-09-03T20:43:40Z",
+      "completed_at": "2026-09-03T20:43:40Z",
+      "duration_seconds": null,
+      "notes": "All green: go build 0, go vet 0, gofmt clean, migration-guard ok (only the pre-existing 20260720000001 warning from backlog.md), boundary-guard ok.",
+      "budget": {
+        "five_hour_pct_start": 86,
+        "five_hour_pct_end": 97,
+        "cost_usd_delta": 3.82,
+        "approx": true
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "Owner runs make migrate-up, the information_schema check, and the suite",
+      "module": "telemetry",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-09-03T21:11:00Z",
+      "completed_at": "2026-09-03T21:11:00Z",
+      "duration_seconds": null,
+      "notes": "Owner ran make migrate-up, the information_schema check (zero rows) and go test ./internal/telemetry/... ./internal/charging/... . All three passed. Reported by the owner, not the assistant.",
+      "budget": null
+    }
+  ],
+  "decisions": [
+    {
+      "scope": "database-gate",
+      "made_by": "user",
+      "what": "Owner confirmed the tier 3 database design as written: direct DROP COLUMN of both est columns from telemetry.supercharger_history, migration 20260903000003, no index change, no abort guard.",
+      "why": "Leader verified 0 non-NULL values across all 8 rows before asking, so the data-loss argument was empirical rather than structural. Owner chose apply-as-designed.",
+      "at": "2026-09-03T19:56:52Z"
+    },
+    {
+      "scope": "artifacts:kb-scope",
+      "made_by": "user",
+      "what": "Added task 4.4 for kkpa/context/architecture/nightly-cycle.md, a stale line the artifact worker correctly ruled out of its own scope as tier 2's gap.",
+      "why": "Owner chose fixing it here over a backlog entry, because kkpa-context-fetch presents the KB as authoritative and a wrong column count misleads the next agent.",
+      "at": "2026-09-03T19:56:52Z"
+    },
+    {
+      "scope": "dispatch:wave-batching",
+      "made_by": "autopilot",
+      "what": "Waves 1 and 2 dispatched as ONE serial worker (1.1-1.5 then 2.1), mirroring tier 2's shape.",
+      "why": "2.1 depends only on 1.1 and 1.5, both in the same batch, so one dispatch reads the doc pack once and needs no second setup.",
+      "at": "2026-09-03T19:57:28Z"
+    },
+    {
+      "scope": "artifacts:tombstone-wording",
+      "made_by": "autopilot",
+      "what": "design.md's three verbatim 'After' blocks (telemetry.go, service.go, db/query.sql) name StartBatteryPctEst/EndBatteryPctEst literally, contradicting tasks.md's 0-literal-names acceptance. tasks.md wins; design.md is corrected to match.",
+      "why": "Tier 2 already settled this with the owner: charging.go and query.sql say 'the two frozen estimate columns formerly named here', zero identifiers. Precedent binds.",
+      "at": "2026-09-03T20:00:53Z"
+    },
+    {
+      "scope": "dispatch:wave-batching",
+      "made_by": "autopilot",
+      "what": "Waves 1-4 batched into one serial worker instead of the artifacts' four waves.",
+      "why": "Every remaining task is a small edit against text design.md already prescribes verbatim; four dispatches would re-read the doc pack four times for no parallelism gain.",
+      "at": "2026-09-03T20:01:15Z"
+    },
+    {
+      "scope": "database-gate:table-comment",
+      "made_by": "user",
+      "what": "Do NOT refresh COMMENT ON TABLE telemetry.supercharger_history. The migration stays exactly as the owner confirmed at the first gate; generated models.go keeps a comment naming both dropped columns and claiming five are excluded from the nightly UPSERT.",
+      "why": "Owner was shown the staleness and the option to fix it in this migration, and chose to leave it. Recorded so the reviewer does not read it as an oversight.",
+      "at": "2026-09-03T20:34:28Z"
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review RM41 tier 3 (telemetry, ticket MAG-36): drop start_battery_pct_est and end_battery_pct_est from telemetry.supercharger_history. Read the diff 5817aee..HEAD, not the whole module.\n\nVALIDATE:\n1. Module boundary. The change is telemetry-owned. Four paths outside internal/telemetry/ were explicitly granted by the leader: internal/charging/db_backfill_integration_test.go (3.2), internal/charging/AGENTS.md (4.2), internal/charging/db/migrations/20260823000001_add_charge_sessions.sql (4.3, comment-only), kkpa/context/architecture/nightly-cycle.md (4.4). Confirm NOTHING else outside the module changed, and that 4.3 really is comment-only (no ALTER/INSERT/DROP/CREATE/UPDATE/SELECT line differs).\n2. Migration 20260903000003_drop_supercharger_est_columns.sql matches the design the OWNER CONFIRMED at the database gate: direct DROP COLUMN x2, both goose sections, a working Down whose column definitions match 20260815000001 exactly, no index change, no abort guard. A mismatch with the confirmed design is a blocker finding.\n3. Deliberate non-fix: the owner decided at a second gate to LEAVE the COMMENT ON TABLE telemetry.supercharger_history stale, so generated models.go still carries a comment naming both dropped columns and claiming five are excluded from the nightly UPSERT. That is decisions[].database-gate:table-comment, not an oversight. Do not report it.\n4. Tombstone wording. design.md, tasks.md and the code must agree that telemetry.go, service.go and db/query.sql carry DESCRIPTIVE comments with ZERO literal identifiers (no StartBatteryPctEst / EndBatteryPctEst / start_battery_pct_est / end_battery_pct_est), mirroring tier 2's owner-settled wording. design.md was corrected mid-run to match tasks.md; check the correction landed everywhere.\n5. Spec/tasks coverage: openspec/changes/.../specs/telemetry/spec.md deltas are implemented; every tasks.md acceptance criterion is met by the code on disk. Criteria are append-only - flag any that look weakened or edited.\n6. Known artifact defect, already flagged, do not re-triage: task 2.1's acceptance says 'go build ./internal/telemetry/... fails at this point'. go build never compiles _test.go, so it exits 0 and go vet is what fails. The criterion's INTENT holds; only the command name is wrong. It was NOT edited because acceptance checks are append-only. Confirm the intent was satisfied.\n7. Tests. The roadmap decision roadmap:tests says NO new tests: repair the existing files that stop compiling and delete the telemetry assertions guarding the dropped columns. Check db_supercharger_battery_pct_integration_test.go deletes only assertions about the dropped columns and does not quietly weaken surviving coverage. Judge test quality BY READING - do not run them.\n8. Docs. CLAUDE.md requires structural changes to update the docs in the SAME change: telemetry/AGENTS.md, charging/AGENTS.md and the kkpa/context/ KB. Verify nothing else in kkpa/context/ or the root README still describes the dropped columns.\n9. Performance-Profile compliance (read-heavy): no index was dropped or added; confirm no read path regressed.\n10. Anti-gaming: no acceptance criterion weakened or deleted, no self-approved status, no task marked done whose acceptance grep fails from disk.\n\nTEST-EXECUTION-POLICY (verbatim, project override in CLAUDE.md): 'Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard / make tz-guard / make migration-guard / make boundary-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.'\n\nSIGNAL PROVENANCE: assistant-run (leader) = go build ./... (0), go vet ./... (0), gofmt -l (clean), make migration-guard (ok, only the pre-existing 20260720000001 warning from backlog.md), make boundary-guard (ok). USER-REPORTED = make migrate-up, the information_schema check returning zero rows, and go test ./internal/telemetry/... ./internal/charging/... - all passed, reported by the owner on 2026-09-03. You may re-run only the assistant-permitted signals; never the suite.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-03T21:45:00Z",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Read doc pack: CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/telemetry/AGENTS.md. Read the diff 5817aee..HEAD plus proposal.md, design.md, tasks.md, specs/telemetry/spec.md, progress.json. All 10 brief items checked: (1) module boundary \u2014 only the 4 granted paths touched outside internal/telemetry/, plus this change's own openspec/changes/ artifacts; historic migration 20260823000001 diff confirmed comment-only, no ALTER/INSERT/DROP/CREATE/UPDATE/SELECT line differs. (2) migration 20260903000003 matches the confirmed design exactly: DROP COLUMN x2, both goose sections, Down column defs byte-for-byte match 20260815000001's originals, no index statement anywhere in the file. (3) COMMENT ON TABLE staleness confirmed present in models.go verbatim as decisions[].database-gate:table-comment describes \u2014 not reported as a finding, per brief. (4) grep for StartBatteryPctEst/EndBatteryPctEst/start_battery_pct_est/end_battery_pct_est returns 0 in telemetry.go, service.go, db/query.sql, mapping.go, and AGENTS.md \u2014 tombstone wording is fully descriptive with zero literal identifiers in all five files. (5) openspec validate RM41-telemetry-drop-estimate-columns --strict passes; spec.md delta reads correctly, not yet synced into the main spec (expected \u2014 sync happens at archive); every one of tasks.md's acceptance greps independently re-run from disk and all pass (1.1-1.5, 2.1, 3.1, 3.2, 4.1-4.4); go build ./internal/telemetry confirmed non-test-only success. (6) task 2.1's 'go build .../... fails at this point' wording defect confirmed unedited in tasks.md (append-only intact); intent (test file fails to compile pre-repair) is satisfied by the wave ordering. (7) test diff read in full: only the two *Est assertion blocks and the whole LeavesVerificationSnapshotUntouched function are removed; LeavesVerifiedBatteryPctUntouched is untouched; the renamed ReturnsBatteryPctTrio test's surviving trio assertions are preserved/inlined, not weakened. (8) internal/telemetry/AGENTS.md's six anchors and internal/charging/AGENTS.md's one sentence match design.md verbatim; kkpa/context/architecture/nightly-cycle.md correctly attributes the 'three' count to RM41-charging-drop-estimate-columns (tier 2, not this tier); grepped kkpa/context/ and root README for battery_pct_est/BatteryPctEst \u2014 the four other KB hits found (verify-session-battery.md, pending-spec-to-sync/charge-session-log.md, workflows/supercharger-stats-read.md, charge-record-mutation.md) already describe the columns in past tense / as already-removed by other tiers, none are telemetry-scoped staleness. (9) no CREATE/DROP INDEX anywhere in the new migration; design.md's index plan reasoning (SELECT * shrinks automatically, no index names either column) verified against the migration file. (10) tasks.md diff between artifacts commit and HEAD shows only checkbox state changes ([ ] to [x]), no acceptance-criterion text edited; re-ran migration-guard and boundary-guard myself and both matched the leader's claimed signals exactly (only the pre-existing 20260720000001 warning). No blockers, no majors, no minors found. Very high-fidelity change \u2014 design.md, tasks.md, and code agree throughout, and every claimed signal reproduces from disk.",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/telemetry/AGENTS.md"
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-03T19:56:52Z",
+      "what": "Artifacts created by the telemetry worker (Sonnet); openspec validate --strict passes. Doc-pack acknowledged. Leader independently verified: 20260903000003 sorts after the repo-wide newest and is unique across module dirs; the Down column types match 20260815000001 exactly; both indexes are (account_id, tesla_id, charge_start_date_time DESC) and (account_id, charge_start_date_time DESC), neither naming a dropped column; query.sql's only mention is the guarding comment, confirming no writer exists.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:56:52Z",
+      "what": "DATABASE DESIGN GATE PASSED: the owner confirmed the design. Leader first checked the real database \u2014 8 rows in telemetry.supercharger_history, 0 non-NULL in both columns \u2014 so the data-loss statement is empirically verified, not merely argued. Task 0.1 done.",
+      "by": "user"
+    },
+    {
+      "at": "2026-09-03T19:56:52Z",
+      "what": "The worker found db/query.sql needed a comment rewrite, which the roadmap's tier 3 row never listed, and set its acceptance grep to 0 literal names \u2014 consistent with the owner's tier 2 tombstone decision. It also found the historic 20260823000001 migration pre-scoped a comment correction to this exact change.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:57:28Z",
+      "what": "Dispatching wave 1+2 (1.1-1.5, 2.1) to one serial telemetry worker on Sonnet. Budget at dispatch: five_hour_pct=63, context_pct=25, both under threshold.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:00:53Z",
+      "what": "RESUME after the previous session died mid-wave. Leader re-derived truth from the diff: 1.1 fully done; 1.2 and 1.3 partial; 1.4, 1.5, 2.1 never started. Rollup corrected. Budget on resume: five_hour_pct=70, context_pct=10.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:00:53Z",
+      "what": "ARTIFACT DEFECT found at reconcile: design.md prescribes tombstone comments naming both dropped identifiers, while tasks.md acceptance requires 0 literal names in the same three files. Tier 2's owner-settled wording is descriptive with no identifiers, so tasks.md is right and design.md's three After blocks are corrected in the rework dispatch.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:01:15Z",
+      "what": "Dispatching the whole remaining implementation (1.2-4.4) to ONE serial telemetry worker on Sonnet: mechanical edits with verbatim prescribed text, so one dispatch reads the doc pack once. Includes reworking 1.2's tombstone comment and correcting design.md's three contradicting After blocks. Budget at dispatch: five_hour_pct=70, context_pct=10.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:05:13Z",
+      "what": "LEADER ERROR, corrected: the first worker was NOT dead, only slow. It returned after the resume dispatch, so TWO workers edited telemetry.go, service.go, db/query.sql and the sqlc output concurrently. Worker 1 is now finished; worker 2 was warned to re-read every file, re-run every acceptance grep from disk, and re-run make sqlc last. Final state is decided by the leader's own greps, not by either report.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:05:13Z",
+      "what": "Worker 1 independently reached the same triage as the leader: it applied design.md verbatim, then reported 1.2/1.4/1.5 BLOCKED on the acceptance contradiction rather than weakening any check. Correct anti-gaming behavior and independent confirmation that tasks.md is the side to keep.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:05:13Z",
+      "what": "Two artifact defects found by worker 1. (a) mapping.go's pgNullableInt16AsInt doc comment says 'all four SMALLINT columns'; only two remain. design.md never specified the edit - a real gap, handed to worker 2. (b) Task 2.1's acceptance claims 'go build ./internal/telemetry/... fails at this point'; go build never compiles _test.go, so it exits 0 and go vet is what fails. The criterion's INTENT holds; only its command name is wrong. Not edited - acceptance checks are append-only - and flagged for the reviewer.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:25:17Z",
+      "what": "Worker 2 killed by an API error (UNKNOWN_CERTIFICATE_VERIFICATION_ERROR) just after 3.1, entering 3.2. Leader verified the whole tree from disk with every tasks.md acceptance grep rather than trusting either worker report. Result: 1.2-1.5, 2.1, 3.2 all pass; 3.1 has one leftover line; 4.1-4.4 untouched.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:25:17Z",
+      "what": "UNPLANNED DB CHANGE FOUND - design gate required. telemetry.supercharger_history's COMMENT ON TABLE (set by 20260903000001) still names both est columns and claims 'all five excluded from the nightly UPSERT'. sqlc copies it into models.go verbatim, so generated code now documents columns that no longer exist. charging had no equivalent table comment, which is why tier 2 never hit this and design.md never covered it. Added as task 1.6, blocked pending the owner.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:25:17Z",
+      "what": "BUDGET CHECKPOINT: five_hour_pct=86 against threshold 90, context_pct=17. A full Wave 4 would likely cross 90 mid-wave, so stopping cleanly at this boundary with every status truthful. five_hour_resets_at=1788478800.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:34:28Z",
+      "what": "DESIGN GATE (table comment) CLOSED: owner chose to leave the COMMENT ON TABLE stale rather than add a statement to migration 20260903000003. Task 1.6 cancelled without work. The confirmed migration design is unchanged, so no re-confirmation of the original gate is needed.",
+      "by": "user"
+    },
+    {
+      "at": "2026-09-03T20:37:02Z",
+      "what": "Owner chose to finish Wave 4 before checkpointing rather than stopping at 86%. Dispatching one serial telemetry worker (Sonnet) for the five remaining doc edits: 3.1's leftover doc-comment line plus 4.1-4.4. Budget at dispatch: five_hour_pct=86, context_pct=17.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:43:40Z",
+      "what": "Wave 4 complete and leader-verified from disk: every acceptance grep passes. 5.1 signals all green - build 0, vet 0, gofmt clean, migration-guard and boundary-guard ok. Definition-of-done sweep returns 9 files; 5 are the expected migrations, and the 4 extras are all benign: charging/AGENTS.md prose, an untouched historic migration, tier 2's replay-rewrite constants, and the table comment the owner chose to leave stale.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T20:43:40Z",
+      "what": "BUDGET CHECKPOINT TRIPPED: five_hour_pct=97, past the 90 threshold (context_pct=19). Stopping cleanly with every status truthful. Implementation is complete; the change cannot advance to the reviewer gate until the owner reports the suite. Resume with: /kkpa-dev-harness-pipeline resume RM41-telemetry-drop-estimate-columns. five_hour_resets_at=1788478800.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T21:11:00Z",
+      "what": "OWNER VERIFICATION: the owner ran make migrate-up, the information_schema column check (zero rows, both est columns gone from the real telemetry.supercharger_history) and go test ./internal/telemetry/... ./internal/charging/... . All three passed. Reported by the owner; the assistant never ran the suite. Tasks 1.1, 2.1, 3.1, 3.2 and 5.2 move from awaiting-user-verification to done and the change advances to verified.",
+      "by": "user"
+    },
+    {
+      "at": "2026-09-03T21:17:00Z",
+      "by": "leader",
+      "what": "REVIEWER APPROVED round 1 with zero findings; telemetry-reviewer re-ran every acceptance grep, openspec validate --strict, migration-guard and boundary-guard from disk independently. Archived: openspec archive synced the telemetry delta into openspec/specs/telemetry/spec.md (2 requirements modified); the folder was moved under archive/telemetry/ to match this repo's module-grouped layout, which the CLI does not do itself. Roadmap tier 3 flipped to [x]."
+    }
+  ]
+}

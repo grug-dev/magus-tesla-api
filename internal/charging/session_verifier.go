@@ -63,6 +63,39 @@ func needsDerivedStartBatteryPct(startPct, endPct *int) bool {
 	return startPct == nil && endPct != nil
 }
 
+// sessionStatusFor computes the lifecycle SessionStatus for a supercharger_sessions
+// row from the FINAL values VerifySession is about to store, plus whether THIS call
+// derived startPct rather than storing a caller-supplied value
+// (RM41-charging-add-session-status, MAG-45, design.md "Go-side call shape"). It is
+// the single place this rule is written, mirroring needsDerivedStartBatteryPct's own
+// "one small named function" shape.
+//
+// startPct/endPct here are the FINAL values about to be written -- startPct is
+// VerifySession's own startToStore (the caller's value, the derived one, or nil),
+// never the caller's raw startBatteryPct parameter. derived is true only when THIS
+// call both attempted and succeeded at deriving startPct
+// (needsDerivedStartBatteryPct(...) was true AND the derivation produced a non-nil
+// result) -- a failed derivation (energy_kwh SQL NULL, or an out-of-range result)
+// leaves startPct nil and therefore falls through to SessionStatusInProgress via the
+// first rule below, never SessionStatusDoneCalculated.
+//
+// Rule, in priority order (design.md "State truth table"):
+//  1. Either percentage absent (nil) -> SessionStatusInProgress. Covers "nothing
+//     recorded", "only a start percentage recorded" (deliberately IN_PROGRESS, not a
+//     fourth state), and "only an end percentage recorded and no derivation was
+//     possible or successful".
+//  2. Both present AND derived -> SessionStatusDoneCalculated.
+//  3. Both present, not derived -> SessionStatusDone.
+func sessionStatusFor(startPct, endPct *int, derived bool) SessionStatus {
+	if startPct == nil || endPct == nil {
+		return SessionStatusInProgress
+	}
+	if derived {
+		return SessionStatusDoneCalculated
+	}
+	return SessionStatusDone
+}
+
 // VerifySession implements SessionVerifier. See the interface doc comment (charging.go)
 // for the full contract. Implementation shape is validate-then-derive-then-query
 // (design.md §"Go-side call shape", D8/D9, MAG-36
@@ -81,6 +114,9 @@ func needsDerivedStartBatteryPct(startPct, endPct *int) bool {
 //  3. Compute battery_pct_source: batteryPctSourceUserVerified when either the
 //     (possibly derived) start or the end percentage is non-nil, nil (SQL NULL) when
 //     both are nil (design.md D1/D2/D7 — unchanged: no new source value).
+//     3.5. Compute status via sessionStatusFor from startToStore, the caller's
+//     endBatteryPct, and whether step 2 actually derived a value
+//     (RM41-charging-add-session-status design.md "Go-side call shape").
 //  4. Call VerifySuperchargerSession — against the open transaction when one exists,
 //     against v.q otherwise — scoped by id + accountID, and map the returned row via
 //     the existing rowToSession (session_reader.go) — no new mapping code. Commit the
@@ -94,6 +130,7 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 	}
 
 	startToStore := startBatteryPct
+	calculated := false
 	q := v.q
 	var tx pgx.Tx
 
@@ -132,7 +169,10 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 		}
 
 		startToStore = derivedStartBatteryPct(capacityKWh, pgFloat8ToFloat64Ptr(row.EnergyKwh), endBatteryPct)
+		calculated = startToStore != nil
 	}
+
+	status := sessionStatusFor(startToStore, endBatteryPct, calculated)
 
 	var source *string
 	if startToStore != nil || endBatteryPct != nil {
@@ -146,6 +186,7 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 		StartBatteryPct:  intPtrToPgInt2(startToStore),
 		EndBatteryPct:    intPtrToPgInt2(endBatteryPct),
 		BatteryPctSource: stringPtrToPgText(source),
+		Status:           string(status),
 	})
 	if err != nil {
 		return Session{}, fmt.Errorf("charging: verify session: %w", err)

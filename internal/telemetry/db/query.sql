@@ -344,17 +344,17 @@ ORDER BY captured_at DESC
 LIMIT 1;
 
 -- LOAD-BEARING (R3, RM27-telemetry-add-supercharger-battery-pct): start_battery_pct,
--- end_battery_pct, battery_pct_source, start_battery_pct_est, and end_battery_pct_est
--- are DELIBERATELY ABSENT from both the INSERT column list and the ON CONFLICT DO
--- UPDATE SET clause below. The first three are a human-owned verification/override
--- channel; the last two are a frozen, write-once verification-time snapshot of the
--- estimate (design D6) -- NEVER refreshed, NEVER a cache read by internal/analytics
--- (see the column comments added by migration 20260815000001). If this query touched
--- any of the five, a user's verified value or its frozen snapshot would be silently
--- overwritten by the next nightly re-upsert. A fresh INSERT leaves all five at their
--- column default (NULL); a re-upsert never assigns any of them. A future writer for
--- these columns belongs on a dedicated query on a dedicated Writer port (out of
--- scope here, backlog entry 11) -- do not "complete the pattern" by adding them here.
+-- end_battery_pct, and battery_pct_source are DELIBERATELY ABSENT from both the INSERT
+-- column list and the ON CONFLICT DO UPDATE SET clause below. They are a human-owned
+-- verification/override channel; the nightly sync must never write, clear or overwrite
+-- one. If this query touched any of the three, a user's verified value would be
+-- silently overwritten by the next nightly re-upsert. A fresh INSERT leaves all three
+-- at their column default (NULL); a re-upsert never assigns any of them. A future
+-- writer for these columns belongs on a dedicated query on a dedicated Writer port
+-- (out of scope here, backlog entry 11) -- do not "complete the pattern" by adding
+-- them here. The two frozen estimate columns formerly also excluded here as a
+-- write-once verification-time snapshot pair were dropped from the table entirely
+-- by RM41-telemetry-drop-estimate-columns -- there is no longer a column to guard.
 -- name: UpsertSuperchargerHistory :exec
 -- Upsert one Supercharger session. On conflict with the session_id UNIQUE constraint,
 -- refresh only the mutable/derived columns (raw_data, derived fields, tesla_id,

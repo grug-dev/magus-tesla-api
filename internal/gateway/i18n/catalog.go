@@ -111,17 +111,17 @@ const (
 	// Short helper copy under each form's title. Both state RULES THAT LIVE IN GO
 	// (charging.resolveEnergy's derivation and charging.RequiredFieldsFor's sets) —
 	// if either rule changes, these strings are part of that change.
-	KeyChargesFormCreateHint Key = "charges_form.create_hint"
-	KeyChargesFormEditHint   Key = "charges_form.edit_hint"
-	KeyChargesFormChargingType    Key = "charges_form.charging_type"
-	KeyChargesFormAC              Key = "charges_form.ac"
-	KeyChargesFormDC              Key = "charges_form.dc"
-	KeyChargesFormLocationLabel   Key = "charges_form.location_label"
-	KeyChargesFormNotes           Key = "charges_form.notes"
-	KeyChargesFormLogCharge       Key = "charges_form.log_charge"
-	KeyChargesFormVehicle         Key = "charges_form.vehicle"
-	KeyChargesFormSave            Key = "charges_form.save"
-	KeyChargesFormCancel          Key = "charges_form.cancel"
+	KeyChargesFormCreateHint    Key = "charges_form.create_hint"
+	KeyChargesFormEditHint      Key = "charges_form.edit_hint"
+	KeyChargesFormChargingType  Key = "charges_form.charging_type"
+	KeyChargesFormAC            Key = "charges_form.ac"
+	KeyChargesFormDC            Key = "charges_form.dc"
+	KeyChargesFormLocationLabel Key = "charges_form.location_label"
+	KeyChargesFormNotes         Key = "charges_form.notes"
+	KeyChargesFormLogCharge     Key = "charges_form.log_charge"
+	KeyChargesFormVehicle       Key = "charges_form.vehicle"
+	KeyChargesFormSave          Key = "charges_form.save"
+	KeyChargesFormCancel        Key = "charges_form.cancel"
 	// --- status control + odometer, added by RM33-gateway-update-charge-form ---
 	KeyChargesFormStatus           Key = "charges_form.status"
 	KeyChargesFormStatusInProgress Key = "charges_form.status_in_progress"
@@ -168,18 +168,34 @@ const (
 	KeySuperchargerKWhPerMonth   Key = "supercharger.kwh_per_month"
 	KeySuperchargerEmpty         Key = "supercharger.empty"
 	KeySuperchargerDate          Key = "supercharger.date"
-	KeySuperchargerSite          Key = "supercharger.site"
-	KeySuperchargerStartBattery  Key = "supercharger.start_battery"
-	KeySuperchargerEndBattery    Key = "supercharger.end_battery"
-	KeySuperchargerStartEstimate Key = "supercharger.start_estimate"
-	KeySuperchargerEndEstimate   Key = "supercharger.end_estimate"
-	KeySuperchargerActions       Key = "supercharger.actions"
+
+	// --- supercharger status column header (fragments/supercharger_stats.templ) ---
+	KeySuperchargerStatus Key = "supercharger.status"
+
+	KeySuperchargerSite           Key = "supercharger.site"
+	KeySuperchargerStartBattery   Key = "supercharger.start_battery"
+	KeySuperchargerEndBattery     Key = "supercharger.end_battery"
+	KeySuperchargerBatteryPctHelp Key = "supercharger.battery_pct_help"
+
+	// --- supercharger in-progress-session guidance alert
+	// (fragments/supercharger_stats.templ), owner decision 2026-09-04 ---
+	KeySuperchargerStatusHelp Key = "supercharger.status_help"
+
+	KeySuperchargerActions Key = "supercharger.actions"
 
 	// --- supercharger row edit (fragments/supercharger_row.templ, supercharger_row_edit.templ)
 	// RM31-gateway-add-session-battery-edit design.md D3/D8/D9/D10 ---
 	KeySuperchargerRowEdit   Key = "supercharger_row.edit"
 	KeySuperchargerRowSave   Key = "supercharger_row.save"
 	KeySuperchargerRowCancel Key = "supercharger_row.cancel"
+
+	// --- supercharger status badge (fragments/supercharger_row.templ),
+	// RM41-gateway-add-session-status-column design.md, roadmap D11 — deliberately
+	// NOT reusing KeyChargesBadgeInProgress/KeyChargesBadgeDone: a different table's
+	// badge is its own semantic role, same precedent as charges_list's header block ---
+	KeySuperchargerBadgeInProgress     Key = "supercharger_badge.in_progress"
+	KeySuperchargerBadgeDoneCalculated Key = "supercharger_badge.done_calculated"
+	KeySuperchargerBadgeDone           Key = "supercharger_badge.done"
 
 	// --- supercharger row validation + errors (handlers/supercharger.go)
 	// RM31-gateway-add-session-battery-edit design.md D3/D8/D9/D10 ---
@@ -482,16 +498,31 @@ var catalog = map[Key]entry{
 	KeySuperchargerKWhPerMonth:   {ES: "kWh por mes", EN: "kWh per month"},
 	KeySuperchargerEmpty:         {ES: "No hay sesiones de Supercharger en esta ventana.", EN: "No Supercharger sessions in this window."},
 	KeySuperchargerDate:          {ES: "Fecha", EN: "Date"},
-	KeySuperchargerSite:          {ES: "Sitio", EN: "Site"},
-	KeySuperchargerStartBattery:  {ES: "Batería inicial", EN: "Start battery"},
-	KeySuperchargerEndBattery:    {ES: "Batería final", EN: "End battery"},
-	KeySuperchargerStartEstimate: {ES: "Estimación inicial", EN: "Start estimate"},
-	KeySuperchargerEndEstimate:   {ES: "Estimación final", EN: "End estimate"},
-	KeySuperchargerActions:       {ES: "Acciones", EN: "Actions"},
+
+	KeySuperchargerStatus: {ES: "Estado", EN: "Status"},
+
+	KeySuperchargerSite:         {ES: "Sitio", EN: "Site"},
+	KeySuperchargerStartBattery: {ES: "Batería inicial", EN: "Start battery"},
+	KeySuperchargerEndBattery:   {ES: "Batería final", EN: "End battery"},
+	KeySuperchargerBatteryPctHelp: {
+		ES: "Tesla no nos provee los porcentajes de batería inicial y final. Te aconsejamos que siempre intentes recordarlos al usar un Supercharger, para tener mejor precisión en los análisis. Sin embargo, conociendo solo el porcentaje final, el sistema calculará el porcentaje inicial aproximado que tenía el vehículo.",
+		EN: "Tesla does not give us the start and end battery percentages. We recommend you always try to remember them when you use a Supercharger, so the analysis is more accurate. Still, if you only know the end percentage, the system will calculate the approximate start percentage the vehicle had.",
+	},
+
+	KeySuperchargerStatusHelp: {
+		ES: "Si una sesión aparece como «En progreso», te falta registrar sus porcentajes. Edítala y completa el porcentaje final para que el sistema pueda calcular el inicial.",
+		EN: `If a session shows as "In progress", its percentages are still missing. Edit it and fill in the end percentage so the system can calculate the start one.`,
+	},
+
+	KeySuperchargerActions: {ES: "Acciones", EN: "Actions"},
 
 	KeySuperchargerRowEdit:   {ES: "Editar", EN: "Edit"},
 	KeySuperchargerRowSave:   {ES: "Guardar", EN: "Save"},
 	KeySuperchargerRowCancel: {ES: "Cancelar", EN: "Cancel"},
+
+	KeySuperchargerBadgeInProgress:     {ES: "En progreso", EN: "In progress"},
+	KeySuperchargerBadgeDoneCalculated: {ES: "Finalizada (calculada)", EN: "Done (calculated)"},
+	KeySuperchargerBadgeDone:           {ES: "Finalizada", EN: "Done"},
 
 	KeySuperchargerErrorInvalidID:       {ES: "id inválido", EN: "invalid id"},
 	KeySuperchargerErrorSessionNotFound: {ES: "sesión no encontrada", EN: "session not found"},

@@ -855,11 +855,13 @@ func boolPtrToPgBool(b *bool) pgtype.Bool {
 // SuperchargerHistory or any method signature outside service.go/mapping.go
 // (design DBS4/B4.2, ai/go-conventions.md §persistence).
 //
-// Deliberately does NOT read s.StartBatteryPct / s.EndBatteryPct / s.BatteryPctSource /
-// s.StartBatteryPctEst / s.EndBatteryPctEst: telemetrydb.UpsertSuperchargerHistoryParams
-// has no fields for them (query.sql omits all five from the query entirely — R3/D3/D6,
-// RM27-telemetry-add-supercharger-battery-pct). This keeps the nightly poller from ever
-// silently overwriting a human-verified value or its frozen snapshot.
+// Deliberately does NOT read s.StartBatteryPct / s.EndBatteryPct / s.BatteryPctSource:
+// telemetrydb.UpsertSuperchargerHistoryParams has no fields for them (query.sql omits
+// all three from the query entirely — R3/D3, RM27-telemetry-add-supercharger-battery-pct).
+// This keeps the nightly poller from ever silently overwriting a human-verified value.
+// (The two frozen estimate fields formerly also named here as fields this mapping
+// never reads were dropped from SuperchargerHistory entirely by
+// RM41-telemetry-drop-estimate-columns — there is no longer a field to not read.)
 func (d *dbStore) upsertSuperchargerHistory(ctx context.Context, s SuperchargerHistory) error {
 	// nullable tesla_id: nil → invalid (NULL), non-nil → valid BIGINT.
 	var teslaID pgtype.Int8

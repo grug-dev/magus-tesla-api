@@ -65,12 +65,10 @@ type SuperchargerSession struct {
 	EndBatteryPct pgtype.Int2
 	// Provenance of start/end_battery_pct: user_verified (a human entered them) or polled (a future measured-SOC path, not implemented). Required whenever either percentage is set (supercharger_sessions_pct_source_required). Never 'estimated' — an estimate is computed on read and is never persisted here.
 	BatteryPctSource pgtype.Text
-	// FROZEN write-once snapshot of the live estimate at the moment start_battery_pct was verified — a drift-log entry, not a cache. Never refreshed, including by a later improved model; staleness here is correct, not a bug.
-	StartBatteryPctEst pgtype.Int2
-	// FROZEN write-once snapshot of the live estimate at the moment end_battery_pct was verified. Same write-once, never-refreshed, never-a-cache semantics as start_battery_pct_est.
-	EndBatteryPctEst pgtype.Int2
 	CreatedAt        pgtype.Timestamptz
 	UpdatedAt        pgtype.Timestamptz
 	// Pack capacity in kWh implied by this session: energy_kwh / ((end_battery_pct - start_battery_pct) / 100), rounded to 3 decimals. Same GENERATED ALWAYS AS ... STORED mechanism, same guard, and the same unconstrained NUMERIC type as manual_charge_entries.inferred_capacity_kwh_calc -- the two expressions differ only in the energy IS NOT NULL guard (energy_kwh is nullable here) and the ::NUMERIC cast (energy_kwh is DOUBLE PRECISION here), both forced by the source column (design D4). NULL additionally whenever energy_kwh is NULL, i.e. the session had no kWh fee. This column recomputes when the nightly mirror refreshes energy_kwh AND when a human corrects the percentages through SessionVerifier.VerifySession -- neither write path names this column, and neither has to (design D2).
 	InferredCapacityKwhCalc pgtype.Numeric
+	// Lifecycle status of this session's battery-percentage data, auto-computed by SessionVerifier.VerifySession on every call, never accepted from a caller: IN_PROGRESS when either start_battery_pct or end_battery_pct is NULL, DONE_CALCULATED when both are present and this call derived start_battery_pct via derivedStartBatteryPct rather than storing a caller-supplied value, DONE when both are present and start_battery_pct was supplied directly. Every row that existed before this migration was backfilled to DONE_CALCULATED unconditionally -- an owner decision about data provenance the stored percentages themselves cannot show, not a recompute of this rule against their actual values (see RM41-charging-add-session-status design.md "Rationale"). Not indexed: no read query in this tier filters, orders, or joins by it.
+	Status string
 }

@@ -51,7 +51,7 @@ constraint + `ON CONFLICT DO UPDATE` (refreshing only mutable columns — `raw_d
 billing state (`is_paid`, invoice status) mutates post-session, so a session row is never "done"
 on first insert. `tesla_id` is resolved from a VIN→TeslaID map built from the account's currently
 registered vehicles; sessions for VINs no longer registered get `tesla_id = NULL` (row kept, VIN
-preserved). The five battery-% verification columns are deliberately excluded from the upsert —
+preserved). The three battery-% verification columns are deliberately excluded from the upsert —
 they are a human-owned channel that the nightly poller must never overwrite (see "Battery-%
 verification columns" below).
 
@@ -254,16 +254,16 @@ imports**):
   `SuperchargerHistory` (`telemetry.go`). One row per Tesla `session_id` (UPSERT, not
   append-only: billing state — `is_paid`, invoice status — mutates post-session,
   migration `20260716000001`). Extended by `RM27-telemetry-add-supercharger-battery-pct`
-  (MAG-14, migration `20260815000001`) with five new nullable columns, all excluded from
-  `UpsertSuperchargerHistory`'s (the sqlc query, renamed from `UpsertSuperchargerSession`
+  (MAG-14, migration `20260815000001`) with three nullable columns (originally five;
+  `RM41-telemetry-drop-estimate-columns`, 2026-09-03, dropped the frozen
+  verification-snapshot pair), all excluded
+  from `UpsertSuperchargerHistory`'s (the sqlc query, renamed from `UpsertSuperchargerSession`
   by the same tier-4 change) `INSERT`/`ON CONFLICT DO UPDATE SET` (see "Battery-%
   verification columns" below for the full convention):
   - `start_battery_pct SMALLINT CHECK (0..100)`, `end_battery_pct SMALLINT CHECK (0..100)` —
     human-owned verification/override trio.
   - `battery_pct_source TEXT CHECK (IN ('user_verified', 'polled'))` — why the trio is set;
     NULL when no override exists.
-  - `start_battery_pct_est SMALLINT CHECK (0..100)`, `end_battery_pct_est SMALLINT CHECK
-    (0..100)` — frozen, write-once verification-time snapshot pair (design D6).
 - `charge_gaps` (the flagged-vehicle-day ledger, formerly owned here as
   `RM28-telemetry-add-charge-gap-storage`, MAG-15) **moved to `internal/analytics`** by
   `RM29-analytics-own-charge-gaps` (MAG-26 tier 5), table, migration, and `GapWriter` port
@@ -349,16 +349,16 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
 
 ### Battery-% verification columns (`supercharger_history`, renamed from `supercharger_sessions` by RM39 tier 4) — introduced by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14)
 
-`SuperchargerHistory` gains five pointer fields (`StartBatteryPct *int`, `EndBatteryPct *int`,
-`BatteryPctSource *string`, `StartBatteryPctEst *int`, `EndBatteryPctEst *int`), mapped by
+`SuperchargerHistory` gains three pointer fields (`StartBatteryPct *int`, `EndBatteryPct *int`,
+`BatteryPctSource *string`), mapped by
 `rowToSuperchargerHistory` (`mapping.go`) via the new `pgNullableInt16AsInt` helper (first
-`SMALLINT`/`pgtype.Int2` column in this module; reused for all four `SMALLINT` fields) and the
+`SMALLINT`/`pgtype.Int2` column in this module; reused for both `SMALLINT` fields) and the
 existing `pgNullableText` helper for `BatteryPctSource`.
 
 > **SCOPE NOTE (2026-08-15) — there is no estimator, and there will not be one under RM27.**
 > RM27 originally planned two further tiers: a taper-curve SOC estimator in `internal/analytics`
-> and a gateway page rendering it. **Both were descoped by the owner**; RM27 ships these five
-> columns and nothing else. Wherever the text below says an estimate is computed "on read",
+> and a gateway page rendering it. **Both were descoped by the owner**; RM27 shipped these three
+> columns (plus a since-dropped reserved pair — see the next bullet) and nothing else. Wherever the text below says an estimate is computed "on read",
 > read that as *not implemented* — the platform computes no SOC estimate anywhere. The columns
 > remain a purely human-owned channel with no writer yet. Deferred work: backlog entry 11.
 
@@ -366,12 +366,12 @@ existing `pgNullableText` helper for `BatteryPctSource`.
   "no value has been recorded". A non-nil trio means a human verified/overrode the value;
   `BatteryPctSource` records why (`"user_verified"` or `"polled"`). Nothing fills a NULL trio
   today — no fallback, no estimate.
-- **Never auto-written (R3/R7):** all five columns are excluded from
+- **Never auto-written (R3/R7):** all three columns are excluded from
   `UpsertSuperchargerHistory`'s `INSERT` column list and its `ON CONFLICT DO UPDATE SET` clause
   — deliberately, not an oversight (design D3). The nightly poller re-upserts every session
-  because Tesla billing state (`is_paid`, invoices) mutates post-session; if any of these five
+  because Tesla billing state (`is_paid`, invoices) mutates post-session; if any of these three
   were bound as a query parameter, a human-verified value would be silently overwritten on the
-  next nightly re-upsert. **No writer for any of the five columns exists anywhere in this
+  next nightly re-upsert. **No writer for any of the three columns exists anywhere in this
   repository as of this change** — the future verification UI's Writer port is out of scope
   here (backlog entry 11).
 - **`BatteryPctSource` never stores `"estimated"`** (R4/R6): `BatteryPctSource` only ever
@@ -379,21 +379,17 @@ existing `pgNullableText` helper for `BatteryPctSource`.
   estimate at all; and were one ever added, the distinction would still be carried structurally
   (by column presence), never by a stored label, since a persisted estimate goes stale the
   moment the model behind it changes — exactly what R6 forbids.
-- **`StartBatteryPctEst`/`EndBatteryPctEst` are RESERVED and, today, always NULL.** With the
-  estimator descoped there is nothing to snapshot, so no code path writes them. They were kept
-  rather than dropped (owner's call, 2026-08-15) so that a future estimator can land without a
-  migration. **If you are the one adding that estimator, read this before touching either
-  field:** they are a FROZEN, write-once verification snapshot — NOT a cache, NOT a
-  nightly-refreshed pair (design D6). They must be written **exactly once**, in the same write
-  as the trio (by a future verification UI), capturing what the estimator showed **at that
-  moment** ("model said 82, human said 79" — a permanent drift-log entry), and **never updated
-  again**, including by a later, improved model: staleness relative to a newer model is the
-  correct, intended behavior for a dated observation, not a bug. They must **never be read back
-  into a live estimate computation** — reading them "to save a computation" defeats the entire
-  point of the drift log. They carry the identical R3 write-exclusion as the trio (never in
-  `UpsertSuperchargerHistory`). Full rationale — including why a nightly-refreshed `_est` pair
-  (the shape this is NOT) has no legal writer under this project's module-ownership rule — in
-  `openspec/changes/archive/2026-08-15-RM27-telemetry-add-supercharger-battery-pct/design.md` D6.
+- **The frozen verification-snapshot pair no longer exists.** RM27 (2026-08-15)
+  kept it reserved, unwritten, so a future SOC estimator could land without a
+  migration. That reservation is now obsolete: the estimator MAG-36 eventually
+  shipped (`derivedStartBatteryPct`, `internal/charging/capacity.go`,
+  2026-09-01) writes the real `start_battery_pct` column instead of a frozen
+  snapshot column — so `RM41-telemetry-drop-estimate-columns` (2026-09-03)
+  dropped both columns from `telemetry.supercharger_history` along with the
+  two `SuperchargerHistory` fields and the RM27-D6 comment block that
+  described them. Full history of the original design:
+  `openspec/changes/archive/2026-08-15-RM27-telemetry-add-supercharger-battery-pct/design.md`
+  D6 (superseded).
 
 ## Testing notes
 

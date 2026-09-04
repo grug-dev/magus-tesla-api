@@ -1,0 +1,589 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM41-charging-drop-estimate-columns",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
+  "request": "Roadmap RM41 tier 2, ticket MAG-36. Drop start_battery_pct_est / end_battery_pct_est from charging.supercharger_sessions: one migration, the two Session fields, the two reader mappings, the query.sql guarding comments, sqlc regeneration, four charging integration tests plus the granted analytics seed test, and four doc/KB files.",
+  "status": "verified",
+  "created_at": "2026-09-03T18:35:00Z",
+  "updated_at": "2026-09-03T19:29:18Z",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "0.1",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "5.1",
+      "5.2"
+    ],
+    "awaiting_user_verification": []
+  },
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
+    "base": "main",
+    "ticket": "MAG-36",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-36/supercharger-session-battery-start-calculated",
+    "created_at": "2026-09-03T17:38:00Z"
+  },
+  "tasks": [
+    {
+      "id": "0.1",
+      "title": "Leader presents the database design to the owner and gets confirmation",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-09-03T18:35:00Z",
+      "completed_at": "2026-09-03T18:35:00Z",
+      "duration_seconds": null,
+      "notes": "Owner confirmed the design as written, choosing it over an abort-if-non-NULL guard.",
+      "budget": null
+    },
+    {
+      "id": "1.1",
+      "title": "Create migration 20260903000002_drop_supercharger_est_columns.sql",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
+      "duration_seconds": null,
+      "notes": "Migration 20260903000002 written verbatim from design.md, both goose sections, sorts last. Not applied \u2014 make migrate-up stays the owner's step (5.2).",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "charging.go: remove the two Session fields",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
+      "duration_seconds": null,
+      "notes": "Two Session fields removed, doc comment five->three / Twenty->Eighteen, VerifySession doc rewritten. Leader then dropped the literal column names from the tombstone (see decision).",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "session_reader.go: remove the two mappings",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
+      "duration_seconds": null,
+      "notes": "Two rowToSession mapping lines and the mapping-rules bullet removed. Acceptance grep returns 0.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
+    },
+    {
+      "id": "1.4",
+      "title": "db/query.sql: rewrite the two guarding comments",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
+      "duration_seconds": null,
+      "notes": "Both guarding comments rewritten. Leader amended the tombstone wording so the acceptance grep returns 0 as written; RM41 pointer kept, count 2.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "Run make sqlc to regenerate the generated types",
+      "module": "charging",
+      "depends_on": [
+        "1.1",
+        "1.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
+      "duration_seconds": null,
+      "notes": "make sqlc run twice (after 1.4 and again after the tombstone amendment). models.go and query.sql.go carry no est name. go build ./internal/charging clean; vet fails only on wave-3 test files, as designed.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "db_session_integration_test.go: Test Contract repairs",
+      "module": "charging",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "superchargerSessionRow, the SELECT/Scan, the first-mirror assertions and the B6 UPDATE all cleaned. Acceptance grep 0. Compiles under vet; suite not run.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "db_session_reader_integration_test.go: Test Contract repairs",
+      "module": "charging",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "Two T9 assertions, two loop disjuncts and seedS1's _est UPDATE values removed; also corrected two adjacent 'all five'->'all three' mentions made stale by the drop. Acceptance grep 0.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "db_backfill_integration_test.go: Test Contract repairs",
+      "module": "charging",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "Assertion blocks deleted and telemetry-side fixture left untouched as designed. Owner's failing make test then exposed a design.md gap: the replayed backfill statement itself named the dropped columns. Leader added two removal rewrites.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "db_session_verifier_integration_test.go: Test Contract repairs",
+      "module": "charging",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "T1 and T8 assertion pairs deleted. Acceptance grep 0.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "3.5",
+      "title": "[granted path] analytics/db_integration_test.go: drop both est columns from the seed INSERT",
+      "module": "analytics (granted)",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "Granted analytics path only: seedChargeSession's INSERT dropped both columns and args, renumbered to $1..$16. One file changed under internal/analytics/.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "charging/AGENTS.md: the five doc edits",
+      "module": "charging",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "Five numbered edits applied; D16 sentence untouched. Leader then fixed the mirrored Session doc comment, which still said 'five ... verification/estimate columns'.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "KB: verify-session-battery.md estimator gotcha",
+      "module": "charging",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "Estimator-gotcha bullet replaced verbatim. Both acceptance checks pass.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "4.3",
+      "title": "KB: supercharger-stats-read.md",
+      "module": "charging",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "Future-tense 'until tier 2 drops the columns' clause replaced with the already-dropped wording.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "4.4",
+      "title": "KB: charge-record-mutation.md (found by the worker, not in the roadmap)",
+      "module": "charging",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "'never written / always show em-dash' bullet replaced verbatim. Both acceptance checks pass.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "Assistant-run signals: build, vet, gofmt, migration-guard, boundary-guard",
+      "module": "charging",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "2.1",
+        "3.1",
+        "3.2",
+        "3.3",
+        "3.4",
+        "3.5",
+        "4.1",
+        "4.2",
+        "4.3",
+        "4.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T19:13:46Z",
+      "completed_at": "2026-09-03T19:13:46Z",
+      "duration_seconds": null,
+      "notes": "build, vet, gofmt all clean on charging+analytics; migration-guard and boundary-guard pass. Definition-of-done grep returns exactly the four predicted files.",
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "Owner runs make migrate-up, the catalog check, and the suite",
+      "module": "charging",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-09-03T19:13:46Z",
+      "completed_at": "2026-09-03T19:29:18Z",
+      "duration_seconds": null,
+      "notes": "Owner ran make migrate-up and make test and reported both pass. Verification is the owner's, not the assistant's.",
+      "budget": null
+    }
+  ],
+  "decisions": [
+    {
+      "scope": "database-gate",
+      "made_by": "user",
+      "what": "Owner confirmed the tier 2 database design as written: direct DROP COLUMN of both est columns, migration 20260903000002, no index change, no guard on non-NULL values.",
+      "why": "Owner was shown the migration SQL, rationale, index plan and the residual hand-UPDATE risk, and chose to apply as designed over adding an abort guard.",
+      "at": "2026-09-03T18:35:00Z"
+    },
+    {
+      "scope": "artifacts:kb-scope",
+      "made_by": "autopilot",
+      "what": "Added task 4.4 for kkpa/context/architecture/charge-record-mutation.md, a KB file the roadmap's Findings table never listed.",
+      "why": "The roadmap's grep covered only internal/ and cmd/, so it could not see a KB file that describes these columns as never-written.",
+      "at": "2026-09-03T18:35:00Z"
+    },
+    {
+      "scope": "dispatch:wave-batching",
+      "made_by": "autopilot",
+      "what": "Waves 1 and 2 dispatched as ONE serial worker (1.1-1.4 then 2.1) instead of two dispatches.",
+      "why": "2.1 depends only on 1.1 and 1.4, both in the same batch, so one dispatch reads the doc pack once and needs no second setup.",
+      "at": "2026-09-03T18:48:35Z"
+    },
+    {
+      "scope": "review:tombstone-column-names",
+      "made_by": "user",
+      "what": "The three history comments keep the RM41 pointer but no longer spell out start_battery_pct_est / end_battery_pct_est.",
+      "why": "design.md's Code changes text contradicted its own done-criterion and two acceptance greps. Owner chose to satisfy the checks and keep dead names out of generated code.",
+      "at": "2026-09-03T18:59:12Z"
+    },
+    {
+      "scope": "dispatch:defer-test-ask",
+      "made_by": "autopilot",
+      "what": "Did not ask the owner to run the suite after wave 1+2; the ask moves to after wave 3+4.",
+      "why": "The charging test files do not compile until wave 3 repairs them, so a suite run now could only fail to build.",
+      "at": "2026-09-03T18:59:41Z"
+    },
+    {
+      "scope": "dispatch:wave-batching-2",
+      "made_by": "autopilot",
+      "what": "Waves 3 and 4 dispatched as ONE serial worker (nine files) instead of two dispatches or parallel workers.",
+      "why": "Every task is a verbatim application of design.md text on a distinct file; one dispatch reads the doc pack once and the wave is not large enough to justify parallel drain.",
+      "at": "2026-09-03T18:59:41Z"
+    },
+    {
+      "scope": "review:kb-literal-column-names",
+      "made_by": "autopilot",
+      "what": "The three kkpa/context/ guides keep the literal start_battery_pct_est / end_battery_pct_est names; the owner's drop-the-names decision was not extended to them.",
+      "why": "Those bullets exist so a future search for the old column name finds where it went, and no acceptance check forbids the names there. The owner's decision targeted code and generated output.",
+      "at": "2026-09-03T19:13:46Z"
+    },
+    {
+      "scope": "integration:stale-five",
+      "made_by": "autopilot",
+      "what": "Leader fixed two 'five'->'three' mentions wave 1 missed: charging.go:318 and the Session doc comment mirrored into AGENTS.md.",
+      "why": "Task 1.2's acceptance greps checked different sentences, so both survived. CLAUDE.md's docs-track-change rule makes a stale mirrored comment incomplete work.",
+      "at": "2026-09-03T19:13:46Z"
+    },
+    {
+      "scope": "debug:backfill-replay-rewrite",
+      "made_by": "autopilot",
+      "what": "Added two rewrites to db_backfill_integration_test.go that delete the dropped est columns from the replayed backfill statement's INSERT and SELECT lists.",
+      "why": "design.md's Test Contract handled the assertions but not the replayed statement, which names the columns and so failed at runtime. A removal has no forward name to map to.",
+      "at": "2026-09-03T19:25:38Z"
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "charging-reviewer",
+    "brief": "Review the tier-2 diff only (three commits: bd79622, 6b6005d, 43a732a) against main. Validate: (1) the migration matches design.md's user-confirmed Database Design byte-for-byte, both Up and Down, and is the last-sorting file in internal/charging/db/migrations/; a mismatch is a BLOCKER. (2) module boundaries: only internal/charging/, the single granted internal/analytics/db_integration_test.go, and the three granted kkpa/context/ files are touched \u2014 nothing under internal/telemetry/ (tier 3) or internal/gateway/. (3) the doc-pack conventions in CLAUDE.md, ai/architecture.md and ai/go-conventions.md, especially docs-track-change. (4) the integration tests still assert design.md's authored Test Contract and were not weakened: no assertion deleted beyond those design.md names, and db_backfill_integration_test.go's telemetry-side fixture deliberately unchanged (its acceptance count is 3, not 0). (5) the leader's own three interventions, which no worker reviewed: the tombstone rewording in charging.go/query.sql, the two 'five'->'three' fixes in charging.go and AGENTS.md, and the two removal rewrites added to db_backfill_integration_test.go. Judge these hardest \u2014 they bypassed the worker/report path. (6) Performance-Profile compliance and the anti-gaming checks (no weakened criteria, no self-approved statuses). Test-Execution-Policy verbatim: 'Claude writes tests but never runs the suite \u2014 never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard / make tz-guard / make migration-guard / make boundary-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.' SIGNAL PROVENANCE: go build ./..., go vet ./..., gofmt, make migration-guard and make boundary-guard were ASSISTANT-run and are clean. make migrate-up and make test were OWNER-run and the owner reported both pass. Judge test quality by READING the tests, never by running them.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "at": "2026-09-03T20:00:00Z",
+        "findings": []
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-03T18:35:00Z",
+      "what": "Artifacts created by the charging worker (Sonnet); openspec validate --strict passes. Doc-pack acknowledged. Leader independently verified the migration timestamp ordering, the Down column types against the original migration, and the query.sql write-exclusion comments.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:35:00Z",
+      "what": "DATABASE DESIGN GATE PASSED: the owner confirmed the design. Task 0.1 done.",
+      "by": "user"
+    },
+    {
+      "at": "2026-09-03T18:36:00Z",
+      "what": "BUDGET CHECKPOINT at the tier boundary, before any implementation dispatch. five_hour_pct=88 (threshold 90), context_pct=20 (threshold 40), five_hour_resets_at=1788469800. Every task status is truthful: 0.1 done, 1.1-5.2 pending, nothing in flight, no code written. Resume with: /kkpa-dev-harness-pipeline resume RM41-charging-drop-estimate-columns",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:48:35Z",
+      "what": "Resumed after the tier 2 budget checkpoint; five_hour_pct=2 (bucket reset, was 88), context_pct=9. Dispatching wave 1+2 (1.1-1.4, 2.1) to one serial charging worker on Sonnet.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:59:12Z",
+      "what": "Wave 1+2 done (1.1-1.4, 2.1) by the charging worker on Sonnet. Worker flagged a real artifact self-contradiction on 1.4; leader triaged, owner decided, tombstones amended in charging.go + query.sql and sqlc re-run. Assistant-run signals: go build ./internal/charging clean, gofmt clean, all acceptance greps pass. go vet still fails on the four wave-3 test files, as designed.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:59:41Z",
+      "what": "Wave 1+2 committed as bd79622. Checkpoint gate evaluated: five_hour_pct=12, context_pct=13, both under threshold \u2014 continuing. Dispatching wave 3+4 (3.1-3.5, 4.1-4.4) to one serial charging worker on Sonnet.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:13:46Z",
+      "what": "Wave 3+4 done by the charging worker on Sonnet; nine tasks, go vet clean on charging+analytics. Leader triaged two worker flags: accepted the KB literal names, fixed the two stale 'five' mentions. Task 5.1 signals all pass. Change status applied; 5.2 handed to the owner.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:25:38Z",
+      "what": "Owner reported make test failed. Root cause found by reading, not guessing: db_backfill_integration_test.go replays the shipped 20260823000001 backfill against the live schema, and its INSERT/SELECT name the two dropped columns, so pool.Exec fails with SQLSTATE 42703. Fixed with two removal rewrites in the file's own pattern; verified the rewritten statement keeps 16 INSERT columns aligned to 16 SELECT expressions. Repo-wide go build, go vet, gofmt all clean. Suite re-run is the owner's.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:29:18Z",
+      "what": "OWNER VERIFICATION: the owner ran make migrate-up and make test and reported both pass. Recorded as the owner's result, not the assistant's. Tasks 3.1-3.5 and 5.2 cleared from awaiting-user-verification to done; change status verified. Proceeding to the reviewer gate.",
+      "by": "user"
+    }
+  ]
+}

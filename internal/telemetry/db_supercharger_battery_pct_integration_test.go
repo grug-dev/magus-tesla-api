@@ -11,14 +11,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// These tests exercise the five battery-% verification/override columns added to
+// These tests exercise the three battery-% verification/override columns added to
 // supercharger_sessions by RM27-telemetry-add-supercharger-battery-pct (MAG-14):
-// start_battery_pct, end_battery_pct, battery_pct_source (the human-owned trio, D1/D2)
-// and start_battery_pct_est, end_battery_pct_est (the frozen, write-once verification
-// snapshot pair, design D6). They implement the test contract authored in this
-// change's design.md BEFORE the mapping code existed (§"Test Contract").
+// start_battery_pct, end_battery_pct, battery_pct_source (the human-owned trio, D1/D2).
+// A frozen, write-once verification snapshot pair (design D6) existed alongside
+// the trio until RM41-telemetry-drop-estimate-columns (2026-09-03) dropped both —
+// the reservation they existed for (a future SOC estimator) turned out
+// unnecessary once the estimator that shipped wrote the real start_battery_pct
+// column instead. They implement the
+// test contract authored in this change's design.md BEFORE the mapping code existed
+// (§"Test Contract").
 //
-// No Go writer exists anywhere in this repository for any of the five columns (R7),
+// No Go writer exists anywhere in this repository for any of the three columns (R7),
 // so tests set them via direct SQL against the test pool — legitimate here because
 // these tests verify a DATABASE constraint and the absence of a Go write path, not an
 // application-level API. Session IDs mirror design.md's own numbering (900001-900003)
@@ -59,7 +63,7 @@ func insertBaseSuperchargerSession(t *testing.T, st *dbStore, pool *pgxpool.Pool
 
 // TestStore_SuperchargerUpsert_FreshInsertSeedsBatteryPctColumnsNull implements
 // design.md test-contract scenario (a): a fresh UpsertSuperchargerSession leaves all
-// five battery-% columns NULL (T6.1).
+// three battery-% columns NULL (T6.1).
 func TestStore_SuperchargerUpsert_FreshInsertSeedsBatteryPctColumnsNull(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
@@ -85,12 +89,6 @@ func TestStore_SuperchargerUpsert_FreshInsertSeedsBatteryPctColumnsNull(t *testi
 	}
 	if s.BatteryPctSource != nil {
 		t.Errorf("BatteryPctSource: want nil on fresh insert, got %v", *s.BatteryPctSource)
-	}
-	if s.StartBatteryPctEst != nil {
-		t.Errorf("StartBatteryPctEst: want nil on fresh insert, got %v", *s.StartBatteryPctEst)
-	}
-	if s.EndBatteryPctEst != nil {
-		t.Errorf("EndBatteryPctEst: want nil on fresh insert, got %v", *s.EndBatteryPctEst)
 	}
 }
 
@@ -172,87 +170,6 @@ func TestStore_SuperchargerUpsert_LeavesVerifiedBatteryPctUntouched(t *testing.T
 	}
 }
 
-// TestStore_SuperchargerUpsert_LeavesVerificationSnapshotUntouched implements
-// design.md test-contract scenario (b2) — the same R3 regression shape as T6.2,
-// applied to the frozen snapshot pair (design D6). It MUST fail if
-// start_battery_pct_est/end_battery_pct_est are ever added to
-// UpsertSuperchargerSession's ON CONFLICT DO UPDATE SET clause, or turned into a
-// nightly-refreshed pair — the regression guard for D6.
-func TestStore_SuperchargerUpsert_LeavesVerificationSnapshotUntouched(t *testing.T) {
-	st, pool := newTestStore(t)
-	ctx := context.Background()
-
-	accountID := uuid.New()
-	const sessionID = int64(900003)
-	insertBaseSuperchargerSession(t, st, pool, accountID, sessionID, 22.5, 7000, "USD", false, []byte(`{"sessionId":900003,"v":1}`))
-
-	// Simulate the future verification UI's single write of the trio AND the frozen
-	// snapshot pair together — snapshot deliberately differs from the verified value
-	// ("model said X, human said Y").
-	if _, err := pool.Exec(ctx,
-		`UPDATE telemetry.supercharger_history SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified', start_battery_pct_est = 22, end_battery_pct_est = 78 WHERE session_id = $1`,
-		sessionID); err != nil {
-		t.Fatalf("direct-SQL set trio + snapshot: %v", err)
-	}
-
-	paid := true
-	for i, rawData := range [][]byte{
-		[]byte(`{"sessionId":900003,"v":2,"invoiceStatus":"pending"}`),
-		[]byte(`{"sessionId":900003,"v":3,"invoiceStatus":"finalized"}`),
-	} {
-		var updatedAtBefore time.Time
-		if err := pool.QueryRow(ctx, `SELECT updated_at FROM telemetry.supercharger_history WHERE session_id = $1`, sessionID).Scan(&updatedAtBefore); err != nil {
-			t.Fatalf("read updated_at before re-upsert #%d: %v", i+1, err)
-		}
-
-		sess := SuperchargerHistory{
-			SessionID:           sessionID,
-			AccountID:           accountID,
-			VIN:                 "VIN_BATPCT",
-			SiteLocationName:    "Test Supercharger",
-			CountryCode:         "US",
-			ChargeStartDateTime: time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC),
-			ChargeStopDateTime:  time.Date(2026, 6, 28, 10, 30, 0, 0, time.UTC),
-			BillingType:         "PAYMENT",
-			VehicleMakeType:     "MODEL_3",
-			EnergyKWh:           floatPtr(22.5),
-			TotalCost:           floatPtr(7000),
-			Currency:            strPtr("USD"),
-			IsPaid:              &paid,
-			RawData:             rawData,
-		}
-		if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
-			t.Fatalf("re-upsertSuperchargerHistory #%d: %v", i+1, err)
-		}
-
-		r := newSuperchargerHistoryReaderImpl(pool)
-		got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
-		if err != nil {
-			t.Fatalf("SuperchargerHistoryByAccount (after re-upsert #%d): %v", i+1, err)
-		}
-		if len(got) != 1 {
-			t.Fatalf("want 1 session, got %d", len(got))
-		}
-		s := got[0]
-
-		if s.IsPaid == nil || !*s.IsPaid {
-			t.Errorf("re-upsert #%d: IsPaid: want *true, got %v", i+1, s.IsPaid)
-		}
-		if !s.UpdatedAt.After(updatedAtBefore) {
-			t.Errorf("re-upsert #%d: UpdatedAt: want advanced, got %v (was %v)", i+1, s.UpdatedAt, updatedAtBefore)
-		}
-
-		// The frozen snapshot pair is BYTE-FOR-BYTE unchanged across every re-upsert —
-		// the D6 regression guard.
-		if s.StartBatteryPctEst == nil || *s.StartBatteryPctEst != 22 {
-			t.Errorf("re-upsert #%d: StartBatteryPctEst: want *22 (untouched), got %v", i+1, s.StartBatteryPctEst)
-		}
-		if s.EndBatteryPctEst == nil || *s.EndBatteryPctEst != 78 {
-			t.Errorf("re-upsert #%d: EndBatteryPctEst: want *78 (untouched), got %v", i+1, s.EndBatteryPctEst)
-		}
-	}
-}
-
 // TestStore_SuperchargerBatteryPctChecks_RejectOutOfRangeAndUnrecognizedValues
 // implements design.md test-contract scenario (c): every out-of-range percentage and
 // unrecognized battery_pct_source value is rejected by the DB's CHECK constraints
@@ -272,9 +189,6 @@ func TestStore_SuperchargerBatteryPctChecks_RejectOutOfRangeAndUnrecognizedValue
 		{"start_battery_pct > 100", `UPDATE telemetry.supercharger_history SET start_battery_pct = 101 WHERE session_id = $1`},
 		{"start_battery_pct < 0", `UPDATE telemetry.supercharger_history SET start_battery_pct = -1 WHERE session_id = $1`},
 		{"end_battery_pct > 100", `UPDATE telemetry.supercharger_history SET end_battery_pct = 101 WHERE session_id = $1`},
-		{"start_battery_pct_est > 100", `UPDATE telemetry.supercharger_history SET start_battery_pct_est = 101 WHERE session_id = $1`},
-		{"start_battery_pct_est < 0", `UPDATE telemetry.supercharger_history SET start_battery_pct_est = -1 WHERE session_id = $1`},
-		{"end_battery_pct_est > 100", `UPDATE telemetry.supercharger_history SET end_battery_pct_est = 101 WHERE session_id = $1`},
 		{"battery_pct_source = 'estimated'", `UPDATE telemetry.supercharger_history SET battery_pct_source = 'estimated' WHERE session_id = $1`},
 		{"battery_pct_source = 'bogus'", `UPDATE telemetry.supercharger_history SET battery_pct_source = 'bogus' WHERE session_id = $1`},
 	}
@@ -294,21 +208,21 @@ func TestStore_SuperchargerBatteryPctChecks_RejectOutOfRangeAndUnrecognizedValue
 		})
 	}
 
-	// Sanity check: 0 and 100 are inclusive boundaries and must be accepted on all
-	// four SMALLINT columns; 'polled' must be accepted even though this tier never
-	// writes it in application code.
+	// Sanity check: 0 and 100 are inclusive boundaries and must be accepted on both
+	// remaining SMALLINT columns; 'polled' must be accepted even though this tier
+	// never writes it in application code.
 	if _, err := pool.Exec(ctx,
-		`UPDATE telemetry.supercharger_history SET start_battery_pct = 0, end_battery_pct = 100, battery_pct_source = 'polled', start_battery_pct_est = 0, end_battery_pct_est = 100 WHERE session_id = $1`,
+		`UPDATE telemetry.supercharger_history SET start_battery_pct = 0, end_battery_pct = 100, battery_pct_source = 'polled' WHERE session_id = $1`,
 		sessionID); err != nil {
 		t.Fatalf("boundary/'polled' sanity-check UPDATE: want success, got %v", err)
 	}
 }
 
-// TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot implements design.md
+// TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrio implements design.md
 // test-contract scenario (d): SuperchargerHistoryByAccount and
-// SuperchargerHistoryByVehicle both surface the trio and the frozen snapshot pair,
-// and round-trip an untouched (NULL) session correctly (T6.4).
-func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T) {
+// SuperchargerHistoryByVehicle both surface the trio, and round-trip an untouched
+// (NULL) session correctly (T6.4).
+func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrio(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -335,9 +249,9 @@ func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot(t *tes
 		t.Fatalf("direct-SQL set trio: %v", err)
 	}
 	if _, err := pool.Exec(ctx,
-		`UPDATE telemetry.supercharger_history SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified', start_battery_pct_est = 22, end_battery_pct_est = 78 WHERE session_id = $1`,
+		`UPDATE telemetry.supercharger_history SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified' WHERE session_id = $1`,
 		sessionSnapshot); err != nil {
-		t.Fatalf("direct-SQL set trio + snapshot: %v", err)
+		t.Fatalf("direct-SQL set trio: %v", err)
 	}
 
 	r := newSuperchargerHistoryReaderImpl(pool)
@@ -363,20 +277,10 @@ func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot(t *tes
 			t.Errorf("BatteryPctSource: want *user_verified, got %v", s.BatteryPctSource)
 		}
 	}
-	assertSnapshot := func(t *testing.T, s SuperchargerHistory) {
-		t.Helper()
-		if s.StartBatteryPctEst == nil || *s.StartBatteryPctEst != 22 {
-			t.Errorf("StartBatteryPctEst: want *22, got %v", s.StartBatteryPctEst)
-		}
-		if s.EndBatteryPctEst == nil || *s.EndBatteryPctEst != 78 {
-			t.Errorf("EndBatteryPctEst: want *78, got %v", s.EndBatteryPctEst)
-		}
-	}
 	assertUntouched := func(t *testing.T, s SuperchargerHistory) {
 		t.Helper()
-		if s.StartBatteryPct != nil || s.EndBatteryPct != nil || s.BatteryPctSource != nil ||
-			s.StartBatteryPctEst != nil || s.EndBatteryPctEst != nil {
-			t.Errorf("want all five battery-percentage columns nil for an untouched session, got %+v", s)
+		if s.StartBatteryPct != nil || s.EndBatteryPct != nil || s.BatteryPctSource != nil {
+			t.Errorf("want all three battery-percentage columns nil for an untouched session, got %+v", s)
 		}
 	}
 
@@ -388,7 +292,15 @@ func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot(t *tes
 			assertVerifiedTrio(t, s)
 		case sessionSnapshot:
 			foundSnapshotInAccount = true
-			assertSnapshot(t, s)
+			if s.StartBatteryPct == nil || *s.StartBatteryPct != 20 {
+				t.Errorf("StartBatteryPct: want *20, got %v", s.StartBatteryPct)
+			}
+			if s.EndBatteryPct == nil || *s.EndBatteryPct != 80 {
+				t.Errorf("EndBatteryPct: want *80, got %v", s.EndBatteryPct)
+			}
+			if s.BatteryPctSource == nil || *s.BatteryPctSource != "user_verified" {
+				t.Errorf("BatteryPctSource: want *user_verified, got %v", s.BatteryPctSource)
+			}
 		case sessionUntouched:
 			foundUntouchedInAccount = true
 			assertUntouched(t, s)

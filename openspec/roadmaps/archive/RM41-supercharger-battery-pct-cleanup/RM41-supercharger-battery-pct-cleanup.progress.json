@@ -1,0 +1,308 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM41-supercharger-battery-pct-cleanup",
+  "intention": "/supercharger-stats explains in ES+EN that Tesla supplies no battery percentages and that an end-only entry derives the start; and the four dead start/end_battery_pct_est columns are gone from both charging and telemetry. Tiers 4-5 (MAG-45, added 2026-09-03) additionally give a Supercharger session a stored, auto-set three-state status rendered as a ui.Badge, mirroring /charges.",
+  "request": "Source ticket MAG-36. Part 1 (derive start_battery_pct) already shipped as charging-add-derived-start-battery-pct on 2026-09-01. This roadmap covers the two remaining parts: the bilingual UI help text, and removing the *_pct_est columns the ticket found unpopulated.",
+  "status": "complete",
+  "autopilot": false,
+  "updated_at": "2026-09-04T02:05:00Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
+    "base": "main",
+    "ticket": "MAG-36",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-36/supercharger-session-battery-start-calculated",
+    "created_at": "2026-09-03T17:38:00Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "decisions": [
+    {
+      "scope": "roadmap:scope",
+      "made_by": "user",
+      "what": "This run covers both remaining MAG-36 parts (UI help text + dropping the est columns). Part 1, the start-percentage derivation, is already merged and archived and is not re-implemented.",
+      "why": "The ticket was edited after the derivation shipped; only the two later sections are outstanding. The owner confirmed both are in scope.",
+      "at": "2026-09-03T17:30:00Z"
+    },
+    {
+      "scope": "roadmap:db-safety",
+      "made_by": "user",
+      "what": "Drop the four columns directly. No verify-then-drop migration step, no deprecate-in-place option.",
+      "why": "Both tables exclude the columns from every write path by design, and integration tests already guard those exclusions. The owner priced the risk and chose the direct drop.",
+      "at": "2026-09-03T17:32:00Z"
+    },
+    {
+      "scope": "roadmap:tier-order",
+      "made_by": "autopilot",
+      "what": "Tier order gateway then charging then telemetry; only tier 2's dependency on tier 1 is real.",
+      "why": "The gateway reads charging.Session.StartBatteryPctEst, so charging cannot delete the field first without breaking the build. Telemetry has no consumer outside itself.",
+      "at": "2026-09-03T17:35:00Z"
+    },
+    {
+      "scope": "roadmap:ui-placement",
+      "made_by": "user",
+      "what": "One page-level ui.Alert{Kind:\"info\"} above the sessions table, mirroring dashboard.templ. Not an in-form hint, not a tooltip.",
+      "why": "ui.Field has no hint slot, so an in-form hint would change a shared kit component; and an in-form-only message hides the record-your-percentages advice from readers.",
+      "at": "2026-09-03T17:36:00Z"
+    },
+    {
+      "scope": "roadmap:copy",
+      "made_by": "user",
+      "what": "The owner's own draft wording, typos and accents corrected, in ES and EN under one new key supercharger.battery_pct_help. Exact strings are in the roadmap D5.",
+      "why": "Owner chose the faithful variant over a shorter rewrite, keeping their tone. ES keeps Supercharger as a proper noun, matching the existing catalogue.",
+      "at": "2026-09-03T17:37:00Z"
+    },
+    {
+      "scope": "roadmap:analytics-granted-path",
+      "made_by": "autopilot",
+      "what": "analytics/db_integration_test.go is an explicitly granted path on tier 2 rather than a fourth analytics tier.",
+      "why": "It is a test seed helper naming both est columns in one INSERT. A whole tier and dispatch to delete two arguments would cost far more than the edit.",
+      "at": "2026-09-03T17:35:00Z"
+    },
+    {
+      "scope": "roadmap:tests",
+      "made_by": "user",
+      "what": "No new unit tests. Repair the seven existing test files that stop compiling; delete the telemetry assertions that guard the dropped columns.",
+      "why": "Owner's standing default is no new tests. The repairs are required to keep the suite compiling, which is repair rather than new coverage.",
+      "at": "2026-09-03T17:33:00Z"
+    },
+    {
+      "scope": "roadmap:rm27-d6-reversal",
+      "made_by": "user",
+      "what": "Reverse RM27 design D6, which kept the telemetry columns so a future estimator could land without a migration.",
+      "why": "The estimator landed as derivedStartBatteryPct and writes the real start_battery_pct column instead, so the reservation is obsolete. Recorded so the drop does not read as an oversight.",
+      "at": "2026-09-03T17:32:00Z"
+    },
+    {
+      "scope": "roadmap:visible-columns",
+      "made_by": "user",
+      "what": "Remove the two visible start-estimate/end-estimate table columns, their two i18n keys and both VM label fields. The table goes from 9 columns to 7.",
+      "why": "Forced by the column drop, and the owner confirmed the narrower table is wanted rather than repurposing the two slots.",
+      "at": "2026-09-03T17:34:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-status-storage",
+      "made_by": "user",
+      "what": "The session status is a STORED column on charging.supercharger_sessions, auto-set on every write. Not computed on read, not user-chosen.",
+      "why": "Owner chose it over the cheaper compute-on-read option after seeing that it costs a migration, a design gate and a second module.",
+      "at": "2026-09-03T18:16:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-states",
+      "made_by": "user",
+      "what": "Three codes IN_PROGRESS / DONE_CALCULATED / DONE; middle label 'Finalizada (calculada)' / 'Done (calculated)'.",
+      "why": "Owner rejected 'Approximate' as misleading. The middle state is a qualified Done, and 'calcular' is already the page's own vocabulary.",
+      "at": "2026-09-03T18:16:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-placement",
+      "made_by": "user",
+      "what": "MAG-45 ships as tiers 4-5 of RM41 on the same branch, under its own Linear ticket, rather than a separate CH change off main.",
+      "why": "It edits the same three Supercharger files tier 1 just rewrote, so a separate branch would conflict on every one of them.",
+      "at": "2026-09-03T18:16:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-tier-split",
+      "made_by": "autopilot",
+      "what": "MAG-45 is split into a charging tier (column + write logic) and a gateway tier (badge + copy), tier 5 depending on tier 4.",
+      "why": "A stored column belongs to the module owning the table; the gateway may not touch another module's schema. One tier is one module.",
+      "at": "2026-09-03T18:16:00Z"
+    },
+    {
+      "scope": "roadmap:tier3-charging-granted-path",
+      "made_by": "autopilot",
+      "what": "internal/charging/db_backfill_integration_test.go is an explicitly granted path on tier 3, not a fourth charging tier.",
+      "why": "Its fixture INSERTs into telemetry.supercharger_history naming both est columns, so tier 3's drop breaks it at runtime. Same shape as tier 2's analytics grant.",
+      "at": "2026-09-03T19:33:16Z"
+    },
+    {
+      "scope": "roadmap:mag45-calc-marker",
+      "made_by": "user",
+      "what": "VerifySession sets the status code itself at write time, using what needsDerivedStartBatteryPct already told it. battery_pct_source is NOT extended with a 'derived' value.",
+      "why": "Nothing on the row distinguishes a derived start from a typed one today. The writer is the only place that knows, and a third source value would reverse the rule that the label names a human or measured origin.",
+      "at": "2026-09-03T21:20:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-backfill",
+      "made_by": "user",
+      "what": "The migration backfills ALL 10 existing sessions to DONE_CALCULATED, not the 3 whose stored start matches the recomputed derivation.",
+      "why": "Owner confirmed twice against the contrary evidence: Tesla supplies no battery percentages at all, so every historic start was reconstructed, never read from the car. Provenance the owner knows and the data cannot show.",
+      "at": "2026-09-03T21:20:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-badge-kind",
+      "made_by": "user",
+      "what": "DONE_CALCULATED renders with Badge Kind neutral. DONE stays primary and IN_PROGRESS stays ghost, exactly as /charges maps them.",
+      "why": "D14 left the third Kind open and barred success/warning. neutral keeps the two shared states identical to /charges and makes visual weight rise with completeness.",
+      "at": "2026-09-04T01:20:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-second-notice",
+      "made_by": "user",
+      "what": "The second recommendation is its own ui.Alert{Kind:\"info\"} below the existing one, under a new key, not appended to supercharger.battery_pct_help. Owner approved the drafted ES+EN wording.",
+      "why": "Two short notices read faster than one six-line paragraph, and each can be reworded or removed alone. A warning Kind was rejected to keep warning off this page.",
+      "at": "2026-09-04T01:20:00Z"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM41-gateway-revise-battery-pct-ui",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T17:39:47Z",
+      "completed_at": "2026-09-03T18:25:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Archived. Reviewer approved round 1 with one minor finding (tasks.md checkboxes), fixed by the leader before archive."
+    },
+    {
+      "id": 2,
+      "change": "RM41-charging-drop-estimate-columns",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T18:35:00Z",
+      "completed_at": "2026-09-03T19:34:58Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 29,
+        "cost_usd_delta": 10.6,
+        "approx": true
+      },
+      "notes": "Archived. Reviewer approved round 1 with zero findings. One owner decision (tombstone wording) and one post-verification bug the leader found and fixed: the replayed backfill statement still named the dropped columns."
+    },
+    {
+      "id": 3,
+      "change": "RM41-telemetry-drop-estimate-columns",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T19:33:16Z",
+      "completed_at": "2026-09-03T21:17:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 8,
+        "cost_usd_delta": 21.5,
+        "approx": true,
+        "note": "Spans a 5-hour bucket reset and two sessions; sum of the tier's task deltas plus the review round."
+      },
+      "notes": "Archived. Reviewer approved round 1 with zero findings. Two design gates (the column drop, then the table comment the owner chose to leave stale), one cancelled task (1.6), and a mid-run artifact defect where design.md contradicted tasks.md on tombstone wording - tasks.md won, per tier 2's precedent."
+    },
+    {
+      "id": 4,
+      "change": "RM41-charging-add-session-status",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "archived",
+      "ticket": "MAG-45",
+      "ticket_url": "https://linear.app/magus-monitor/issue/MAG-45/supercharger-sessions-status-column-in-progress-done-calculated-done",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T21:26:00Z",
+      "completed_at": "2026-09-04T01:12:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "MAG-45. Artifacts created and the database design gate passed with the owner. Two owner decisions taken before dispatch closed a gap D11 left open (calc marker, backfill)."
+    },
+    {
+      "id": 5,
+      "change": "RM41-gateway-add-session-status-column",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        4
+      ],
+      "status": "archived",
+      "ticket": "MAG-45",
+      "ticket_url": "https://linear.app/magus-monitor/issue/MAG-45/supercharger-sessions-status-column-in-progress-done-calculated-done",
+      "assistant": null,
+      "model": null,
+      "started_at": "2026-09-04T01:20:00Z",
+      "completed_at": "2026-09-04T02:05:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "MAG-45, not MAG-36. ui.Badge in the 2nd column mirroring charge_row.templ, plus the second recommendation alert."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-03T17:39:47Z",
+      "what": "Roadmap created. MAG-36 part 1 found already merged (PR #39, CH37, archived 2026-09-01); this roadmap covers only the ticket's two later sections. Runtime Claude Code, budget available, no degradations.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:16:00Z",
+      "what": "Roadmap extended mid-flight with MAG-45 (tiers 4-5): stored three-state session status + badge column. New Linear ticket MAG-45 created (High, Todo). Tier 1 verified by the owner and moving to the reviewer gate.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:25:00Z",
+      "what": "Tier 1 archived. Tier 2 artifacts dispatched in parallel with the tier 1 review (disjoint modules: gateway vs charging).",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:33:16Z",
+      "what": "Tier 2 verified by the owner (make migrate-up + make test) and sent to the reviewer. Tier 3 started in parallel \u2014 depends_on is empty and the modules are disjoint. Leader pre-check found a cross-module breakage the roadmap's tier 3 scope never listed: charging's backfill fixture seeds telemetry.supercharger_history naming both est columns, so it is granted to tier 3.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:34:58Z",
+      "what": "Tier 2 archived. openspec archive synced the charge-session-log delta into openspec/specs/charge-session-log/spec.md (3 requirements modified); the folder moved under archive/charging/ to match this repo's module-grouped layout, which the CLI does not do itself. Roadmap tier 2 flipped to [x]. Tier 3 artifacts still in flight.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T21:17:00Z",
+      "by": "leader",
+      "what": "Tier 3 archived - MAG-36 is now complete end to end (parts 1-3). Tiers 4 and 5 remain, both MAG-45: the stored session status column (charging, trips the database design gate) and its ui.Badge column (gateway). Tier 4 is unblocked; tier 2 is archived."
+    },
+    {
+      "at": "2026-09-03T21:20:00Z",
+      "by": "leader",
+      "what": "Tier 4 started at Step 2. Leader pre-check found a gap the roadmap's D11 never closed: DONE_CALCULATED is defined as 'the start was derived rather than typed', but battery_pct_source has only user_verified/polled and VerifySession writes user_verified for a derived start too, so the stored row cannot tell them apart. Live data confirmed it - all 10 sessions have both percentages and source user_verified. Two owner decisions taken before dispatch (calc marker, backfill)."
+    },
+    {
+      "at": "2026-09-04T01:12:00Z",
+      "by": "leader",
+      "what": "Tier 4 archived. Review round 2 (fresh charging-reviewer, the round 1 instance died at the /clear) returned approved with no findings: it re-verified the R1-F1 doc fixes against the code on disk and ran its own kkpa/context/ sweep, confirming no fourth stale location. openspec archive synced the charge-session-log delta into openspec/specs/ (+1 added, ~2 modified); the folder moved under archive/charging/ to match this repo's module-grouped layout, which the CLI does not do itself. Tier 5 (gateway badge column, MAG-45) is now unblocked."
+    },
+    {
+      "at": "2026-09-04T01:20:00Z",
+      "by": "leader",
+      "what": "Tier 5 started at Step 2. The roadmap Decisions bind everything except two the leader had to open: D14 deliberately left the third Badge Kind unchosen (three states, /charges has two), and the tier's 'second bilingual recommendation' had no drafted copy. Both taken with the owner before dispatch. No database gate and no Performance-Profile exposure - this tier is pure rendering - so no grill-me pass."
+    },
+    {
+      "at": "2026-09-04T02:05:00Z",
+      "by": "leader",
+      "what": "Tier 5 archived and RM41 is COMPLETE - all five tiers done. Review round 1 approved with no findings; the reviewer independently re-derived the three acceptance-grep mismatches from disk and confirmed the leader's gofmt triage rather than taking it on trust, and verified both colspan fixes including the one the leader's own dispatch brief had missed. openspec archive synced the gateway delta into openspec/specs/gateway/spec.md (+2 added, ~1 modified); the folder moved under archive/gateway/ per this repo's module-grouped layout. tasks.md checkboxes 6.1/6.2 were ticked at archive time with a provenance note - neither is worker-owned (6.1 is the leader's signals, 6.2 the owner's suite run), so no worker had ticked them."
+    }
+  ]
+}

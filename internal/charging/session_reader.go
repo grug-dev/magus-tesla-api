@@ -130,12 +130,14 @@ func teslaIDToPgInt8(teslaID int64) pgtype.Int8 {
 //     (session_writer.go).
 //   - Currency: pgtype.Text → *string via pgTextToPtr (service.go).
 //   - IsPaid: pgtype.Bool → *bool via pgBoolToBoolPtr (session_writer.go).
-//   - StartBatteryPct, EndBatteryPct, StartBatteryPctEst, EndBatteryPctEst:
-//     pgtype.Int2 → *int via pgInt2ToIntPtr (service.go).
+//   - StartBatteryPct, EndBatteryPct: pgtype.Int2 → *int via pgInt2ToIntPtr (service.go).
 //   - BatteryPctSource: pgtype.Text → *string via pgTextToPtr (service.go).
 //   - InferredCapacityKwhCalc: pgtype.Numeric → *float64 via pgNumericToFloat64Ptr
 //     (service.go) — nullable GENERATED ALWAYS AS ... STORED column (MAG-25
 //     design D8).
+//   - Status: string (NOT NULL TEXT) → SessionStatus via a direct type conversion —
+//     no pgtype involved, the same shape Vin/SiteLocationName already use for their
+//     own NOT NULL columns.
 func rowToSession(r chargingdb.SuperchargerSession) Session {
 	return Session{
 		ID:        r.ID,
@@ -153,11 +155,11 @@ func rowToSession(r chargingdb.SuperchargerSession) Session {
 		Currency:         pgTextToPtr(r.Currency),
 		IsPaid:           pgBoolToBoolPtr(r.IsPaid),
 
-		StartBatteryPct:    pgInt2ToIntPtr(r.StartBatteryPct),
-		EndBatteryPct:      pgInt2ToIntPtr(r.EndBatteryPct),
-		BatteryPctSource:   pgTextToPtr(r.BatteryPctSource),
-		StartBatteryPctEst: pgInt2ToIntPtr(r.StartBatteryPctEst),
-		EndBatteryPctEst:   pgInt2ToIntPtr(r.EndBatteryPctEst),
+		StartBatteryPct:  pgInt2ToIntPtr(r.StartBatteryPct),
+		EndBatteryPct:    pgInt2ToIntPtr(r.EndBatteryPct),
+		BatteryPctSource: pgTextToPtr(r.BatteryPctSource),
+
+		Status: SessionStatus(r.Status),
 
 		CreatedAt: r.CreatedAt.Time,
 		UpdatedAt: r.UpdatedAt.Time,

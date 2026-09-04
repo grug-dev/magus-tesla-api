@@ -39,7 +39,7 @@ import (
 // accepted; the port and the schema both deliberately have no such check).
 templ SuperchargerRowEdit(vm SuperchargerRowVM, csrfToken, windowStartStr, windowEndStr string, validationErrors map[string]string) {
 	<tr id={ "supercharger-row-" + vm.ID }>
-		<td colspan="9">
+		<td colspan="8">
 			if validationErrors["_top"] != "" {
 				@ui.Alert(ui.AlertProps{Kind: "error"}) {
 					{ validationErrors["_top"] }
@@ -64,12 +64,6 @@ templ SuperchargerRowEdit(vm SuperchargerRowVM, csrfToken, windowStartStr, windo
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerCost)}) {
 						<span class="text-base-content/80">{ vm.CostLabel }</span>
-					}
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerStartEstimate)}) {
-						<span class="text-base-content/80">{ vm.StartBatteryPctEstLabel }</span>
-					}
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerEndEstimate)}) {
-						<span class="text-base-content/80">{ vm.EndBatteryPctEstLabel }</span>
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerStartBattery), Error: validationErrors["start_battery_pct"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})

@@ -451,22 +451,17 @@ type SuperchargerHistory struct {
 	// NULL = nothing recorded. NEVER auto-written by the nightly poller — omitted from
 	// UpsertSuperchargerHistory's INSERT and ON CONFLICT DO UPDATE SET alike (R3/D3),
 	// so a nightly re-upsert can never clobber a human-entered value. No writer exists
-	// in this repository yet: RM27 shipped the storage only (see below).
+	// in this repository yet: RM27 shipped the storage only. (The two frozen
+	// estimate fields formerly reserved here as a write-once verification-time
+	// snapshot pair were dropped from the struct and the table entirely by
+	// RM41-telemetry-drop-estimate-columns — there is no longer a reserved pair to
+	// describe.)
 	StartBatteryPct *int // 0-100 inclusive; SMALLINT CHECK in DB.
 	EndBatteryPct   *int // same shape/nullability as StartBatteryPct.
 	// BatteryPctSource: "user_verified" | "polled" | NULL. NULL = nothing recorded.
 	// NEVER "estimated" — this platform does not compute or store SOC estimates at all
 	// (the estimator was descoped from RM27 on 2026-08-15; backlog entry 11).
 	BatteryPctSource *string
-
-	// --- Reserved, currently unwritten (design D6) ---
-	// Intended as a write-once drift log for a future SOC-estimation capability: frozen
-	// at the moment a human verifies, never refreshed afterward. That capability was
-	// DESCOPED from RM27 (2026-08-15) and does not exist, so these two columns are
-	// always NULL today. Kept rather than dropped so the estimator can land later
-	// without a migration. Excluded from UpsertSuperchargerHistory like the trio above.
-	StartBatteryPctEst *int // NULL until BOTH an estimator and a verification UI exist.
-	EndBatteryPctEst   *int // same semantics as StartBatteryPctEst.
 }
 
 // deriveEnergyKWh sums the usage tiers for fees where lower(uom) == "kwh".

@@ -34,13 +34,20 @@ import (
 templ SuperchargerRow(vm SuperchargerRowVM, csrfToken, windowStartStr, windowEndStr string) {
 	<tr id={ "supercharger-row-" + vm.ID }>
 		<td>{ vm.DateLabel }</td>
+		<td>
+			if vm.RawStatus == "DONE" {
+				@ui.Badge(ui.BadgeProps{Kind: "primary", Text: i18n.T(ctx, i18n.KeySuperchargerBadgeDone)})
+			} else if vm.RawStatus == "DONE_CALCULATED" {
+				@ui.Badge(ui.BadgeProps{Kind: "neutral", Text: i18n.T(ctx, i18n.KeySuperchargerBadgeDoneCalculated)})
+			} else {
+				@ui.Badge(ui.BadgeProps{Kind: "ghost", Text: i18n.T(ctx, i18n.KeySuperchargerBadgeInProgress)})
+			}
+		</td>
 		<td>{ vm.SiteLabel }</td>
 		<td>{ vm.EnergyLabel }</td>
 		<td>{ vm.CostLabel }</td>
 		<td>{ vm.StartBatteryPctLabel }</td>
 		<td>{ vm.EndBatteryPctLabel }</td>
-		<td>{ vm.StartBatteryPctEstLabel }</td>
-		<td>{ vm.EndBatteryPctEstLabel }</td>
 		<td>
 			@ui.Button(ui.ButtonProps{
 				Variant: "ghost",
@@ -58,12 +65,12 @@ templ SuperchargerRow(vm SuperchargerRowVM, csrfToken, windowStartStr, windowEnd
 }
 
 // SuperchargerRowError renders an error <tr> when a row-level write fails on
-// an existing session. colspan="9" matches the
-// static row's full column count (8 data cells + Actions, design.md D10 —
+// an existing session. colspan="8" matches the
+// static row's full column count (7 data cells + Actions, design.md D10 —
 // the header count after 3.2 adds the "Actions" header).
 templ SuperchargerRowError(id string, msg string) {
 	<tr id={ "supercharger-row-" + id }>
-		<td colspan="9">
+		<td colspan="8">
 			<span class="text-error">{ msg }</span>
 		</td>
 	</tr>

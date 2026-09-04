@@ -531,9 +531,8 @@ func seedChargeSession(t *testing.T, pool *pgxpool.Pool, s charging.Session) int
 			charge_start_date_time, charge_stop_date_time,
 			site_location_name, energy_kwh, total_cost, currency, is_paid,
 			start_battery_pct, end_battery_pct, battery_pct_source,
-			start_battery_pct_est, end_battery_pct_est,
 			created_at, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		s.AccountID, vin, pgInt8FromPtr(s.TeslaID), sessionID,
 		pgtype.Timestamptz{Time: s.ChargeStartDateTime, Valid: true},
 		pgtype.Timestamptz{Time: s.ChargeStopDateTime, Valid: true},
@@ -541,7 +540,6 @@ func seedChargeSession(t *testing.T, pool *pgxpool.Pool, s charging.Session) int
 		pgTextFromStringPtr(s.Currency), pgBoolFromPtr(s.IsPaid),
 		pgInt2FromIntPtr(s.StartBatteryPct), pgInt2FromIntPtr(s.EndBatteryPct),
 		pgTextFromStringPtr(batteryPctSource),
-		pgInt2FromIntPtr(s.StartBatteryPctEst), pgInt2FromIntPtr(s.EndBatteryPctEst),
 		pgtype.Timestamptz{Time: createdAt, Valid: true},
 		pgtype.Timestamptz{Time: updatedAt, Valid: true},
 	)

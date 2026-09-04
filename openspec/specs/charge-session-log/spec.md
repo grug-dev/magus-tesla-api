@@ -133,16 +133,20 @@ registered to the account.
 ### Requirement: Battery Percentage Verification On A Charge Session
 
 Each charge session record SHALL carry an optional verified battery percentage at charge
-start and at charge stop, an optional provenance stating where those percentages came
-from, and an optional frozen pair of estimated percentages captured at the moment of
-verification. Any recorded percentage SHALL be between 0 and 100 inclusive. A recorded
-provenance SHALL be either "user verified" or "polled". A record carrying either verified
-percentage SHALL also carry a provenance.
+start and at charge stop, and an optional provenance stating where those percentages came
+from. **This is a CHANGE from the prior revision of this requirement, under which each
+record also carried an optional frozen pair of estimated percentages captured at the
+moment of verification — that frozen pair is REMOVED by this revision
+(`RM41-charging-drop-estimate-columns`), because no code path in the platform has ever
+written it and the estimator that was originally intended to eventually populate it
+(`derivedStartBatteryPct`) instead writes the real verified start percentage.** Any
+recorded percentage SHALL be between 0 and 100 inclusive. A recorded provenance SHALL be
+either "user verified" or "polled". A record carrying either verified percentage SHALL
+also carry a provenance.
 
 Synchronizing charge session records SHALL never write, clear, or overwrite any of these
-five values — including when the same synchronization pass updates that same record's
-registered vehicle identifier or its energy, cost, currency or payment facts. The frozen
-estimate pair SHALL never be refreshed after it is first recorded.
+three values — including when the same synchronization pass updates that same record's
+registered vehicle identifier or its energy, cost, currency or payment facts.
 
 #### Scenario: A percentage without a provenance is rejected
 - **GIVEN** a charge session record being written
@@ -165,12 +169,12 @@ estimate pair SHALL never be refreshed after it is first recorded.
 - **THEN** the write is rejected
 
 #### Scenario: Synchronization never overwrites a verified percentage
-- **GIVEN** a charge session record whose verified percentages, provenance, and frozen
-  estimates have been recorded
+- **GIVEN** a charge session record whose verified percentages and provenance have been
+  recorded
 - **WHEN** the charge session records are synchronized again for that session, including
   when its registered vehicle identifier, energy delivered, cost, currency or payment
   status have changed
-- **THEN** all five values are unchanged
+- **THEN** all three values are unchanged
 
 ### Requirement: One-Time Import Of Previously Collected Sessions
 
@@ -226,9 +230,12 @@ return an empty result, never an absence or an error.
 
 Each retrieved record SHALL carry every fact the capability holds for that session,
 including the session's charging site, energy delivered, cost, currency, payment status,
-and its optional verified battery percentages, their provenance, and their frozen
-estimated pair — so that a caller needs no further request to another capability to
-describe the session completely.
+its optional verified battery percentages and their provenance, and its lifecycle status
+— so that a caller needs no further request to another capability to describe the
+session completely. **This is a CHANGE from the prior revision of this requirement,
+under which a retrieved record's full detail did not include a lifecycle status — a
+lifecycle status is ADDED by this revision (`RM41-charging-add-session-status`); see
+"A Charge Session Carries A Lifecycle Status" above.**
 
 A record whose vehicle is not currently registered to the account SHALL NOT be returned by
 this retrieval, for any vehicle requested, even though the record itself continues to
@@ -281,10 +288,11 @@ exist and to be retained.
 
 #### Scenario: A retrieved record carries its full session detail
 - **GIVEN** a charge session record carrying a charging site, energy delivered, cost,
-  currency, payment status, and verified battery percentages with their provenance and
-  frozen estimates
+  currency, payment status, verified battery percentages with their provenance, and a
+  lifecycle status
 - **WHEN** that record is retrieved
-- **THEN** the retrieved record carries all of that same detail
+- **THEN** the retrieved record carries all of that same detail, including the lifecycle
+  status
 
 #### Scenario: A different vehicle's session within the same account does not leak
 - **GIVEN** two charge session records within one account, belonging to two different
@@ -345,6 +353,15 @@ capability SHALL NOT accept provenance as an input to a correction, and SHALL NO
 a derived percentage from a directly supplied one in the recorded provenance — provenance is
 always derived from whether a percentage is present, never from how it came to be present.
 
+**A correction SHALL also recompute the record's lifecycle status from the resulting
+percentages, as a direct effect of the percentages it changes — never left at its prior
+value. This is a CHANGE from the prior revision of this requirement, which did not
+describe a lifecycle status because the capability did not yet have one (ADDED by
+`RM41-charging-add-session-status`; see "A Charge Session Carries A Lifecycle Status"
+above for the exact rule).** Unlike provenance, the recomputed status DOES distinguish a
+derived start percentage from a directly supplied one — this is the one place in the
+capability's behavior where that distinction survives being written.
+
 Each percentage the correction itself supplies SHALL be within the inclusive range zero to
 one hundred; a correction that supplies such a percentage outside that range SHALL be
 rejected, and the record SHALL remain exactly as it was before the rejected correction. This
@@ -353,11 +370,10 @@ percentage the capability derives that would fall outside that range is never a 
 cause; it is simply not recorded (above).
 
 A correction SHALL change nothing about the record other than its start percentage, end
-percentage, and provenance — every other fact the record carries about the session (its
-identity, its time window, its charging site, its energy, cost, currency and payment facts,
-and its frozen estimated percentages) SHALL be unaffected by any correction, no matter how
-many times a correction is performed, and regardless of whether a start percentage was
-supplied or derived.
+percentage, provenance, and lifecycle status — every other fact the record carries about the
+session (its identity, its time window, its charging site, its energy, cost, currency and
+payment facts) SHALL be unaffected by any correction, no matter how many times a correction
+is performed, and regardless of whether a start percentage was supplied or derived.
 
 A correction that names a record that does not exist, or that names a record belonging to a
 different account than the one the correction is scoped to, SHALL be rejected in the same way
@@ -365,7 +381,7 @@ in both cases, and the record (if one exists) SHALL be unaffected.
 
 A successful correction SHALL make the record's full current detail available to whoever
 performed it, without requiring a separate retrieval — including a start percentage the
-correction itself derived.
+correction itself derived, and the recomputed lifecycle status.
 
 #### Scenario: A human records both percentages for a session with none recorded
 
@@ -383,6 +399,7 @@ correction itself derived.
 - **THEN** the record's start percentage matches the supplied value
 - **AND** the record's end percentage remains absent
 - **AND** the record's provenance shows the percentage was verified by a human
+- **AND** the record's lifecycle status is "in progress"
 
 #### Scenario: A human records only the end percentage, and a start percentage can be derived
 
@@ -396,6 +413,7 @@ correction itself derived.
 - **AND** the record's provenance shows the percentage was verified by a human
 - **AND** the party performing the correction did not have to compute or supply the start
   percentage themselves
+- **AND** the record's lifecycle status is "done, calculated"
 
 #### Scenario: A human records only the end percentage, and no start percentage can be derived
 
@@ -406,6 +424,7 @@ correction itself derived.
 - **AND** the record's end percentage matches the supplied value
 - **AND** the record's start percentage remains absent
 - **AND** the record's provenance shows the percentage was verified by a human
+- **AND** the record's lifecycle status is "in progress"
 
 #### Scenario: A derived start percentage outside the valid range is recorded as absent, not rejected
 
@@ -418,6 +437,7 @@ correction itself derived.
 - **AND** the record's end percentage matches the supplied value
 - **AND** the record's start percentage remains absent
 - **AND** no error is reported to the party performing the correction
+- **AND** the record's lifecycle status is "in progress"
 
 #### Scenario: A supplied start percentage is never overridden by derivation
 
@@ -427,6 +447,15 @@ correction itself derived.
 - **THEN** the record's start percentage matches exactly the value the correction supplied
 - **AND** no derivation is attempted, regardless of the record's energy delivered figure
 
+#### Scenario: A later correction supplying the start directly changes a done-calculated record to done
+
+- **GIVEN** a charge session record whose lifecycle status is "done, calculated" as the
+  result of an earlier correction that derived its start percentage
+- **WHEN** a correction for that account supplies both a start percentage directly and an
+  end percentage
+- **THEN** the record's start percentage matches exactly the value this correction supplied
+- **AND** the record's lifecycle status becomes "done"
+
 #### Scenario: A human clears both previously recorded percentages
 
 - **GIVEN** a charge session record belonging to an account, with both a start and an end
@@ -435,23 +464,24 @@ correction itself derived.
 - **THEN** the record's start and end percentages are both absent
 - **AND** the record's provenance is also absent
 - **AND** no derivation is attempted
+- **AND** the record's lifecycle status becomes "in progress"
 
 #### Scenario: A percentage outside the valid range that was supplied directly is rejected
 
 - **GIVEN** a charge session record belonging to an account
 - **WHEN** a correction for that account supplies a percentage outside zero to one hundred
 - **THEN** the correction is rejected
-- **AND** the record's percentages and provenance remain exactly as they were before the
-  correction was attempted
+- **AND** the record's percentages, provenance, and lifecycle status remain exactly as they
+  were before the correction was attempted
 
 #### Scenario: A correction never alters the session's other facts, whether a start percentage was supplied or derived
 
 - **GIVEN** a charge session record belonging to an account, carrying a charging site,
-  energy delivered, cost, currency, payment status, and frozen estimated percentages
+  energy delivered, cost, currency, and payment status
 - **WHEN** a correction for that account changes the record's verified percentages, whether
   the resulting start percentage was supplied directly or derived
-- **THEN** the record's charging site, energy delivered, cost, currency, payment status, and
-  frozen estimated percentages are unchanged
+- **THEN** the record's charging site, energy delivered, cost, currency, and payment status
+  are unchanged
 - **AND** the record's identity and time window are unchanged
 
 #### Scenario: A correction to a session belonging to a different account is rejected
@@ -475,7 +505,8 @@ correction itself derived.
 - **WHEN** a correction for that account successfully changes the record's verified
   percentages, deriving a start percentage in the process
 - **THEN** the party performing the correction receives the record's full current detail,
-  including the derived start percentage, without a separate retrieval
+  including the derived start percentage and the recomputed lifecycle status, without a
+  separate retrieval
 
 ### Requirement: Charge Sessions Are Retrievable For A Vehicle By Recency Of Update
 
@@ -703,4 +734,77 @@ fail or to abandon the other sessions in the same pass.
 - **THEN** the retrieved record carries its recorded inferred pack capacity
 - **AND** a record recording no inferred pack capacity is retrieved carrying its absence,
   not a zero
+
+### Requirement: A Charge Session Carries A Lifecycle Status
+
+Each charge session record SHALL carry a status describing whether its
+battery-percentage data is complete, computed automatically from the record's own
+verified start and end battery percentages, and never accepted as an input from any
+caller.
+
+A record whose verified start percentage or verified end percentage is absent SHALL
+carry the status "in progress" — including a record with only a start percentage
+recorded and no end percentage, and a record with only an end percentage recorded
+whose start percentage could not be derived. A record carrying both a verified start
+percentage and a verified end percentage SHALL carry either the status "done" or the
+status "done, calculated": "done, calculated" WHEN the start percentage present on
+the record was derived rather than supplied directly for it; "done" in every other
+case where both percentages are present.
+
+This capability SHALL recompute this status every time a correction changes either
+verified percentage — including a correction that clears both percentages, which
+SHALL reset the status to "in progress" — so that the status always reflects the
+record's percentages as they stand after the most recent correction, never a value
+fixed at an earlier point in the record's history.
+
+#### Scenario: Neither percentage recorded is in progress
+
+- **GIVEN** a charge session record with no verified battery percentage recorded
+- **WHEN** the record's status is examined
+- **THEN** the status is "in progress"
+
+#### Scenario: Only a start percentage recorded is still in progress
+
+- **GIVEN** a charge session record with a verified start percentage recorded and no
+  verified end percentage
+- **WHEN** the record's status is examined
+- **THEN** the status is "in progress"
+- **AND** this holds even though the record carries more information than one with
+  neither percentage recorded
+
+#### Scenario: Only an end percentage recorded, with no derivable start, is still in progress
+
+- **GIVEN** a charge session record with a verified end percentage recorded, whose
+  start percentage cannot be derived for it
+- **WHEN** the record's status is examined
+- **THEN** the status is "in progress"
+
+#### Scenario: Both percentages present, the start derived, is done-calculated
+
+- **GIVEN** a charge session record carrying both a verified start percentage and a
+  verified end percentage, whose start percentage was derived rather than supplied
+  directly
+- **WHEN** the record's status is examined
+- **THEN** the status is "done, calculated"
+
+#### Scenario: Both percentages present, the start supplied directly, is done
+
+- **GIVEN** a charge session record carrying both a verified start percentage and a
+  verified end percentage, whose start percentage was supplied directly rather than
+  derived
+- **WHEN** the record's status is examined
+- **THEN** the status is "done"
+
+#### Scenario: A later correction supplying the start directly changes a done-calculated record to done
+
+- **GIVEN** a charge session record whose status is "done, calculated"
+- **WHEN** a correction supplies both a start percentage directly and an end
+  percentage for that record
+- **THEN** the record's status becomes "done"
+
+#### Scenario: Clearing both percentages resets the status to in progress
+
+- **GIVEN** a charge session record whose status is "done" or "done, calculated"
+- **WHEN** a correction clears both the record's verified percentages
+- **THEN** the record's status becomes "in progress"
 

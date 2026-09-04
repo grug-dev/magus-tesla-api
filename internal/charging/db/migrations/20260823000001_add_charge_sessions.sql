@@ -289,11 +289,20 @@ $$;
 -- renamed by RM39 tier 4), which this change never touched. Nothing is lost that is
 -- not still upstream.
 --
--- (This stops being true once the deferred contract change drops telemetry's five
--- percentage columns — at that point charge_sessions is the only copy of them and
--- this Down becomes destructive. That change owns updating this comment; see
--- design.md D9, step 6. The mirrored session facts — site, energy, cost, currency,
--- is_paid — stay in telemetry.supercharger_history permanently, so they are never at
--- risk.)
+-- UPDATE (RM41-telemetry-drop-estimate-columns, 2026-09-03 -- this comment's own
+-- "deferred contract change", D9 step 6): the anticipated drop never happened in the
+-- shape D9 described. RM41 dropped only the two frozen ESTIMATE columns
+-- (start_battery_pct_est/end_battery_pct_est) from BOTH charging.supercharger_sessions
+-- (RM41-charging-drop-estimate-columns, tier 2) and telemetry.supercharger_history
+-- (RM41-telemetry-drop-estimate-columns, tier 3) -- neither module is "the only copy"
+-- of them, because neither module has them anymore. The three remaining percentage
+-- columns (start_battery_pct, end_battery_pct, battery_pct_source) were NOT touched by
+-- RM41 and still exist in both tables today, so this Down's original safety claim
+-- continues to hold for them unchanged. (Separately, and predating RM41: since
+-- RM31-charging-add-session-verification-port, a human's write through
+-- SessionVerifier lands only on charging's trio, not telemetry's own -- so
+-- telemetry's copy of the trio is not a byte-for-byte upstream mirror the way the
+-- raw session facts are. That divergence is unrelated to this DROP and is not
+-- evaluated by this comment.)
 DROP INDEX IF EXISTS idx_charge_sessions_vehicle_stop;
 DROP TABLE IF EXISTS charge_sessions;

@@ -95,8 +95,6 @@ type superchargerSessionRow struct {
 	StartBatteryPct     *int
 	EndBatteryPct       *int
 	BatteryPctSource    *string
-	StartBatteryPctEst  *int
-	EndBatteryPctEst    *int
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -110,14 +108,14 @@ func fetchSuperchargerSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.U
 		SELECT vin, tesla_id, charge_start_date_time, charge_stop_date_time,
 		       site_location_name, energy_kwh, total_cost, currency, is_paid,
 		       start_battery_pct, end_battery_pct, battery_pct_source,
-		       start_battery_pct_est, end_battery_pct_est, created_at, updated_at
+		       created_at, updated_at
 		FROM charging.supercharger_sessions
 		WHERE account_id = $1 AND session_id = $2`,
 		accountID, sessionID,
 	).Scan(&row.VIN, &row.TeslaID, &row.ChargeStartDateTime, &row.ChargeStopDateTime,
 		&row.SiteLocationName, &row.EnergyKWh, &row.TotalCost, &row.Currency, &row.IsPaid,
 		&row.StartBatteryPct, &row.EndBatteryPct, &row.BatteryPctSource,
-		&row.StartBatteryPctEst, &row.EndBatteryPctEst, &row.CreatedAt, &row.UpdatedAt)
+		&row.CreatedAt, &row.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return superchargerSessionRow{}, false
@@ -241,12 +239,6 @@ func TestMirrorSessions_NewSessionInsertsElevenColumns(t *testing.T) {
 	}
 	if row.BatteryPctSource != nil {
 		t.Errorf("BatteryPctSource: want nil, got %v", *row.BatteryPctSource)
-	}
-	if row.StartBatteryPctEst != nil {
-		t.Errorf("StartBatteryPctEst: want nil, got %v", *row.StartBatteryPctEst)
-	}
-	if row.EndBatteryPctEst != nil {
-		t.Errorf("EndBatteryPctEst: want nil, got %v", *row.EndBatteryPctEst)
 	}
 
 	if row.CreatedAt.IsZero() {
@@ -479,8 +471,7 @@ func TestMirrorSessions_NeverTouchesVerifiedPercentage(t *testing.T) {
 
 	if _, err := pool.Exec(ctx, `
 		UPDATE charging.supercharger_sessions
-		SET start_battery_pct = 41, end_battery_pct = 88, battery_pct_source = 'user_verified',
-		    start_battery_pct_est = 39, end_battery_pct_est = 90
+		SET start_battery_pct = 41, end_battery_pct = 88, battery_pct_source = 'user_verified'
 		WHERE account_id = $1 AND session_id = $2`,
 		accountID, m1.SessionID); err != nil {
 		t.Fatalf("direct-SQL set verified percentages: %v", err)
@@ -512,12 +503,6 @@ func TestMirrorSessions_NeverTouchesVerifiedPercentage(t *testing.T) {
 	}
 	if row.BatteryPctSource == nil || *row.BatteryPctSource != "user_verified" {
 		t.Errorf("BatteryPctSource: want user_verified (untouched by sync), got %v", row.BatteryPctSource)
-	}
-	if row.StartBatteryPctEst == nil || *row.StartBatteryPctEst != 39 {
-		t.Errorf("StartBatteryPctEst: want 39 (untouched by sync), got %v", row.StartBatteryPctEst)
-	}
-	if row.EndBatteryPctEst == nil || *row.EndBatteryPctEst != 90 {
-		t.Errorf("EndBatteryPctEst: want 90 (untouched by sync), got %v", row.EndBatteryPctEst)
 	}
 }
 

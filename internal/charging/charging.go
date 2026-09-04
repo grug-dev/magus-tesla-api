@@ -280,9 +280,37 @@ func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
 	return newSessionWriter(pool)
 }
 
+// SessionStatus is the lifecycle status of one supercharger_sessions row's
+// battery-percentage data (TEXT + CHECK in the DB, RM41-charging-add-session-status,
+// MAG-45). ALWAYS COMPUTED by SessionVerifier.VerifySession on every call -- no port
+// accepts a Session as input for this field, so there is no way for a caller to set
+// it directly.
+type SessionStatus string
+
+const (
+	// SessionStatusInProgress: at least one of start_battery_pct/end_battery_pct is
+	// NULL. This is the status of a session nobody has recorded anything for, AND of
+	// a session with only a start percentage recorded and no end percentage --
+	// deliberately not a fourth state (design.md "State truth table"): this is what
+	// keeps "sessions still in progress" a meaningful worklist for the gateway's own
+	// follow-up recommendation (RM41 tier 5) even when a session is half-recorded.
+	SessionStatusInProgress SessionStatus = "IN_PROGRESS"
+	// SessionStatusDoneCalculated: both percentages are present, AND the
+	// VerifySession call that produced this row's CURRENT start_battery_pct derived
+	// it via derivedStartBatteryPct (capacity.go) rather than storing a
+	// caller-supplied value. This is the one place in the schema that keeps a typed
+	// percentage apart from a derived one -- battery_pct_source itself cannot
+	// (MAG-36 design.md D1).
+	SessionStatusDoneCalculated SessionStatus = "DONE_CALCULATED"
+	// SessionStatusDone: both percentages are present, and the CURRENT
+	// start_battery_pct was supplied directly by VerifySession's caller.
+	SessionStatusDone SessionStatus = "DONE"
+)
+
 // Session is the full domain representation of one supercharger_sessions row: identity, the
-// session's time window, the session facts internal/telemetry collects, and the five
-// charging-owned battery-percentage verification/estimate columns. Read-only counterpart
+// session's time window, the session facts internal/telemetry collects, and the three
+// charging-owned battery-percentage verification columns, plus (since RM41 tier 4) a
+// fourth charging-owned column, Status, computed from them. Read-only counterpart
 // to SessionMirror — NOT built by adding fields to it.
 //
 // SessionMirror stays deliberately percentage-free (RM29 design.md D6): a nightly sync
@@ -292,7 +320,7 @@ func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
 // reason, even though Session's first thirteen fields duplicate SessionMirror's eleven
 // (RM30-charging-add-session-read-port design.md D4).
 //
-// Twenty fields, one per supercharger_sessions column. Field names/types follow this
+// Nineteen fields, one per supercharger_sessions column. Field names/types follow this
 // module's existing conventions exactly: *T for every nullable column (matching Entry's
 // pattern), time.Time for every TIMESTAMPTZ, int64/*int64 for BIGINT/nullable BIGINT,
 // *int for nullable SMALLINT (matching Entry.StartBatteryPct's identical type), *string
@@ -315,12 +343,16 @@ type Session struct {
 	IsPaid           *bool    // nil when the session had no fees
 
 	// Charging-owned verification channel (RM29 design.md D1/D5/D6). Never written by
-	// the nightly sync — SessionWriter has no field for any of these five.
-	StartBatteryPct    *int    // 0-100 inclusive; nil = nothing recorded
-	EndBatteryPct      *int    // 0-100 inclusive; nil = nothing recorded
-	BatteryPctSource   *string // "user_verified" or "polled"; nil iff both percentages are nil
-	StartBatteryPctEst *int    // frozen snapshot at verification time; nil = nothing recorded
-	EndBatteryPctEst   *int    // frozen snapshot at verification time; nil = nothing recorded
+	// the nightly sync — SessionWriter has no field for any of these three.
+	StartBatteryPct  *int    // 0-100 inclusive; nil = nothing recorded
+	EndBatteryPct    *int    // 0-100 inclusive; nil = nothing recorded
+	BatteryPctSource *string // "user_verified" or "polled"; nil iff both percentages are nil
+
+	// Status is this session's lifecycle status -- ALWAYS COMPUTED by
+	// SessionVerifier.VerifySession, never settable through any port
+	// (RM41-charging-add-session-status, MAG-45). See SessionStatus's own doc
+	// comment for the three values and the rule that produces each.
+	Status SessionStatus
 
 	// InferredCapacityKWhCalc is the pack capacity in kWh implied by this session
 	// alone: EnergyKWh / ((EndBatteryPct - StartBatteryPct) / 100), rounded to 3
@@ -468,12 +500,19 @@ func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessi
 // trust models" shape the AI-efficiency "closed, small vocabularies" principle
 // (CLAUDE.md §Non-negotiables) argues against (design.md D9).
 type SessionVerifier interface {
-	// VerifySession updates exactly three columns on one account-scoped supercharger_sessions
-	// row — start_battery_pct, end_battery_pct, battery_pct_source — plus updated_at.
-	// No other column is reachable through this method, including
-	// start_battery_pct_est/end_battery_pct_est: the underlying query's SET clause
-	// names only these three plus updated_at, so the two _est columns are structurally
-	// unreachable, not merely undocumented as targets (design.md D1).
+	// VerifySession updates exactly four columns on one account-scoped
+	// supercharger_sessions row — start_battery_pct, end_battery_pct,
+	// battery_pct_source, status — plus updated_at (RM41-charging-add-session-status,
+	// MAG-45, added the fourth). No other column is reachable through this method: the
+	// underlying query's SET clause names only these four plus updated_at (RM31 design.md
+	// D1, extended by RM41 tier 4). status is ALWAYS COMPUTED by this method from the
+	// same startToStore/endBatteryPct/derivation-outcome values used to compute
+	// battery_pct_source — never accepted as a parameter; VerifySession's own signature
+	// is unchanged by this addition.
+	//
+	// The two frozen estimate columns formerly named here as columns this
+	// method could never reach were dropped from the table entirely by
+	// RM41-charging-drop-estimate-columns — there is no longer a column to be unreachable from.
 	//
 	// battery_pct_source is always computed by this method, never supplied by the
 	// caller: "user_verified" when either startBatteryPct or endBatteryPct is non-nil,

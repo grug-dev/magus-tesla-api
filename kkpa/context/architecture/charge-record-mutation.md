@@ -142,11 +142,13 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   correction changes no tile), a defect the moment that page surfaces anything derived from the
   percentages.
   _Source: `fragments.ChargeRowUpdateSuccessOOB` vs `fragments.SuperchargerRow`._
-- **`start_battery_pct_est` / `end_battery_pct_est` are never written** — excluded from
-  `VerifySuperchargerSession`, `MirrorSuperchargerSession` and telemetry's own upsert. They are rendered as
-  `StartBatteryPctEstLabel` / `EndBatteryPctEstLabel` and always show `—`.
-  _Source: `charging/db/query.sql`, `gateway/handlers/supercharger.go`
-  `superchargerRowVMFromSession`._
+- **`start_battery_pct_est` / `end_battery_pct_est` no longer exist.** They were
+  never written (excluded from `VerifySuperchargerSession`, `MirrorSuperchargerSession`,
+  and telemetry's own upsert) for their entire lifetime, and were dropped from
+  `charging.supercharger_sessions` by `RM41-charging-drop-estimate-columns`
+  (2026-09-03); the gateway had already stopped rendering them one tier earlier
+  (`RM41-gateway-revise-battery-pct-ui`).
+  _Source: `charging/charging.go`, `charging/db/migrations/20260903000002_drop_supercharger_est_columns.sql`._
 - **`supercharger_sessions.updated_at` is not a "data changed" signal** — `MirrorSuperchargerSession` carries
   no `WHERE` predicate, so every nightly mirror pass bumps it on every row. That is why the
   Supercharger path self-heals nightly and the manual path does not. The robustness is
@@ -173,8 +175,10 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   Do not add it to an INSERT column list or a SET clause.
   _Source: `charging/db/migrations/20260829000001_add_inferred_capacity.sql`._
 - **`VerifySuperchargerSession` and `MirrorSuperchargerSession` are deliberate mirror images.** The verifier
-  can touch only the human-owned percentages + source + `updated_at`; the mirror can touch
-  everything except those. Do not "complete the pattern" on either.
+  can touch only the human-owned percentages + source + `status` + `updated_at`; the mirror can
+  touch everything except those. (`status` joined the verifier's SET clause in RM41 tier 4,
+  MAG-45; the mirror still excludes it, so a freshly mirrored session takes `IN_PROGRESS` from
+  the column DEFAULT.) Do not "complete the pattern" on either.
   _Source: `charging/db/query.sql`._
 
 ## Related KB
