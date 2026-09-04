@@ -246,9 +246,19 @@ level, and the stored range, and renders an em dash with no bar when there is no
 
 **What replaced it is a data-age label, and it counts CALENDAR days, not elapsed hours.**
 `navHeaderFor` receives `browserToday(c)` and `calendarDaysAgo` compares midnights in the
-user's own zone: `0` → *hoy/today*, `1` → *ayer/yesterday*, `2`+ → *hace N días/N days ago*
-coloured `text-error` (`dataAgeStaleDays`). A nil `CapturedAt` renders **nothing** — an
-unknown age is never guessed.
+user's own zone: `0` → *hoy/today*, `1` → *ayer/yesterday*, `2`+ → *hace N días/N days ago*.
+**Only `0` is a healthy state**: `dataAgeStaleDays` is `1`, so everything except *today*
+is coloured `text-error`. The poller runs nightly, so the newest stored reading should
+always carry today's date; *yesterday* already means today's poll did not land. Accepted
+consequence: between local midnight and the ~03:30 run the label is red every day, which
+is honest — there is no reading from today yet. A nil `CapturedAt` renders **nothing** —
+an unknown age is never guessed.
+
+The age is read from `captured_at`, **never** `metric_date`. `metric_date` is
+`captured_at`'s calendar day *minus one* (`analytics.effectiveDay`) and buckets the day's
+*deltas*; the battery/range/odometer on the same row are the raw observations taken at
+`captured_at`. Using `metric_date` here would label a reading taken this morning
+"yesterday" and trip the stale colour a day early.
 
 The distinction is the reason MAG-44's deleted `relativeLastSeen` could NOT simply be
 restored, and it is worth keeping straight: the nightly poll runs at 03:30, so last night's

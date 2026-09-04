@@ -770,11 +770,21 @@ func calendarDaysAgo(capturedAt, today time.Time) int {
 }
 
 // dataAgeStaleDays is the age at which the data-age label switches from muted to
-// error-coloured: two calendar days back means the nightly poll has missed at
-// least once, which is worth showing in red. It is deliberately NOT the old 48 h
-// connectedFreshnessWindow — that was an elapsed-hours window used to assert
-// connectivity, a claim this app cannot make. This constant only drives emphasis.
-const dataAgeStaleDays = 2
+// error-coloured. ONE calendar day: "today" is the only healthy state, because
+// the nightly poller runs every day (~03:30 local), so the newest stored reading
+// should always carry today's date. A "yesterday" label already means the last
+// poll did not land today — worth showing in red, not treated as normal.
+//
+// Known consequence, accepted: between local midnight and the poller's ~03:30 run
+// the newest reading is genuinely yesterday's, so the label is red for those few
+// hours every day. That is honest rather than wrong — the app has no reading from
+// today yet — and hiding it would need the label to know the poller's schedule,
+// which is another module's concern.
+//
+// It is deliberately NOT the old 48 h connectedFreshnessWindow — that was an
+// elapsed-hours window used to assert connectivity, a claim this app cannot make.
+// This constant only drives emphasis.
+const dataAgeStaleDays = 1
 
 // dataAgeLabel resolves the translated data-age phrase for a calendar-day
 // distance: 0 -> "today", 1 -> "yesterday", 2+ -> "N days ago". Resolved here in

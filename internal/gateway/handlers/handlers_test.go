@@ -1055,6 +1055,38 @@ func TestNavHeaderFor_WithStoredRow(t *testing.T) {
 	}
 }
 
+// TestNavHeaderFor_YesterdayIsStale pins dataAgeStaleDays == 1, the boundary the
+// whole constant exists for. The nightly poller runs every day, so the newest
+// stored reading should always carry TODAY's date; a "yesterday" label already
+// means today's poll did not land, which is exactly what the error colour is for.
+// A same-day reading (TestNavHeaderFor_WithStoredRow) is the only healthy state.
+//
+// Sibling of the 3-day case below, kept separate because that one asserts the
+// battery still renders while this one asserts only where the threshold sits.
+func TestNavHeaderFor_YesterdayIsStale(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	// One calendar day before navTestToday -> "yesterday", stale.
+	capturedAt := navTestToday.AddDate(0, 0, -1).Add(4 * time.Hour)
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 42, CapturedAt: &capturedAt, BatteryLevelPct: 61, BatteryRangeKm: 312.4},
+	}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0, navTestToday)
+
+	if vm.DataAge == "" {
+		t.Fatalf("want a data-age label for a one-day-old reading, got empty")
+	}
+	if !vm.DataAgeStale {
+		t.Errorf("want DataAgeStale true for a yesterday reading, got false")
+	}
+	// Age is emphasis only — the stored battery is still rendered, unchanged.
+	if !vm.HasBattery || vm.BatteryPct != "61%" {
+		t.Errorf("want the stored battery rendered, got has=%v pct=%q", vm.HasBattery, vm.BatteryPct)
+	}
+}
+
 // TestNavHeaderFor_OldRowStillRendersBattery is the MAG-44 regression: the block
 // reports what is STORED, never a freshness judgement. A three-day-old row used
 // to flip the header to "Asleep" and suppress the battery; now it renders exactly

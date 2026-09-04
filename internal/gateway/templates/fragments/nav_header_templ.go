@@ -62,10 +62,12 @@ type NavHeaderVM struct {
 	// than a guess.
 	DataAge string
 
-	// DataAgeStale is true once the reading is dataAgeStaleDays (2) or more
-	// calendar days old, which colours the label with the error token. It is an
-	// emphasis flag only: it says the data is old, never that the vehicle is
-	// unreachable — the app cannot observe that.
+	// DataAgeStale is true once the reading is dataAgeStaleDays (1) or more
+	// calendar days old — i.e. anything but "today" — which colours the label
+	// with the error token. The nightly poller runs daily, so today's date is the
+	// only healthy state; "yesterday" already means a poll did not land today.
+	// It is an emphasis flag only: it says the data is old, never that the
+	// vehicle is unreachable — the app cannot observe that.
 	DataAgeStale bool
 }
 
@@ -125,7 +127,7 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyNavHeaderNoTesla))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 80, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 82, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -138,7 +140,7 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyNavHeaderConnectLink))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 82, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 84, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -161,7 +163,7 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.VehicleName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 86, Col: 85}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 88, Col: 85}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -201,7 +203,7 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(navBatteryText(vm))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 90, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 92, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -219,7 +221,7 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vm.RangeKm)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 93, Col: 62}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 95, Col: 62}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -271,7 +273,7 @@ func NavHeader(vm NavHeaderVM) templ.Component {
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(vm.DataAge)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 105, Col: 83}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/nav_header.templ`, Line: 107, Col: 83}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {

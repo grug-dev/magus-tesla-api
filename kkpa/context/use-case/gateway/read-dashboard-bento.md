@@ -91,7 +91,8 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
   the stored battery level and range whatever their age, and an em dash with no bar when there
   is no row. The connected/asleep vocabulary, its 48 h freshness window and the relative
   "last seen" label were deleted and replaced by a **calendar-day** data-age label
-  ("hoy" / "ayer" / "hace N días", red from two days back) computed against `browserToday(c)`
+  ("hoy" / "ayer" / "hace N días", red for everything except "hoy" — `dataAgeStaleDays` is 1,
+  because the nightly poller means today's date is the only healthy state) computed against `browserToday(c)`
   — see `internal/gateway/AGENTS.md` §"Chrome surfaces & the honest vehicle block". That
   label is the block's ONLY use of `CapturedAt`, and a nil value renders nothing. The
   `IsStale` badge on THIS page's Vehicle Status card is a different signal, measured in

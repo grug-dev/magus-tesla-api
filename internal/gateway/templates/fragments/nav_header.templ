@@ -54,10 +54,12 @@ type NavHeaderVM struct {
 	// than a guess.
 	DataAge string
 
-	// DataAgeStale is true once the reading is dataAgeStaleDays (2) or more
-	// calendar days old, which colours the label with the error token. It is an
-	// emphasis flag only: it says the data is old, never that the vehicle is
-	// unreachable — the app cannot observe that.
+	// DataAgeStale is true once the reading is dataAgeStaleDays (1) or more
+	// calendar days old — i.e. anything but "today" — which colours the label
+	// with the error token. The nightly poller runs daily, so today's date is the
+	// only healthy state; "yesterday" already means a poll did not land today.
+	// It is an emphasis flag only: it says the data is old, never that the
+	// vehicle is unreachable — the app cannot observe that.
 	DataAgeStale bool
 }
 
