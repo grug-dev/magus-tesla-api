@@ -29,9 +29,10 @@ func dashSubtitle(ctx context.Context, d fragments.DashboardData) string {
 	if !d.HasSnapshot {
 		return i18n.T(ctx, i18n.KeyDashboardAwaitingSnapshot)
 	}
-	sub := d.StatusLabel
+	//sub := d.StatusLabel
+	sub := ""
 	if d.SoftwareVer != "" {
-		sub += " • " + d.SoftwareVer
+		sub += d.SoftwareVer
 	}
 	return sub
 }
