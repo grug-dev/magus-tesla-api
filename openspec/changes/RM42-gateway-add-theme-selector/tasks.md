@@ -204,9 +204,9 @@ files or reintroduce a `settings.go`).
       `LanguageMiddleware` no longer existed after T3.3 deleted it. `h.SettingsPage`/
       `h.ThemeSwitch` do not exist yet — their handlers land in T4/T6 — so the route clause below
       is NOT done and stays for whichever wave completes T4/T6.
-- [ ] T7.1b (route clause, still open) add `r.GET("/settings", h.SettingsPage)` and
+- [x] T7.1b (route clause — done in wave 5 by the leader) add `r.GET("/settings", h.SettingsPage)` and
       `r.POST("/ui/theme/switch", h.ThemeSwitch)` to `internal/gateway/gateway.go`.
-- [ ] T7.2 If any existing `gateway_test.go` route-table test enumerates registered routes by
+- [x] T7.2 If any existing `gateway_test.go` route-table test enumerates registered routes by
       name, add the two new ones.
 
 ## T8. Instant-apply JS (RD15) — depends on T1

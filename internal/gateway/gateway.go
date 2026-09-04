@@ -166,6 +166,13 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/healthz", h.Healthz)
 	r.POST("/ui/lang/switch", h.LangSwitch)
 
+	// Settings + theme switch (RM42 tier 2). Unlike /ui/lang/switch above, the
+	// theme write takes a CSRF token: SettingsPage mints csrfThemeKey and
+	// ThemeSwitch checks it. The language switch's missing CSRF check is a
+	// narrow exception the user declined to extend here — see AGENTS.md.
+	r.GET("/settings", h.SettingsPage)
+	r.POST("/ui/theme/switch", h.ThemeSwitch)
+
 	r.GET("/charges", h.ChargePage)
 	r.GET("/ui/charges", h.ChargesContentFragment)
 	r.GET("/ui/charges/list", h.ChargesListFragment)

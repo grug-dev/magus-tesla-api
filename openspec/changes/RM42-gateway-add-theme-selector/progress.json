@@ -9,7 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T7",
       "T10",
       "T11"
     ],
@@ -24,11 +23,12 @@
       "T1",
       "T3",
       "T4",
-      "T6"
+      "T6",
+      "T7"
     ]
   },
   "created_at": "2026-09-04T13:39:02Z",
-  "updated_at": "2026-09-04T14:09:57Z",
+  "updated_at": "2026-09-04T14:11:13Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -208,14 +208,23 @@
         "T6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-04T14:11:13Z",
+      "completed_at": "2026-09-04T14:11:13Z",
+      "duration_seconds": 0,
+      "notes": "Leader-owned (decision D8): registered GET /settings and POST /ui/theme/switch in gateway.go, with a comment recording why theme takes CSRF and language does not. Added TestSettings_AnonymousRedirectedToLogin to gateway_test.go, mirroring the Supercharger router-level guard test. Unrun.",
+      "budget": {
+        "five_hour_pct_start": 88.0,
+        "five_hour_pct_end": 88.0,
+        "five_hour_pct_delta": 0.0,
+        "cost_usd_delta": 0.0,
+        "context_pct_end": 27,
+        "source": "leader-owned, no dispatch",
+        "approx": true,
+        "note": "done by the leader instead of a worker dispatch to conserve the 5-hour bucket"
+      }
     },
     {
       "id": "T8",
@@ -371,6 +380,14 @@
       "made_by": "leader",
       "decision": "Accept the worker's page-title deviation: the title resolves through i18n.T rather than the literal string tasks.md printed",
       "why": "AGENTS.md's i18n rule binds every user-facing string including <title>; the literal in tasks.md was the EN-rendered output, not Go source."
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-04T14:11:13Z",
+      "scope": "wave-5",
+      "made_by": "autopilot",
+      "decision": "Leader implemented T7 directly instead of dispatching a worker",
+      "why": "Two route lines plus one test at 88% of the 5-hour bucket; a dispatch would have cost ~13 points and crossed the gate mid-wave."
     }
   ],
   "events": [
@@ -443,6 +460,11 @@
       "at": "2026-09-04T14:09:57Z",
       "agent": "leader",
       "event": "Wave 4 reconciled: T6 awaiting-user-verification. Leader verified the wave's key line by grep \u2014 SettingsPage renders ui.ThemeFromContext and makes NO account call, so the only two account calls in non-test gateway code remain the middleware's single PreferencesFor and ThemeSwitch's SetTheme. go build + go vet ./... clean repo-wide; ui/i18n/theme guards clean."
+    },
+    {
+      "at": "2026-09-04T14:11:13Z",
+      "agent": "leader",
+      "event": "T7 done by the leader: both routes registered. Also added a router-level TestSettings_AnonymousRedirectedToLogin covering GET /settings AND POST /ui/theme/switch through the real NewEngine \u2014 the handler test only drives a locally-wired engine, and this tier's write must have no anonymous path. build/vet clean; theme/i18n/ui guards clean."
     }
   ]
 }
