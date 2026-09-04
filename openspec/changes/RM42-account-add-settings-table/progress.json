@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM42-account-add-settings-table",
+  "module": "account",
+  "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
+  "request": "Source ticket: MAG-43 — Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-04T10:26:38Z",
+  "updated_at": "2026-09-04T10:26:38Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM42-MAG-43-settings-theme-selector",
+    "base": "0b9897f",
+    "ticket": "MAG-43",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-43/theme-selector-settings-page",
+    "created_at": "2026-09-04T10:26:38Z"
+  },
+  "tasks": [
+    { "id": "T1", "title": "Goose migration 20260904000001_add_account_settings.sql", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T2", "title": "Domain type + port interface (account.go): Settings, theme vocabulary, ErrUnsupportedTheme, PreferencesFor/ThemeFor/SetTheme", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T3", "title": "sqlc query edits + regen: GetAccountSettings, UpdateAccountLanguage/Theme, InsertSettingsIfMissing", "module": "account", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4", "title": "Service implementation: transactional UpsertFromOAuth, PreferencesFor, rewritten LanguageFor/SetLanguage, ThemeFor/SetTheme", "module": "account", "depends_on": ["T2", "T3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T5", "title": "Tests: pure normalizeTheme unit test + DATABASE_URL-gated TestAccountSettings_RoundTrip and language round-trip", "module": "account", "depends_on": ["T4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T6", "title": "Makefile/guard verification: MIGRATIONS_DIRS, db-setup/db-reset ownership, sqlc.yaml, migration-guard", "module": "account", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T7", "title": "Docs: account/AGENTS.md public interface + kkpa/context/ KB grep and fix", "module": "account", "depends_on": ["T2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T8", "title": "Verification: build, vet, gofmt, boundary check, openspec validate --strict; report suite commands for the owner", "module": "account", "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-04T10:26:38Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate PASSED: account.settings schema, CREATE -> backfill -> DROP COLUMN order, data-restoring Down, and PK-only index plan all confirmed by the user",
+      "why": "Built-in database design gate; user reviewed the DDL, migration order and index plan before any implementation"
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-04T10:26:38Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Carry RM34's status='Active' gating forward onto account.settings via EXISTS on GetAccountSettings, UpdateAccountLanguage and UpdateAccountTheme",
+      "why": "The gate lives on accounts today; moving language to a new table would silently drop it. Both sides ride an existing PK index."
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-04T10:26:38Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Dispatched the artifacts worker on Sonnet rather than Opus",
+      "why": "All 11 design decisions were pre-settled and handed over verbatim, so this was artifact authoring, not design discovery"
+    }
+  ],
+  "events": [
+    { "at": "2026-09-04T10:26:38Z", "agent": "leader", "event": "dispatched account worker (sonnet) for artifact creation; returned 4 artifacts, openspec validate --strict passed" },
+    { "at": "2026-09-04T10:26:38Z", "agent": "leader", "event": "worker flagged an unanticipated finding: RM34's status='Active' gating would be silently dropped by the storage move. Escalated to the user, who confirmed carrying it forward (decision D2)." },
+    { "at": "2026-09-04T10:26:38Z", "agent": "leader", "event": "database design gate PASSED with the user (decision D1). Budget at gate: five_hour 47%, context 18%." },
+    { "at": "2026-09-04T10:26:38Z", "agent": "leader", "event": "RUN HALTED AFTER STEP 4 by design — the kkpa-pickup-linear-ticket payload scoped this run to artifacts + progress.json only. No implementation worker was dispatched, no reviewer ran, nothing was archived. Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table" }
+  ]
+}
