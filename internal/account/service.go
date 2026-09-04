@@ -51,7 +51,18 @@ func NewService(pool *pgxpool.Pool, clientID, clientSecret string) Service {
 var _ Service = (*service)(nil)
 
 func (s *service) UpsertFromOAuth(ctx context.Context, id OAuthIdentity) (Account, error) {
-	row, err := s.q.UpsertAccountFromOAuth(ctx, accountdb.UpsertAccountFromOAuthParams{
+	// The account upsert and the settings-row insert share one transaction
+	// (design.md D3): mirrors AccessTokenFor's existing pool.Begin/WithTx/Commit
+	// atomicity idiom rather than inventing a multi-write CTE.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Account{}, fmt.Errorf("beginning tx: %w", err)
+	}
+	defer tx.Rollback(ctx) // no-op once committed
+
+	qtx := s.q.WithTx(tx)
+
+	row, err := qtx.UpsertAccountFromOAuth(ctx, accountdb.UpsertAccountFromOAuthParams{
 		Email:       id.Email,
 		Provider:    id.Provider,
 		ProviderID:  id.ProviderID,
@@ -59,6 +70,14 @@ func (s *service) UpsertFromOAuth(ctx context.Context, id OAuthIdentity) (Accoun
 	})
 	if err != nil {
 		return Account{}, fmt.Errorf("upserting account from oauth: %w", err)
+	}
+
+	if err := qtx.InsertSettingsIfMissing(ctx, row.ID); err != nil {
+		return Account{}, fmt.Errorf("creating account settings: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Account{}, fmt.Errorf("committing tx: %w", err)
 	}
 	return accountFromRow(row), nil
 }
@@ -186,12 +205,23 @@ func (s *service) SetVehicleConfigIfEmpty(ctx context.Context, accountID uuid.UU
 	return nil
 }
 
-func (s *service) LanguageFor(ctx context.Context, accountID uuid.UUID) (string, error) {
-	lang, err := s.q.GetAccountLanguage(ctx, accountID)
+func (s *service) PreferencesFor(ctx context.Context, accountID uuid.UUID) (Settings, error) {
+	row, err := s.q.GetAccountSettings(ctx, accountID)
 	if err != nil {
-		return "", fmt.Errorf("loading account language: %w", err)
+		return Settings{}, fmt.Errorf("loading account settings: %w", err)
 	}
-	return normalizeLanguage(lang), nil
+	return Settings{
+		Language: normalizeLanguage(row.Language),
+		Theme:    normalizeTheme(row.Theme),
+	}, nil
+}
+
+func (s *service) LanguageFor(ctx context.Context, accountID uuid.UUID) (string, error) {
+	prefs, err := s.PreferencesFor(ctx, accountID)
+	if err != nil {
+		return "", err
+	}
+	return prefs.Language, nil
 }
 
 func (s *service) SetLanguage(ctx context.Context, accountID uuid.UUID, lang string) error {
@@ -199,10 +229,31 @@ func (s *service) SetLanguage(ctx context.Context, accountID uuid.UUID, lang str
 		return ErrUnsupportedLanguage
 	}
 	if err := s.q.UpdateAccountLanguage(ctx, accountdb.UpdateAccountLanguageParams{
-		ID:       accountID,
-		Language: lang,
+		AccountID: accountID,
+		Language:  lang,
 	}); err != nil {
 		return fmt.Errorf("setting account language: %w", err)
+	}
+	return nil
+}
+
+func (s *service) ThemeFor(ctx context.Context, accountID uuid.UUID) (string, error) {
+	prefs, err := s.PreferencesFor(ctx, accountID)
+	if err != nil {
+		return "", err
+	}
+	return prefs.Theme, nil
+}
+
+func (s *service) SetTheme(ctx context.Context, accountID uuid.UUID, theme string) error {
+	if !isSupportedTheme(theme) {
+		return ErrUnsupportedTheme
+	}
+	if err := s.q.UpdateAccountTheme(ctx, accountdb.UpdateAccountThemeParams{
+		AccountID: accountID,
+		Theme:     theme,
+	}); err != nil {
+		return fmt.Errorf("setting account theme: %w", err)
 	}
 	return nil
 }
@@ -232,6 +283,20 @@ func normalizeLanguage(lang string) string {
 
 func isSupportedLanguage(lang string) bool {
 	return lang == LanguageES || lang == LanguageEN
+}
+
+// normalizeTheme returns theme unchanged if it is a supported code, else the
+// default ThemeGraphite. This is the DB→domain normalization boundary
+// (design.md D4), mirroring normalizeLanguage exactly.
+func normalizeTheme(theme string) string {
+	if isSupportedTheme(theme) {
+		return theme
+	}
+	return ThemeGraphite
+}
+
+func isSupportedTheme(theme string) bool {
+	return theme == ThemeApex || theme == ThemeGraphite || theme == ThemeHalloween
 }
 
 // --- row → domain mapping ---

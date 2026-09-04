@@ -1,0 +1,84 @@
+package ui
+
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+)
+
+// ThemeSwitcherProps configures ThemeSwitcher. Current must be one of Themes (caller
+// normalizes before passing in — mirrors LangSwitcherProps's own contract). CSRFToken is
+// minted by handlers.SettingsPage (design.md D3) and has nothing to do with this
+// component's own logic beyond being carried through into each option's hx-vals.
+//
+// There is deliberately no Options field, mirroring LangSwitcherProps's own omission —
+// but for a different reason than LangSwitcherProps states for its frozen two-item set:
+// Themes is closed today at three but roadmap D10 documents a standing four-step recipe
+// for growing it, so the component ranges over the package-level Themes slice internally
+// (design.md D4) rather than hardcoding one <li> per option. The caller still passes only
+// Current — the difference from LangSwitcher is entirely inside the component body.
+type ThemeSwitcherProps struct {
+	Current   string
+	CSRFToken string
+}
+
+// titleCase upper-cases only the first rune of s. Theme codes are proper nouns
+// (roadmap D11: "Apex"/"Graphite"/"Halloween" render as-is, never through i18n.T), so this
+// is deliberately NOT strings.ToUpper (which LangSwitcher uses for its two-letter codes —
+// a different, all-caps rendering role).
+func titleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	if r[0] >= 'a' && r[0] <= 'z' {
+		r[0] -= 'a' - 'A'
+	}
+	return string(r)
+}
+
+// themeVals builds the literal {"theme":"<t>","csrf_token":"<csrfToken>"} JSON blob for
+// one dropdown option's hx-vals (design.md D3). The CSRF token travels here rather than
+// on an X-CSRF-Token header because this is a POST whose body Go parses normally — the
+// header mechanism is reserved for the DELETE-body case it was built for (the Charges
+// row-delete button). Both t and csrfToken are safe to embed unescaped: t is always one of
+// the closed Themes vocabulary codes (lowercase ASCII identifiers) and csrfToken is always
+// hex.EncodeToString output (generateCSRFToken, handlers/charges.go) — neither can contain
+// a quote or backslash. templ still HTML-escapes the whole attribute value at render time
+// via the {expression} attribute binding, exactly like LangSwitcher's static hx-vals.
+func themeVals(t, csrfToken string) string {
+	return `{"theme":"` + t + `","csrf_token":"` + csrfToken + `"}`
+}
+
+// ThemeSwitcher renders the /settings theme selector: the current theme (title-cased) +
+// a CSS-only DaisyUI dropdown listing every ui.Themes option, in vocabulary order. Each
+// option POSTs to /ui/theme/switch with hx-swap="none" — the response body is irrelevant;
+// the page's own RD15 JS applies the theme optimistically and PreferencesMiddleware picks
+// up the persisted value on the next full render (design.md D6). No client-side JS is
+// needed to open or display the dropdown itself: the DaisyUI "dropdown" pattern is
+// :focus-driven CSS, already on the module's sanctioned zero-JS list.
+//
+// Why the trigger is btn-outline + a chevron, where LangSwitcher's is a bare
+// btn-ghost: btn-ghost is transparent until hover, so it only reads as a control
+// when something else marks it as one. In the navbar that job is done by
+// LangSwitcher's globe icon and by the surrounding bar. This switcher sits alone on
+// an otherwise empty settings card, where a ghost button with no icon renders as
+// plain text — the owner reported not realising it could be clicked. The outline
+// supplies the edge and the chevron supplies the "opens a menu" signal. Do NOT
+// "align" this back to btn-ghost to match LangSwitcher: the two live in different
+// contexts, and this one has no other affordance to lean on.
+templ ThemeSwitcher(p ThemeSwitcherProps) {
+	<div class="dropdown">
+		<div tabindex="0" role="button" class="btn btn-outline btn-sm" aria-label={ i18n.T(ctx, i18n.KeyThemeSwitcherAria) }>
+			<span>{ i18n.T(ctx, i18n.KeyThemeSwitcherLabel) }: { titleCase(p.Current) }</span>
+			@Icon(IconProps{Name: "chevron_down", Class: "h-4 w-4"})
+		</div>
+		<ul tabindex="-1" class="dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-sm">
+			for _, t := range Themes {
+				<li>
+					<button type="button" hx-post="/ui/theme/switch" hx-swap="none" hx-vals={ themeVals(t, p.CSRFToken) }>
+						{ titleCase(t) }
+					</button>
+				</li>
+			}
+		</ul>
+	</div>
+}

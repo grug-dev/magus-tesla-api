@@ -198,6 +198,31 @@ func TestSuperchargerStats_AnonymousRedirectedToLogin(t *testing.T) {
 	}
 }
 
+// TestSettings_AnonymousRedirectedToLogin is the router-level counterpart to
+// handlers.TestSettingsPage_Unauthenticated_RedirectsToLogin: that one drives a
+// locally-wired engine, this one proves the route as registered by the real
+// gateway.NewEngine is auth-guarded. Mirrors the Supercharger case above.
+//
+// POST /ui/theme/switch is covered here too: it is the only write this tier
+// adds, and an anonymous caller must never reach it (RM42 tier 2, Test Contract
+// item 8 — the theme switch has no anonymous path at all, by the user's
+// decision that the cookie is a read path only).
+func TestSettings_AnonymousRedirectedToLogin(t *testing.T) {
+	eng := testEngine(t)
+
+	w := httptest.NewRecorder()
+	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/settings", nil))
+	if w.Code != http.StatusFound || w.Header().Get("Location") != "/login" {
+		t.Errorf("GET /settings: anonymous should redirect to /login, got %d -> %q", w.Code, w.Header().Get("Location"))
+	}
+
+	w = httptest.NewRecorder()
+	eng.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/ui/theme/switch", nil))
+	if w.Code != http.StatusFound || w.Header().Get("Location") != "/login" {
+		t.Errorf("POST /ui/theme/switch: anonymous should redirect to /login, got %d -> %q", w.Code, w.Header().Get("Location"))
+	}
+}
+
 func TestHealthz_UnhealthyWhenDBUnreachable(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()

@@ -12,9 +12,20 @@ import (
 // once instead of each mounting — and risking duplicating — their own. It
 // renders no navigation/chrome of its own; Base and BaseAuth each supply
 // their own chrome around { children... }.
+//
+// data-theme reads ui.ThemeFromContext(ctx) (design.md D1,
+// RM42-gateway-add-theme-selector tier 2) — the SAME per-request value
+// PreferencesMiddleware already resolved (from account.Service.PreferencesFor
+// for a signed-in request, or the theme cookie for an anonymous one; see
+// preferences.go). This is no longer a literal in source: the previous
+// hardcoded "graphite" meant every visitor and every account saw the same
+// theme, with a source edit + make templ && make css required to change it.
+// Now each request supplies its own value from context, exactly like
+// i18n.FromContext(ctx) above it — the two attributes are populated the same
+// way, from the same middleware, on the same line pattern.
 templ baseShell(title string) {
 	<!DOCTYPE html>
-	<html lang={ i18n.FromContext(ctx) } data-theme="graphite">
+	<html lang={ i18n.FromContext(ctx) } data-theme={ ui.ThemeFromContext(ctx) }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -35,11 +46,17 @@ templ baseShell(title string) {
 }
 
 // Base is the full-page HTML shell for unauthenticated pages (home, login). It sets
-// the DaisyUI theme via <html data-theme> on baseShell above (the name must match a
-// theme registered in static/input.css — today "apex" (default, Tesla-red) and
-// "graphite" (blue, WCAG-AA), plus the "halloween" builtin fallback). Both custom
-// palettes are always compiled into app.css, so re-skinning the app is that one
-// attribute plus `make templ && make css` — steps in README.md "Switching the theme".
+// the DaisyUI theme via <html data-theme> on baseShell above — resolved per REQUEST
+// from ui.ThemeFromContext(ctx), not a literal in source (design.md D1/D2,
+// RM42-gateway-add-theme-selector tier 2): a signed-in user's own stored preference
+// (PreferencesMiddleware, preferences.go), or the anonymous theme cookie for a
+// visitor with no session — the ONLY reason that cookie exists (see preferences.go's
+// themeCookieName doc comment). One of ui.Themes ("apex" (Tesla-red), "graphite"
+// (blue, WCAG-AA), or "halloween" (DaisyUI builtin fallback)) — all three are always
+// compiled into app.css, so adding a FOURTH palette is still the four-step recipe in
+// README.md "Switching the theme" (new CSS file, ui.Themes entry, make theme-guard,
+// make templ && make css); it no longer changes what a given visitor SEES, only what
+// is available to choose from /settings.
 // Loads the vendored, minified Tailwind+DaisyUI
 // stylesheet (/static/app.css) and the pinned htmx (/static/htmx.min.js) — both embedded
 // in the binary, never an external CDN. DaisyUI is pure CSS with zero component

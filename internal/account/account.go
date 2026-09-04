@@ -33,6 +33,23 @@ const (
 // two supported codes. Detect it with errors.Is.
 var ErrUnsupportedLanguage = errors.New("account: unsupported language code")
 
+// ThemeApex, ThemeGraphite, and ThemeHalloween are the three supported theme
+// codes — the entire closed vocabulary this module accepts (roadmap RM42
+// decision D6). Consumers should reference these constants rather than the
+// string literals. The authoritative UI-facing list (used to render the
+// dropdown) is ui.Themes in internal/gateway (tier 2); this module validates
+// against its own copy of the same closed set, exactly as isSupportedLanguage
+// already does for language.
+const (
+	ThemeApex      = "apex"
+	ThemeGraphite  = "graphite"
+	ThemeHalloween = "halloween"
+)
+
+// ErrUnsupportedTheme is returned by SetTheme when theme is not one of the
+// three supported codes. Detect it with errors.Is.
+var ErrUnsupportedTheme = errors.New("account: unsupported theme code")
+
 // StatusActive and StatusInactive are the two supported record-status values —
 // the entire closed vocabulary this module accepts for both accounts and
 // vehicles (roadmap RM34 decision D1). Consumers should reference these
@@ -140,6 +157,14 @@ type SeedVehicle struct {
 	AccessType *string
 }
 
+// Settings is an account's persisted preferences: always exactly one row per
+// account (design.md D3/D4), holding both Language (always LanguageES or
+// LanguageEN) and Theme (always ThemeApex, ThemeGraphite, or ThemeHalloween).
+type Settings struct {
+	Language string
+	Theme    string
+}
+
 // Service is the account module's public port. The gateway and sibling modules
 // depend on this interface, never on the concrete implementation or the DB.
 type Service interface {
@@ -204,11 +229,39 @@ type Service interface {
 	// LanguageES here, at the DB→domain boundary — this method never returns an
 	// unsupported code and never fails because of an unrecognized stored value; it
 	// only errors on an actual lookup failure (unknown accountID, DB error).
+	//
+	// Backed by account.settings (roadmap RM42 tier 1), not a column on accounts —
+	// external behavior and signature are unchanged.
 	LanguageFor(ctx context.Context, accountID uuid.UUID) (string, error)
 
 	// SetLanguage persists lang as the account's language preference. lang MUST be
 	// LanguageES or LanguageEN — any other value returns ErrUnsupportedLanguage
 	// (detect with errors.Is) WITHOUT writing, so a caller (the gateway's language
 	// switch handler) does not have to duplicate this module's validation.
+	//
+	// Backed by account.settings (roadmap RM42 tier 1), not a column on accounts —
+	// external behavior and signature are unchanged.
 	SetLanguage(ctx context.Context, accountID uuid.UUID, lang string) error
+
+	// PreferencesFor returns the account's full settings row — Language and Theme —
+	// in a SINGLE query. Callers that need both values for one render (the
+	// gateway's per-request context, the /settings page) MUST use this method
+	// rather than calling LanguageFor and ThemeFor separately, which would cost two
+	// queries instead of one. Both fields are normalized exactly as
+	// LanguageFor/ThemeFor do.
+	PreferencesFor(ctx context.Context, accountID uuid.UUID) (Settings, error)
+
+	// ThemeFor returns the account's current UI theme preference: always exactly
+	// one of ThemeApex, ThemeGraphite, or ThemeHalloween. A stored value outside
+	// that set is normalized to ThemeGraphite here, at the DB→domain boundary —
+	// this method never returns an unsupported code and never fails because of an
+	// unrecognized stored value; it only errors on an actual lookup failure
+	// (unknown accountID, DB error). Mirrors LanguageFor exactly.
+	ThemeFor(ctx context.Context, accountID uuid.UUID) (string, error)
+
+	// SetTheme persists theme as the account's UI theme preference. theme MUST be
+	// one of the three supported codes — any other value returns
+	// ErrUnsupportedTheme (detect with errors.Is) WITHOUT writing. Mirrors
+	// SetLanguage exactly.
+	SetTheme(ctx context.Context, accountID uuid.UUID, theme string) error
 }

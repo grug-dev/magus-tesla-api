@@ -57,6 +57,28 @@ type fakeAccount struct {
 		ID   uuid.UUID
 		Lang string
 	}
+
+	// theme is the value PreferencesFor's Settings.Theme returns. The zero
+	// value ("") falls back to account.ThemeGraphite, mirroring language's
+	// own empty-defaults-to-ES convention, so every pre-existing test (which
+	// never sets this field) keeps its original PreferencesFor behavior.
+	theme string
+	// preferencesForCalls counts every PreferencesFor invocation, regardless
+	// of outcome — RM42 tier 2's "ONE query per request, one query both
+	// values" invariant (design.md D1) is asserted directly against this
+	// counter, not inferred from side effects.
+	preferencesForCalls int
+	// setThemeErr, when set, makes SetTheme return this error instead of
+	// recording success — used to exercise ThemeSwitch's "persist fails,
+	// cookie stays untouched" branch (Test Contract 12).
+	setThemeErr error
+	// setThemeCalls captures every SetTheme invocation (id + theme) so a
+	// test can assert ThemeSwitch called it with the exact submitted value,
+	// or that it was never called at all on a rejected request.
+	setThemeCalls []struct {
+		ID    uuid.UUID
+		Theme string
+	}
 }
 
 func (f fakeAccount) UpsertFromOAuth(context.Context, account.OAuthIdentity) (account.Account, error) {
@@ -104,6 +126,44 @@ func (f *fakeAccount) SetLanguage(_ context.Context, id uuid.UUID, lang string) 
 		Lang string
 	}{ID: id, Lang: lang})
 	return f.setLanguageErr
+}
+
+// PreferencesFor / ThemeFor / SetTheme satisfy the widened account.Service
+// (RM42 tier 1/2). PreferencesFor is the ONE call PreferencesMiddleware makes
+// per signed-in request (design.md D1) — it counts every invocation via
+// preferencesForCalls (so a test can assert the "one query, both values"
+// invariant directly) and reuses LanguageFor's own error/default handling for
+// the language half, so the two can never disagree, while resolving theme
+// from f.theme (defaulting to account.ThemeGraphite, mirroring language's
+// empty-defaults-to-ES convention).
+func (f *fakeAccount) PreferencesFor(ctx context.Context, id uuid.UUID) (account.Settings, error) {
+	f.preferencesForCalls++
+	lang, err := f.LanguageFor(ctx, id)
+	if err != nil {
+		return account.Settings{}, err
+	}
+	theme := f.theme
+	if theme == "" {
+		theme = account.ThemeGraphite
+	}
+	return account.Settings{Language: lang, Theme: theme}, nil
+}
+
+func (f *fakeAccount) ThemeFor(_ context.Context, _ uuid.UUID) (string, error) {
+	return account.ThemeGraphite, nil
+}
+
+// SetTheme records every call in setThemeCalls (so a test can assert
+// ThemeSwitch called it with the exact submitted value — or, for the
+// unauthenticated/CSRF-rejected/unsupported-value paths, that it was NOT
+// called at all — RM42 tier 2 T4 Test Contract 8-12) and returns
+// f.setThemeErr (nil by default).
+func (f *fakeAccount) SetTheme(_ context.Context, id uuid.UUID, theme string) error {
+	f.setThemeCalls = append(f.setThemeCalls, struct {
+		ID    uuid.UUID
+		Theme string
+	}{ID: id, Theme: theme})
+	return f.setThemeErr
 }
 
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {
@@ -1240,8 +1300,12 @@ func navHeaderEngine(h *Handler, uid uuid.UUID) *gin.Engine {
 
 // TestNavHeaderFragment_ConnectedHTTP exercises the full fragment route with a
 // seeded session: an authenticated GET /ui/nav-header returns 200 and the rendered
-// fragment contains the vehicle name, the success-colored status dot
-// (badge-success), and the pre-computed battery percentage.
+// fragment contains the vehicle name and the pre-computed battery percentage.
+//
+// It used to assert a badge-success status dot too. MAG-44 removed that dot —
+// the app never observes whether a vehicle is reachable, it only renders the
+// latest stored reading — but the assertion outlived the markup and had been
+// failing since. Do not reintroduce it: there is no connection state to show.
 func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
@@ -1269,7 +1333,6 @@ func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 	for _, want := range []string{
 		`id="nav-header"`,
 		"Magus",
-		"badge-success",
 		"94%",
 	} {
 		if !strings.Contains(body, want) {

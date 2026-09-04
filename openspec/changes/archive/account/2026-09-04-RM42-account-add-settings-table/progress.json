@@ -1,0 +1,533 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM42-account-add-settings-table",
+  "module": "account",
+  "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
+  "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8"
+    ],
+    "awaiting_user_verification": []
+  },
+  "created_at": "2026-09-04T10:26:38Z",
+  "updated_at": "2026-09-04T12:38:02Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM42-MAG-43-settings-theme-selector",
+    "base": "0b9897f",
+    "ticket": "MAG-43",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-43/theme-selector-settings-page",
+    "created_at": "2026-09-04T10:26:38Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration 20260904000001_add_account_settings.sql",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:43:15Z",
+      "completed_at": "2026-09-04T10:45:26Z",
+      "duration_seconds": 131,
+      "notes": "Migration created with design.md D2 DDL verbatim; timestamp collision check re-run, 20260904000001 free. Header cites D1/D2/D5. Up backfill AND Down restore verified 2026-09-04 on a disposable container (review F1).",
+      "budget": {
+        "five_hour_pct_start": 51.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 1.49,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T1+T2 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Domain type + port interface (account.go): Settings, theme vocabulary, ErrUnsupportedTheme, PreferencesFor/ThemeFor/SetTheme",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:43:15Z",
+      "completed_at": "2026-09-04T10:45:26Z",
+      "duration_seconds": 131,
+      "notes": "Theme constants, ErrUnsupportedTheme, Settings type and the three Service methods added; LanguageFor/SetLanguage doc comments repointed. Expected red build confirmed.",
+      "budget": {
+        "five_hour_pct_start": 51.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 1.49,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T1+T2 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "sqlc query edits + regen: GetAccountSettings, UpdateAccountLanguage/Theme, InsertSettingsIfMissing",
+      "module": "account",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:49:10Z",
+      "completed_at": "2026-09-04T10:52:11Z",
+      "duration_seconds": 181,
+      "notes": "Replaced GetAccountLanguage with GetAccountSettings; repointed UpdateAccountLanguage, added UpdateAccountTheme + InsertSettingsIfMissing. EXISTS gate on all three reads/writes per D10; insert ungated. make sqlc clean; all four generated fields plain string, verified in query.sql.go.",
+      "budget": {
+        "five_hour_pct_start": 61.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 2.54,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T6+T7 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Service implementation: transactional UpsertFromOAuth, PreferencesFor, rewritten LanguageFor/SetLanguage, ThemeFor/SetTheme",
+      "module": "account",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T11:18:25Z",
+      "completed_at": "2026-09-04T11:22:21Z",
+      "duration_seconds": 236,
+      "notes": "Rewrote UpsertFromOAuth to the D3 transactional shape (pool.Begin/WithTx/InsertSettingsIfMissing/Commit); implemented PreferencesFor/ThemeFor/SetTheme, rewrote LanguageFor/SetLanguage on top of PreferencesFor; added normalizeTheme/isSupportedTheme.",
+      "budget": {
+        "five_hour_pct_start": 72.0,
+        "five_hour_pct_end": 78.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.05,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T4+T5 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Tests: pure normalizeTheme unit test + DATABASE_URL-gated TestAccountSettings_RoundTrip and language round-trip",
+      "module": "account",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T11:18:25Z",
+      "completed_at": "2026-09-04T11:22:21Z",
+      "duration_seconds": 236,
+      "notes": "Added TestNormalizeTheme (pure) and TestAccountSettings_RoundTrip (Contract items 2/3/4/6); repaired TestLanguagePreference_RoundTrip's out-of-band write to target account.settings. Not executed per Test-Execution-Policy. Suite reported passing by the owner (make test), 2026-09-04.",
+      "budget": {
+        "five_hour_pct_start": 72.0,
+        "five_hour_pct_end": 78.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.05,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T4+T5 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Makefile/guard verification: MIGRATIONS_DIRS, db-setup/db-reset ownership, sqlc.yaml, migration-guard",
+      "module": "account",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:49:10Z",
+      "completed_at": "2026-09-04T10:52:11Z",
+      "duration_seconds": 181,
+      "notes": "MIGRATIONS_DIRS already lists the account dir; db-reset drops the whole DB and db-setup runs goose as the app role, so account.settings inherits ownership; sqlc.yaml points at the dir. make migration-guard clean for 20260904000001.",
+      "budget": {
+        "five_hour_pct_start": 61.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 2.54,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T6+T7 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T7",
+      "title": "Docs: account/AGENTS.md public interface + kkpa/context/ KB grep and fix",
+      "module": "account",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:49:10Z",
+      "completed_at": "2026-09-04T10:52:11Z",
+      "duration_seconds": 181,
+      "notes": "AGENTS.md public interface + Boundaries table updated. KB: fixed stale account-schema table lists in kkpa/context/INDEX.md and architecture/schema-per-module.md; account-activation-gate.md and nightly-cycle.md checked, still accurate.",
+      "budget": {
+        "five_hour_pct_start": 61.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 2.54,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T6+T7 (single serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "T8",
+      "title": "Verification: build, vet, gofmt, boundary check, openspec validate --strict; report suite commands for the owner",
+      "module": "account",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-04T11:22:21Z",
+      "completed_at": "2026-09-04T12:02:58Z",
+      "duration_seconds": null,
+      "notes": "Leader-owned. Added PreferencesFor/ThemeFor/SetTheme to the 3 sibling fakes (app, telemetry, gateway/handlers); internal/analytics needed none. go build + go vet ./... now clean repo-wide; gofmt clean for every file this tier touched; boundary + pgtype checks pass; openspec validate --strict passes.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "account-reviewer",
+    "brief": "Review RM42-account-add-settings-table (tier 1 of RM42), module internal/account. Read the DIFF (0b9897f..HEAD), not the whole module. Validate: (1) module-boundary compliance \u2014 no writes outside internal/account except the leader-owned sibling test-fake fix and the gateway doc/test fixes recorded in events; internal/account imports neither internal/tesla nor internal/gateway; no pgtype in any public signature; (2) every doc-pack convention \u2014 CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/account/AGENTS.md; (3) DB objects match the USER-CONFIRMED design gate (decision D1): account.settings DDL, the CREATE->backfill->DROP COLUMN order, the data-restoring Down, and the PK-only index plan. Any mismatch is a BLOCKER finding; (4) the RM34 status='Active' gating carried forward per decision D2 \u2014 EXISTS on GetAccountSettings/UpdateAccountLanguage/UpdateAccountTheme, InsertSettingsIfMissing deliberately ungated; (5) spec/tasks coverage \u2014 every tasks.md checkbox reflects real work, specs/account/spec.md matches what shipped; (6) integration tests assert design.md's Test Contract expectations authored BEFORE implementation, not whatever the code happens to do. Test Contract item 1 (backfill) has NO Go test \u2014 decision D6 explains why (the harness applies all migrations before TestMain hands over). Judge whether that justification holds; (7) Performance-Profile compliance: read-heavy. PreferencesFor must serve both preferences in ONE query (decision D7) so no render path costs two reads; (8) anti-gaming: no weakened acceptance criteria, no deleted tasks, no self-approved statuses. TEST SIGNALS \u2014 assistant-run vs user-reported: go build ./..., go vet ./..., gofmt -l, make migration-guard and make boundary-guard were run by the ASSISTANT and were clean. The TEST SUITE was run by the OWNER, who reported `make test` passing. You must NOT run the suite yourself (Test-Execution-Policy). Judge test quality by READING the tests. NOTE two commits on this branch that are NOT RM42 work: e132741 swept an unrelated internal/gateway/templates/pages/dashboard.go edit into a checkpoint commit, and 1bf8736 fixes a pre-existing stale nav-header assertion at the user's explicit direction. Neither is tier-1 scope; flag if you disagree, do not treat as tier-1 defects.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-04T13:00:00Z",
+        "agent": "account-reviewer",
+        "verdict": "changes-requested",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/account/AGENTS.md",
+          "openspec/changes/RM42-account-add-settings-table/proposal.md",
+          "openspec/changes/RM42-account-add-settings-table/design.md",
+          "openspec/changes/RM42-account-add-settings-table/specs/account/spec.md",
+          "openspec/changes/RM42-account-add-settings-table/tasks.md",
+          "openspec/changes/RM42-account-add-settings-table/progress.json"
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "internal/account/db/migrations/20260904000001_add_account_settings.sql -- +goose Down block; tasks.md T1.1 acceptance criterion ('goose down (one step) restores the column with current values and drops account.settings without error (Test Contract items 1 and 5)'). Test Contract item 5 (design.md, 'The Down migration restores accounts.language with the current values') has never been executed or verified by anyone -- not an automated Go test (TestMain in internal/account/testdb_test.go applies only Up migrations before handing control to the suite, so no test exercises `goose down`), and no event/decision in progress.json records a manual `make migrate-down`/`goose down` run either. Decision D6 in progress.json explicitly justifies the missing Go test for Test Contract item 1 (the backfill) but says nothing about item 5, and T1 was still marked status=done with its acceptance criteria stated as met. This is inconsistent with how the pipeline otherwise handles unverified work: T5 (the test suite) was correctly left at awaiting-user-verification until the owner reported `make test` passing; T1's Down-migration claim was not given the same honesty treatment even though running `make migrate-down` is itself gated ('Still gated: ... make migrate-down' per CLAUDE.md \u00a7Builds) and so could not have been run by the assistant unprompted. The DDL text itself was user-confirmed at the design gate (D1) and reads as correct on inspection, but an unexercised rollback path on a schema migration is a real risk in a project whose own record (dev DB holds hand-entered, irreplaceable history) treats destructive/rollback DB operations as high-stakes. Ask the leader to either (a) get the owner's explicit go-ahead to run `goose down` once against the test/dev DB and report the result, mirroring how T5's test-suite verification was handled, or (b) if that is not practical here, add an explicit 'not verified, pending owner action' note next to T1 in tasks.md/progress.json instead of an unqualified done, so the state file does not overclaim.",
+            "status": "open"
+          }
+        ],
+        "checks": {
+          "1_module_boundaries": "Read every file in the diff (git diff 0b9897f...HEAD --stat, then per-file diffs). Confirmed via `grep -n \"internal/tesla|internal/gateway\" internal/account/*.go` that internal/account imports neither (one hit is a doc-comment mention, not an import). Confirmed `pgtype` appears only in internal/account/service.go's unexported helper functions (textFromString, nullableTextToPtr, textPtrToNullable, timestamp), never in account.go's public types/interface. Ran `make boundary-guard` myself (assistant-run, allowed) -- clean. Files touched outside internal/account are exactly the three sibling test fakes (internal/app/processor_test.go, internal/telemetry/service_test.go, internal/gateway/handlers/handlers_test.go) plus internal/gateway/AGENTS.md (one-line doc fix) and internal/gateway/templates/pages/dashboard.go (the flagged unrelated change) -- matches the brief's allowance.",
+          "2_doc_pack_conventions": "Read CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/account/AGENTS.md in full before judging. Checked: interface-first port (account.go), sqlc/goose conventions (pgtype converted at DB->domain boundary, module-scoped db package), unit-suffix rule (no unit-bearing columns added, N/A), account_id-leading index (PK itself), no HTML/no cross-module DB access. No violations found.",
+          "3_db_design_gate_D1": "Compared the shipped migration (internal/account/db/migrations/20260904000001_add_account_settings.sql) line-for-line against design.md D1/D2's DDL and against progress.json decision D1 (user-confirmed). DDL, CREATE->INSERT..SELECT->DROP COLUMN order, and the Down (ADD COLUMN->UPDATE..FROM->DROP TABLE) all match verbatim. Index plan matches design.md D9: no secondary index, PK-only on both settings.account_id and accounts.id. No mismatch found (see F1 for the separate concern that the Down path was never executed, which is a verification gap, not a DDL mismatch).",
+          "4_rm34_gating_D2": "Read internal/account/db/query.sql diff: GetAccountSettings, UpdateAccountLanguage, and UpdateAccountTheme all carry the identical `EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active')` predicate; InsertSettingsIfMissing has no such gate, mirroring UpsertAccountFromOAuth's existing exemption. Confirmed against generated query.sql.go. Confirmed the integration test (TestAccountSettings_RoundTrip) exercises the Inactive-account case for all three gated reads and the two silent-no-op writes. Correct.",
+          "5_spec_tasks_coverage": "Walked every tasks.md checkbox (T1-T8) against its corresponding diff hunk; all reflect real, matching work except the unverified Down-migration claim in T1 (F1). specs/account/spec.md's two new requirements and their scenarios were checked against account.go/service.go/query.sql and match what shipped (theme vocabulary, default graphite, normalize-on-read, reject-on-write, settings row guaranteed at creation, single-query PreferencesFor).",
+          "6_test_contract": "Read service_test.go (TestNormalizeTheme) and service_integration_test.go (TestAccountSettings_RoundTrip, and the TestLanguagePreference_RoundTrip out-of-band-write repair) against design.md's Test Contract items 1-6. Items 2, 3, 4, and 6 are asserted with the exact values design.md authored up front (Settings{Language: LanguageES, Theme: ThemeGraphite}, ThemeHalloween round-trip, ErrUnsupportedTheme rejection, normalized 'neon'/'fr' -> graphite/es) -- these read as contract-first, not back-fitted. Item 1 (backfill) has no Go test; decision D6's justification (TestMain applies every migration before handing over, so no in-process test can seed pre-migration rows) is a genuine constraint of the shared testdb harness, not an excuse -- I judge it holds, and the migration's Up path is still exercised indirectly by every integration test run (a failure would abort TestMain via log.Fatalf). Item 5 (Down migration restore) has neither a Go test nor a documented manual verification -- see F1.",
+          "7_performance_profile": "Read service.go: PreferencesFor calls s.q.GetAccountSettings exactly once; LanguageFor and ThemeFor both delegate to PreferencesFor, so every caller path costs exactly one query regardless of how many of the two preferences it needs. GetAccountSettings itself is a single SELECT with an EXISTS subquery, both riding PK indexes -- no join, no N+1. Meets decision D7 / the read-heavy performance profile.",
+          "8_anti_gaming": "Diffed tasks.md and specs/account/spec.md against a clean checkout of the change's own history (no earlier version to diff against since this is the first review round) and read progress.json's task/decision/event history for edits. No task or acceptance criterion was weakened, no deleted checkbox, no self-approved review status (review.status was 'pending' with agent null before this round). The one integrity concern is F1: T1 was marked 'done' with an acceptance criterion (Down-migration verification) that was not actually executed or explicitly deferred the way T5's test-suite verification correctly was -- flagged as a major finding rather than a blocker because the DDL itself is correct and user-confirmed, and running `goose down` is a gated action the assistant could not take unprompted."
+        }
+      },
+      {
+        "round": 2,
+        "at": "2026-09-04T12:36:40Z",
+        "agent": "account-reviewer",
+        "verdict": "reviewer-approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/account/AGENTS.md",
+          "openspec/changes/RM42-account-add-settings-table/design.md",
+          "openspec/changes/RM42-account-add-settings-table/tasks.md",
+          "openspec/changes/RM42-account-add-settings-table/progress.json"
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "RESOLVED. `git log --oneline 0b9897f..HEAD` confirms the only commits since round 1 are 940a68e (the fix) and 98cbfc5 (a progress.json-only checkpoint) -- nothing else slipped in. `git show 940a68e` touches exactly two files, progress.json and tasks.md; no Go code, no migration SQL, no specs/account/spec.md. tasks.md T1.1 now carries an explicit 'VERIFIED 2026-09-04 (review round 1, finding F1)' paragraph naming what was run (a disposable postgres:16-alpine container, never the dev DB), the exact seed values (es/en/fr), and the exact observed outcome for both Up (three settings rows with those languages, theme=graphite, accounts.language dropped) and Down (accounts.language restored with the CURRENT value en -- not the stale es -- after a mutation, and account.settings dropped). This is honest, specific, additive evidence, not an unqualified 'done' -- exactly what round 1 asked for. Re-read the migration's `-- +goose Down` block directly: `ADD COLUMN` -> `UPDATE account.accounts a SET language = s.language FROM account.settings s WHERE s.account_id = a.id` -> `DROP TABLE account.settings`. The UPDATE reads from account.settings AT ROLLBACK TIME, so it necessarily copies whatever value is currently stored there, not any earlier value -- the SQL can only produce the reported 'restores with current values' behavior, confirming the leader's report is consistent with what the code actually does. Decision D8 records this was the user's explicit choice over touching the dev DB or leaving a paper note, matching the project's 'dev DB holds irreplaceable history' stance. No new finding.",
+            "status": "resolved"
+          }
+        ],
+        "checks": {
+          "1_commit_scope": "git log --oneline 0b9897f..HEAD and git show --stat on both 940a68e and 98cbfc5: only those two commits followed round 1, both touch progress.json (+98cbfc5 touches only that) and tasks.md, nothing else. No Go/SQL/spec files changed after round 1.",
+          "2_honesty_of_record": "tasks.md T1.1's new paragraph and progress.json's T1 task note both name the execution environment, the seed data, and the exact observed values for both directions of the migration -- specific and falsifiable, not a bare status flip. progress.json also correctly marks D6 as superseded rather than deleted, and adds a new decision D8 recording the user's explicit choice of verification method. This is the honest-record shape round 1 asked for.",
+          "3_down_sql_matches_claim": "Read internal/account/db/migrations/20260904000001_add_account_settings.sql in full again. Down block: ADD COLUMN language TEXT NOT NULL DEFAULT 'es' -> UPDATE ... FROM account.settings s WHERE s.account_id = a.id (copies the CURRENT stored value, not any historical one) -> DROP TABLE account.settings. This can only produce exactly the reported behavior; no mismatch, not a blocker.",
+          "4_anti_gaming_on_fix_commit": "940a68e diff reviewed line by line: no tasks.md checkbox was unchecked or reworded to be weaker, no specs/account/spec.md scenario touched, no acceptance-criteria text removed -- only an evidence paragraph appended to T1.1 and progress.json's task/decision/event history extended. The fix is additive, not a softened criterion.",
+          "5_review_status_not_self_approved": "review.status read 'changes-requested' at the start of this round (confirmed before any edit); review.agent/review.rounds are written exclusively by this reviewer role. No leader write to review.status/review.rounds occurred between round 1 and this round."
+        },
+        "cheap_signals": "go build ./... clean; go vet ./... clean repo-wide; gofmt -l internal/account flags only testdb_test.go, pre-existing and unmodified by this tier (consistent with round 1's and the leader's own findings); make migration-guard clean for this tier's timestamp (one unrelated pre-existing warning about a different, already-known un-renumbered collision, not touched by RM42); make boundary-guard clean.",
+        "goose_db_version_finding": "Agree it is out of tier-1 scope. It is a pre-existing, cross-module infrastructure fact (all four modules share one goose_db_version table) that RM42 did not create and that RM42's own migration does not depend on to function correctly -- RM42's Down was verified to work in isolation on a throwaway database. Correctly flagged for its own ticket rather than blocking this one."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-04T10:26:38Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate PASSED: account.settings schema, CREATE -> backfill -> DROP COLUMN order, data-restoring Down, and PK-only index plan all confirmed by the user",
+      "why": "Built-in database design gate; user reviewed the DDL, migration order and index plan before any implementation"
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-04T10:26:38Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Carry RM34's status='Active' gating forward onto account.settings via EXISTS on GetAccountSettings, UpdateAccountLanguage and UpdateAccountTheme",
+      "why": "The gate lives on accounts today; moving language to a new table would silently drop it. Both sides ride an existing PK index."
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-04T10:26:38Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Dispatched the artifacts worker on Sonnet rather than Opus",
+      "why": "All 11 design decisions were pre-settled and handed over verbatim, so this was artifact authoring, not design discovery"
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-04T10:45:26Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Sibling-module account.Service test fakes will be fixed by the leader in wave 4, not now",
+      "why": "Fakes only break once the interface is implementable (T4); fixing them before that just churns. go build is red until T4 regardless.",
+      "covered_by": "tasks.md T8.1"
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-04T10:52:11Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader fixed the stale GetAccountLanguage reference in internal/gateway/AGENTS.md rather than deferring it to wave 4",
+      "why": "Cross-module doc drift caused by T3's rename; one line, verified, and CLAUDE.md requires docs to track the change that broke them."
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-04T11:22:21Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Backfill (Test Contract item 1) is left to the migration's own logic + manual/CI migration testing, with no Go test",
+      "why": "The harness applies every migration before TestMain hands over, so no in-process test can seed pre-migration rows. T5.3 allowed this with a stated reason."
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-04T12:02:58Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Gateway fake's PreferencesFor delegates to its own LanguageFor rather than adding a recording field",
+      "why": "No gateway handler reads a theme until RM42 tier 2, which will extend the fake itself. Delegating keeps the two preference reads from disagreeing."
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-04T12:25:05Z",
+      "scope": "review:F1",
+      "made_by": "user",
+      "decision": "Verify the Up backfill and the Down restore on a disposable postgres:16-alpine container rather than the dev DB or a paper 'unverified' note",
+      "why": "The dev DB holds history Tesla cannot backfill. A throwaway container proves the rollback path at zero risk."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-04T10:26:38Z",
+      "agent": "leader",
+      "event": "dispatched account worker (sonnet) for artifact creation; returned 4 artifacts, openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-04T10:26:38Z",
+      "agent": "leader",
+      "event": "worker flagged an unanticipated finding: RM34's status='Active' gating would be silently dropped by the storage move. Escalated to the user, who confirmed carrying it forward (decision D2)."
+    },
+    {
+      "at": "2026-09-04T10:26:38Z",
+      "agent": "leader",
+      "event": "database design gate PASSED with the user (decision D1). Budget at gate: five_hour 47%, context 18%."
+    },
+    {
+      "at": "2026-09-04T10:26:38Z",
+      "agent": "leader",
+      "event": "RUN HALTED AFTER STEP 4 by design \u2014 the kkpa-pickup-linear-ticket payload scoped this run to artifacts + progress.json only. No implementation worker was dispatched, no reviewer ran, nothing was archived. Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+    },
+    {
+      "at": "2026-09-04T10:43:15Z",
+      "agent": "leader",
+      "event": "RESUMED at Step 5. Wave plan: W1=T1+T2, W2=T3+T6+T7, W3=T4+T5, W4=T8(leader). Dispatched account worker (sonnet) for wave 1. Budget at dispatch: five_hour 51%, context 10%."
+    },
+    {
+      "at": "2026-09-04T10:45:26Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: T1+T2 done, verified against design.md D1/D2/D5/D6/D7 by reading the migration and account.go diff. Leader fixed one wrong decision reference (D7->D6) in a doc comment."
+    },
+    {
+      "at": "2026-09-04T10:45:26Z",
+      "agent": "leader",
+      "event": "worker finding accepted: 5 sibling test files reference account.Service (internal/app, internal/telemetry, internal/gateway/handlers x2, internal/analytics). Widened interface will break their fakes under vet. Leader-owned cross-module fix scheduled for wave 4 (decision D4)."
+    },
+    {
+      "at": "2026-09-04T10:47:00Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at wave-1 boundary (user's choice, not a threshold trip). Budget: five_hour 57%, context 12%; neither past its gate. Next: wave 2 = T3 + T6 + T7, one serial account worker on sonnet. Then wave 3 = T4 + T5, wave 4 = T8 + leader-owned sibling test-fake fix (D4). Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+    },
+    {
+      "at": "2026-09-04T10:49:10Z",
+      "agent": "leader",
+      "event": "RESUMED at Step 5 in a fresh session. Dispatched account worker (sonnet) for wave 2 = T3 + T6 + T7, one serial dispatch. Budget at dispatch: five_hour 61%, context 9%, seven_day 84%."
+    },
+    {
+      "at": "2026-09-04T10:52:11Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: T3+T6+T7 done. Leader independently verified query.sql (EXISTS gates on all three gated queries, InsertSettingsIfMissing ungated per D10), the four generated types (all plain string), Account.Language gone from models.go, both doc diffs, and re-ran make migration-guard clean. Wave commit: d49ca7b."
+    },
+    {
+      "at": "2026-09-04T10:52:11Z",
+      "agent": "leader",
+      "event": "pre-existing finding (NOT caused by this wave): gofmt -l flags internal/account/service_integration_test.go and testdb_test.go, both unmodified in HEAD. T5 touches the first; wave 3 fixes both."
+    },
+    {
+      "at": "2026-09-04T10:52:11Z",
+      "agent": "leader",
+      "event": "leader-owned cross-module doc fix applied: internal/gateway/AGENTS.md GetAccountLanguage -> GetAccountSettings (decision D5). Still outstanding for wave 4: the 5 sibling test fakes (decision D4)."
+    },
+    {
+      "at": "2026-09-04T10:52:40Z",
+      "agent": "leader",
+      "event": "Wave-2 boundary checkpoint gate evaluated: five_hour 68% (gate 90), context 12% (gate 40) \u2014 NEITHER tripped. Checkpoint RECOMMENDED anyway per the 3+-wave rule; awaiting the user's choice. Next: wave 3 = T4 + T5 (serial, one worker). Then wave 4 = T8 + leader-owned sibling test-fake fix (D4). Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+    },
+    {
+      "at": "2026-09-04T10:58:43Z",
+      "agent": "leader",
+      "event": "Linear status sync (openspec-pipeline-linear-status rule): MAG-43 Todo -> In Progress via /kkpa-pickup-linear-ticket in-progress, with a comment. It had been missed at wave 1's dispatch; fired once now, not per wave."
+    },
+    {
+      "at": "2026-09-04T11:18:25Z",
+      "agent": "leader",
+      "event": "RESUMED at Step 5 in a fresh session. Dispatched account worker (sonnet) for wave 3 = T4 + T5, one serial dispatch. Budget at dispatch: five_hour 72%, context 9%, seven_day 85%."
+    },
+    {
+      "at": "2026-09-04T11:22:21Z",
+      "agent": "leader",
+      "event": "wave 3 reconciled: T4 done, T5 awaiting-user-verification (tests written, never executed). Leader independently verified the service.go diff against design.md D3/D4/D6/D7/D10, confirmed deleteAccount registers t.Cleanup, and re-ran go build ./... (clean), go vet ./internal/account/... (clean), gofmt -l internal/account (only the pre-existing testdb_test.go)."
+    },
+    {
+      "at": "2026-09-04T11:22:21Z",
+      "agent": "leader",
+      "event": "worker report carried fabricated timestamps (10:55-11:20Z, before its own 11:18:25Z dispatch). Leader recorded the real dispatch and reconcile times instead."
+    },
+    {
+      "at": "2026-09-04T11:22:21Z",
+      "agent": "leader",
+      "event": "repo-wide go vet confirms exactly 3 failing packages from the widened interface: internal/app (processor_test.go:176), internal/gateway/handlers (charges_test.go:209), internal/telemetry (service_test.go:370). internal/analytics did NOT fail \u2014 the dispatch brief's count of 5 files was an over-estimate; wave 4 re-checks it. Leader-owned fix (decision D4)."
+    },
+    {
+      "at": "2026-09-04T12:02:58Z",
+      "agent": "leader",
+      "event": "wave 4 (leader-owned) done: the widened account.Service broke 3 sibling test fakes, not 5 \u2014 internal/analytics defines no account.Service fake. Added the three methods to internal/app/processor_test.go, internal/telemetry/service_test.go and internal/gateway/handlers/handlers_test.go. Closes decision D4."
+    },
+    {
+      "at": "2026-09-04T12:02:58Z",
+      "agent": "leader",
+      "event": "T8 verification: go build ./... clean; go vet ./... clean repo-wide; gofmt -l flags 6 files, NONE touched by this tier (all pre-existing); internal/account imports neither internal/tesla nor internal/gateway; pgtype absent from every public signature; make boundary-guard clean; openspec validate --strict passes. Suite NOT run (Test-Execution-Policy) \u2014 awaiting the owner."
+    },
+    {
+      "at": "2026-09-04T12:02:58Z",
+      "agent": "leader",
+      "event": "UNRELATED CHANGE FOUND ON THIS BRANCH: internal/gateway/templates/pages/dashboard.go was swept into the wave-1 checkpoint commit e132741. It comments out dashSubtitle's StatusLabel line and drops the bullet separator \u2014 nothing to do with RM42. Left untouched; flagged to the user."
+    },
+    {
+      "at": "2026-09-04T12:11:41Z",
+      "agent": "leader",
+      "event": "User ran make test: one failure, TestNavHeaderFragment_ConnectedHTTP, PRE-EXISTING and unrelated to RM42. badge-success was asserted since MAG-12 (1201133); MAG-44 removed the status dot from the markup and left the assertion behind. Fixed in its own commit 1bf8736 at the user's direction (assertion only, not the whole test). RM42 tier 1 did not cause it."
+    },
+    {
+      "at": "2026-09-04T12:13:32Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE USER: the owner ran `make test` and reported it passing. This is the owner's report, not an assistant run \u2014 the assistant never executed the suite. T5 awaiting-user-verification -> done; change status -> verified. Proceeding to the reviewer gate."
+    },
+    {
+      "at": "2026-09-04T12:25:05Z",
+      "agent": "leader",
+      "event": "Review round 1 F1 (major) TRIAGED AND ACCEPTED: T1 was marked done while the Down-migration half of its acceptance criterion had never been executed. The reviewer was right; this is the anti-gaming rail working."
+    },
+    {
+      "at": "2026-09-04T12:25:05Z",
+      "agent": "leader",
+      "event": "F1 CLOSED by real execution on a disposable postgres:16-alpine container (user chose this over touching the dev DB \u2014 decision D8). Seeded es/en/fr; up -> 3 settings rows with those exact languages, theme=graphite, accounts.language dropped (Test Contract item 1). Mutated a row es->en; down -> accounts.language restored with the CURRENT values (en, not es), settings dropped (item 5). up again -> repeatable. Container destroyed; the dev DB was never touched. Evidence appended to tasks.md T1.1."
+    },
+    {
+      "at": "2026-09-04T12:25:05Z",
+      "agent": "leader",
+      "event": "D6 SUPERSEDED by D8's run: item 1 is now verified by execution. D6's reasoning was only that the GO TEST HARNESS cannot seed pre-migration rows (TestMain applies all migrations before handing over) \u2014 that remains true and is why there is still no Go test, but the behavior itself is no longer unverified."
+    },
+    {
+      "at": "2026-09-04T12:25:05Z",
+      "agent": "leader",
+      "event": "SEPARATE FINDING, pre-existing, NOT caused by RM42: all four modules share one goose_db_version table, so a per-dir `goose ... down` fails unless its migration is the GLOBAL newest. Observed directly: `goose -dir internal/account/db/migrations ... down` on a fully-migrated DB errored `migration 20260902000004: no current version found` (that version belongs to internal/analytics). This means `make migrate-down` is unreliable past the first dir. Not fixed here \u2014 flagged to the user for its own ticket."
+    },
+    {
+      "at": "2026-09-04T12:25:28Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at the review-round boundary. five_hour 93% (gate 90) TRIPPED; context 17% (gate 40) fine; seven_day 87%. five_hour_resets_at 2026-09-04 08:30 local. All work is committed and every status is truthful: 8/8 tasks done, suite passed per the OWNER's report, review round 1 changes-requested with its single finding F1 fixed and committed (940a68e). NEXT STEP: signal account-reviewer for round 2 re-verification of F1 only, then Step 8 archive. Resume after the bucket resets with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+    },
+    {
+      "at": "2026-09-04T12:38:02Z",
+      "agent": "leader",
+      "event": "Review round 2 (fresh account-reviewer, prior session gone): APPROVED. F1 resolved \u2014 the reviewer re-read the +goose Down SQL itself and confirmed the UPDATE..FROM can only restore current values, and verified 940a68e is additive evidence with no criterion weakened. No new findings. Reviewer re-ran build/vet/gofmt/migration-guard/boundary-guard clean. Top-level status transcribed from the reviewer's review.status \u2014 the leader did not self-approve."
+    }
+  ]
+}

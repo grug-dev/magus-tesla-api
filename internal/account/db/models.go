@@ -17,8 +17,13 @@ type Account struct {
 	DisplayName pgtype.Text
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
-	Language    string
 	Status      string
+}
+
+type AccountSetting struct {
+	AccountID uuid.UUID
+	Language  string
+	Theme     string
 }
 
 type TeslaToken struct {

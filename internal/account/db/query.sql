@@ -101,27 +101,53 @@ WHERE account_id = @account_id AND status = 'Active'
   AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY tesla_id;
 
--- name: GetAccountLanguage :one
--- The per-request read path: only the language column, not the whole account row,
--- so a caller that only needs the language does not pay for the rest of Account.
--- Filtered by status = 'Active' (design.md D4, RM34): an Inactive account's
--- language preference is not readable — the read behaves as though no such
--- account exists.
-SELECT language FROM account.accounts
-WHERE id = @id AND status = 'Active';
+-- name: GetAccountSettings :one
+-- The per-request read path: both preferences (language, theme) in a single
+-- query — design.md D7's answer to the roadmap's binding "one query, both
+-- values" constraint. account_id is the table's own PK, so this is a plain
+-- PK lookup, no secondary index (design.md D9).
+-- Gated by the owning account's status via EXISTS (design.md D10, carrying
+-- forward RM34 D14/D15): an Inactive account's preferences are not readable —
+-- the read behaves as though no such account exists. EXISTS (not a JOIN) keeps
+-- the row shape (language, theme) unaffected by the gate.
+SELECT language, theme FROM account.settings
+WHERE account_id = @account_id
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active');
 
 -- name: UpdateAccountLanguage :exec
 -- Persists an explicit language switch. Vocabulary validation happens in the Go
--- caller (Service.SetLanguage) before this query runs — see design.md D1 for why
+-- caller (Service.SetLanguage) before this query runs — see design.md D5 for why
 -- there is no CHECK constraint doing this at the DB layer instead.
--- Filtered by status = 'Active' (design.md D4, RM34): against an Inactive
--- account this matches zero rows and is a silent no-op (Postgres does not error
--- on an UPDATE matching zero rows, and SetLanguage does not inspect affected-row
--- count) — documented consequence, not a bug (design.md D4).
-UPDATE account.accounts
-SET language   = @language,
-    updated_at = now()
-WHERE id = @id AND status = 'Active';
+-- Gated by the owning account's status via EXISTS (design.md D10, carrying
+-- forward RM34 D14/D15): against an Inactive account this matches zero rows and
+-- is a silent no-op (Postgres does not error on an UPDATE matching zero rows,
+-- and SetLanguage does not inspect affected-row count) — documented
+-- consequence, not a bug (design.md D4).
+UPDATE account.settings
+SET language = @language
+WHERE account_id = @account_id
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active');
+
+-- name: UpdateAccountTheme :exec
+-- Persists an explicit theme switch. Vocabulary validation happens in the Go
+-- caller (Service.SetTheme) before this query runs — see design.md D5 for why
+-- there is no CHECK constraint doing this at the DB layer instead. Mirrors
+-- UpdateAccountLanguage exactly, including the same EXISTS gate (design.md D10).
+UPDATE account.settings
+SET theme = @theme
+WHERE account_id = @account_id
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active');
+
+-- name: InsertSettingsIfMissing :exec
+-- Creates the settings row for a newly provisioned account, called inside the
+-- same transaction as UpsertAccountFromOAuth (design.md D3). ON CONFLICT DO
+-- NOTHING matters because UpsertFromOAuth is also the resolve-existing-account
+-- path: a returning user must never have a real settings row silently reset.
+-- Deliberately NOT gated by account status, mirroring UpsertAccountFromOAuth's
+-- own exemption (design.md D10) — a brand-new account has no status concern yet.
+INSERT INTO account.settings (account_id)
+VALUES (@account_id)
+ON CONFLICT (account_id) DO NOTHING;
 
 -- name: ListAllVehicles :many
 -- Every registered vehicle across ALL accounts, each with its owning account_id,

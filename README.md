@@ -339,27 +339,37 @@ theme exists — so restyling or re-theming never ripples past the gateway bound
 
 ### Switching the theme
 
-Every registered theme is compiled into `app.css`, so switching does **not** mean editing
-`input.css` — it is one attribute plus a regenerate:
+**As a user:** sign in and open [`/settings`](internal/gateway/templates/pages/settings.templ) —
+the theme dropdown there applies your choice instantly (no page reload) and persists it to
+your account, so it follows you across devices and sessions. There is no longer a
+source-edit step for switching between themes that already exist: `data-theme` on
+[`base.templ`](internal/gateway/templates/layouts/base.templ) is resolved **per request**
+from `ui.ThemeFromContext(ctx)` (`RM42-gateway-add-theme-selector`), never a hardcoded
+literal. A signed-in request resolves it from the `account.settings` row (one query, shared
+with the language preference); an anonymous request, or any page loaded right after logout,
+falls back to the `theme` cookie the last signed-in switch wrote.
 
-1. Edit [`internal/gateway/templates/layouts/base.templ`](internal/gateway/templates/layouts/base.templ)
-   line 17 and change the theme name:
+**Adding a new palette** is four steps plus a restart (`ui.Themes` is the single closed vocabulary — see
+`internal/gateway/AGENTS.md` §"Theme file layout & switching"):
 
-   ```html
-   <html lang={ i18n.FromContext(ctx) } data-theme="apex">
-   <!--                                            ^^^^ -> "graphite" -->
-   ```
-
-2. Regenerate:
+1. New `internal/gateway/static/themes/<name>.css` — one `@plugin` block, mirror `graphite.css`.
+2. One `@import "./themes/<name>.css";` line in `internal/gateway/static/input.css`.
+3. Add `"<name>"` to `ui.Themes` in
+   [`internal/gateway/templates/ui/theme.go`](internal/gateway/templates/ui/theme.go).
+4. Regenerate and verify:
 
    ```sh
-   make templ && make css
+   make css
+   make theme-guard
    ```
 
-3. Restart with `make up`. If `make dev` is already running, just refresh the browser —
-   the templ and tailwind watchers pick both files up.
+   `make theme-guard` (wired into `make check`) fails the build if `ui.Themes`,
+   `internal/account`'s own `Theme*` constants, and `input.css`'s registered themes ever
+   disagree — so a palette added to only one of the three is caught immediately rather than
+   shipping a silently wrong dropdown.
 
-4. To undo, set the name back and run the same two commands.
+5. Restart with `make up`. If `make dev` is already running, just refresh the browser — the
+   tailwind watcher picks the new CSS up.
 
 **Where the palettes live:** `internal/gateway/static/themes/`. Each theme file
 (`apex.css`, `graphite.css`) holds **only** its palette — one `@plugin` block of
@@ -368,11 +378,10 @@ self-hosted Inter + JetBrains Mono `@font-face` blocks, the font tokens, the
 battery-level colour scale (`--color-battery-*` + the `.text-battery-*` utilities), and
 the `.divider` reset. A theme must never redefine those — the battery scale is a *state*
 vocabulary, so "critically low" looks the same whichever palette is active. That is also
-why both palettes keep their primary out of the red/orange/yellow/green band.
-
-**Adding a third theme:** one new `themes/<name>.css` with a single `@plugin` block (mirror
-`graphite.css`), plus one `@import` line in `static/input.css`. Exactly one theme may carry
-`default: true`; `apex` holds it.
+why both palettes keep their primary out of the red/orange/yellow/green band. `halloween`
+(a daisyUI builtin, registered via the `@plugin "./daisyui.mjs" { themes: halloween; }`
+block rather than a file under `themes/`) is offered too, knowingly unstyled to this app's
+own palette conventions.
 
 **CSS toolchain & deploy:** the generated `internal/gateway/static/app.css` is **committed**
 and embedded via `//go:embed static`, so a production build (`go build ./cmd/web`) is

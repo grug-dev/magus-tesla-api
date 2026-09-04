@@ -86,6 +86,21 @@ func (f *fakeAccount) SetLanguage(_ context.Context, _ uuid.UUID, _ string) erro
 	return nil
 }
 
+// PreferencesFor / ThemeFor / SetTheme satisfy the widened account.Service
+// (RM42 tier 1). The nightly collector reads no preference at all, so these
+// mirror the LanguageFor stub above and return the platform defaults.
+func (f *fakeAccount) PreferencesFor(_ context.Context, _ uuid.UUID) (account.Settings, error) {
+	return account.Settings{Language: account.LanguageES, Theme: account.ThemeGraphite}, nil
+}
+
+func (f *fakeAccount) ThemeFor(_ context.Context, _ uuid.UUID) (string, error) {
+	return account.ThemeGraphite, nil
+}
+
+func (f *fakeAccount) SetTheme(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
 func (f *fakeAccount) SetVehicleConfigIfEmpty(_ context.Context, accountID uuid.UUID, teslaID int64, exteriorColor, carType string) error {
 	f.configCaptures = append(f.configCaptures, configCapture{accountID, teslaID, exteriorColor, carType})
 	if f.configCaptureErr != nil {

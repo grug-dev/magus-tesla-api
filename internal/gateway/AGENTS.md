@@ -196,13 +196,13 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
 - **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
-  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **five**
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **six**
   standing exceptions, each with its own recorded decision below: **RD9** (the `browser_tz`
   cookie script in `layouts.BaseAuth`), **RD10** (`ui.ConfirmDialog`, whose JS lives in
   the shared `static/app.js`), **RD12** (date→time-preserving sync on the charge forms), and
   **RD13** (status-driven required toggle on the charge forms) plus **RD14** (location-kind
-  driven label toggle) — the last three also live in `static/app.js`. Adding a sixth needs
-  its own RD entry per RD8.
+  driven label toggle) plus **RD15** (the theme-switch instant-apply listener pair) — the
+  last four also live in `static/app.js`. Adding a seventh needs its own RD entry per RD8.
 - **Confirmations: never write a modal, never call `window.confirm`.** Put `hx-confirm`
   (plus optional `data-confirm-title` / `data-confirm-label` / `data-confirm-variant="danger"`)
   on the triggering control and the shared `ui.ConfirmDialog` — mounted once in
@@ -326,8 +326,9 @@ rule.
   enforcement mechanism is the completeness test above; do not rely on the marker to catch a
   missing translation in review.
 - Language resolution (which language `ctx` carries) is already wired for every request by
-  `handlers.LanguageMiddleware` — a new page needs no per-handler language plumbing, only
-  `i18n.T` calls in its markup.
+  `handlers.PreferencesMiddleware` — a new page needs no per-handler language plumbing, only
+  `i18n.T` calls in its markup. The same middleware also puts the theme on `ctx` in that one
+  call (RM42 tier 2), so a page needs no theme plumbing either.
 
 **`make i18n-guard` is the mechanical companion to `TestCatalog_AllKeysHaveBothLanguages`**
 (added by `RM24-gateway-translate-all-pages`, tier 3 of `RM24-i18n-translations`, MAG-8). Where
@@ -605,6 +606,57 @@ endpoint must work for anonymous callers too:
    exception. Every other handler stays Reader-only except the pre-existing D4
    aperture above.
 
+### Exception: theme switch (D3/D8 — RM42-gateway-add-theme-selector)
+
+The gateway MAY call `account.Service.SetTheme` from `handlers.ThemeSwitch`
+(`POST /ui/theme/switch`), subject to auth + CSRF — mirroring the Supercharger/D8
+write-exception below, **NOT** the language-switch exception immediately above. This is a
+SETTLED, user-confirmed decision (design.md D3, `RM42-gateway-add-theme-selector`): an
+earlier draft of that design proposed reusing the language exception's no-CSRF shape, and
+the user explicitly declined it.
+
+**Unlike the language switch, the theme switch is CSRF-protected — the analogy to the
+language exception breaks on exactly one point, so do not "simplify" this endpoint by
+copying `lang.go`'s no-CSRF, cookie-first-unconditionally shape.** The language exception's
+entire cost argument rests on `LangSwitcher` mounting on EVERY page, including anonymous
+ones (`Base`) — a session CSRF token cannot even exist for an anonymous visitor, so
+requiring one there would have meant a much larger redesign. `ThemeSwitcher` mounts on
+exactly ONE page, `/settings`, which is already authenticated — there never was an
+anonymous write path to protect against in the first place, so the "nowhere to mint a
+token" problem that earned language its exception simply does not exist here. Every other
+axis of the language exception's reasoning (own-account-only mutation, reversible, low
+stakes) is still true of theme; the CSRF requirement specifically is the one axis that does
+not transfer.
+
+**Mechanism (mirrors the Supercharger/D8 amendment exactly, read that section first):**
+
+1. **Auth guard first** — `currentUID(c)` must resolve a valid session UID or the handler
+   redirects to `/login` and returns. No CSRF check, no write, proceeds without one.
+2. **CSRF token check** — `h.checkCSRFKey(c, csrfThemeKey)`, where `csrfThemeKey =
+   "csrf_theme"` is its own session key, distinct from `csrfManualChargeKey`,
+   `csrfVehicleSelectKey`, and `csrfSuperchargerKey`. Minted once per `GET /settings` by
+   `SettingsPage` (the same file, `preferences.go` — mirrors `SuperchargerStatsPage` and
+   `csrfSuperchargerKey` living together in `supercharger.go`); checked, never re-issued, by
+   `ThemeSwitch`. Returns HTTP 403 on a missing/stale/mismatched token; no write proceeds.
+3. **No separate tenant-ownership check** — same divergence the Supercharger amendment
+   documents for its own case: `SetTheme(ctx, uid, theme)` targets the caller's OWN session
+   `uid`, so there is no submitted resource identifier (no `TeslaID`/`VIN`-shaped value) for
+   a forged request to redirect at a different account.
+4. **Only `account.Service.SetTheme` is permitted** — this amendment does not open general
+   write access to the gateway.
+
+**Cookie-ordering divergence — the `theme` cookie is set only AFTER a successful
+`SetTheme`, not unconditionally first like `lang`'s.** `LangSwitch` sets its cookie FIRST,
+unconditionally, because the cookie is that endpoint's ONLY persistence for an anonymous
+caller. `theme` has no anonymous caller at all (design.md D2): its cookie is now purely a
+mirror of what the `account.settings` row already holds, kept only so a logged-out or
+pre-login page (which has no session, hence no `PreferencesFor` call) still renders the
+account's last-known theme. Setting it before — or regardless of — a successful `SetTheme`
+would let the cookie claim a value the database write never reached. `ThemeSwitch`
+(`preferences.go`) therefore sets `theme`'s cookie ONLY on the success path, after
+`account.Service.SetTheme` returns no error — a future agent must not "fix" this ordering
+to match `lang.go`'s.
+
 ### Exception: Supercharger session battery verification (D8 amendment — RM31-gateway-add-session-battery-edit)
 
 The gateway MAY call `charging.SessionVerifier.VerifySession` from
@@ -671,13 +723,13 @@ needs its own design — do not assume this entry's shape (one inline render, no
 generalizes to that different problem.
 
 **Why the blocked page always renders in the visitor's pre-login language, not the account's
-stored preference.** `LanguageMiddleware` runs before every handler and branches on
+stored preference.** `PreferencesMiddleware` runs before every handler and branches on
 `currentUID(c)`. For the `/auth/google/callback` request specifically, no session exists yet
 (this is the very request that would create one), so `currentUID` always returns `ok=false`
-here — `LanguageMiddleware` takes its anonymous branch (the pre-login `lang` cookie, or Spanish
-by default) regardless of the resolved account's status or stored language. `GetAccountLanguage`
-(tier 1's `status = 'Active'`-filtered query) is never consulted for this request at all, so
-there is no imprecision to reconcile.
+here — `PreferencesMiddleware` takes its anonymous branch (the pre-login `lang` cookie, or Spanish
+by default) regardless of the resolved account's status or stored language. `GetAccountSettings`
+(tier 1's `status = 'Active'`-filtered query, renamed from `GetAccountLanguage` by RM42) is
+never consulted for this request at all, so there is no imprecision to reconcile.
 
 ## Vehicle-scoped reads — always send the selected TeslaID
 
@@ -800,9 +852,10 @@ to every future AI agent or human who reads this doc at the start of a session.
 
 The gateway's declared **zero-JS** DaisyUI foundation (`ai/htmx-conventions.md`
 §"Styling" — "Do not introduce a component that needs client-side JS init") has
-exactly **FIVE** sanctioned exceptions: this one, **RD10** (the confirmation
-modal) below, and **RD12**/**RD13**/**RD14** (the charge-form date-sync,
-status-required toggle, and location-label toggle) further below. This entry covers the first: a single inline `<script>` in
+exactly **SIX** sanctioned exceptions: this one, **RD10** (the confirmation
+modal) below, **RD12**/**RD13**/**RD14** (the charge-form date-sync,
+status-required toggle, and location-label toggle), and **RD15** (the theme-switch
+instant-apply listener pair) further below. This entry covers the first: a single inline `<script>` in
 `layouts.BaseAuth` that sets the `browser_tz` cookie. Added by
 `gateway-browser-tz-cookie` (MAG-7, shipped 2026-08-11; documented here in the
 MAG-7 review fix round, 2026-08-12).
@@ -964,9 +1017,29 @@ Apex violates this (red primary collides with battery-low, and `error` #ffb4ab r
 calmer than a primary button); `graphite.css` exists as the accessible alternative and
 documents the measured contrast per token.
 
-**Switching:** all themes compile into `app.css`, so it is one `data-theme` attribute in
-`templates/layouts/base.templ` (line 17) plus `make templ && make css` — never an
-`@import` swap. Full steps live in the root `README.md` §"Switching the theme".
+**Switching:** since `RM42-gateway-add-theme-selector`, `data-theme` is resolved PER REQUEST
+from `ui.ThemeFromContext(ctx)` (design.md D1/D2 of that change), not a literal in source —
+a signed-in user changes their own theme on `/settings`; an anonymous visitor or a
+just-logged-out user gets whatever the `theme` cookie last recorded. There is no longer a
+source-edit step for a user switching between the themes that already exist. Full steps
+live in the root `README.md` §"Switching the theme".
+
+**Adding a theme is four steps (roadmap RM42 D10):**
+
+1. New `internal/gateway/static/themes/<name>.css` — one `@plugin` block, mirror `graphite.css`.
+2. One `@import "./themes/<name>.css";` line in `internal/gateway/static/input.css`.
+3. Add `"<name>"` to `ui.Themes` (`internal/gateway/templates/ui/theme.go`).
+4. `make css`.
+
+`make theme-guard` (wired into `make check`) fails if `ui.Themes`, `internal/account`'s own
+`Theme*` constants, and `input.css`'s registered themes ever disagree — reconciling three
+independent copies was chosen over parsing `input.css` at build/run time because `halloween`
+lives in the `@plugin { themes: ... }` block while `apex`/`graphite` live in `@import` lines,
+two shapes a parser would need to special-case; three guarded copies keep the failure mode a
+clear, localized `make check` error instead of a silently wrong dropdown at runtime
+(design.md D5, `RM42-gateway-add-theme-selector`). Escape hatch: a trailing
+`// theme:allow: <reason>` comment on the same line as a Go-side entry being deliberately
+excluded from a comparison.
 
 **Boundary — this is NOT an opening for arbitrary self-hosted fonts.** Like RD9/RD10,
 it is a narrow, sanctioned decision (two families, four weights, pinned to the Apex
@@ -1120,6 +1193,58 @@ initial `disabled` state still governs — the input simply stops toggling live 
 a kind change, so a user on the create form must rely on the next full render
 (a degradation RD13 shares, not a data-integrity issue: a label typed for
 HOME/WORK is dropped at save either way).
+
+## Client-side JS exception: theme-switch instant apply (RD15)
+
+The **sixth** sanctioned exception to the zero-JS rule: a `click` + `htmx:afterRequest`
+listener pair on `document.body`, matching `button[hx-post="/ui/theme/switch"]`, that
+applies a theme choice to the DOM immediately and reverts it if the background persist
+fails. Added by `RM42-gateway-add-theme-selector` (tier 2 of `RM42-settings-theme-selector`,
+ticket MAG-43, roadmap decision D6/design.md D6).
+
+**What:** A delegated `click` listener reads the clicked option's own `hx-vals` JSON
+(`{"theme":"<t>","csrf_token":"<token>"}`), stashes the DOM's current theme in
+`document.documentElement.dataset.themePrevious`, then writes the clicked theme straight
+into `document.documentElement.dataset.theme` — synchronously, before the `hx-post` (which
+carries `hx-swap="none"`) has even resolved. A companion `htmx:afterRequest` listener,
+matched the same way, clears the stashed previous value on success or restores it on
+failure. Reading the theme out of the button's own `hx-vals` (rather than a duplicate
+`data-theme="apex"` attribute) means the value the server receives and the value the DOM
+applies come from ONE literal per option, authored once in `theme_switcher.templ`.
+
+**Why:** D6 explicitly rejects any reload for a theme change (`HX-Location`, the mechanism
+`LangSwitch` uses, is deliberately NOT used here) — a theme is pure CSS with nothing to
+re-render, unlike the language switch's server-rendered text. The **rejected alternative**
+was a CSS-only DaisyUI pattern: rejected for the same reason RD12 rejects one — this is a
+genuine value write (`document.documentElement.dataset.theme = theme`) that must happen
+synchronously on click, strictly before any network round trip, and no CSS primitive can
+express "write this DOM attribute the instant this element is activated."
+
+**Why the optimistic apply reverts on failure, rather than staying applied.** The server
+remains the source of truth for what renders on the NEXT full page load (via
+`PreferencesMiddleware` → `data-theme` on `base.templ`), so leaving a never-persisted theme
+applied would only have it silently flip back on the user's very next navigation, with no
+explanation. Reverting immediately, in the same interaction, is the client-side mirror of
+`LangSwitch`'s own failure-path rule ("do NOT still send `HX-Location`, so the client does
+not reload into a state the persisted write never actually reached") — made necessary here
+specifically because this apply happens BEFORE the server confirms anything, which
+`LangSwitch`'s server-driven `HX-Location` never did.
+
+**Why it does not erode the `ui/` boundary:** the listener only ever reads `hx-vals` JSON
+and writes one `data-theme` dataset property — no DaisyUI class string, no markup, no
+styling decision is made in JavaScript. Identical shape to RD13/RD14's own boundary
+argument.
+
+**Boundary — this is NOT an opening for general client-side JS.** Like RD9–RD14, it is a
+narrow, sanctioned exception (one delegated listener pair, one dataset-attribute write with
+revert-on-failure, one named target control), not a precedent. Any further client-side JS
+needs its own RD entry per RD8.
+
+**Graceful degradation:** without JS (or in a browser where it errors), the `click` handler
+never fires: the `hx-post` still goes through via `htmx.min.js` alone, `SetTheme` still
+persists the choice server-side, and the user sees their new theme on the NEXT full page
+load once `PreferencesMiddleware` resolves it. The only thing lost is the "instant" half of
+D6 — degraded to "next navigation," never broken.
 
 ---
 

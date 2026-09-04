@@ -105,11 +105,12 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	})
 	r.Use(sessions.Sessions("magus", store))
 
-	// handlers.LanguageMiddleware resolves the active render language exactly
-	// once per request (design.md D3, RM24-gateway-add-i18n-foundation) and
-	// MUST be registered after sessions: its signed-in branch calls
+	// handlers.PreferencesMiddleware resolves the active render language AND
+	// theme in ONE account.Service.PreferencesFor call per request (RM42 tier 2
+	// design.md D1; it replaced LanguageMiddleware, which resolved language
+	// alone). It MUST be registered after sessions: its signed-in branch calls
 	// currentUID, which reads the session set up just above.
-	r.Use(handlers.LanguageMiddleware(d.Account))
+	r.Use(handlers.PreferencesMiddleware(d.Account))
 
 	// Static assets at /static — dev vs production.
 	//
@@ -164,6 +165,13 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.POST("/ui/vehicle/select", h.VehicleSelect)
 	r.GET("/healthz", h.Healthz)
 	r.POST("/ui/lang/switch", h.LangSwitch)
+
+	// Settings + theme switch (RM42 tier 2). Unlike /ui/lang/switch above, the
+	// theme write takes a CSRF token: SettingsPage mints csrfThemeKey and
+	// ThemeSwitch checks it. The language switch's missing CSRF check is a
+	// narrow exception the user declined to extend here — see AGENTS.md.
+	r.GET("/settings", h.SettingsPage)
+	r.POST("/ui/theme/switch", h.ThemeSwitch)
 
 	r.GET("/charges", h.ChargePage)
 	r.GET("/ui/charges", h.ChargesContentFragment)

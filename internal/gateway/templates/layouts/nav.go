@@ -29,6 +29,6 @@ func navItems(ctx context.Context, active string) []ui.NavItem {
 		{Label: i18n.T(ctx, i18n.KeyNavSuperchargerStats), Href: "/supercharger-stats", Active: active == "/supercharger-stats", Icon: "analytics", SectionLabel: charging},
 		{Label: i18n.T(ctx, i18n.KeyNavVehicleStats), Icon: "speed", Placeholder: true, SectionLabel: insights},
 		{Label: i18n.T(ctx, i18n.KeyNavCommunityBenchmark), Icon: "groups", Placeholder: true, SectionLabel: insights},
-		{Label: i18n.T(ctx, i18n.KeyNavSettings), Icon: "settings", Placeholder: true},
+		{Label: i18n.T(ctx, i18n.KeyNavSettings), Href: "/settings", Active: active == "/settings", Icon: "settings"},
 	}
 }

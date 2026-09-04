@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM42-settings-theme-selector",
+  "intention": "A real /settings page with a working theme selector, backed by one account.settings table that is the single home for every per-user preference.",
+  "request": "Source ticket: MAG-43 — Theme selector - Settings page. It's possible to allow selecting a theme for the entire website, and applying that theme in runtime? Like a Theme selector dropdown? Currently, I think the theme is set in data-theme=\"graphite\" (base.templ), I think the app currently supports halloween, apex and graphite. Let me know your thoughts. If that would be possible, add the theme selector into the settings page (new page that has a label \"soon\") on the menu",
+  "status": "complete",
+  "autopilot": true,
+  "updated_at": "2026-09-04T17:13:55Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM42-MAG-43-settings-theme-selector",
+    "base": "0b9897f",
+    "ticket": "MAG-43",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-43/theme-selector-settings-page",
+    "created_at": "2026-09-04T10:12:58Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "RM42-account-add-settings-table",
+      "RM42-gateway-add-theme-selector"
+    ],
+    "awaiting_user_verification": []
+  },
+  "decisions": [
+    {
+      "id": "D-RM42-1",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "New account.settings table with typed language+theme columns; accounts.language migrates in and is dropped",
+      "why": "Split storage (theme in a new table, language left on accounts) rejected: two homes for preferences makes every future setting ambiguous"
+    },
+    {
+      "id": "D-RM42-2",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Settings row created at signup in the same transaction; existing rows backfilled by the migration",
+      "why": "Reads stay a plain PK lookup with no COALESCE and no missing-row branch"
+    },
+    {
+      "id": "D-RM42-3",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Theme applies instantly via JS data-theme, no HX-Location reload",
+      "why": "Language is server-rendered text and needs a re-render; a theme is CSS-only and does not"
+    },
+    {
+      "id": "D-RM42-4",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "ui.Themes is the single closed vocabulary, enforced by a new make theme-guard wired into make check",
+      "why": "Parsing input.css at startup rejected: halloween is not an @import, so the parser needs two shapes and moves errors to run time"
+    },
+    {
+      "id": "D-RM42-5",
+      "at": "2026-09-04T10:12:58Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Read caching is out of scope; filed as MAG-47 blocked by MAG-43",
+      "why": "LanguageMiddleware's per-request DB read (incl. /static) is a separate blast radius touching middleware and its tests"
+    },
+    {
+      "id": "D-RM42-6",
+      "at": "2026-09-04T12:42:51Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Autopilot ON from tier 2 onward",
+      "why": "User turned it on after tier 1 archived; tier 2 now runs to archive without a go-ahead between steps."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM42-account-add-settings-table",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers) / claude-opus-5 (leader)",
+      "started_at": "2026-09-04T10:12:58Z",
+      "completed_at": "2026-09-04T12:38:30Z",
+      "duration_seconds": 8732,
+      "budget": {
+        "five_hour_pct_delta": 19.0,
+        "cost_usd_delta": 6.08,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of 3 worker wave deltas; leader-owned T8 and both review rounds not separately bracketed"
+      },
+      "notes": "Archived as 2026-09-04-RM42-account-add-settings-table. 8/8 tasks done, suite passed per the OWNER, 2 review rounds (F1 major, resolved)."
+    },
+    {
+      "id": 2,
+      "change": "RM42-gateway-add-theme-selector",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": "2026-09-04T12:42:51Z",
+      "completed_at": "2026-09-04T17:13:55Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-04T10:12:58Z",
+      "agent": "leader",
+      "event": "roadmap RM42 created from MAG-43; branch ft/RM42-MAG-43-settings-theme-selector off 0b9897f; work-counter 42 -> 43"
+    },
+    {
+      "at": "2026-09-04T10:12:58Z",
+      "agent": "leader",
+      "event": "Step 2 interview skipped as already complete: all 11 design decisions (D1-D11) were settled with the user before pipeline invocation, including the database-gated schema. Recorded verbatim in the roadmap .md Decisions section."
+    },
+    {
+      "at": "2026-09-04T10:12:58Z",
+      "agent": "leader",
+      "event": "run scope: HALT AFTER STEP 4 per the pickup-linear-ticket payload — artifacts + progress.json for tier 1 only, no implementation workers, no reviewer, no archive. autopilot disabled for this reason."
+    },
+    {
+      "at": "2026-09-04T10:12:58Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created and database design gate passed; tier 1 -> proposed. Run halted after Step 4 per the pickup payload."
+    },
+    {
+      "at": "2026-09-04T12:38:30Z",
+      "agent": "leader",
+      "event": "Tier 1 (RM42-account-add-settings-table) archived after reviewer-approved in round 2. Tier 2 (RM42-gateway-add-theme-selector) is now unblocked. autopilot=false, so it does NOT start automatically."
+    },
+    {
+      "at": "2026-09-04T12:42:14Z",
+      "agent": "leader",
+      "event": "STOPPED after tier 1 at the user's choice (autopilot off). Tier 2 unblocked, not started. User also chose to LEAVE the stray internal/gateway/templates/pages/dashboard.go edit on the branch for now, and declined a push. The shared goose_db_version rollback symptom was folded into backlog item 23 rather than filed as a new item, same root cause."
+    },
+    {
+      "at": "2026-09-04T12:42:51Z",
+      "agent": "leader",
+      "event": "AUTOPILOT ENABLED by the user, reversing the stop-after-tier-1 choice. Tier 2 (RM42-gateway-add-theme-selector) started at Step 2. Budget clear at the tier boundary."
+    },
+    {
+      "at": "2026-09-04T17:13:55Z",
+      "agent": "leader",
+      "event": "ROADMAP RM42 COMPLETE. Tier 2 (RM42-gateway-add-theme-selector) archived to openspec/changes/archive/gateway/2026-09-04-RM42-gateway-add-theme-selector after a zero-finding reviewer approval; the openspec CLI dropped it at the archive root and the leader moved it into the module-grouped folder this repo uses, in the same commit. Both tiers archived, so the roadmap itself is archived to openspec/roadmaps/archive/RM42-settings-theme-selector/. .work-counter untouched — RM numbers are monotonic and RM42 keeps its number."
+    }
+  ]
+}

@@ -212,3 +212,60 @@ document.body.addEventListener("htmx:load", function (evt) {
     applyChargeLocationLabelToggle(selects[i]);
   }
 });
+
+// --- Theme switcher: instant client-side apply (RD15) --------------------
+//
+// See internal/gateway/AGENTS.md RD15 and design.md D6
+// (RM42-gateway-add-theme-selector tier 2) for the full rationale and the
+// rejected alternatives. Same document.body-delegated shape as RD9-RD14
+// above (kept for consistency with every other listener in this file, even
+// though the switcher's own markup never gets swapped — D6 explicitly
+// avoids any htmx swap for this control, so re-binding was never actually a
+// concern here).
+//
+// Clicking a theme option applies it to the DOM immediately, before the
+// background hx-post (hx-swap="none") that persists it has resolved. D6
+// explicitly rejects HX-Location/any reload here: a theme is pure CSS, so
+// there is nothing to re-render, unlike the language switch's
+// server-rendered text. The value comes out of the clicked button's own
+// hx-vals JSON (rather than a duplicate data-theme="apex" attribute), so
+// the value the server receives and the value the DOM applies come from ONE
+// literal per option, authored once in theme_switcher.templ.
+document.body.addEventListener("click", function (evt) {
+  var btn = evt.target.closest('button[hx-post="/ui/theme/switch"]');
+  if (!btn) return;
+  var vals;
+  try {
+    vals = JSON.parse(btn.getAttribute("hx-vals") || "{}");
+  } catch (e) {
+    return;
+  }
+  var theme = vals.theme;
+  if (!theme) return;
+  document.documentElement.dataset.themePrevious = document.documentElement.dataset.theme;
+  document.documentElement.dataset.theme = theme;
+});
+
+// If the background persist request failed, revert to the value the DOM
+// held before the optimistic apply above (design.md D6): the server stays
+// the source of truth for what renders on the NEXT full page load (via
+// PreferencesMiddleware -> data-theme on base.templ), so leaving a
+// never-persisted theme applied would only have it silently flip back on
+// the user's very next navigation, with no explanation. Reverting
+// immediately, in the same interaction, is the client-side mirror of
+// LangSwitch's own failure-path rule ("do NOT still send HX-Location, so
+// the client does not reload into a state the persisted write never
+// actually reached") — made necessary here specifically because this
+// optimistic apply happens BEFORE the server confirms anything, which
+// LangSwitch's server-driven HX-Location never did.
+document.body.addEventListener("htmx:afterRequest", function (evt) {
+  var elt = evt.detail.elt;
+  if (!elt || !elt.matches || !elt.matches('button[hx-post="/ui/theme/switch"]')) return;
+  if (evt.detail.successful) {
+    delete document.documentElement.dataset.themePrevious;
+    return;
+  }
+  var prev = document.documentElement.dataset.themePrevious;
+  if (prev) document.documentElement.dataset.theme = prev;
+  delete document.documentElement.dataset.themePrevious;
+});

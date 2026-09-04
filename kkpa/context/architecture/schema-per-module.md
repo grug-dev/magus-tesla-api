@@ -29,7 +29,7 @@ Migration status, one row per module:
 
 | Module | Schema | Tables | Status |
 |---|---|---|---|
-| `account` | `account` | `accounts`, `tesla_tokens`, `vehicles` | moved (RM39 tier 1) |
+| `account` | `account` | `accounts`, `tesla_tokens`, `vehicles`, `settings` (added RM42 tier 1) | moved (RM39 tier 1) |
 | `analytics` | `analytics` | `vehicle_metrics`, `vehicle_metric_watermarks`, `charge_gaps` | moved (RM39 tier 2) |
 | `charging` | `charging` | `manual_charge_entries`, `supercharger_sessions` (renamed from `charge_sessions`) | moved + renamed (RM39 tier 3) |
 | `telemetry` | `telemetry` | `vehicle_snapshots`, `supercharger_history` (renamed from `supercharger_sessions`), `poll_attempts`, `poll_runs` | moved + renamed (RM39 tier 4) |
