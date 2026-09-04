@@ -4,13 +4,11 @@
   "change": "RM42-account-add-settings-table",
   "module": "account",
   "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
-  "request": "Source ticket: MAG-43 — Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
+  "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
   "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "T4",
-      "T5",
       "T8"
     ],
     "blocked": [],
@@ -19,11 +17,15 @@
       "T2",
       "T3",
       "T6",
-      "T7"
+      "T7",
+      "T4"
+    ],
+    "awaiting_user_verification": [
+      "T5"
     ]
   },
   "created_at": "2026-09-04T10:26:38Z",
-  "updated_at": "2026-09-04T10:58:43Z",
+  "updated_at": "2026-09-04T11:22:21Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -120,14 +122,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T11:18:25Z",
+      "completed_at": "2026-09-04T11:22:21Z",
+      "duration_seconds": 236,
+      "notes": "Rewrote UpsertFromOAuth to the D3 transactional shape (pool.Begin/WithTx/InsertSettingsIfMissing/Commit); implemented PreferencesFor/ThemeFor/SetTheme, rewrote LanguageFor/SetLanguage on top of PreferencesFor; added normalizeTheme/isSupportedTheme.",
+      "budget": {
+        "five_hour_pct_start": 72.0,
+        "five_hour_pct_end": 78.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.05,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T4+T5 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T5",
@@ -137,14 +148,23 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T11:18:25Z",
+      "completed_at": "2026-09-04T11:22:21Z",
+      "duration_seconds": 236,
+      "notes": "Added TestNormalizeTheme (pure) and TestAccountSettings_RoundTrip (Contract items 2/3/4/6); repaired TestLanguagePreference_RoundTrip's out-of-band write to target account.settings. Not executed per Test-Execution-Policy.",
+      "budget": {
+        "five_hour_pct_start": 72.0,
+        "five_hour_pct_end": 78.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.05,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T4+T5 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T6",
@@ -269,6 +289,14 @@
       "made_by": "leader",
       "decision": "Leader fixed the stale GetAccountLanguage reference in internal/gateway/AGENTS.md rather than deferring it to wave 4",
       "why": "Cross-module doc drift caused by T3's rename; one line, verified, and CLAUDE.md requires docs to track the change that broke them."
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-04T11:22:21Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Backfill (Test Contract item 1) is left to the migration's own logic + manual/CI migration testing, with no Go test",
+      "why": "The harness applies every migration before TestMain hands over, so no in-process test can seed pre-migration rows. T5.3 allowed this with a stated reason."
     }
   ],
   "events": [
@@ -290,7 +318,7 @@
     {
       "at": "2026-09-04T10:26:38Z",
       "agent": "leader",
-      "event": "RUN HALTED AFTER STEP 4 by design — the kkpa-pickup-linear-ticket payload scoped this run to artifacts + progress.json only. No implementation worker was dispatched, no reviewer ran, nothing was archived. Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+      "event": "RUN HALTED AFTER STEP 4 by design \u2014 the kkpa-pickup-linear-ticket payload scoped this run to artifacts + progress.json only. No implementation worker was dispatched, no reviewer ran, nothing was archived. Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
     },
     {
       "at": "2026-09-04T10:43:15Z",
@@ -335,12 +363,32 @@
     {
       "at": "2026-09-04T10:52:40Z",
       "agent": "leader",
-      "event": "Wave-2 boundary checkpoint gate evaluated: five_hour 68% (gate 90), context 12% (gate 40) — NEITHER tripped. Checkpoint RECOMMENDED anyway per the 3+-wave rule; awaiting the user's choice. Next: wave 3 = T4 + T5 (serial, one worker). Then wave 4 = T8 + leader-owned sibling test-fake fix (D4). Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+      "event": "Wave-2 boundary checkpoint gate evaluated: five_hour 68% (gate 90), context 12% (gate 40) \u2014 NEITHER tripped. Checkpoint RECOMMENDED anyway per the 3+-wave rule; awaiting the user's choice. Next: wave 3 = T4 + T5 (serial, one worker). Then wave 4 = T8 + leader-owned sibling test-fake fix (D4). Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
     },
     {
       "at": "2026-09-04T10:58:43Z",
       "agent": "leader",
       "event": "Linear status sync (openspec-pipeline-linear-status rule): MAG-43 Todo -> In Progress via /kkpa-pickup-linear-ticket in-progress, with a comment. It had been missed at wave 1's dispatch; fired once now, not per wave."
+    },
+    {
+      "at": "2026-09-04T11:18:25Z",
+      "agent": "leader",
+      "event": "RESUMED at Step 5 in a fresh session. Dispatched account worker (sonnet) for wave 3 = T4 + T5, one serial dispatch. Budget at dispatch: five_hour 72%, context 9%, seven_day 85%."
+    },
+    {
+      "at": "2026-09-04T11:22:21Z",
+      "agent": "leader",
+      "event": "wave 3 reconciled: T4 done, T5 awaiting-user-verification (tests written, never executed). Leader independently verified the service.go diff against design.md D3/D4/D6/D7/D10, confirmed deleteAccount registers t.Cleanup, and re-ran go build ./... (clean), go vet ./internal/account/... (clean), gofmt -l internal/account (only the pre-existing testdb_test.go)."
+    },
+    {
+      "at": "2026-09-04T11:22:21Z",
+      "agent": "leader",
+      "event": "worker report carried fabricated timestamps (10:55-11:20Z, before its own 11:18:25Z dispatch). Leader recorded the real dispatch and reconcile times instead."
+    },
+    {
+      "at": "2026-09-04T11:22:21Z",
+      "agent": "leader",
+      "event": "repo-wide go vet confirms exactly 3 failing packages from the widened interface: internal/app (processor_test.go:176), internal/gateway/handlers (charges_test.go:209), internal/telemetry (service_test.go:370). internal/analytics did NOT fail \u2014 the dispatch brief's count of 5 files was an over-estimate; wave 4 re-checks it. Leader-owned fix (decision D4)."
     }
   ]
 }

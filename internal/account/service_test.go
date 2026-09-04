@@ -73,3 +73,29 @@ func TestNormalizeLanguage(t *testing.T) {
 		})
 	}
 }
+
+// TestNormalizeTheme covers the DB->domain normalization boundary (design.md
+// D4/D6): all three supported codes pass through unchanged, and any
+// unrecognized or empty stored value normalizes to ThemeGraphite. Mirrors
+// TestNormalizeLanguage exactly.
+func TestNormalizeTheme(t *testing.T) {
+	cases := []struct {
+		name  string
+		theme string
+		want  string
+	}{
+		{"supported apex unchanged", ThemeApex, ThemeApex},
+		{"supported graphite unchanged", ThemeGraphite, ThemeGraphite},
+		{"supported halloween unchanged", ThemeHalloween, ThemeHalloween},
+		{"unrecognized value normalizes to graphite", "cyberpunk", ThemeGraphite},
+		{"empty string normalizes to graphite", "", ThemeGraphite},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeTheme(tc.theme); got != tc.want {
+				t.Errorf("normalizeTheme(%q) = %q, want %q", tc.theme, got, tc.want)
+			}
+		})
+	}
+}

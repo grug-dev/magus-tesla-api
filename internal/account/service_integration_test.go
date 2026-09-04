@@ -769,9 +769,11 @@ func TestLanguagePreference_RoundTrip(t *testing.T) {
 
 	// --- Normalizing a legacy/out-of-band value written outside this module's
 	// write path (raw pool.Exec, mirroring the vehicle_config self-heal test
-	// technique) ---
+	// technique). RM42 tier 1 moved language from account.accounts into
+	// account.settings (design.md D1/D2) — the out-of-band write targets its new
+	// home. ---
 	if _, err := pool.Exec(ctx,
-		"UPDATE account.accounts SET language = $1 WHERE id = $2", "fr", acct.ID,
+		"UPDATE account.settings SET language = $1 WHERE account_id = $2", "fr", acct.ID,
 	); err != nil {
 		t.Fatalf("simulating out-of-band language write: %v", err)
 	}
@@ -781,6 +783,132 @@ func TestLanguagePreference_RoundTrip(t *testing.T) {
 	}
 	if got != LanguageES {
 		t.Fatalf("out-of-band unsupported value: want normalized %q, got %q", LanguageES, got)
+	}
+}
+
+// TestAccountSettings_RoundTrip covers Test Contract items 2, 3, 4, and 6 from
+// design.md (RM42-account-add-settings-table): fresh-signup defaults, the
+// SetTheme round-trip and its rejection of an unsupported code, normalizing
+// out-of-band stored values for both preferences at once via PreferencesFor,
+// and Inactive-account gating (design.md D10, mirroring RM34's existing
+// language/vehicle/token gating).
+func TestAccountSettings_RoundTrip(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	acct, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "settings-roundtrip@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account: %v", err)
+	}
+	deleteAccount(t, pool, acct.ID)
+
+	// RM34: a freshly-provisioned account defaults to StatusInactive, and every
+	// settings read/write below is filtered by status = 'Active' (design.md D10).
+	activateAccount(t, pool, acct.ID)
+
+	// --- Fresh-signup defaults (Test Contract item 2): no explicit write yet,
+	// the settings row was created atomically by UpsertFromOAuth (design.md D3) ---
+	prefs, err := s.PreferencesFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("PreferencesFor (fresh account): %v", err)
+	}
+	want := Settings{Language: LanguageES, Theme: ThemeGraphite}
+	if prefs != want {
+		t.Fatalf("fresh account settings: want %+v, got %+v", want, prefs)
+	}
+
+	// --- SetTheme round-trip ---
+	if err := s.SetTheme(ctx, acct.ID, ThemeHalloween); err != nil {
+		t.Fatalf("SetTheme(halloween): %v", err)
+	}
+	gotTheme, err := s.ThemeFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("ThemeFor (after switch to halloween): %v", err)
+	}
+	if gotTheme != ThemeHalloween {
+		t.Fatalf("after switching to halloween: want %q, got %q", ThemeHalloween, gotTheme)
+	}
+
+	// --- SetTheme rejects a value outside the closed set (Test Contract item
+	// 3): no write occurs ---
+	if err := s.SetTheme(ctx, acct.ID, "cyberpunk"); !errors.Is(err, ErrUnsupportedTheme) {
+		t.Fatalf("SetTheme(cyberpunk): want ErrUnsupportedTheme, got %v", err)
+	}
+	gotTheme, err = s.ThemeFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("ThemeFor (after rejected write): %v", err)
+	}
+	if gotTheme != ThemeHalloween {
+		t.Fatalf("after rejected SetTheme: want unchanged %q, got %q", ThemeHalloween, gotTheme)
+	}
+
+	// --- Normalizing out-of-band stored values for both columns at once
+	// (Test Contract item 4), verified via ThemeFor, LanguageFor, AND the
+	// combined PreferencesFor in one call ---
+	if _, err := pool.Exec(ctx,
+		"UPDATE account.settings SET theme = $1, language = $2 WHERE account_id = $3",
+		"neon", "fr", acct.ID,
+	); err != nil {
+		t.Fatalf("simulating out-of-band settings write: %v", err)
+	}
+	if gotTheme, err = s.ThemeFor(ctx, acct.ID); err != nil {
+		t.Fatalf("ThemeFor (after out-of-band write): %v", err)
+	} else if gotTheme != ThemeGraphite {
+		t.Fatalf("out-of-band unsupported theme: want normalized %q, got %q", ThemeGraphite, gotTheme)
+	}
+	if gotLang, err := s.LanguageFor(ctx, acct.ID); err != nil {
+		t.Fatalf("LanguageFor (after out-of-band write): %v", err)
+	} else if gotLang != LanguageES {
+		t.Fatalf("out-of-band unsupported language: want normalized %q, got %q", LanguageES, gotLang)
+	}
+	prefs, err = s.PreferencesFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("PreferencesFor (after out-of-band write): %v", err)
+	}
+	want = Settings{Language: LanguageES, Theme: ThemeGraphite}
+	if prefs != want {
+		t.Fatalf("PreferencesFor after out-of-band write: want %+v, got %+v", want, prefs)
+	}
+
+	// --- Inactive-account gating (Test Contract item 6, design.md D10) ---
+	if _, err := pool.Exec(ctx,
+		"UPDATE account.accounts SET status = 'Inactive' WHERE id = $1", acct.ID,
+	); err != nil {
+		t.Fatalf("deactivating test account: %v", err)
+	}
+
+	if _, err := s.PreferencesFor(ctx, acct.ID); err == nil {
+		t.Fatalf("PreferencesFor (inactive account): want error, got nil")
+	}
+	if _, err := s.LanguageFor(ctx, acct.ID); err == nil {
+		t.Fatalf("LanguageFor (inactive account): want error, got nil")
+	}
+	if _, err := s.ThemeFor(ctx, acct.ID); err == nil {
+		t.Fatalf("ThemeFor (inactive account): want error, got nil")
+	}
+
+	// SetLanguage/SetTheme against an Inactive account are silent no-ops: no
+	// error, but the write matches zero rows (the EXISTS gate), so the stored
+	// value is unchanged. Verify by reactivating and reading back.
+	if err := s.SetLanguage(ctx, acct.ID, LanguageEN); err != nil {
+		t.Fatalf("SetLanguage (inactive account): want no error (silent no-op), got %v", err)
+	}
+	if err := s.SetTheme(ctx, acct.ID, ThemeApex); err != nil {
+		t.Fatalf("SetTheme (inactive account): want no error (silent no-op), got %v", err)
+	}
+
+	activateAccount(t, pool, acct.ID)
+	prefs, err = s.PreferencesFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("PreferencesFor (after reactivating): %v", err)
+	}
+	want = Settings{Language: LanguageES, Theme: ThemeGraphite}
+	if prefs != want {
+		t.Fatalf("no-op writes against inactive account changed stored values: want unchanged %+v, got %+v", want, prefs)
 	}
 }
 
@@ -809,8 +937,8 @@ func TestSeedVehicles_IdempotentAndDoesNotOverwrite(t *testing.T) {
 
 	// Re-seed with a changed display name for an existing vehicle and a new one.
 	reseed := []SeedVehicle{
-		{TeslaID: 11, VIN: "VIN11", DisplayName: "CHANGED"},            // existing: must NOT overwrite
-		{TeslaID: 33, VIN: "VIN33", DisplayName: "New Three"},          // new: inserted
+		{TeslaID: 11, VIN: "VIN11", DisplayName: "CHANGED"},   // existing: must NOT overwrite
+		{TeslaID: 33, VIN: "VIN33", DisplayName: "New Three"}, // new: inserted
 	}
 	got, err := s.SeedVehicles(ctx, acct.ID, reseed)
 	if err != nil {

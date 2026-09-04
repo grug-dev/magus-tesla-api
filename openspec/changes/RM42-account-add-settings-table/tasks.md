@@ -147,7 +147,7 @@
 
 ## T4. Service implementation (`internal/account/service.go`) — depends on T2, T3
 
-- [ ] T4.1 Rewrite `UpsertFromOAuth` to the transactional shape in `design.md` D3 (mirrors
+- [x] T4.1 Rewrite `UpsertFromOAuth` to the transactional shape in `design.md` D3 (mirrors
       `AccessTokenFor`'s existing `pool.Begin`/`WithTx`/`Commit` pattern in this same file — do not
       invent a new atomicity idiom):
       ```go
@@ -180,7 +180,7 @@
           return accountFromRow(row), nil
       }
       ```
-- [ ] T4.2 Implement `PreferencesFor`, and rewrite `LanguageFor`/`SetLanguage`, plus implement
+- [x] T4.2 Implement `PreferencesFor`, and rewrite `LanguageFor`/`SetLanguage`, plus implement
       `ThemeFor`/`SetTheme`, per `design.md` D6/D7:
       ```go
       func (s *service) PreferencesFor(ctx context.Context, accountID uuid.UUID) (Settings, error) {
@@ -255,11 +255,11 @@
 
 ## T5. Tests (`internal/account/service_test.go`, `service_integration_test.go`) — depends on T4
 
-- [ ] T5.1 Add a pure unit test (no DB) for `normalizeTheme`/`isSupportedTheme` in
+- [x] T5.1 Add a pure unit test (no DB) for `normalizeTheme`/`isSupportedTheme` in
       `service_test.go`, mirroring the existing `normalizeLanguage` test: both supported codes
       returned unchanged, an unrecognized value (`"cyberpunk"`) normalized to `"graphite"`, and the
       empty string normalized to `"graphite"`.
-- [ ] T5.2 Add a `DATABASE_URL`-gated integration test `TestAccountSettings_RoundTrip` in
+- [x] T5.2 Add a `DATABASE_URL`-gated integration test `TestAccountSettings_RoundTrip` in
       `service_integration_test.go` (self-skips when unset, mirroring the module's existing
       pattern), covering Test Contract items 2, 3, 4, and 6 from `design.md`:
       - Fresh-signup defaults: after `UpsertFromOAuth`, `PreferencesFor` returns
@@ -280,7 +280,7 @@
         (the same not-found-shaped failure as an unknown account id), and `SetLanguage`/`SetTheme`
         each return no error but do not change the stored value (verify by reactivating the
         account and reading it back).
-- [ ] T5.3 Add or repair a `TestLanguagePreference_RoundTrip`-equivalent covering Test Contract
+- [x] T5.3 Add or repair a `TestLanguagePreference_RoundTrip`-equivalent covering Test Contract
       item 1 (backfill) at the migration level: since this is exercised by the migration itself
       rather than by `Service`, cover it as part of `T5.2`'s fixture setup if the existing test
       harness seeds accounts before migrations run, or note in the final report if backfill
