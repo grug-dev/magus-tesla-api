@@ -675,9 +675,9 @@ stored preference.** `LanguageMiddleware` runs before every handler and branches
 `currentUID(c)`. For the `/auth/google/callback` request specifically, no session exists yet
 (this is the very request that would create one), so `currentUID` always returns `ok=false`
 here — `LanguageMiddleware` takes its anonymous branch (the pre-login `lang` cookie, or Spanish
-by default) regardless of the resolved account's status or stored language. `GetAccountLanguage`
-(tier 1's `status = 'Active'`-filtered query) is never consulted for this request at all, so
-there is no imprecision to reconcile.
+by default) regardless of the resolved account's status or stored language. `GetAccountSettings`
+(tier 1's `status = 'Active'`-filtered query, renamed from `GetAccountLanguage` by RM42) is
+never consulted for this request at all, so there is no imprecision to reconcile.
 
 ## Vehicle-scoped reads — always send the selected TeslaID
 

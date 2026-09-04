@@ -31,7 +31,13 @@ Consumers (e.g. the gateway) call these — never this module's tables
 - `AccessTokenFor(ctx, accountID) (string, error)` — a valid access token for Fleet API
   calls (refreshing behind the scenes when needed)
 - `RegisteredVehicles` — the user's persisted vehicle registry
-- `LanguageFor`/`SetLanguage` — read/persist a user's `{es, en}` language preference
+- `LanguageFor`/`SetLanguage` — read/persist a user's `{es, en}` language preference, now
+  backed by `account.settings` (RM42 tier 1), not a column on `accounts`
+- `ThemeFor`/`SetTheme` — read/persist a user's `{apex, graphite, halloween}` UI theme
+  preference (RM42 tier 1); mirrors `LanguageFor`/`SetLanguage` exactly
+- `PreferencesFor(ctx, accountID) (Settings, error)` — both `Language` and `Theme` in a
+  single query; callers needing more than one preference for one render MUST use this
+  instead of calling `LanguageFor`/`ThemeFor` separately (RM42 tier 1, design.md D7)
 
 `Account` also carries a `Status` field (`StatusActive`/`StatusInactive` — roadmap RM34).
 `UpsertFromOAuth` is the one operation NOT filtered by it; every other read in this
@@ -53,9 +59,10 @@ to apply to today — it governs any unit-bearing column added to this module in
 ## Boundaries
 
 - Data lives in the `account` Postgres schema (tables `accounts`, `tesla_tokens`,
-  `vehicles`, moved there by `RM39-account-move-to-own-schema`), managed from
-  `internal/account/db/` (goose migrations + `query.sql`, sqlc-generated code). No other
-  module touches these tables — ever.
+  `vehicles`, moved there by `RM39-account-move-to-own-schema`; `settings`, added by
+  `RM42-account-add-settings-table` tier 1 — one row per account, PK `account_id`, holding
+  `language` and `theme`), managed from `internal/account/db/` (goose migrations +
+  `query.sql`, sqlc-generated code). No other module touches these tables — ever.
 - Does not import other feature modules; consumers wire account and tesla together
   (e.g. `AccessTokenFor` → `tesla.Credentials` happens in the gateway, not here).
 - No HTML, no HTTP handlers — that is the gateway's layer.

@@ -107,14 +107,14 @@
 
 ## T3. sqlc query edits + regeneration (`internal/account/db/query.sql`) — depends on T1, parallel-ok with T2
 
-- [ ] T3.1 Replace `GetAccountLanguage` with `GetAccountSettings` (design.md D7/D10):
+- [x] T3.1 Replace `GetAccountLanguage` with `GetAccountSettings` (design.md D7/D10):
       ```sql
       -- name: GetAccountSettings :one
       SELECT language, theme FROM account.settings
       WHERE account_id = @account_id
         AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active');
       ```
-- [ ] T3.2 Repoint `UpdateAccountLanguage` at `account.settings` and add `UpdateAccountTheme`
+- [x] T3.2 Repoint `UpdateAccountLanguage` at `account.settings` and add `UpdateAccountTheme`
       mirroring it (design.md D7/D10):
       ```sql
       -- name: UpdateAccountLanguage :exec
@@ -129,14 +129,14 @@
       WHERE account_id = @account_id
         AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active');
       ```
-- [ ] T3.3 Add `InsertSettingsIfMissing` (design.md D3):
+- [x] T3.3 Add `InsertSettingsIfMissing` (design.md D3):
       ```sql
       -- name: InsertSettingsIfMissing :exec
       INSERT INTO account.settings (account_id)
       VALUES (@account_id)
       ON CONFLICT (account_id) DO NOTHING;
       ```
-- [ ] T3.4 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm and
+- [x] T3.4 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm and
       report the Go type sqlc infers for `GetAccountSettingsRow.Language`/`.Theme` and for
       `UpdateAccountLanguageParams.Language` / `UpdateAccountThemeParams.Theme`. **Do not assume
       `string`** — `design.md` D7/Migration Plan states this is expected (both columns are `NOT
@@ -289,30 +289,30 @@
 
 ## T6. Makefile / guard verification — depends on T1, parallel-ok with T2/T3/T4/T5
 
-- [ ] T6.1 Confirm `MIGRATIONS_DIRS` in the `Makefile` needs no change — `internal/account/db/
+- [x] T6.1 Confirm `MIGRATIONS_DIRS` in the `Makefile` needs no change — `internal/account/db/
       migrations` is already listed, and T1's new file lives in that same directory.
-- [ ] T6.2 Confirm `db-setup`/`db-reset` role-and-ownership assumptions hold: read the `db-reset`
+- [x] T6.2 Confirm `db-setup`/`db-reset` role-and-ownership assumptions hold: read the `db-reset`
       target and confirm it drops and recreates the whole database (not per-table), so the new
       `account.settings` table needs no separate ownership handling — it is created by the same
       app role that already owns the `account` schema (established by
       `20260902000001_move_account_to_own_schema.sql`). Report what was read and concluded, not
       just "unaffected."
-- [ ] T6.3 Confirm `sqlc.yaml` needs no structural change — the existing `account` module `sql:`
+- [x] T6.3 Confirm `sqlc.yaml` needs no structural change — the existing `account` module `sql:`
       entry's `schema:` already points at `internal/account/db/migrations`, which now includes
       T1's file automatically.
-- [ ] T6.4 Run `make migration-guard` (or reproduce its collision check manually) after T1 lands,
+- [x] T6.4 Run `make migration-guard` (or reproduce its collision check manually) after T1 lands,
       to confirm `20260904000001` (or whatever timestamp T1.1 actually used, if bumped for a
       collision) does not collide with any migration in `internal/telemetry`, `internal/charging`,
       or `internal/analytics`. Report the result.
 
 ## T7. Docs (`internal/account/AGENTS.md`, `kkpa/context/`) — depends on T2, parallel-ok with T3/T4/T5/T6
 
-- [ ] T7.1 Update `internal/account/AGENTS.md`'s "Public interface" section to list
+- [x] T7.1 Update `internal/account/AGENTS.md`'s "Public interface" section to list
       `PreferencesFor(ctx, accountID) (Settings, error)`, `ThemeFor`/`SetTheme`, and note that
       `LanguageFor`/`SetLanguage` are now backed by `account.settings` rather than a column on
       `accounts` — required by `CLAUDE.md`'s docs-track-change rule (a module's public surface
       changed in this change, not a follow-up).
-- [ ] T7.2 Grep `kkpa/context/` for `account` and `language` (`grep -rl "account\|language"
+- [x] T7.2 Grep `kkpa/context/` for `account` and `language` (`grep -rl "account\|language"
       kkpa/context/`) and read every match. Fix any guide whose consumer map, file map, or
       described behavior this change invalidates (e.g. a guide describing `accounts.language` as a
       column, or `LanguageFor` as reading `accounts` directly). Report which files were checked and

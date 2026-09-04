@@ -13,7 +13,7 @@ import (
 )
 
 const getAccountByProviderID = `-- name: GetAccountByProviderID :one
-SELECT id, email, provider, provider_id, display_name, created_at, updated_at, language, status FROM account.accounts
+SELECT id, email, provider, provider_id, display_name, created_at, updated_at, status FROM account.accounts
 WHERE provider = $1 AND provider_id = $2 AND status = 'Active'
 `
 
@@ -35,27 +35,35 @@ func (q *Queries) GetAccountByProviderID(ctx context.Context, arg GetAccountByPr
 		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Language,
 		&i.Status,
 	)
 	return i, err
 }
 
-const getAccountLanguage = `-- name: GetAccountLanguage :one
-SELECT language FROM account.accounts
-WHERE id = $1 AND status = 'Active'
+const getAccountSettings = `-- name: GetAccountSettings :one
+SELECT language, theme FROM account.settings
+WHERE account_id = $1
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active')
 `
 
-// The per-request read path: only the language column, not the whole account row,
-// so a caller that only needs the language does not pay for the rest of Account.
-// Filtered by status = 'Active' (design.md D4, RM34): an Inactive account's
-// language preference is not readable — the read behaves as though no such
-// account exists.
-func (q *Queries) GetAccountLanguage(ctx context.Context, id uuid.UUID) (string, error) {
-	row := q.db.QueryRow(ctx, getAccountLanguage, id)
-	var language string
-	err := row.Scan(&language)
-	return language, err
+type GetAccountSettingsRow struct {
+	Language string
+	Theme    string
+}
+
+// The per-request read path: both preferences (language, theme) in a single
+// query — design.md D7's answer to the roadmap's binding "one query, both
+// values" constraint. account_id is the table's own PK, so this is a plain
+// PK lookup, no secondary index (design.md D9).
+// Gated by the owning account's status via EXISTS (design.md D10, carrying
+// forward RM34 D14/D15): an Inactive account's preferences are not readable —
+// the read behaves as though no such account exists. EXISTS (not a JOIN) keeps
+// the row shape (language, theme) unaffected by the gate.
+func (q *Queries) GetAccountSettings(ctx context.Context, accountID uuid.UUID) (GetAccountSettingsRow, error) {
+	row := q.db.QueryRow(ctx, getAccountSettings, accountID)
+	var i GetAccountSettingsRow
+	err := row.Scan(&i.Language, &i.Theme)
+	return i, err
 }
 
 const getLatestTeslaTokenByAccount = `-- name: GetLatestTeslaTokenByAccount :one
@@ -113,6 +121,23 @@ func (q *Queries) GetLatestTeslaTokenByAccountForUpdate(ctx context.Context, acc
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertSettingsIfMissing = `-- name: InsertSettingsIfMissing :exec
+INSERT INTO account.settings (account_id)
+VALUES ($1)
+ON CONFLICT (account_id) DO NOTHING
+`
+
+// Creates the settings row for a newly provisioned account, called inside the
+// same transaction as UpsertAccountFromOAuth (design.md D3). ON CONFLICT DO
+// NOTHING matters because UpsertFromOAuth is also the resolve-existing-account
+// path: a returning user must never have a real settings row silently reset.
+// Deliberately NOT gated by account status, mirroring UpsertAccountFromOAuth's
+// own exemption (design.md D10) — a brand-new account has no status concern yet.
+func (q *Queries) InsertSettingsIfMissing(ctx context.Context, accountID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, insertSettingsIfMissing, accountID)
+	return err
 }
 
 const insertVehicleIfMissing = `-- name: InsertVehicleIfMissing :exec
@@ -249,26 +274,48 @@ func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID
 }
 
 const updateAccountLanguage = `-- name: UpdateAccountLanguage :exec
-UPDATE account.accounts
-SET language   = $1,
-    updated_at = now()
-WHERE id = $2 AND status = 'Active'
+UPDATE account.settings
+SET language = $1
+WHERE account_id = $2
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active')
 `
 
 type UpdateAccountLanguageParams struct {
-	Language string
-	ID       uuid.UUID
+	Language  string
+	AccountID uuid.UUID
 }
 
 // Persists an explicit language switch. Vocabulary validation happens in the Go
-// caller (Service.SetLanguage) before this query runs — see design.md D1 for why
+// caller (Service.SetLanguage) before this query runs — see design.md D5 for why
 // there is no CHECK constraint doing this at the DB layer instead.
-// Filtered by status = 'Active' (design.md D4, RM34): against an Inactive
-// account this matches zero rows and is a silent no-op (Postgres does not error
-// on an UPDATE matching zero rows, and SetLanguage does not inspect affected-row
-// count) — documented consequence, not a bug (design.md D4).
+// Gated by the owning account's status via EXISTS (design.md D10, carrying
+// forward RM34 D14/D15): against an Inactive account this matches zero rows and
+// is a silent no-op (Postgres does not error on an UPDATE matching zero rows,
+// and SetLanguage does not inspect affected-row count) — documented
+// consequence, not a bug (design.md D4).
 func (q *Queries) UpdateAccountLanguage(ctx context.Context, arg UpdateAccountLanguageParams) error {
-	_, err := q.db.Exec(ctx, updateAccountLanguage, arg.Language, arg.ID)
+	_, err := q.db.Exec(ctx, updateAccountLanguage, arg.Language, arg.AccountID)
+	return err
+}
+
+const updateAccountTheme = `-- name: UpdateAccountTheme :exec
+UPDATE account.settings
+SET theme = $1
+WHERE account_id = $2
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active')
+`
+
+type UpdateAccountThemeParams struct {
+	Theme     string
+	AccountID uuid.UUID
+}
+
+// Persists an explicit theme switch. Vocabulary validation happens in the Go
+// caller (Service.SetTheme) before this query runs — see design.md D5 for why
+// there is no CHECK constraint doing this at the DB layer instead. Mirrors
+// UpdateAccountLanguage exactly, including the same EXISTS gate (design.md D10).
+func (q *Queries) UpdateAccountTheme(ctx context.Context, arg UpdateAccountThemeParams) error {
+	_, err := q.db.Exec(ctx, updateAccountTheme, arg.Theme, arg.AccountID)
 	return err
 }
 
@@ -351,7 +398,7 @@ ON CONFLICT (provider, provider_id) DO UPDATE
 SET email        = EXCLUDED.email,
     display_name = EXCLUDED.display_name,
     updated_at   = now()
-RETURNING id, email, provider, provider_id, display_name, created_at, updated_at, language, status
+RETURNING id, email, provider, provider_id, display_name, created_at, updated_at, status
 `
 
 type UpsertAccountFromOAuthParams struct {
@@ -381,7 +428,6 @@ func (q *Queries) UpsertAccountFromOAuth(ctx context.Context, arg UpsertAccountF
 		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Language,
 		&i.Status,
 	)
 	return i, err

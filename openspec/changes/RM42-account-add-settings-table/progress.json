@@ -4,26 +4,26 @@
   "change": "RM42-account-add-settings-table",
   "module": "account",
   "roadmap": "openspec/roadmaps/RM42-settings-theme-selector.md",
-  "request": "Source ticket: MAG-43 \u2014 Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
+  "request": "Source ticket: MAG-43 — Theme selector - Settings page. Tier 1 of RM42: give per-user preferences one home. New account.settings table (typed language + theme columns, PK account_id); accounts.language migrates in and the column is dropped; the settings row is created at signup in the same transaction and existing rows are backfilled; LanguageFor/SetLanguage are rewritten against the new table and ThemeFor/SetTheme are added.",
   "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "T3",
       "T4",
       "T5",
-      "T6",
-      "T7",
       "T8"
     ],
     "blocked": [],
     "done": [
       "T1",
-      "T2"
+      "T2",
+      "T3",
+      "T6",
+      "T7"
     ]
   },
   "created_at": "2026-09-04T10:26:38Z",
-  "updated_at": "2026-09-04T10:47:00Z",
+  "updated_at": "2026-09-04T10:52:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -93,14 +93,23 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:49:10Z",
+      "completed_at": "2026-09-04T10:52:11Z",
+      "duration_seconds": 181,
+      "notes": "Replaced GetAccountLanguage with GetAccountSettings; repointed UpdateAccountLanguage, added UpdateAccountTheme + InsertSettingsIfMissing. EXISTS gate on all three reads/writes per D10; insert ungated. make sqlc clean; all four generated fields plain string, verified in query.sql.go.",
+      "budget": {
+        "five_hour_pct_start": 61.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 2.54,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T6+T7 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T4",
@@ -145,14 +154,23 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:49:10Z",
+      "completed_at": "2026-09-04T10:52:11Z",
+      "duration_seconds": 181,
+      "notes": "MIGRATIONS_DIRS already lists the account dir; db-reset drops the whole DB and db-setup runs goose as the app role, so account.settings inherits ownership; sqlc.yaml points at the dir. make migration-guard clean for 20260904000001.",
+      "budget": {
+        "five_hour_pct_start": 61.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 2.54,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T6+T7 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T7",
@@ -162,14 +180,23 @@
         "T2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-04T10:49:10Z",
+      "completed_at": "2026-09-04T10:52:11Z",
+      "duration_seconds": 181,
+      "notes": "AGENTS.md public interface + Boundaries table updated. KB: fixed stale account-schema table lists in kkpa/context/INDEX.md and architecture/schema-per-module.md; account-activation-gate.md and nightly-cycle.md checked, still accurate.",
+      "budget": {
+        "five_hour_pct_start": 61.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 2.54,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one wave delta shared by T3+T6+T7 (single serial worker, one dispatch)"
+      }
     },
     {
       "id": "T8",
@@ -234,6 +261,14 @@
       "decision": "Sibling-module account.Service test fakes will be fixed by the leader in wave 4, not now",
       "why": "Fakes only break once the interface is implementable (T4); fixing them before that just churns. go build is red until T4 regardless.",
       "covered_by": "tasks.md T8.1"
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-04T10:52:11Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader fixed the stale GetAccountLanguage reference in internal/gateway/AGENTS.md rather than deferring it to wave 4",
+      "why": "Cross-module doc drift caused by T3's rename; one line, verified, and CLAUDE.md requires docs to track the change that broke them."
     }
   ],
   "events": [
@@ -255,7 +290,7 @@
     {
       "at": "2026-09-04T10:26:38Z",
       "agent": "leader",
-      "event": "RUN HALTED AFTER STEP 4 by design \u2014 the kkpa-pickup-linear-ticket payload scoped this run to artifacts + progress.json only. No implementation worker was dispatched, no reviewer ran, nothing was archived. Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+      "event": "RUN HALTED AFTER STEP 4 by design — the kkpa-pickup-linear-ticket payload scoped this run to artifacts + progress.json only. No implementation worker was dispatched, no reviewer ran, nothing was archived. Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
     },
     {
       "at": "2026-09-04T10:43:15Z",
@@ -276,6 +311,26 @@
       "at": "2026-09-04T10:47:00Z",
       "agent": "leader",
       "event": "CHECKPOINT at wave-1 boundary (user's choice, not a threshold trip). Budget: five_hour 57%, context 12%; neither past its gate. Next: wave 2 = T3 + T6 + T7, one serial account worker on sonnet. Then wave 3 = T4 + T5, wave 4 = T8 + leader-owned sibling test-fake fix (D4). Resume with: /kkpa-dev-harness-pipeline resume RM42-account-add-settings-table"
+    },
+    {
+      "at": "2026-09-04T10:49:10Z",
+      "agent": "leader",
+      "event": "RESUMED at Step 5 in a fresh session. Dispatched account worker (sonnet) for wave 2 = T3 + T6 + T7, one serial dispatch. Budget at dispatch: five_hour 61%, context 9%, seven_day 84%."
+    },
+    {
+      "at": "2026-09-04T10:52:11Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: T3+T6+T7 done. Leader independently verified query.sql (EXISTS gates on all three gated queries, InsertSettingsIfMissing ungated per D10), the four generated types (all plain string), Account.Language gone from models.go, both doc diffs, and re-ran make migration-guard clean."
+    },
+    {
+      "at": "2026-09-04T10:52:11Z",
+      "agent": "leader",
+      "event": "pre-existing finding (NOT caused by this wave): gofmt -l flags internal/account/service_integration_test.go and testdb_test.go, both unmodified in HEAD. T5 touches the first; wave 3 fixes both."
+    },
+    {
+      "at": "2026-09-04T10:52:11Z",
+      "agent": "leader",
+      "event": "leader-owned cross-module doc fix applied: internal/gateway/AGENTS.md GetAccountLanguage -> GetAccountSettings (decision D5). Still outstanding for wave 4: the 5 sibling test fakes (decision D4)."
     }
   ]
 }
