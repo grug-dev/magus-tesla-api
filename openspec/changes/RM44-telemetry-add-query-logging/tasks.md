@@ -24,7 +24,7 @@ them need to change for this tier).
 
 ## Wave 1 — Delete the two dead queries + regenerate
 
-- [ ] **1.1** `internal/telemetry/db/query.sql` — delete the `ListSnapshotsByVehicle`
+- [x] **1.1** `internal/telemetry/db/query.sql` — delete the `ListSnapshotsByVehicle`
   query block (including its doc comment, lines ~106–123) and the
   `ListPollAttemptsByVehicle` query block (including its doc comment, lines ~125–130).
   Run `make sqlc` to regenerate `telemetrydb` (removes `ListSnapshotsByVehicle`,
@@ -118,7 +118,7 @@ them need to change for this tier).
 > only the row-fetch mechanism changes. No rewrite may call another sqlc reader query
 > (D13's binding constraint) — raw `pool.QueryRow`/`pool.Query` only.
 
-- [ ] **4.1** `internal/telemetry/db_integration_test.go` — rewrite the 5 call sites:
+- [x] **4.1** `internal/telemetry/db_integration_test.go` — rewrite the 5 call sites:
   `TestStore_SnapshotRoundTrip_SentryNilIsNull`, `TestStore_SentryTrueAndFalseRoundTripFaithfully`,
   `TestStore_SnapshotUpsert_SameDayReplaces`, `TestStore_SnapshotInsert_DifferentDayCreatesNewRow`
   (all 4 replace `q.ListSnapshotsByVehicle(...)` with a raw
@@ -132,7 +132,7 @@ them need to change for this tier).
   account_id = $1 AND tesla_id = $2 ORDER BY attempted_at DESC`).
   `depends_on`: 1.1 · `parallel_ok`: with 4.2, 4.3
 
-- [ ] **4.2** `internal/telemetry/db_sourcea_integration_test.go` — rewrite the 3 call
+- [x] **4.2** `internal/telemetry/db_sourcea_integration_test.go` — rewrite the 3 call
   sites (`TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead`,
   `TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil`,
   `TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil`), each replacing
@@ -141,7 +141,7 @@ them need to change for this tier).
   other two).
   `depends_on`: 1.1 · `parallel_ok`: with 4.1, 4.3
 
-- [ ] **4.3** `internal/telemetry/db_tpms_integration_test.go` — rewrite the 2 call
+- [x] **4.3** `internal/telemetry/db_tpms_integration_test.go` — rewrite the 2 call
   sites (`TestTPMS_NilRoundTrip`, `TestTPMS_ZeroNonNilRoundTrip`), each replacing
   `q.ListSnapshotsByVehicle(...)` with a raw `SELECT tpms_pressure_fl_psi,
   tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi FROM

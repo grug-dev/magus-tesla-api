@@ -46,10 +46,175 @@ func cleanupVehicle(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesla
 
 func ptrBool(b bool) *bool { return &b }
 
+// The helpers below replace the deleted telemetrydb.ListSnapshotsByVehicle /
+// ListPollAttemptsByVehicle sqlc queries (RM44-telemetry-add-query-logging D5/D13):
+// every test that used to call them now reads its row(s) back with a raw SQL
+// SELECT via the pool directly, independent of this module's own reader
+// queries, narrowed to the columns that test actually asserts.
+
+// snapshotFullRow carries the columns TestStore_SnapshotRoundTrip_SentryNilIsNull
+// asserts.
+type snapshotFullRow struct {
+	BatteryLevelPct   int32
+	ChargeLimitSocPct int32
+	BatteryRangeKm    float64
+	OdometerKm        float64
+	ChargingState     string
+	CarVersion        string
+	Locked            bool
+	SentryMode        pgtype.Bool
+	CapturedAt        pgtype.Timestamptz
+	RawData           []byte
+}
+
+func querySnapshotsFull(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]snapshotFullRow, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT battery_level_pct, charge_limit_soc_pct, battery_range_km, odometer_km,
+		        charging_state, car_version, locked, sentry_mode, captured_at, raw_data
+		   FROM telemetry.vehicle_snapshots
+		  WHERE account_id = $1 AND tesla_id = $2
+		  ORDER BY captured_at DESC`,
+		accountID, teslaID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var got []snapshotFullRow
+	for rows.Next() {
+		var r snapshotFullRow
+		if err := rows.Scan(&r.BatteryLevelPct, &r.ChargeLimitSocPct, &r.BatteryRangeKm, &r.OdometerKm,
+			&r.ChargingState, &r.CarVersion, &r.Locked, &r.SentryMode, &r.CapturedAt, &r.RawData); err != nil {
+			return nil, err
+		}
+		got = append(got, r)
+	}
+	return got, rows.Err()
+}
+
+// snapshotSentryRow carries the column TestStore_SentryTrueAndFalseRoundTripFaithfully
+// asserts.
+type snapshotSentryRow struct {
+	SentryMode pgtype.Bool
+}
+
+func querySnapshotsSentry(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]snapshotSentryRow, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT sentry_mode
+		   FROM telemetry.vehicle_snapshots
+		  WHERE account_id = $1 AND tesla_id = $2
+		  ORDER BY captured_at DESC`,
+		accountID, teslaID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var got []snapshotSentryRow
+	for rows.Next() {
+		var r snapshotSentryRow
+		if err := rows.Scan(&r.SentryMode); err != nil {
+			return nil, err
+		}
+		got = append(got, r)
+	}
+	return got, rows.Err()
+}
+
+// snapshotBatteryVersionRow carries the columns TestStore_SnapshotUpsert_SameDayReplaces
+// asserts.
+type snapshotBatteryVersionRow struct {
+	BatteryLevelPct int32
+	CarVersion      string
+	CapturedAt      pgtype.Timestamptz
+}
+
+func querySnapshotsBatteryVersion(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]snapshotBatteryVersionRow, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT battery_level_pct, car_version, captured_at
+		   FROM telemetry.vehicle_snapshots
+		  WHERE account_id = $1 AND tesla_id = $2
+		  ORDER BY captured_at DESC`,
+		accountID, teslaID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var got []snapshotBatteryVersionRow
+	for rows.Next() {
+		var r snapshotBatteryVersionRow
+		if err := rows.Scan(&r.BatteryLevelPct, &r.CarVersion, &r.CapturedAt); err != nil {
+			return nil, err
+		}
+		got = append(got, r)
+	}
+	return got, rows.Err()
+}
+
+// snapshotBatteryRow carries the columns TestStore_SnapshotInsert_DifferentDayCreatesNewRow
+// asserts.
+type snapshotBatteryRow struct {
+	BatteryLevelPct int32
+	CapturedAt      pgtype.Timestamptz
+}
+
+func querySnapshotsBattery(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]snapshotBatteryRow, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT battery_level_pct, captured_at
+		   FROM telemetry.vehicle_snapshots
+		  WHERE account_id = $1 AND tesla_id = $2
+		  ORDER BY captured_at DESC`,
+		accountID, teslaID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var got []snapshotBatteryRow
+	for rows.Next() {
+		var r snapshotBatteryRow
+		if err := rows.Scan(&r.BatteryLevelPct, &r.CapturedAt); err != nil {
+			return nil, err
+		}
+		got = append(got, r)
+	}
+	return got, rows.Err()
+}
+
+// pollAttemptRow carries the columns TestStore_PollAttemptRoundTrip asserts.
+type pollAttemptRow struct {
+	Outcome     string
+	Reason      string
+	AttemptedAt pgtype.Timestamptz
+}
+
+func queryPollAttempts(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]pollAttemptRow, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT outcome, reason, attempted_at
+		   FROM telemetry.poll_attempts
+		  WHERE account_id = $1 AND tesla_id = $2
+		  ORDER BY attempted_at DESC`,
+		accountID, teslaID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var got []pollAttemptRow
+	for rows.Next() {
+		var r pollAttemptRow
+		if err := rows.Scan(&r.Outcome, &r.Reason, &r.AttemptedAt); err != nil {
+			return nil, err
+		}
+		got = append(got, r)
+	}
+	return got, rows.Err()
+}
+
 func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
-	q := telemetrydb.New(pool)
 
 	accountID := uuid.New()
 	const teslaID = int64(900001)
@@ -78,12 +243,9 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
 
-	got, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	got, err := querySnapshotsFull(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -117,7 +279,6 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 func TestStore_SentryTrueAndFalseRoundTripFaithfully(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
-	q := telemetrydb.New(pool)
 
 	for _, tc := range []struct {
 		name    string
@@ -146,12 +307,9 @@ func TestStore_SentryTrueAndFalseRoundTripFaithfully(t *testing.T) {
 				t.Fatalf("insertSnapshot: %v", err)
 			}
 
-			got, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-				AccountID: accountID,
-				TeslaID:   tc.teslaID,
-			})
+			got, err := querySnapshotsSentry(ctx, pool, accountID, tc.teslaID)
 			if err != nil {
-				t.Fatalf("ListSnapshotsByVehicle: %v", err)
+				t.Fatalf("querying vehicle_snapshots: %v", err)
 			}
 			if len(got) != 1 {
 				t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -175,7 +333,6 @@ func TestStore_SentryTrueAndFalseRoundTripFaithfully(t *testing.T) {
 func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
-	q := telemetrydb.New(pool)
 
 	accountID := uuid.New()
 	const teslaID = int64(900020)
@@ -210,12 +367,9 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 		t.Fatalf("second insertSnapshot: %v", err)
 	}
 
-	got, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	got, err := querySnapshotsBatteryVersion(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
 	// Same-day replace: exactly ONE row survives (design D1).
 	if len(got) != 1 {
@@ -241,7 +395,6 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
-	q := telemetrydb.New(pool)
 
 	accountID := uuid.New()
 	const teslaID = int64(900021)
@@ -273,12 +426,9 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 		t.Fatalf("day-2 insertSnapshot: %v", err)
 	}
 
-	got, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	got, err := querySnapshotsBattery(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
 	// Different days: both rows coexist.
 	if len(got) != 2 {
@@ -297,7 +447,6 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 func TestStore_PollAttemptRoundTrip(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
-	q := telemetrydb.New(pool)
 
 	accountID := uuid.New()
 	const teslaID = int64(900030)
@@ -314,12 +463,9 @@ func TestStore_PollAttemptRoundTrip(t *testing.T) {
 		t.Fatalf("insertPollAttempt: %v", err)
 	}
 
-	got, err := q.ListPollAttemptsByVehicle(ctx, telemetrydb.ListPollAttemptsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	got, err := queryPollAttempts(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListPollAttemptsByVehicle: %v", err)
+		t.Fatalf("querying poll_attempts: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 poll attempt, got %d", len(got))

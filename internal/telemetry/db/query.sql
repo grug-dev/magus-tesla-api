@@ -103,32 +103,6 @@ INSERT INTO telemetry.poll_attempts (
     @account_id, @tesla_id, @attempted_at, @outcome, @reason, @run_id, @triggered_by
 );
 
--- name: ListSnapshotsByVehicle :many
--- Read helper for the DATABASE_URL-gated store tests: every snapshot for one
--- vehicle, newest first. Not consumed by another module (module-scoped).
--- Explicit column list (no SELECT *) so sqlc generates a stable struct even when
--- schema evolves; latitude/longitude/fast_charger_type removed in 20260801000001.
-SELECT
-    id, account_id, tesla_id, captured_at, raw_data,
-    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
-    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
-    car_version,
-    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
-    charger_actual_current_a, usable_battery_level_pct,
-    max_range_charge_counter,
-    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at
-FROM telemetry.vehicle_snapshots
-WHERE account_id = @account_id AND tesla_id = @tesla_id
-ORDER BY captured_at DESC;
-
--- name: ListPollAttemptsByVehicle :many
--- Read helper for the DATABASE_URL-gated store tests: every attempt for one
--- vehicle, newest first. Not consumed by another module (module-scoped).
-SELECT * FROM telemetry.poll_attempts
-WHERE account_id = @account_id AND tesla_id = @tesla_id
-ORDER BY attempted_at DESC;
-
 -- name: SnapshotsByVehicleSince :many
 -- Return all snapshots for a single vehicle (within the given account) captured at or
 -- after `since`, ordered oldest-first. Used by telemetry.Reader.SnapshotsByVehicleSince
@@ -283,7 +257,7 @@ ORDER BY updated_at ASC;
 -- The existing (account_id, tesla_id, captured_at) index covers this query: the
 -- planner satisfies the WHERE and ORDER BY in a single efficient range scan.
 -- This is the batch read for the dashboard (tier 5, gateway-read-stored-vehicles);
--- it avoids the N+1 that would result from calling ListSnapshotsByVehicle per vehicle.
+-- it avoids the N+1 that would result from reading each vehicle's snapshots separately.
 SELECT DISTINCT ON (tesla_id)
     id, account_id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
