@@ -152,7 +152,7 @@ them need to change for this tier).
 
 ## Wave 5 — Tests for the new decorators (offline; D10)
 
-- [ ] **5.1** `internal/telemetry/query_log_test.go` (new file) — Test Contract Group A:
+- [x] **5.1** `internal/telemetry/query_log_test.go` (new file) — Test Contract Group A:
   a fake `store`/`Reader`/`SuperchargerHistoryReader`/`RunWriter` `inner` per decorator
   (or one small fake per interface reused across subtests); for each of the 13 logged
   methods, redirect `log.Output` to a buffer (`log.SetOutput`, restored via
@@ -164,20 +164,20 @@ them need to change for this tier).
   `limit=2147483647` in the log line; `limit=25` in → `limit=25` in the log line).
   `depends_on`: 2.1, 2.2, 2.3, 2.4 · `parallel_ok`: with 5.2
 
-- [ ] **5.2** `internal/telemetry/query_log_test.go` — `TestQueryLog_NeverLogsRawDataContent`
+- [x] **5.2** `internal/telemetry/query_log_test.go` — `TestQueryLog_NeverLogsRawDataContent`
   (Test Contract Group C, design.md D5/D9): call `loggingStore.insertSnapshot` and
   `.upsertSuperchargerHistory` with `RawData: []byte("MARKER_RAW_DATA_MUST_NOT_APPEAR_IN_LOG")`,
   assert the captured log buffer does NOT contain that substring and DOES contain the
   correct `raw_data_bytes=<N>`.
   `depends_on`: 2.1 · `parallel_ok`: with 5.1
 
-- [ ] **5.3** `internal/telemetry/call_counter_test.go` — Test Contract Group B:
+- [x] **5.3** `internal/telemetry/call_counter_test.go` — Test Contract Group B:
   extend the existing test file with one assertion per method (using the existing
   `minimalFakeTesla`) that the captured log line matches design.md D4's table exactly,
   including `ChargingHistory`'s full 4-field `ChargingHistoryParams`.
   `depends_on`: 2.5 · `parallel_ok`: with 5.4
 
-- [ ] **5.4** `internal/telemetry/call_counter_test.go` —
+- [x] **5.4** `internal/telemetry/call_counter_test.go` —
   `TestCallCounter_NeverLogsCredentials` (Test Contract Group C, design.md D3/D9):
   construct `tesla.Credentials{AccessToken: "SECRET-TOKEN-DO-NOT-LOG-9f3a"}`, call all
   4 `callCounter` methods with it, assert the captured log buffer never contains that
@@ -188,7 +188,7 @@ them need to change for this tier).
 
 ## Wave 6 — Docs
 
-- [ ] **6.1** `internal/telemetry/AGENTS.md` — add a short paragraph to "Testing notes"
+- [x] **6.1** `internal/telemetry/AGENTS.md` — add a short paragraph to "Testing notes"
   naming `query_log.go` and the extended `call_counter.go`, the two log prefixes
   (`telemetry query:`, `fleet api:`), and pointing at
   `TestQueryLog_NeverLogsRawDataContent`/`TestCallCounter_NeverLogsCredentials` as

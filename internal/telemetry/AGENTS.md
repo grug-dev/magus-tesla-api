@@ -393,6 +393,20 @@ existing `pgNullableText` helper for `BatteryPctSource`.
 
 ## Testing notes
 
+- **Query/call logging (`RM44-telemetry-add-query-logging`, ticket MAG-48).**
+  `query_log.go` holds four decorators (`loggingStore`, `loggingReader`,
+  `loggingSuperchargerHistoryReader`, `loggingRunWriter`) instrumenting this
+  module's own read/write seams, prefixing every line `telemetry query:`.
+  `call_counter.go` was extended with one `log.Printf` per Fleet API method,
+  prefixed `fleet api:`. Both are tested purely offline in `query_log_test.go`
+  and `call_counter_test.go` (fake `inner`/`minimalFakeTesla`, `log.SetOutput`
+  redirected to a buffer, restored via `t.Cleanup` — no `DATABASE_URL`, no
+  network). The guarantee that a credential or `raw_data` payload never
+  reaches a log line is enforced structurally (see design.md D3/D5) and
+  proven by test: `TestCallCounter_NeverLogsCredentials`
+  (`call_counter_test.go`) and `TestQueryLog_NeverLogsRawDataContent`
+  (`query_log_test.go`). Once this change archives, its design.md moves to
+  `openspec/changes/archive/RM44-telemetry-add-query-logging/design.md`.
 - Collection-service logic is tested **offline** with fake `account.Service` and
   `tesla.VehicleService` implementations — per-vehicle isolation, reason mapping, one-retry, wake
   timeout, multi-account. NO test may make a live Tesla API call or wake a car (the calls are paid).
