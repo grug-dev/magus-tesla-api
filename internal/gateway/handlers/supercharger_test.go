@@ -960,15 +960,18 @@ func TestSuperchargerStatsFragment_FutureEndRejectedWithNoSelector(t *testing.T)
 // "table rows == the tile's own rendered value" cross-check in the test below;
 // that row count is now compared against the fixture directly.
 
-// TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile
-// covers F.1: the fragment contains the responsive <svg viewBox …> chart with
-// <title> tooltips, the month selector marks the active preset, and — the D7
-// single-source-of-truth check — the number of <tr> rows inside the sessions
-// table's <tbody> equals the Sessions tile's own rendered value, both parsed
-// independently out of the rendered HTML (not out of the test fixture).
-// Anchored on the default (both start/end absent) 6-month window, computed
-// via monthsBackFrom, not a hardcoded date.
-func TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile(t *testing.T) {
+// TestSuperchargerStatsFragment_ChartAndSelectorAndTable covers F.1: the fragment
+// contains the responsive <svg viewBox …> chart with <title> tooltips, the month
+// selector marks the active preset, and the sessions table's <tbody> holds one <tr>
+// per session. Anchored on the default (both start/end absent) 6-month window,
+// computed via monthsBackFrom, not a hardcoded date.
+//
+// MAG-50 renamed this from …TableMatchesSessionsTile. The old name described the D7
+// single-source-of-truth check — <tr> count == the Sessions tile's OWN rendered
+// value, both parsed independently out of the HTML — which went away with
+// sessionsTileValueRe (see its note above). The row count now comes from the
+// fixture, so the name no longer claims a comparison the test does not make.
+func TestSuperchargerStatsFragment_ChartAndSelectorAndTable(t *testing.T) {
 	uid := uuid.New()
 	today := startOfDay(time.Now().UTC())
 	start := monthsBackFrom(today, superchargerRangeDefaultMonths)
