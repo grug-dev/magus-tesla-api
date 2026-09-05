@@ -117,7 +117,7 @@ pipeline or not, and `CLAUDE.md` §"Builds & local checks" states the same rule.
 |---|---|
 | `go build ./...`, `go vet ./...`, `gofmt -l` | **Claude may run these**, unprompted |
 | `make build`, `make vet`, `make bins` | **Claude** |
-| `make ui-guard`, `make i18n-guard`, `make money-guard`, `tz-guard`, `make migration-guard`, `make boundary-guard` | **Claude** — standalone guards, no tests |
+| `make ui-guard`, `make i18n-guard`, `make money-guard`, `tz-guard`, `make migration-guard`, `make boundary-guard`, `make theme-guard`, `make archive-guard` | **Claude** — standalone guards, no tests |
 | `go test ./...`, `make test`, `make test-with-db`, `make check` | **Owner only** — Claude never runs them |
 
 Everything on Claude's side is a **cheap deterministic signal**: fails fast, prints a few
@@ -125,9 +125,9 @@ lines, needs no human. `go vet` in particular compiles `_test.go` files, so it c
 signature drift and API mistakes in tests that were never executed. Skipping such a signal
 saves nothing — it converts it into a round-trip costing more than the output it replaced.
 
-`make check` is `build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard test`; it is owner-only purely
-because of the trailing `test`. Claude runs the other six individually, so excluding
-`check` costs no guard coverage.
+`make check` is `build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard
+theme-guard archive-guard test`; it is owner-only purely because of the trailing `test`. Claude
+runs the other phases individually, so excluding `check` costs no guard coverage.
 
 **Reporting rules — these are the point of the split:**
 

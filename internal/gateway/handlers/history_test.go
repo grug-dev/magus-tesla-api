@@ -1807,67 +1807,13 @@ func TestDashboardHistoryFragment_ContainsSVGViewBoxAndTitleTooltips(t *testing.
 	}
 }
 
-// TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows
-// (task 6.7, retargeted from the old ?days=N version): httptest with a fixture
-// spanning 6/14/30-bar windows. Asserts each bar's MM-DD label appears verbatim
-// and the vertical-label CSS class is present ONLY for >= 14 bars.
-func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows(t *testing.T) {
-	uid := uuid.New()
-	// end must be yesterday, not today: D11's cap now REJECTS an explicit
-	// end=today request (design.md D-G9) — this test submits an explicit
-	// ?end= via the URL, so it must respect the same cap the handler enforces.
-	// browserYesterdayUTC: browser-yesterday's DATE, expressed at UTC midnight.
-	// The date must follow the browser zone to clear parseHistoryRange's cap
-	// (history.go step 4), which rejects an end after BROWSER-yesterday — a
-	// UTC-derived date 400s between 00:00 and 05:00 UTC (review R2-1). The
-	// VALUE must be UTC midnight because this test sends an explicit ?end= and
-	// then reuses end as a window bound, and the handler's own bound comes from
-	// time.Parse, which is always UTC midnight. See browserYesterdayUTC's doc.
-	end := browserYesterdayUTC()
-	for _, numBars := range []int{6, 14, 30} {
-		start := end.AddDate(0, 0, -(numBars - 1)) // inclusive end → numBars days
-		days := calendarDays(start, end)
-		// Full coverage incl. lookback (odometer fixture only — the battery
-		// chart takes no lookback since D5).
-		snaps := snapsForDays(append([]time.Time{start.AddDate(0, 0, -1)}, days...), 1000, 10)
-		battery := batteryForDays(days, 70)
-		analyticsReader := &fakeAnalyticsReader{snaps: snaps, battery: battery}
-		h := newHandlerForHistory(analyticsReader, 42, "VIN42")
-		eng := historyEngine(h, uid, 42, "VIN42")
-		c := sessionCookie(eng, uid, "")
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s", start.Format("2006-01-02"), end.Format("2006-01-02")), nil)
-		if c != nil {
-			req.AddCookie(c)
-		}
-		eng.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("numBars=%d: want 200, got %d", numBars, w.Code)
-		}
-		body := w.Body.String()
-
-		odo := buildOdometerChart(historyTestCtx, distancesFromSnaps(snaps, start, end), start, end)
-		bat := buildBatteryChart(historyTestCtx, battery, start, end)
-		for _, bar := range odo.Bars {
-			if !strings.Contains(body, bar.Label) {
-				t.Errorf("numBars=%d: odometer label %q missing from body", numBars, bar.Label)
-			}
-		}
-		for _, bar := range bat.Bars {
-			if !strings.Contains(body, bar.Label) {
-				t.Errorf("numBars=%d: battery label %q missing from body", numBars, bar.Label)
-			}
-		}
-
-		hasVerticalClass := strings.Contains(body, "[writing-mode:vertical-rl]")
-		wantVertical := numBars >= 14
-		if hasVerticalClass != wantVertical {
-			t.Errorf("numBars=%d: want vertical class present=%v, got %v", numBars, wantVertical, hasVerticalClass)
-		}
-	}
-}
-
+// MAG-50: TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows
+// was removed. It asserted `[writing-mode:vertical-rl]` appears only at >= 14 bars,
+// but MAG-46 step 2.3 made vertical the BASE for every bar count — a 6-bar chart on a
+// phone has ~42 px per label, so the labels rotate regardless of the flag, and the flag
+// only decides whether they straighten up again at `sm` (see historyBarLabelClass in
+// templates/fragments/history.templ). The test's premise was wrong, not the code, and
+// its other half — every bar label appears verbatim — is covered by the test below.
 // TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat
 // (task 6.7): the logic-free-template invariant. The labels the handler
 // pre-computed on the view model must appear verbatim in the rendered HTML,

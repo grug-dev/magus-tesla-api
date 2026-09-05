@@ -60,7 +60,8 @@ make sqlc      # sqlc generate → internal/{account,telemetry,charging,analytic
 make build     # go build ./...   — all internal/ packages + every cmd/
 
 # 3. Full local gate
-make check     # build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + test
+make check     # build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard
+#              # + boundary-guard + theme-guard + archive-guard + test
 ```
 
 Raw Go equivalents (no Make):
@@ -309,8 +310,19 @@ and [`ai/go-conventions.md`](ai/go-conventions.md).
 | **A new database table / column** | The **owning** `internal/<module>/` only — `db/migrations/*.sql` (goose) + `db/queries.sql`, exposed through the module's `Service`. Add the module's dir to `MIGRATIONS_DIRS` in the Makefile if it's the module's first table, and add the table to the README **Database tables by module** list in the same change. **`database` is a design-gate — confirm the design first.** | `make sqlc` → `make migrate-up` → `make check` |
 | **A new module** (a new subsystem/concern) | New `internal/<module>/` with a `Service` interface + DTOs; wire into the gateway **only** via `Deps` + its interface. Update the README **Project Structure** tree, the **Architecture** table, and (if it owns tables) **Database tables by module** in the same change. | `make sqlc` / `make templ` as needed → `make check` |
 
+**`openspec/changes/archive/` is immutable.** An archived change records what was proposed and
+decided at that time, so it is never edited or deleted — not even to correct it. Archiving a new
+change (adding its folder) and regrouping one unchanged under `archive/<module>/` are the only
+writes that folder ever takes. When an archived doc is stale, fix the live spec under
+`openspec/specs/` instead. **`make archive-guard`** (wired into `make check`) fails if any file
+already in the archive was modified or deleted, measured against the merge-base with `main` so it
+covers the whole branch plus uncommitted work. It exists because the docs-sweep rule above points
+you at every doc a change invalidated, and a grep for a module name will hit the archive. Escape
+hatch — only for something that is *not* a rewrite of the record, e.g. purging a leaked secret:
+`ARCHIVE_GUARD_ALLOW=1 make archive-guard`, with the reason in the commit message.
+
 Before committing any change, run **`make generate`** (sqlc + templ + css) then **`make check`**
-(build + vet + test). `make up` does generate + migrate + run.
+(build + vet + guards + test). `make up` does generate + migrate + run.
 
 ---
 

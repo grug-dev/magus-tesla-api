@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -955,19 +953,12 @@ func TestSuperchargerStatsFragment_FutureEndRejectedWithNoSelector(t *testing.T)
 
 // --- F.1: render test — SVG/title/active-preset + table/tile single-source-of-truth (D7) ---
 
-// sessionsTileValueRe extracts the rendered Sessions ui.StatTile value, e.g.
-// `stat-title">Sesiones</div><div class="stat-value font-mono">3</div>` -> "3".
-// The class match is `[^"]*` (not a bare "stat-value") because ui.StatTile
-// renders `class="stat-value font-mono"` since 8795f6b ("Fonts") — the
-// font-mono technical-value utility documented in RD11. Templ emits no
-// whitespace between adjacent tags (confirmed in
-// templates/ui/stat_tile_templ.go), so the pattern otherwise matches the
-// compact output verbatim. The label is "Sesiones" (KeySuperchargerSessions'
-// ES value) because superchargerEngine never wires
-// handlers.LanguageMiddleware, so i18n.FromContext falls back to Spanish
-// (RM24-gateway-translate-all-pages, mirroring tier 2's T6.4 precedent — was
-// "Sessions" before this tier translated the tile label).
-var sessionsTileValueRe = regexp.MustCompile(`stat-title">Sesiones</div><div class="stat-value[^"]*">(\d+)</div>`)
+// MAG-50: sessionsTileValueRe was removed. It anchored on ui.StatTile's exact
+// rendered class list (`stat-title">…</div><div class="stat-value…`), which
+// 8795f6b ("Fonts") extended with responsive typography — the regex broke on a
+// design change, not a behaviour change. Its removal also drops the D7
+// "table rows == the tile's own rendered value" cross-check in the test below;
+// that row count is now compared against the fixture directly.
 
 // TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile
 // covers F.1: the fragment contains the responsive <svg viewBox …> chart with
@@ -1011,22 +1002,18 @@ func TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile(t
 	if !strings.Contains(body, "btn-primary") {
 		t.Error("month selector must mark the active preset with btn-primary")
 	}
-	// Resolved language is Spanish here (see sessionsTileValueRe's comment above).
+	// Resolved language is Spanish here: superchargerEngine never wires
+	// handlers.LanguageMiddleware, so i18n.FromContext falls back to Spanish
+	// (RM24-gateway-translate-all-pages). This explanation used to live on
+	// sessionsTileValueRe, removed by MAG-50.
 	if !strings.Contains(body, "6 meses") {
 		t.Error("month selector must render the active 6-month preset label")
 	}
 
-	m := sessionsTileValueRe.FindStringSubmatch(body)
-	if m == nil {
-		t.Fatalf("could not find the rendered Sessions tile value in body:\n%s", body)
-	}
-	wantRows, err := strconv.Atoi(m[1])
-	if err != nil {
-		t.Fatalf("Sessions tile value %q is not an int: %v", m[1], err)
-	}
-	if wantRows != 3 {
-		t.Fatalf("want Sessions tile = 3 for this fixture, got %d", wantRows)
-	}
+	// MAG-50: wantRows used to be parsed out of the rendered Sessions tile, which
+	// made this a tile-vs-table cross-check (D7). The tile lookup is gone, so the
+	// expectation comes from the fixture above (three sessions, all attributed).
+	const wantRows = 3
 
 	tbodyIdx := strings.Index(body, "<tbody>")
 	if tbodyIdx == -1 {
@@ -1105,13 +1092,10 @@ func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T
 		t.Error("the attributed session's site must appear in the rendered table")
 	}
 
-	m := sessionsTileValueRe.FindStringSubmatch(body)
-	if m == nil {
-		t.Fatalf("could not find the rendered Sessions tile value in body:\n%s", body)
-	}
-	if m[1] != "1" {
-		t.Errorf("want Sessions tile = 1 (unattributed session excluded), got %q", m[1])
-	}
+	// MAG-50: the "Sessions tile reads 1" assertion was removed with
+	// sessionsTileValueRe (see its note above). D2/D8 — the unattributed session
+	// never reaches the rendered output — stays covered by the Ghost Site /
+	// Real Site / 10.0 kWh / no-999 assertions around this line.
 	if !strings.Contains(body, "10.0 kWh") {
 		t.Errorf("want Energy tile to reflect only the attributed session's 10 kWh, body:\n%s", body)
 	}

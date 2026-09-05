@@ -70,7 +70,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -657,7 +657,53 @@ theme-guard: ## Fail if ui.Themes, account's Theme* constants, and input.css's r
 		echo "theme-guard: ui.Themes, account's Theme* constants, and input.css agree ($$ui_themes)"; \
 	fi
 
-check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + theme-guard + test
+# archive-guard is the one guard that reads git history instead of the working tree,
+# because the rule it enforces is about CHANGE, not about content: everything under
+# openspec/changes/archive/ is an immutable snapshot of what was decided at the time.
+# Nothing in there is ever edited or deleted — a wrong archived doc is corrected in
+# openspec/specs/ (the live spec), never rewritten in place, or the audit trail of what
+# was actually proposed is lost.
+#
+# The guard exists because CLAUDE.md's "Docs track structural change" rule points every
+# assistant at every doc a change invalidated, and a grep for a module name hits the
+# archive. Without a deterministic signal, an agent "fixes" history in good faith.
+#
+# Baseline is the merge-base with main, so the guard covers the whole feature branch plus
+# the uncommitted working tree (git diff <commit> compares against the working tree). On
+# main itself the merge-base IS HEAD, so it covers the uncommitted work only.
+#
+# Allowed: A (a newly archived change folder) and R100 (a pure move — this repo regroups
+# archives under archive/<module>/ after the CLI drops them at the archive root; an exact
+# rename keeps the content byte-identical). Fails on M / D / T, and on a move that also
+# edits, which git reports as a D+A pair rather than a rename.
+#
+# Escape hatch: ARCHIVE_GUARD_ALLOW=1 make archive-guard, only for something that is not
+# a rewrite of the record (e.g. purging a leaked secret). State the reason in the commit
+# message. Never widen the pattern to silence a true positive.
+archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or deleted (archives are immutable; escape hatch: ARCHIVE_GUARD_ALLOW=1)
+	@if [ -n "$$ARCHIVE_GUARD_ALLOW" ]; then \
+		echo "archive-guard: SKIPPED via ARCHIVE_GUARD_ALLOW — state the reason in the commit message"; \
+		exit 0; \
+	fi
+	@base=$$(git merge-base HEAD main 2>/dev/null || git rev-parse HEAD); \
+	hits=$$(git diff --name-status -M100% "$$base" -- openspec/changes/archive | grep -E '^(M|D|T)' || true); \
+	if [ -n "$$hits" ]; then \
+		echo "$$hits"; \
+		echo ""; \
+		echo "ERROR: the archived files above were edited or deleted (baseline $$base)."; \
+		echo "openspec/changes/archive/ is an immutable record of what was decided at the"; \
+		echo "time. Adding a newly archived change folder is fine, and so is moving one"; \
+		echo "under archive/<module>/ unchanged — rewriting one is not."; \
+		echo "Stale or wrong archived doc? Fix the live spec in openspec/specs/ instead."; \
+		echo "Restore them with: git checkout $$base -- openspec/changes/archive"; \
+		echo "Genuinely not a rewrite of the record (e.g. a leaked secret)? Run"; \
+		echo "ARCHIVE_GUARD_ALLOW=1 make archive-guard and say why in the commit message."; \
+		exit 1; \
+	else \
+		echo "archive-guard: no archived file edited or deleted since $$base"; \
+	fi
+
+check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + theme-guard + archive-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

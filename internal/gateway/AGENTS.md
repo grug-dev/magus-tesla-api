@@ -658,35 +658,23 @@ HTML) stays cheap and predictable.
 
 ### Exception: user-initiated writes (D4 amendment — RM3-gateway-add-manual-charge-ui)
 
-The gateway MAY call `charging.Writer` (Create / Update / Delete) on explicit
-**user-initiated form POSTs/PUTs/DELETEs** (`ExternalChargeCreate`, `ExternalChargeRowUpdate`,
-`ExternalChargeRowDelete`), subject to ALL of the following constraints:
+The gateway MAY call `charging.Writer` (Create / Update / Delete) from the
+`/external-charges` form handlers (`ExternalChargeCreate`, `ExternalChargeRowUpdate`,
+`ExternalChargeRowDelete`) — and **only** those. Every such write needs, in order: the
+`currentUID(c)` auth guard (else redirect to `/login`), a `RegisteredVehicles`
+tenant-ownership check on the submitted `(tesla_id, vin)` pair (403 if the vehicle is not
+the caller's), and `checkCSRF(c)` against the session key `csrf_externalcharge` (403 on
+mismatch). This does NOT open general write access — Reader-only remains the default for
+every other handler.
 
-1. **Auth guard first** — `currentUID(c)` must resolve a valid session UID or the
-   handler redirects to `/login` and returns. No write proceeds without an
-   authenticated user.
-2. **Tenant ownership validated before every write** — the handler calls
-   `h.acct.RegisteredVehicles(ctx, uid)` and confirms the submitted `(tesla_id, vin)`
-   pair belongs to the calling user's account. If the vehicle is not in the user's
-   list, the handler returns HTTP 403 (forbidden) without calling Writer. This is the
-   referential integrity flow: no cross-module FK exists in the DB, so the gateway
-   enforces tenant scoping at the application layer.
-3. **CSRF token on every state-changing route** — the handler calls `checkCSRF(c)`,
-   which reads `csrf_token` from the form body (or `X-CSRF-Token` header) and
-   compares it via `subtle.ConstantTimeCompare` to the session key
-   `"csrf_externalcharge"`. Returns HTTP 403 on mismatch; no write proceeds.
-4. **Only `charging.Writer` is permitted** — this is the narrow aperture.
-   This amendment does NOT open general write access to the gateway; Reader-only
-   remains the default for ALL other handlers (dashboard, telemetry fragments,
-   health, OAuth, etc.).
+**Why the gateway carries the ownership check at all:** no cross-module FK exists in the
+database, so tenant scoping for this write is enforced at the application layer. Keep it
+in the handler; do not push it into `charging`.
 
-**Rationale:** Manual charge entry is a different class of request from dashboard
-reads: the user explicitly fills a form and submits it. Denying all writes at the
-gateway layer would force an external HTTP API that the browser would then need to
-call — an unnecessary layer when the gateway is already the only HTML surface.
-The write is intentional (form POST), narrow (one module's Writer port),
-CSRF-protected, and tenant-scoped.
-
+Per-route detail — which handler does what, the recalculation window, the response
+shapes — lives in `kkpa/context/workflows/manual-charge-crud.md` and
+`kkpa/context/input-port/charging/external-charges.md`. Fetch those before changing a
+charge write.
 ### Manual charge form & list — page detail lives in the KB
 
 The `/external-charges` form layout, its field rules, the edit-save retarget, the
@@ -800,78 +788,42 @@ to match `lang.go`'s.
 
 ### Exception: Supercharger session battery verification (D8 amendment — RM31-gateway-add-session-battery-edit)
 
-The gateway MAY call `charging.SessionVerifier.VerifySession` from
-`SuperchargerRowUpdate` (`PATCH /ui/supercharger-stats/row/:id`), subject to
-ALL of the following constraints. `SessionVerifier` is a DIFFERENT port from
-D4's `charging.Writer` — this amendment does not stretch D4's language to
-cover it, it names its own aperture:
+The gateway MAY call `charging.SessionVerifier.VerifySession` from `SuperchargerRowUpdate`
+(`PATCH /ui/supercharger-stats/row/:id`) — nothing else passes through this aperture.
+`SessionVerifier` is a DIFFERENT port from D4's `charging.Writer`: this amendment names its
+own aperture rather than stretching D4's language, and it changes nothing about D4. Auth
+guard first, then `checkCSRFKey(c, csrfSuperchargerKey)` — `"csrf_supercharger"`, a session
+key distinct from D4's, issued once by `SuperchargerStatsPage` and only read afterwards.
 
-1. **Auth guard first** — `currentUID(c)` must resolve a valid session UID or
-   the handler redirects to `/login` and returns. No write proceeds without an
-   authenticated user.
-2. **CSRF token on the write route** — the handler calls
-   `checkCSRFKey(c, csrfSuperchargerKey)`, where `csrfSuperchargerKey =
-   "csrf_supercharger"` is a NEW session key, distinct from D4's
-   `"csrf_externalcharge"`. Issued once by `SuperchargerStatsPage`; read (never
-   re-issued) by `SuperchargerStatsFragment` and every row-level handler.
-   Returns HTTP 403 on a missing/stale/mismatched token; no write proceeds.
-3. **No separate `RegisteredVehicles` ownership check — a deliberate
-   divergence from D4, not an oversight.** D4's write path validates the
-   submitted `(TeslaID, VIN)` pair against `account.RegisteredVehicles`
-   before calling `Writer`. This aperture does NOT perform that check.
-   `VerifySession`'s own `WHERE id = @id AND account_id = @account_id` clause
-   is the sole tenant boundary for this write: it has no `TeslaID`/vehicle
-   predicate at all, so a session belonging to a different vehicle on the
-   SAME account remains writable through this route (not a tenancy
-   escalation — the account owns both sessions), while a session belonging
-   to a DIFFERENT account's data is excluded by the `WHERE` clause itself,
-   never reachable regardless of the id supplied.
-4. **Only `charging.SessionVerifier.VerifySession` is permitted** — this is
-   the narrow aperture. This amendment does NOT open general write access to
-   the gateway; Reader-only remains the default for ALL other handlers, and
-   D4's own `RegisteredVehicles` ownership check remains required on D4's
-   write path — this amendment changes nothing about D4.
+**The one divergence you must not "fix": there is deliberately NO `RegisteredVehicles`
+ownership check here.** `VerifySession`'s own `WHERE id = @id AND account_id = @account_id`
+is the sole tenant boundary — the port has no vehicle predicate at all, so a `TeslaID` check
+in the gateway would test a predicate the write itself never applies. A session on another
+vehicle of the SAME account stays writable through this route by design; another account's
+row is unreachable regardless of the id supplied.
 
-**Rationale:** identical in shape to D4's — an explicit user-initiated form
-save, CSRF-protected — but the ownership-check divergence (point 3) exists
-because `VerifySession` was designed (tier 1,
-`RM29-charging-add-session-verification`) with account-scoping as its own
-complete tenant boundary, and re-deriving a `TeslaID`-based check the port's
-own `WHERE` clause does not use would test a predicate the write itself never
-applies.
-
+Full flow, DB effects and the recalculation window:
+`kkpa/context/use-case/charging/verify-session-battery.md`.
 ### Inactive-account login block (RM34-gateway-block-inactive-login, 2026-08-30)
 
-`GoogleCallback` (`handlers.go`) refuses to establish a session for an account whose
-`account.Account.Status` is not `account.StatusActive`. Immediately after
-`h.acct.UpsertFromOAuth` resolves the account and BEFORE `h.syncLoginLanguageCookie` or
-`sess.Set("uid", ...)` runs, it calls `rejectIfInactive(c, acct)`: for anything other than
-`StatusActive` it renders `pages.AccountBlocked()` at HTTP 403 via `renderError` and returns
-`true`, telling the caller to stop. `rejectIfInactive` is a free function (no `Handler`
-receiver), factored out the same way `syncLoginLanguageCookie` is, because `h.google` is a
-concrete `*googleauth.Client` with no fake-able seam — the extraction is what makes the check
-testable with a hand-built `gin.Context` and a plain `account.Account`, with no live network
-call.
+`GoogleCallback` refuses a session to any account whose `account.Account.Status` is not
+`account.StatusActive`. `rejectIfInactive(c, acct)` runs after `h.acct.UpsertFromOAuth`
+resolves the account and **strictly before** `h.syncLoginLanguageCookie` or
+`sess.Set("uid", ...)`, rendering `pages.AccountBlocked()` at HTTP 403 via `renderError`.
+That ordering IS the security property — a check placed after a session write leaves a
+usable session behind on the refusal path. The check is fail-closed: anything that is not
+exactly `Active` is refused, never "reject when Inactive".
 
-**One render site, no route.** `pages.AccountBlocked()` is rendered exactly once, inline inside
-`GoogleCallback`'s 403 response. There is **no `GET /account-blocked` route** and no
-`exemptFromStatusGate` allowlist — an earlier design considered a per-request middleware
-(`AccountActiveGate`) that would have needed both as its own redirect target, but that
-middleware was withdrawn before implementation (roadmap `RM34-account-vehicle-status` D26): a
-newly-gated signup has never held a session, so the login-time block alone satisfies the
-ticket. If a future change needs to revoke an *already-established* session mid-flight, it
-needs its own design — do not assume this entry's shape (one inline render, no route)
-generalizes to that different problem.
+**One render site, no route.** There is no `GET /account-blocked` route and no
+status-gate middleware — an earlier `AccountActiveGate` design was withdrawn before
+implementation (RM34 D26). Do not add either. This shape does not generalize to revoking
+an **already-established** session mid-flight; that is a different problem and needs its
+own design.
 
-**Why the blocked page always renders in the visitor's pre-login language, not the account's
-stored preference.** `PreferencesMiddleware` runs before every handler and branches on
-`currentUID(c)`. For the `/auth/google/callback` request specifically, no session exists yet
-(this is the very request that would create one), so `currentUID` always returns `ok=false`
-here — `PreferencesMiddleware` takes its anonymous branch (the pre-login `lang` cookie, or Spanish
-by default) regardless of the resolved account's status or stored language. `GetAccountSettings`
-(tier 1's `status = 'Active'`-filtered query, renamed from `GetAccountLanguage` by RM42) is
-never consulted for this request at all, so there is no imprecision to reconcile.
-
+Everything else — why `rejectIfInactive` is a free function, why the page always renders
+in the visitor's pre-login language, the hardcoded contact address, and the account
+module's own half of the gate — lives in
+`kkpa/context/architecture/account-activation-gate.md`.
 ## Vehicle-scoped reads — always send the selected TeslaID
 
 The gateway is multi-tenant **and** multi-vehicle: the user picks the active vehicle with
@@ -1025,11 +977,22 @@ convention below).
   component (in `templates/fragments/history.templ`).
 
 **Standing convention (RD8):** Any decision to ADD, REPLACE, or DROP a client-side
-library, or to CHANGE a rendering/architecture approach for the gateway's UI
-(charts, interactive widgets, animations, drag-and-drop, etc.) MUST be recorded in
-this `AGENTS.md` in the SAME change — never in a commit message alone. The rationale
-and the rejected alternative must both be documented. This makes the decision visible
-to every future AI agent or human who reads this doc at the start of a session.
+library, or to CHANGE a rendering/architecture approach for the gateway's UI (charts,
+interactive widgets, animations, drag-and-drop, etc.) MUST be recorded in the SAME
+change — never in a commit message alone. **Where it is recorded depends on how far the
+decision reaches, and this split is mandatory:**
+
+- **Module-wide** (it binds a worker sent to *any* page): the rule, its rationale AND the
+  rejected alternative all go here, in this file.
+- **One page, one route, or one control**: only the *rule* gets an entry here — what is
+  permitted, plus any divergence a later worker could "fix" by mistake. The rationale, the
+  rejected alternative and the implementation detail go in that page's guide under
+  `kkpa/context/`, linked from the entry. Precedent: MAG-39 moved the `/external-charges`
+  form detail out this way; the D4, D8 and login-block entries above follow it.
+
+**Why the split is a rule and not a preference:** this file is re-read **in full** on every
+gateway dispatch, so one page's detail parked here is a tax on every other page's work. A
+long entry about a single route is the signal that it belongs in the KB.
 
 ## Client-side JS exception: browser_tz cookie script (RD9)
 

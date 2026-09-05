@@ -49,6 +49,12 @@
 
 ## Adapter-side conventions
 
+- **Tenant ownership is checked in the GATEWAY, on every write** — the handler calls
+  `account.Service.RegisteredVehicles` and confirms the submitted `(tesla_id, vin)` pair belongs
+  to the caller, returning `403` otherwise. It lives there, not in `charging`, because no
+  cross-module FK exists in the database: application-layer scoping is the only referential
+  boundary this write has. Never drop it "because the query is account-scoped" — unlike the
+  Supercharger path, `charging.Writer` takes the vehicle from the form.
 - **CSRF token key:** `csrf_externalcharge`, issued by `ExternalChargesPage` and `ExternalChargesContentFragment`.
   The delete button sends it on the **`X-CSRF-Token` header**, every other write in the body —
   Go does not parse bodies for `DELETE`.
