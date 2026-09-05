@@ -30,7 +30,9 @@
 - The rendered Vehicle Status card's status-bearing outputs are: locked badge (present /
   absent), sentry badge (present / absent), staleness badge (present / absent), the subtitle's
   charging-derived status word, and a three-tile stat row. Each badge is independently
-  driven by its own `*bool`; absence of a value means absence of the badge.
+  driven by its own `*bool`; absence of a value means absence of the badge. The stat row
+  is four tiles: odometer, interior temp, exterior temp, and the lifetime 100%-charge
+  count (MAG-47).
 
 ## Flow
 
@@ -51,10 +53,12 @@
    `RM38-gateway-read-dashboard-from-metrics`; same shape, new source type.)
 7. `mapDashboardSnapshot` — `internal/gateway/handlers/handlers.go` — formats every display
    string (`formatKm`, `°C`, `%`, `km`, charge limit) and computes `IsStale` via `isStale`.
-   `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`. Eight of
+   `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`. Nine of
    `VehicleStatus`'s fields are pointers (`InsideTempC`, `OutsideTempC`, `CarVersion`,
-   `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`, `SentryMode`) — nil never
-   fabricates a value, it omits the corresponding display field (see gotchas).
+   `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`, `SentryMode`,
+   `MaxRangeChargeCounter`) — nil never fabricates a value, it omits the corresponding
+   display field (see gotchas). `dashCountOrDash` formats the counter: nil → `"—"`, a
+   reported `0` → `"0"`.
 8. `Handler.vehicleImage` — `internal/gateway/vehicle_image.go` — maps
    (`CarType`, `ExteriorColor`) to a `/static/img/*.png` URL, falling back to `defaultCar.png`.
 
@@ -69,8 +73,8 @@ behind its interface.
 | 2 | READ | `vehicle_metrics` | `analytics.Reader.LatestMetricsByAccount` — `DISTINCT ON (tesla_id) … ORDER BY tesla_id, metric_date DESC` |
 
 Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outside_temp_c`,
-`charging_state`; plus `car_version`, `captured_at`, and the battery card's
-`battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
+`max_range_charge_counter`, `charging_state`; plus `car_version`, `captured_at`, and the
+battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
 
 ## Entities involved
 
@@ -121,12 +125,14 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
   `navHeaderFor` treats it as forced-Asleep, never Connected (roadmap D9).
   _Source: `internal/analytics/analytics.go`'s `LatestMetricsByAccount` doc comment;
   `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D8._
-- **Nil pointer fields omit, never fabricate.** Eight `VehicleStatus` fields are pointers
+- **Nil pointer fields omit, never fabricate.** Nine `VehicleStatus` fields are pointers
   (`InsideTempC`, `OutsideTempC`, `CarVersion`, `ChargeLimitSocPct`, `ChargingState`,
-  `CapturedAt`, `Locked`, `SentryMode`). A nil value means "not yet computed since the
-  migration" and the corresponding display field is left empty/omitted (e.g. `"—"` for a nil
-  temperature, no Locked/Sentry badge) — it is never defaulted to a fabricated `false`/`0`/
-  `""`. See design.md D2's per-field table for the exact rule per field.
+  `CapturedAt`, `Locked`, `SentryMode`, `MaxRangeChargeCounter`). A nil value means "not yet
+  computed since the migration" — for `SentryMode` and `MaxRangeChargeCounter` it can also
+  mean "not reported this capture" — and the corresponding display field is left
+  empty/omitted (e.g. `"—"` for a nil temperature or a nil 100%-charge count, no
+  Locked/Sentry badge) — it is never defaulted to a fabricated `false`/`0`/`""`. The
+  counter's real `0` is a reading, not an absence, and renders as `"0"`. See design.md D2's per-field table for the exact rule per field.
   _Source: `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D3/D7._
 - **Four distinct degradation states, never a 500.** `NeedsConnect` (no registered vehicles ⇒
   connect prompt), `TelemetryUnavailable` (reader error ⇒ warning `Alert` + identity-only
@@ -154,8 +160,8 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
 - **The Vehicle Status card shows locked/sentry as header badges, and has no "Status" stat
   tile.** The card header row carries the locked badge, the sentry badge and the staleness
   badge together; none suppresses the others, and each appears purely on its own value. The
-  mini-stat grid is a single row of exactly three tiles — odometer, interior temp, exterior
-  temp. The card **subtitle keeps** the charging-derived status word ("Parked • Software
+  mini-stat grid holds four tiles — odometer, interior temp, exterior temp, 100%-charge
+  count (MAG-47 added the fourth) — laid out 2x2 below `lg` and one row on desktop. The card **subtitle keeps** the charging-derived status word ("Parked • Software
   v11.1.2"); only the tile was removed. Do not "restore" a Status tile, and do not drop the
   subtitle's status word.
   _Source: spec gateway — Requirement: Dashboard Vehicle Status Card Shows Locked and Sentry-Mode Badges, Not a Status Tile._

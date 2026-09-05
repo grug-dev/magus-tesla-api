@@ -451,6 +451,18 @@ func dashTempOrDash(v *float64) string {
 	return fmt.Sprintf("%.0f °C", *v)
 }
 
+// dashCountOrDash formats a nilable whole-number count for the dashboard hero.
+// nil -> "—", the same placeholder dashTempOrDash uses, because the counter's
+// NULL is equally ambiguous (the vehicle did not report it, or the
+// vehicle_metrics row predates the column) and neither case is a zero. A
+// reported 0 is a real reading and renders as "0".
+func dashCountOrDash(v *int) string {
+	if v == nil {
+		return "—"
+	}
+	return strconv.Itoa(*v)
+}
+
 // mapDashboardSnapshot fills the dashboard view model's display fields from the
 // account's latest per-vehicle status row. All derivation/rounding/unit-formatting
 // happens here so the template receives fully-computed strings (gateway spec
@@ -477,6 +489,7 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, vs a
 	vm.Odometer = formatKm(vs.OdometerKm)
 	vm.InsideTemp = dashTempOrDash(vs.InsideTempC)
 	vm.OutsideTemp = dashTempOrDash(vs.OutsideTempC)
+	vm.MaxRangeCharges = dashCountOrDash(vs.MaxRangeChargeCounter)
 	vm.Battery = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
 	vm.BatteryPct = strconv.Itoa(vs.BatteryLevelPct)
 	vm.RangeNow = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)

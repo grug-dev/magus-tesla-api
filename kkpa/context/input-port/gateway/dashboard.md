@@ -14,8 +14,9 @@
 
 - **Route / URI:** `/dashboard`
 - **Description:** The signed-in landing page for the **selected** vehicle. A 12-column bento
-  grid: an 8-col "Vehicle Status" hero (car image, Odometer / Interior / Exterior / Status
-  tiles, software version, last-updated line, stale badge) and a 4-col vital-stats column
+  grid: an 8-col "Vehicle Status" hero (car image, four stat tiles — Odometer / Interior /
+  Exterior / 100% Charges — software version, last-updated line, stale badge; the locked
+  and sentry states are header badges, there is no "Status" tile) and a 4-col vital-stats column
   (battery %, range, charge limit) above a self-loading history-charts region.
 - **Module:** `gateway`
 
@@ -25,7 +26,7 @@ The files that render this page. A UI-only change should never need the use-case
 
 | File | Role |
 |---|---|
-| `internal/gateway/templates/pages/dashboard.templ` | The page. Bento grid, `Vehicle Status` hero, battery card, and the empty `#dashboard-history` container. Wraps everything in `@templ.Fragment("dashboard")` so the htmx swap can re-emit just this region. |
+| `internal/gateway/templates/pages/dashboard.templ` | The page. Bento grid, `Vehicle Status` hero (its stat grid is `grid-cols-2 lg:grid-cols-4` — 2x2 on phone/tablet, one row on desktop; never `sm:grid-cols-3`, which strands the fourth tile), battery card, and the empty `#dashboard-history` container. Wraps everything in `@templ.Fragment("dashboard")` so the htmx swap can re-emit just this region. |
 | `internal/gateway/templates/pages/dashboard.go` | Template helpers: `dashSubtitle`, `dashStat` (`—` placeholder), `dashBatteryColorClass` (a thin adapter over `ui.BatteryBandClass`), `dashPctAttr` (returns an `int` for `ui.Progress`), `dashChargeLimit`. |
 | `internal/gateway/templates/fragments/dashboard_vm.go` | `fragments.DashboardData` — the logic-free view model. Every metric is a pre-computed display string. |
 | `internal/gateway/templates/pages/dashboard_history.templ` | The `#dashboard-history` **contents**: the three charts + the window preset selector. Wrapped in `@templ.Fragment("dashboard-history")`. |

@@ -61,16 +61,20 @@ templ Dashboard(d fragments.DashboardData) {
 							<div class="flex-1 flex items-center justify-center py-10">
 								<img src={ d.VehicleImage } alt={ d.VehicleName } class="object-contain"/>
 							</div>
-								// Two columns on a phone, three from `sm` up (AGENTS.md §Mobile R2/R3,
-								// MAG-46 step 2.1). Three columns at 375 px leaves each tile ~66 px of
-								// usable width while "45.678 km" needs ~108 px, so the values ran out of
-								// their cells and overlapped — no font size fixes that, only the grid.
-								// Two columns give ~117 px, which fits on one line. A fourth field would
-								// make this a clean 2x2; do NOT put it back to a fixed grid-cols-3.
-								<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+								// Two columns on a phone and a tablet, four from `lg` up (AGENTS.md
+								// §Mobile R2/R3, MAG-46 step 2.1). Three columns at 375 px leaves each
+								// tile ~66 px of usable width while "45.678 km" needs ~108 px, so the
+								// values ran out of their cells and overlapped — no font size fixes
+								// that, only the grid. Two columns give ~117 px, which fits on one line.
+								// The fourth tile makes it a clean 2x2 below `lg`, and a single row on
+								// desktop, where the 8-col hero is wide enough for four cells; do NOT
+								// put it back to a fixed grid-cols-3, and do not add sm:grid-cols-3 —
+								// that would strand the fourth tile alone on its own row.
+								<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
 									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardOdometer), Value: dashStat(d.HasSnapshot, d.Odometer)})
 									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardInterior), Value: dashStat(d.HasSnapshot, d.InsideTemp)})
 									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardExterior), Value: dashStat(d.HasSnapshot, d.OutsideTemp)})
+									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardMaxRangeCharges), Value: dashStat(d.HasSnapshot, d.MaxRangeCharges)})
 								</div>
 								if d.HasSnapshot && d.LastUpdated != "" {
 									<p class="text-xs text-base-content/50 mt-4">{ i18n.T(ctx, i18n.KeyDashboardLastUpdated) } { d.LastUpdated }</p>

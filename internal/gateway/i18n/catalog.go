@@ -101,6 +101,7 @@ const (
 	KeyDashboardOdometer           Key = "dashboard.odometer"
 	KeyDashboardInterior           Key = "dashboard.interior"
 	KeyDashboardExterior           Key = "dashboard.exterior"
+	KeyDashboardMaxRangeCharges    Key = "dashboard.max_range_charges"
 	KeyDashboardStatus             Key = "dashboard.status"
 	KeyDashboardLastUpdated        Key = "dashboard.last_updated"
 	KeyDashboardRangePrefix        Key = "dashboard.range_prefix"
@@ -407,8 +408,8 @@ const (
 // and that test fails at `go test` time if it ever is.
 var catalog = map[Key]entry{
 	KeyNavDashboard:          {ES: "Panel", EN: "Dashboard"},
-	KeyNavManualRecords:      {ES: "Registros manuales", EN: "Manual Records"},
-	KeyNavSuperchargerStats:  {ES: "Estadísticas Supercharger", EN: "Supercharger Stats"},
+	KeyNavManualRecords:      {ES: "Externas", EN: "External"},
+	KeyNavSuperchargerStats:  {ES: "Supercharger", EN: "Supercharger"},
 	KeyNavVehicleStats:       {ES: "Estadísticas", EN: "Vehicle Stats"},
 	KeyNavCommunityBenchmark: {ES: "Comparativa", EN: "Community Benchmark"},
 	KeyNavSectionCharging:    {ES: "Carga", EN: "Charging"},
@@ -463,6 +464,7 @@ var catalog = map[Key]entry{
 	KeyDashboardOdometer:           {ES: "Odómetro", EN: "Odometer"},
 	KeyDashboardInterior:           {ES: "Interior", EN: "Interior"},
 	KeyDashboardExterior:           {ES: "Exterior", EN: "Exterior"},
+	KeyDashboardMaxRangeCharges:    {ES: "Cargas 100%", EN: "100% Charges"},
 	KeyDashboardStatus:             {ES: "Estado", EN: "Status"},
 	KeyDashboardLastUpdated:        {ES: "Última actualización", EN: "Last updated"},
 	KeyDashboardRangePrefix:        {ES: "Autonomía", EN: "Range"},

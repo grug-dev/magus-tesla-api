@@ -62,6 +62,16 @@ type vehicleMetricRow struct {
 	ChargeLimitSocPct *int
 	CapturedAt        *time.Time
 
+	// MaxRangeChargeCounter is a ninth raw observation on exactly the same
+	// terms as the eight above -- copied verbatim from cur in BOTH branches,
+	// never derived. Already a *int on telemetry.Snapshot (nil = the vehicle
+	// did not report it, or the snapshot predates telemetry's own extraction),
+	// so unlike Locked/CarVersion it is assigned directly rather than
+	// address-taken; that nil travels through to a SQL NULL untouched. A
+	// reported 0 is a real value ("never charged to max range") and must stay
+	// distinguishable from nil.
+	MaxRangeChargeCounter *int
+
 	// The five _calc columns (D9) -- computed by consumption.go's
 	// deriveConsumption from this row's snapshot pair. They used to be copied
 	// verbatim off telemetry.Snapshot's own _calc fields; RM29 tier 4 moved
@@ -262,7 +272,9 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 				ChargingState:     &cur.ChargingState,
 				ChargeLimitSocPct: &cur.ChargeLimitSocPct,
 				CapturedAt:        &cur.CapturedAt,
-				Flagged:           false,
+
+				MaxRangeChargeCounter: cur.MaxRangeChargeCounter,
+				Flagged:               false,
 			})
 			continue
 		}
@@ -301,6 +313,7 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			ChargingState:          &cur.ChargingState,
 			ChargeLimitSocPct:      &cur.ChargeLimitSocPct,
 			CapturedAt:             &cur.CapturedAt,
+			MaxRangeChargeCounter:  cur.MaxRangeChargeCounter,
 			DistanceTraveledKmCalc: calc.DistanceTraveledKmCalc,
 			BatteryUsedPctCalc:     calc.BatteryUsedPctCalc,
 			KmPerPctCalc:           calc.KmPerPctCalc,

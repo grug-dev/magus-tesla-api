@@ -111,9 +111,13 @@ interface-first):
   this module instead of `internal/telemetry`. `VehicleStatus` is the returned domain
   type: `TeslaID`, `BatteryLevelPct`, `BatteryRangeKm`, `OdometerKm` (never nil — the
   three pre-existing raw observations) plus `InsideTempC`, `OutsideTempC`, `Locked`,
-  `SentryMode`, `CarVersion`, `ChargingState`, `ChargeLimitSocPct`, `CapturedAt` (all
-  pointer-typed — nil means "no value", never a fabricated default; see "Data ownership"
-  below for what nil means on each). Full rationale, the coverage check against every
+  `SentryMode`, `CarVersion`, `ChargingState`, `ChargeLimitSocPct`, `CapturedAt` and
+  `MaxRangeChargeCounter` (all pointer-typed — nil means "no value", never a fabricated
+  default; see "Data ownership" below for what nil means on each).
+  `MaxRangeChargeCounter` is the vehicle's LIFETIME count of charges to its true 100%
+  Maximum-Battery-Range limit — monotonic across rows, never a per-day delta — added to
+  the projection for the dashboard's "100% Charges" tile (MAG-47). A reported `0` is a
+  real reading ("never charged to max range") and is never collapsed to nil. Full rationale, the coverage check against every
   field a future gateway call site needs, and the rejected "return `telemetry.Snapshot`
   directly" alternative: `openspec/changes/RM38-analytics-add-vehicle-status-columns/design.md`
   D4/D5/D6.
@@ -288,6 +292,15 @@ here was "None"; it is no longer.
     `openspec/changes/RM38-analytics-add-vehicle-status-columns/design.md` D2/D3/D8,
     which also documents the `captured_at`-as-proxy disambiguation a future consumer
     can use.
+  - **`max_range_charge_counter`** (migration `20260905000001`) is a **ninth** column of
+    exactly that shape: copied verbatim from the day's own `telemetry.Snapshot`, always
+    populated regardless of a computable predecessor, nullable, **no backfill**. Two
+    things set it apart from the eight above. It carries **no unit suffix** because it
+    is a count, not a measurement (`ai/go-conventions.md` §display units). And its NULL
+    is **ambiguous like `sentry_mode`'s**, not like the other seven: the vehicle may not
+    have reported it (the telemetry source field is itself a `*int`) or the row may
+    predate the migration — disambiguate via `captured_at`. A reported `0` is stored as
+    `0`, never NULL.
 - `vehicle_metric_watermarks` — one recompute cursor per `(account_id, tesla_id,
   source)`, three sources. Drives `Reconcile`'s incremental pass; no row means "epoch",
   i.e. backfill the vehicle's full history (`design.md` D7).

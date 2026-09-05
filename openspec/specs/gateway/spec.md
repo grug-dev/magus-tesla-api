@@ -2939,9 +2939,10 @@ active vehicle's locked state and sentry-mode state as badges in the card's head
 row, alongside the existing staleness badge, and SHALL NOT show a separate "Status"
 stat tile in its mini-stat grid. The card subtitle SHALL continue to show the
 charging-derived status word exactly as before this change — only the stat tile is
-removed, not the subtitle's status word. The mini-stat grid SHALL render its
-remaining three tiles (odometer, interior temperature, exterior temperature) as a
-single row.
+removed, not the subtitle's status word. The mini-stat grid SHALL render four tiles
+(odometer, interior temperature, exterior temperature, and the lifetime count of
+charges to 100%) — two per row on small screens, a single row on desktop. The
+prohibition is on a "Status" tile specifically, not on the grid ever growing.
 
 A locked-state badge SHALL render only when the active vehicle's latest precomputed
 row carries a locked observation; an absent observation SHALL render no badge at
@@ -2956,8 +2957,8 @@ independently to the sentry-mode badge.
 - **THEN** the Vehicle Status card header shows a "Locked" badge in a
   success-colored (green) style
 - **AND** shows a "Sentry: On" badge in a warning-colored style
-- **AND** the mini-stat grid shows exactly three tiles: odometer, interior
-  temperature, exterior temperature — no "Status" tile
+- **AND** the mini-stat grid shows the odometer, interior temperature, exterior
+  temperature and 100%-charge-count tiles — and no "Status" tile
 
 #### Scenario: Unlocked and sentry-off render distinct badge colors from locked and sentry-on
 
@@ -2980,6 +2981,15 @@ independently to the sentry-mode badge.
 - **AND** no badge defaults to "Unlocked" or "Sentry: Off" in the absence of data
 - **AND** the card's other fields (subtitle, battery, odometer, temperatures) render
   per their own absence rules, independently of the missing badges
+
+#### Scenario: The 100%-charge count distinguishes "not reported" from a real zero
+
+- **GIVEN** a signed-in user whose active vehicle's latest precomputed row carries no
+  100%-charge count (the vehicle did not report it, or the row predates the column)
+- **WHEN** the dashboard is rendered
+- **THEN** the 100%-charge tile shows the "—" placeholder
+- **AND** a vehicle whose row reports a count of `0` instead shows "0", because "never
+  charged to 100%" is a real reading and SHALL NOT be rendered as absent
 
 #### Scenario: Badges and the staleness marker coexist in the same header row
 

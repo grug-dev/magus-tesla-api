@@ -25,6 +25,9 @@
 -- created_at column above -- copied verbatim from the day's own
 -- telemetry.Snapshot on EVERY re-derivation, regardless of predecessor
 -- existence (design D1/D3 of RM38-analytics-add-vehicle-status-columns).
+-- max_range_charge_counter follows that same rule: another raw observation
+-- copied verbatim from the day's own snapshot, refreshed on every
+-- re-derivation, populated with or without a predecessor.
 INSERT INTO analytics.vehicle_metrics (
     account_id, tesla_id, metric_date,
     battery_level_pct, odometer_km, battery_range_km,
@@ -32,7 +35,8 @@ INSERT INTO analytics.vehicle_metrics (
     estimated_range_km_calc, days_spanned_calc,
     consumed_pct, flagged, missing_charging_type,
     locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
-    charging_state, charge_limit_soc_pct, captured_at
+    charging_state, charge_limit_soc_pct, captured_at,
+    max_range_charge_counter
 ) VALUES (
     @account_id, @tesla_id, @metric_date,
     @battery_level_pct, @odometer_km, @battery_range_km,
@@ -40,7 +44,8 @@ INSERT INTO analytics.vehicle_metrics (
     @estimated_range_km_calc, @days_spanned_calc,
     @consumed_pct, @flagged, @missing_charging_type,
     @locked, @sentry_mode, @car_version, @inside_temp_c, @outside_temp_c,
-    @charging_state, @charge_limit_soc_pct, @captured_at
+    @charging_state, @charge_limit_soc_pct, @captured_at,
+    @max_range_charge_counter
 )
 ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     battery_level_pct         = EXCLUDED.battery_level_pct,
@@ -62,6 +67,7 @@ ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     charging_state              = EXCLUDED.charging_state,
     charge_limit_soc_pct        = EXCLUDED.charge_limit_soc_pct,
     captured_at                 = EXCLUDED.captured_at,
+    max_range_charge_counter    = EXCLUDED.max_range_charge_counter,
     updated_at                 = now();
 
 -- name: LatestVehicleMetricsByAccount :many
@@ -76,10 +82,15 @@ ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
 -- match this query's ORDER BY exactly, eliminating the incremental sort
 -- the existing all-ascending vehicle_metrics_account_tesla_date_unique
 -- index would otherwise force (design.md "Index Plan", revised).
+-- max_range_charge_counter joined the projection for the dashboard's
+-- "100% Charges" tile: it is one more nullable raw observation on the same
+-- latest row, so it adds a column to an existing read, not a second query --
+-- and no index, since it appears in no WHERE/ORDER BY.
 SELECT DISTINCT ON (tesla_id)
     tesla_id, battery_level_pct, battery_range_km, odometer_km,
     inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
-    charging_state, charge_limit_soc_pct, captured_at
+    charging_state, charge_limit_soc_pct, captured_at,
+    max_range_charge_counter
 FROM analytics.vehicle_metrics
 WHERE account_id = @account_id
 ORDER BY tesla_id, metric_date DESC;

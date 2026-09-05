@@ -311,6 +311,14 @@ type VehicleStatus struct {
 	ChargingState     *string
 	ChargeLimitSocPct *int
 	CapturedAt        *time.Time
+	// MaxRangeChargeCounter is the vehicle's LIFETIME count of charges to its
+	// true 100% Maximum-Battery-Range limit, copied verbatim from the day's own
+	// telemetry.Snapshot — monotonic across rows, never a per-day delta. Pointer
+	// for the same reason as the fields above, but with a wider ambiguous NULL
+	// (see the column comment on max_range_charge_counter): nil means either
+	// "the vehicle did not report it" or "the row predates the column". A
+	// reported 0 is a real value — never collapse it to nil.
+	MaxRangeChargeCounter *int
 }
 
 // Efficiency is one computed rolling-efficiency result — our own domain model,

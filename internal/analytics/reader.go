@@ -267,18 +267,19 @@ func (r *reader) LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID
 	out := make([]VehicleStatus, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, VehicleStatus{
-			TeslaID:           row.TeslaID,
-			BatteryLevelPct:   int(row.BatteryLevelPct),
-			BatteryRangeKm:    row.BatteryRangeKm,
-			OdometerKm:        row.OdometerKm,
-			InsideTempC:       ptrFloat64FromPg(row.InsideTempC),
-			OutsideTempC:      ptrFloat64FromPg(row.OutsideTempC),
-			Locked:            ptrBoolFromPg(row.Locked),
-			SentryMode:        ptrBoolFromPg(row.SentryMode),
-			CarVersion:        ptrStringFromPg(row.CarVersion),
-			ChargingState:     ptrStringFromPg(row.ChargingState),
-			ChargeLimitSocPct: ptrIntFromPg(row.ChargeLimitSocPct),
-			CapturedAt:        ptrTimeFromPg(row.CapturedAt),
+			TeslaID:               row.TeslaID,
+			BatteryLevelPct:       int(row.BatteryLevelPct),
+			BatteryRangeKm:        row.BatteryRangeKm,
+			OdometerKm:            row.OdometerKm,
+			InsideTempC:           ptrFloat64FromPg(row.InsideTempC),
+			OutsideTempC:          ptrFloat64FromPg(row.OutsideTempC),
+			Locked:                ptrBoolFromPg(row.Locked),
+			SentryMode:            ptrBoolFromPg(row.SentryMode),
+			CarVersion:            ptrStringFromPg(row.CarVersion),
+			ChargingState:         ptrStringFromPg(row.ChargingState),
+			ChargeLimitSocPct:     ptrIntFromPg(row.ChargeLimitSocPct),
+			CapturedAt:            ptrTimeFromPg(row.CapturedAt),
+			MaxRangeChargeCounter: ptrIntFromPg(row.MaxRangeChargeCounter),
 		})
 	}
 	return out, nil

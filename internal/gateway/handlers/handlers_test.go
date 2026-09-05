@@ -806,6 +806,8 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 		ChargingState:     ptrString("Charging"),
 		ChargeLimitSocPct: ptrInt(80),
 		CapturedAt:        &capturedAt,
+
+		MaxRangeChargeCounter: ptrInt(12),
 	}
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	var vm fragments.DashboardData
@@ -853,6 +855,9 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 	if vm.SentryMode == nil || !*vm.SentryMode {
 		t.Errorf("want SentryMode *true, got %v", vm.SentryMode)
 	}
+	if vm.MaxRangeCharges != "12" {
+		t.Errorf("want MaxRangeCharges %q, got %q", "12", vm.MaxRangeCharges)
+	}
 }
 
 func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
@@ -887,6 +892,9 @@ func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
 	}
 	if vm.OutsideTemp != "—" {
 		t.Errorf("want OutsideTemp %q, got %q", "—", vm.OutsideTemp)
+	}
+	if vm.MaxRangeCharges != "—" {
+		t.Errorf("want MaxRangeCharges %q (nil counter), got %q", "—", vm.MaxRangeCharges)
 	}
 	// Odometer/Battery/RangeNow are always non-pointer — unaffected by the nil fixture.
 	if vm.Odometer != "18,452 km" {

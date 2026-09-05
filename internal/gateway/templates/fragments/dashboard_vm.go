@@ -9,14 +9,14 @@ package fragments
 // Degradation is signaled by distinct flags rather than free-form notice strings:
 //
 //   - NeedsConnect         — the account has no registered vehicles; the page
-//                            shows a "Connect your Tesla" prompt instead of the bento.
+//     shows a "Connect your Tesla" prompt instead of the bento.
 //   - TelemetryUnavailable — the telemetry Reader errored; the page shows a
-//                            warning Alert (Notice carries the message) and a
-//                            placeholder bento (vehicle identity only).
+//     warning Alert (Notice carries the message) and a
+//     placeholder bento (vehicle identity only).
 //   - HasSnapshot == false (and the above two false) — the vehicle is registered
-//                            but no nightly snapshot exists yet; the bento renders
-//                            with "—" placeholder values and an "Awaiting first
-//                            snapshot" subtitle (no alert — not an error).
+//     but no nightly snapshot exists yet; the bento renders
+//     with "—" placeholder values and an "Awaiting first
+//     snapshot" subtitle (no alert — not an error).
 type DashboardData struct {
 	NeedsConnect         bool
 	TelemetryUnavailable bool
@@ -42,6 +42,11 @@ type DashboardData struct {
 	Odometer    string // "20,088 km" (whole km, thousands-separated)
 	InsideTemp  string // "22 °C"
 	OutsideTemp string // "15 °C"
+	// MaxRangeCharges is the vehicle's lifetime count of charges to its true
+	// 100% Maximum-Battery-Range limit, already formatted ("12"). "—" when the
+	// vehicle never reported it or the stored row predates the column — the
+	// same placeholder the temperatures use. A reported 0 renders as "0".
+	MaxRangeCharges string
 
 	// --- Battery card ---
 	Battery     string // "94%"  — the big display number

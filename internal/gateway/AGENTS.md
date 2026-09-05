@@ -98,11 +98,14 @@ It renders what other modules expose; it owns no business data.
   `/ui/vehicles` card list — see `mapVehicles`'s own doc comment for why it is kept
   working despite having no route), `navHeaderFor` (status dot/battery — a nil
   `CapturedAt` forces `NavStatusAsleep`, never `NavStatusConnected`), and
-  `buildChargesPage`'s battery-suggestion lookup (`charges.go`). Eight of
+  `buildChargesPage`'s battery-suggestion lookup (`charges.go`). Nine of
   `analytics.VehicleStatus`'s fields are pointers (`InsideTempC`, `OutsideTempC`,
   `CarVersion`, `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`,
-  `SentryMode`) — nil means "not yet computed since the migration," never a fabricated
-  zero value; see `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md`
+  `SentryMode`, `MaxRangeChargeCounter`) — nil means "not yet computed since the
+  migration" (or, for `SentryMode` and `MaxRangeChargeCounter`, possibly "not reported
+  this capture"), never a fabricated zero value; `dashCountOrDash` renders a nil counter
+  as `"—"` and a reported `0` as `"0"`, the same omit-never-fabricate rule
+  `dashTempOrDash` follows; see `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md`
   D2/D3/D8 for the exact per-field nil-handling table.
 - `Deps.AnalyticsRecalculator analytics.Recalculator` — the analytics module's
   **write** port, injected the same way (wired from `cmd/web` via
