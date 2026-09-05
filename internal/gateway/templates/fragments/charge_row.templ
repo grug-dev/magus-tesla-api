@@ -29,7 +29,10 @@ import (
 // filtered list/tiles instead, matching the filter buttons' own target.
 templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string) {
 	<tr id={ "charge-row-" + vm.ID }>
-		<td>{ vm.ChargedOnLabel }</td>
+		<td>
+			<span class="sm:hidden">{ vm.ChargedOnShortLabel }</span>
+			<span class="hidden sm:inline">{ vm.ChargedOnLabel }</span>
+		</td>
 		<td>
 			<div class="flex items-center gap-2">
 				if vm.Complete {
@@ -38,37 +41,45 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string
 					@ui.Dot(ui.DotProps{Variant: "warning", Tooltip: i18n.T(ctx, i18n.KeyChargesDotIncompleteTooltip)})
 				}
 				if vm.RawStatus == "DONE" {
-					@ui.Badge(ui.BadgeProps{Kind: "primary", Text: i18n.T(ctx, i18n.KeyChargesBadgeDone)})
+					@ui.Badge(ui.BadgeProps{Kind: "primary", Text: i18n.T(ctx, i18n.KeyChargesBadgeDone), Class: "hidden sm:inline-flex"})
 				} else {
-					@ui.Badge(ui.BadgeProps{Kind: "ghost", Text: i18n.T(ctx, i18n.KeyChargesBadgeInProgress)})
+					@ui.Badge(ui.BadgeProps{Kind: "ghost", Text: i18n.T(ctx, i18n.KeyChargesBadgeInProgress), Class: "hidden sm:inline-flex"})
 				}
 			</div>
 		</td>
-		<td>{ vm.EnergyKWh }</td>
-		<td>{ vm.PriceLabel }</td>
-		<td>{ vm.CostPerKWhLabel }</td>
-		<td>{ vm.BatteryRange }</td>
-		<td>{ vm.BatteryDelta }</td>
-		<td>{ vm.DurationLabel }</td>
+		<td class="hidden sm:table-cell">{ vm.EnergyKWh }</td>
+		<td class="hidden sm:table-cell">{ vm.PriceLabel }</td>
+		<td class="hidden sm:table-cell">{ vm.CostPerKWhLabel }</td>
+		<td class="hidden sm:table-cell">{ vm.BatteryRange }</td>
+		<td class="hidden sm:table-cell">{ vm.BatteryDelta }</td>
+		<td class="hidden sm:table-cell">{ vm.DurationLabel }</td>
 		<td>
 			<div class="flex gap-2">
 				@ui.Button(ui.ButtonProps{
 					Variant: "ghost",
 					Size:    "sm",
 					Attrs: templ.Attributes{
-						"hx-get":    "/ui/charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
+						// On a phone this button shows only an icon, so the label the
+						// sighted user loses must still reach a screen reader
+						// (AGENTS.md §Mobile R7). Always present — it costs nothing on
+						// desktop and cannot go stale by being conditional.
+						"aria-label": i18n.T(ctx, i18n.KeyChargesRowEdit),
+						"hx-get":     "/ui/charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
 						"hx-target": "#charges-list",
 						"hx-swap":   "outerHTML",
 					},
 				}) {
-					{ i18n.T(ctx, i18n.KeyChargesRowEdit) }
+					@ui.Icon(ui.IconProps{Name: "edit", Class: "h-4 w-4 sm:hidden"})
+					<span class="hidden sm:inline">{ i18n.T(ctx, i18n.KeyChargesRowEdit) }</span>
 				}
 				@ui.Button(ui.ButtonProps{
 					Variant: "error",
 					Size:    "sm",
 					Outline: true,
 					Attrs: templ.Attributes{
-						"hx-delete": "/ui/charges/row/" + vm.ID + "?start=" + windowStartStr + "&end=" + windowEndStr,
+						// Icon-only on a phone — see the Edit button above.
+						"aria-label": i18n.T(ctx, i18n.KeyChargesRowDelete),
+						"hx-delete":  "/ui/charges/row/" + vm.ID + "?start=" + windowStartStr + "&end=" + windowEndStr,
 						"hx-target": "#charges-list",
 						"hx-swap":   "outerHTML",
 						// hx-confirm is the message shown in the shared ui.ConfirmDialog
@@ -95,7 +106,8 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string
 						// row in the same render — see ChargesContentFragment).
 					},
 				}) {
-					{ i18n.T(ctx, i18n.KeyChargesRowDelete) }
+					@ui.Icon(ui.IconProps{Name: "delete", Class: "h-4 w-4 sm:hidden"})
+					<span class="hidden sm:inline">{ i18n.T(ctx, i18n.KeyChargesRowDelete) }</span>
 				}
 			</div>
 		</td>

@@ -103,6 +103,31 @@ type RangePreset struct {
 	// rendering — the template marks the active button with btn-primary. A
 	// custom (non-preset) window marks no preset active.
 	Active bool
+
+	// HideOnMobile hides this preset's button below the `sm` breakpoint
+	// (AGENTS.md §Mobile R4 — `hidden sm:inline-flex`, CSS only; the button is
+	// always in the HTML). Set by the handler, never derived in the template.
+	//
+	// Only the history selector uses it today (MAG-46 step 2.2: the 30-day
+	// preset is hidden on a phone — 30 bars in a 343 px chart is unreadable, so
+	// offering the filter there is offering a broken view). The charges and
+	// supercharger selectors build RangePreset too and simply leave it false.
+	//
+	// A preset that is Active is never hidden, even when it would otherwise be:
+	// hiding the selected filter would leave the selector with no highlighted
+	// button and no way for the user to see which window they are looking at.
+	HideOnMobile bool
+
+	// MobileLast marks the last preset still VISIBLE on a phone, and exists only
+	// to repair DaisyUI's join rounding. DaisyUI rounds the group's outer corners
+	// with `:last-child`, and CSS `:last-child` still matches an element hidden
+	// with `display:none` — so hiding the final button would leave the visually
+	// last one with a square outer edge. The template rounds this one explicitly
+	// below `sm` and hands the corner back to DaisyUI at `sm` and up.
+	//
+	// Set only when at least one preset is actually hidden; otherwise false
+	// everywhere and DaisyUI's own rule is left completely alone.
+	MobileLast bool
 }
 
 // HistoryView is the complete view model for the #dashboard-history region —

@@ -214,6 +214,206 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `htmx.min.js`); the Tailwind binary in `tools/` is git-ignored (`make ui-toolchain`).
 - **New pages go through `kkpa-goth-scaffold-ui scaffold <concept> [module]`**, which
   mirrors the `charges` gold-standard slice.
+- **Responsive is not optional** — the mobile/desktop vocabulary (R1–R8) is the very
+  next section, §"Mobile & responsive". Read it before writing any layout class.
+
+## Mobile & responsive — every page, every fragment (MAG-46, 2026-09-04)
+
+**Every page and every fragment this module renders MUST be usable on a 375 px-wide
+phone.** A layout that only works on a desktop is **incomplete work**, exactly like a
+hardcoded English string. There is no "desktop-only" page in this app.
+
+Before MAG-46 this rule did not exist, and it showed: 37 of 40 `.templ` files carried
+no responsive class at all, because nothing ever told an agent to add one. The
+decisions below close that gap. They are the whole vocabulary — an agent should not
+need to invent a responsive strategy per page.
+
+### R1 — Responsiveness is CSS only. Never a device branch in Go.
+
+There is **no `User-Agent` parsing, no `IsMobile` field on a VM, and no device
+argument to a handler** — and none may be added. One HTML is rendered for every
+device; CSS decides the layout.
+
+**Why, and these are constraints rather than preferences:**
+
+- **htmx swaps.** Most of the UI arrives from `hx-get` fragments. A device branch in a
+  handler would have to be repeated in every fragment handler, and a response cached
+  for one device would render wrong on the other.
+- **Tailwind's `@source` scanner.** `static/input.css` scans `templates/**/*.templ` for
+  **literal** class strings. A class assembled in Go (`"grid-cols-" + strconv.Itoa(n)`)
+  is never generated and silently does nothing. Responsive classes must be written out
+  in full in the `.templ` source.
+- **AI-efficiency.** One markup is one place to read and one place to change. A device
+  branch doubles every template an agent must hold in context, and doubles the places a
+  new field can be forgotten.
+
+The `<meta name="viewport" content="width=device-width, initial-scale=1">` tag in
+`layouts/base.templ` is what makes all of this work. Do not remove or change it.
+
+### R2 — Mobile means below `sm` (640 px). One number for the whole module.
+
+| Prefix | Applies from | Meaning here |
+|---|---|---|
+| *(none)* | 0 px | **phone — this is the base** |
+| `sm:` | 640 px | large phone landscape and up — the desktop layout |
+| `lg:` | 1024 px | the drawer opens permanently (`lg:drawer-open`, `layouts.BaseAuth`) |
+
+`sm` is the mobile/desktop line for **content**. `lg` stays the line for the **nav
+drawer** only — that was already true before MAG-46 and does not change. Do not
+introduce a third line, and do not use `md:` for the mobile/desktop decision.
+
+**`md:` as an intermediate step is fine, and sometimes required.** The rule above is
+about *which breakpoint decides mobile vs desktop* — it is not a ban on `md:`. A grid
+may legitimately go 2 → 3 → 4 columns across `sm` and `md`. Worked example: the charge
+and supercharger tiles are `grid-cols-2 md:grid-cols-4`, and that `md:` is **correct,
+not an oversight**. Promoting it to `sm:grid-cols-4` would put four tiles in a 640 px
+row — 107 px each, while a desktop-size stat value needs about 173 px — so it would
+re-create on a tablet exactly the overlap MAG-46 removed from the phone. Measure before
+you "normalise" a breakpoint.
+
+### R3 — Write mobile-first. The base class is the phone.
+
+```
+class="text-xl sm:text-3xl"        ✅ phone gets text-xl, desktop gets text-3xl
+class="grid grid-cols-1 sm:grid-cols-4"   ✅ stacks on a phone, 4 across on desktop
+```
+
+```
+class="text-3xl max-sm:text-xl"    ❌ do not author new markup this way
+```
+
+The `max-*` variants exist in Tailwind v4 and are not forbidden outright, but
+mobile-first is the framework's own idiom and the shape every doc, example and model
+expects. Mixing both directions in one codebase is the expensive outcome. When you edit
+an existing desktop-first element, **rewrite the base class** rather than appending a
+`max-sm:` override.
+
+### R4 — Show and hide by width with the `hidden sm:*` / `sm:hidden` pair.
+
+```html
+<span class="hidden sm:inline">{ i18n.T(ctx, i18n.KeyDashboardStatusCharging) }</span>
+@ui.Dot(ui.DotProps{Variant: "success", Class: "sm:hidden"})
+```
+
+Both elements are always in the HTML; CSS shows exactly one. This is the pattern
+`layouts.BaseAuth` already uses for the hamburger (`lg:hidden`).
+
+- Pick the `sm:` display utility that matches the element: `sm:inline`, `sm:block`,
+  `sm:flex`, `sm:table-cell`. `hidden sm:block` on a `<td>` breaks the table.
+- **A hidden string is still a user-facing string.** It goes through `i18n.T` with both
+  `es` and `en` populated, exactly like a visible one. Hiding is not an i18n exemption.
+- Never hide something by rendering it twice with different content. One element, one
+  source of truth.
+
+### R5 — Font size is fixed once, in `templates/ui/`. Never per page.
+
+Text that overlaps or overflows on a phone is almost always a **kit** problem, not a
+page problem. DaisyUI's `.stat-value` is `2rem` at every width and never wraps; put
+two or three of them in a 375 px row and they collide, on every page that uses them.
+
+**So the fix belongs in the `ui/` component, where it corrects every call site at
+once.** `ui-guard` already forces every page through the kit, so this is the existing
+convention working as designed — not a new layer.
+
+- Changing a size in `ui/stat_tile.templ` fixes `/dashboard`, `/charges` and
+  `/supercharger-stats` in one edit. Patching three pages is the same bug fixed three
+  times, and the fourth page will be born broken.
+- If a page genuinely needs a one-off size, that is a signal the kit needs a **size
+  variant prop** (mirroring `ui.FieldProps.Optional` / `ui.BadgeProps.Kind`), not an
+  inline override in the page.
+- Readable floor on mobile: **do not go below `text-xs` (0.75 rem) for any value a
+  user must read**, and never below `text-sm` for body copy. If the numbers still do
+  not fit at that size, the layout is wrong — see R7 and ask.
+
+**Overlapping text is usually `white-space: nowrap`, not the font size.** This is the
+single most useful thing to know when a value spills over its neighbour. DaisyUI sets
+`white-space: nowrap` on `.stat-value` and `.stat-title`, so the text physically
+cannot wrap: instead of getting taller it runs out of its grid cell and paints on top
+of the next one. Shrink the font all you like — it still overlaps, just in smaller
+letters. Check for `nowrap` (and for a large `padding-inline`) before you touch a
+size. `.stat`'s 1.5 rem inline padding is a rounding error in a desktop column and a
+third of the tile on a phone.
+
+**Gold standard: `templates/ui/stat_tile.templ` (MAG-46).** One component, three
+pages (`/dashboard`, `/charges`, `/supercharger-stats`), one fix. It corrects all
+three causes below `sm` — smaller value, wrapping allowed, half the padding — and
+restores DaisyUI's exact desktop values at `sm` and up, so the desktop rendering does
+not move. Mirror its shape for any other kit component that needs a mobile size. Its
+doc comment carries the full reasoning; read it before changing a size anywhere else.
+
+Utilities you put on a DaisyUI element **do** win: Tailwind emits its own utilities
+after DaisyUI's component classes inside the shared `utilities` layer. You do not need
+`!important`, and you must not use it.
+
+### R6 — Viewport breakpoints only. No container queries.
+
+Tailwind v4 ships `@container` and `@max-md:` and they are the technically correct tool
+for a component that must react to its parent box. **We deliberately do not use them
+here.** The problems in this module are viewport-shaped, and a second responsive
+vocabulary is a real cost: every agent and reader must now learn which of the two a
+given component uses. One vocabulary, looked up once. Revisit only if a component is
+genuinely reused at two very different container widths on the same screen.
+
+### R7 — Tables drop columns with `hidden sm:table-cell` on the cells.
+
+One table markup serves both widths. A column that is desktop-only carries the class on
+**both** its `<th>` and its `<td>`.
+
+- **Never render a separate mobile card list next to a desktop table.** That doubles
+  the markup, and the next new column gets added to one of the two and forgotten in the
+  other — which is precisely the drift the `ui/` kit exists to prevent.
+- On a phone, prefer a **short** format over a hidden column where the data still
+  matters: a date as `MM-DD`, a status as `ui.Dot` alone, an action as an icon-only
+  `ui.Button`. Formatting is the handler's job — the VM ships both strings, the
+  template only chooses which to show.
+- Icon-only controls on mobile still need an accessible name (`aria-label` / `title`),
+  translated.
+
+### R8 — STOP and ask the user in these three cases.
+
+The rules above cover layout mechanics. They do **not** cover product decisions. When a
+mobile change hits one of these, the agent describes the options and **waits for the
+user** — it does not pick one and report afterwards:
+
+1. **Content would be REMOVED on mobile.** Hiding a column, a filter, a field, or a
+   whole section is a product call. State exactly what disappears, and why it is safe
+   to lose on a phone.
+2. **A component needs a DIFFERENT SHAPE on mobile.** A row becoming a column, a chart
+   changing its axis orientation, four tiles becoming two. Show the options with their
+   cost, then wait.
+3. **A value would be TRUNCATED or would OVERLAP.** Never silently shrink text past the
+   R5 floor and never let a number clip. Report the conflict and offer the real choices:
+   smaller font, fewer columns, or a shorter format.
+
+Everything else — stacking a grid, adding a `sm:` variant, using the kit's existing
+size prop — the agent just does, and reports.
+
+### Known mobile trap: the drawer stacks BELOW the navbar by default
+
+DaisyUI gives `.drawer-side` `z-index: 10`; `layouts.BaseAuth`'s navbar is `sticky
+top-0 z-40`. Below `lg` the open drawer is a **fixed overlay starting at top: 0**, so
+without an override the navbar paints over the sidebar's first 4 rem and the vehicle
+block appears to begin at its progress bar (MAG-46 step 5). The fix is the stacking
+order — `drawer-side z-50` — not a `margin-top` on the swallowed content: a margin
+clears the symptom, leaves those 4 rem unclickable, and has to be re-tuned every time
+the navbar's height changes. It is a no-op at `lg`, where `lg:drawer-open` makes the
+sidebar `position: sticky` in its own grid column and the two never overlap.
+
+Generalise the lesson, not the number: when something is invisible on a phone but fine
+on a desktop, check whether a `position: fixed` overlay is losing a z-index race
+before you move anything.
+
+### Verifying a responsive change
+
+- `make templ && make css` after any `.templ` edit. A new class that Tailwind has not
+  regenerated into `static/app.css` does nothing in the browser.
+- `make ui-guard` — the responsive utilities (`sm:`, `hidden`, `table-cell`, `grid-cols-*`)
+  are all Tailwind layout utilities, so they stay inline and the guard allows them. A
+  responsive **DaisyUI component** class (`sm:stats-horizontal`) belongs in the `ui/`
+  kit like any other component class.
+- There is no automated test for how a page looks — that is deliberate (§"Do not test
+  what the page looks like"). Responsive layout is verified by the owner in a browser at
+  375 px, never asserted in Go.
 
 ## Chrome surfaces & the honest vehicle block (MAG-44, 2026-09-03)
 
@@ -297,6 +497,70 @@ same "closed vocabulary over ad-hoc" principle as the `ui/` kit: name things onc
 
 Gold standard: `templates/pages/dashboard.templ` — `connect-cta`, `vehicle-status`,
 `vital-stats`, `battery-info`, `dashboard-history` all carry stable ids.
+
+**Every card in this module now carries one** — MAG-46 backfilled the thirteen that
+did not (`history-odometer`, `history-battery`, `history-consumed`,
+`charges-create-card`, `charges-empty`, `charges-summary`, `charges-entries`,
+`supercharger-empty`, `supercharger-summary`, `supercharger-kwh-per-month`,
+`supercharger-sessions`, `login-actions`, `account-blocked-message`). The rule had
+been written but never enforced, so eleven of the seventeen cards were anonymous. If
+you add a card without an `id`, you are re-opening that gap.
+
+## Every section is titled and described
+
+A section that shows content to the user MUST carry **all three**: a stable `id`
+(above), a **Title**, and a **Desc** — one short sentence saying what the section
+shows, in the user's own words.
+
+**Why the description and not just the title.** A title names the section; it does not
+say what the numbers in it mean. "Sessions" does not tell a user whether they are
+looking at every charge ever or the last 30 days, and it does not tell the *next
+agent* either. The description is the cheapest possible place to put that, it is read
+by both audiences, and it costs one line. Sections that had a title but no description
+were exactly the ones this project kept having to re-explain.
+
+### Where the style lives — one definition, never copied
+
+`sectionTitleClass` and `sectionDescClass` in `templates/ui/ui.go` are the **single**
+definition of how a section title and description look. Three components read them
+and nothing else may:
+
+| Component | Use it for |
+|---|---|
+| `ui.Card` (`CardProps.Title` / `.Desc`) | the normal case — a section inside a card |
+| `ui.SectionHeader` (`SectionHeaderProps`) | a bare `<section>`/`<div>` the page emits directly |
+| `ui.PageHeader` (`PageHeaderProps.Subtitle`) | the **page's** own one-line description |
+
+**Never hand-write a heading.** `<h2 class="text-lg font-semibold">` in a page or
+fragment is a bug, the same class of bug as inlining a DaisyUI component class. Before
+MAG-46 the module had *three* competing title treatments — `card-title` in `ui.Card`,
+`text-2xl font-semibold` in `ui.PageHeader`, and one hand-written `<h2>` in
+`fragments/charges_list.templ` that bypassed the kit — and nothing kept them in step.
+That `<h2>` is gone; its text now goes in through `CardProps.Title`. To restyle every
+title in the app, change one constant.
+
+The page title stays visually larger than a section title. That hierarchy is
+deliberate: page → section → content. A page subtitle and a section description are
+rendered the *same*, so a reader learns one shape and applies it everywhere.
+
+### The narrow exception
+
+A card that is a **bare container for a single control the page header already
+explained** passes neither Title nor Desc — `login-actions` (one sign-in button under
+a page that says nothing else) and `account-blocked-message` are the only two today.
+
+This is the *only* exemption, and an agent taking it must say in the change why the
+section needs no explanation. "I could not think of a description" is not the
+exception; it usually means the section's purpose is unclear, which is a design
+problem the description would have exposed. Inventing filler text to satisfy the rule
+is worse than both — if the sentence adds nothing, say so and take the exception.
+
+### i18n applies, obviously
+
+Title and Desc are user-facing strings. They resolve through `i18n.T(ctx, key)`
+against `i18n/catalog.go` with **both** `es` and `en` non-empty, exactly like every
+other label (§i18n below). A description added in English only is incomplete work.
+
 
 ## i18n — every new user-facing label needs BOTH es and en
 

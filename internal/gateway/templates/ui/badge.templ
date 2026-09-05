@@ -3,12 +3,29 @@ package ui
 // BadgeProps configures a Badge. Kind maps to a DaisyUI status color; Text is the
 // pre-formatted label (e.g. charging state, "Sentry on").
 type BadgeProps struct {
-	Kind  string // "neutral"|"primary"|"success"|"warning"|"error"|"ghost" (default neutral)
-	Text  string
+	Kind string // "neutral"|"primary"|"success"|"warning"|"error"|"ghost" (default neutral)
+	Text string
+
+	// CompactOnMobile renders the badge one size down below the `sm` breakpoint and
+	// at its normal size above it. Use it where a badge must stay READABLE on a
+	// phone rather than be hidden — a table cell in a three-column mobile layout,
+	// typically alongside a ui.Dot.
+	//
+	// It lives in the kit and not at the call site for two reasons. `badge-*` is a
+	// DaisyUI component class, which ui-guard forbids a page or fragment from
+	// inlining; and per AGENTS.md §Mobile R5 the size decision belongs to the
+	// component, so every compact badge in the app moves together.
+	//
+	// Note this only makes the badge SMALLER, never narrower than its text: `.badge`
+	// has a fixed height and `width: fit-content`, so a long label cannot wrap — it
+	// widens the column instead. A label long enough to overflow needs shorter copy,
+	// not a smaller size.
+	CompactOnMobile bool
+
 	Class string
 }
 
 // Badge renders a small status pill.
 templ Badge(p BadgeProps) {
-	<span class={ "badge font-mono", badgeClass(p.Kind), p.Class }>{ p.Text }</span>
+	<span class={ "badge font-mono", badgeClass(p.Kind), templ.KV("badge-xs sm:badge-md", p.CompactOnMobile), p.Class }>{ p.Text }</span>
 }

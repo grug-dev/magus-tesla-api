@@ -60,7 +60,7 @@ import (
 // a descendant of it.
 templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 	<div id="charges-create-form">
-		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesFormTitle)}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesFormTitle), ID: "charges-create-card"}) {
 			<p id="charges-create-hint" class="text-sm text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormCreateHint) }</p>
 			if d.Notice != "" {
 				@ui.Alert(ui.AlertProps{Kind: "success"}) {

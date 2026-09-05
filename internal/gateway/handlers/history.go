@@ -47,6 +47,17 @@ const historyRangeMaxDays = 90
 // convenience, not an HTTP contract (RM8 design D3/D4, Decision #3).
 var historyPresetDayCounts = []int{6, 14, 30}
 
+// historyMobilePresetHiddenDays is the one preset the selector hides below the
+// `sm` breakpoint (MAG-46 step 2.2). The window itself stays perfectly valid —
+// only the shortcut button is hidden, and only on a phone, where 30 bars across
+// ~343 px render as unreadable 11 px slivers. Offering a filter that produces a
+// view the device cannot show is worse than not offering it.
+//
+// It is a named constant rather than a literal in the loop so the "which preset
+// is phone-hostile" decision has exactly one home; widening the set later means
+// turning this into a slice here, not hunting for a `30` in a condition.
+const historyMobilePresetHiddenDays = 30
+
 // labelVerticalFor decides per-bar label orientation for a history chart from
 // the number of bars in the fixed [start..end] window (design D3: a single
 // chart-level flag, computed once in the handler — the template never compares
@@ -264,14 +275,44 @@ func buildHistoryPresets(ctx context.Context, start, end, today time.Time) []fra
 		pEnd := yesterday
 		pStart := yesterday.AddDate(0, 0, -n)
 		pStartStr, pEndStr := pStart.Format(dateOnly), pEnd.Format(dateOnly)
+		active := startStr == pStartStr && endStr == pEndStr
 		out = append(out, fragments.RangePreset{
 			Label:    fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryDaysPreset), n),
 			StartStr: pStartStr,
 			EndStr:   pEndStr,
-			Active:   startStr == pStartStr && endStr == pEndStr,
+			Active:   active,
+			// Hidden on a phone unless it is the window actually being rendered —
+			// see RangePreset.HideOnMobile. An active-but-hidden preset would
+			// leave the selector with nothing highlighted.
+			HideOnMobile: n == historyMobilePresetHiddenDays && !active,
 		})
 	}
+	markMobileLastPreset(out)
 	return out
+}
+
+// markMobileLastPreset flags the last preset that survives on a phone, so the
+// template can restore the join group's trailing rounded corner there. It is a
+// pure presentation repair for DaisyUI's `:last-child` rule, which still matches
+// an element hidden with `display:none` — full reasoning on RangePreset.MobileLast.
+//
+// It is a no-op when nothing is hidden: in that case DaisyUI's own rule is already
+// correct and must be left untouched. Written as a backwards scan over the slice
+// rather than assuming the hidden preset is last, so reordering
+// historyPresetDayCounts cannot silently put the corner on the wrong button.
+func markMobileLastPreset(presets []fragments.RangePreset) {
+	lastVisible := -1
+	anyHidden := false
+	for i := range presets {
+		if presets[i].HideOnMobile {
+			anyHidden = true
+			continue
+		}
+		lastVisible = i
+	}
+	if anyHidden && lastVisible >= 0 {
+		presets[lastVisible].MobileLast = true
+	}
 }
 
 // buildHistoryView is the core logic for the history fragment, decoupled from

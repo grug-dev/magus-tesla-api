@@ -95,15 +95,25 @@ templ superchargerChart(chart HistoryChart) {
 // straight through to every row's Edit action URL (design.md D2) — built
 // once here, not duplicated per row.
 templ superchargerTable(sessions []SuperchargerRowVM, csrfToken, windowStartStr, windowEndStr string) {
-	@ui.Table(ui.TableProps{Headers: []string{
-		i18n.T(ctx, i18n.KeySuperchargerDate),
-		i18n.T(ctx, i18n.KeySuperchargerStatus),
-		i18n.T(ctx, i18n.KeySuperchargerSite),
-		i18n.T(ctx, i18n.KeySuperchargerEnergy),
-		i18n.T(ctx, i18n.KeySuperchargerCost),
-		i18n.T(ctx, i18n.KeySuperchargerStartBattery),
-		i18n.T(ctx, i18n.KeySuperchargerEndBattery),
-		i18n.T(ctx, i18n.KeySuperchargerActions),
+	// HideOnMobile MUST mirror the `hidden sm:table-cell` cells in SuperchargerRow
+	// (supercharger_row.templ), column for column — header and body are separate
+	// templates with no compiler link, so a mismatch shears the table.
+	//
+	// Phone keeps Date / Status / Actions (MAG-46 step 4.2), matching the charges
+	// table. Status earns its place because SuperchargerRow now renders a ui.Dot
+	// beside the text badge and hides only the text below `sm` — the colour survives
+	// in one 10 px circle, which is the whole reason ui.Dot exists. Before that dot
+	// was added this column was text-only and had to be hidden; do not read the
+	// three visible columns as licence to un-hide the other five.
+	@ui.Table(ui.TableProps{Headers: []ui.TableHeader{
+		{Label: i18n.T(ctx, i18n.KeySuperchargerDate)},
+		{Label: i18n.T(ctx, i18n.KeySuperchargerStatus)},
+		{Label: i18n.T(ctx, i18n.KeySuperchargerSite), HideOnMobile: true},
+		{Label: i18n.T(ctx, i18n.KeySuperchargerEnergy), HideOnMobile: true},
+		{Label: i18n.T(ctx, i18n.KeySuperchargerCost), HideOnMobile: true},
+		{Label: i18n.T(ctx, i18n.KeySuperchargerStartBattery), HideOnMobile: true},
+		{Label: i18n.T(ctx, i18n.KeySuperchargerEndBattery), HideOnMobile: true},
+		{Label: i18n.T(ctx, i18n.KeySuperchargerActions)},
 	}}) {
 		for _, s := range sessions {
 			@SuperchargerRow(s, csrfToken, windowStartStr, windowEndStr)
@@ -140,19 +150,19 @@ templ SuperchargerStatsContent(v SuperchargerStatsView) {
 		@superchargerMonthsSelector(v.Presets)
 	}
 	if v.Empty {
-		@ui.Card(ui.CardProps{}) {
+		@ui.Card(ui.CardProps{ID: "supercharger-empty"}) {
 			<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeySuperchargerEmpty) }</p>
 		}
 	} else {
-		@ui.Card(ui.CardProps{}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSummaryTitle), Desc: i18n.T(ctx, i18n.KeySuperchargerSummaryDesc), ID: "supercharger-summary"}) {
 			@superchargerTiles(v.Tiles)
 		}
 		<div class="hidden">
-			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerKWhPerMonth)}) {
+			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerKWhPerMonth), ID: "supercharger-kwh-per-month"}) {
 				@superchargerChart(v.Chart)
 			}
 		</div>
-		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSessions)}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSessions), Desc: i18n.T(ctx, i18n.KeySuperchargerSessionsDesc), ID: "supercharger-sessions"}) {
 			@superchargerTable(v.Sessions, v.CSRFToken, v.WindowStartStr, v.WindowEndStr)
 		}
 	}

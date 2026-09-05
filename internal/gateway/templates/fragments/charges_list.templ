@@ -27,7 +27,7 @@ import (
 templ ChargesList(d ChargesPageData) {
 	<div id="charges-list">
 		if d.NoFilterChrome {
-			@ui.Card(ui.CardProps{}) {
+			@ui.Card(ui.CardProps{ID: "charges-empty"}) {
 				@ChargesEmptyState()
 			}
 		} else {
@@ -36,11 +36,10 @@ templ ChargesList(d ChargesPageData) {
 			}
 			<input type="hidden" id="charges-window-start" value={ d.WindowStartStr }/>
 			<input type="hidden" id="charges-window-end" value={ d.WindowEndStr }/>
-			@ui.Card(ui.CardProps{}) {
+			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesSummaryTitle), Desc: i18n.T(ctx, i18n.KeyChargesSummaryDesc), ID: "charges-summary"}) {
 				@chargeTiles(d.Tiles)
 			}
-			@ui.Card(ui.CardProps{}) {
-				<h2 class="text-lg font-semibold">{ i18n.T(ctx, i18n.KeyChargesListTitle) }</h2>
+			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesListTitle), Desc: i18n.T(ctx, i18n.KeyChargesListDesc), ID: "charges-entries"}) {
 				if d.Error != "" {
 					@ui.Alert(ui.AlertProps{Kind: "error"}) {
 						{ d.Error }
@@ -49,16 +48,21 @@ templ ChargesList(d ChargesPageData) {
 				if d.EmptyState {
 					@ChargesEmptyState()
 				} else {
-					@ui.Table(ui.TableProps{Headers: []string{
-						i18n.T(ctx, i18n.KeyChargesListHeaderDate),
-						i18n.T(ctx, i18n.KeyChargesListHeaderStatus),
-						i18n.T(ctx, i18n.KeyChargesListHeaderEnergy),
-						i18n.T(ctx, i18n.KeyChargesListHeaderPrice),
-						i18n.T(ctx, i18n.KeyChargesListHeaderCostPerKWh),
-						i18n.T(ctx, i18n.KeyChargesListHeaderBatteryRange),
-						i18n.T(ctx, i18n.KeyChargesListHeaderBattery),
-						i18n.T(ctx, i18n.KeyChargesListHeaderDuration),
-						i18n.T(ctx, i18n.KeyChargesListHeaderActions),
+					// HideOnMobile here MUST mirror the `hidden sm:table-cell` cells in
+					// ChargeRow (charge_row.templ), column for column — the header row and
+					// the body rows are separate templates with no compiler link between
+					// them, so a change to one without the other shears the table.
+					// Phone keeps Date / Status / Actions only (MAG-46 step 3.2).
+					@ui.Table(ui.TableProps{Headers: []ui.TableHeader{
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderDate)},
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderStatus)},
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderEnergy), HideOnMobile: true},
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderPrice), HideOnMobile: true},
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderCostPerKWh), HideOnMobile: true},
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderBatteryRange), HideOnMobile: true},
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderBattery), HideOnMobile: true},
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderDuration), HideOnMobile: true},
+						{Label: i18n.T(ctx, i18n.KeyChargesListHeaderActions)},
 					}}) {
 						for _, vm := range d.Entries {
 							if vm.ID != "" && vm.ID == d.EditingID {

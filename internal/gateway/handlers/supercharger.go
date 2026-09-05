@@ -487,8 +487,10 @@ func superchargerRowVMFromSession(s charging.Session) fragments.SuperchargerRowV
 		rawEndPct = strconv.Itoa(*s.EndBatteryPct)
 	}
 	return fragments.SuperchargerRowVM{
-		ID:                   s.ID.String(),
-		DateLabel:            s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
+		ID:        s.ID.String(),
+		DateLabel: s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
+		// Same instant, phone-width format — see SuperchargerRowVM.DateShortLabel.
+		DateShortLabel:       s.ChargeStartDateTime.UTC().Format("01-02"),
 		SiteLabel:            s.SiteLocationName,
 		EnergyLabel:          energyLabel,
 		CostLabel:            costLabel,

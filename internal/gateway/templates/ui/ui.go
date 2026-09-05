@@ -8,6 +8,30 @@
 // The tiny mapping helpers below keep variant→class switches out of the templates.
 package ui
 
+// sectionTitleClass and sectionDescClass are the SINGLE definition of how a
+// section's title and its short description look — anywhere in the app, on every
+// page, in a Card or in a bare SectionHeader. Every surface that renders a section
+// heading reads these two constants: ui.Card (its Title/Desc), ui.SectionHeader
+// (standalone sections) and ui.PageHeader (its Subtitle uses the desc class, so a
+// page subtitle and a section description are visually the same thing).
+//
+// Why constants and not three hand-copied class strings: before MAG-46 there were
+// THREE different heading treatments in the module — `card-title` inside ui.Card,
+// `text-2xl font-semibold` in ui.PageHeader, and a hand-written
+// `text-lg font-semibold` heading inlined in fragments/charges_list.templ that bypassed
+// the kit entirely. Nothing kept them in step, so "the section title style" was not
+// a thing that existed in one place. Now it is: change these two lines and every
+// title and description in the app moves together. Same principle as navActiveClass
+// (nav_shell.templ) and BatteryBandClass — name it once, look it up, never re-derive.
+//
+// Note the title deliberately does NOT use DaisyUI's `card-title`: that class is
+// card-scoped, so a standalone `section` heading could never match it, which is the
+// exact drift these constants exist to prevent.
+const (
+	sectionTitleClass = "text-lg font-semibold text-base-content"
+	sectionDescClass  = "text-sm text-base-content/70"
+)
+
 // btnClass maps a Button variant to its DaisyUI class. Unknown/empty → primary.
 func btnClass(variant string) string {
 	switch variant {

@@ -7,19 +7,28 @@ package fragments
 // All derived values are pre-computed by the handler; templates do no arithmetic.
 // No charging.Entry, pgtype, or time.Duration in this struct (design.md D6).
 type ChargeEntryVM struct {
-	ID              string // UUID formatted as string for URL path params
-	VehicleLabel    string // DisplayName from the registered vehicle (looked up by TeslaID)
-	ChargedOnLabel  string // formatted date, e.g. "Mon Jan 2, 2006"
-	EnergyKWh       string // formatted, e.g. "12.50 kWh"
-	PriceLabel      string // formatted with currency, e.g. "15000.00 COP"
-	Currency        string // ISO 4217 code, e.g. "COP"
-	CostPerKWhLabel string // formatted, e.g. "1200.00 COP/kWh"; "—" when not computable
-	BatteryDelta    string // e.g. "+12%"; "—" when not computable
-	DurationLabel   string // e.g. "1h 30m"; "—" when not computable
-	ChargingType    string // "AC", "DC", or "" if nil
-	LocationKind    string // "HOME", "WORK", "OTHER", or "" if nil
-	LocationLabel   string // free text or ""
-	Notes           string // free text or ""
+	ID             string // UUID formatted as string for URL path params
+	VehicleLabel   string // DisplayName from the registered vehicle (looked up by TeslaID)
+	ChargedOnLabel string // formatted date, e.g. "Mon Jan 2, 2006"
+	// ChargedOnShortLabel is the SAME date as MM-DD ("09-04"), rendered instead of
+	// ChargedOnLabel below the `sm` breakpoint (MAG-46 step 3.2). Both strings are
+	// always in the HTML and CSS picks one (AGENTS.md §Mobile R4) — the gateway
+	// never knows the viewport, so it cannot choose server-side.
+	//
+	// MM-DD is deliberately language-neutral: it needs no translated month name, so
+	// the column has the same width in ES and EN, and it matches the format the
+	// history chart already uses on its x-axis.
+	ChargedOnShortLabel string
+	EnergyKWh           string // formatted, e.g. "12.50 kWh"
+	PriceLabel          string // formatted with currency, e.g. "15000.00 COP"
+	Currency            string // ISO 4217 code, e.g. "COP"
+	CostPerKWhLabel     string // formatted, e.g. "1200.00 COP/kWh"; "—" when not computable
+	BatteryDelta        string // e.g. "+12%"; "—" when not computable
+	DurationLabel       string // e.g. "1h 30m"; "—" when not computable
+	ChargingType        string // "AC", "DC", or "" if nil
+	LocationKind        string // "HOME", "WORK", "OTHER", or "" if nil
+	LocationLabel       string // free text or ""
+	Notes               string // free text or ""
 	// Raw values for the inline edit form (pre-populated inputs).
 	RawChargedOn       string // "2006-01-02" (HTML date input format)
 	RawEnergyKWh       string // "12.50"

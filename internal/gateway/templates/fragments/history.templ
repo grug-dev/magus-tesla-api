@@ -115,15 +115,9 @@ templ historyBarChart(chart HistoryChart, colorClass string) {
 					}
 				</svg>
 				for _, bar := range chart.Bars {
-					if chart.LabelVertical {
-						<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60 [writing-mode:vertical-rl] rotate-180">
-							{ bar.Label }
-						</div>
-					} else {
-						<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60">
-							{ bar.Label }
-						</div>
-					}
+					<div class={ historyBarLabelClass(chart.LabelVertical) }>
+						{ bar.Label }
+					</div>
 				}
 			</div>
 		</div>
@@ -145,7 +139,7 @@ templ historyDaysSelector(presets []RangePreset) {
 					@ui.Button(ui.ButtonProps{
 						Variant: "primary",
 						Size:    "sm",
-						Class:   "join-item",
+						Class:   historyPresetClass(p),
 						Attrs: templ.Attributes{
 							"hx-get":    fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s", p.StartStr, p.EndStr),
 							"hx-target": "#dashboard-history",
@@ -158,7 +152,7 @@ templ historyDaysSelector(presets []RangePreset) {
 					@ui.Button(ui.ButtonProps{
 						Variant: "ghost",
 						Size:    "sm",
-						Class:   "join-item",
+						Class:   historyPresetClass(p),
 						Attrs: templ.Attributes{
 							"hx-get":    fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s", p.StartStr, p.EndStr),
 							"hx-target": "#dashboard-history",
@@ -171,6 +165,65 @@ templ historyDaysSelector(presets []RangePreset) {
 			}
 		}
 	</div>
+}
+
+// historyBarLabelClass returns the classes for one bar's x-axis label.
+//
+// The `vertical` argument is the handler's chart-level LabelVertical flag
+// (labelVerticalFor: true from 14 bars up). It means "vertical on EVERY screen",
+// because 14 or 30 horizontal labels never fit, not even on a desktop.
+//
+// What it does NOT mean is "horizontal on every screen" when false. On a phone the
+// 6-bar chart has about 253 px for its labels — roughly 42 px per bar — and a
+// "09-04" label at 14 px needs about 42 px, so the wide default collided with itself
+// (MAG-46 step 2.3). Labels are therefore vertical on a phone REGARDLESS of the
+// flag, and the flag only decides whether they straighten up again at `sm`.
+//
+// That is why this is CSS and not a second handler flag: the rotation now depends on
+// the viewport, and the gateway does not know the viewport (AGENTS.md §Mobile R1).
+// Mobile-first per R3 — vertical is the base, horizontal is added back at `sm`.
+//
+// On concatenation: joining two COMPLETE class strings is safe, and Tailwind finds
+// every name here because each one appears literally in this file. What breaks the
+// scanner is splitting a class NAME across an expression ("grid-cols-" + n) — that
+// name exists nowhere in the source, so it is never generated. Do not do that.
+func historyBarLabelClass(vertical bool) string {
+	const base = "w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60 [writing-mode:vertical-rl] rotate-180"
+	if vertical {
+		return base
+	}
+	return base + " sm:[writing-mode:horizontal-tb] sm:rotate-0"
+}
+
+// historyPresetClass returns the layout classes for one preset button in the join
+// group. It exists so the selector does not multiply its Active/inactive branches by
+// a second axis — the two ui.Button call sites above stay identical apart from their
+// Variant.
+//
+// The three class strings are written out in full, and must stay that way: Tailwind
+// scans the .templ SOURCE for literal class names (static/input.css @source), so a
+// class NAME built from parts ("join-" + side) exists nowhere in the source, is never
+// generated, and silently does nothing in the browser (AGENTS.md §Mobile R1).
+// Joining two complete class strings is fine — see historyBarLabelClass above.
+//
+//   - HideOnMobile → hidden below `sm`, restored to DaisyUI's own inline-flex above
+//     it. The button stays in the HTML; only CSS hides it (R4).
+//   - MobileLast → carries the join group's trailing corner while the real last
+//     child is hidden, then hands it straight back to DaisyUI at `sm` (see
+//     RangePreset.MobileLast). The radius is DaisyUI's own --radius-field token, not
+//     a hardcoded value, so a theme's radius change still flows through.
+//
+// The two flags are mutually exclusive by construction (markMobileLastPreset only
+// ever marks a preset that is NOT hidden), so the order of the switch is not load-bearing.
+func historyPresetClass(p RangePreset) string {
+	switch {
+	case p.HideOnMobile:
+		return "join-item hidden sm:inline-flex"
+	case p.MobileLast:
+		return "join-item rounded-e-[var(--radius-field)] sm:rounded-e-none"
+	default:
+		return "join-item"
+	}
 }
 
 // DashboardHistoryContent renders the full content of the #dashboard-history region:
@@ -190,13 +243,13 @@ templ DashboardHistoryContent(v HistoryView) {
 		@historyDaysSelector(v.Presets)
 	}
 	<div class="flex flex-col gap-4">
-		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyHistoryOdometerTitle)}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyHistoryOdometerTitle), ID: "history-odometer"}) {
 			@historyBarChart(v.Odometer, "fill-primary")
 		}
-		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyHistoryBatteryTitle)}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyHistoryBatteryTitle), ID: "history-battery"}) {
 			@historyBarChart(v.Battery, "fill-secondary")
 		}
-		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyHistoryConsumedTitle)}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyHistoryConsumedTitle), ID: "history-consumed"}) {
 			@historyBarChart(v.Consumed, "fill-accent")
 		}
 	</div>

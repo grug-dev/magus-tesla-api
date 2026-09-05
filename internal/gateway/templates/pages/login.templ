@@ -25,7 +25,7 @@ templ Login() {
 				<h1 class="text-3xl font-bold uppercase tracking-[0.2em] text-base-content">{ i18n.T(ctx, i18n.KeyBrandTeslaCore) }</h1>
 				<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyLoginTagline) }</p>
 			</div>
-			@ui.Card(ui.CardProps{}) {
+			@ui.Card(ui.CardProps{ID: "login-actions"}) {
 				@ui.Button(ui.ButtonProps{Variant: "primary", Href: "/auth/google/login", Class: "w-full"}) {
 					// The Google "G" SVG brand fills (#4285F4 / #34A853 / #FBBC05 /
 					// #EA4335) are the ONE permitted hardcoded-color exception: a

@@ -64,6 +64,12 @@ type SuperchargerTiles struct {
 type SuperchargerRowVM struct {
 	// DateLabel is ChargeStartDateTime formatted for display.
 	DateLabel string
+	// DateShortLabel is the SAME date as MM-DD ("09-04"), rendered instead of
+	// DateLabel below the `sm` breakpoint (MAG-46 step 4.2). Both are always in the
+	// HTML and CSS picks one (AGENTS.md §Mobile R4) — mirrors
+	// ChargeEntryVM.ChargedOnShortLabel exactly, including the language-neutral
+	// MM-DD choice.
+	DateShortLabel string
 	// SiteLabel is the session's SiteLocationName.
 	SiteLabel string
 	// EnergyLabel is "N.NN kWh", or "—" when EnergyKWh is nil.

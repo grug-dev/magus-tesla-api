@@ -300,15 +300,15 @@ func superchargerTable(sessions []SuperchargerRowVM, csrfToken, windowStartStr, 
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ui.Table(ui.TableProps{Headers: []string{
-			i18n.T(ctx, i18n.KeySuperchargerDate),
-			i18n.T(ctx, i18n.KeySuperchargerStatus),
-			i18n.T(ctx, i18n.KeySuperchargerSite),
-			i18n.T(ctx, i18n.KeySuperchargerEnergy),
-			i18n.T(ctx, i18n.KeySuperchargerCost),
-			i18n.T(ctx, i18n.KeySuperchargerStartBattery),
-			i18n.T(ctx, i18n.KeySuperchargerEndBattery),
-			i18n.T(ctx, i18n.KeySuperchargerActions),
+		templ_7745c5c3_Err = ui.Table(ui.TableProps{Headers: []ui.TableHeader{
+			{Label: i18n.T(ctx, i18n.KeySuperchargerDate)},
+			{Label: i18n.T(ctx, i18n.KeySuperchargerStatus)},
+			{Label: i18n.T(ctx, i18n.KeySuperchargerSite), HideOnMobile: true},
+			{Label: i18n.T(ctx, i18n.KeySuperchargerEnergy), HideOnMobile: true},
+			{Label: i18n.T(ctx, i18n.KeySuperchargerCost), HideOnMobile: true},
+			{Label: i18n.T(ctx, i18n.KeySuperchargerStartBattery), HideOnMobile: true},
+			{Label: i18n.T(ctx, i18n.KeySuperchargerEndBattery), HideOnMobile: true},
+			{Label: i18n.T(ctx, i18n.KeySuperchargerActions)},
 		}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -371,7 +371,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeySuperchargerBatteryPctHelp))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/supercharger_stats.templ`, Line: 134, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/supercharger_stats.templ`, Line: 144, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -398,7 +398,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeySuperchargerStatusHelp))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/supercharger_stats.templ`, Line: 137, Col: 47}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/supercharger_stats.templ`, Line: 147, Col: 47}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -436,7 +436,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeySuperchargerEmpty))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/supercharger_stats.templ`, Line: 144, Col: 75}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/supercharger_stats.templ`, Line: 154, Col: 75}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -448,7 +448,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Card(ui.CardProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Card(ui.CardProps{ID: "supercharger-empty"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -471,7 +471,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Card(ui.CardProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSummaryTitle), Desc: i18n.T(ctx, i18n.KeySuperchargerSummaryDesc), ID: "supercharger-summary"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -497,7 +497,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerKWhPerMonth)}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerKWhPerMonth), ID: "supercharger-kwh-per-month"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -523,7 +523,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSessions)}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSessions), Desc: i18n.T(ctx, i18n.KeySuperchargerSessionsDesc), ID: "supercharger-sessions"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

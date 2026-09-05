@@ -115,7 +115,22 @@ templ BaseAuth(title, path string) {
 					{ children... }
 				</main>
 			</div>
-<div class="drawer-side">
+			// z-50 beats the navbar's z-40 (MAG-46 step 5). DaisyUI gives .drawer-side
+			// z-index:10, and below `lg` the open drawer is a FIXED overlay starting at
+			// top:0 while the navbar is `sticky top-0 z-40` — so the navbar painted over
+			// the sidebar's first 4rem, swallowing the vehicle name, battery percentage
+			// and range, and making the block appear to start at the progress bar.
+			//
+			// This is the real cause. Pushing the hidden content down with a margin-top
+			// clears the symptom but leaves the sidebar underneath the navbar, so the
+			// gap has to be re-tuned whenever the navbar's height changes and the
+			// sidebar's top 4rem stay unclickable. Fixing the stacking order instead
+			// needs no magic number.
+			//
+			// Harmless at `lg` and up: `lg:drawer-open` switches .drawer-side to
+			// `position: sticky` in its own grid column, so the two never overlap there
+			// and the z-index has nothing to win against.
+			<div class="drawer-side z-50">
 			<label for="nav-drawer" aria-label={ i18n.T(ctx, i18n.KeyNavCloseSidebar) } class="drawer-overlay"></label>
 			// Flex column so the nav-header (auto) and the menu (flex-1) share the
 			// sidebar's full height instead of stacking. The drawer-side grid aligns

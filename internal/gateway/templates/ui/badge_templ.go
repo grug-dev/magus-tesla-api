@@ -11,8 +11,25 @@ import templruntime "github.com/a-h/templ/runtime"
 // BadgeProps configures a Badge. Kind maps to a DaisyUI status color; Text is the
 // pre-formatted label (e.g. charging state, "Sentry on").
 type BadgeProps struct {
-	Kind  string // "neutral"|"primary"|"success"|"warning"|"error"|"ghost" (default neutral)
-	Text  string
+	Kind string // "neutral"|"primary"|"success"|"warning"|"error"|"ghost" (default neutral)
+	Text string
+
+	// CompactOnMobile renders the badge one size down below the `sm` breakpoint and
+	// at its normal size above it. Use it where a badge must stay READABLE on a
+	// phone rather than be hidden — a table cell in a three-column mobile layout,
+	// typically alongside a ui.Dot.
+	//
+	// It lives in the kit and not at the call site for two reasons. `badge-*` is a
+	// DaisyUI component class, which ui-guard forbids a page or fragment from
+	// inlining; and per AGENTS.md §Mobile R5 the size decision belongs to the
+	// component, so every compact badge in the app moves together.
+	//
+	// Note this only makes the badge SMALLER, never narrower than its text: `.badge`
+	// has a fixed height and `width: fit-content`, so a long label cannot wrap — it
+	// widens the column instead. A label long enough to overflow needs shorter copy,
+	// not a smaller size.
+	CompactOnMobile bool
+
 	Class string
 }
 
@@ -38,7 +55,7 @@ func Badge(p BadgeProps) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var2 = []any{"badge font-mono", badgeClass(p.Kind), p.Class}
+		var templ_7745c5c3_Var2 = []any{"badge font-mono", badgeClass(p.Kind), templ.KV("badge-xs sm:badge-md", p.CompactOnMobile), p.Class}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -63,7 +80,7 @@ func Badge(p BadgeProps) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.Text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/badge.templ`, Line: 13, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/badge.templ`, Line: 30, Col: 125}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {

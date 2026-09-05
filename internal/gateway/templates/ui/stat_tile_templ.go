@@ -19,7 +19,46 @@ type StatTileProps struct {
 }
 
 // StatTile renders a single metric using DaisyUI's stat block. Wrap several in a
-// <div class="stats ..."> or a responsive grid.
+// responsive grid (`grid-cols-1 sm:grid-cols-4`), never in a fixed multi-column one.
+//
+// # Why this component carries responsive classes and the call sites do not
+//
+// This is the module's worked example of AGENTS.md §Mobile R5 ("font size is fixed
+// once, in templates/ui/, never per page"). Three pages render these tiles —
+// /dashboard, /charges and /supercharger-stats — and all three showed the SAME
+// overlapping-values bug on a phone (MAG-46 steps 2.1, 3.1, 4.1). It was one bug in
+// one component, not three bugs in three pages, and it is fixed here once.
+//
+// DaisyUI's own stat CSS is what breaks on a narrow screen, in three separate ways:
+//
+//   - `.stat-value { font-size: 2rem }` — sized for a wide desktop column. On a
+//     375 px phone a two-column grid leaves each tile roughly 123 px of usable
+//     width; "123,4 kWh" at 2 rem monospace needs about 170 px.
+//   - `.stat-value { white-space: nowrap }` and `.stat-title { white-space: nowrap }`
+//     — this is what turns "too wide" into "overlapping". The text cannot wrap, so it
+//     runs straight out of its grid cell and over the neighbouring tile instead of
+//     simply being tall. Shrinking the font alone would not have fixed it.
+//   - `.stat { padding-inline: 1.5rem }` — 48 px of horizontal padding is a rounding
+//     error in a desktop column and a third of the tile on a phone.
+//
+// So the fix is all three, mobile-first (R3): a smaller value below `sm`, wrapping
+// allowed below `sm`, and half the inline padding below `sm`. At and above `sm` every
+// value is restored EXACTLY to DaisyUI's own (2 rem, nowrap, 1.5 rem) — the desktop
+// rendering is deliberately unchanged, so this is a pure mobile fix with no desktop
+// regression to review.
+//
+// `sm:text-[2rem]` is an arbitrary value on purpose: Tailwind has no named size at
+// 2 rem (text-3xl is 1.875 rem, text-4xl is 2.25 rem), and matching DaisyUI's number
+// exactly matters more here than using a named step, because the point is that
+// desktop does not move.
+//
+// These utilities beat DaisyUI's because Tailwind emits its own utilities AFTER
+// DaisyUI's component classes inside the shared `utilities` layer — the same reason
+// the pre-existing `font-mono` on this element already works.
+//
+// A tile that still does not fit is NOT a reason to shrink this further past the
+// R5 readable floor: it means the GRID is wrong (too many columns for a phone), which
+// is an R8 "different shape on mobile" decision for the page to make with the user.
 func StatTile(p StatTileProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -41,7 +80,7 @@ func StatTile(p StatTileProps) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var2 = []any{"stat", p.Class}
+		var templ_7745c5c3_Var2 = []any{"stat px-3 sm:px-6", p.Class}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -59,27 +98,27 @@ func StatTile(p StatTileProps) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><div class=\"stat-title\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><div class=\"stat-title whitespace-normal sm:whitespace-nowrap\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 17, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 56, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div><div class=\"stat-value font-mono\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div><div class=\"stat-value font-mono text-xl sm:text-[2rem] whitespace-normal break-words sm:whitespace-nowrap\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.Value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 18, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 57, Col: 119}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -97,7 +136,7 @@ func StatTile(p StatTileProps) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.Desc)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 20, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 59, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {

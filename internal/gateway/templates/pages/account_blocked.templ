@@ -22,7 +22,7 @@ templ AccountBlocked() {
 			<div class="flex flex-col items-center gap-2 text-center">
 				<h1 class="text-3xl font-bold text-base-content">{ i18n.T(ctx, i18n.KeyAccountBlockedTitle) }</h1>
 			</div>
-			@ui.Card(ui.CardProps{}) {
+			@ui.Card(ui.CardProps{ID: "account-blocked-message"}) {
 				<p class="text-base-content/80">{ i18n.T(ctx, i18n.KeyAccountBlockedMessage) }</p>
 			}
 			<a href="/login">{ i18n.T(ctx, i18n.KeyLoginSignIn) }</a>

@@ -143,6 +143,7 @@ const (
 
 	// --- charges list (templates/fragments/charges_list.templ) ---
 	KeyChargesListTitle Key = "charges_list.title"
+	KeyChargesListDesc  Key = "charges_list.desc"
 	KeyChargesListEmpty Key = "charges_list.empty"
 
 	// --- charges page (templates/pages/charges.templ) ---
@@ -166,7 +167,13 @@ const (
 	KeyHistoryChargeTypeSupercharger Key = "history.charge_type_supercharger"
 
 	// --- supercharger stats (templates/fragments/supercharger_stats.templ) ---
-	KeySuperchargerMonthsPreset  Key = "supercharger.months_preset"
+	KeySuperchargerMonthsPreset Key = "supercharger.months_preset"
+	// Section headings for the Supercharger page's two cards — the summary tiles
+	// (previously untitled) and the sessions table (title but no description).
+	KeySuperchargerSummaryTitle Key = "supercharger_summary.title"
+	KeySuperchargerSummaryDesc  Key = "supercharger_summary.desc"
+	KeySuperchargerSessionsDesc Key = "supercharger_sessions.desc"
+
 	KeySuperchargerSessions      Key = "supercharger.sessions"
 	KeySuperchargerEnergy        Key = "supercharger.energy"
 	KeySuperchargerCost          Key = "supercharger.cost"
@@ -201,7 +208,12 @@ const (
 	// badge is its own semantic role, same precedent as charges_list's header block ---
 	KeySuperchargerBadgeInProgress     Key = "supercharger_badge.in_progress"
 	KeySuperchargerBadgeDoneCalculated Key = "supercharger_badge.done_calculated"
-	KeySuperchargerBadgeDone           Key = "supercharger_badge.done"
+	// Phone-width copy for the SAME status. "Finalizada (calculada)" needs ~166 px
+	// in a column that has ~129 px on a 375 px screen, and a ui.Badge cannot wrap
+	// (fixed height, width: fit-content) — it just widens the table. Both strings
+	// are always in the HTML and CSS picks one (AGENTS.md §Mobile R4).
+	KeySuperchargerBadgeDoneCalculatedShort Key = "supercharger_badge.done_calculated_short"
+	KeySuperchargerBadgeDone                Key = "supercharger_badge.done"
 
 	// --- supercharger row validation + errors (handlers/supercharger.go)
 	// RM31-gateway-add-session-battery-edit design.md D3/D8/D9/D10 ---
@@ -337,6 +349,11 @@ const (
 	KeyChargesRangeThisMonth Key = "charges_range.this_month"
 
 	// --- charges aggregation tiles (fragments/charges_list.templ), design.md §D-Tiles ---
+	// Summary-card heading for the charges tiles (AGENTS.md §"Every section is
+	// titled and described"). The card holding the four tiles had no title at all.
+	KeyChargesSummaryTitle Key = "charges_summary.title"
+	KeyChargesSummaryDesc  Key = "charges_summary.desc"
+
 	KeyChargesTileSessions Key = "charges_tile.sessions"
 	KeyChargesTileEnergy   Key = "charges_tile.energy"
 	KeyChargesTileCost     Key = "charges_tile.cost"
@@ -474,6 +491,7 @@ var catalog = map[Key]entry{
 	KeyChargesRowConfirmLabel:   {ES: "Eliminar entrada", EN: "Delete entry"},
 
 	KeyChargesListTitle: {ES: "Tus registros", EN: "Your entries"},
+	KeyChargesListDesc:  {ES: "Cargas que registraste manualmente.", EN: "Charges you logged manually."},
 	KeyChargesListEmpty: {ES: "Aún no hay cargas registradas. Usa el formulario de arriba para registrar tu primera carga.", EN: "No charge entries yet. Use the form above to log your first charge."},
 
 	KeyChargesPageTitle:           {ES: "Registro de cargas", EN: "Charge log"},
@@ -493,7 +511,11 @@ var catalog = map[Key]entry{
 	KeyHistoryChargeTypeManual:       {ES: "manual", EN: "manual"},
 	KeyHistoryChargeTypeSupercharger: {ES: "Supercharger", EN: "Supercharger"},
 
-	KeySuperchargerMonthsPreset:  {ES: "%d meses", EN: "%d months"},
+	KeySuperchargerMonthsPreset: {ES: "%d meses", EN: "%d months"},
+	KeySuperchargerSummaryTitle: {ES: "Resumen", EN: "Summary"},
+	KeySuperchargerSummaryDesc:  {ES: "Totales de las sesiones de Supercargador en el periodo seleccionado.", EN: "Totals for the Supercharger sessions in the selected period."},
+	KeySuperchargerSessionsDesc: {ES: "Sesiones de Supercargador registradas por Tesla.", EN: "Supercharger sessions recorded by Tesla."},
+
 	KeySuperchargerSessions:      {ES: "Sesiones", EN: "Sessions"},
 	KeySuperchargerEnergy:        {ES: "Energía", EN: "Energy"},
 	KeySuperchargerCost:          {ES: "Costo", EN: "Cost"},
@@ -523,9 +545,10 @@ var catalog = map[Key]entry{
 	KeySuperchargerRowSave:   {ES: "Guardar", EN: "Save"},
 	KeySuperchargerRowCancel: {ES: "Cancelar", EN: "Cancel"},
 
-	KeySuperchargerBadgeInProgress:     {ES: "En progreso", EN: "In progress"},
-	KeySuperchargerBadgeDoneCalculated: {ES: "Finalizada (calculada)", EN: "Done (calculated)"},
-	KeySuperchargerBadgeDone:           {ES: "Finalizada", EN: "Done"},
+	KeySuperchargerBadgeInProgress:          {ES: "En progreso", EN: "In progress"},
+	KeySuperchargerBadgeDoneCalculated:      {ES: "Finalizada (calculada)", EN: "Done (calculated)"},
+	KeySuperchargerBadgeDoneCalculatedShort: {ES: "Calculada", EN: "Calculated"},
+	KeySuperchargerBadgeDone:                {ES: "Finalizada", EN: "Done"},
 
 	KeySuperchargerErrorInvalidID:       {ES: "id inválido", EN: "invalid id"},
 	KeySuperchargerErrorSessionNotFound: {ES: "sesión no encontrada", EN: "session not found"},
@@ -630,6 +653,9 @@ var catalog = map[Key]entry{
 
 	KeyChargesRangeLast7Days: {ES: "Últimos 7 días", EN: "Last 7 days"},
 	KeyChargesRangeThisMonth: {ES: "Este mes", EN: "This month"},
+
+	KeyChargesSummaryTitle: {ES: "Resumen", EN: "Summary"},
+	KeyChargesSummaryDesc:  {ES: "Totales de las cargas que registraste en el periodo seleccionado.", EN: "Totals for the charges you logged in the selected period."},
 
 	KeyChargesTileSessions: {ES: "Sesiones", EN: "Sessions"},
 	KeyChargesTileEnergy:   {ES: "Energía", EN: "Energy"},
