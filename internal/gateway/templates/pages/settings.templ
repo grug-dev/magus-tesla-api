@@ -23,7 +23,7 @@ import (
 templ SettingsPage(theme, csrfToken string) {
 	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyNavSettings)), "/settings") {
 		@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyNavSettings)})
-		@ui.Card(ui.CardProps{ID: "theme-settings"}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySettingsThemeTitle), Desc: i18n.T(ctx, i18n.KeySettingsThemeDesc), ID: "theme-settings"}) {
 			@ui.ThemeSwitcher(ui.ThemeSwitcherProps{Current: theme, CSRFToken: csrfToken})
 		}
 	}

@@ -543,13 +543,21 @@ The page title stays visually larger than a section title. That hierarchy is
 deliberate: page → section → content. A page subtitle and a section description are
 rendered the *same*, so a reader learns one shape and applies it everywhere.
 
-### The narrow exception
+### The narrow exceptions
 
-A card that is a **bare container for a single control the page header already
-explained** passes neither Title nor Desc — `login-actions` (one sign-in button under
-a page that says nothing else) and `account-blocked-message` are the only two today.
+Two shapes of card pass neither Title nor Desc, and these are the whole list:
 
-This is the *only* exemption, and an agent taking it must say in the change why the
+- **A bare container for a single control the page header already explained** —
+  `login-actions` (one sign-in button under a page whose heading says the rest) and
+  `account-blocked-message`.
+- **An empty state whose entire body is one explanatory sentence** — `charges-empty`
+  and `supercharger-empty`. Here a description would only restate the body directly
+  above it, and a title would name a section that exists solely to say "there is
+  nothing here yet".
+
+Every other card in the module carries all three (Title, Desc, `id`) as of MAG-46.
+
+These are the *only* exemptions, and an agent taking one must say in the change why the
 section needs no explanation. "I could not think of a description" is not the
 exception; it usually means the section's purpose is unclear, which is a design
 problem the description would have exposed. Inventing filler text to satisfy the rule

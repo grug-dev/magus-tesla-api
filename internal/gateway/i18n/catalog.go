@@ -41,6 +41,13 @@ const (
 	KeyNavLogout             Key = "nav.logout"
 
 	// --- nav-header fragment (templates/fragments/nav_header.templ) ---
+	// Section heading for the dashboard's connect call-to-action. Separate from the
+	// nav_header keys below even though the wording overlaps: the two surfaces are
+	// edited for different reasons (a sidebar line vs a full-width empty state), and
+	// sharing a key would make a copy change to one silently rewrite the other.
+	KeyDashboardConnectTitle Key = "dashboard_connect.title"
+	KeyDashboardConnectDesc  Key = "dashboard_connect.desc"
+
 	KeyNavHeaderNoTesla           Key = "nav_header.no_tesla"
 	KeyNavHeaderConnectLink       Key = "nav_header.connect_link"
 	KeyNavHeaderSwitchVehicleAria Key = "nav_header.switch_vehicle_aria"
@@ -57,6 +64,13 @@ const (
 	// --- theme switcher (templates/ui/theme_switcher.templ) — RM42 tier 2.
 	// Theme NAMES (Apex/Graphite/Halloween) are deliberately NOT catalogue keys
 	// (roadmap D11) — only the switcher's own label + accessible name are here.
+	// Section heading for the /settings theme card (AGENTS.md §"Every section is
+	// titled and described"). Deliberately NOT KeyThemeSwitcherLabel: that is the
+	// switcher control's own field label, and reusing it would print "Tema" twice on
+	// the same card AND couple the section title to the control's copy.
+	KeySettingsThemeTitle Key = "settings_theme.title"
+	KeySettingsThemeDesc  Key = "settings_theme.desc"
+
 	KeyThemeSwitcherLabel Key = "theme_switcher.label"
 	KeyThemeSwitcherAria  Key = "theme_switcher.aria"
 
@@ -405,6 +419,9 @@ var catalog = map[Key]entry{
 	KeyNavCloseSidebar:       {ES: "Cerrar menú lateral", EN: "close sidebar"},
 	KeyNavLogout:             {ES: "Cerrar sesión", EN: "Log out"},
 
+	KeyDashboardConnectTitle: {ES: "Ningún Tesla conectado", EN: "No Tesla connected"},
+	KeyDashboardConnectDesc:  {ES: "Conecta tu cuenta de Tesla para ver la batería, el odómetro y el historial de tu vehículo.", EN: "Connect your Tesla account to see your vehicle's battery, odometer and history."},
+
 	KeyNavHeaderNoTesla:           {ES: "Ningún Tesla conectado.", EN: "No Tesla connected."},
 	KeyNavHeaderConnectLink:       {ES: "Conecta tu Tesla", EN: "Connect your Tesla"},
 	KeyNavHeaderSwitchVehicleAria: {ES: "Cambiar de vehículo", EN: "Switch vehicle"},
@@ -420,6 +437,9 @@ var catalog = map[Key]entry{
 	KeyLangSwitcherAria:    {ES: "Cambiar idioma", EN: "Change language"},
 	KeyLangSwitcherSpanish: {ES: "Español", EN: "Español"},
 	KeyLangSwitcherEnglish: {ES: "English", EN: "English"},
+
+	KeySettingsThemeTitle: {ES: "Apariencia", EN: "Appearance"},
+	KeySettingsThemeDesc:  {ES: "Elige los colores de la aplicación. El cambio se aplica al instante y se guarda en tu cuenta.", EN: "Choose the app's colours. The change applies instantly and is saved to your account."},
 
 	KeyThemeSwitcherLabel: {ES: "Tema", EN: "Theme"},
 	KeyThemeSwitcherAria:  {ES: "Cambiar tema", EN: "Change theme"},

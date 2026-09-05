@@ -8,9 +8,10 @@ package ui
 // Title and Desc are the card's section heading. Both are REQUIRED for any card that
 // presents content to the user — see AGENTS.md §"Every section is titled and
 // described". Desc is one short sentence saying what the section shows, in the user's
-// words, resolved through i18n.T like every other user-facing string. The narrow
-// exception is a card that is a bare container for a control the page header already
-// explained (the login card); those pass neither.
+// words, resolved through i18n.T like every other user-facing string. Two narrow
+// exceptions pass neither: a bare container for a control the page header already
+// explained (the login card), and an empty state whose whole body is one explanatory
+// sentence. AGENTS.md names the four cards that qualify; there are no others.
 //
 // Neither field styles itself: both read the module-wide sectionTitleClass /
 // sectionDescClass constants in ui.go, which ui.SectionHeader and ui.PageHeader read

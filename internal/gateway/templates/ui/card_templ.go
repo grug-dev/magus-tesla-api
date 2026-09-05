@@ -16,9 +16,10 @@ import templruntime "github.com/a-h/templ/runtime"
 // Title and Desc are the card's section heading. Both are REQUIRED for any card that
 // presents content to the user — see AGENTS.md §"Every section is titled and
 // described". Desc is one short sentence saying what the section shows, in the user's
-// words, resolved through i18n.T like every other user-facing string. The narrow
-// exception is a card that is a bare container for a control the page header already
-// explained (the login card); those pass neither.
+// words, resolved through i18n.T like every other user-facing string. Two narrow
+// exceptions pass neither: a bare container for a control the page header already
+// explained (the login card), and an empty state whose whole body is one explanatory
+// sentence. AGENTS.md names the four cards that qualify; there are no others.
 //
 // Neither field styles itself: both read the module-wide sectionTitleClass /
 // sectionDescClass constants in ui.go, which ui.SectionHeader and ui.PageHeader read
@@ -83,7 +84,7 @@ func Card(p CardProps) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/card.templ`, Line: 28, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/card.templ`, Line: 29, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -129,7 +130,7 @@ func Card(p CardProps) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/card.templ`, Line: 33, Col: 47}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/card.templ`, Line: 34, Col: 47}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -166,7 +167,7 @@ func Card(p CardProps) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(p.Desc)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/card.templ`, Line: 36, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/card.templ`, Line: 37, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {

@@ -25,8 +25,12 @@ templ Dashboard(d fragments.DashboardData) {
 			@templ.Fragment("dashboard") {
 				@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyNavDashboard), Subtitle: d.VehicleName})
 				if d.NeedsConnect {
-				@ui.Card(ui.CardProps{ID: "connect-cta"}) {
-					<p class="text-base-content/70 mb-4">{ i18n.T(ctx, i18n.KeyNavHeaderNoTesla) }</p>
+				// The card's own Title/Desc replace the loose <p> that used to sit here.
+				// That paragraph WAS the section's description, just written by hand and
+				// styled inline — exactly what AGENTS.md §"Every section is titled and
+				// described" centralises. Nothing is lost: the title carries the old
+				// sentence and the description adds what connecting actually gets you.
+				@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardConnectTitle), Desc: i18n.T(ctx, i18n.KeyDashboardConnectDesc), ID: "connect-cta"}) {
 						@ui.Button(ui.ButtonProps{Variant: "primary", Href: "/connect/tesla"}) {
 							{ i18n.T(ctx, i18n.KeyNavHeaderConnectLink) }
 						}
