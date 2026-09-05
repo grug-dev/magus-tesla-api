@@ -26,14 +26,16 @@ components, 4 view-model types, 8 DOM id families, 1 CSRF key, 1 i18n key identi
   `external charge`, so the URL, the file name, the handler, the component and the DOM id all
   agree. A grep for `external_charge` returns this page and nothing else.
 - The `charging` module keeps its name, so a grep for `charging` still returns the domain.
+- The user meets one name for the page in all three places they can see it: the menu
+  ("External"), the URL (`/external-charges`) and the heading ("External charges").
 
 **Non-Goals:**
 
 - No behaviour change. Not one validation rule, status code, swap target, htmx header, or
-  rendered value differs before and after.
+  rendered value differs before and after — the page heading's *text* is the single exception,
+  and it is copy, not behaviour.
 - No redirect from the old routes.
 - No rename of the 86 `charges_*` i18n keys.
-- No change to the page's visible title copy.
 - No change to the `charging` module, the database, or any port.
 
 ## Decisions
@@ -85,6 +87,32 @@ line.
 name would otherwise survive as the only `manualcharge` token left in the module — the exact
 kind of orphan name this change exists to remove.
 
+### D6 — the page heading becomes the full noun phrase, the menu stays short
+
+`charges_page.title` moves from "Registro de cargas" / "Charge log" to **"Cargas externas" /
+"External charges"**. The sidebar keeps the shorter "Externas" / "External".
+
+That asymmetry is deliberate. A sidebar entry sits under a section heading and next to its
+siblings, so the adjective alone is unambiguous there and stays narrow. A page heading stands
+on its own with no such context, so it carries the noun. This also matches the route: the URL
+is `/external-charges`, and the heading now reads the same words in the same order.
+
+Only the two **values** change. The key identifier stays `KeyChargesPageTitle` and the key
+string stays `charges_page.title`, per D3 — a key is not user-facing, and renaming it here
+would open the door to the other 85.
+
+*Rejected:* "Cargas manuales" / "Manual charges" (describes how the row was entered, not what
+it is — same objection as D1), and leaving the heading as "Charge log" (the menu, the URL and
+the heading would then give the page three different names).
+
+### D7 — the requirement `Charge Log Page` is renamed, its siblings are not
+
+The spec requirement **Charge Log Page** names the page, so it becomes **External Charges
+Page** through a `RENAMED Requirements` block. The neighbouring requirements — "Charge List
+Fragment", "Create Charge Entry", "Charge List Date Filter", "Charge List Aggregation Tiles"
+and the rest — name *behaviours* of the page, not the page, so their headings stay. Renaming
+them would churn the spec's stable anchors for no gain.
+
 ## Risks / Trade-offs
 
 - **A form open in a browser across the deploy fails its next submit** (D5 changes the session
@@ -118,6 +146,4 @@ change except the session CSRF key, which self-heals on the next page render.
 
 ## Open Questions
 
-- The page's visible title is still "Registro de cargas" / "Charge log" while the menu says
-  "Externas" / "External". Aligning that copy is user-facing wording and is deliberately left
-  out of this change.
+_None._

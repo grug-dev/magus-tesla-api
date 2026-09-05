@@ -7,8 +7,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargesList is the htmx-swappable charge entries table region.
-// Its root <div id="charges-list"> matches the templ.Fragment("charges-list") name
+// ExternalChargesList is the htmx-swappable charge entries table region.
+// Its root <div id="external-charges-list"> matches the templ.Fragment("external-charges-list") name
 // and is the hx-target for every filter-preset button (design.md §D-Presets) and
 // the delete/update OOB refresh (design.md §D-Refresh). The Refresh button that
 // used to live here is REMOVED — subsumed by any filter click. It carries its own
@@ -17,27 +17,27 @@ import (
 //
 // Three-state empty branching (design.md §D-Empty):
 //  1. d.NoFilterChrome (no vehicle resolved OR malformed window) → render ONLY
-//     ChargesEmptyState(); no selector, no tiles, no table.
+//     ExternalChargesEmptyState(); no selector, no tiles, no table.
 //  2. Otherwise, the selector + tiles ALWAYS render; d.Error (reader failure)
 //     additionally shows the existing ui.Alert, tiles still show their zero/em-dash
 //     values.
 //  3. d.EmptyState (valid vehicle, valid window, zero rows) swaps the table body
-//     for ChargesEmptyState() while the selector + tiles stay visible (D13 — "Empty
+//     for ExternalChargesEmptyState() while the selector + tiles stay visible (D13 — "Empty
 //     range renders 0 and —", not a full collapse).
-templ ChargesList(d ChargesPageData) {
-	<div id="charges-list">
+templ ExternalChargesList(d ExternalChargesPageData) {
+	<div id="external-charges-list">
 		if d.NoFilterChrome {
 			@ui.Card(ui.CardProps{ID: "charges-empty"}) {
-				@ChargesEmptyState()
+				@ExternalChargesEmptyState()
 			}
 		} else {
 			if d.Presets != nil {
-				@chargesRangeSelector(d.Presets)
+				@externalChargesRangeSelector(d.Presets)
 			}
-			<input type="hidden" id="charges-window-start" value={ d.WindowStartStr }/>
-			<input type="hidden" id="charges-window-end" value={ d.WindowEndStr }/>
+			<input type="hidden" id="external-charges-window-start" value={ d.WindowStartStr }/>
+			<input type="hidden" id="external-charges-window-end" value={ d.WindowEndStr }/>
 			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesSummaryTitle), Desc: i18n.T(ctx, i18n.KeyChargesSummaryDesc), ID: "charges-summary"}) {
-				@chargeTiles(d.Tiles)
+				@externalChargeTiles(d.Tiles)
 			}
 			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesListTitle), Desc: i18n.T(ctx, i18n.KeyChargesListDesc), ID: "charges-entries"}) {
 				if d.Error != "" {
@@ -46,10 +46,10 @@ templ ChargesList(d ChargesPageData) {
 					}
 				}
 				if d.EmptyState {
-					@ChargesEmptyState()
+					@ExternalChargesEmptyState()
 				} else {
 					// HideOnMobile here MUST mirror the `hidden sm:table-cell` cells in
-					// ChargeRow (charge_row.templ), column for column — the header row and
+					// ExternalChargeRow (external_charge_row.templ), column for column — the header row and
 					// the body rows are separate templates with no compiler link between
 					// them, so a change to one without the other shears the table.
 					// Phone keeps Date / Status / Actions only (MAG-46 step 3.2).
@@ -66,9 +66,9 @@ templ ChargesList(d ChargesPageData) {
 					}}) {
 						for _, vm := range d.Entries {
 							if vm.ID != "" && vm.ID == d.EditingID {
-								@ChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr)
+								@ExternalChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr)
 							} else {
-								@ChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr)
+								@ExternalChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr)
 							}
 						}
 					}
@@ -78,17 +78,17 @@ templ ChargesList(d ChargesPageData) {
 	</div>
 }
 
-// chargesRangeSelector renders the two-preset ("last 7 days" / "this month")
+// externalChargesRangeSelector renders the two-preset ("last 7 days" / "this month")
 // filter control — structurally identical to superchargerMonthsSelector
 // (supercharger_stats.templ, design.md §D-Presets/§D-RM33-10): ui.Join wraps one
 // ui.Button per preset, hx-get built from the preset's own pre-formatted
-// StartStr/EndStr against /ui/charges/list, hx-target="#charges-list",
+// StartStr/EndStr against /ui/external-charges/list, hx-target="#external-charges-list",
 // hx-swap="outerHTML" — the WHOLE list region (unlike Supercharger Stats, which
-// innerHTML-swaps a wrapping content div, #charges-list IS the swappable region
+// innerHTML-swaps a wrapping content div, #external-charges-list IS the swappable region
 // itself, so outerHTML matches the filter's own target). The active preset
 // (RangePreset.Active) uses the "primary" Button variant; inactive presets use
 // "ghost". The button label is p.Label, already formatted by the handler.
-templ chargesRangeSelector(presets []RangePreset) {
+templ externalChargesRangeSelector(presets []RangePreset) {
 	<div class="flex justify-end mb-4">
 		@ui.Join() {
 			for _, p := range presets {
@@ -98,8 +98,8 @@ templ chargesRangeSelector(presets []RangePreset) {
 						Size:    "sm",
 						Class:   "join-item",
 						Attrs: templ.Attributes{
-							"hx-get":    fmt.Sprintf("/ui/charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
-							"hx-target": "#charges-list",
+							"hx-get":    fmt.Sprintf("/ui/external-charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
+							"hx-target": "#external-charges-list",
 							"hx-swap":   "outerHTML",
 						},
 					}) {
@@ -111,8 +111,8 @@ templ chargesRangeSelector(presets []RangePreset) {
 						Size:    "sm",
 						Class:   "join-item",
 						Attrs: templ.Attributes{
-							"hx-get":    fmt.Sprintf("/ui/charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
-							"hx-target": "#charges-list",
+							"hx-get":    fmt.Sprintf("/ui/external-charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
+							"hx-target": "#external-charges-list",
 							"hx-swap":   "outerHTML",
 						},
 					}) {
@@ -124,12 +124,12 @@ templ chargesRangeSelector(presets []RangePreset) {
 	</div>
 }
 
-// chargeTiles renders the four aggregation tiles — Sessions, Energy, Cost, Avg
+// externalChargeTiles renders the four aggregation tiles — Sessions, Energy, Cost, Avg
 // kWh/session — structurally identical to superchargerTiles (supercharger_stats.templ,
 // design.md §D-Tiles), composing ui.StatTile in a Tailwind grid (layout utility
 // only). Single-currency (COP by construction, D13) — no per-currency CostLines
 // join here, unlike Supercharger's Cost tile.
-templ chargeTiles(t ChargeTiles) {
+templ externalChargeTiles(t ExternalChargeTiles) {
 	<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
 		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyChargesTileSessions), Value: t.Sessions})
 		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyChargesTileEnergy), Value: t.Energy})
@@ -138,7 +138,7 @@ templ chargeTiles(t ChargeTiles) {
 	</div>
 }
 
-// ChargesEmptyState renders the empty-state message for the charges list.
-templ ChargesEmptyState() {
+// ExternalChargesEmptyState renders the empty-state message for the charges list.
+templ ExternalChargesEmptyState() {
 	<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesListEmpty) }</p>
 }

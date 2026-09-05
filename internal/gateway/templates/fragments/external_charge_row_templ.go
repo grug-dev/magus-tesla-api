@@ -15,8 +15,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargeRow renders the static view of one charge entry as a table row.
-// Its id="charge-row-{vm.ID}" matches the templ.Fragment id pattern and
+// ExternalChargeRow renders the static view of one charge entry as a table row.
+// Its id="external-charge-row-{vm.ID}" matches the templ.Fragment id pattern and
 // is the target for the inline-edit swap (required invariant).
 //
 // windowStartStr/windowEndStr are the SAME ?start=&end= window the table was
@@ -31,11 +31,11 @@ import (
 // "primary"/"ghost" Badge Kinds, never "success"/"warning", so the badge's
 // colour vocabulary never collides with the adjacent dot's completeness colours.
 //
-// Delete's hx-target is "#charges-list" (the WHOLE list region), not
-// "#charge-row-{id}" (design.md §D-Refresh) — after a successful delete the row
+// Delete's hx-target is "#external-charges-list" (the WHOLE list region), not
+// "#external-charge-row-{id}" (design.md §D-Refresh) — after a successful delete the row
 // no longer exists to swap into, so the delete button re-renders the whole
 // filtered list/tiles instead, matching the filter buttons' own target.
-func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string) templ.Component {
+func ExternalChargeRow(vm ExternalChargeEntryVM, csrfToken, windowStartStr, windowEndStr string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -61,9 +61,9 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue("charge-row-" + vm.ID)
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue("external-charge-row-" + vm.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 31, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 31, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -76,7 +76,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ChargedOnShortLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 33, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 33, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -89,7 +89,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ChargedOnLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 34, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 34, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -128,7 +128,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(vm.EnergyKWh)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 50, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 50, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -141,7 +141,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(vm.PriceLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 51, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 51, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -154,7 +154,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(vm.CostPerKWhLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 52, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 52, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -167,7 +167,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(vm.BatteryRange)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 53, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 53, Col: 52}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -180,7 +180,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vm.BatteryDelta)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 54, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 54, Col: 52}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -193,7 +193,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(vm.DurationLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 55, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 55, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -226,7 +226,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesRowEdit))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 73, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 73, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -247,8 +247,8 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 				// (AGENTS.md §Mobile R7). Always present — it costs nothing on
 				// desktop and cannot go stale by being conditional.
 				"aria-label": i18n.T(ctx, i18n.KeyChargesRowEdit),
-				"hx-get":     "/ui/charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
-				"hx-target":  "#charges-list",
+				"hx-get":     "/ui/external-charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
+				"hx-target":  "#external-charges-list",
 				"hx-swap":    "outerHTML",
 			},
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
@@ -278,7 +278,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesRowDelete))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 110, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row.templ`, Line: 110, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {
@@ -297,8 +297,8 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 			Attrs: templ.Attributes{
 				// Icon-only on a phone — see the Edit button above.
 				"aria-label": i18n.T(ctx, i18n.KeyChargesRowDelete),
-				"hx-delete":  "/ui/charges/row/" + vm.ID + "?start=" + windowStartStr + "&end=" + windowEndStr,
-				"hx-target":  "#charges-list",
+				"hx-delete":  "/ui/external-charges/row/" + vm.ID + "?start=" + windowStartStr + "&end=" + windowEndStr,
+				"hx-target":  "#external-charges-list",
 				"hx-swap":    "outerHTML",
 				// hx-confirm is the message shown in the shared ui.ConfirmDialog
 				// (static/app.js intercepts htmx's htmx:confirm event); the three
@@ -318,10 +318,10 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 				// fallback (X-CSRF-Token), so switching the wire path fixes the
 				// delete-row alert (MAG-5 / D3, root-caused by static analysis).
 				"hx-headers": `{"X-CSRF-Token": "` + csrfToken + `"}`,
-				// csrfToken is the page-level ChargesPageData.CSRFToken carried
-				// down here from buildChargesPage; it matches the live session
+				// csrfToken is the page-level ExternalChargesPageData.CSRFToken carried
+				// down here from buildExternalChargesPage; it matches the live session
 				// value (the issuing handler writes it to the session and the
-				// row in the same render — see ChargesContentFragment).
+				// row in the same render — see ExternalChargesContentFragment).
 			},
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var13), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
@@ -336,16 +336,16 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 }
 
 // ChargeRowUpdateSuccessOOB was REMOVED (2026-08-29). It returned a primary
-// table-row swap plus a sibling div carrying hx-swap-oob for the charges-list
+// table-row swap plus a sibling div carrying hx-swap-oob for the external-charges-list
 // region, and that OOB refresh never reached the browser: htmx 2.0.4 parses a
 // response inside a template element, a leading table row puts the HTML parser
 // in table insertion mode, and the non-table sibling that follows is
 // foster-parented off the fragment's top level — where hx-swap-oob is the only
-// place htmx looks. ChargeRowUpdate now answers a successful save with the
-// whole charges-list fragment plus HX-Retarget, so there is exactly one
+// place htmx looks. ExternalChargeRowUpdate now answers a successful save with the
+// whole external-charges-list fragment plus HX-Retarget, so there is exactly one
 // response element and no table-row/div mix.
 //
 // Do NOT reintroduce a response that pairs a top-level table row with a
-// non-table OOB sibling. ChargeCreateSuccessOOB (charge_create_form.templ) is
+// non-table OOB sibling. ExternalChargeCreateSuccessOOB (external_charge_create_form.templ) is
 // safe only because both of its elements are divs.
 var _ = templruntime.GeneratedTemplate

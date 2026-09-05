@@ -128,7 +128,7 @@ const (
 
 // Field names one field of an Entry whose presence RequiredFieldsFor can evaluate.
 // Its string value is the database column name, which is ALSO the gateway's form
-// input name and its validation-error map key (handlers/charges.go).
+// input name and its validation-error map key (handlers/external_charges.go).
 type Field string
 
 const (

@@ -1,4 +1,4 @@
-// charges.go contains the handlers for the manual charge log page and its htmx
+// external_charges.go contains the handlers for the manual charge log page and its htmx
 // fragment routes (create/edit/delete). All write paths are auth-guarded, CSRF-
 // protected, and tenant-ownership-validated before calling charging.Writer.
 // See design.md D1-D10 and AGENTS.md "Exception: user-initiated writes".
@@ -27,8 +27,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 )
 
-// csrfManualChargeKey is the session key for the manual charge CSRF token.
-const csrfManualChargeKey = "csrf_manualcharge"
+// csrfExternalChargeKey is the session key for the manual charge CSRF token.
+const csrfExternalChargeKey = "csrf_externalcharge"
 
 // csrfVehicleSelectKey is the session key for the vehicle-context-switcher CSRF
 // token. Issued by NavHeaderFragment, validated by VehicleSelect — both live in
@@ -36,14 +36,14 @@ const csrfManualChargeKey = "csrf_manualcharge"
 // one home.
 const csrfVehicleSelectKey = "csrf_vehicle_select"
 
-// ChargePage renders the full Charge log page. It auth-guards, generates a CSRF
+// ExternalChargesPage renders the full External charges page. It auth-guards, generates a CSRF
 // token, builds page data, and renders the full page (initial load path).
 //
-// ChargePage does NOT parse ?start=&end= itself (design.md §D-Range/§Test
-// Contract) — the date-filter contract is scoped to GET /ui/charges/list; a
+// ExternalChargesPage does NOT parse ?start=&end= itself (design.md §D-Range/§Test
+// Contract) — the date-filter contract is scoped to GET /ui/external-charges/list; a
 // full page reload has no reason to remember a prior filter click. It always
-// uses the default chargesRangeDefaultDays window (defaultChargesWindow).
-func (h *Handler) ChargePage(c *gin.Context) {
+// uses the default externalChargesRangeDefaultDays window (defaultExternalChargesWindow).
+func (h *Handler) ExternalChargesPage(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
 		c.Redirect(http.StatusFound, "/login")
@@ -56,7 +56,7 @@ func (h *Handler) ChargePage(c *gin.Context) {
 		return
 	}
 	sess := sessions.Default(c)
-	sess.Set(csrfManualChargeKey, csrfToken)
+	sess.Set(csrfExternalChargeKey, csrfToken)
 	_ = sess.Save()
 
 	// Scope the list + default the create-form picker to the selected vehicle
@@ -69,60 +69,60 @@ func (h *Handler) ChargePage(c *gin.Context) {
 		filterTeslaID = sel.TeslaID
 	}
 	today := browserToday(c)
-	start, end := defaultChargesWindow(today)
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
-	render(c, http.StatusOK, pages.ChargePage(d))
+	start, end := defaultExternalChargesWindow(today)
+	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+	render(c, http.StatusOK, pages.ExternalChargesPage(d))
 }
 
-// ChargesListFragment renders only the charges-list fragment (htmx refresh
+// ExternalChargesListFragment renders only the external-charges-list fragment (htmx refresh
 // path AND the date-filter endpoint, design.md §D-RM33-10/§Context fact 4 —
-// same route, new query contract). Parses ?start=&end= via parseChargesRange;
+// same route, new query contract). Parses ?start=&end= via parseExternalChargesRange;
 // on a malformed window it renders the SAME NoFilterChrome empty-state
 // fragment at HTTP 400 with NO read against charging.Reader, mirroring the
 // platform's own "on 400, render the empty-state placeholder... and return no
 // preset selector" convention (internal/gateway/AGENTS.md §"HTTP date-filter
 // convention").
-func (h *Handler) ChargesListFragment(c *gin.Context) {
+func (h *Handler) ExternalChargesListFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
 		c.Redirect(http.StatusFound, "/login")
 		return
 	}
 	sess := sessions.Default(c)
-	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
+	csrfToken, _ := sess.Get(csrfExternalChargeKey).(string)
 
 	today := browserToday(c)
-	start, end, okRange := parseChargesRange(c, today)
+	start, end, okRange := parseExternalChargesRange(c, today)
 	if !okRange {
-		d := fragments.ChargesPageData{
+		d := fragments.ExternalChargesPageData{
 			CSRFToken:      csrfToken,
 			EmptyState:     true,
 			NoFilterChrome: true,
 		}
-		renderFragmentError(c, http.StatusBadRequest, pages.ChargePage(d), "charges-list")
+		renderFragmentError(c, http.StatusBadRequest, pages.ExternalChargesPage(d), "external-charges-list")
 		return
 	}
 
 	// Scope the htmx-refreshed list to the selected vehicle context, same as the
-	// full ChargePage render, so the list stays consistent with the switcher.
+	// full ExternalChargesPage render, so the list stays consistent with the switcher.
 	filterTeslaID := int64(0)
 	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
 		filterTeslaID = sel.TeslaID
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
-	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
+	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+	renderFragment(c, http.StatusOK, pages.ExternalChargesPage(d), "external-charges-list")
 }
 
-// ChargesContentFragment renders the whole vehicle-scoped charges content region —
+// ExternalChargesContentFragment renders the whole vehicle-scoped charges content region —
 // the create form + the entry list — for the SELECTED vehicle (htmx swap served by
-// GET /ui/charges). The #charges-content region subscribes to the "vehicle-changed"
+// GET /ui/external-charges). The #external-charges-content region subscribes to the "vehicle-changed"
 // event the sidebar switcher fires (HX-Trigger on VehicleSelect) and re-fetches this
 // so BOTH the list (filtered by the selected TeslaID) and the create form's vehicle
 // default follow the newly-selected vehicle without a full page reload. It mirrors
-// ChargePage exactly — issue a fresh manual-charge CSRF token (the re-rendered create
+// ExternalChargesPage exactly — issue a fresh manual-charge CSRF token (the re-rendered create
 // form embeds it) and scope to the resolved vehicle — but emits only the two content
 // fragments instead of the full page.
-func (h *Handler) ChargesContentFragment(c *gin.Context) {
+func (h *Handler) ExternalChargesContentFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
 		c.Redirect(http.StatusFound, "/login")
@@ -134,7 +134,7 @@ func (h *Handler) ChargesContentFragment(c *gin.Context) {
 		return
 	}
 	sess := sessions.Default(c)
-	sess.Set(csrfManualChargeKey, csrfToken)
+	sess.Set(csrfExternalChargeKey, csrfToken)
 	_ = sess.Save()
 
 	filterTeslaID := int64(0)
@@ -142,21 +142,21 @@ func (h *Handler) ChargesContentFragment(c *gin.Context) {
 		filterTeslaID = sel.TeslaID
 	}
 	// Not itemized by a Wave 5 sub-task, but this call site must move to the
-	// new 7-arg buildChargesPage signature regardless (5.1); a vehicle switch
+	// new 7-arg buildExternalChargesPage signature regardless (5.1); a vehicle switch
 	// has no filter state to preserve, so it uses the default window, same as
-	// ChargePage.
+	// ExternalChargesPage.
 	today := browserToday(c)
-	start, end := defaultChargesWindow(today)
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
-	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-create-form", "charges-list")
+	start, end := defaultExternalChargesWindow(today)
+	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+	renderFragment(c, http.StatusOK, pages.ExternalChargesPage(d), "external-charges-create-form", "external-charges-list")
 }
 
-// ChargeRowStatic renders the static row for one entry (used by cancel-edit
+// ExternalChargeRowStatic renders the static row for one entry (used by cancel-edit
 // path). Threads the caller's active filter window (?start=&end=, read via
-// windowFromQuery — best-effort, never a gate) into fragments.ChargeRow's
+// windowFromQuery — best-effort, never a gate) into fragments.ExternalChargeRow's
 // mandatory windowStartStr/windowEndStr params (design.md §D-Refresh, leader
 // resolution L3) so a Cancel never silently resets the user's filter.
-func (h *Handler) ChargeRowStatic(c *gin.Context) {
+func (h *Handler) ExternalChargeRowStatic(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
 		c.Redirect(http.StatusFound, "/login")
@@ -169,7 +169,7 @@ func (h *Handler) ChargeRowStatic(c *gin.Context) {
 		return
 	}
 	sess := sessions.Default(c)
-	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
+	csrfToken, _ := sess.Get(csrfExternalChargeKey).(string)
 
 	vm, ok2 := h.fetchEntryVM(c.Request.Context(), uid, id)
 	if !ok2 {
@@ -179,12 +179,12 @@ func (h *Handler) ChargeRowStatic(c *gin.Context) {
 	start, end := windowFromQuery(c, browserToday(c))
 	windowStartStr := start.Format("2006-01-02")
 	windowEndStr := end.Format("2006-01-02")
-	render(c, http.StatusOK, fragments.ChargeRow(vm, csrfToken, windowStartStr, windowEndStr))
+	render(c, http.StatusOK, fragments.ExternalChargeRow(vm, csrfToken, windowStartStr, windowEndStr))
 }
 
-// ChargeRowEditFragment opens the inline edit form for ONE row. It renders the
-// WHOLE #charges-list region with that row — and only that row — in edit mode,
-// rather than returning a bare <tr> swapped into #charge-row-{id}.
+// ExternalChargeRowEditFragment opens the inline edit form for ONE row. It renders the
+// WHOLE #external-charges-list region with that row — and only that row — in edit mode,
+// rather than returning a bare <tr> swapped into #external-charge-row-{id}.
 //
 // That is the fix for "N rows, N open edit forms": when the row was the swap
 // target, each Edit click was independent, so a user could open every row at
@@ -192,13 +192,13 @@ func (h *Handler) ChargeRowStatic(c *gin.Context) {
 // truth means opening a second row necessarily re-renders the first one closed —
 // the invariant is enforced by the server on every render, not by client-side
 // bookkeeping that a stray swap could desynchronize. It also needs no new JS:
-// the row's Delete button already targets #charges-list this exact way, so this
+// the row's Delete button already targets #external-charges-list this exact way, so this
 // mirrors an existing mechanism in the same file instead of inventing one.
 //
 // Threads the active filter window (?start=&end=, windowFromQuery — best-effort,
 // never a gate, design.md §D-Refresh/leader resolution L3) so opening an editor
 // never silently resets the user's filter.
-func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
+func (h *Handler) ExternalChargeRowEditFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
 		c.Redirect(http.StatusFound, "/login")
@@ -211,7 +211,7 @@ func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 		return
 	}
 	sess := sessions.Default(c)
-	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
+	csrfToken, _ := sess.Get(csrfExternalChargeKey).(string)
 
 	filterTeslaID := int64(0)
 	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
@@ -219,7 +219,7 @@ func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 	}
 	today := browserToday(c)
 	start, end := windowFromQuery(c, today)
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 
 	// The row must be present in the window just rendered — Edit is only
 	// reachable from a row the user can see. Checking the built page costs no
@@ -237,13 +237,13 @@ func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 		return
 	}
 	d.EditingID = id.String()
-	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
+	renderFragment(c, http.StatusOK, pages.ExternalChargesPage(d), "external-charges-list")
 }
 
-// ChargeCreate handles POST /ui/charges/create. It auth-guards, CSRF-checks,
+// ExternalChargeCreate handles POST /ui/external-charges/create. It auth-guards, CSRF-checks,
 // validates ownership, calls Writer.Create, and on success returns an OOB swap
 // to refresh the list plus a reset create form.
-func (h *Handler) ChargeCreate(c *gin.Context) {
+func (h *Handler) ExternalChargeCreate(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
 		c.Redirect(http.StatusFound, "/login")
@@ -259,9 +259,9 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 		return
 	}
 	sess := sessions.Default(c)
-	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
+	csrfToken, _ := sess.Get(csrfExternalChargeKey).(string)
 
-	entry, raw, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
+	entry, raw, validationErrors, ok2 := h.parseExternalChargeForm(c, uid, vehicles)
 	// One IN_PROGRESS entry per (vehicle, charged_on): a second in-progress
 	// charge for a day that already has one is rejected BEFORE Writer.Create,
 	// and reported through the SAME 422 branch as every other validation
@@ -288,30 +288,30 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 				filterTeslaID = sel.TeslaID
 			}
 		}
-		// design.md §Wave 5.4: a 422 never renders #charges-list, so it stays on
+		// design.md §Wave 5.4: a 422 never renders #external-charges-list, so it stays on
 		// the plain default window — do NOT thread windowFromForm here.
 		today := browserToday(c)
-		start, end := defaultChargesWindow(today)
-		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+		start, end := defaultExternalChargesWindow(today)
+		d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 		// design.md §D-Values (roadmap D15): overwrite the fresh-load defaults
 		// with what the user actually submitted, so a validation failure never
 		// discards a value they typed — including charged_on/started_at/ended_at,
-		// which have no home on ChargeFormValues (they already have a Default*
-		// slot on ChargesPageData for the fresh-load case).
+		// which have no home on ExternalChargeFormValues (they already have a Default*
+		// slot on ExternalChargesPageData for the fresh-load case).
 		d.DefaultChargedOn = c.PostForm("charged_on")
 		d.DefaultStartedAt = c.PostForm("started_at")
 		d.DefaultEndedAt = c.PostForm("ended_at")
 		d.FormValues = raw
 		// design.md §D-Fields: the Required* pair must track the SUBMITTED status,
-		// not buildChargesPage's fresh-load IN_PROGRESS default.
+		// not buildExternalChargesPage's fresh-load IN_PROGRESS default.
 		applyRawRequiredState(&d, raw)
-		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeCreateForm(d, validationErrors))
+		renderError(c, http.StatusUnprocessableEntity, fragments.ExternalChargeCreateForm(d, validationErrors))
 		return
 	}
 
 	created, err := h.chargingWriter.Create(c.Request.Context(), entry)
 	if err != nil {
-		log.Printf("gateway: ChargeCreate writer error for account %s: %v", uid, err)
+		log.Printf("gateway: ExternalChargeCreate writer error for account %s: %v", uid, err)
 		// Keep the picker on the vehicle the user submitted.
 		filterTeslaID := entry.TeslaID
 		if filterTeslaID == 0 {
@@ -320,10 +320,10 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 			}
 		}
 		// design.md §Wave 5.4: same plain-default-window treatment as the 422
-		// branch above — a 500 also never renders #charges-list.
+		// branch above — a 500 also never renders #external-charges-list.
 		today := browserToday(c)
-		start, end := defaultChargesWindow(today)
-		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+		start, end := defaultExternalChargesWindow(today)
+		d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 		// design.md §D-Values (roadmap D15): same value-preservation treatment on
 		// the 500 (writer-error) branch as the 422 (validation-error) branch.
 		d.DefaultChargedOn = c.PostForm("charged_on")
@@ -332,14 +332,14 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 		d.FormValues = raw
 		// design.md §D-Fields: same recomputation on the 500 branch as the 422 one.
 		applyRawRequiredState(&d, raw)
-		renderError(c, http.StatusInternalServerError, fragments.ChargeCreateForm(d, map[string]string{
+		renderError(c, http.StatusInternalServerError, fragments.ExternalChargeCreateForm(d, map[string]string{
 			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
 		}))
 		return
 	}
 
 	_ = created
-	h.recalculateAfterChargeWrite(c.Request.Context(), uid, entry.TeslaID, entry.ChargedOn)
+	h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, entry.TeslaID, entry.ChargedOn)
 
 	// Reset form defaults to the submitted vehicle so the user can log another
 	// charge for the same car without re-picking.
@@ -351,21 +351,21 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 	}
 	// design.md §D-Include: the SUCCESS path (only) resolves the OOB refresh
 	// window from the hx-include'd hidden inputs (windowFromForm), so the
-	// #charges-list OOB swap reflects the filter window active at submit time,
+	// #external-charges-list OOB swap reflects the filter window active at submit time,
 	// not the default.
 	today := browserToday(c)
 	start, end := windowFromForm(c, today)
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
-	// The one place ChargesPageData.Notice is ever set: the response to the
-	// write that earned it. It rides in on the primary #charges-create-form
+	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+	// The one place ExternalChargesPageData.Notice is ever set: the response to the
+	// write that earned it. It rides in on the primary #external-charges-create-form
 	// swap and is gone on the next render of any kind.
 	d.Notice = i18n.T(c.Request.Context(), i18n.KeyChargesNoticeEntryCreated)
-	render(c, http.StatusOK, fragments.ChargeCreateSuccessOOB(d))
+	render(c, http.StatusOK, fragments.ExternalChargeCreateSuccessOOB(d))
 }
 
-// ChargeRowUpdate handles PUT /ui/charges/row/:id. Saves the edited row and
+// ExternalChargeRowUpdate handles PUT /ui/external-charges/row/:id. Saves the edited row and
 // swaps back to the static row on success, or re-renders with validation errors.
-func (h *Handler) ChargeRowUpdate(c *gin.Context) {
+func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
 		c.Redirect(http.StatusFound, "/login")
@@ -387,9 +387,9 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 		return
 	}
 	sess := sessions.Default(c)
-	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
+	csrfToken, _ := sess.Get(csrfExternalChargeKey).(string)
 
-	// design.md §D-Include: the hidden start/end inputs charge_row_edit.templ
+	// design.md §D-Include: the hidden start/end inputs external_charge_row_edit.templ
 	// (Wave 4.3) now renders inside the edit form are read here via
 	// windowFromForm's exact best-effort fallback shape — never a validation
 	// gate. Computed once and reused by every branch below (success and
@@ -399,7 +399,7 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	windowStartStr := start.Format("2006-01-02")
 	windowEndStr := end.Format("2006-01-02")
 
-	entry, raw, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
+	entry, raw, validationErrors, ok2 := h.parseExternalChargeForm(c, uid, vehicles)
 	// Same one-IN_PROGRESS-per-(vehicle, charged_on) rule the create path
 	// enforces, so flipping a DONE row back to IN_PROGRESS cannot bypass it.
 	// The row being edited is excluded from the scan — an entry that is
@@ -420,15 +420,15 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 		// the raw submission, not from the (possibly zero-value) parsed entry —
 		// a value that failed validation has no representation in entry's typed
 		// fields, so only the raw string survives to be echoed back.
-		vm := chargeEntryVMFromRawValues(idStr, raw, h.vehicleLabelForSelected(c, uid, vehicles))
+		vm := externalChargeEntryVMFromRawValues(idStr, raw, h.vehicleLabelForSelected(c, uid, vehicles))
 		vm.RawChargedOn = c.PostForm("charged_on")
 		vm.RawStartedAt = c.PostForm("started_at")
 		vm.RawEndedAt = c.PostForm("ended_at")
 		// The validation-ERROR path is UNCHANGED in shape (design.md §D-Refresh)
-		// — still fragments.ChargeRowEdit only, no #charges-list touch — only the
+		// — still fragments.ExternalChargeRowEdit only, no #external-charges-list touch — only the
 		// call site's new windowStartStr/windowEndStr params are added, echoing
 		// back whatever was posted.
-		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeRowEdit(vm, csrfToken, validationErrors, windowStartStr, windowEndStr))
+		renderError(c, http.StatusUnprocessableEntity, fragments.ExternalChargeRowEdit(vm, csrfToken, validationErrors, windowStartStr, windowEndStr))
 		return
 	}
 	entry.ID = id
@@ -444,71 +444,71 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 
 	updated, err := h.chargingWriter.Update(c.Request.Context(), entry)
 	if err != nil {
-		log.Printf("gateway: ChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
+		log.Printf("gateway: ExternalChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
 		// Same value-preservation treatment on the 500 (writer-error) branch as
 		// the 422 (validation-error) branch above — design.md §D-Values. Same
 		// "unchanged shape, only add the window params" treatment as the 422
 		// branch — design.md §D-Refresh.
-		vm := chargeEntryVMFromRawValues(idStr, raw, h.vehicleLabelForSelected(c, uid, vehicles))
+		vm := externalChargeEntryVMFromRawValues(idStr, raw, h.vehicleLabelForSelected(c, uid, vehicles))
 		vm.RawChargedOn = c.PostForm("charged_on")
 		vm.RawStartedAt = c.PostForm("started_at")
 		vm.RawEndedAt = c.PostForm("ended_at")
-		renderError(c, http.StatusInternalServerError, fragments.ChargeRowEdit(vm, csrfToken, map[string]string{
+		renderError(c, http.StatusInternalServerError, fragments.ExternalChargeRowEdit(vm, csrfToken, map[string]string{
 			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
 		}, windowStartStr, windowEndStr))
 		return
 	}
-	h.recalculateAfterChargeWrite(c.Request.Context(), uid, updated.TeslaID, updated.ChargedOn)
+	h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, updated.TeslaID, updated.ChargedOn)
 	if hadOld && !oldChargedOn.Equal(updated.ChargedOn) {
-		h.recalculateAfterChargeWrite(c.Request.Context(), uid, updated.TeslaID, oldChargedOn)
+		h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, updated.TeslaID, oldChargedOn)
 	}
-	// A SUCCESSFUL edit re-renders the WHOLE #charges-list region, retargeted
-	// away from the form's own #charge-row-{id}. This replaced an earlier
-	// "primary <tr> swap + OOB #charges-list refresh" response, which did not
+	// A SUCCESSFUL edit re-renders the WHOLE #external-charges-list region, retargeted
+	// away from the form's own #external-charge-row-{id}. This replaced an earlier
+	// "primary <tr> swap + OOB #external-charges-list refresh" response, which did not
 	// refresh the list in the browser at all:
 	//
 	// htmx 2.0.4 parses a response inside <template class="internal-htmx-wrapper">.
 	// Per the HTML parsing spec a <tr> start tag switches the parser into table
 	// insertion mode, so a NON-table sibling that follows it — here the
-	// <div id="charges-list" hx-swap-oob=...> — goes down the foster-parenting
+	// <div id="external-charges-list" hx-swap-oob=...> — goes down the foster-parenting
 	// path instead of staying a top-level child of the fragment. htmx only
 	// applies hx-swap-oob to top-level children, so the refresh was silently
-	// dropped. ChargeCreateSuccessOOB is unaffected because its response is
+	// dropped. ExternalChargeCreateSuccessOOB is unaffected because its response is
 	// <div>+<div>, with no <tr> to put the parser in table mode — which is
 	// exactly why create refreshed the list and edit did not.
 	//
 	// HX-Retarget/HX-Reswap keep the form's markup honest: hx-target stays
-	// #charge-row-{id}, which is right for the 4xx/5xx branches above (they
+	// #external-charge-row-{id}, which is right for the 4xx/5xx branches above (they
 	// re-render the edit row in place, preserving the user's typed values per
 	// design.md §D-Values). Only the success path retargets, so there is one
 	// response element, no OOB, and no <tr>/<div> mixing.
 	//
 	// The window resets to the default 7-day one so the user lands back on the
-	// "last 7 days" preset: defaultChargesWindow returns exactly that preset's
-	// (today-6, today) range and buildChargesPresets marks it Active by its own
+	// "last 7 days" preset: defaultExternalChargesWindow returns exactly that preset's
+	// (today-6, today) range and buildExternalChargesPresets marks it Active by its own
 	// exact-match rule — nothing here hardcodes a preset index or label. The
 	// posted window still governs the ERROR branches' echo; a failed save must
 	// not move the user's filter.
-	c.Header("HX-Retarget", "#charges-list")
+	c.Header("HX-Retarget", "#external-charges-list")
 	c.Header("HX-Reswap", "outerHTML")
-	listStart, listEnd := defaultChargesWindow(today)
-	list := h.buildChargesPage(c.Request.Context(), uid, csrfToken, updated.TeslaID, today, listStart, listEnd)
-	renderFragment(c, http.StatusOK, pages.ChargePage(list), "charges-list")
+	listStart, listEnd := defaultExternalChargesWindow(today)
+	list := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, updated.TeslaID, today, listStart, listEnd)
+	renderFragment(c, http.StatusOK, pages.ExternalChargesPage(list), "external-charges-list")
 }
 
-// ChargeRowDelete handles DELETE /ui/charges/row/:id. Deletes the entry and
-// re-renders the WHOLE #charges-list region (design.md §D-Refresh) — the
-// delete button's hx-target is "#charges-list", not "#charge-row-{id}", since
+// ExternalChargeRowDelete handles DELETE /ui/external-charges/row/:id. Deletes the entry and
+// re-renders the WHOLE #external-charges-list region (design.md §D-Refresh) — the
+// delete button's hx-target is "#external-charges-list", not "#external-charge-row-{id}", since
 // after a successful delete the row no longer exists to swap into. This makes
-// ChargeRowDelete structurally identical to ChargesListFragment, preceded by
-// the actual Writer.Delete call: same buildChargesPage path, same
+// ExternalChargeRowDelete structurally identical to ExternalChargesListFragment, preceded by
+// the actual Writer.Delete call: same buildExternalChargesPage path, same
 // renderFragment/renderFragmentError machinery, no new render function.
 //
 // Root cause of the MAG-5 delete-row alert (T1.1 — root-caused by STATIC analysis;
 // live reproduce deferred to T7.4 manual smoke, leader-authorized deviation, see
 // progress.json decisions): Go's net/http only parses request bodies for POST,
 // PUT, and PATCH (see http.Request.ParseForm switch). The previous delete button
-// in fragments.ChargeRow sent the csrf_token via hx-include on a hidden
+// in fragments.ExternalChargeRow sent the csrf_token via hx-include on a hidden
 // #csrf-delete-<id> form input, which travels in the DELETE request BODY. Since
 // the body was never parsed into c.request.PostForm, checkCSRFKey's
 // c.PostForm("csrf_token") returned "" for DELETE even though the input carried a
@@ -516,15 +516,15 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 // constant-time compare failed -> HTTP 403 "invalid csrf token" -> htmx showed
 // the user a JS alert() (4xx + text/plain Content-Type triggers htmx's default
 // error-alert). CSRF lifecycle was NOT stale: the row's embedded token already
-// matched the session's csrf_manualcharge at render time (ChargePage and
-// ChargesContentFragment write the same token to the session and the form/rows in
-// one render). The fix lives in charge_row.templ: the delete button now sends the
+// matched the session's csrf_externalcharge at render time (ExternalChargesPage and
+// ExternalChargesContentFragment write the same token to the session and the form/rows in
+// one render). The fix lives in external_charge_row.templ: the delete button now sends the
 // token on the X-CSRF-Token HEADER via htmx hx-headers, which checkCSRFKey's
 // existing header fallback reads — no body parse needed. checkCSRF /
 // subtle.ConstantTimeCompare stay fail-closed. On a stale/missing token the
 // handler still returns HTTP 403 (intended, defense-in-depth); only the WIRE PATH
 // changed.
-func (h *Handler) ChargeRowDelete(c *gin.Context) {
+func (h *Handler) ExternalChargeRowDelete(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
 		c.Redirect(http.StatusFound, "/login")
@@ -540,10 +540,10 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 		return
 	}
 	sess := sessions.Default(c)
-	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
+	csrfToken, _ := sess.Get(csrfExternalChargeKey).(string)
 
 	// design.md §D-Refresh/§D-Include: the row's own Delete URL carries
-	// ?start=&end= (threaded by charge_row.templ's hx-delete, Wave 4.2), read
+	// ?start=&end= (threaded by external_charge_row.templ's hx-delete, Wave 4.2), read
 	// here via windowFromQuery's best-effort fallback — never a validation
 	// gate (leader resolution L2).
 	today := browserToday(c)
@@ -562,33 +562,33 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 	entryTeslaID, entryChargedOn, hadEntry := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
 
 	err = h.chargingWriter.Delete(c.Request.Context(), uid, id)
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	if err != nil {
-		log.Printf("gateway: ChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
+		log.Printf("gateway: ExternalChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
 		d.Error = i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotDeleteEntry)
-		renderFragmentError(c, http.StatusInternalServerError, pages.ChargePage(d), "charges-list")
+		renderFragmentError(c, http.StatusInternalServerError, pages.ExternalChargesPage(d), "external-charges-list")
 		return
 	}
 	if hadEntry {
-		h.recalculateAfterChargeWrite(c.Request.Context(), uid, entryTeslaID, entryChargedOn)
+		h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, entryTeslaID, entryChargedOn)
 	}
-	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
+	renderFragment(c, http.StatusOK, pages.ExternalChargesPage(d), "external-charges-list")
 }
 
-// defaultChargesWindow returns the standard chargesRangeDefaultDays window
+// defaultExternalChargesWindow returns the standard externalChargesRangeDefaultDays window
 // ending today, with no parsing involved — used by callers that never read
-// ?start=&end= themselves (ChargePage, ChargesContentFragment, and
-// ChargeCreate/ChargeRowUpdate's non-#charges-list-touching error branches),
-// so the chargesRangeDefaultDays math (also in parseChargesRange and
+// ?start=&end= themselves (ExternalChargesPage, ExternalChargesContentFragment, and
+// ExternalChargeCreate/ExternalChargeRowUpdate's non-#external-charges-list-touching error branches),
+// so the externalChargesRangeDefaultDays math (also in parseExternalChargesRange and
 // bestEffortWindow) is not duplicated inline a fourth time.
-func defaultChargesWindow(today time.Time) (start, end time.Time) {
+func defaultExternalChargesWindow(today time.Time) (start, end time.Time) {
 	end = today
-	start = end.AddDate(0, 0, -(chargesRangeDefaultDays - 1))
+	start = end.AddDate(0, 0, -(externalChargesRangeDefaultDays - 1))
 	return start, end
 }
 
-// buildChargesPage is the gin-free helper that calls module ports and builds
-// ChargesPageData. Decoupled from Gin so it can be called with fake port
+// buildExternalChargesPage is the gin-free helper that calls module ports and builds
+// ExternalChargesPageData. Decoupled from Gin so it can be called with fake port
 // implementations in tests.
 //
 // The frozen 7-arg signature (design.md §Wave 5.1, tasks.md 5.1): today is
@@ -599,15 +599,15 @@ func defaultChargesWindow(today time.Time) (start, end time.Time) {
 // filter window (design.md §D-Range). Deriving the form's default date from
 // end would make the "This month" preset pre-fill the create form with the
 // last day of the month.
-func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken string, teslaIDFilter int64, today, start, end time.Time) fragments.ChargesPageData {
+func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, csrfToken string, teslaIDFilter int64, today, start, end time.Time) fragments.ExternalChargesPageData {
 	// design.md §D-RM33-9: no vehicle resolved -> NO read of any kind against
 	// charging.Reader (nor account.RegisteredVehicles, which is only needed to
 	// map entries the empty-state path never fetches) — just the same
-	// no-chrome empty state ChargesListFragment/ChargePage render on a
+	// no-chrome empty state ExternalChargesListFragment/ExternalChargesPage render on a
 	// malformed window (design.md §D-Empty state 1: both conditions collapse
 	// to the identical render).
 	if teslaIDFilter == 0 {
-		return fragments.ChargesPageData{
+		return fragments.ExternalChargesPageData{
 			CSRFToken:      csrfToken,
 			EmptyState:     true,
 			NoFilterChrome: true,
@@ -617,7 +617,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
 		log.Printf("gateway: RegisteredVehicles error for account %s: %v", uid, err)
-		return fragments.ChargesPageData{
+		return fragments.ExternalChargesPageData{
 			CSRFToken: csrfToken,
 			Error:     i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadVehicles),
 		}
@@ -637,20 +637,20 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 	// design.md §D-Tiles: computed over the SAME entries slice
 	// ListEntriesByVehicleBetween returned, BEFORE the VM-mapping loop below,
 	// so the tiles and the table are provably the same data (D13). On a reader
-	// error entries is nil, so buildChargeTiles(nil) naturally yields the
+	// error entries is nil, so buildExternalChargeTiles(nil) naturally yields the
 	// zero/em-dash tile values (design.md §D-Empty state 2) with no special
 	// casing.
-	tiles := buildChargeTiles(entries)
+	tiles := buildExternalChargeTiles(entries)
 
-	vms := make([]fragments.ChargeEntryVM, 0, len(entries))
+	vms := make([]fragments.ExternalChargeEntryVM, 0, len(entries))
 	for _, e := range entries {
-		vms = append(vms, chargeEntryVMFromEntry(e, vehicles))
+		vms = append(vms, externalChargeEntryVMFromEntry(e, vehicles))
 	}
 
 	// D1: default charged_on / started_at / ended_at to the user's current calendar
 	// day so the create form's date fields render pre-populated. The template emits
 	// these verbatim into the input's value attribute — no time math in markup.
-	// charged_on is REQUIRED; started_at / ended_at stay OPTIONAL (parseChargeForm
+	// charged_on is REQUIRED; started_at / ended_at stay OPTIONAL (parseExternalChargeForm
 	// still accepts a cleared field and persists nil StartedAt / EndedAt).
 	//
 	// All three derive from ONE `day` value so the "Date" field can never drift from
@@ -686,7 +686,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 
 	// RM33/design.md §D-Values: the create form's status control always defaults
 	// to IN_PROGRESS on a fresh (non-error) render — the error-render path
-	// (ChargeCreate's 4xx/5xx branches, task 3.3) overwrites FormValues with the
+	// (ExternalChargeCreate's 4xx/5xx branches, task 3.3) overwrites FormValues with the
 	// user's actual submission afterward. RequiredEndedAt/RequiredEndBatteryPct
 	// are computed from the SAME status so the two never disagree on a fresh
 	// load (design.md §D-Fields).
@@ -695,12 +695,12 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		required[f] = true
 	}
 
-	return fragments.ChargesPageData{
+	return fragments.ExternalChargesPageData{
 		Entries:                   vms,
 		CSRFToken:                 csrfToken,
 		EmptyState:                len(vms) == 0 && pageError == "",
 		Error:                     pageError,
-		Presets:                   buildChargesPresets(ctx, start, end, today),
+		Presets:                   buildExternalChargesPresets(ctx, start, end, today),
 		Tiles:                     tiles,
 		WindowStartStr:            start.Format("2006-01-02"),
 		WindowEndStr:              end.Format("2006-01-02"),
@@ -708,7 +708,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		DefaultStartedAt:          todayDate,
 		DefaultEndedAt:            todayDate,
 		StartBatteryPctSuggestion: suggestion,
-		FormValues: fragments.ChargeFormValues{
+		FormValues: fragments.ExternalChargeFormValues{
 			Status: string(charging.StatusInProgress),
 		},
 		RequiredEndedAt:       required[charging.FieldEndedAt],
@@ -721,14 +721,14 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 // (design.md §D-Include) — never a validation gate, in either direction: an
 // absent or malformed pair only affects which window a write's post-write
 // refresh re-renders, never whether the write itself succeeds. This is
-// deliberately NOT parseChargesRange, which REJECTS a malformed window (right
+// deliberately NOT parseExternalChargesRange, which REJECTS a malformed window (right
 // for the user-driven filter route the caller 400s on; wrong here, where a
 // malformed window must never turn a successful write into an error).
 func bestEffortWindow(rawStart, rawEnd string, today time.Time) (start, end time.Time) {
 	s, errS := time.Parse("2006-01-02", rawStart)
 	e, errE := time.Parse("2006-01-02", rawEnd)
 	if errS != nil || errE != nil || e.Before(s) {
-		return defaultChargesWindow(today)
+		return defaultExternalChargesWindow(today)
 	}
 	return s, e
 }
@@ -741,8 +741,8 @@ func windowFromForm(c *gin.Context, today time.Time) (start, end time.Time) {
 }
 
 // windowFromQuery is windowFromForm's GET-query sibling (design.md
-// §D-Include, leader resolution L2), used by ChargeRowDelete/ChargeRowStatic/
-// ChargeRowEditFragment's ?start=&end= query params. Delegates to the SAME
+// §D-Include, leader resolution L2), used by ExternalChargeRowDelete/ExternalChargeRowStatic/
+// ExternalChargeRowEditFragment's ?start=&end= query params. Delegates to the SAME
 // bestEffortWindow so the "never a gate" behaviour cannot drift between the
 // POST and GET sides.
 func windowFromQuery(c *gin.Context, today time.Time) (start, end time.Time) {
@@ -752,28 +752,28 @@ func windowFromQuery(c *gin.Context, today time.Time) (start, end time.Time) {
 // fetchEntryVM fetches a single entry by listing all account entries and finding
 // the one matching id (no GetEntry on the port — design decision D6). Returns
 // false if not found.
-func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID) (fragments.ChargeEntryVM, bool) {
+func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID) (fragments.ExternalChargeEntryVM, bool) {
 	entries, err := h.chargingReader.ListEntriesByAccount(ctx, uid, 0)
 	if err != nil {
-		return fragments.ChargeEntryVM{}, false
+		return fragments.ExternalChargeEntryVM{}, false
 	}
 	vehicles, _ := h.acct.RegisteredVehicles(ctx, uid)
 	for _, e := range entries {
 		if e.ID == id {
-			return chargeEntryVMFromEntry(e, vehicles), true
+			return externalChargeEntryVMFromEntry(e, vehicles), true
 		}
 	}
-	return fragments.ChargeEntryVM{}, false
+	return fragments.ExternalChargeEntryVM{}, false
 }
 
 // fetchEntryTeslaIDAndChargedOn resolves a manual charge entry's stored
 // TeslaID and ChargedOn by id, listing all account entries and matching
 // (mirrors fetchEntryVM's own no-GetEntry-port shape, design decision D6).
-// Returns false if not found. Used by ChargeRowUpdate (to learn the
-// PRE-update ChargedOn before it is overwritten) and ChargeRowDelete (to
+// Returns false if not found. Used by ExternalChargeRowUpdate (to learn the
+// PRE-update ChargedOn before it is overwritten) and ExternalChargeRowDelete (to
 // learn TeslaID/ChargedOn before the entry is gone entirely — the Delete
 // port does not return the deleted entry, design.md D5) so
-// recalculateAfterChargeWrite can be called for the affected date.
+// recalculateAfterExternalChargeWrite can be called for the affected date.
 func (h *Handler) fetchEntryTeslaIDAndChargedOn(ctx context.Context, uid uuid.UUID, id uuid.UUID) (teslaID int64, chargedOn time.Time, ok bool) {
 	entries, err := h.chargingReader.ListEntriesByAccount(ctx, uid, 0)
 	if err != nil {
@@ -793,7 +793,7 @@ func (h *Handler) fetchEntryTeslaIDAndChargedOn(ctx context.Context, uid uuid.UU
 // charged_on formatted "2006-01-02" for the user-facing message.
 //
 // excludeID exempts one entry from the scan: uuid.Nil on the create path
-// (nothing to exempt), and the edited row's own id on ChargeRowUpdate, so an
+// (nothing to exempt), and the edited row's own id on ExternalChargeRowUpdate, so an
 // entry that is already IN_PROGRESS never conflicts with itself.
 //
 // Scope gate: only an IN_PROGRESS submission can conflict. A DONE entry is
@@ -814,8 +814,8 @@ func (h *Handler) fetchEntryTeslaIDAndChargedOn(ctx context.Context, uid uuid.UU
 // rule is an application-level convenience with no DB constraint behind it;
 // turning a transient read failure into a refusal to save the user's data
 // would trade a real loss for a hypothetical duplicate. This mirrors the
-// log-and-continue posture buildChargesPage's telemetry suggestion lookup and
-// recalculateAfterChargeWrite already take for non-essential follow-ups.
+// log-and-continue posture buildExternalChargesPage's telemetry suggestion lookup and
+// recalculateAfterExternalChargeWrite already take for non-essential follow-ups.
 func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry charging.Entry, excludeID uuid.UUID) (string, bool) {
 	if entry.Status != charging.StatusInProgress || entry.TeslaID == 0 {
 		return "", false
@@ -838,7 +838,7 @@ func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry
 	return "", false
 }
 
-// recalculateAfterChargeWrite calls the analytics module's recalculation
+// recalculateAfterExternalChargeWrite calls the analytics module's recalculation
 // port for the given vehicle/date, AFTER a manual charge write (Create,
 // Update, or Delete) has already committed successfully — design.md D5
 // ("Manual Charge Write Path Triggers Analytics Recalculation"). This keeps
@@ -851,7 +851,7 @@ func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry
 // a derived-metrics recalculation error would be wrong (their data IS
 // saved); silently doing nothing would hide a real fault, so it is logged —
 // mirrors this file's existing non-fatal-follow-up convention (the charge
-// suggestion telemetry lookup in buildChargesPage logs and continues on a
+// suggestion telemetry lookup in buildExternalChargesPage logs and continues on a
 // read error rather than failing the page). The chart falls back to the
 // last-recalculated state until the next nightly Reconcile call heals it
 // (design.md D7).
@@ -859,7 +859,7 @@ func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry
 // T7's app.RecalculateVehicleData relocates this CALL to a new composition
 // root, not this logic (design.md D5) — the interim composition root is this
 // handler file.
-func (h *Handler) recalculateAfterChargeWrite(ctx context.Context, uid uuid.UUID, teslaID int64, chargedOn time.Time) {
+func (h *Handler) recalculateAfterExternalChargeWrite(ctx context.Context, uid uuid.UUID, teslaID int64, chargedOn time.Time) {
 	if err := h.analyticsRecalculator.Recalculate(ctx, uid, teslaID, chargedOn, chargedOn); err != nil {
 		log.Printf("gateway: analytics recalculate error for account %s, vehicle %d, date %s: %v",
 			uid, teslaID, chargedOn.Format("2006-01-02"), err)
@@ -870,11 +870,11 @@ func (h *Handler) recalculateAfterChargeWrite(ctx context.Context, uid uuid.UUID
 // header), compares it to the charging session value via constant-time
 // compare, and writes 403 on mismatch. Returns true if CSRF is valid.
 func (h *Handler) checkCSRF(c *gin.Context) bool {
-	return h.checkCSRFKey(c, csrfManualChargeKey)
+	return h.checkCSRFKey(c, csrfExternalChargeKey)
 }
 
 // checkCSRFKey is the generic per-form CSRF check. keyed by the session key the
-// issuing handler stored the token under (e.g. csrfManualChargeKey,
+// issuing handler stored the token under (e.g. csrfExternalChargeKey,
 // csrfVehicleSelectKey). Same fail-closed contract as checkCSRF: an empty session
 // token never matches, so a write before the issuing GET was ever loaded is
 // rejected. Reads csrf_token from the form body, falling back to the
@@ -888,7 +888,7 @@ func (h *Handler) checkCSRFKey(c *gin.Context, key string) bool {
 	}
 	// Fail closed when no token was issued for this session. subtle.ConstantTimeCompare
 	// returns 1 for two equal-length equal slices, so comparing "" (no session token,
-	// e.g. a write before GET /charges was ever loaded) against "" (no submitted token)
+	// e.g. a write before GET /external-charges was ever loaded) against "" (no submitted token)
 	// would pass and let a tokenless request through. Both sides must be a real token.
 	if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(got)) != 1 {
 		c.String(http.StatusForbidden, i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidCSRFToken))
@@ -897,10 +897,10 @@ func (h *Handler) checkCSRFKey(c *gin.Context, key string) bool {
 	return true
 }
 
-// chargeEntryVMFromEntry maps a charging.Entry and the account's registered
-// vehicle list to a ChargeEntryVM. Pre-computes all derived display strings so
+// externalChargeEntryVMFromEntry maps a charging.Entry and the account's registered
+// vehicle list to a ExternalChargeEntryVM. Pre-computes all derived display strings so
 // templates do no arithmetic (design.md D6).
-func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragments.ChargeEntryVM {
+func externalChargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragments.ExternalChargeEntryVM {
 	label := vehicleLabelFor(e.TeslaID, vehicles)
 
 	// D14 extends the "—" empty-placeholder convention (already applied to
@@ -998,11 +998,11 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 		rawEnergyKWh = strconv.FormatFloat(*e.EnergyAddedKWh, 'f', 2, 64)
 	}
 
-	return fragments.ChargeEntryVM{
+	return fragments.ExternalChargeEntryVM{
 		ID:             e.ID.String(),
 		VehicleLabel:   label,
 		ChargedOnLabel: e.ChargedOn.Format("Mon Jan 2, 2006"),
-		// Same instant, phone-width format — see ChargeEntryVM.ChargedOnShortLabel.
+		// Same instant, phone-width format — see ExternalChargeEntryVM.ChargedOnShortLabel.
 		ChargedOnShortLabel: e.ChargedOn.Format("01-02"),
 		EnergyKWh:           energyLabel,
 		PriceLabel:          formatMoney(e.Price, e.Currency),
@@ -1031,7 +1031,7 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 
 		// Complete (design.md §D-Dot) is the handler-computed completeness
 		// signal driving the completeness dot's colour — computed via
-		// entryComplete(e) (handlers/charges_tiles.go), never in the template.
+		// entryComplete(e) (handlers/external_charges_tiles.go), never in the template.
 		Complete: entryComplete(e),
 
 		RequiredEndedAt:       required[charging.FieldEndedAt],
@@ -1053,9 +1053,9 @@ func vehicleLabelFor(teslaID int64, vehicles []account.Vehicle) string {
 // vehicleLabelForSelected resolves the session-selected vehicle's display
 // label — the "vehicle context the handler already has independent of
 // parsing" (design.md §D-Values) used to populate a raw-values-sourced
-// ChargeEntryVM on a parseChargeForm failure, where entry.TeslaID cannot be
-// trusted (parseChargeForm returns a zero-value Entry on validation
-// failure). Mirrors the same resolveSelectedVehicle call ChargeCreate's
+// ExternalChargeEntryVM on a parseExternalChargeForm failure, where entry.TeslaID cannot be
+// trusted (parseExternalChargeForm returns a zero-value Entry on validation
+// failure). Mirrors the same resolveSelectedVehicle call ExternalChargeCreate's
 // error branches already make for their filterTeslaID fallback. Empty
 // string if no vehicle can be resolved.
 func (h *Handler) vehicleLabelForSelected(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) string {
@@ -1065,23 +1065,23 @@ func (h *Handler) vehicleLabelForSelected(c *gin.Context, uid uuid.UUID, vehicle
 	return ""
 }
 
-// applyRawRequiredState recomputes a ChargesPageData's RequiredEndedAt /
+// applyRawRequiredState recomputes a ExternalChargesPageData's RequiredEndedAt /
 // RequiredEndBatteryPct pair from the status the user actually submitted, so an
 // error re-render of the create form agrees with the status it is rendering.
 //
 // Without this, the 4xx/5xx branches overwrite FormValues with `raw` (roadmap
-// D15) while leaving the Required* pair on buildChargesPage's fresh-load
+// D15) while leaving the Required* pair on buildExternalChargesPage's fresh-load
 // IN_PROGRESS default — a user who picks DONE and trips an unrelated validation
 // error gets ended_at/end_battery_pct back without their `required` attribute.
 // design.md §D-Fields requires the served HTML to carry the correct `required`
 // state "for the status being rendered", with no flash-of-wrong-state before JS
 // runs, so relying on RD13's htmx:load listener to correct it client-side is not
 // sufficient. This is the create-form counterpart of the same recomputation
-// chargeEntryVMFromRawValues already does for the inline edit row.
+// externalChargeEntryVMFromRawValues already does for the inline edit row.
 //
 // Unknown/absent statuses fail closed to DONE (the strictest required set),
-// matching chargeEntryVMFromRawValues and charging.RequiredFieldsFor.
-func applyRawRequiredState(d *fragments.ChargesPageData, raw fragments.ChargeFormValues) {
+// matching externalChargeEntryVMFromRawValues and charging.RequiredFieldsFor.
+func applyRawRequiredState(d *fragments.ExternalChargesPageData, raw fragments.ExternalChargeFormValues) {
 	status := charging.Status(raw.Status)
 	if status != charging.StatusInProgress && status != charging.StatusDone {
 		status = charging.StatusDone
@@ -1094,17 +1094,17 @@ func applyRawRequiredState(d *fragments.ChargesPageData, raw fragments.ChargeFor
 	d.RequiredEndBatteryPct = required[charging.FieldEndBatteryPct]
 }
 
-// chargeEntryVMFromRawValues builds a ChargeEntryVM directly from the raw
+// externalChargeEntryVMFromRawValues builds a ExternalChargeEntryVM directly from the raw
 // submitted POST values (design.md §D-Values, roadmap D15) for the inline
-// edit row's 4xx/5xx re-render — used INSTEAD OF chargeEntryVMFromEntry so a
+// edit row's 4xx/5xx re-render — used INSTEAD OF externalChargeEntryVMFromEntry so a
 // value that failed validation (with no representation in charging.Entry's
 // typed fields) is still echoed back to the user, not silently discarded on
 // re-render. id and vehicleLabel are the untouched context the handler
-// already has independent of parsing (chargeEntryVMFromEntry's non-error
+// already has independent of parsing (externalChargeEntryVMFromEntry's non-error
 // path sources these from a persisted charging.Entry instead). The caller
 // additionally sets RawChargedOn/RawStartedAt/RawEndedAt from c.PostForm —
-// mirroring ChargesPageData.DefaultChargedOn/DefaultStartedAt/DefaultEndedAt's
-// same treatment in ChargeCreate's error branches — since ChargeFormValues
+// mirroring ExternalChargesPageData.DefaultChargedOn/DefaultStartedAt/DefaultEndedAt's
+// same treatment in ExternalChargeCreate's error branches — since ExternalChargeFormValues
 // carries no charged_on/started_at/ended_at fields (design.md §D-Values).
 //
 // RequiredEndedAt/RequiredEndBatteryPct are computed from raw.Status via
@@ -1112,7 +1112,7 @@ func applyRawRequiredState(d *fragments.ChargesPageData, raw fragments.ChargeFor
 // raw.Status fails to parse as a recognized charging.Status — the same
 // fail-closed posture charging.RequiredFieldsFor documents for its own
 // unrecognized-status default case (internal/charging/validation.go).
-func chargeEntryVMFromRawValues(id string, raw fragments.ChargeFormValues, vehicleLabel string) fragments.ChargeEntryVM {
+func externalChargeEntryVMFromRawValues(id string, raw fragments.ExternalChargeFormValues, vehicleLabel string) fragments.ExternalChargeEntryVM {
 	status := charging.Status(raw.Status)
 	if status != charging.StatusInProgress && status != charging.StatusDone {
 		status = charging.StatusDone
@@ -1122,7 +1122,7 @@ func chargeEntryVMFromRawValues(id string, raw fragments.ChargeFormValues, vehic
 		required[f] = true
 	}
 
-	return fragments.ChargeEntryVM{
+	return fragments.ExternalChargeEntryVM{
 		ID:                    id,
 		VehicleLabel:          vehicleLabel,
 		RawEnergyKWh:          raw.EnergyAddedKWh,
@@ -1141,7 +1141,7 @@ func chargeEntryVMFromRawValues(id string, raw fragments.ChargeFormValues, vehic
 	}
 }
 
-// parseChargeForm parses and validates the charge form from a Gin context.
+// parseExternalChargeForm parses and validates the charge form from a Gin context.
 // Returns the entry, the raw submitted form values (for a 4xx/5xx re-render —
 // roadmap D15, design.md §D-Values), any validation errors, and whether parsing
 // succeeded. On a 403-level ownership failure it writes the response itself and
@@ -1153,7 +1153,7 @@ func chargeEntryVMFromRawValues(id string, raw fragments.ChargeFormValues, vehic
 //
 // MAG-5 form changes (D1/D4/D5/D6/D7) baked in here:
 //   - D4: vehicle is sourced from the session-selected vehicle via
-//     resolveSelectedVehicle (the same call ChargePage/List/ContentFragment make),
+//     resolveSelectedVehicle (the same call ExternalChargesPage/List/ContentFragment make),
 //     NOT from a `vehicle` form field. The entries list is already scoped to the
 //     selected vehicle, so the create form is implicitly for that vehicle. The
 //     tenant-ownership check (vehicleOwned) is preserved as defense-in-depth —
@@ -1170,7 +1170,7 @@ func chargeEntryVMFromRawValues(id string, raw fragments.ChargeFormValues, vehic
 //     RM33/D-Fields below.
 //   - D1: started_at / ended_at stay OPTIONAL — clearing either still persists
 //     nil StartedAt / EndedAt. The today's-date DEFAULT is a UI concern
-//     (DefaultStartedAt on ChargesPageData); parseChargeForm still accepts an
+//     (DefaultStartedAt on ExternalChargesPageData); parseExternalChargeForm still accepts an
 //     empty (cleared) field. ended_at's REQUIRED-ness (RM33) is separate from
 //     whether it parses when present — see RM33/D-Fields below.
 //   - D7: energy_added_kwh accepts 3-decimal precision (UI step=0.001). No
@@ -1186,12 +1186,12 @@ func chargeEntryVMFromRawValues(id string, raw fragments.ChargeFormValues, vehic
 //     hardcodes that rule itself (roadmap D5's shape, applied at this call site).
 //   - energy_added_kwh and price are now genuinely optional (empty ->
 //     nil / 0, no error); odometer_km is a new always-optional non-negative int.
-func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) (charging.Entry, fragments.ChargeFormValues, map[string]string, bool) {
+func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) (charging.Entry, fragments.ExternalChargeFormValues, map[string]string, bool) {
 	errs := make(map[string]string)
 
 	// design.md §D-Values: build raw from c.PostForm(...) BEFORE any other
 	// parsing, so it is populated on every return path (success and failure).
-	raw := fragments.ChargeFormValues{
+	raw := fragments.ExternalChargeFormValues{
 		Status:          c.PostForm("status"),
 		EnergyAddedKWh:  c.PostForm("energy_added_kwh"),
 		Price:           c.PostForm("price"),
@@ -1221,7 +1221,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		// No resolvable selected vehicle (account has no registered vehicles or
 		// the session selection is stale). Reach the failure path earlier — parity
 		// with the old ownership-403 path but reached at validation time, without
-		// calling the Writer. Rendered via fragments.ChargeCreateForm as a 422.
+		// calling the Writer. Rendered via fragments.ExternalChargeCreateForm as a 422.
 		// The form has no vehicle field anymore (D4 removed it), so the error is
 		// surfaced via the top-of-form Alert (_top key) — the only guaranteed-
 		// visible surface when there is no matching ui.Field to render the per-

@@ -33,7 +33,7 @@ import (
 
 // csrfSuperchargerKey is the session key for the Supercharger Stats row-edit
 // CSRF token (design.md D8, RM31-gateway-add-session-battery-edit) — distinct
-// from csrfManualChargeKey (charges.go). Issued only by SuperchargerStatsPage/
+// from csrfExternalChargeKey (external_charges.go). Issued only by SuperchargerStatsPage/
 // SuperchargerStatsFragment; read (never re-issued) by the row-level handlers
 // below.
 const csrfSuperchargerKey = "csrf_supercharger"
@@ -161,7 +161,7 @@ func (h *Handler) superchargerStatsViewFor(c *gin.Context, uid uuid.UUID, csrfTo
 // model by re-listing that vehicle's sessions within the SAME ?start=&end=
 // window the row's own action link carries (design.md D1/D2) and matching id
 // in memory — mirrors fetchEntryVM's documented no-GetEntry-port shape
-// (charges.go, design decision D6 there / D1 here). Every failure mode — a
+// (external_charges.go, design decision D6 there / D1 here). Every failure mode — a
 // malformed/absent window, no resolvable selected vehicle, a reader error, or
 // "no session in the window matches id" — collapses to (zero, false); none is
 // distinguished from another (design.md D1's documented non-distinction).
@@ -209,7 +209,7 @@ func superchargerWindowStrs(c *gin.Context) (startStr, endStr string) {
 // SuperchargerStatsPage renders the full Supercharger Stats page for the
 // session-selected vehicle (initial load). It generates a fresh
 // csrf_supercharger token and saves it to the session (design.md D8) —
-// mirroring ChargePage's generateCSRFToken/sess.Set/sess.Save shape exactly.
+// mirroring ExternalChargesPage's generateCSRFToken/sess.Set/sess.Save shape exactly.
 func (h *Handler) SuperchargerStatsPage(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -239,7 +239,7 @@ func (h *Handler) SuperchargerStatsPage(c *gin.Context) {
 // month-preset selector's hx-get target and the vehicle switcher's
 // "vehicle-changed" subscriber. It READS the existing csrf_supercharger
 // session value — it does NOT re-issue one (design.md D8; mirrors
-// ChargesListFragment's sess.Get shape exactly).
+// ExternalChargesListFragment's sess.Get shape exactly).
 func (h *Handler) SuperchargerStatsFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -463,11 +463,11 @@ func buildSuperchargerRows(sessions []charging.Session) []fragments.Supercharger
 // (list build), fetchSuperchargerRowVM (single-row GET resolve), and
 // SuperchargerRowUpdate's success path (using VerifySession's own returned
 // Session, no extra read) all share one mapper — mirrors
-// chargeEntryVMFromEntry's identical "one mapper, multiple call sites" shape.
+// externalChargeEntryVMFromEntry's identical "one mapper, multiple call sites" shape.
 // Energy/cost render "—" when their source field is nil — EnergyLabel needs
 // only EnergyKWh; CostLabel needs BOTH TotalCost and Currency.
 // RawStartBatteryPct/RawEndBatteryPct are "" when the corresponding
-// percentage is nil, matching ChargeEntryVM.RawStartBatteryPct's convention
+// percentage is nil, matching ExternalChargeEntryVM.RawStartBatteryPct's convention
 // exactly.
 func superchargerRowVMFromSession(s charging.Session) fragments.SuperchargerRowVM {
 	energyLabel := "—"
@@ -512,8 +512,8 @@ func formatBatteryPct(pct *int) string {
 // recalculateAfterSessionVerify calls the analytics module's recalculation
 // port for the given vehicle, over a window spanning ONE calendar day before
 // through ONE calendar day after the UTC calendar day of chargeStopDateTime
-// (design.md D4/D5) — a SEPARATE function from recalculateAfterChargeWrite
-// (charges.go), which this function does NOT call or modify. See design.md
+// (design.md D4/D5) — a SEPARATE function from recalculateAfterExternalChargeWrite
+// (external_charges.go), which this function does NOT call or modify. See design.md
 // D4/D5 for the full safety argument for why a single day is provably wrong
 // and this ±1-day window is provably sufficient to cover the true metric day
 // regardless of the nightly poller's own configured local timezone.
@@ -528,7 +528,7 @@ func (h *Handler) recalculateAfterSessionVerify(ctx context.Context, uid uuid.UU
 }
 
 // SuperchargerRowStatic renders the static view of one Supercharger session
-// row (used by the Cancel-edit path). Mirrors ChargeRowStatic exactly.
+// row (used by the Cancel-edit path). Mirrors ExternalChargeRowStatic exactly.
 func (h *Handler) SuperchargerRowStatic(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -556,7 +556,7 @@ func (h *Handler) SuperchargerRowStatic(c *gin.Context) {
 }
 
 // SuperchargerRowEditFragment swaps the static row for the inline edit form.
-// Mirrors ChargeRowEditFragment exactly.
+// Mirrors ExternalChargeRowEditFragment exactly.
 func (h *Handler) SuperchargerRowEditFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -592,7 +592,7 @@ func (h *Handler) SuperchargerRowEditFragment(c *gin.Context) {
 // clear, no ordering validation, [0,100] range validated first), D8
 // (CSRF via csrfSuperchargerKey; no separate RegisteredVehicles ownership
 // check — VerifySession's own account-scoped WHERE clause is the sole tenant
-// boundary, a deliberate divergence from ChargeRowUpdate/D4), and D9
+// boundary, a deliberate divergence from ExternalChargeRowUpdate/D4), and D9
 // (writer-error branching re-resolves via fetchSuperchargerRowVM instead of
 // inspecting the wrapped pgx error, keeping pgx out of the gateway's import
 // graph).

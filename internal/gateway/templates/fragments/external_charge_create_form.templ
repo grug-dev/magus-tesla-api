@@ -5,8 +5,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargeCreateForm renders the "Log a charge" create form.
-// Its root <div id="charges-create-form"> matches the templ.Fragment name and
+// ExternalChargeCreateForm renders the "Log a charge" create form.
+// Its root <div id="external-charges-create-form"> matches the templ.Fragment name and
 // is the hx-target for the create POST (required invariant — design.md D1).
 // validationErrors maps field names to error messages; nil or empty means no errors.
 // Every form control is composed from the ui/ adapter kit (Field/Input/Select/
@@ -16,24 +16,24 @@ import (
 // MAG-5 / D1-D7 form wiring (see openspec/changes/gateway-improve-manual-charge-form):
 //   - D1: charged_on ("Date"), started_at and ended_at are in the main card grid (not
 //     behind "More details") and all three are pre-filled with the user's current
-//     calendar day from ChargesPageData.DefaultChargedOn / DefaultStartedAt /
-//     DefaultEndedAt — one day value in buildChargesPage feeds all three, so they
+//     calendar day from ExternalChargesPageData.DefaultChargedOn / DefaultStartedAt /
+//     DefaultEndedAt — one day value in buildExternalChargesPage feeds all three, so they
 //     cannot drift. charged_on is REQUIRED; started_at / ended_at stay OPTIONAL —
 //     clearing either still submits.
 //   - D2/D6: start_battery_pct is unconditionally REQUIRED (UI + handler); the
 //     start input carries a telemetry-sourced suggestion via its placeholder
-//     (ChargesPageData.StartBatteryPctSuggestion); empty placeholder when no
+//     (ExternalChargesPageData.StartBatteryPctSuggestion); empty placeholder when no
 //     snapshot — no fabricated value (graceful empty). end_battery_pct's
 //     required-ness is conditional as of RM33 (see below).
 //   - D4: there is NO Vehicle picker — the vehicle is sourced from the sidebar
-//     switcher's session-selected vehicle (resolveSelectedVehicle in parseChargeForm).
+//     switcher's session-selected vehicle (resolveSelectedVehicle in parseExternalChargeForm).
 //   - D7: energy_added_kwh step is 0.001 (3-decimal precision preserved), keeping
 //     the browser's nearest-valid-range helper behavior (now after 3 decimals).
 //
 // RM33 (MAG-18) additions, design.md §D-Fields/§D-Suffix/§D-Values:
 //   - A status <select> (IN_PROGRESS/DONE) is the first field; its default
 //     selection comes from d.FormValues.Status (set to IN_PROGRESS by
-//     buildChargesPage on a fresh load, or the submitted value on a 4xx
+//     buildExternalChargesPage on a fresh load, or the submitted value on a 4xx
 //     re-render).
 //   - ended_at / end_battery_pct's Required is bound to
 //     d.RequiredEndedAt / d.RequiredEndBatteryPct (handler-computed from
@@ -47,21 +47,21 @@ import (
 //
 // Success notice: a non-empty d.Notice renders a success ui.Alert above the
 // form (the same slot the _top validation Alert uses, one kind apart). Only
-// ChargeCreate's success path sets it, so it rides in on the create response's
-// primary #charges-create-form swap and is gone on the next render.
+// ExternalChargeCreate's success path sets it, so it rides in on the create response's
+// primary #external-charges-create-form swap and is gone on the next render.
 //
 // RM33 tier 3 addition, design.md §D-Include: the <form> carries
-// hx-include="#charges-window-start, #charges-window-end" — a plain,
+// hx-include="#external-charges-window-start, #external-charges-window-end" — a plain,
 // declarative htmx attribute (not client-side JS, needs no RD entry) that
-// folds the two hidden window inputs rendered inside #charges-list into this
+// folds the two hidden window inputs rendered inside #external-charges-list into this
 // form's request at SUBMIT time, so the create write's post-write OOB refresh
-// (ChargeCreate -> windowFromForm) targets whichever filter window is
-// currently active, even though this form is a SIBLING of #charges-list, not
+// (ExternalChargeCreate -> windowFromForm) targets whichever filter window is
+// currently active, even though this form is a SIBLING of #external-charges-list, not
 // a descendant of it.
-templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
-	<div id="charges-create-form">
-		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesFormTitle), ID: "charges-create-card"}) {
-			<p id="charges-create-hint" class="text-sm text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormCreateHint) }</p>
+templ ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[string]string) {
+	<div id="external-charges-create-form">
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesFormTitle), ID: "external-charges-create-card"}) {
+			<p id="external-charges-create-hint" class="text-sm text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormCreateHint) }</p>
 			if d.Notice != "" {
 				@ui.Alert(ui.AlertProps{Kind: "success"}) {
 					{ d.Notice }
@@ -73,10 +73,10 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 				}
 			}
 			<form
-				hx-post="/ui/charges/create"
-				hx-target="#charges-create-form"
+				hx-post="/ui/external-charges/create"
+				hx-target="#external-charges-create-form"
 				hx-swap="outerHTML"
-				hx-include="#charges-window-start, #charges-window-end"
+				hx-include="#external-charges-window-start, #external-charges-window-end"
 				class="flex flex-col gap-3"
 			>
 				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
@@ -129,7 +129,7 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 						@ui.Input(ui.InputProps{Name: "location_label", Value: d.FormValues.LocationLabel, Disabled: d.FormValues.LocationKind != "OTHER"})
 					}
 				</div>
-				<section id="charges-create-optional">
+				<section id="external-charges-create-optional">
 					<h3 class="font-medium text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormOptionalDetails) }</h3>
 					<div class="grid gap-3 sm:grid-cols-2 mt-2">
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormChargingType)}) {
@@ -158,13 +158,13 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 	</div>
 }
 
-// ChargeCreateSuccessOOB renders the create-success response: a reset create form
-// (the primary swap target #charges-create-form) plus an OOB swap to refresh
-// #charges-list. Both are returned in one response body so htmx applies both
+// ExternalChargeCreateSuccessOOB renders the create-success response: a reset create form
+// (the primary swap target #external-charges-create-form) plus an OOB swap to refresh
+// #external-charges-list. Both are returned in one response body so htmx applies both
 // in a single round-trip using hx-swap-oob="outerHTML" (design.md D1 + htmx OOB).
-templ ChargeCreateSuccessOOB(d ChargesPageData) {
-	@ChargeCreateForm(d, nil)
-	<div id="charges-list" hx-swap-oob="outerHTML:#charges-list">
-		@ChargesList(d)
+templ ExternalChargeCreateSuccessOOB(d ExternalChargesPageData) {
+	@ExternalChargeCreateForm(d, nil)
+	<div id="external-charges-list" hx-swap-oob="outerHTML:#external-charges-list">
+		@ExternalChargesList(d)
 	</div>
 }

@@ -29,12 +29,12 @@ import (
 // The #supercharger-stats-content region is vehicle-scoped: it subscribes
 // to the sidebar switcher's "vehicle-changed" event (from:body) and
 // re-fetches GET /ui/supercharger-stats so the page follows the newly
-// selected vehicle (mirrors #charges-content / ChargePage and
+// selected vehicle (mirrors #external-charges-content / ExternalChargesPage and
 // #dashboard-content / Dashboard — ai/htmx-conventions.md §"Cross-region
 // refresh"). GET /ui/supercharger-stats also renders this same region on
 // month-preset clicks (superchargerMonthsSelector's hx-get), so one
 // template tree serves the full page load, the vehicle switch, and the
-// month-preset swap — the same @templ.Fragment shape as ChargePage.
+// month-preset swap — the same @templ.Fragment shape as ExternalChargesPage.
 func SuperchargerStatsPage(v fragments.SuperchargerStatsView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

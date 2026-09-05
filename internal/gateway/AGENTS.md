@@ -43,13 +43,13 @@ It renders what other modules expose; it owns no business data.
   carries **zero** of). Rule and migration status: `ai/architecture.md` §"Exception:
   the gateway may not depend on `telemetry` at all".
 - `Deps.ChargingWriter charging.Writer` — the manual charge write port; injected
-  at construction. Called ONLY by the write handlers (ChargeCreate, ChargeRowUpdate,
-  ChargeRowDelete) on explicit user-initiated form submissions. See "Exception:
+  at construction. Called ONLY by the write handlers (ExternalChargeCreate, ExternalChargeRowUpdate,
+  ExternalChargeRowDelete) on explicit user-initiated form submissions. See "Exception:
   user-initiated writes" below. NEVER import `internal/charging/db` — all access
   through this interface only.
 - `Deps.ChargingReader charging.Reader` — the manual charge read port; injected
-  at construction. Called by read handlers (ChargePage, ChargesListFragment,
-  ChargeRowStatic, ChargeRowEditFragment) and the `buildChargesPage` helper to list
+  at construction. Called by read handlers (ExternalChargesPage, ExternalChargesListFragment,
+  ExternalChargeRowStatic, ExternalChargeRowEditFragment) and the `buildExternalChargesPage` helper to list
   charge entries. NEVER import `internal/charging/db` — all access through this
   interface only.
 - `Deps.SuperchargerReader charging.SessionReader` — the charging module's
@@ -98,7 +98,7 @@ It renders what other modules expose; it owns no business data.
   `/ui/vehicles` card list — see `mapVehicles`'s own doc comment for why it is kept
   working despite having no route), `navHeaderFor` (status dot/battery — a nil
   `CapturedAt` forces `NavStatusAsleep`, never `NavStatusConnected`), and
-  `buildChargesPage`'s battery-suggestion lookup (`charges.go`). Nine of
+  `buildExternalChargesPage`'s battery-suggestion lookup (`external_charges.go`). Nine of
   `analytics.VehicleStatus`'s fields are pointers (`InsideTempC`, `OutsideTempC`,
   `CarVersion`, `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`,
   `SentryMode`, `MaxRangeChargeCounter`) — nil means "not yet computed since the
@@ -109,7 +109,7 @@ It renders what other modules expose; it owns no business data.
   D2/D3/D8 for the exact per-field nil-handling table.
 - `Deps.AnalyticsRecalculator analytics.Recalculator` — the analytics module's
   **write** port, injected the same way (wired from `cmd/web` via
-  `analytics.NewRecalculator(...)`). Called by `ChargeCreate` after a manual
+  `analytics.NewRecalculator(...)`). Called by `ExternalChargeCreate` after a manual
   charge entry is written, so the affected days' `vehicle_metrics` rows are
   recomputed immediately instead of waiting for the nightly pass
   (`RM29-analytics-add-vehicle-metrics`, design D5). Same rule: the interface,
@@ -175,7 +175,7 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `"success"|"warning"|"error"|"neutral"` (DaisyUI semantic token, mapped by `dotClass` exactly
   like `badgeClass` maps `Badge`'s `Kind`); `Tooltip` renders as the `title` attribute and is
   omitted when empty. Gold standard: the charges table's Status column
-  (`fragments/charge_row.templ`), which pairs a `ui.Dot` (`success`/`warning`, completeness) with
+  (`fragments/external_charge_row.templ`), which pairs a `ui.Dot` (`success`/`warning`, completeness) with
   an adjacent `ui.Badge` (`primary`/`ghost`, lifecycle status) — the two colour vocabularies are
   **deliberately disjoint** so the badge's colour never reads as a second completeness signal
   (design.md §D-Dot, `RM33-gateway-add-entries-dashboard`). Reuse this pairing shape for any
@@ -318,7 +318,7 @@ two or three of them in a 375 px row and they collide, on every page that uses t
 once.** `ui-guard` already forces every page through the kit, so this is the existing
 convention working as designed — not a new layer.
 
-- Changing a size in `ui/stat_tile.templ` fixes `/dashboard`, `/charges` and
+- Changing a size in `ui/stat_tile.templ` fixes `/dashboard`, `/external-charges` and
   `/supercharger-stats` in one edit. Patching three pages is the same bug fixed three
   times, and the fourth page will be born broken.
 - If a page genuinely needs a one-off size, that is a signal the kit needs a **size
@@ -338,7 +338,7 @@ size. `.stat`'s 1.5 rem inline padding is a rounding error in a desktop column a
 third of the tile on a phone.
 
 **Gold standard: `templates/ui/stat_tile.templ` (MAG-46).** One component, three
-pages (`/dashboard`, `/charges`, `/supercharger-stats`), one fix. It corrects all
+pages (`/dashboard`, `/external-charges`, `/supercharger-stats`), one fix. It corrects all
 three causes below `sm` — smaller value, wrapping allowed, half the padding — and
 restores DaisyUI's exact desktop values at `sm` and up, so the desktop rendering does
 not move. Mirror its shape for any other kit component that needs a mobile size. Its
@@ -503,7 +503,7 @@ Gold standard: `templates/pages/dashboard.templ` — `connect-cta`, `vehicle-sta
 
 **Every card in this module now carries one** — MAG-46 backfilled the thirteen that
 did not (`history-odometer`, `history-battery`, `history-consumed`,
-`charges-create-card`, `charges-empty`, `charges-summary`, `charges-entries`,
+`external-charges-create-card`, `charges-empty`, `charges-summary`, `charges-entries`,
 `supercharger-empty`, `supercharger-summary`, `supercharger-kwh-per-month`,
 `supercharger-sessions`, `login-actions`, `account-blocked-message`). The rule had
 been written but never enforced, so eleven of the seventeen cards were anonymous. If
@@ -538,7 +538,7 @@ and nothing else may:
 fragment is a bug, the same class of bug as inlining a DaisyUI component class. Before
 MAG-46 the module had *three* competing title treatments — `card-title` in `ui.Card`,
 `text-2xl font-semibold` in `ui.PageHeader`, and one hand-written `<h2>` in
-`fragments/charges_list.templ` that bypassed the kit — and nothing kept them in step.
+`fragments/external_charges_list.templ` that bypassed the kit — and nothing kept them in step.
 That `<h2>` is gone; its text now goes in through `CardProps.Title`. To restyle every
 title in the app, change one constant.
 
@@ -659,8 +659,8 @@ HTML) stays cheap and predictable.
 ### Exception: user-initiated writes (D4 amendment — RM3-gateway-add-manual-charge-ui)
 
 The gateway MAY call `charging.Writer` (Create / Update / Delete) on explicit
-**user-initiated form POSTs/PUTs/DELETEs** (`ChargeCreate`, `ChargeRowUpdate`,
-`ChargeRowDelete`), subject to ALL of the following constraints:
+**user-initiated form POSTs/PUTs/DELETEs** (`ExternalChargeCreate`, `ExternalChargeRowUpdate`,
+`ExternalChargeRowDelete`), subject to ALL of the following constraints:
 
 1. **Auth guard first** — `currentUID(c)` must resolve a valid session UID or the
    handler redirects to `/login` and returns. No write proceeds without an
@@ -674,7 +674,7 @@ The gateway MAY call `charging.Writer` (Create / Update / Delete) on explicit
 3. **CSRF token on every state-changing route** — the handler calls `checkCSRF(c)`,
    which reads `csrf_token` from the form body (or `X-CSRF-Token` header) and
    compares it via `subtle.ConstantTimeCompare` to the session key
-   `"csrf_manualcharge"`. Returns HTTP 403 on mismatch; no write proceeds.
+   `"csrf_externalcharge"`. Returns HTTP 403 on mismatch; no write proceeds.
 4. **Only `charging.Writer` is permitted** — this is the narrow aperture.
    This amendment does NOT open general write access to the gateway; Reader-only
    remains the default for ALL other handlers (dashboard, telemetry fragments,
@@ -689,10 +689,10 @@ CSRF-protected, and tenant-scoped.
 
 ### Manual charge form & list — page detail lives in the KB
 
-The `/charges` form layout, its field rules, the edit-save retarget, the
+The `/external-charges` form layout, its field rules, the edit-save retarget, the
 one-row-editable invariant, the helper copy, the one-`IN_PROGRESS`-per-day rule and
-the success notice are **`/charges`-specific**. They moved to
-`kkpa/context/input-port/charging/charges.md` (MAG-39) so this file — re-read in full
+the success notice are **`/external-charges`-specific**. They moved to
+`kkpa/context/input-port/charging/external-charges.md` (MAG-39) so this file — re-read in full
 on every gateway dispatch — is not carrying one page's detail for every other page's
 work. Fetch that guide before changing the charges form or list.
 
@@ -704,13 +704,13 @@ Two things stay here, because they are **not** page-specific:
   non-table sibling that follows is foster-parented off the fragment's top level — the
   only place htmx looks for `hx-swap-oob`. **Server-side tests see the OOB element in
   the response body and pass; only the browser drops it.** Discovered on
-  `ChargeRowUpdate`, but it applies to any page returning a row plus an OOB sibling.
-  `ChargeCreateSuccessOOB` is unaffected because both of its elements are `<div>`s.
+  `ExternalChargeRowUpdate`, but it applies to any page returning a row plus an OOB sibling.
+  `ExternalChargeCreateSuccessOOB` is unaffected because both of its elements are `<div>`s.
 - **No `<details>`/`<summary>` collapse around a required control, on any form.** A
   browser cannot report an HTML5 validation message on a control inside a closed
   `<details>` — Chrome logs *"An invalid form control ... is not focusable"* and the
   submit silently does nothing: no message, no request. Pinned by
-  `TestChargeForms_NoDetailsCollapse` (`handlers/charges_test.go`).
+  `TestExternalChargeForms_NoDetailsCollapse` (`handlers/external_charges_test.go`).
 
 ### Exception: language switch (D-lang amendment — RM24-gateway-add-i18n-foundation)
 
@@ -774,7 +774,7 @@ not transfer.
 1. **Auth guard first** — `currentUID(c)` must resolve a valid session UID or the handler
    redirects to `/login` and returns. No CSRF check, no write, proceeds without one.
 2. **CSRF token check** — `h.checkCSRFKey(c, csrfThemeKey)`, where `csrfThemeKey =
-   "csrf_theme"` is its own session key, distinct from `csrfManualChargeKey`,
+   "csrf_theme"` is its own session key, distinct from `csrfExternalChargeKey`,
    `csrfVehicleSelectKey`, and `csrfSuperchargerKey`. Minted once per `GET /settings` by
    `SettingsPage` (the same file, `preferences.go` — mirrors `SuperchargerStatsPage` and
    `csrfSuperchargerKey` living together in `supercharger.go`); checked, never re-issued, by
@@ -812,7 +812,7 @@ cover it, it names its own aperture:
 2. **CSRF token on the write route** — the handler calls
    `checkCSRFKey(c, csrfSuperchargerKey)`, where `csrfSuperchargerKey =
    "csrf_supercharger"` is a NEW session key, distinct from D4's
-   `"csrf_manualcharge"`. Issued once by `SuperchargerStatsPage`; read (never
+   `"csrf_externalcharge"`. Issued once by `SuperchargerStatsPage`; read (never
    re-issued) by `SuperchargerStatsFragment` and every row-level handler.
    Returns HTTP 403 on a missing/stale/mismatched token; no write proceeds.
 3. **No separate `RegisteredVehicles` ownership check — a deliberate
@@ -895,8 +895,8 @@ a read that ignores the selection silently shows a *different* car's data.
    (`hx-trigger="vehicle-changed from:body"`, re-fetching its `/ui/…` fragment); `VehicleSelect`
    emits `HX-Trigger: vehicle-changed`. See
    [`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) §"Cross-region refresh via
-   `HX-Trigger`". Gold standards: the dashboard `#dashboard-content` and the manual-records
-   `#charges-content` regions (each re-fetches `GET /ui/dashboard` / `GET /ui/charges`).
+   `HX-Trigger`". Gold standards: the dashboard `#dashboard-content` and the external-charges
+   `#external-charges-content` regions (each re-fetches `GET /ui/dashboard` / `GET /ui/external-charges`).
 
 ## HTTP date-filter convention
 
@@ -1235,7 +1235,7 @@ anywhere else.
 
 ## Client-side JS exceptions on the charge forms (RD12 / RD13 / RD14)
 
-Three of the six sanctioned exceptions to the zero-JS rule belong to the `/charges`
+Three of the six sanctioned exceptions to the zero-JS rule belong to the `/external-charges`
 forms. All three live in `static/app.js` and delegate on `document.body`:
 
 | RD | Listener | What it does |
@@ -1245,8 +1245,8 @@ forms. All three live in `static/app.js` and delegate on `document.body`:
 | **RD14** | `change` + `htmx:load` on `select[name="location_kind"]` | Toggles `location_label`'s `disabled` to `value !== "OTHER"`; the `change` path also focuses the input, `htmx:load` deliberately does not. |
 
 **Full rationale, rejected alternatives and degradation behaviour for all three:**
-`kkpa/context/input-port/charging/charges.md` §"Client-side JS on this page" — moved
-there by MAG-39 as `/charges`-specific detail.
+`kkpa/context/input-port/charging/external-charges.md` §"Client-side JS on this page" — moved
+there by MAG-39 as `/external-charges`-specific detail.
 
 **Boundary — these are NOT an opening for general client-side JS.** Like RD9/RD10/RD15,
 each is a narrow, sanctioned exception, not a precedent. Any further client-side JS

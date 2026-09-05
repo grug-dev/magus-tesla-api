@@ -1,4 +1,4 @@
-# Manual Records page — /charges
+# External charges page — /external-charges
 
 > **Adapter side:** what the outside world calls, and where it forwards to. **No backend flow
 > here** — that lives in the linked use-case files.
@@ -12,7 +12,7 @@
 
 ## Page
 
-- **Route / URI:** `/charges` (labelled **Manual Records** / **Registros manuales**)
+- **Route / URI:** `/external-charges` (labelled **External** / **Externas**)
 - **Description:** The user's own charge log — every charge they typed in by hand, for the
   vehicle currently selected in the sidebar switcher. Create form on top, aggregation tiles, and
   a date-filtered list whose rows edit and delete inline via htmx. This is the only page in the
@@ -23,51 +23,51 @@
 
 | File | Role |
 |---|---|
-| `internal/gateway/templates/pages/charges.templ` | Page shell — tiles, create form slot, `#charges-list` region |
-| `internal/gateway/templates/fragments/charge_create_form.templ` | Create form (`hx-post` → `/ui/charges/create`) |
-| `internal/gateway/templates/fragments/charges_list.templ` | The `#charges-list` region + the date-range preset selector |
-| `internal/gateway/templates/fragments/charge_row.templ` | Static row; carries the Edit link and the Delete button (CSRF on the `X-CSRF-Token` header via `hx-headers`) |
-| `internal/gateway/templates/fragments/charge_row_edit.templ` | Inline edit form, incl. the hidden `start`/`end` window inputs |
-| `internal/gateway/templates/fragments/charges_vm.go` | `ChargesPageData` / `ChargeEntryVM` / `ChargeFormValues` presentation models |
-| `internal/gateway/handlers/charges.go` | All eight handlers for this page plus `buildChargesPage` |
-| `internal/gateway/handlers/charges_tiles.go` | `entryComplete` (the row status dot) + `buildChargeTiles` |
-| `internal/gateway/handlers/charges_range.go` | `parseChargesRange` — the strict `?start=&end=` contract for the filter route |
+| `internal/gateway/templates/pages/external_charges.templ` | Page shell — tiles, create form slot, `#external-charges-list` region |
+| `internal/gateway/templates/fragments/external_charge_create_form.templ` | Create form (`hx-post` → `/ui/external-charges/create`) |
+| `internal/gateway/templates/fragments/external_charges_list.templ` | The `#external-charges-list` region + the date-range preset selector |
+| `internal/gateway/templates/fragments/external_charge_row.templ` | Static row; carries the Edit link and the Delete button (CSRF on the `X-CSRF-Token` header via `hx-headers`) |
+| `internal/gateway/templates/fragments/external_charge_row_edit.templ` | Inline edit form, incl. the hidden `start`/`end` window inputs |
+| `internal/gateway/templates/fragments/external_charges_vm.go` | `ExternalChargesPageData` / `ExternalChargeEntryVM` / `ExternalChargeFormValues` presentation models |
+| `internal/gateway/handlers/external_charges.go` | All eight handlers for this page plus `buildExternalChargesPage` |
+| `internal/gateway/handlers/external_charges_tiles.go` | `entryComplete` (the row status dot) + `buildExternalChargeTiles` |
+| `internal/gateway/handlers/external_charges_range.go` | `parseExternalChargesRange` — the strict `?start=&end=` contract for the filter route |
 | `internal/gateway/i18n/catalog.go` | Every user-facing string on this page, ES + EN |
 
 ## Endpoints
 
 | Method + path | Purpose | Use case |
 |---|---|---|
-| `GET /charges` | Full page load (`ChargePage`); always uses the default window | — read path, see `workflows/manual-charge-crud.md` |
-| `GET /ui/charges` | Re-render the create form + list after a vehicle switch (`ChargesContentFragment`) | — read path |
-| `GET /ui/charges/list` | The date-filter endpoint (`ChargesListFragment`); `400` renders the empty-state with no filter chrome | — read path |
-| `GET /ui/charges/row/:id` | Cancel-edit — swap back to the static row (`ChargeRowStatic`) | — read path |
-| `GET /ui/charges/row/:id/edit` | Swap the static row for the inline edit form (`ChargeRowEditFragment`) | — read path |
-| `POST /ui/charges/create` | Create a new manual entry (`ChargeCreate`) | `workflows/manual-charge-crud.md` |
-| `PUT /ui/charges/row/:id` | Save an edited row | `use-case/charging/update-manual-charge.md` |
-| `DELETE /ui/charges/row/:id` | Delete a row | `use-case/charging/delete-manual-charge.md` |
+| `GET /external-charges` | Full page load (`ExternalChargesPage`); always uses the default window | — read path, see `workflows/manual-charge-crud.md` |
+| `GET /ui/external-charges` | Re-render the create form + list after a vehicle switch (`ExternalChargesContentFragment`) | — read path |
+| `GET /ui/external-charges/list` | The date-filter endpoint (`ExternalChargesListFragment`); `400` renders the empty-state with no filter chrome | — read path |
+| `GET /ui/external-charges/row/:id` | Cancel-edit — swap back to the static row (`ExternalChargeRowStatic`) | — read path |
+| `GET /ui/external-charges/row/:id/edit` | Swap the static row for the inline edit form (`ExternalChargeRowEditFragment`) | — read path |
+| `POST /ui/external-charges/create` | Create a new manual entry (`ExternalChargeCreate`) | `workflows/manual-charge-crud.md` |
+| `PUT /ui/external-charges/row/:id` | Save an edited row | `use-case/charging/update-manual-charge.md` |
+| `DELETE /ui/external-charges/row/:id` | Delete a row | `use-case/charging/delete-manual-charge.md` |
 
 ## Adapter-side conventions
 
-- **CSRF token key:** `csrf_manualcharge`, issued by `ChargePage` and `ChargesContentFragment`.
+- **CSRF token key:** `csrf_externalcharge`, issued by `ExternalChargesPage` and `ExternalChargesContentFragment`.
   The delete button sends it on the **`X-CSRF-Token` header**, every other write in the body —
   Go does not parse bodies for `DELETE`.
 - **Vehicle scope:** the list and the create form both follow `resolveSelectedVehicle`; the
-  `#charges-content` region re-fetches on the sidebar's `vehicle-changed` event. There is no
+  `#external-charges-content` region re-fetches on the sidebar's `vehicle-changed` event. There is no
   `vehicle` form field.
 - **Window threading:** `?start=&end=` (or hidden form inputs) is echoed through every write so a
   save or delete never resets the user's filter. It is **best-effort only** — malformed values
   fall back to the default window and never fail a write. The one exception is
-  `GET /ui/charges/list`, which rejects a malformed window with `400`.
+  `GET /ui/external-charges/list`, which rejects a malformed window with `400`.
 - **i18n:** every string on this page resolves through `i18n.T(ctx, key)` with both ES and EN
   non-empty. A hardcoded string is incomplete work — `make i18n-guard` enforces it.
 
 ## Form layout & field rules
 
-> Moved here from `internal/gateway/AGENTS.md` (MAG-39). It is `/charges`-specific detail,
+> Moved here from `internal/gateway/AGENTS.md` (MAG-39). It is `/external-charges`-specific detail,
 > so it is fetched on demand rather than re-read on every gateway dispatch.
 
-`ChargeCreateForm` and `ChargeRowEdit` render the SAME ten fields in the SAME order —
+`ExternalChargeCreateForm` and `ExternalChargeRowEdit` render the SAME ten fields in the SAME order —
 `status`, `charged_on`, `energy_added_kwh`, `price`, `started_at`, `ended_at`,
 `start_battery_pct`, `end_battery_pct`, `location_kind`, `location_label` — in the main
 grid, followed by an always-visible **"Optional details"** `<section>` (`charging_type`,
@@ -86,7 +86,7 @@ assertion.
   name='location_kind' is not focusable"* and the submit silently does nothing: no message,
   no request. If a future field must be tucked away, it has to be unconditionally optional,
   and the section stays open. **This one IS still tested** —
-  `TestChargeForms_NoDetailsCollapse` (`handlers/charges_test.go`), because the failure is
+  `TestExternalChargeForms_NoDetailsCollapse` (`handlers/external_charges_test.go`), because the failure is
   invisible rather than ugly.
 - **`location_kind` is required and belongs in the main grid** — never in the optional
   section; the optional `location_label` follows it as the grid's final field.
@@ -99,22 +99,22 @@ assertion.
   select change; a disabled input is not submitted, so a label typed under HOME/WORK is
   dropped at save (deliberate).
 - **No Currency input.** Currency is not user-supplied; the price carries a fixed COP
-  suffix instead. Pinned by `TestChargeForms_NoCurrencyField`.
+  suffix instead. Pinned by `TestExternalChargeForms_NoCurrencyField`.
 
 ## Manual charge edit: a successful save returns the whole list, retargeted
 
-`ChargeRowUpdate`'s SUCCESS path answers with the **whole `#charges-list` fragment** plus
-`HX-Retarget: #charges-list` / `HX-Reswap: outerHTML`, rendered under
-`defaultChargesWindow(today)` so the user lands back on the **"last 7 days"** preset.
-`defaultChargesWindow` returns exactly that preset's `(today-6, today)` range, so
-`buildChargesPresets` marks it `Active` by its own exact-match rule — nothing hardcodes a
+`ExternalChargeRowUpdate`'s SUCCESS path answers with the **whole `#external-charges-list` fragment** plus
+`HX-Retarget: #external-charges-list` / `HX-Reswap: outerHTML`, rendered under
+`defaultExternalChargesWindow(today)` so the user lands back on the **"last 7 days"** preset.
+`defaultExternalChargesWindow` returns exactly that preset's `(today-6, today)` range, so
+`buildExternalChargesPresets` marks it `Active` by its own exact-match rule — nothing hardcodes a
 preset index or label.
 
 - **Never pair a top-level `<tr>` with a non-table `hx-swap-oob` sibling in one response.**
   See the module-wide version of this trap in `internal/gateway/AGENTS.md` — it applies to
   every page, not just this one. This path is where it was discovered.
 - **Why `HX-Retarget` rather than changing the form's `hx-target`.** The form's `hx-target`
-  stays `#charge-row-{id}`, which is correct for the 4xx/5xx branches: they re-render the
+  stays `#external-charge-row-{id}`, which is correct for the 4xx/5xx branches: they re-render the
   edit row in place and preserve the user's typed values. Only the success path retargets,
   so one response element covers it with no OOB and no mixed content.
 - **Only success resets the window.** The error branches still echo the POSTED window
@@ -122,36 +122,36 @@ preset index or label.
   the user's filter. Test Contract **D3** covers the retarget + reset, **D3b** the
   error-path echo — the pair is the contract.
 - **This amends the original §D-Refresh/§D-Include rule** for the update path only;
-  `ChargeCreate` and `ChargeRowDelete` still preserve the posted window.
+  `ExternalChargeCreate` and `ExternalChargeRowDelete` still preserve the posted window.
 - **Known consequence:** an entry dated outside the last 7 days will not appear in the
   refreshed list after being edited. That is inherent to resetting the filter — the record
   is saved, it is just outside the window now shown.
 
-**Known latent issue, not yet fixed:** `ChargeCreateSuccessOOB` wraps `ChargesList` (whose
-own root is `<div id="charges-list">`) in a second `<div id="charges-list" hx-swap-oob=...>`,
+**Known latent issue, not yet fixed:** `ExternalChargeCreateSuccessOOB` wraps `ExternalChargesList` (whose
+own root is `<div id="external-charges-list">`) in a second `<div id="external-charges-list" hx-swap-oob=...>`,
 so after a create the live DOM holds two nested elements with that id. It works today — the
 OOB replaces the outer, lookups resolve to it — but it is a duplicate-id trap for anything
-that later targets `#charges-list`. The fix is to let `ChargesList`'s own root carry the OOB
+that later targets `#external-charges-list`. The fix is to let `ExternalChargesList`'s own root carry the OOB
 attribute instead of wrapping it; do that the next time this path is touched.
 
 ## Manual charge list: only ONE row is editable at a time
 
-`GET /ui/charges/row/:id/edit` (`ChargeRowEditFragment`) renders the **whole `#charges-list`
+`GET /ui/external-charges/row/:id/edit` (`ExternalChargeRowEditFragment`) renders the **whole `#external-charges-list`
 region** with that row — and only that row — in edit mode, driven by
-`ChargesPageData.EditingID`. The row's Edit button therefore carries
-`hx-target="#charges-list"`, not `hx-target="#charge-row-{id}"`.
+`ExternalChargesPageData.EditingID`. The row's Edit button therefore carries
+`hx-target="#external-charges-list"`, not `hx-target="#external-charge-row-{id}"`.
 
 - **Why the list, not the row.** When the row was its own swap target, each Edit click was
   independent, so a user could open every row at once and end up with N competing forms.
   Making the LIST the swap unit means opening a second editor necessarily re-renders the
   first one closed — the invariant holds on every render instead of depending on client-side
   bookkeeping a stray swap could desynchronize. It also needs **no new JS**, so no RD entry:
-  the Delete button in the same file already targets `#charges-list` this exact way.
-- **`EditingID` is set by `ChargeRowEditFragment` and by nothing else.** Every other render
+  the Delete button in the same file already targets `#external-charges-list` this exact way.
+- **`EditingID` is set by `ExternalChargeRowEditFragment` and by nothing else.** Every other render
   leaves it empty, which is what closes an open editor after a successful save
-  (`ChargeRowUpdate`'s OOB `#charges-list` refresh), a delete, a filter click or a vehicle
-  switch. Do not set it from `buildChargesPage`.
-- **Cancel still swaps the single row** (`ChargeRowStatic` → `#charge-row-{id}`) and stays
+  (`ExternalChargeRowUpdate`'s OOB `#external-charges-list` refresh), a delete, a filter click or a vehicle
+  switch. Do not set it from `buildExternalChargesPage`.
+- **Cancel still swaps the single row** (`ExternalChargeRowStatic` → `#external-charge-row-{id}`) and stays
   correct precisely because only one row can be open.
 - A 404 for an id absent from the rendered window is deliberate: Edit is only reachable from
   a row the user can see, and the presence check costs no extra read (it scans the page just
@@ -175,9 +175,9 @@ until the copy follows:
 
 A vehicle may have at most **one** manual charge entry with status `IN_PROGRESS` on any
 given `charged_on` date. `DONE` entries are unconstrained — any number may share a date.
-Enforced in `handlers.inProgressConflictOn` (`handlers/charges.go`) on **both** write paths:
-`ChargeCreate` (`POST /ui/charges/create`, excluding nothing) and `ChargeRowUpdate`
-(`PUT /ui/charges/row/:id`, excluding the edited row's own id so an already-in-progress
+Enforced in `handlers.inProgressConflictOn` (`handlers/external_charges.go`) on **both** write paths:
+`ExternalChargeCreate` (`POST /ui/external-charges/create`, excluding nothing) and `ExternalChargeRowUpdate`
+(`PUT /ui/external-charges/row/:id`, excluding the edited row's own id so an already-in-progress
 entry never conflicts with itself). A conflict is reported through the SAME 422 branch as
 every other validation failure — `validationErrors["_top"]`, so the user's submitted values
 survive the re-render — carrying `i18n.KeyChargesErrorInProgressExists` formatted with the
@@ -194,7 +194,7 @@ conflicting date as `YYYY-MM-DD`.
 - **There is NO database constraint behind this rule** — it is an application-level rule, so
   the check **fails open**: a reader error is logged and the write proceeds, matching this
   module's log-and-continue posture for non-essential follow-ups
-  (`recalculateAfterChargeWrite`, the telemetry suggestion lookup in `buildChargesPage`).
+  (`recalculateAfterExternalChargeWrite`, the telemetry suggestion lookup in `buildExternalChargesPage`).
   Turning a transient read failure into a refusal to save would trade a real data loss for a
   hypothetical duplicate. If this ever needs to be airtight, the fix is a partial unique
   index in the `charging` module, not a fail-closed gateway check.
@@ -203,12 +203,12 @@ conflicting date as `YYYY-MM-DD`.
 
 ## Manual charge success notice
 
-`fragments.ChargesPageData.Notice` is the success counterpart of `.Error`: a non-empty value
+`fragments.ExternalChargesPageData.Notice` is the success counterpart of `.Error`: a non-empty value
 renders a `ui.Alert{Kind: "success"}` at the top of the create-form card (the same slot the
-`_top` validation alert uses). It is set in exactly ONE place — `ChargeCreate`'s success
+`_top` validation alert uses). It is set in exactly ONE place — `ExternalChargeCreate`'s success
 path, to `i18n.KeyChargesNoticeEntryCreated` — so it rides in on the response to the write
-that earned it via the primary `#charges-create-form` swap and is gone on the next render of
-any kind. `buildChargesPage` never sets it; do not set it from a read path, or the message
+that earned it via the primary `#external-charges-create-form` swap and is gone on the next render of
+any kind. `buildExternalChargesPage` never sets it; do not set it from a read path, or the message
 will persist across refreshes.
 
 ## Client-side JS on this page — RD12, RD13, RD14
@@ -270,7 +270,7 @@ A `change` + `htmx:load` listener pair matching `select[name="location_kind"]`, 
 `applyChargeLocationLabelToggle(select)`, which resolves `select.closest("form")` and sets
 `location_label.disabled = select.value !== "OTHER"`. The server renders the same initial
 state (`Disabled: LocationKind != "OTHER"` on `ui.InputProps` in both
-`charge_create_form.templ` and `charge_row_edit.templ`); if the two disagree the JS state
+`external_charge_create_form.templ` and `external_charge_row_edit.templ`); if the two disagree the JS state
 wins in the live DOM and the disagreement is inert. Added 2026-09-01, alongside
 `location_label`'s move into the main grid.
 

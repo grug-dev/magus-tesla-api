@@ -67,7 +67,7 @@ type SuperchargerRowVM struct {
 	// DateShortLabel is the SAME date as MM-DD ("09-04"), rendered instead of
 	// DateLabel below the `sm` breakpoint (MAG-46 step 4.2). Both are always in the
 	// HTML and CSS picks one (AGENTS.md §Mobile R4) — mirrors
-	// ChargeEntryVM.ChargedOnShortLabel exactly, including the language-neutral
+	// ExternalChargeEntryVM.ChargedOnShortLabel exactly, including the language-neutral
 	// MM-DD choice.
 	DateShortLabel string
 	// SiteLabel is the session's SiteLocationName.
@@ -86,16 +86,16 @@ type SuperchargerRowVM struct {
 	ID string
 	// RawStartBatteryPct is the raw editable value for the inline edit form's
 	// start_battery_pct input, e.g. "80", or "" when StartBatteryPct is nil —
-	// matching ChargeEntryVM.RawStartBatteryPct's convention exactly
+	// matching ExternalChargeEntryVM.RawStartBatteryPct's convention exactly
 	// (RM31-gateway-add-session-battery-edit).
 	RawStartBatteryPct string
 	// RawEndBatteryPct is the raw editable value for the inline edit form's
 	// end_battery_pct input, e.g. "92", or "" when EndBatteryPct is nil —
-	// matching ChargeEntryVM.RawEndBatteryPct's convention exactly
+	// matching ExternalChargeEntryVM.RawEndBatteryPct's convention exactly
 	// (RM31-gateway-add-session-battery-edit).
 	RawEndBatteryPct string
 	// RawStatus is the raw charging.SessionStatus code ("IN_PROGRESS" |
-	// "DONE_CALCULATED" | "DONE"), mirroring ChargeEntryVM.RawStatus's identical
+	// "DONE_CALCULATED" | "DONE"), mirroring ExternalChargeEntryVM.RawStatus's identical
 	// convention exactly — the template resolves the Badge Kind + label from this
 	// code (see SuperchargerRow's doc comment), not a precomputed label field.
 	RawStatus string

@@ -173,12 +173,12 @@ func TestLangSwitch_FallsBackToRefererThenRoot(t *testing.T) {
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/ui/lang/switch", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Referer", "http://x/charges")
+		req.Header.Set("Referer", "http://x/external-charges")
 		eng.ServeHTTP(w, req)
 
 		loc := decodeHXLocation(t, w)
-		if loc.Path != "/charges" {
-			t.Errorf("HX-Location path = %q, want %q (from Referer)", loc.Path, "/charges")
+		if loc.Path != "/external-charges" {
+			t.Errorf("HX-Location path = %q, want %q (from Referer)", loc.Path, "/external-charges")
 		}
 	})
 
@@ -236,7 +236,7 @@ func postLangSwitch(eng *gin.Engine, lang string, cookies []*http.Cookie, hxCurr
 }
 
 // signInCookie calls /_session on eng to obtain a signed-in session cookie
-// for uid (mirrors charges_test.go's sessionCookie, scoped to this file's
+// for uid (mirrors external_charges_test.go's sessionCookie, scoped to this file's
 // own langSwitchEngine which uses the "test" session name). eng's /_session
 // route is seeded with a fixed uid at construction (langSwitchEngine), so
 // this helper just performs the round trip.

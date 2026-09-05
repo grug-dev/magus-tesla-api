@@ -8,7 +8,7 @@ description: >-
   /kkpa-goth-scaffold-ui. Two build modes — `init` lays down the one-time Tailwind+DaisyUI
   foundation, themed drawer shell, and the templates/ui/ component kit; `scaffold <concept>
   [module]` generates one full vertical slice (view model → page/fragments → Gin handler →
-  routes) mirroring the `charges` gold-standard. Enforces the gateway boundary rules,
+  routes) mirroring the `external-charges` gold-standard. Enforces the gateway boundary rules,
   semantic theme tokens (never hex), and km-companion values. NOT for domain-module logic,
   non-gateway code, or JSON /api routes.
 ---
@@ -29,7 +29,7 @@ Read the three reference files before acting — they are the source of truth fo
 setup, and the slice recipe:
 
 - `references/daisyui-templ-conventions.md` — Node-less setup, theme tokens, drawer shell, wrapper pattern, htmx-swap safety.
-- `references/charges-slice-pattern.md` — the gold-standard vertical-slice recipe + exact reference file paths.
+- `references/external-charges-slice-pattern.md` — the gold-standard vertical-slice recipe + exact reference file paths.
 - `references/component-kit.md` — the `templates/ui/` kit inventory + each component's `Props` contract.
 
 ---
@@ -86,7 +86,7 @@ Follow `references/daisyui-templ-conventions.md` exactly. Summary of steps:
 Trigger: args name a concept (e.g. `scaffold battery`, `scaffold battery telemetry`, or a
 natural request like "build the battery panel"). Foundation must exist (else `init` first).
 
-Follow `references/charges-slice-pattern.md` exactly, imitating the `charges` slice. Steps:
+Follow `references/external-charges-slice-pattern.md` exactly, imitating the `external-charges` slice. Steps:
 
 1. **Resolve the domain module + its ports** with CodeGraph (`codegraph_context` on the
    concept). The gateway calls module **interfaces only** — never a DB, never a module's
@@ -106,14 +106,14 @@ Follow `references/charges-slice-pattern.md` exactly, imitating the `charges` sl
 4. **Handler** — `handlers/<concept>.go`: auth-guard via `currentUID`, a gin-free
    `build<Concept>Page` helper (unit-testable), `render` (full page) + `renderFragment`
    (htmx swap). **CSRF on every write path** — reuse `generateCSRFToken`/`checkCSRF` from
-   `charges.go`. Graceful-degradation notices, never a raw error/stack to the page.
+   `external_charges.go`. Graceful-degradation notices, never a raw error/stack to the page.
    Handler-produced copy is user-facing too: `Notice:`/`Error:` fields, `errs[...]`
    validation messages and bare-text `c.String` bodies all go through `i18n.T` with a
    catalogue key — `make i18n-guard` fails the build on any that don't.
 5. **Routes** — register `GET /<concept>` + the `/ui/<concept>/…` fragment/action routes in
    `internal/gateway/gateway.go`.
 6. **Codegen** — `make templ` (and `make css` if new classes were introduced).
-7. **Tests** — add handler tests mirroring `charges_test.go` / `handlers_test.go` (fake
+7. **Tests** — add handler tests mirroring `external_charges_test.go` / `handlers_test.go` (fake
    ports; gin-free helper unit-tested). Do NOT test `tesla-exploration` (`raw.go`) — see
    `AGENTS.md`.
 8. **Docs** — update the README structure tree if a new public surface appears.

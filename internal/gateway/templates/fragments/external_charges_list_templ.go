@@ -15,8 +15,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargesList is the htmx-swappable charge entries table region.
-// Its root <div id="charges-list"> matches the templ.Fragment("charges-list") name
+// ExternalChargesList is the htmx-swappable charge entries table region.
+// Its root <div id="external-charges-list"> matches the templ.Fragment("external-charges-list") name
 // and is the hx-target for every filter-preset button (design.md §D-Presets) and
 // the delete/update OOB refresh (design.md §D-Refresh). The Refresh button that
 // used to live here is REMOVED — subsumed by any filter click. It carries its own
@@ -25,14 +25,14 @@ import (
 //
 // Three-state empty branching (design.md §D-Empty):
 //  1. d.NoFilterChrome (no vehicle resolved OR malformed window) → render ONLY
-//     ChargesEmptyState(); no selector, no tiles, no table.
+//     ExternalChargesEmptyState(); no selector, no tiles, no table.
 //  2. Otherwise, the selector + tiles ALWAYS render; d.Error (reader failure)
 //     additionally shows the existing ui.Alert, tiles still show their zero/em-dash
 //     values.
 //  3. d.EmptyState (valid vehicle, valid window, zero rows) swaps the table body
-//     for ChargesEmptyState() while the selector + tiles stay visible (D13 — "Empty
+//     for ExternalChargesEmptyState() while the selector + tiles stay visible (D13 — "Empty
 //     range renders 0 and —", not a full collapse).
-func ChargesList(d ChargesPageData) templ.Component {
+func ExternalChargesList(d ExternalChargesPageData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -53,7 +53,7 @@ func ChargesList(d ChargesPageData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"charges-list\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"external-charges-list\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -70,7 +70,7 @@ func ChargesList(d ChargesPageData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = ChargesEmptyState().Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ExternalChargesEmptyState().Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -82,32 +82,32 @@ func ChargesList(d ChargesPageData) templ.Component {
 			}
 		} else {
 			if d.Presets != nil {
-				templ_7745c5c3_Err = chargesRangeSelector(d.Presets).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = externalChargesRangeSelector(d.Presets).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <input type=\"hidden\" id=\"charges-window-start\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <input type=\"hidden\" id=\"external-charges-window-start\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(d.WindowStartStr)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 37, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charges_list.templ`, Line: 37, Col: 83}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\"> <input type=\"hidden\" id=\"charges-window-end\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\"> <input type=\"hidden\" id=\"external-charges-window-end\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(d.WindowEndStr)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 38, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charges_list.templ`, Line: 38, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -129,7 +129,7 @@ func ChargesList(d ChargesPageData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = chargeTiles(d.Tiles).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = externalChargeTiles(d.Tiles).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -171,7 +171,7 @@ func ChargesList(d ChargesPageData) templ.Component {
 						var templ_7745c5c3_Var8 string
 						templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(d.Error)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 45, Col: 15}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charges_list.templ`, Line: 45, Col: 15}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 						if templ_7745c5c3_Err != nil {
@@ -189,7 +189,7 @@ func ChargesList(d ChargesPageData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				if d.EmptyState {
-					templ_7745c5c3_Err = ChargesEmptyState().Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ExternalChargesEmptyState().Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -212,12 +212,12 @@ func ChargesList(d ChargesPageData) templ.Component {
 						ctx = templ.InitializeContext(ctx)
 						for _, vm := range d.Entries {
 							if vm.ID != "" && vm.ID == d.EditingID {
-								templ_7745c5c3_Err = ChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr).Render(ctx, templ_7745c5c3_Buffer)
+								templ_7745c5c3_Err = ExternalChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr).Render(ctx, templ_7745c5c3_Buffer)
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
 							} else {
-								templ_7745c5c3_Err = ChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr).Render(ctx, templ_7745c5c3_Buffer)
+								templ_7745c5c3_Err = ExternalChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr).Render(ctx, templ_7745c5c3_Buffer)
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}
@@ -255,17 +255,17 @@ func ChargesList(d ChargesPageData) templ.Component {
 	})
 }
 
-// chargesRangeSelector renders the two-preset ("last 7 days" / "this month")
+// externalChargesRangeSelector renders the two-preset ("last 7 days" / "this month")
 // filter control — structurally identical to superchargerMonthsSelector
 // (supercharger_stats.templ, design.md §D-Presets/§D-RM33-10): ui.Join wraps one
 // ui.Button per preset, hx-get built from the preset's own pre-formatted
-// StartStr/EndStr against /ui/charges/list, hx-target="#charges-list",
+// StartStr/EndStr against /ui/external-charges/list, hx-target="#external-charges-list",
 // hx-swap="outerHTML" — the WHOLE list region (unlike Supercharger Stats, which
-// innerHTML-swaps a wrapping content div, #charges-list IS the swappable region
+// innerHTML-swaps a wrapping content div, #external-charges-list IS the swappable region
 // itself, so outerHTML matches the filter's own target). The active preset
 // (RangePreset.Active) uses the "primary" Button variant; inactive presets use
 // "ghost". The button label is p.Label, already formatted by the handler.
-func chargesRangeSelector(presets []RangePreset) templ.Component {
+func externalChargesRangeSelector(presets []RangePreset) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -319,7 +319,7 @@ func chargesRangeSelector(presets []RangePreset) templ.Component {
 						var templ_7745c5c3_Var13 string
 						templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 106, Col: 15}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charges_list.templ`, Line: 106, Col: 15}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 						if templ_7745c5c3_Err != nil {
@@ -332,8 +332,8 @@ func chargesRangeSelector(presets []RangePreset) templ.Component {
 						Size:    "sm",
 						Class:   "join-item",
 						Attrs: templ.Attributes{
-							"hx-get":    fmt.Sprintf("/ui/charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
-							"hx-target": "#charges-list",
+							"hx-get":    fmt.Sprintf("/ui/external-charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
+							"hx-target": "#external-charges-list",
 							"hx-swap":   "outerHTML",
 						},
 					}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
@@ -356,7 +356,7 @@ func chargesRangeSelector(presets []RangePreset) templ.Component {
 						var templ_7745c5c3_Var15 string
 						templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 119, Col: 15}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charges_list.templ`, Line: 119, Col: 15}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 						if templ_7745c5c3_Err != nil {
@@ -369,8 +369,8 @@ func chargesRangeSelector(presets []RangePreset) templ.Component {
 						Size:    "sm",
 						Class:   "join-item",
 						Attrs: templ.Attributes{
-							"hx-get":    fmt.Sprintf("/ui/charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
-							"hx-target": "#charges-list",
+							"hx-get":    fmt.Sprintf("/ui/external-charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
+							"hx-target": "#external-charges-list",
 							"hx-swap":   "outerHTML",
 						},
 					}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
@@ -393,12 +393,12 @@ func chargesRangeSelector(presets []RangePreset) templ.Component {
 	})
 }
 
-// chargeTiles renders the four aggregation tiles — Sessions, Energy, Cost, Avg
+// externalChargeTiles renders the four aggregation tiles — Sessions, Energy, Cost, Avg
 // kWh/session — structurally identical to superchargerTiles (supercharger_stats.templ,
 // design.md §D-Tiles), composing ui.StatTile in a Tailwind grid (layout utility
 // only). Single-currency (COP by construction, D13) — no per-currency CostLines
 // join here, unlike Supercharger's Cost tile.
-func chargeTiles(t ChargeTiles) templ.Component {
+func externalChargeTiles(t ExternalChargeTiles) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -447,8 +447,8 @@ func chargeTiles(t ChargeTiles) templ.Component {
 	})
 }
 
-// ChargesEmptyState renders the empty-state message for the charges list.
-func ChargesEmptyState() templ.Component {
+// ExternalChargesEmptyState renders the empty-state message for the charges list.
+func ExternalChargesEmptyState() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -476,7 +476,7 @@ func ChargesEmptyState() templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesListEmpty))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 143, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charges_list.templ`, Line: 143, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {

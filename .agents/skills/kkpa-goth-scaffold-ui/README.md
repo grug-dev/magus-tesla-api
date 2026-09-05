@@ -25,7 +25,7 @@ The skill has three modes (SKILL.md dispatches top-down; first match wins):
      Table, PageHeader, NavShell);
    - runs `make css` + `make templ` and updates the structure docs.
 3. **`scaffold <concept> [module]`** — the repeatable value. Generates one full **vertical
-   slice** for a domain concept, mirroring the `charges` gold-standard: view model
+   slice** for a domain concept, mirroring the `external-charges` gold-standard: view model
    (`fragments/<concept>_vm.go`) → page + swappable fragments → Gin handler
    (`handlers/<concept>.go`) → routes (`gateway.go`) → tests → codegen. It resolves the
    owning module's **interfaces** via CodeGraph and calls only those (never a DB, never a
@@ -40,24 +40,24 @@ browser hits down to the module interface it reads — and nothing more. Using t
 `charges` slice as the template, `scaffold <concept>` generates these five pieces:
 
 ```
-Browser hits  GET /charges
+Browser hits  GET /external-charges
      │
      ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 1. ROUTE       gateway.go   →  registers GET /charges        │
-│ 2. HANDLER     handlers/charges.go → auth-check, call module,│
-│                                       build the VM, render   │
-│ 3. VIEW MODEL  fragments/charges_vm.go → plain display struct│
-│ 4. PAGE        pages/charges.templ → HTML using ui/ kit      │
-│ 5. FRAGMENTS   fragments/charge_row.templ, _create_form.templ│
-│                → the htmx-swappable pieces                    │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│ 1. ROUTE       gateway.go   →  registers GET /external-charges         │
+│ 2. HANDLER     handlers/external_charges.go → auth-check, call module, │
+│                build the VM, render                                    │
+│ 3. VIEW MODEL  fragments/external_charges_vm.go → plain display struct │
+│ 4. PAGE        pages/external_charges.templ → HTML using ui/ kit       │
+│ 5. FRAGMENTS   fragments/external_charge_row.templ, _create_form.templ │
+│                → the htmx-swappable pieces                             │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-"Mirroring the `charges` gold-standard" means every new slice is laid out and layered
+"Mirroring the `external-charges` gold-standard" means every new slice is laid out and layered
 identically to this one, so it inherits the correct boundaries (gateway calls interfaces
 not DBs, km not miles, CSRF on writes) and stays consistent across sessions and pipeline
-agents. The exact reference files to imitate are listed in `references/charges-slice-pattern.md`.
+agents. The exact reference files to imitate are listed in `references/external-charges-slice-pattern.md`.
 
 The design rests on a **3-layer vocabulary** so an AI (or a pipeline agent) always looks a
 visual decision up rather than inventing it: **Templ** (typed component boundary) → **DaisyUI**
@@ -66,7 +66,7 @@ spacing utilities).
 
 Details live in `references/`:
 - `daisyui-templ-conventions.md` — Node-less setup, `input.css`, `make css`, drawer shell, theme tokens, wrapper pattern, htmx-swap safety.
-- `charges-slice-pattern.md` — the vertical-slice recipe + exact reference files to imitate.
+- `external-charges-slice-pattern.md` — the vertical-slice recipe + exact reference files to imitate.
 - `component-kit.md` — the `templates/ui/` kit + each component's `Props` contract.
 
 ## Example prompts

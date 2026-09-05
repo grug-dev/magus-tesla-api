@@ -5,8 +5,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargeRowEdit renders the inline edit form for a single charge entry row.
-// Its id="charge-row-{vm.ID}" matches the static row's id so htmx
+// ExternalChargeRowEdit renders the inline edit form for a single charge entry row.
+// Its id="external-charge-row-{vm.ID}" matches the static row's id so htmx
 // hx-swap="outerHTML" can swap between the two views in-place.
 // validationErrors maps field names to error messages; nil or empty means no errors.
 // Every control is composed from the ui/ adapter kit (Field/Input/Select/Textarea)
@@ -23,19 +23,19 @@ import (
 // MAG-5 alignment with the create form (D4/D6/D7): start_battery_pct is
 // unconditionally REQUIRED (D6; end_battery_pct's required-ness is conditional
 // as of RM33, see below); energy is 3-decimal (step=0.001, D7). The hidden
-// `vehicle` form input was removed (D4 — parseChargeForm sources the vehicle
+// `vehicle` form input was removed (D4 — parseExternalChargeForm sources the vehicle
 // from the session selection); the read-only VehicleLabel span stays for
 // display transparency.
 //
 // RM33 (MAG-18) additions, design.md §D-Fields/§D-Suffix/§D-Values: a status
 // <select> (IN_PROGRESS/DONE) is the first field, defaulting to vm.RawStatus
 // (the persisted value, or the submitted value on a 4xx re-render via
-// chargeEntryVMFromRawValues). ended_at / end_battery_pct's Required is bound
+// externalChargeEntryVMFromRawValues). ended_at / end_battery_pct's Required is bound
 // to vm.RequiredEndedAt / vm.RequiredEndBatteryPct (handler-computed from
 // charging.RequiredFieldsFor). energy_added_kwh and price are genuinely
 // optional; the disabled Currency input is REMOVED — price instead renders a
 // "COP" suffix via ui.InputProps.Suffix (design.md §D-Suffix).
-// Field ORDER is kept identical to ChargeCreateForm's — the ten shared fields
+// Field ORDER is kept identical to ExternalChargeCreateForm's — the ten shared fields
 // in the same sequence, ending with location_kind and the optional
 // location_label, then the edit-only read-only Vehicle display. Two required fields (location_kind
 // always, ended_at when status is DONE) USED TO live inside the collapsed
@@ -49,20 +49,20 @@ import (
 // window the table was rendered under, threaded through as two hidden form
 // inputs ("start"/"end") — unlike the DELETE button's CSRF-header workaround,
 // PUT DOES parse request bodies, so plain hidden inputs are a valid wire path
-// here. ChargeRowUpdate reads them (best-effort, never a validation gate) to
-// resolve the window its post-write #charges-list OOB refresh renders.
-templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[string]string, windowStartStr, windowEndStr string) {
-	<tr id={ "charge-row-" + vm.ID }>
+// here. ExternalChargeRowUpdate reads them (best-effort, never a validation gate) to
+// resolve the window its post-write #external-charges-list OOB refresh renders.
+templ ExternalChargeRowEdit(vm ExternalChargeEntryVM, csrfToken string, validationErrors map[string]string, windowStartStr, windowEndStr string) {
+	<tr id={ "external-charge-row-" + vm.ID }>
 		<td colspan="9">
-			<p id={ "charge-row-hint-" + vm.ID } class="text-sm text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormEditHint) }</p>
+			<p id={ "external-charge-row-hint-" + vm.ID } class="text-sm text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormEditHint) }</p>
 			if validationErrors["_top"] != "" {
 				@ui.Alert(ui.AlertProps{Kind: "error"}) {
 					{ validationErrors["_top"] }
 				}
 			}
 			<form
-				hx-put={ "/ui/charges/row/" + vm.ID }
-				hx-target={ "#charge-row-" + vm.ID }
+				hx-put={ "/ui/external-charges/row/" + vm.ID }
+				hx-target={ "#external-charge-row-" + vm.ID }
 				hx-swap="outerHTML"
 				class="flex flex-col gap-3"
 			>
@@ -111,7 +111,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 						@ui.Input(ui.InputProps{Name: "location_label", Value: vm.LocationLabel, Disabled: vm.LocationKind != "OTHER"})
 					}
 				</div>
-				<section id={ "charge-row-optional-" + vm.ID }>
+				<section id={ "external-charge-row-optional-" + vm.ID }>
 					<h3 class="font-medium text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormOptionalDetails) }</h3>
 					<div class="grid gap-3 sm:grid-cols-2 mt-2">
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormChargingType)}) {
@@ -138,8 +138,8 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 						Variant: "ghost",
 						Size:    "sm",
 						Attrs: templ.Attributes{
-							"hx-get":    "/ui/charges/row/" + vm.ID,
-							"hx-target": "#charge-row-" + vm.ID,
+							"hx-get":    "/ui/external-charges/row/" + vm.ID,
+							"hx-target": "#external-charge-row-" + vm.ID,
 							"hx-swap":   "outerHTML",
 						},
 					}) {

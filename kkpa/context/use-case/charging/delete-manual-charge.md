@@ -1,4 +1,4 @@
-# Delete a manual charge record — DELETE /ui/charges/row/:id
+# Delete a manual charge record — DELETE /ui/external-charges/row/:id
 
 > One external entry point, one output. **Backend only** — the adapter side lives in the
 > input-port file that links here. Paths + symbols only; ask CodeGraph for signatures, never
@@ -6,26 +6,26 @@
 
 ## Entry point
 
-- **Symbol:** `Handler.ChargeRowDelete` — `internal/gateway/handlers/charges.go`
-- **Trigger:** `DELETE /ui/charges/row/:id`
+- **Symbol:** `Handler.ExternalChargeRowDelete` — `internal/gateway/handlers/external_charges.go`
+- **Trigger:** `DELETE /ui/external-charges/row/:id`
 - **Module:** `charging` (the domain this serves; the handler itself lives in `internal/gateway`)
 
 ## Triggered by
 
-- `input-port/charging/charges.md` — the Manual Records page (`/charges`), per-row delete button
+- `input-port/charging/external-charges.md` — the External charges page (`/external-charges`), per-row delete button
 
 ## Input / output
 
 - **Input:** the entry id as a path param; the CSRF token on the **`X-CSRF-Token` header** (not
   the body — Go's `net/http` only parses bodies for POST/PUT/PATCH); `?start=&end=` on the query
   string carrying the active filter window.
-- **Output:** `200` re-rendering the whole `#charges-list` region (the row no longer exists to
+- **Output:** `200` re-rendering the whole `#external-charges-list` region (the row no longer exists to
   swap into). `500` renders the same region with an error banner. `403` on CSRF failure, `400` on
   an unparseable id.
 
 ## Flow
 
-1. `Handler.ChargeRowDelete` — `internal/gateway/handlers/charges.go` — auth guard, `checkCSRF`,
+1. `Handler.ExternalChargeRowDelete` — `internal/gateway/handlers/external_charges.go` — auth guard, `checkCSRF`,
    parse the id.
 2. `windowFromQuery` → `bestEffortWindow` — the filter window to re-render, never a gate.
 3. `Handler.resolveSelectedVehicle` — the vehicle context to scope the re-rendered list to.
@@ -34,9 +34,9 @@
    ⚠ capped at 100 rows — see the gotchas below.
 5. `charging.Writer.Delete` — `internal/charging/service.go` — `DeleteEntry`, double-scoped
    `id AND account_id`. Hard delete: no soft delete, no tombstone, no audit row.
-6. `Handler.buildChargesPage` — rebuilds the list region (runs before the error branch too, so
+6. `Handler.buildExternalChargesPage` — rebuilds the list region (runs before the error branch too, so
    both outcomes render the same way).
-7. `Handler.recalculateAfterChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
+7. `Handler.recalculateAfterExternalChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
    — **only when step 4 found the row**. Errors logged and swallowed.
 
 ## Database
@@ -45,7 +45,7 @@
 |---|---|---|---|
 | 1 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByAccount` (resolve the affected day) |
 | 2 | DELETE | `manual_charge_entries` | `DeleteEntry` |
-| 3 | READ | `manual_charge_entries`, `vehicles` | `buildChargesPage` |
+| 3 | READ | `manual_charge_entries`, `vehicles` | `buildExternalChargesPage` |
 | 4 | READ | `vehicle_snapshots`, `supercharger_sessions`, `manual_charge_entries` | `Recalculate`'s three source fetches |
 | 5 | WRITE | `vehicle_metrics` | `UpsertVehicleMetric` × n **+** `DeleteVehicleMetricsInRangeExcept`, one transaction |
 
@@ -76,7 +76,7 @@ Steps 4–5 are skipped entirely when step 1 did not find the row. **Not touched
 - **CSRF travels on the header for this route, by necessity.** The delete button uses htmx
   `hx-headers` to set `X-CSRF-Token`; a hidden body input would never be parsed and would 403.
   Do not "normalise" it to the body form the other routes use.
-  _Source: `ChargeRowDelete` doc comment (MAG-5 root cause)._
-- **`buildChargesPage` is called before the error check** so the success and failure branches
+  _Source: `ExternalChargeRowDelete` doc comment (MAG-5 root cause)._
+- **`buildExternalChargesPage` is called before the error check** so the success and failure branches
   render the identical region. Keep that order if you touch the handler.
-  _Source: `ChargeRowDelete`._
+  _Source: `ExternalChargeRowDelete`._

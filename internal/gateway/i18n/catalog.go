@@ -28,7 +28,7 @@ const missingKeyMarker = "!!"
 const (
 	// --- sidebar nav (layouts/nav.go, templates/ui/nav_shell.templ) ---
 	KeyNavDashboard          Key = "nav.dashboard"
-	KeyNavManualRecords      Key = "nav.manual_records"
+	KeyNavExternalCharges    Key = "nav.external_charges"
 	KeyNavSuperchargerStats  Key = "nav.supercharger_stats"
 	KeyNavVehicleStats       Key = "nav.vehicle_stats"
 	KeyNavCommunityBenchmark Key = "nav.community_benchmark"
@@ -115,7 +115,7 @@ const (
 	KeyDashboardStatusParked          Key = "dashboard_status.parked"
 	KeyDashboardStatusSoftwareVersion Key = "dashboard_status.software_version"
 
-	// --- charge form, shared by charge_create_form.templ + charge_row_edit.templ (D2) ---
+	// --- charge form, shared by external_charge_create_form.templ + external_charge_row_edit.templ (D2) ---
 	KeyChargesFormTitle           Key = "charges_form.title"
 	KeyChargesFormDate            Key = "charges_form.date"
 	KeyChargesFormEnergyAdded     Key = "charges_form.energy_added"
@@ -149,19 +149,19 @@ const (
 	KeyChargesFormStatusDone       Key = "charges_form.status_done"
 	KeyChargesFormOdometer         Key = "charges_form.odometer"
 
-	// --- charge row (templates/fragments/charge_row.templ) ---
+	// --- charge row (templates/fragments/external_charge_row.templ) ---
 	KeyChargesRowEdit           Key = "charges_row.edit"
 	KeyChargesRowDelete         Key = "charges_row.delete"
 	KeyChargesRowConfirmMessage Key = "charges_row.confirm_message"
 	KeyChargesRowConfirmTitle   Key = "charges_row.confirm_title"
 	KeyChargesRowConfirmLabel   Key = "charges_row.confirm_label"
 
-	// --- charges list (templates/fragments/charges_list.templ) ---
+	// --- charges list (templates/fragments/external_charges_list.templ) ---
 	KeyChargesListTitle Key = "charges_list.title"
 	KeyChargesListDesc  Key = "charges_list.desc"
 	KeyChargesListEmpty Key = "charges_list.empty"
 
-	// --- charges page (templates/pages/charges.templ) ---
+	// --- charges page (templates/pages/external_charges.templ) ---
 	KeyChargesPageTitle           Key = "charges_page.title"
 	KeyChargesPageBackToDashboard Key = "charges_page.back_to_dashboard"
 
@@ -297,7 +297,7 @@ const (
 	// page's namespace.
 	KeyFormOptional Key = "form.optional"
 
-	// --- charges validation + errors (handlers/charges.go) ---
+	// --- charges validation + errors (handlers/external_charges.go) ---
 	KeyChargesErrorSelectVehicle                    Key = "charges_error.select_vehicle"
 	KeyChargesErrorDateRequired                     Key = "charges_error.date_required"
 	KeyChargesErrorInvalidDateFormat                Key = "charges_error.invalid_date_format"
@@ -325,12 +325,12 @@ const (
 	KeyChargesErrorStatusInvalid   Key = "charges_error.status_invalid"
 	KeyChargesErrorOdometerInvalid Key = "charges_error.odometer_invalid"
 
-	// --- one-IN_PROGRESS-per-day conflict (handlers/charges.go: inProgressConflictOn).
+	// --- one-IN_PROGRESS-per-day conflict (handlers/external_charges.go: inProgressConflictOn).
 	// Carries a single %s verb for the conflicting charged_on date, formatted
 	// YYYY-MM-DD by the handler — the template never formats a date.
 	KeyChargesErrorInProgressExists Key = "charges_error.in_progress_exists"
 
-	// --- charges success notices (handlers/charges.go: ChargeCreate success path) ---
+	// --- charges success notices (handlers/external_charges.go: ExternalChargeCreate success path) ---
 	KeyChargesNoticeEntryCreated Key = "charges_notice.entry_created"
 
 	// --- language switch errors (handlers/lang.go) ---
@@ -342,12 +342,12 @@ const (
 	KeyThemeSwitchErrorUnsupportedTheme  Key = "theme_switch_error.unsupported_theme"
 	KeyThemeSwitchErrorCouldNotSaveTheme Key = "theme_switch_error.could_not_save_theme"
 
-	// --- charges list table headers (fragments/charges_list.templ) ---
+	// --- charges list table headers (fragments/external_charges_list.templ) ---
 	// Deliberately NOT reusing KeyChargesFormDate/Vehicle/Price, KeySuperchargerEnergy,
 	// or KeyDashboardBatteryTitle: a table column header is a different semantic role
 	// with different length constraints than a form label or card title (D2's reuse
 	// mandate targets the same string in the same role, not merely the same word) —
-	// leader decision, gap found in wave 2 review of charges_list.templ.
+	// leader decision, gap found in wave 2 review of external_charges_list.templ.
 	KeyChargesListHeaderDate       Key = "charges_list.header_date"
 	KeyChargesListHeaderEnergy     Key = "charges_list.header_energy"
 	KeyChargesListHeaderPrice      Key = "charges_list.header_price"
@@ -359,11 +359,11 @@ const (
 	KeyChargesListHeaderStatus       Key = "charges_list.header_status"
 	KeyChargesListHeaderBatteryRange Key = "charges_list.header_battery_range"
 
-	// --- charges date-filter presets (fragments/charges_list.templ), design.md §D-Presets ---
+	// --- charges date-filter presets (fragments/external_charges_list.templ), design.md §D-Presets ---
 	KeyChargesRangeLast7Days Key = "charges_range.last_7_days"
 	KeyChargesRangeThisMonth Key = "charges_range.this_month"
 
-	// --- charges aggregation tiles (fragments/charges_list.templ), design.md §D-Tiles ---
+	// --- charges aggregation tiles (fragments/external_charges_list.templ), design.md §D-Tiles ---
 	// Summary-card heading for the charges tiles (AGENTS.md §"Every section is
 	// titled and described"). The card holding the four tiles had no title at all.
 	KeyChargesSummaryTitle Key = "charges_summary.title"
@@ -374,13 +374,13 @@ const (
 	KeyChargesTileCost     Key = "charges_tile.cost"
 	KeyChargesTileAvgKWh   Key = "charges_tile.avg_kwh_session"
 
-	// --- charges status badge (fragments/charge_row.templ) — deliberately NOT
+	// --- charges status badge (fragments/external_charge_row.templ) — deliberately NOT
 	// reusing KeyChargesFormStatusInProgress/Done, same table/form
 	// semantic-role precedent as the header block above (design.md §D-Dot) ---
 	KeyChargesBadgeInProgress Key = "charges_badge.in_progress"
 	KeyChargesBadgeDone       Key = "charges_badge.done"
 
-	// --- completeness dot tooltips (fragments/charge_row.templ), design.md §D-Dot ---
+	// --- completeness dot tooltips (fragments/external_charge_row.templ), design.md §D-Dot ---
 	KeyChargesDotCompleteTooltip   Key = "charges_dot.complete_tooltip"
 	KeyChargesDotIncompleteTooltip Key = "charges_dot.incomplete_tooltip"
 
@@ -408,7 +408,7 @@ const (
 // and that test fails at `go test` time if it ever is.
 var catalog = map[Key]entry{
 	KeyNavDashboard:          {ES: "Panel", EN: "Dashboard"},
-	KeyNavManualRecords:      {ES: "Externas", EN: "External"},
+	KeyNavExternalCharges:    {ES: "Externas", EN: "External"},
 	KeyNavSuperchargerStats:  {ES: "Supercharger", EN: "Supercharger"},
 	KeyNavVehicleStats:       {ES: "Estadísticas", EN: "Vehicle Stats"},
 	KeyNavCommunityBenchmark: {ES: "Comparativa", EN: "Community Benchmark"},
@@ -516,7 +516,7 @@ var catalog = map[Key]entry{
 	KeyChargesListDesc:  {ES: "Cargas que registraste manualmente.", EN: "Charges you logged manually."},
 	KeyChargesListEmpty: {ES: "Aún no hay cargas registradas. Usa el formulario de arriba para registrar tu primera carga.", EN: "No charge entries yet. Use the form above to log your first charge."},
 
-	KeyChargesPageTitle:           {ES: "Registro de cargas", EN: "Charge log"},
+	KeyChargesPageTitle:           {ES: "Cargas externas", EN: "External charges"},
 	KeyChargesPageBackToDashboard: {ES: "Volver al panel", EN: "Back to dashboard"},
 
 	KeyHistoryAwaitingSnapshots: {ES: "Esperando los datos nocturnos", EN: "Awaiting nightly snapshots"},

@@ -105,7 +105,7 @@ func superchargerEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN stri
 }
 
 // ptrF64 / ptrInt64 are small pointer helpers for building nullable session
-// fields. ptrStr already exists in charges_test.go — reused here.
+// fields. ptrStr already exists in external_charges_test.go — reused here.
 func ptrF64(f float64) *float64 { return &f }
 func ptrInt(i int) *int         { return &i }
 func ptrInt64(i int64) *int64   { return &i }
@@ -1124,7 +1124,7 @@ func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T
 // SuperchargerRowStatic / SuperchargerRowEditFragment tests, per design.md's
 // Test Contract T1-T7. fakeSessionVerifier is a NEW test double
 // (charging.SessionVerifier did not exist as a gateway dependency before this
-// tier); fakeRecalculator (charges_test.go, same package) is reused as-is —
+// tier); fakeRecalculator (external_charges_test.go, same package) is reused as-is —
 // its Recalculate call-recording shape already fits this tier's assertions
 // without modification.
 
@@ -1150,7 +1150,7 @@ type fakeSessionVerifier struct {
 
 // Compile-time proof fakeSessionVerifier still satisfies the real interface —
 // the same "loud compile error over silent runtime gap" reasoning
-// fakeRecalculator's own compile-time assertion documents (charges_test.go).
+// fakeRecalculator's own compile-time assertion documents (external_charges_test.go).
 var _ charging.SessionVerifier = (*fakeSessionVerifier)(nil)
 
 func (f *fakeSessionVerifier) VerifySession(_ context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (charging.Session, error) {
@@ -1165,7 +1165,7 @@ func (f *fakeSessionVerifier) VerifySession(_ context.Context, accountID uuid.UU
 // Supercharger handler tests: SuperchargerReader (fetchSuperchargerRowVM's
 // list-and-match resolve, D1), SuperchargerVerifier (VerifySession), and
 // AnalyticsRecalculator (recalculateAfterSessionVerify) — mirrors
-// newHandlerForChargesWithRecalc's write-plus-recalculate wiring shape, one
+// newHandlerForExternalChargesWithRecalc's write-plus-recalculate wiring shape, one
 // registered vehicle so resolveSelectedVehicle auto-selects it with no
 // explicit session selection needed.
 func newHandlerForSuperchargerRow(reader *fakeSessionReader, verifier *fakeSessionVerifier, recalc *fakeRecalculator, teslaID int64, vin string) *Handler {

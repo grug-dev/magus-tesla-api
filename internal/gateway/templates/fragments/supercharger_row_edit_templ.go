@@ -28,7 +28,7 @@ import (
 // plain read-only text: this port cannot write them, so no input is offered
 // for them. Neither input is Required — an empty value is a valid, explicit
 // clear of that percentage (design.md D7a), NOT a validation error, unlike
-// ChargeRowEdit's Required battery fields.
+// ExternalChargeRowEdit's Required battery fields.
 //
 // windowStartStr/windowEndStr are the SAME ?start=&end= window the table was
 // rendered under (design.md D2) — the form's own hx-patch action URL and the
@@ -39,7 +39,7 @@ import (
 //
 // The hx-patch lives on the <form> and Save is type="submit" — NOT hx-patch
 // on the button — for the same HTML5-validation reason documented on
-// ChargeRowEdit (ai/htmx-conventions.md §htmx attribute conventions): htmx
+// ExternalChargeRowEdit (ai/htmx-conventions.md §htmx attribute conventions): htmx
 // only runs constraint validation when the element issuing the request is
 // the form itself.
 //

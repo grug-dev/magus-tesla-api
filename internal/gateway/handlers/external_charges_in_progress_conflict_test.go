@@ -15,14 +15,14 @@ import (
 
 // This file covers the two manual-charge-page behaviours added on 2026-08-29:
 //
-//  1. the create-success NOTICE (ChargesPageData.Notice) the user sees after a
+//  1. the create-success NOTICE (ExternalChargesPageData.Notice) the user sees after a
 //     record is registered, and
 //  2. the "one IN_PROGRESS entry per (vehicle, charged_on)" gateway validation,
 //     enforced on BOTH the create POST and the inline-row PUT.
 //
 // engineWithSession never wires handlers.LanguageMiddleware, so i18n.FromContext
 // falls back to Spanish — every assertion below matches the ES catalogue value,
-// following the precedent in charges_error_visibility_test.go.
+// following the precedent in external_charges_error_visibility_test.go.
 
 // conflictMsgES is the rendered ES form of i18n.KeyChargesErrorInProgressExists
 // for 2026-07-15, spelled out literally so a catalogue edit that changes the
@@ -42,9 +42,9 @@ func day(t *testing.T, s string) time.Time {
 	return d
 }
 
-// chargeForm is the standard valid create/update submission, with status and
+// externalChargeForm is the standard valid create/update submission, with status and
 // charged_on left to the caller so each test varies only what it is about.
-func chargeForm(status, chargedOn string) url.Values {
+func externalChargeForm(status, chargedOn string) url.Values {
 	return url.Values{
 		"csrf_token":        {"tok"},
 		"status":            {status},
@@ -58,8 +58,8 @@ func chargeForm(status, chargedOn string) url.Values {
 	}
 }
 
-// submitCharge issues form as an authenticated request to method+path.
-func submitCharge(h *Handler, uid uuid.UUID, method, path string, form url.Values) *httptest.ResponseRecorder {
+// submitExternalCharge issues form as an authenticated request to method+path.
+func submitExternalCharge(h *Handler, uid uuid.UUID, method, path string, form url.Values) *httptest.ResponseRecorder {
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 	w := httptest.NewRecorder()
@@ -72,15 +72,15 @@ func submitCharge(h *Handler, uid uuid.UUID, method, path string, form url.Value
 	return w
 }
 
-// TestChargeCreate_SuccessRendersNotice pins requirement 1: after a record is
+// TestExternalChargeCreate_SuccessRendersNotice pins requirement 1: after a record is
 // registered the user must be TOLD so. The notice rides in on the create
-// response's primary #charges-create-form swap, rendered as a success alert.
-func TestChargeCreate_SuccessRendersNotice(t *testing.T) {
+// response's primary #external-charges-create-form swap, rendered as a success alert.
+func TestExternalChargeCreate_SuccessRendersNotice(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 
-	w := submitCharge(h, uid, http.MethodPost, "/ui/charges/create", chargeForm("IN_PROGRESS", "2026-07-15"))
+	w := submitExternalCharge(h, uid, http.MethodPost, "/ui/external-charges/create", externalChargeForm("IN_PROGRESS", "2026-07-15"))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200 on valid create, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
@@ -94,17 +94,17 @@ func TestChargeCreate_SuccessRendersNotice(t *testing.T) {
 	}
 }
 
-// TestChargesListFragment_RendersNoNotice guards the notice's one-shot nature:
+// TestExternalChargesListFragment_RendersNoNotice guards the notice's one-shot nature:
 // it belongs to the response for the write that earned it and must not reappear
 // on an ordinary list refresh.
-func TestChargesListFragment_RendersNoNotice(t *testing.T) {
+func TestExternalChargesListFragment_RendersNoNotice(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list", nil)
 	req.AddCookie(c)
 	r.ServeHTTP(w, req)
 
@@ -113,10 +113,10 @@ func TestChargesListFragment_RendersNoNotice(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_RejectsSecondInProgressOnSameDate pins requirement 2 on the
+// TestExternalChargeCreate_RejectsSecondInProgressOnSameDate pins requirement 2 on the
 // create path: a second IN_PROGRESS entry for a day that already has one is
 // rejected as a 422 naming that date, and never reaches charging.Writer.
-func TestChargeCreate_RejectsSecondInProgressOnSameDate(t *testing.T) {
+func TestExternalChargeCreate_RejectsSecondInProgressOnSameDate(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{{
@@ -128,9 +128,9 @@ func TestChargeCreate_RejectsSecondInProgressOnSameDate(t *testing.T) {
 		Status:    charging.StatusInProgress,
 		Currency:  "COP",
 	}}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 
-	w := submitCharge(h, uid, http.MethodPost, "/ui/charges/create", chargeForm("IN_PROGRESS", "2026-07-15"))
+	w := submitExternalCharge(h, uid, http.MethodPost, "/ui/external-charges/create", externalChargeForm("IN_PROGRESS", "2026-07-15"))
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("want 422 on a duplicate in-progress charge, got %d", w.Code)
@@ -147,9 +147,9 @@ func TestChargeCreate_RejectsSecondInProgressOnSameDate(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_AllowsInProgressOnADifferentDate pins the rule's SCOPE: it is
+// TestExternalChargeCreate_AllowsInProgressOnADifferentDate pins the rule's SCOPE: it is
 // per (vehicle, charged_on), not one in-progress charge per vehicle overall.
-func TestChargeCreate_AllowsInProgressOnADifferentDate(t *testing.T) {
+func TestExternalChargeCreate_AllowsInProgressOnADifferentDate(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	// The fake reader ignores the requested window and always returns its
@@ -165,9 +165,9 @@ func TestChargeCreate_AllowsInProgressOnADifferentDate(t *testing.T) {
 		Status:    charging.StatusInProgress,
 		Currency:  "COP",
 	}}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 
-	w := submitCharge(h, uid, http.MethodPost, "/ui/charges/create", chargeForm("IN_PROGRESS", "2026-07-15"))
+	w := submitExternalCharge(h, uid, http.MethodPost, "/ui/external-charges/create", externalChargeForm("IN_PROGRESS", "2026-07-15"))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("an in-progress charge on a different date must be allowed; got %d body=%q",
@@ -178,9 +178,9 @@ func TestChargeCreate_AllowsInProgressOnADifferentDate(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_AllowsDoneOnADateWithAnInProgress pins that only IN_PROGRESS
+// TestExternalChargeCreate_AllowsDoneOnADateWithAnInProgress pins that only IN_PROGRESS
 // submissions are constrained — any number of DONE entries may share a date.
-func TestChargeCreate_AllowsDoneOnADateWithAnInProgress(t *testing.T) {
+func TestExternalChargeCreate_AllowsDoneOnADateWithAnInProgress(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{{
@@ -192,9 +192,9 @@ func TestChargeCreate_AllowsDoneOnADateWithAnInProgress(t *testing.T) {
 		Status:    charging.StatusInProgress,
 		Currency:  "COP",
 	}}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 
-	w := submitCharge(h, uid, http.MethodPost, "/ui/charges/create", chargeForm("DONE", "2026-07-15"))
+	w := submitExternalCharge(h, uid, http.MethodPost, "/ui/external-charges/create", externalChargeForm("DONE", "2026-07-15"))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("a DONE charge must not be blocked by an existing in-progress one; got %d body=%q",
@@ -205,9 +205,9 @@ func TestChargeCreate_AllowsDoneOnADateWithAnInProgress(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_AllowsInProgressWhenSameDayEntryIsDone is the mirror of the
+// TestExternalChargeCreate_AllowsInProgressWhenSameDayEntryIsDone is the mirror of the
 // test above: an existing DONE entry on the same day constrains nothing.
-func TestChargeCreate_AllowsInProgressWhenSameDayEntryIsDone(t *testing.T) {
+func TestExternalChargeCreate_AllowsInProgressWhenSameDayEntryIsDone(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{{
@@ -219,9 +219,9 @@ func TestChargeCreate_AllowsInProgressWhenSameDayEntryIsDone(t *testing.T) {
 		Status:    charging.StatusDone,
 		Currency:  "COP",
 	}}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 
-	w := submitCharge(h, uid, http.MethodPost, "/ui/charges/create", chargeForm("IN_PROGRESS", "2026-07-15"))
+	w := submitExternalCharge(h, uid, http.MethodPost, "/ui/external-charges/create", externalChargeForm("IN_PROGRESS", "2026-07-15"))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200 when the same-day entry is DONE, got %d body=%q",
@@ -232,15 +232,15 @@ func TestChargeCreate_AllowsInProgressWhenSameDayEntryIsDone(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_ConflictCheckFailsOpenOnReaderError pins the deliberate
+// TestExternalChargeCreate_ConflictCheckFailsOpenOnReaderError pins the deliberate
 // fail-open posture: the rule has no DB constraint behind it, so a transient
 // read failure must not cost the user the record they just typed.
-func TestChargeCreate_ConflictCheckFailsOpenOnReaderError(t *testing.T) {
+func TestExternalChargeCreate_ConflictCheckFailsOpenOnReaderError(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{err: &fakeError{msg: "boom"}})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{err: &fakeError{msg: "boom"}})
 
-	w := submitCharge(h, uid, http.MethodPost, "/ui/charges/create", chargeForm("IN_PROGRESS", "2026-07-15"))
+	w := submitExternalCharge(h, uid, http.MethodPost, "/ui/external-charges/create", externalChargeForm("IN_PROGRESS", "2026-07-15"))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("a reader error must not block the write; got %d body=%q",
@@ -251,10 +251,10 @@ func TestChargeCreate_ConflictCheckFailsOpenOnReaderError(t *testing.T) {
 	}
 }
 
-// TestChargeRowUpdate_RejectsInProgressWhenAnotherExistsSameDate closes the
+// TestExternalChargeRowUpdate_RejectsInProgressWhenAnotherExistsSameDate closes the
 // edit-path bypass: flipping a row to IN_PROGRESS on a day that already has a
 // DIFFERENT in-progress entry is rejected the same way a create is.
-func TestChargeRowUpdate_RejectsInProgressWhenAnotherExistsSameDate(t *testing.T) {
+func TestExternalChargeRowUpdate_RejectsInProgressWhenAnotherExistsSameDate(t *testing.T) {
 	uid := uuid.New()
 	editedID := uuid.New()
 	writer := &fakeChargeWriter{}
@@ -267,9 +267,9 @@ func TestChargeRowUpdate_RejectsInProgressWhenAnotherExistsSameDate(t *testing.T
 		Status:    charging.StatusInProgress,
 		Currency:  "COP",
 	}}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 
-	w := submitCharge(h, uid, http.MethodPut, "/ui/charges/row/"+editedID.String(), chargeForm("IN_PROGRESS", "2026-07-15"))
+	w := submitExternalCharge(h, uid, http.MethodPut, "/ui/external-charges/row/"+editedID.String(), externalChargeForm("IN_PROGRESS", "2026-07-15"))
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("want 422 when another row already holds the day's in-progress charge, got %d", w.Code)
@@ -283,10 +283,10 @@ func TestChargeRowUpdate_RejectsInProgressWhenAnotherExistsSameDate(t *testing.T
 	}
 }
 
-// TestChargeRowUpdate_InProgressRowDoesNotConflictWithItself is the exclusion
+// TestExternalChargeRowUpdate_InProgressRowDoesNotConflictWithItself is the exclusion
 // this rule lives or dies on: re-saving an entry that is ALREADY the day's
 // in-progress charge must not be blocked by its own persisted row.
-func TestChargeRowUpdate_InProgressRowDoesNotConflictWithItself(t *testing.T) {
+func TestExternalChargeRowUpdate_InProgressRowDoesNotConflictWithItself(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
@@ -299,9 +299,9 @@ func TestChargeRowUpdate_InProgressRowDoesNotConflictWithItself(t *testing.T) {
 		Status:    charging.StatusInProgress,
 		Currency:  "COP",
 	}}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 
-	w := submitCharge(h, uid, http.MethodPut, "/ui/charges/row/"+id.String(), chargeForm("IN_PROGRESS", "2026-07-15"))
+	w := submitExternalCharge(h, uid, http.MethodPut, "/ui/external-charges/row/"+id.String(), externalChargeForm("IN_PROGRESS", "2026-07-15"))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("an in-progress row must not conflict with itself; got %d body=%q",

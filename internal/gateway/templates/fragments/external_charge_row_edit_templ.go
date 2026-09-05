@@ -13,8 +13,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargeRowEdit renders the inline edit form for a single charge entry row.
-// Its id="charge-row-{vm.ID}" matches the static row's id so htmx
+// ExternalChargeRowEdit renders the inline edit form for a single charge entry row.
+// Its id="external-charge-row-{vm.ID}" matches the static row's id so htmx
 // hx-swap="outerHTML" can swap between the two views in-place.
 // validationErrors maps field names to error messages; nil or empty means no errors.
 // Every control is composed from the ui/ adapter kit (Field/Input/Select/Textarea)
@@ -31,19 +31,19 @@ import (
 // MAG-5 alignment with the create form (D4/D6/D7): start_battery_pct is
 // unconditionally REQUIRED (D6; end_battery_pct's required-ness is conditional
 // as of RM33, see below); energy is 3-decimal (step=0.001, D7). The hidden
-// `vehicle` form input was removed (D4 — parseChargeForm sources the vehicle
+// `vehicle` form input was removed (D4 — parseExternalChargeForm sources the vehicle
 // from the session selection); the read-only VehicleLabel span stays for
 // display transparency.
 //
 // RM33 (MAG-18) additions, design.md §D-Fields/§D-Suffix/§D-Values: a status
 // <select> (IN_PROGRESS/DONE) is the first field, defaulting to vm.RawStatus
 // (the persisted value, or the submitted value on a 4xx re-render via
-// chargeEntryVMFromRawValues). ended_at / end_battery_pct's Required is bound
+// externalChargeEntryVMFromRawValues). ended_at / end_battery_pct's Required is bound
 // to vm.RequiredEndedAt / vm.RequiredEndBatteryPct (handler-computed from
 // charging.RequiredFieldsFor). energy_added_kwh and price are genuinely
 // optional; the disabled Currency input is REMOVED — price instead renders a
 // "COP" suffix via ui.InputProps.Suffix (design.md §D-Suffix).
-// Field ORDER is kept identical to ChargeCreateForm's — the ten shared fields
+// Field ORDER is kept identical to ExternalChargeCreateForm's — the ten shared fields
 // in the same sequence, ending with location_kind and the optional
 // location_label, then the edit-only read-only Vehicle display. Two required fields (location_kind
 // always, ended_at when status is DONE) USED TO live inside the collapsed
@@ -57,9 +57,9 @@ import (
 // window the table was rendered under, threaded through as two hidden form
 // inputs ("start"/"end") — unlike the DELETE button's CSRF-header workaround,
 // PUT DOES parse request bodies, so plain hidden inputs are a valid wire path
-// here. ChargeRowUpdate reads them (best-effort, never a validation gate) to
-// resolve the window its post-write #charges-list OOB refresh renders.
-func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[string]string, windowStartStr, windowEndStr string) templ.Component {
+// here. ExternalChargeRowUpdate reads them (best-effort, never a validation gate) to
+// resolve the window its post-write #external-charges-list OOB refresh renders.
+func ExternalChargeRowEdit(vm ExternalChargeEntryVM, csrfToken string, validationErrors map[string]string, windowStartStr, windowEndStr string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -85,9 +85,9 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue("charge-row-" + vm.ID)
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue("external-charge-row-" + vm.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 55, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 55, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -98,9 +98,9 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue("charge-row-hint-" + vm.ID)
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue("external-charge-row-hint-" + vm.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 57, Col: 37}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 57, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 		if templ_7745c5c3_Err != nil {
@@ -113,7 +113,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormEditHint))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 57, Col: 119}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 57, Col: 128}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -139,7 +139,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(validationErrors["_top"])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 60, Col: 31}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 60, Col: 31}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -157,9 +157,9 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue("/ui/charges/row/" + vm.ID)
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue("/ui/external-charges/row/" + vm.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 64, Col: 39}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 64, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 		if templ_7745c5c3_Err != nil {
@@ -170,9 +170,9 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 string
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue("#charge-row-" + vm.ID)
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue("#external-charge-row-" + vm.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 65, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 65, Col: 47}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {
@@ -185,7 +185,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 69, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 69, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 		if templ_7745c5c3_Err != nil {
@@ -198,7 +198,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 70, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 70, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -211,7 +211,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(windowStartStr)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 71, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 71, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -224,7 +224,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(windowEndStr)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 72, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 72, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 		if templ_7745c5c3_Err != nil {
@@ -275,7 +275,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormStatusInProgress))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 76, Col: 129}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 76, Col: 129}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -298,7 +298,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormStatusDone))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 77, Col: 109}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 77, Col: 109}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -519,7 +519,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormHome))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 104, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 104, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -542,7 +542,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormWork))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 105, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 105, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -565,7 +565,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormOther))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 106, Col: 109}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 106, Col: 109}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -618,9 +618,9 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var30 string
-		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue("charge-row-optional-" + vm.ID)
+		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue("external-charge-row-optional-" + vm.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 114, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 114, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 		if templ_7745c5c3_Err != nil {
@@ -633,7 +633,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormOptionalDetails))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 115, Col: 99}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 115, Col: 99}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
@@ -684,7 +684,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var34 string
 				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormAC))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 120, Col: 101}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 120, Col: 101}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 				if templ_7745c5c3_Err != nil {
@@ -707,7 +707,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var35 string
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormDC))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 121, Col: 101}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 121, Col: 101}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 				if templ_7745c5c3_Err != nil {
@@ -778,7 +778,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 				var templ_7745c5c3_Var39 string
 				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Notes)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 129, Col: 65}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 129, Col: 65}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 				if templ_7745c5c3_Err != nil {
@@ -815,7 +815,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			var templ_7745c5c3_Var41 string
 			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormSave))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 135, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 135, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 			if templ_7745c5c3_Err != nil {
@@ -842,7 +842,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			var templ_7745c5c3_Var43 string
 			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormCancel))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 146, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_row_edit.templ`, Line: 146, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 			if templ_7745c5c3_Err != nil {
@@ -854,8 +854,8 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			Variant: "ghost",
 			Size:    "sm",
 			Attrs: templ.Attributes{
-				"hx-get":    "/ui/charges/row/" + vm.ID,
-				"hx-target": "#charge-row-" + vm.ID,
+				"hx-get":    "/ui/external-charges/row/" + vm.ID,
+				"hx-target": "#external-charge-row-" + vm.ID,
 				"hx-swap":   "outerHTML",
 			},
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var42), templ_7745c5c3_Buffer)

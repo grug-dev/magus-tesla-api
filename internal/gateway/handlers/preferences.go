@@ -141,10 +141,10 @@ func PreferencesMiddleware(acct account.Service) gin.HandlerFunc {
 }
 
 // csrfThemeKey is the session key for the theme-switch CSRF token
-// (design.md D3) — a new key, distinct from csrfManualChargeKey,
+// (design.md D3) — a new key, distinct from csrfExternalChargeKey,
 // csrfVehicleSelectKey, and csrfSuperchargerKey. Minted by SettingsPage
-// (T6, a later wave) via the existing generateCSRFToken() (charges.go);
-// checked here by ThemeSwitch via the existing checkCSRFKey (charges.go).
+// (T6, a later wave) via the existing generateCSRFToken() (external_charges.go);
+// checked here by ThemeSwitch via the existing checkCSRFKey (external_charges.go).
 const csrfThemeKey = "csrf_theme"
 
 // ThemeSwitch handles POST /ui/theme/switch — persists a theme change for
@@ -221,7 +221,7 @@ func (h *Handler) ThemeSwitch(c *gin.Context) {
 //     and NOTHING is minted (Test Contract 13): there is no session to hold
 //     a token for, and minting one before the guard would waste a
 //     crypto/rand read on a request that can never use it.
-//  2. Mint the CSRF token via the EXISTING generateCSRFToken() (charges.go,
+//  2. Mint the CSRF token via the EXISTING generateCSRFToken() (external_charges.go,
 //     same package, no new helper) and store it under csrfThemeKey — a
 //     generation error (crypto/rand exhaustion) renders a plain-text 500,
 //     mirroring SuperchargerStatsPage's own identical failure branch.

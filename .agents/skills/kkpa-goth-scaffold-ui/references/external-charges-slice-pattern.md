@@ -5,13 +5,13 @@ Source of truth for `scaffold <concept> [module]`. Every new UI slice imitates t
 
 | Layer | Reference file |
 |---|---|
-| View model (VM) | `internal/gateway/templates/fragments/charges_vm.go` |
-| Page (fragment regions) | `internal/gateway/templates/pages/charges.templ` |
-| Swappable fragments | `internal/gateway/templates/fragments/charges_list.templ`, `charge_row*.templ`, `charge_create_form.templ` |
-| Handler | `internal/gateway/handlers/charges.go` |
+| View model (VM) | `internal/gateway/templates/fragments/external_charges_vm.go` |
+| Page (fragment regions) | `internal/gateway/templates/pages/external_charges.templ` |
+| Swappable fragments | `internal/gateway/templates/fragments/external_charges_list.templ`, `charge_row*.templ`, `external_charge_create_form.templ` |
+| Handler | `internal/gateway/handlers/external_charges.go` |
 | Shared render helpers | `internal/gateway/handlers/handlers.go` (`render`, `renderFragment`, `currentUID`) |
 | Routes | `internal/gateway/gateway.go` (route table in `NewEngine`) |
-| Handler tests | `internal/gateway/handlers/charges_test.go`, `handlers_test.go` |
+| Handler tests | `internal/gateway/handlers/external_charges_test.go`, `handlers_test.go` |
 
 ---
 
@@ -30,7 +30,7 @@ wiring — that is a structural change, so update docs too.
 
 ## Step 2 — View model (`fragments/<concept>_vm.go`)
 
-A pure-Go, **logic-free** presentation struct. Follow `charges_vm.go`:
+A pure-Go, **logic-free** presentation struct. Follow `external_charges_vm.go`:
 
 - Only pre-computed display strings/bools/ints. **No** domain types, **no** `pgtype`, **no**
   `time.Duration`, **no** arithmetic that belongs in the handler.
@@ -39,7 +39,7 @@ A pure-Go, **logic-free** presentation struct. Follow `charges_vm.go`:
   `…Km()`/`…Kmh()` methods and format the result (see `mapVehicles` in `handlers.go`, e.g.
   `fmt.Sprintf("%.1f km", snap.BatteryRangeKm())`).
 - Group per-row VM + a `…PageData` struct holding the slice + page-level flags
-  (`EmptyState`, `Error`, `CSRFToken`, …), mirroring `ChargeEntryVM` / `ChargesPageData`.
+  (`EmptyState`, `Error`, `CSRFToken`, …), mirroring `ExternalChargeEntryVM` / `ExternalChargesPageData`.
 
 ## Step 3 — Templates (`pages/` + `fragments/`)
 
@@ -52,7 +52,7 @@ A pure-Go, **logic-free** presentation struct. Follow `charges_vm.go`:
 - `fragments/<concept>_*.templ`: the individually swappable units (list, row, form).
 - **No business logic in templates** — only formatting, conditionals, loops over VM data.
 
-Example region (mirror `charges.templ`):
+Example region (mirror `external_charges.templ`):
 
 ```templ
 templ BatteryPage(d fragments.BatteryPageData) {
@@ -69,12 +69,12 @@ templ BatteryPage(d fragments.BatteryPageData) {
 
 ## Step 4 — Handler (`handlers/<concept>.go`)
 
-Mirror `charges.go`:
+Mirror `external_charges.go`:
 
 - **Auth-guard** every handler: `uid, ok := currentUID(c); if !ok { redirect /login }`.
 - A **gin-free** `build<Concept>Page(ctx, uid, …) fragments.<Concept>PageData` helper that
   calls the module ports and maps domain → VM. Keeping it gin-free makes it unit-testable
-  with fake ports (see `buildChargesPage`).
+  with fake ports (see `buildExternalChargesPage`).
 - Full page: `render(c, http.StatusOK, pages.<Concept>Page(d))`.
 - htmx swap: `renderFragment(c, http.StatusOK, pages.<Concept>Page(d), "<region-id>")`
   (thin wrapper over `templ.Handler(..., templ.WithFragments(...))`).
@@ -83,7 +83,7 @@ Mirror `charges.go`:
   `tesla`/`account` auth failure surfaces as a reconnect-prompt state, not a 500.
 - **Writes (only if the concept has user-initiated writes)**: CSRF-protect with the
   `generateCSRFToken` (issue on GET) + `checkCSRF` (constant-time compare, fail-closed)
-  pattern from `charges.go`, and validate tenant ownership before calling a `Writer`. Most
+  pattern from `external_charges.go`, and validate tenant ownership before calling a `Writer`. Most
   read-only dashboard panels need none of this.
 
 ## Step 5 — Routes (`gateway.go`)
@@ -104,7 +104,7 @@ Tailwind classes. Both are Claude-authorized in this repo.
 
 ## Step 7 — Tests
 
-Add handler tests mirroring `charges_test.go` / `handlers_test.go`: fake port
+Add handler tests mirroring `external_charges_test.go` / `handlers_test.go`: fake port
 implementations, exercise the gin-free `build…Page` helper and the full-page + fragment
 render paths, assert graceful-degradation states.
 

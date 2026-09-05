@@ -7,8 +7,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargeRow renders the static view of one charge entry as a table row.
-// Its id="charge-row-{vm.ID}" matches the templ.Fragment id pattern and
+// ExternalChargeRow renders the static view of one charge entry as a table row.
+// Its id="external-charge-row-{vm.ID}" matches the templ.Fragment id pattern and
 // is the target for the inline-edit swap (required invariant).
 //
 // windowStartStr/windowEndStr are the SAME ?start=&end= window the table was
@@ -23,12 +23,12 @@ import (
 // "primary"/"ghost" Badge Kinds, never "success"/"warning", so the badge's
 // colour vocabulary never collides with the adjacent dot's completeness colours.
 //
-// Delete's hx-target is "#charges-list" (the WHOLE list region), not
-// "#charge-row-{id}" (design.md §D-Refresh) — after a successful delete the row
+// Delete's hx-target is "#external-charges-list" (the WHOLE list region), not
+// "#external-charge-row-{id}" (design.md §D-Refresh) — after a successful delete the row
 // no longer exists to swap into, so the delete button re-renders the whole
 // filtered list/tiles instead, matching the filter buttons' own target.
-templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string) {
-	<tr id={ "charge-row-" + vm.ID }>
+templ ExternalChargeRow(vm ExternalChargeEntryVM, csrfToken, windowStartStr, windowEndStr string) {
+	<tr id={ "external-charge-row-" + vm.ID }>
 		<td>
 			<span class="sm:hidden">{ vm.ChargedOnShortLabel }</span>
 			<span class="hidden sm:inline">{ vm.ChargedOnLabel }</span>
@@ -64,8 +64,8 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string
 						// (AGENTS.md §Mobile R7). Always present — it costs nothing on
 						// desktop and cannot go stale by being conditional.
 						"aria-label": i18n.T(ctx, i18n.KeyChargesRowEdit),
-						"hx-get":     "/ui/charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
-						"hx-target": "#charges-list",
+						"hx-get":     "/ui/external-charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
+						"hx-target": "#external-charges-list",
 						"hx-swap":   "outerHTML",
 					},
 				}) {
@@ -79,8 +79,8 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string
 					Attrs: templ.Attributes{
 						// Icon-only on a phone — see the Edit button above.
 						"aria-label": i18n.T(ctx, i18n.KeyChargesRowDelete),
-						"hx-delete":  "/ui/charges/row/" + vm.ID + "?start=" + windowStartStr + "&end=" + windowEndStr,
-						"hx-target": "#charges-list",
+						"hx-delete":  "/ui/external-charges/row/" + vm.ID + "?start=" + windowStartStr + "&end=" + windowEndStr,
+						"hx-target": "#external-charges-list",
 						"hx-swap":   "outerHTML",
 						// hx-confirm is the message shown in the shared ui.ConfirmDialog
 						// (static/app.js intercepts htmx's htmx:confirm event); the three
@@ -100,10 +100,10 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string
 						// fallback (X-CSRF-Token), so switching the wire path fixes the
 						// delete-row alert (MAG-5 / D3, root-caused by static analysis).
 						"hx-headers": `{"X-CSRF-Token": "` + csrfToken + `"}`,
-						// csrfToken is the page-level ChargesPageData.CSRFToken carried
-						// down here from buildChargesPage; it matches the live session
+						// csrfToken is the page-level ExternalChargesPageData.CSRFToken carried
+						// down here from buildExternalChargesPage; it matches the live session
 						// value (the issuing handler writes it to the session and the
-						// row in the same render — see ChargesContentFragment).
+						// row in the same render — see ExternalChargesContentFragment).
 					},
 				}) {
 					@ui.Icon(ui.IconProps{Name: "delete", Class: "h-4 w-4 sm:hidden"})
@@ -115,15 +115,15 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string
 }
 
 // ChargeRowUpdateSuccessOOB was REMOVED (2026-08-29). It returned a primary
-// table-row swap plus a sibling div carrying hx-swap-oob for the charges-list
+// table-row swap plus a sibling div carrying hx-swap-oob for the external-charges-list
 // region, and that OOB refresh never reached the browser: htmx 2.0.4 parses a
 // response inside a template element, a leading table row puts the HTML parser
 // in table insertion mode, and the non-table sibling that follows is
 // foster-parented off the fragment's top level — where hx-swap-oob is the only
-// place htmx looks. ChargeRowUpdate now answers a successful save with the
-// whole charges-list fragment plus HX-Retarget, so there is exactly one
+// place htmx looks. ExternalChargeRowUpdate now answers a successful save with the
+// whole external-charges-list fragment plus HX-Retarget, so there is exactly one
 // response element and no table-row/div mix.
 //
 // Do NOT reintroduce a response that pairs a top-level table row with a
-// non-table OOB sibling. ChargeCreateSuccessOOB (charge_create_form.templ) is
+// non-table OOB sibling. ExternalChargeCreateSuccessOOB (external_charge_create_form.templ) is
 // safe only because both of its elements are divs.
