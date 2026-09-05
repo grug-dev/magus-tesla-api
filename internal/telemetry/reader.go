@@ -30,9 +30,9 @@ var _ Reader = (*reader)(nil)
 // cmd/) depend on the interface, never on the concrete *reader. Mirrors how NewService
 // builds its dbStore (service.go).
 func NewReader(pool *pgxpool.Pool) Reader {
-	return &reader{
+	return newLoggingReader(&reader{
 		store: &dbStore{q: telemetrydb.New(pool)},
-	}
+	})
 }
 
 // LatestSnapshotsByAccount implements Reader. It returns the most-recently captured

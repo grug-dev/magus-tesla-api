@@ -604,7 +604,7 @@ type SuperchargerHistoryReader interface {
 // Implementation is in reader.go. The gateway and other callers depend on the
 // SuperchargerHistoryReader interface, never on the concrete type or on telemetrydb directly.
 func NewSuperchargerHistoryReader(pool *pgxpool.Pool) SuperchargerHistoryReader {
-	return newSuperchargerHistoryReaderImpl(pool)
+	return newLoggingSuperchargerHistoryReader(newSuperchargerHistoryReaderImpl(pool))
 }
 
 // --- poll_runs: run-level summary (RM36-telemetry-add-poll-runs) ---
@@ -668,5 +668,5 @@ type RunWriter interface {
 // or on telemetrydb directly. Implementation is in run_writer.go — the forward
 // declaration here mirrors NewSuperchargerHistoryReader's own pattern (design D12).
 func NewRunWriter(pool *pgxpool.Pool) RunWriter {
-	return newRunWriter(pool)
+	return newLoggingRunWriter(newRunWriter(pool))
 }

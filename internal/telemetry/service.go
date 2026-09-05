@@ -88,7 +88,7 @@ func NewService(pool *pgxpool.Pool, acct account.Service, tsla tesla.VehicleServ
 	return &service{
 		acct:         acct,
 		tsla:         tsla,
-		store:        &dbStore{q: telemetrydb.New(pool)},
+		store:        newLoggingStore(&dbStore{q: telemetrydb.New(pool)}),
 		cfg:          cfg,
 		retryBackoff: defaultRetryBackoff,
 	}

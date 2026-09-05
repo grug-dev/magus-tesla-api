@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
+	"log"
 
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -46,25 +47,39 @@ func newCallCounter(inner tesla.VehicleService) *callCounter {
 var _ tesla.VehicleService = (*callCounter)(nil)
 
 // ListVehicles implements tesla.VehicleService, counting the call before delegating.
+//
+// The log line is a bare call marker: no vehicle/account identity is
+// available on this signature beyond creds, which must NEVER appear in a
+// log.Printf call here (design D3/D4 of RM44-telemetry-add-query-logging) —
+// creds carries a live bearer token, and logging it would leak a credential.
 func (c *callCounter) ListVehicles(ctx context.Context, creds tesla.Credentials) ([]tesla.VehicleTesla, error) {
 	c.calls++
+	log.Printf("fleet api: ListVehicles")
 	return c.inner.ListVehicles(ctx, creds)
 }
 
 // VehicleData implements tesla.VehicleService, counting the call before delegating.
+// Logs only vehicleID — never creds (design D3/D4).
 func (c *callCounter) VehicleData(ctx context.Context, creds tesla.Credentials, vehicleID int64) (*tesla.VehicleDataTesla, json.RawMessage, error) {
 	c.calls++
+	log.Printf("fleet api: VehicleData vehicle_id=%d", vehicleID)
 	return c.inner.VehicleData(ctx, creds, vehicleID)
 }
 
 // WakeUp implements tesla.VehicleService, counting the call before delegating.
+// Logs only vehicleID — never creds (design D3/D4).
 func (c *callCounter) WakeUp(ctx context.Context, creds tesla.Credentials, vehicleID int64) (*tesla.VehicleTesla, error) {
 	c.calls++
+	log.Printf("fleet api: WakeUp vehicle_id=%d", vehicleID)
 	return c.inner.WakeUp(ctx, creds, vehicleID)
 }
 
 // ChargingHistory implements tesla.VehicleService, counting the call before delegating.
+// Logs the full ChargingHistoryParams (none of its 4 fields are sensitive) —
+// never creds (design D3/D4).
 func (c *callCounter) ChargingHistory(ctx context.Context, creds tesla.Credentials, params tesla.ChargingHistoryParams) (*tesla.ChargingHistoryTesla, error) {
 	c.calls++
+	log.Printf("fleet api: ChargingHistory start_time=%q end_time=%q page_no=%d count=%d",
+		params.StartTime, params.EndTime, params.PageNo, params.Count)
 	return c.inner.ChargingHistory(ctx, creds, params)
 }

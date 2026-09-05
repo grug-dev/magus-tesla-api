@@ -39,7 +39,7 @@ them need to change for this tier).
 > Purely additive new code plus method-body edits to one existing file. No task in this
 > wave edits `service.go`, `reader.go`, or `telemetry.go` — that is Wave 3.
 
-- [ ] **2.1** `internal/telemetry/query_log.go` (new file) — `loggingStore` +
+- [x] **2.1** `internal/telemetry/query_log.go` (new file) — `loggingStore` +
   `newLoggingStore` per design.md D1/D6/D8: implements the full 8-method `store`
   interface explicitly (no embedding); `insertSnapshot`, `insertPollAttempt`,
   `upsertSuperchargerHistory` log per D6's table (before delegating); the other 5
@@ -53,13 +53,13 @@ them need to change for this tier).
   — `store` itself is unaffected by Wave 1, so this is a soft ordering only for a
   single-session implementer; no hard compile dependency) · `parallel_ok`: with 2.2, 2.3, 2.4
 
-- [ ] **2.2** `internal/telemetry/query_log.go` — `loggingReader` + `newLoggingReader`
+- [x] **2.2** `internal/telemetry/query_log.go` — `loggingReader` + `newLoggingReader`
   per design.md D2/D6/D8: implements all 5 `Reader` methods explicitly, each logging
   per D6's table **after** delegating to `inner` (so `rows`/`found` reflect the actual
   result). Compile-time assertion `var _ Reader = (*loggingReader)(nil)`.
   `depends_on`: — · `parallel_ok`: with 2.1, 2.3, 2.4
 
-- [ ] **2.3** `internal/telemetry/query_log.go` — `loggingSuperchargerHistoryReader` +
+- [x] **2.3** `internal/telemetry/query_log.go` — `loggingSuperchargerHistoryReader` +
   `newLoggingSuperchargerHistoryReader` per design.md D6/D8: implements all 4
   `SuperchargerHistoryReader` methods explicitly, logging after delegating.
   `SuperchargerHistoryByAccount`/`SuperchargerHistoryByVehicle` log
@@ -69,13 +69,13 @@ them need to change for this tier).
   `var _ SuperchargerHistoryReader = (*loggingSuperchargerHistoryReader)(nil)`.
   `depends_on`: — · `parallel_ok`: with 2.1, 2.2, 2.4
 
-- [ ] **2.4** `internal/telemetry/query_log.go` — `loggingRunWriter` +
+- [x] **2.4** `internal/telemetry/query_log.go` — `loggingRunWriter` +
   `newLoggingRunWriter` per design.md D6/D8: implements `RecordRun`, logging before
   delegating (`run_id`, `triggered_by`; no row count — this is a write). Compile-time
   assertion `var _ RunWriter = (*loggingRunWriter)(nil)`.
   `depends_on`: — · `parallel_ok`: with 2.1, 2.2, 2.3
 
-- [ ] **2.5** `internal/telemetry/call_counter.go` — add one `log.Printf` line inside
+- [x] **2.5** `internal/telemetry/call_counter.go` — add one `log.Printf` line inside
   each of the 4 existing methods (`ListVehicles`, `VehicleData`, `WakeUp`,
   `ChargingHistory`) per design.md D4's table, logged immediately after `c.calls++`
   and before delegating to `c.inner`. Do not reference `creds` anywhere in any new
@@ -87,22 +87,22 @@ them need to change for this tier).
 
 ## Wave 3 — Production wiring (4 one-line changes)
 
-- [ ] **3.1** `internal/telemetry/service.go` — in `NewService`, change the `store:`
+- [x] **3.1** `internal/telemetry/service.go` — in `NewService`, change the `store:`
   field from `&dbStore{q: telemetrydb.New(pool)}` to
   `newLoggingStore(&dbStore{q: telemetrydb.New(pool)})`.
   `depends_on`: 2.1 · `parallel_ok`: with 3.2, 3.3, 3.4
 
-- [ ] **3.2** `internal/telemetry/reader.go` — in `NewReader`, change the return from
+- [x] **3.2** `internal/telemetry/reader.go` — in `NewReader`, change the return from
   `&reader{store: &dbStore{q: telemetrydb.New(pool)}}` to
   `newLoggingReader(&reader{store: &dbStore{q: telemetrydb.New(pool)}})`.
   `depends_on`: 2.2 · `parallel_ok`: with 3.1, 3.3, 3.4
 
-- [ ] **3.3** `internal/telemetry/telemetry.go` — in `NewSuperchargerHistoryReader`,
+- [x] **3.3** `internal/telemetry/telemetry.go` — in `NewSuperchargerHistoryReader`,
   change the return from `newSuperchargerHistoryReaderImpl(pool)` to
   `newLoggingSuperchargerHistoryReader(newSuperchargerHistoryReaderImpl(pool))`.
   `depends_on`: 2.3 · `parallel_ok`: with 3.1, 3.2, 3.4
 
-- [ ] **3.4** `internal/telemetry/telemetry.go` — in `NewRunWriter`, change the return
+- [x] **3.4** `internal/telemetry/telemetry.go` — in `NewRunWriter`, change the return
   from `newRunWriter(pool)` to `newLoggingRunWriter(newRunWriter(pool))`.
   `depends_on`: 2.4 · `parallel_ok`: with 3.1, 3.2, 3.3
 
