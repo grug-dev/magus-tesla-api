@@ -31,6 +31,7 @@
 ## 4. Rename the DOM ids
 
 - [x] 4.1 In the templates, rename the 8 id families: `charges-list`, `charges-content`, `charges-create-form`, `charges-create-hint`, `charges-create-optional`, `charges-window-start`, `charges-window-end`, `charge-row-*` (incl. `charge-row-hint-*` and `charge-row-optional-*`) → `external-` prefixed.
+- [x] 4.3 **Finding: the plan's 8 id families were 11.** `charges-empty`, `charges-summary` and `charges-entries` are passed as `ui.CardProps{ID: ...}` **string values**, so the id sweep (which matched `charges-(list|content|create|window)`) missed them and the page rendered `external-charges-list` beside `charges-summary`. Nothing targets them — no `hx-target`, no test, no JS — so no test caught it; found by reading the rendered body in the owner's test output. Renamed to `external-charges-*`, matching the sibling `supercharger-*` cards. Commit `4296704`.
 - [x] 4.2 Update every matching `hx-target`, `hx-swap-oob`, `hx-include` and `HX-Retarget` header value in the templates and in `handlers/external_charges.go`.
 
 ## 5. Rename the one i18n key
@@ -55,7 +56,7 @@
       `grep -rnE '/ui/charges|"/charges"|charges-list|charges-content|charges-create|charges-window|charge-row-' --include='*.go' --include='*.templ' --include='*.js' internal cmd`
       and the display-name grep: `grep -rn 'Charge log\|Charge Log\|Registro de cargas' internal cmd`
 - [x] 7.5 **Finding: confirmed unaffected.** `git diff --name-only HEAD` matched no `Makefile`, no `*.sql`, no path under any `migrations/`, and no `sqlc` input. `MIGRATIONS_DIRS`, `db-setup`/`db-reset` role-and-ownership assumptions and every guard are untouched, because the change adds and removes no file outside `internal/gateway/` (plus four comment-only edits in `internal/analytics` and `internal/charging`).
-- [ ] 7.6 Ask the owner to run `make test` and report the result. Until they do, this change is **awaiting the owner's verification**, not done.
+- [x] 7.6 **Owner ran `make test`. Result: 5 failures, all pre-existing on `main`, none caused by this change.** Root causes traced to commits `8795f6b` (responsive classes added to `ui.StatTile`'s `.stat-value` and `.stat-title`, breaking three tests that match those class strings exactly), `02426ca` (the history chart's `[writing-mode:vertical-rl]` is unconditional in `history.templ:191`), and `9501ab5` (`KeyNavSuperchargerStats` has identical ES/EN values, so the nav-labels-differ test's premise is now wrong). This change's diff to the three shared files involved (`stat_tile.templ`, `stat_tile_templ.go`, `history_test.go`) is **three comment lines** — verified with `git diff main..HEAD`. Tracked for removal as **MAG-50**.
 
 ## 8. Update the docs (same change — project rule)
 
@@ -70,5 +71,5 @@
 
 ## 9. Land it
 
-- [ ] 9.1 Commit on `ft/CH44-gateway-rename-charges-route`, bumping `openspec/.work-counter` from 43 to 44 in the same commit.
+- [x] 9.1 Committed on `ft/CH44-gateway-rename-charges-route` (`0118cac`), bumping `openspec/.work-counter` 43 → 44 in the same commit. Follow-up `4296704` renamed three DOM ids the first sweep missed — see 4.3.
 - [ ] 9.2 After the owner confirms `make test` passes, run `openspec archive` and move the change folder under `openspec/changes/archive/gateway/`.

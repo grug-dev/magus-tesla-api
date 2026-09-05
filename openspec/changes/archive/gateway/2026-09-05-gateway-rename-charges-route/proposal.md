@@ -30,7 +30,7 @@ removes the ambiguity in the URL and in the gateway's own symbols.
   callers and no search-engine surface.
 
 - The gateway's own names follow the URL: 10 file renames, 8 handler methods, 9 templ
-  components, 4 view-model types, 8 DOM ids, and the CSRF session key.
+  components, 4 view-model types, 11 DOM ids, and the CSRF session key.
 - `nav.manual_records` becomes `nav.external_charges`. Its ES/EN values are already
   "Externas"/"External" and do not change.
 - The page's visible heading follows the label too: `charges_page.title` changes from
@@ -68,7 +68,7 @@ _None._
   `external_charges*.go`; the 8 exported handler methods renamed; `csrfManualChargeKey` /
   `"csrf_manualcharge"` renamed.
 - `templates/pages/charges.templ` and the five `fragments/charge*` files renamed; 9 templ
-  components and 4 view-model types renamed; 8 DOM ids renamed.
+  components and 4 view-model types renamed; 11 DOM ids renamed.
 - `templates/layouts/nav.go` — `Href` and the `Active` comparison.
 - `i18n/catalog.go` — one key identifier, one key string, and the `charges_page.title`
   ES/EN value pair.

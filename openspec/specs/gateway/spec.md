@@ -427,9 +427,9 @@ documented placeholder or omission — never a fabricated default such as "unloc
 - **AND** it imports no package from `internal/telemetry/db` or `internal/analytics/db`
 - **AND** no `pgtype` type appears in any gateway file
 
-### Requirement: Charge Log Page
+### Requirement: External Charges Page
 
-The gateway SHALL serve a standalone "Charge log" page at `/charges` for signed-in users,
+The gateway SHALL serve a standalone "External charges" page at `/external-charges` for signed-in users,
 displaying the user's manual charge entries (newest first) and a form to create new entries.
 The page SHALL be accessible from the dashboard navigation and SHALL require an authenticated
 session. The page SHALL be vehicle-scoped: the entry list and the create form SHALL follow the
@@ -445,11 +445,11 @@ account (`ListEntriesByAccount`) when no vehicle is selected is REMOVED: an acco
 registered vehicle cannot create an entry either, so there is nothing meaningful to fall back
 to.
 
-#### Scenario: Signed-in user opens the Charge log page
+#### Scenario: Signed-in user opens the External charges page
 
 - **GIVEN** a signed-in user with at least one registered Tesla vehicle
-- **WHEN** they navigate to `GET /charges`
-- **THEN** the gateway renders the full Charge log page
+- **WHEN** they navigate to `GET /external-charges`
+- **THEN** the gateway renders the full External charges page
 - **AND** the page shows a list of their manual charge entries (if any exist), ordered newest
   first by charge date, scoped to the session-selected vehicle and the active date filter
   window
@@ -457,18 +457,18 @@ to.
 - **AND** the create form has no vehicle picker — it operates on the session-selected vehicle
 - **AND** no entry or vehicle belonging to another user is present on the page
 
-#### Scenario: Anonymous visitor is redirected from the Charge log page
+#### Scenario: Anonymous visitor is redirected from the External charges page
 
 - **GIVEN** a visitor with no authenticated session
-- **WHEN** they request `GET /charges` or any `/ui/charges*` fragment route
+- **WHEN** they request `GET /external-charges` or any `/ui/external-charges*` fragment route
 - **THEN** the gateway redirects them to `/login`
 - **AND** no charge entries, no create form, and no telemetry-sourced suggestion are shown
 
-#### Scenario: Charge log page renders when the user has no entries yet
+#### Scenario: External charges page renders when the user has no entries yet
 
 - **GIVEN** a signed-in user with a registered vehicle who has never logged a manual charge
   entry
-- **WHEN** they open the Charge log page
+- **WHEN** they open the External charges page
 - **THEN** the page renders successfully (no 500, no empty table with a header)
 - **AND** the page shows an empty-state message indicating no entries have been logged yet
 - **AND** the date-filter selector and the (all-zero) aggregation tiles are still shown
@@ -478,7 +478,7 @@ to.
 
 - **GIVEN** a signed-in user whose account has zero registered vehicles, or whose session
   vehicle selection cannot be resolved
-- **WHEN** they open `GET /charges`
+- **WHEN** they open `GET /external-charges`
 - **THEN** the page renders the SAME "no entries yet" empty-state message used when a
   selected vehicle simply has no entries
 - **AND** no date-filter selector is shown
@@ -487,20 +487,20 @@ to.
 - **AND** the gateway does NOT call `charging.Reader.ListEntriesByAccount` or any other
   account-wide read to populate this page
 
-#### Scenario: Charge log is linked from the dashboard navigation
+#### Scenario: External charges is linked from the dashboard navigation
 
 - **GIVEN** a signed-in user viewing the dashboard
 - **WHEN** the navigation is rendered
-- **THEN** a "Charge log" navigation link pointing to `/charges` is visible
+- **THEN** an "External" navigation link (translated; "Externas" in Spanish) pointing to `/external-charges` is visible
 - **AND** anonymous users do not see this link
 
-#### Scenario: The charges create form follows a vehicle switch
+#### Scenario: The external charges create form follows a vehicle switch
 
-- **GIVEN** a signed-in user with two or more registered vehicles on the Charge log page,
+- **GIVEN** a signed-in user with two or more registered vehicles on the External charges page,
   vehicle `V1` selected, and `V1` has a latest telemetry snapshot at `73%`
 - **WHEN** the user switches the sidebar vehicle selector to vehicle `V2`, whose latest
   telemetry snapshot is at `58%` and which has no entries yet
-- **THEN** the `#charges-content` region re-fetches `GET /ui/charges` on the
+- **THEN** the `#external-charges-content` region re-fetches `GET /ui/external-charges` on the
   `vehicle-changed from:body` event (no full page reload)
 - **AND** the create form re-renders with `V2` as the implicit vehicle (no vehicle field), the
   `start_battery_pct` suggestion reflecting `58%`, and today's date pre-filled in `started_at`
@@ -513,14 +513,14 @@ to.
 ### Requirement: Charge List Fragment
 
 The gateway SHALL serve the charge entries list as an htmx-swappable fragment at
-`GET /ui/charges/list`, returning only the fragment HTML and not the surrounding page shell.
+`GET /ui/external-charges/list`, returning only the fragment HTML and not the surrounding page shell.
 The fragment SHALL include per-entry derived values (cost per kWh, battery delta, battery
 range, session duration) pre-computed by the handler from the `charging.Entry` value-receiver
 methods and the entry's own start/end battery percentages. Every value the handler cannot
 compute for a given entry (no cost per kWh, no battery delta, no battery range, no duration)
 SHALL render the em-dash `—` placeholder, never a blank cell.
 
-**CHANGE from the prior revision:** `GET /ui/charges/list` now accepts optional
+**CHANGE from the prior revision:** `GET /ui/external-charges/list` now accepts optional
 `?start=YYYY-MM-DD&end=YYYY-MM-DD` query parameters (both whole calendar days in the browser's
 local timezone, `end` inclusive), following the platform's `?start=&end=` date-filter
 convention. When both are absent, the endpoint defaults to the last 7 calendar days
@@ -533,25 +533,25 @@ their own requirements below), summed over the SAME result set the table renders
 
 #### Scenario: htmx refreshes the charge list within the default window
 
-- **GIVEN** the Charge log page is open in the browser
-- **WHEN** htmx issues `GET /ui/charges/list` with no `start`/`end` parameters
-- **THEN** the gateway returns only the charges-list fragment HTML, filtered to the last 7
+- **GIVEN** the External charges page is open in the browser
+- **WHEN** htmx issues `GET /ui/external-charges/list` with no `start`/`end` parameters
+- **THEN** the gateway returns only the external-charges-list fragment HTML, filtered to the last 7
   calendar days (inclusive, ending today in the browser's local timezone)
 - **AND** the surrounding page shell is not included in the response
 - **AND** the list is ordered newest-first by charge date
 
 #### Scenario: A valid explicit window is honored exactly as given
 
-- **GIVEN** the Charge log page is open in the browser
-- **WHEN** htmx issues `GET /ui/charges/list?start=2026-08-01&end=2026-08-31`
+- **GIVEN** the External charges page is open in the browser
+- **WHEN** htmx issues `GET /ui/external-charges/list?start=2026-08-01&end=2026-08-31`
 - **THEN** the gateway returns the fragment filtered to exactly that window
 - **AND** entries whose `charged_on` falls outside `[2026-08-01, 2026-08-31]` are not shown
 - **AND** entries whose `charged_on` falls on either boundary date are shown (inclusive)
 
 #### Scenario: A malformed window is rejected with 400 and no filter chrome
 
-- **GIVEN** the Charge log page is open in the browser
-- **WHEN** htmx issues `GET /ui/charges/list` with a non-ISO `start` or `end`, only one of the
+- **GIVEN** the External charges page is open in the browser
+- **WHEN** htmx issues `GET /ui/external-charges/list` with a non-ISO `start` or `end`, only one of the
   two present, an `end` before `start`, or a window wider than the endpoint's cap
 - **THEN** the endpoint responds with HTTP 400
 - **AND** the response body shows the empty-state placeholder with no preset selector and no
@@ -576,7 +576,7 @@ their own requirements below), summed over the SAME result set the table renders
 #### Scenario: Reader failure degrades the list gracefully, but keeps the filter chrome
 
 - **GIVEN** the charging Reader returns an error for a valid vehicle and a valid window
-- **WHEN** the Charge log page or list fragment is rendered
+- **WHEN** the External charges page or list fragment is rendered
 - **THEN** the gateway renders the page (or fragment) without a 500 or raw error string
 - **AND** the date-filter preset selector is still shown
 - **AND** the aggregation tiles are still shown, each at their zero/empty value
@@ -589,7 +589,7 @@ their own requirements below), summed over the SAME result set the table renders
 ### Requirement: Create Charge Entry
 
 The gateway SHALL let a signed-in user create a manual charge entry by submitting the create
-form via `POST /ui/charges/create`. The form SHALL NOT include a vehicle field — the handler
+form via `POST /ui/external-charges/create`. The form SHALL NOT include a vehicle field — the handler
 SHALL derive the target vehicle from the session-selected vehicle (the sidebar switcher) and
 enforce tenant ownership of that resolved vehicle before writing. The handler SHALL require a
 valid CSRF token and call `charging.Writer.Create` on success. `location_kind` is a
@@ -615,7 +615,7 @@ had a today's-date default.
 
 #### Scenario: Create form rejects a missing location kind
 
-- **GIVEN** a signed-in user on the Charge log page with a valid CSRF token
+- **GIVEN** a signed-in user on the External charges page with a valid CSRF token
 - **WHEN** they submit the create form with all other required fields valid but no
   `location_kind` selected (or an unrecognized value)
 - **THEN** the handler does NOT call `charging.Writer.Create`
@@ -634,7 +634,7 @@ had a today's-date default.
 
 #### Scenario: Successful create with valid location kind
 
-- **GIVEN** a signed-in user on the Charge log page with a valid CSRF token
+- **GIVEN** a signed-in user on the External charges page with a valid CSRF token
 - **WHEN** they submit the create form with all required fields valid, including
   `location_kind` set to one of `HOME`, `WORK`, or `OTHER`
 - **THEN** the gateway validates the CSRF token and vehicle ownership
@@ -645,7 +645,7 @@ had a today's-date default.
 
 - **GIVEN** a signed-in user with two or more registered vehicles, currently having
   vehicle `V1` selected in the sidebar switcher
-- **WHEN** the Charge log page renders
+- **WHEN** the External charges page renders
 - **THEN** the create form does not render a Vehicle input field
 - **AND** the entries list below the form is filtered to the selected vehicle `V1`
 - **WHEN** the user submits the create form
@@ -659,7 +659,7 @@ had a today's-date default.
 
 #### Scenario: Create form has no editable vehicle picker
 
-- **GIVEN** the rendered Charge log create form
+- **GIVEN** the rendered External charges create form
 - **WHEN** it is inspected
 - **THEN** there is no `<select name="vehicle">` and no single-vehicle disabled
   vehicle `<select>`+hidden pair in the form
@@ -669,7 +669,7 @@ had a today's-date default.
 
 #### Scenario: Currency is always COP, shown as a suffix, and not user-editable
 
-- **GIVEN** the rendered Charge log create form
+- **GIVEN** the rendered External charges create form
 - **WHEN** it is inspected
 - **THEN** the price field renders as an input with a `COP` suffix, not a separate
   Currency field
@@ -681,7 +681,7 @@ had a today's-date default.
 
 #### Scenario: Start battery percentage is required regardless of status
 
-- **GIVEN** a signed-in user on the Charge log page
+- **GIVEN** a signed-in user on the External charges page
 - **WHEN** they submit the create form with `start_battery_pct` empty, non-integer, or
   outside the 0–100 range, for either an `IN_PROGRESS` or a `DONE` status
 - **THEN** the server rejects the submission with a field-level validation error
@@ -693,7 +693,7 @@ had a today's-date default.
 
 #### Scenario: Ending battery percentage and session end time are required only when the status is done
 
-- **GIVEN** a signed-in user on the Charge log page with the status control set to `IN_PROGRESS`
+- **GIVEN** a signed-in user on the External charges page with the status control set to `IN_PROGRESS`
 - **WHEN** they submit the create form with no `ended_at` and no `end_battery_pct`, and every
   other required field valid
 - **THEN** the entry is created successfully with a nil `ended_at` and a nil `end_battery_pct`
@@ -704,7 +704,7 @@ had a today's-date default.
 
 #### Scenario: Energy added and price are optional
 
-- **GIVEN** a signed-in user on the Charge log page
+- **GIVEN** a signed-in user on the External charges page
 - **WHEN** they submit the create form with `energy_added_kwh` and `price` both left empty, and
   every required field valid
 - **THEN** the entry is created successfully
@@ -719,7 +719,7 @@ had a today's-date default.
 
 - **GIVEN** a signed-in user whose session-selected vehicle has at least one stored
   telemetry snapshot, the latest of which reports `BatteryLevelPct = 73`
-- **WHEN** the Charge log create form renders
+- **WHEN** the External charges create form renders
 - **THEN** the `start_battery_pct` input carries a suggestion label reflecting the
   selected vehicle's latest snapshot battery percentage (e.g. a helper label or
   placeholder derived from `73`)
@@ -736,7 +736,7 @@ had a today's-date default.
 
 - **GIVEN** a signed-in user whose session-selected vehicle has no stored telemetry
   snapshot yet
-- **WHEN** the Charge log create form renders
+- **WHEN** the External charges create form renders
 - **THEN** the `start_battery_pct` input carries no suggestion label (no fabricated
   value is shown)
 - **AND** the field still renders as a normal required integer input (0–100)
@@ -744,7 +744,7 @@ had a today's-date default.
 
 #### Scenario: Optional started_at and ended_at fields appear in the main card and default to today
 
-- **GIVEN** a signed-in user on the Charge log page
+- **GIVEN** a signed-in user on the External charges page
 - **WHEN** the create form renders
 - **THEN** the `started_at` and `ended_at` inputs are rendered inside the main "Log
   a charge" card (the same section as Date / Energy / Price), not behind a "More
@@ -757,7 +757,7 @@ had a today's-date default.
 
 #### Scenario: Energy added accepts up to three decimal places when supplied
 
-- **GIVEN** the rendered Charge log create form
+- **GIVEN** the rendered External charges create form
 - **WHEN** it is inspected
 - **THEN** the `energy_added_kwh` input declares a 3-decimal step (permitting
   values like `7.345`) and carries no `required` attribute
@@ -840,7 +840,7 @@ surface a plain browser `alert()`.
 
 **CHANGE from the prior revision:** because the entries table now sits alongside aggregation
 tiles computed over the same rows (see the aggregation-tiles requirement below), a delete SHALL
-refresh the WHOLE entries region (`#charges-list` — presets, tiles, and table together), not
+refresh the WHOLE entries region (`#external-charges-list` — presets, tiles, and table together), not
 only the deleted row, on both success AND failure, within the SAME `?start=&end=` window the
 table was showing before the delete. This REPLACES the prior revision's row-scoped swap (an
 empty `<tr>` on success, a row-level error message on failure): a row-only swap would leave the
@@ -851,11 +851,11 @@ tiles showing stale, pre-delete totals.
 - **GIVEN** a signed-in user viewing the charge list with at least one entry within the active
   window, and the page carries a valid CSRF token in the form/button
 - **WHEN** the user confirms deletion (browser native confirm dialog) and the browser issues
-  `DELETE /ui/charges/row/{id}` with the CSRF token and the active window's `?start=&end=`
+  `DELETE /ui/external-charges/row/{id}` with the CSRF token and the active window's `?start=&end=`
 - **THEN** the gateway validates the CSRF token
 - **AND** validates that the entry belongs to the user's account
 - **AND** calls `charging.Writer.Delete(ctx, accountID, id)`
-- **AND** the whole `#charges-list` region is refreshed (via htmx `hx-swap="outerHTML"`) to
+- **AND** the whole `#external-charges-list` region is refreshed (via htmx `hx-swap="outerHTML"`) to
   reflect the deletion, within the SAME window the table was showing before the delete
 - **AND** the aggregation tiles in the refreshed region no longer include the deleted entry's
   values
@@ -864,7 +864,7 @@ tiles showing stale, pre-delete totals.
 
 #### Scenario: Delete with a stale, missing, or wrong CSRF token is rejected, not alerted
 
-- **GIVEN** a DELETE request to `/ui/charges/row/{id}` with a missing, wrong, or stale
+- **GIVEN** a DELETE request to `/ui/external-charges/row/{id}` with a missing, wrong, or stale
   (older than the session's current `csrf_manualcharge` value) CSRF token
 - **WHEN** the gateway processes it
 - **THEN** the handler returns HTTP 403 (invalid csrf token)
@@ -876,7 +876,7 @@ tiles showing stale, pre-delete totals.
 
 #### Scenario: Delete of another tenant's entry is rejected
 
-- **GIVEN** a DELETE request to `/ui/charges/row/{id}` where `id` belongs to a different
+- **GIVEN** a DELETE request to `/ui/external-charges/row/{id}` where `id` belongs to a different
   user's account
 - **WHEN** the gateway processes it
   (the `charging.Writer.Delete(ctx, accountID, id)` scopes the DELETE to the
@@ -888,7 +888,7 @@ tiles showing stale, pre-delete totals.
 
 - **GIVEN** a signed-in user clicking Delete on one of their entries within the active window
 - **WHEN** the `charging.Writer.Delete` call returns an error (e.g. a transient store failure)
-- **THEN** the server returns a non-2xx response carrying the SAME `#charges-list` region,
+- **THEN** the server returns a non-2xx response carrying the SAME `#external-charges-list` region,
   unchanged data, with an inline error message shown above the table
 - **AND** the user sees the region-level error message (e.g. "Could not delete entry — please
   try again."), not a raw HTTP status string or a browser `alert()`
@@ -904,7 +904,7 @@ entries.
 #### Scenario: User only sees their own entries in the list
 
 - **GIVEN** two distinct accounts, each with manual charge entries
-- **WHEN** account A's user views the Charge log page
+- **WHEN** account A's user views the External charges page
 - **THEN** only account A's entries are returned (the Reader's `accountID` filter prevents
   cross-tenant reads)
 - **AND** none of account B's entries appear
@@ -957,7 +957,7 @@ only the remaining optional fields (`charging_type`, `location_label`, `notes`).
 
 #### Scenario: location_kind is always visible in the create form
 
-- **GIVEN** the Charge log create form
+- **GIVEN** the External charges create form
 - **WHEN** it is rendered (before any user interaction with the expander)
 - **THEN** the `location_kind` picker is visible without expanding "More details"
 - **AND** the "More details" expander still exists and reveals the remaining optional fields
@@ -985,7 +985,7 @@ Spanish-resolved render.
 #### Scenario: Authenticated page renders the navigation shell
 
 - **GIVEN** a signed-in user requesting any authenticated page (`/dashboard`,
-  `/charges`)
+  `/external-charges`)
 - **WHEN** the page is rendered
 - **THEN** the response HTML contains the drawer sidebar
 - **AND** the sidebar contains a vehicle-header region and the navigation
@@ -1211,7 +1211,7 @@ placeholder.
 - **GIVEN** a signed-in user viewing the navigation shell
 - **WHEN** the navigation list is rendered
 - **THEN** a "Dashboard" entry (translated per the resolved language) links to `/dashboard`
-- **AND** a "Manual Records" entry (translated) links to `/charges`
+- **AND** an "External" entry (translated) links to `/external-charges`
 - **AND** a "Settings" entry (translated) links to `/settings`
 - **AND** all three entries are active-highlighted when the current request path matches their
   target
@@ -1750,16 +1750,16 @@ vehicle identity passed to module read ports; the VIN is only a tenant-ownership
 
 #### Scenario: Manual-records content refreshes for the newly-selected vehicle
 
-- **GIVEN** a signed-in user on `/charges` whose account has two or more registered vehicles
-- **AND** the `#charges-content` region subscribes with `hx-trigger="vehicle-changed from:body"` and `hx-get="/ui/charges"`
+- **GIVEN** a signed-in user on `/external-charges` whose account has two or more registered vehicles
+- **AND** the `#external-charges-content` region subscribes with `hx-trigger="vehicle-changed from:body"` and `hx-get="/ui/external-charges"`
 - **WHEN** the user switches the active vehicle and the `vehicle-changed` event fires
-- **THEN** the region re-fetches `GET /ui/charges`, which renders the `charges-create-form` and `charges-list` fragments (not the full page shell) scoped to the selected vehicle's `TeslaID`
+- **THEN** the region re-fetches `GET /ui/external-charges`, which renders the `external-charges-create-form` and `external-charges-list` fragments (not the full page shell) scoped to the selected vehicle's `TeslaID`
 - **AND** the entry list shows the selected vehicle's entries and the re-rendered create form sources its vehicle from the newly-selected session vehicle, rendering no vehicle picker
 - **AND** a fresh manual-charge CSRF token is issued for the re-rendered create form
 
 #### Scenario: A refresh fragment is not served to anonymous callers
 
-- **GIVEN** an unauthenticated request to a per-vehicle refresh route (`GET /ui/dashboard` or `GET /ui/charges`)
+- **GIVEN** an unauthenticated request to a per-vehicle refresh route (`GET /ui/dashboard` or `GET /ui/external-charges`)
 - **WHEN** the handler resolves the session
 - **THEN** the request is redirected to `/login` and no per-vehicle data is served
 
@@ -1775,7 +1775,7 @@ under which the page's source was `telemetry.SuperchargerReader` over `superchar
 
 The page SHALL be served by two authenticated routes: `GET /supercharger-stats` (the full
 page, initial load) and `GET /ui/supercharger-stats` (the htmx fragment, swapped by the
-window selector) — mirroring the `/charges` + `/ui/charges` pairing. Anonymous requests to
+window selector) — mirroring the `/external-charges` + `/ui/external-charges` pairing. Anonymous requests to
 either route SHALL be redirected to `/login` with no Supercharger data served.
 
 Both routes SHALL resolve the target vehicle from the session-selected vehicle (never from the
@@ -2133,7 +2133,7 @@ selector SHALL NOT require client-side JavaScript.
 #### Scenario: Selector is visible on every authenticated page
 
 - **GIVEN** a signed-in user
-- **WHEN** they load any authenticated page (`/dashboard`, `/charges`, `/supercharger-stats`)
+- **WHEN** they load any authenticated page (`/dashboard`, `/external-charges`, `/supercharger-stats`)
 - **THEN** the response contains the language selector
 
 #### Scenario: Selector requires no client-side JavaScript
@@ -2187,7 +2187,7 @@ page the caller was on.
 ### Requirement: Full-Application Translation Coverage
 
 The gateway SHALL resolve every user-facing string it renders — on every page (`/`, `/login`,
-`/dashboard`, `/dashboard/history`, `/charges`, `/supercharger-stats`), every htmx fragment those
+`/dashboard`, `/dashboard/history`, `/external-charges`, `/supercharger-stats`), every htmx fragment those
 pages compose, every reusable `templates/ui/` component, and every handler-produced flash, notice,
 or validation error message — through the translation catalogue in the request's resolved
 language. No page or fragment SHALL render a hardcoded English (or Spanish-only) string for
@@ -2207,11 +2207,11 @@ consumed exclusively by non-UI/ops tooling (e.g. `/healthz`).
 #### Scenario: The manual-charge log page and its forms render fully translated
 
 - **GIVEN** a signed-in user whose resolved language is `en`
-- **WHEN** they load `/charges`
+- **WHEN** they load `/external-charges`
 - **THEN** the create form's field labels, the "Home"/"Work"/"Other" and "AC"/"DC" option text,
   the "Log charge" submit button, the entries table's "Your entries" heading and empty-state
   sentence, and each row's "Edit"/"Delete" actions all render in English
-- **AND** opening a row's inline edit form (`GET /ui/charges/row/:id/edit`) renders that form's
+- **AND** opening a row's inline edit form (`GET /ui/external-charges/row/:id/edit`) renders that form's
   field labels and its "Save"/"Cancel" actions in the same resolved language
 
 #### Scenario: The Supercharger Stats page renders fully translated
@@ -2223,7 +2223,7 @@ consumed exclusively by non-UI/ops tooling (e.g. `/healthz`).
 
 #### Scenario: A handler-produced validation error renders translated
 
-- **GIVEN** a signed-in user submitting `POST /ui/charges/create` with a missing required field
+- **GIVEN** a signed-in user submitting `POST /ui/external-charges/create` with a missing required field
 - **WHEN** the handler rejects the submission
 - **THEN** the returned validation message for that field renders in the request's resolved
   language, not hardcoded English
@@ -2302,7 +2302,7 @@ locale-varying number formats elsewhere in the region.
 Every gateway render site that displays a monetary amount alongside a currency code SHALL call
 this shared function rather than building its own decimal-formatted string. This applies to,
 at minimum: the Supercharger Stats session table's cost column, the Supercharger Stats KPI
-tiles' per-currency cost lines, the Charge log entry list's price column, and the Charge log
+tiles' per-currency cost lines, the External charges entry list's price column, and the External charges
 entry list's cost-per-kWh column.
 
 #### Scenario: Supercharger session cost is comma-grouped
@@ -2311,16 +2311,16 @@ entry list's cost-per-kWh column.
 - **WHEN** the Supercharger Stats sessions table renders that session's row
 - **THEN** the cost cell reads `"58,000.00 COP"`
 
-#### Scenario: Charge log price is comma-grouped
+#### Scenario: External charges price is comma-grouped
 
 - **GIVEN** a manual charge entry with `Price = 12500` and `Currency = "COP"`
-- **WHEN** the Charge log entry list renders that entry's row
+- **WHEN** the External charges entry list renders that entry's row
 - **THEN** the price label reads `"12,500.00 COP"`
 
-#### Scenario: Charge log cost-per-kWh is comma-grouped and keeps its unit suffix
+#### Scenario: External charges cost-per-kWh is comma-grouped and keeps its unit suffix
 
 - **GIVEN** a manual charge entry whose computed cost per kWh is `1200` in currency `COP`
-- **WHEN** the Charge log entry list renders that entry's cost-per-kWh label
+- **WHEN** the External charges entry list renders that entry's cost-per-kWh label
 - **THEN** the label reads `"1,200.00 COP/kWh"` — the comma-grouped, two-decimal money format
   with the `/kWh` unit suffix appended after it
 
@@ -2773,17 +2773,17 @@ date change SHALL NOT populate it.
 
 ### Requirement: Charge List Date Filter
 
-The Charge log page's entries list SHALL offer a date-filter preset selector with exactly two
+The External charges page's entries list SHALL offer a date-filter preset selector with exactly two
 presets: "Last 7 days" (the default) and "This month" (the full calendar month containing
 today — the 1st through the last day of the month, not merely the days elapsed so far). Both
 presets SHALL be computed against the requesting browser's local calendar day, never UTC.
-Selecting a preset SHALL re-fetch and re-render only the `#charges-list` region (presets,
+Selecting a preset SHALL re-fetch and re-render only the `#external-charges-list` region (presets,
 tiles, and table together) without a full page reload or a change to the create form's
 displayed values.
 
 #### Scenario: The default window is the last 7 calendar days
 
-- **GIVEN** a signed-in user opening the Charge log page with no explicit date filter
+- **GIVEN** a signed-in user opening the External charges page with no explicit date filter
 - **WHEN** the page renders
 - **THEN** the entries list is filtered to the 7 calendar days ending today (inclusive), in
   the browser's local timezone
@@ -2791,7 +2791,7 @@ displayed values.
 
 #### Scenario: Selecting "This month" shows the full calendar month
 
-- **GIVEN** a signed-in user on the Charge log page on any day of a given month
+- **GIVEN** a signed-in user on the External charges page on any day of a given month
 - **WHEN** they select the "This month" preset
 - **THEN** the entries list is filtered to the 1st through the LAST day of that calendar month
   (inclusive of days later than today, when today is not the last day of the month)
@@ -2799,9 +2799,9 @@ displayed values.
 
 #### Scenario: Selecting a preset refreshes only the entries region
 
-- **GIVEN** a signed-in user on the Charge log page with the create form partially filled in
+- **GIVEN** a signed-in user on the External charges page with the create form partially filled in
 - **WHEN** they select a different date-filter preset
-- **THEN** only the `#charges-list` region (presets, tiles, table) is re-fetched and
+- **THEN** only the `#external-charges-list` region (presets, tiles, table) is re-fetched and
   re-rendered
 - **AND** the create form's own fields and any values the user had already typed into it are
   left untouched
@@ -2810,7 +2810,7 @@ displayed values.
 
 ### Requirement: Charge List Aggregation Tiles
 
-The Charge log page's entries list SHALL show four aggregation tiles — Sessions (count of
+The External charges page's entries list SHALL show four aggregation tiles — Sessions (count of
 entries in the active window), Energy (sum of `energy_added_kwh` across entries where it is
 non-nil), Cost (sum of `price` across entries in the window — a single total, since manual
 entries are always recorded in COP), and Avg kWh per session (Energy divided by the count of
@@ -2822,7 +2822,7 @@ never diverge.
 
 - **GIVEN** a signed-in user with several charge entries inside the active window, some with
   a nil energy value
-- **WHEN** the Charge log page is rendered
+- **WHEN** the External charges page is rendered
 - **THEN** the Sessions tile shows the count of entries in the window
 - **AND** the Energy tile shows the sum of energy added over entries where it is non-nil
 - **AND** the Avg kWh per session tile divides that energy sum by the count of entries with a
@@ -2835,7 +2835,7 @@ never diverge.
 
 - **GIVEN** a signed-in user whose selected vehicle has no charge entries within the active
   window
-- **WHEN** the Charge log page is rendered
+- **WHEN** the External charges page is rendered
 - **THEN** the Sessions, Energy, and Cost tiles are still shown, each at `0` (or its
   zero-formatted equivalent)
 - **AND** the Avg kWh per session tile shows the em-dash `—` placeholder (division-guarded),
