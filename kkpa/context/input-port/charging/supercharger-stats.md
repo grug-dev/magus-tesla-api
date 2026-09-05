@@ -49,7 +49,7 @@ two-field correction above.
 ## Adapter-side conventions
 
 - **CSRF token key:** `csrf_supercharger` — a *different* session key from the manual page's
-  `csrf_manualcharge`. Issued by `SuperchargerStatsPage`.
+  `csrf_externalcharge`. Issued by `SuperchargerStatsPage`.
 - **No `RegisteredVehicles` ownership check on the write.** `VerifySession`'s own account-scoped
   `WHERE` clause is the sole tenant boundary here — a documented, deliberate divergence from the
   manual page. Do not add one without reading `architecture/charge-record-mutation.md`.
@@ -60,12 +60,12 @@ two-field correction above.
   window** and matching in memory — so a row action carrying a bad window resolves to "not found",
   and every failure mode collapses to the same `(zero, false)` with no distinction.
 - **The success response swaps only the edited row** — no list or tile refresh, unlike the manual
-  page's out-of-band `#charges-list` update.
+  page's out-of-band `#external-charges-list` update.
 - **i18n:** every string resolves through `i18n.T(ctx, key)` with both ES and EN non-empty.
 
 ## Related KB
 
 - `architecture/charge-record-mutation.md` — the shared write contract and its known divergences
 - `workflows/supercharger-stats-read.md` — the read side, date filter, and chart axes
-- `input-port/charging/charges.md` — the sibling page
+- `input-port/charging/external-charges.md` — the sibling page
 - `architecture/nightly-cycle.md` — how these rows get here in the first place

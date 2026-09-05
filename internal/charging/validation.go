@@ -36,7 +36,7 @@ func RequiredFieldsFor(s Status) []Field {
 // the same value the status column's DEFAULT assigns, and rejects any other value
 // that is neither StatusInProgress nor StatusDone. This is what makes this tier
 // shippable on its own before the gateway sends a status at all (design.md D8):
-// parseChargeForm builds an Entry with no Status field today, so it arrives as "".
+// parseExternalChargeForm builds an Entry with no Status field today, so it arrives as "".
 // The database CHECK remains the backstop, not the error message.
 func normalizeStatus(s Status) (Status, error) {
 	switch s {

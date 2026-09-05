@@ -132,7 +132,7 @@ templ BaseAuth(title string) {
 				<label for="nav-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
 				<ul class="menu bg-base-200 min-h-full w-64 p-4">
 					<li><a href="/dashboard">Dashboard</a></li>
-					<li><a href="/charges">Charge log</a></li>
+					<li><a href="/external-charges">External charges</a></li>
 				</ul>
 			</div>
 		</div>

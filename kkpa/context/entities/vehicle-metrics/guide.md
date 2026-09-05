@@ -41,7 +41,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 | File | Call | When |
 |---|---|---|
 | `internal/app/processor.go` (`recalculateAnalytics`, step 3 of `ProcessVehicleData`) | `Reconcile` per vehicle, then gap reconciliation reads the fresh rows | Nightly batch — **the only caller that keeps the table advancing**; driven by `internal/app/scheduler.go`. |
-| `internal/gateway/handlers/charges.go` (`recalculateAfterChargeWrite`) | `Recalculate(uid, teslaID, chargedOn, chargedOn)` | After every manual-charge create/update/delete; errors logged and swallowed. |
+| `internal/gateway/handlers/external_charges.go` (`recalculateAfterExternalChargeWrite`) | `Recalculate(uid, teslaID, chargedOn, chargedOn)` | After every manual-charge create/update/delete; errors logged and swallowed. |
 | `cmd/web/main.go` / `cmd/poller/main.go` | `analytics.NewRecalculator(pool, telemetryReader, superchargerReader, chargingReader)` | Composition roots injecting the port into gateway Deps / the nightly processor. |
 
 ### Source data (read-only inputs — owned by other modules)

@@ -111,7 +111,7 @@ func (f *fakeChargeReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, 
 }
 
 // ListEntriesByVehicleBetween satisfies the charging.Reader port (added by RM28
-// tier 2) and IS called by gateway handlers: buildChargesPage reads the filter
+// tier 2) and IS called by gateway handlers: buildExternalChargesPage reads the filter
 // window through it, and inProgressConflictOn reads a single day through it.
 // The fake IGNORES the requested window and always returns f.entries — a
 // conflict test that seeds an entry on another date therefore exercises the
@@ -138,18 +138,18 @@ func newGinEngine(h *Handler) *gin.Engine {
 	store := cookie.NewStore([]byte("test-secret"))
 	r.Use(sessions.Sessions("test", store))
 
-	r.GET("/charges", h.ChargePage)
-	r.GET("/ui/charges/list", h.ChargesListFragment)
-	r.GET("/ui/charges/row/:id", h.ChargeRowStatic)
-	r.GET("/ui/charges/row/:id/edit", h.ChargeRowEditFragment)
-	r.POST("/ui/charges/create", h.ChargeCreate)
-	r.PUT("/ui/charges/row/:id", h.ChargeRowUpdate)
-	r.DELETE("/ui/charges/row/:id", h.ChargeRowDelete)
+	r.GET("/external-charges", h.ExternalChargesPage)
+	r.GET("/ui/external-charges/list", h.ExternalChargesListFragment)
+	r.GET("/ui/external-charges/row/:id", h.ExternalChargeRowStatic)
+	r.GET("/ui/external-charges/row/:id/edit", h.ExternalChargeRowEditFragment)
+	r.POST("/ui/external-charges/create", h.ExternalChargeCreate)
+	r.PUT("/ui/external-charges/row/:id", h.ExternalChargeRowUpdate)
+	r.DELETE("/ui/external-charges/row/:id", h.ExternalChargeRowDelete)
 
 	return r
 }
 
-// setUID writes a fake UID into the session by making a GET /charges request (which
+// setUID writes a fake UID into the session by making a GET /external-charges request (which
 // sets up the session cookie) and then injecting the uid. Instead, we use a helper
 // route that sets the session, then subsequent requests reuse it.
 // For simplicity, we add a test-only /set-session route.
@@ -163,19 +163,19 @@ func engineWithSession(h *Handler, uid uuid.UUID, csrfToken string) *gin.Engine 
 		sess := sessions.Default(c)
 		sess.Set("uid", uid.String())
 		if csrfToken != "" {
-			sess.Set(csrfManualChargeKey, csrfToken)
+			sess.Set(csrfExternalChargeKey, csrfToken)
 		}
 		_ = sess.Save()
 		c.String(http.StatusOK, "ok")
 	})
 
-	r.GET("/charges", h.ChargePage)
-	r.GET("/ui/charges/list", h.ChargesListFragment)
-	r.GET("/ui/charges/row/:id", h.ChargeRowStatic)
-	r.GET("/ui/charges/row/:id/edit", h.ChargeRowEditFragment)
-	r.POST("/ui/charges/create", h.ChargeCreate)
-	r.PUT("/ui/charges/row/:id", h.ChargeRowUpdate)
-	r.DELETE("/ui/charges/row/:id", h.ChargeRowDelete)
+	r.GET("/external-charges", h.ExternalChargesPage)
+	r.GET("/ui/external-charges/list", h.ExternalChargesListFragment)
+	r.GET("/ui/external-charges/row/:id", h.ExternalChargeRowStatic)
+	r.GET("/ui/external-charges/row/:id/edit", h.ExternalChargeRowEditFragment)
+	r.POST("/ui/external-charges/create", h.ExternalChargeCreate)
+	r.PUT("/ui/external-charges/row/:id", h.ExternalChargeRowUpdate)
+	r.DELETE("/ui/external-charges/row/:id", h.ExternalChargeRowDelete)
 
 	return r
 }
@@ -196,8 +196,8 @@ func sessionCookie(r *gin.Engine, uid uuid.UUID, csrfToken string) *http.Cookie 
 	return nil
 }
 
-// newHandlerForCharges builds a Handler with fake charge ports and one registered vehicle.
-func newHandlerForCharges(writer *fakeChargeWriter, reader *fakeChargeReader) *Handler {
+// newHandlerForExternalCharges builds a Handler with fake charge ports and one registered vehicle.
+func newHandlerForExternalCharges(writer *fakeChargeWriter, reader *fakeChargeReader) *Handler {
 	acct := &fakeAccount{
 		registered: []account.Vehicle{
 			{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
@@ -212,11 +212,11 @@ func newHandlerForCharges(writer *fakeChargeWriter, reader *fakeChargeReader) *H
 	})
 }
 
-// newHandlerForChargesWithRecalc is newHandlerForCharges with the analytics
+// newHandlerForExternalChargesWithRecalc is newHandlerForExternalCharges with the analytics
 // recalculator exposed, so a test can assert the write path actually calls it
 // (RM29 task 5.3 / design.md D5). Kept separate rather than changing
-// newHandlerForCharges' signature, so the existing call sites stay untouched.
-func newHandlerForChargesWithRecalc(writer *fakeChargeWriter, reader *fakeChargeReader, recalc *fakeRecalculator) *Handler {
+// newHandlerForExternalCharges' signature, so the existing call sites stay untouched.
+func newHandlerForExternalChargesWithRecalc(writer *fakeChargeWriter, reader *fakeChargeReader, recalc *fakeRecalculator) *Handler {
 	acct := &fakeAccount{
 		registered: []account.Vehicle{
 			{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
@@ -231,8 +231,8 @@ func newHandlerForChargesWithRecalc(writer *fakeChargeWriter, reader *fakeCharge
 	})
 }
 
-// postCharge submits a valid create form and returns the recorder.
-func postCharge(t *testing.T, h *Handler, uid uuid.UUID) *httptest.ResponseRecorder {
+// postExternalCharge submits a valid create form and returns the recorder.
+func postExternalCharge(t *testing.T, h *Handler, uid uuid.UUID) *httptest.ResponseRecorder {
 	t.Helper()
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -247,7 +247,7 @@ func postCharge(t *testing.T, h *Handler, uid uuid.UUID) *httptest.ResponseRecor
 		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -256,17 +256,17 @@ func postCharge(t *testing.T, h *Handler, uid uuid.UUID) *httptest.ResponseRecor
 	return w
 }
 
-// TestChargeCreate_RecalculatesAfterSuccessfulWrite pins design.md D5 / IO-5:
+// TestExternalChargeCreate_RecalculatesAfterSuccessfulWrite pins design.md D5 / IO-5:
 // the Consumed chart updates instantly today because it is computed on read, so
 // the precomputed read model MUST be refreshed on the write path or the owner
 // sees a stale chart until the nightly Reconcile. Asserts the call happens, is
 // scoped to the writing account and its vehicle, and covers the entry's own day.
-func TestChargeCreate_RecalculatesAfterSuccessfulWrite(t *testing.T) {
+func TestExternalChargeCreate_RecalculatesAfterSuccessfulWrite(t *testing.T) {
 	uid := uuid.New()
 	recalc := &fakeRecalculator{}
-	h := newHandlerForChargesWithRecalc(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+	h := newHandlerForExternalChargesWithRecalc(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
 
-	if w := postCharge(t, h, uid); w.Code != http.StatusOK {
+	if w := postExternalCharge(t, h, uid); w.Code != http.StatusOK {
 		t.Fatalf("want 200 on valid create, got %d", w.Code)
 	}
 
@@ -288,33 +288,33 @@ func TestChargeCreate_RecalculatesAfterSuccessfulWrite(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_NoRecalculateWhenWriteFails pins the other half of D5: the
+// TestExternalChargeCreate_NoRecalculateWhenWriteFails pins the other half of D5: the
 // recalculation follows a COMMITTED write. If the write failed there is nothing
 // to recompute, and recomputing anyway would rewrite the metrics row from
 // unchanged inputs while the user is being shown an error.
-func TestChargeCreate_NoRecalculateWhenWriteFails(t *testing.T) {
+func TestExternalChargeCreate_NoRecalculateWhenWriteFails(t *testing.T) {
 	uid := uuid.New()
 	recalc := &fakeRecalculator{}
 	writer := &fakeChargeWriter{createErr: errors.New("charging: insert failed")}
-	h := newHandlerForChargesWithRecalc(writer, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+	h := newHandlerForExternalChargesWithRecalc(writer, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
 
-	postCharge(t, h, uid)
+	postExternalCharge(t, h, uid)
 
 	if len(recalc.calls) != 0 {
 		t.Fatalf("want NO Recalculate call when the write failed, got %d", len(recalc.calls))
 	}
 }
 
-// TestChargeCreate_RecalculateErrorDoesNotFailTheRequest pins D5's error policy:
+// TestExternalChargeCreate_RecalculateErrorDoesNotFailTheRequest pins D5's error policy:
 // the user's write already committed, so a recalculation failure is logged and
 // swallowed rather than surfaced -- failing their request over a derived-metrics
 // error would misreport a save that actually succeeded.
-func TestChargeCreate_RecalculateErrorDoesNotFailTheRequest(t *testing.T) {
+func TestExternalChargeCreate_RecalculateErrorDoesNotFailTheRequest(t *testing.T) {
 	uid := uuid.New()
 	recalc := &fakeRecalculator{err: errors.New("analytics: recalculate failed")}
-	h := newHandlerForChargesWithRecalc(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+	h := newHandlerForExternalChargesWithRecalc(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
 
-	if w := postCharge(t, h, uid); w.Code != http.StatusOK {
+	if w := postExternalCharge(t, h, uid); w.Code != http.StatusOK {
 		t.Fatalf("want 200 despite a Recalculate error (the write committed), got %d", w.Code)
 	}
 	if len(recalc.calls) != 1 {
@@ -324,13 +324,13 @@ func TestChargeCreate_RecalculateErrorDoesNotFailTheRequest(t *testing.T) {
 
 // --- Sub-task H tests ---
 
-// TestChargePage_NoSession verifies the auth guard redirects unauthenticated visitors.
-func TestChargePage_NoSession(t *testing.T) {
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+// TestExternalChargePage_NoSession verifies the auth guard redirects unauthenticated visitors.
+func TestExternalChargePage_NoSession(t *testing.T) {
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := newGinEngine(h)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusFound {
@@ -341,17 +341,17 @@ func TestChargePage_NoSession(t *testing.T) {
 	}
 }
 
-// TestChargePage_WithSession verifies the authenticated path renders the page.
-func TestChargePage_WithSession(t *testing.T) {
+// TestExternalChargePage_WithSession verifies the authenticated path renders the page.
+func TestExternalChargePage_WithSession(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "")
 	cookie := sessionCookie(r, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	if cookie != nil {
 		req.AddCookie(cookie)
 	}
@@ -361,18 +361,18 @@ func TestChargePage_WithSession(t *testing.T) {
 		t.Fatalf("want 200 for authenticated charge page, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "charges-list") {
-		t.Errorf("want charges-list region in response, got body=%q", body[:min(500, len(body))])
+	if !strings.Contains(body, "external-charges-list") {
+		t.Errorf("want external-charges-list region in response, got body=%q", body[:min(500, len(body))])
 	}
 }
 
-// TestChargesListFragment_NoSession verifies auth guard on the list fragment.
-func TestChargesListFragment_NoSession(t *testing.T) {
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+// TestExternalChargesListFragment_NoSession verifies auth guard on the list fragment.
+func TestExternalChargesListFragment_NoSession(t *testing.T) {
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := newGinEngine(h)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list", nil)
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusFound {
@@ -380,14 +380,14 @@ func TestChargesListFragment_NoSession(t *testing.T) {
 	}
 }
 
-// TestChargesListFragment_WithEntries verifies the list fragment returns only
+// TestExternalChargesListFragment_WithEntries verifies the list fragment returns only
 // the fragment. REWRITTEN for RM33 tier 3 (design.md §Test Contract "Existing
-// tests requiring REWRITE"): GET /ui/charges/list with NO ?start=&end= now
-// resolves the default 7-day window via parseChargesRange (rather than taking
+// tests requiring REWRITE"): GET /ui/external-charges/list with NO ?start=&end= now
+// resolves the default 7-day window via parseExternalChargesRange (rather than taking
 // every account entry unconditionally) and the response now also carries the
 // preset selector and the four aggregation tiles — asserted here alongside
-// the pre-existing charges-list/row-id checks, not merely the div's presence.
-func TestChargesListFragment_WithEntries(t *testing.T) {
+// the pre-existing external-charges-list/row-id checks, not merely the div's presence.
+func TestExternalChargesListFragment_WithEntries(t *testing.T) {
 	uid := uuid.New()
 	chargedOn := time.Now()
 	entryID := uuid.New()
@@ -404,12 +404,12 @@ func TestChargesListFragment_WithEntries(t *testing.T) {
 		},
 	}
 	reader := &fakeChargeReader{entries: entries}
-	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, reader)
 	r := engineWithSession(h, uid, "testcsrf")
 	c := sessionCookie(r, uid, "testcsrf")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -419,10 +419,10 @@ func TestChargesListFragment_WithEntries(t *testing.T) {
 		t.Fatalf("want 200 for list fragment, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "charges-list") {
-		t.Errorf("want charges-list div in fragment response, body=%q", body[:min(500, len(body))])
+	if !strings.Contains(body, "external-charges-list") {
+		t.Errorf("want external-charges-list div in fragment response, body=%q", body[:min(500, len(body))])
 	}
-	if !strings.Contains(body, "charge-row-"+entryID.String()) {
+	if !strings.Contains(body, "external-charge-row-"+entryID.String()) {
 		t.Errorf("want the entry's row in the response, body=%q", body[:min(800, len(body))])
 	}
 	if !strings.Contains(body, "join-item") {
@@ -433,21 +433,21 @@ func TestChargesListFragment_WithEntries(t *testing.T) {
 	}
 }
 
-// TestChargesListFragment_ReaderError verifies graceful degradation on reader
+// TestExternalChargesListFragment_ReaderError verifies graceful degradation on reader
 // failure. REWRITTEN for RM33 tier 3 (design.md §Test Contract "Existing
 // tests requiring REWRITE" + §D-Empty state 2): the default-window resolution
 // now applies here too, and a reader error keeps the preset selector AND the
 // (zero-valued) tiles visible — it is NOT the same no-chrome collapse as a
 // malformed window (Group E1/E2) or a no-vehicle response.
-func TestChargesListFragment_ReaderError(t *testing.T) {
+func TestExternalChargesListFragment_ReaderError(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeChargeReader{err: errFake}
-	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, reader)
 	r := engineWithSession(h, uid, "testcsrf")
 	c := sessionCookie(r, uid, "testcsrf")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -468,21 +468,21 @@ func TestChargesListFragment_ReaderError(t *testing.T) {
 	}
 }
 
-// TestChargesListFragment_EmptyState verifies empty-state message on empty
+// TestExternalChargesListFragment_EmptyState verifies empty-state message on empty
 // list. REWRITTEN for RM33 tier 3 (design.md §Test Contract "Existing tests
 // requiring REWRITE" + §D-Empty state 3): a valid vehicle + valid (default)
 // window with zero rows is NOT the same as the no-chrome collapse (Group
 // E1/E2) — D13 requires the selector and tiles to still render (0/—), only
-// the table body swaps for ChargesEmptyState().
-func TestChargesListFragment_EmptyState(t *testing.T) {
+// the table body swaps for ExternalChargesEmptyState().
+func TestExternalChargesListFragment_EmptyState(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, reader)
 	r := engineWithSession(h, uid, "testcsrf")
 	c := sessionCookie(r, uid, "testcsrf")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -506,14 +506,14 @@ func TestChargesListFragment_EmptyState(t *testing.T) {
 		t.Errorf("want the four tiles STILL shown at 0/— on a valid empty range (D13/D14), got %d stat-title occurrences, body=%q", got, body[:min(1500, len(body))])
 	}
 	if strings.Contains(body, "<table") {
-		t.Errorf("want NO <table> element — the table body is replaced by ChargesEmptyState(), body=%q", body[:min(1500, len(body))])
+		t.Errorf("want NO <table> element — the table body is replaced by ExternalChargesEmptyState(), body=%q", body[:min(1500, len(body))])
 	}
 }
 
-// TestChargeCreate_CSRFMismatch verifies 403 on CSRF token mismatch.
-func TestChargeCreate_CSRFMismatch(t *testing.T) {
+// TestExternalChargeCreate_CSRFMismatch verifies 403 on CSRF token mismatch.
+func TestExternalChargeCreate_CSRFMismatch(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "correcttoken")
 	c := sessionCookie(r, uid, "correcttoken")
 
@@ -527,7 +527,7 @@ func TestChargeCreate_CSRFMismatch(t *testing.T) {
 		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -539,15 +539,15 @@ func TestChargeCreate_CSRFMismatch(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter replaces the old
-// TestChargeCreate_UnownedVehicle (MAG-5 D4): the create form drops the vehicle
+// TestExternalChargeCreate_NoResolvableVehicle_RejectedWithoutWriter replaces the old
+// TestExternalChargeCreate_UnownedVehicle (MAG-5 D4): the create form drops the vehicle
 // picker and sources (teslaID, vin) from the session-selected vehicle via
 // resolveSelectedVehicle. The "unowned vehicle" path is now unreachable from the
 // form (resolveSelectedVehicle only returns vehicles from the user's account);
 // the analogous failure becomes "no resolvable selected vehicle" (the account has
 // no registered vehicles, so resolveSelectedVehicle returns (_, false)) —
 // rendered as a 422 field-error, NOT a 403, and the Writer is NOT called.
-func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
+func TestExternalChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 	uid := uuid.New()
 	// Account with NO registered vehicles → resolveSelectedVehicle returns false.
 	acct := &fakeAccount{registered: nil}
@@ -572,7 +572,7 @@ func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -583,17 +583,17 @@ func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 		t.Fatalf("want 422 when no vehicle is resolvable, got %d", w.Code)
 	}
 	body := w.Body.String()
-	// Resolved language here is Spanish (see the TestChargesListFragment_EmptyState
+	// Resolved language here is Spanish (see the TestExternalChargesListFragment_EmptyState
 	// comment above) — KeyChargesErrorSelectVehicle's ES value.
 	if !strings.Contains(body, "Selecciona un vehículo") {
 		t.Errorf("want 'Selecciona un vehículo' in body, got %q", body[:min(500, len(body))])
 	}
 }
 
-// TestChargeCreate_MissingRequiredField verifies 422 on a missing required field.
-func TestChargeCreate_MissingRequiredField(t *testing.T) {
+// TestExternalChargeCreate_MissingRequiredField verifies 422 on a missing required field.
+func TestExternalChargeCreate_MissingRequiredField(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -605,7 +605,7 @@ func TestChargeCreate_MissingRequiredField(t *testing.T) {
 		// start_battery_pct, end_battery_pct — every required field.
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -621,16 +621,16 @@ func TestChargeCreate_MissingRequiredField(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_ValidInput verifies a valid POST creates an entry and returns the refreshed list.
+// TestExternalChargeCreate_ValidInput verifies a valid POST creates an entry and returns the refreshed list.
 // MAG-5 D5: Currency is hardcoded "COP" even though the form no longer submits a
 // `currency` field (it renders a disabled, read-only COP input that is not
 // submitted). MAG-5 D6: start_battery_pct + end_battery_pct are REQUIRED and
 // persisted non-nil. D4: no `vehicle` form field — sourced from the session.
-func TestChargeCreate_ValidInput(t *testing.T) {
+func TestExternalChargeCreate_ValidInput(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -645,7 +645,7 @@ func TestChargeCreate_ValidInput(t *testing.T) {
 		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -679,14 +679,14 @@ func TestChargeCreate_ValidInput(t *testing.T) {
 	}
 }
 
-// TestChargeRowEditFragment_NoSession verifies auth guard on the edit fragment.
-func TestChargeRowEditFragment_NoSession(t *testing.T) {
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+// TestExternalChargeRowEditFragment_NoSession verifies auth guard on the edit fragment.
+func TestExternalChargeRowEditFragment_NoSession(t *testing.T) {
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := newGinEngine(h)
 
 	id := uuid.New()
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/row/"+id.String()+"/edit", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/row/"+id.String()+"/edit", nil)
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusFound {
@@ -694,8 +694,8 @@ func TestChargeRowEditFragment_NoSession(t *testing.T) {
 	}
 }
 
-// TestChargeRowEditFragment_WithEntry verifies the edit fragment returns an edit form pre-populated.
-func TestChargeRowEditFragment_WithEntry(t *testing.T) {
+// TestExternalChargeRowEditFragment_WithEntry verifies the edit fragment returns an edit form pre-populated.
+func TestExternalChargeRowEditFragment_WithEntry(t *testing.T) {
 	uid := uuid.New()
 	entryID := uuid.New()
 	entries := []charging.Entry{
@@ -711,12 +711,12 @@ func TestChargeRowEditFragment_WithEntry(t *testing.T) {
 		},
 	}
 	reader := &fakeChargeReader{entries: entries}
-	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/row/"+entryID.String()+"/edit", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/row/"+entryID.String()+"/edit", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -726,16 +726,16 @@ func TestChargeRowEditFragment_WithEntry(t *testing.T) {
 		t.Fatalf("want 200 for edit fragment, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "charge-row-"+entryID.String()) {
+	if !strings.Contains(body, "external-charge-row-"+entryID.String()) {
 		t.Errorf("want entry id in edit form, body=%q", body[:min(500, len(body))])
 	}
 }
 
-// TestChargeRowUpdate_CSRFMismatch verifies 403 on CSRF mismatch for update.
-func TestChargeRowUpdate_CSRFMismatch(t *testing.T) {
+// TestExternalChargeRowUpdate_CSRFMismatch verifies 403 on CSRF mismatch for update.
+func TestExternalChargeRowUpdate_CSRFMismatch(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "goodtoken")
 	c := sessionCookie(r, uid, "goodtoken")
 
@@ -749,7 +749,7 @@ func TestChargeRowUpdate_CSRFMismatch(t *testing.T) {
 		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPut, "/ui/external-charges/row/"+id.String(), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -761,11 +761,11 @@ func TestChargeRowUpdate_CSRFMismatch(t *testing.T) {
 	}
 }
 
-// TestChargeRowUpdate_ValidationError verifies 422 on a validation error during update.
-func TestChargeRowUpdate_ValidationError(t *testing.T) {
+// TestExternalChargeRowUpdate_ValidationError verifies 422 on a validation error during update.
+func TestExternalChargeRowUpdate_ValidationError(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -777,7 +777,7 @@ func TestChargeRowUpdate_ValidationError(t *testing.T) {
 		// start_battery_pct, end_battery_pct.
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPut, "/ui/external-charges/row/"+id.String(), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -789,24 +789,24 @@ func TestChargeRowUpdate_ValidationError(t *testing.T) {
 	}
 }
 
-// TestChargeRowUpdate_ValidInput verifies a valid PUT persists the posted values
-// and re-renders the whole #charges-list region.
+// TestExternalChargeRowUpdate_ValidInput verifies a valid PUT persists the posted values
+// and re-renders the whole #external-charges-list region.
 //
 // The response-shape assertion below was rewritten when MAG-18 wave 5 retargeted
-// the success path (charges.go, "A SUCCESSFUL edit re-renders the WHOLE
-// #charges-list region"): htmx parses the response inside a <template>, so a
+// the success path (external_charges.go, "A SUCCESSFUL edit re-renders the WHOLE
+// #external-charges-list region"): htmx parses the response inside a <template>, so a
 // leading <tr> switches the HTML parser into table-insertion mode and the
 // following <div hx-swap-oob> is foster-parented out of top level, silently
 // dropping the list refresh. The handler therefore emits no row markup at all,
-// and the old `charge-row-{id}` expectation could never match again. Sibling
-// TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow owns the full
+// and the old `external-charge-row-{id}` expectation could never match again. Sibling
+// TestExternalChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow owns the full
 // contract (headers, no OOB, no leading <tr>); this test keeps its own focus on
 // the persisted write values.
-func TestChargeRowUpdate_ValidInput(t *testing.T) {
+func TestExternalChargeRowUpdate_ValidInput(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -821,7 +821,7 @@ func TestChargeRowUpdate_ValidInput(t *testing.T) {
 		"end_battery_pct":   {"75"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPut, "/ui/external-charges/row/"+id.String(), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -832,11 +832,11 @@ func TestChargeRowUpdate_ValidInput(t *testing.T) {
 		t.Fatalf("want 200 on valid update, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, `id="charges-list"`) {
-		t.Errorf("want the whole #charges-list region in the update response, body=%q", body[:min(500, len(body))])
+	if !strings.Contains(body, `id="external-charges-list"`) {
+		t.Errorf("want the whole #external-charges-list region in the update response, body=%q", body[:min(500, len(body))])
 	}
-	if got := w.Header().Get("HX-Retarget"); got != "#charges-list" {
-		t.Errorf("want HX-Retarget=#charges-list on a successful update, got %q", got)
+	if got := w.Header().Get("HX-Retarget"); got != "#external-charges-list" {
+		t.Errorf("want HX-Retarget=#external-charges-list on a successful update, got %q", got)
 	}
 	// D5: Currency hardcoded COP even for the edit path.
 	if writer.updateEntry.Currency != "COP" {
@@ -851,17 +851,17 @@ func TestChargeRowUpdate_ValidInput(t *testing.T) {
 	}
 }
 
-// TestChargeRowDelete_CSRFMismatch verifies 403 on CSRF mismatch for delete.
-func TestChargeRowDelete_CSRFMismatch(t *testing.T) {
+// TestExternalChargeRowDelete_CSRFMismatch verifies 403 on CSRF mismatch for delete.
+func TestExternalChargeRowDelete_CSRFMismatch(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{deleteErr: nil}
-	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "goodtoken")
 	c := sessionCookie(r, uid, "goodtoken")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+id.String(), nil)
+	req := httptest.NewRequest(http.MethodDelete, "/ui/external-charges/row/"+id.String(), nil)
 	req.Header.Set("X-CSRF-Token", "badtoken")
 	if c != nil {
 		req.AddCookie(c)
@@ -873,31 +873,31 @@ func TestChargeRowDelete_CSRFMismatch(t *testing.T) {
 	}
 }
 
-// TestChargeRowDelete_ValidInput_RendersChargesListFragment is the RM33 tier 3
-// REWRITE of the old TestChargeRowDelete_ValidInput_RendersEmptyRow (design.md
+// TestExternalChargeRowDelete_ValidInput_RendersChargesListFragment is the RM33 tier 3
+// REWRITE of the old TestExternalChargeRowDelete_ValidInput_RendersEmptyRow (design.md
 // §Test Contract "Existing tests requiring REWRITE"). The delete button's
-// hx-target moved from "#charge-row-{id}" to "#charges-list" (design.md
+// hx-target moved from "#external-charge-row-{id}" to "#external-charges-list" (design.md
 // §D-Refresh) — after a successful delete there is no row left to swap into,
-// so the handler now re-renders the WHOLE #charges-list region (selector +
-// tiles + table/empty-state), structurally identical to ChargesListFragment's
-// own response. The old bare `<tr id="charge-row-<id>"></tr>` empty-row shape
+// so the handler now re-renders the WHOLE #external-charges-list region (selector +
+// tiles + table/empty-state), structurally identical to ExternalChargesListFragment's
+// own response. The old bare `<tr id="external-charge-row-<id>"></tr>` empty-row shape
 // (`fragments.ChargeRowEmpty`, deleted in Wave 6.1) must NOT appear. Same
-// assertion shape as Group D4 (TestChargeRowDelete_D4_...), kept as its own
+// assertion shape as Group D4 (TestExternalChargeRowDelete_D4_...), kept as its own
 // test per design.md's explicit REWRITE-item enumeration. The CSRF token is
-// sent via the X-CSRF-Token HEADER (matching the charge_row.templ fix that
+// sent via the X-CSRF-Token HEADER (matching the external_charge_row.templ fix that
 // emits hx-headers carrying X-CSRF-Token — Go's net/http parses DELETE
 // request BODIES for no method, so the prior hx-include body path silently
-// 403'd; the header path is the fix — see ChargeRowDelete doc comment).
-func TestChargeRowDelete_ValidInput_RendersChargesListFragment(t *testing.T) {
+// 403'd; the header path is the fix — see ExternalChargeRowDelete doc comment).
+func TestExternalChargeRowDelete_ValidInput_RendersChargesListFragment(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+id.String(), nil)
+	req := httptest.NewRequest(http.MethodDelete, "/ui/external-charges/row/"+id.String(), nil)
 	req.Header.Set("X-CSRF-Token", "tok")
 	if c != nil {
 		req.AddCookie(c)
@@ -908,34 +908,34 @@ func TestChargeRowDelete_ValidInput_RendersChargesListFragment(t *testing.T) {
 		t.Fatalf("want 200 on valid delete, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, `id="charges-list"`) {
-		t.Errorf("want the full #charges-list fragment in the delete response, got body=%q", body[:min(500, len(body))])
+	if !strings.Contains(body, `id="external-charges-list"`) {
+		t.Errorf("want the full #external-charges-list fragment in the delete response, got body=%q", body[:min(500, len(body))])
 	}
 	// The old MAG-5 empty-row shape (fragments.ChargeRowEmpty, now deleted)
 	// must never appear — the response is the whole list region, not a bare
 	// empty <tr>.
-	wantOldEmptyRow := `<tr id="charge-row-` + id.String() + `"></tr>`
+	wantOldEmptyRow := `<tr id="external-charge-row-` + id.String() + `"></tr>`
 	if strings.Contains(body, wantOldEmptyRow) {
 		t.Errorf("delete response must NOT be the old bare empty <tr> shape, got body=%q",
 			body[:min(500, len(body))])
 	}
 }
 
-// TestChargeRowDelete_StaleCSRF_RejectedNotAlerted verifies the stale/missing
+// TestExternalChargeRowDelete_StaleCSRF_RejectedNotAlerted verifies the stale/missing
 // CSRF path returns 403 and the row is not deleted (D3 / spec scenario). The
 // response is a plain-text 403 (no inline error row), but per the spec the
 // correct fix is the wire-path (CSRF reaches the handler); an attacker
 // submitting a wrong token is rejected at the CSRF gate.
-func TestChargeRowDelete_StaleCSRF_RejectedNotAlerted(t *testing.T) {
+func TestExternalChargeRowDelete_StaleCSRF_RejectedNotAlerted(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "freshsessiontoken")
 	c := sessionCookie(r, uid, "freshsessiontoken")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+id.String(), nil)
+	req := httptest.NewRequest(http.MethodDelete, "/ui/external-charges/row/"+id.String(), nil)
 	// Stale token: the row would have been rendered with an older token, but the
 	// session has since rotated.
 	req.Header.Set("X-CSRF-Token", "staletoken")
@@ -961,15 +961,15 @@ func TestChargeRowDelete_StaleCSRF_RejectedNotAlerted(t *testing.T) {
 }
 
 // --- R1/R2 regression: empty-session CSRF must fail closed ---
-// When the session carries no csrf_manualcharge token (e.g. an authenticated user
-// who never loaded GET /charges) and the request submits no token either, the check
+// When the session carries no csrf_externalcharge token (e.g. an authenticated user
+// who never loaded GET /external-charges) and the request submits no token either, the check
 // must return 403 — not pass via subtle.ConstantTimeCompare("","") == 1.
 
-// TestChargeCreate_NoSessionToken covers the empty-session CSRF bypass for create.
-func TestChargeCreate_NoSessionToken(t *testing.T) {
+// TestExternalChargeCreate_NoSessionToken covers the empty-session CSRF bypass for create.
+func TestExternalChargeCreate_NoSessionToken(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "") // uid set, no csrf token in session
 	c := sessionCookie(r, uid, "")
 
@@ -984,7 +984,7 @@ func TestChargeCreate_NoSessionToken(t *testing.T) {
 		// no `vehicle` (D4), no `currency` (D5 — hardcoded COP) form fields.
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -999,12 +999,12 @@ func TestChargeCreate_NoSessionToken(t *testing.T) {
 	}
 }
 
-// TestChargeRowUpdate_NoSessionToken covers the empty-session CSRF bypass for update.
-func TestChargeRowUpdate_NoSessionToken(t *testing.T) {
+// TestExternalChargeRowUpdate_NoSessionToken covers the empty-session CSRF bypass for update.
+func TestExternalChargeRowUpdate_NoSessionToken(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "")
 	c := sessionCookie(r, uid, "")
 
@@ -1018,7 +1018,7 @@ func TestChargeRowUpdate_NoSessionToken(t *testing.T) {
 		"end_battery_pct":   {"75"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPut, "/ui/external-charges/row/"+id.String(), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -1033,16 +1033,16 @@ func TestChargeRowUpdate_NoSessionToken(t *testing.T) {
 	}
 }
 
-// TestChargeRowDelete_NoSessionToken covers the empty-session CSRF bypass for delete.
-func TestChargeRowDelete_NoSessionToken(t *testing.T) {
+// TestExternalChargeRowDelete_NoSessionToken covers the empty-session CSRF bypass for delete.
+func TestExternalChargeRowDelete_NoSessionToken(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "")
 	c := sessionCookie(r, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+id.String(), nil)
+	req := httptest.NewRequest(http.MethodDelete, "/ui/external-charges/row/"+id.String(), nil)
 	// deliberately no X-CSRF-Token header
 	if c != nil {
 		req.AddCookie(c)
@@ -1071,8 +1071,8 @@ func min(a, b int) int {
 
 // --- unit tests for pure helpers ---
 
-// TestChargeEntryVMFromEntry verifies the view model mapping pre-computes derived fields.
-func TestChargeEntryVMFromEntry(t *testing.T) {
+// TestExternalChargeEntryVMFromEntry verifies the view model mapping pre-computes derived fields.
+func TestExternalChargeEntryVMFromEntry(t *testing.T) {
 	start := time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 7, 15, 11, 30, 0, 0, time.UTC)
 	startPct := 60
@@ -1096,7 +1096,7 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
 	}
 
-	vm := chargeEntryVMFromEntry(e, vehicles)
+	vm := externalChargeEntryVMFromEntry(e, vehicles)
 
 	if vm.ID != "00000000-0000-0000-0000-000000000001" {
 		t.Errorf("want ID as string, got %q", vm.ID)
@@ -1147,12 +1147,12 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 	}
 }
 
-// TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped pins design.md's
+// TestExternalChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped pins design.md's
 // "Critical constraint" (MAG-9): RawEnergyKWh and RawPrice populate the inline
 // edit form's <input value>, so they MUST stay plain machine-parseable decimal
 // strings — never routed through formatMoney/commaGroup — even when the
 // underlying amount is >= 1000 and would otherwise be grouped for display.
-func TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
+func TestExternalChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
 	e := charging.Entry{
 		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		AccountID:      uuid.New(),
@@ -1167,7 +1167,7 @@ func TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
 	}
 
-	vm := chargeEntryVMFromEntry(e, vehicles)
+	vm := externalChargeEntryVMFromEntry(e, vehicles)
 
 	if vm.RawEnergyKWh != "1200.50" {
 		t.Errorf("want RawEnergyKWh=1200.50 (NOT comma-grouped), got %q", vm.RawEnergyKWh)
@@ -1184,12 +1184,12 @@ func TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
 
 // --- Sub-task D: required location_kind tests ---
 
-// TestChargeCreate_MissingLocationKind verifies 422 when location_kind is absent.
-func TestChargeCreate_MissingLocationKind(t *testing.T) {
+// TestExternalChargeCreate_MissingLocationKind verifies 422 when location_kind is absent.
+func TestExternalChargeCreate_MissingLocationKind(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -1205,7 +1205,7 @@ func TestChargeCreate_MissingLocationKind(t *testing.T) {
 		// no `vehicle` (D4), no `currency` (D5) form fields.
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -1226,12 +1226,12 @@ func TestChargeCreate_MissingLocationKind(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_InvalidLocationKind verifies 422 when location_kind has an unrecognized value.
-func TestChargeCreate_InvalidLocationKind(t *testing.T) {
+// TestExternalChargeCreate_InvalidLocationKind verifies 422 when location_kind has an unrecognized value.
+func TestExternalChargeCreate_InvalidLocationKind(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -1246,7 +1246,7 @@ func TestChargeCreate_InvalidLocationKind(t *testing.T) {
 		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -1261,12 +1261,12 @@ func TestChargeCreate_InvalidLocationKind(t *testing.T) {
 	}
 }
 
-// TestChargeRowUpdate_MissingLocationKind verifies 422 on missing location_kind during update.
-func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
+// TestExternalChargeRowUpdate_MissingLocationKind verifies 422 on missing location_kind during update.
+func TestExternalChargeRowUpdate_MissingLocationKind(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -1282,7 +1282,7 @@ func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
 		// no `vehicle` (D4), no `currency` (D5) form fields.
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPut, "/ui/external-charges/row/"+id.String(), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -1297,12 +1297,12 @@ func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_ValidLocationKind verifies that a valid location_kind succeeds.
-func TestChargeCreate_ValidLocationKind(t *testing.T) {
+// TestExternalChargeCreate_ValidLocationKind verifies that a valid location_kind succeeds.
+func TestExternalChargeCreate_ValidLocationKind(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -1317,7 +1317,7 @@ func TestChargeCreate_ValidLocationKind(t *testing.T) {
 		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -1338,11 +1338,11 @@ func TestChargeCreate_ValidLocationKind(t *testing.T) {
 // removed with its dead call chain — MAG-5 follow-up F1) were deleted here.
 func ptrStr(s string) *string { return &s }
 
-// --- charges content fragment + vehicle-switch refresh (GET /ui/charges) ---
+// --- charges content fragment + vehicle-switch refresh (GET /ui/external-charges) ---
 
-// chargesContentEngine builds a Gin engine seeding uid + a selected-vehicle context,
-// wired to GET /ui/charges. Mirrors dashboardEngine but for the manual-records page.
-func chargesContentEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN string) *gin.Engine {
+// externalChargesContentEngine builds a Gin engine seeding uid + a selected-vehicle context,
+// wired to GET /ui/external-charges. Mirrors dashboardEngine but for the external-charges page.
+func externalChargesContentEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	store := cookie.NewStore([]byte("test-secret"))
@@ -1357,17 +1357,17 @@ func chargesContentEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN st
 		_ = sess.Save()
 		c.String(http.StatusOK, "ok")
 	})
-	r.GET("/charges", h.ChargePage)
-	r.GET("/ui/charges", h.ChargesContentFragment)
+	r.GET("/external-charges", h.ExternalChargesPage)
+	r.GET("/ui/external-charges", h.ExternalChargesContentFragment)
 	return r
 }
 
-// TestChargesContentFragment_ScopedToSelectedVehicle verifies GET /ui/charges emits
+// TestExternalChargesContentFragment_ScopedToSelectedVehicle verifies GET /ui/external-charges emits
 // BOTH content fragments (create form + list) for the SELECTED vehicle, with a fresh
 // CSRF token and no page shell. After MAG-5 D4 the create form no longer renders a
 // vehicle picker at all (the session determines the vehicle), so the assertion now
 // ALSO verifies D4: no `name="vehicle"` input is present in the create form.
-func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
+func TestExternalChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
@@ -1380,11 +1380,11 @@ func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})
-	eng := chargesContentEngine(h, uid, 2, "VIN2")
+	eng := externalChargesContentEngine(h, uid, 2, "VIN2")
 	c := sessionCookie(eng, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -1394,7 +1394,7 @@ func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 		t.Fatalf("want 200 for authenticated charges content fragment, got %d (%s)", w.Code, w.Body.String())
 	}
 	body := w.Body.String()
-	for _, want := range []string{`id="charges-create-form"`, `id="charges-list"`, `name="csrf_token"`} {
+	for _, want := range []string{`id="external-charges-create-form"`, `id="external-charges-list"`, `name="csrf_token"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("charges content fragment missing %q\n%s", want, body)
 		}
@@ -1414,10 +1414,10 @@ func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 	}
 }
 
-// TestChargePage_SubscribesToVehicleChanged verifies the full manual-records page
-// wraps its content in the #charges-content region wired to refresh on the sidebar
+// TestExternalChargePage_SubscribesToVehicleChanged verifies the full external-charges page
+// wraps its content in the #external-charges-content region wired to refresh on the sidebar
 // switcher's "vehicle-changed" event.
-func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
+func TestExternalChargePage_SubscribesToVehicleChanged(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
@@ -1429,11 +1429,11 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})
-	eng := chargesContentEngine(h, uid, 1, "VIN1")
+	eng := externalChargesContentEngine(h, uid, 1, "VIN1")
 	c := sessionCookie(eng, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -1444,8 +1444,8 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 	}
 	body := w.Body.String()
 	for _, want := range []string{
-		`id="charges-content"`,
-		`hx-get="/ui/charges"`,
+		`id="external-charges-content"`,
+		`hx-get="/ui/external-charges"`,
 		`hx-trigger="vehicle-changed from:body"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -1456,15 +1456,15 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 
 // --- MAG-5 D2/D6: start-battery suggestion + required battery fields (T4.5) ---
 
-// TestChargePage_BatterySuggestionFromTelemetry verifies D2: when the selected
+// TestExternalChargePage_BatterySuggestionFromTelemetry verifies D2: when the selected
 // vehicle's latest status reports BatteryLevelPct=73, the create form's
 // start_battery_pct input carries a placeholder helper label "Latest: 73%"
 // built via analytics.Reader.LatestMetricsByAccount (the same port the
 // dashboard uses — retyped from the retired snapshot-based reader (RM40) by
 // RM38-gateway-read-dashboard-from-metrics design.md D9). The
-// fakeAnalyticsReader seeds the status; the buildChargesPage helper picks the
+// fakeAnalyticsReader seeds the status; the buildExternalChargesPage helper picks the
 // status for the session-selected TeslaID.
-func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
+func TestExternalChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
@@ -1484,7 +1484,7 @@ func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -1507,12 +1507,12 @@ func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 	}
 }
 
-// TestChargePage_NoBatterySuggestionWhenNoSnapshot verifies D2's graceful-empty
+// TestExternalChargePage_NoBatterySuggestionWhenNoSnapshot verifies D2's graceful-empty
 // contract: when analytics.Reader.LatestMetricsByAccount returns no status for
 // the selected vehicle (empty slice, nil error), the create form's start_battery_pct input
 // does NOT carry a "Latest: N%" placeholder — no fabricated value — and the page
 // still renders 200.
-func TestChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
+func TestExternalChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
@@ -1530,7 +1530,7 @@ func TestChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -1546,10 +1546,10 @@ func TestChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
 	}
 }
 
-// TestChargePage_NoBatterySuggestionOnTelemetryError verifies that a telemetry
+// TestExternalChargePage_NoBatterySuggestionOnTelemetryError verifies that a telemetry
 // Reader error degrades gracefully — no suggestion is rendered, and the page
 // still returns 200 (the page never 500s from a telemetry read failure).
-func TestChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
+func TestExternalChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
@@ -1567,7 +1567,7 @@ func TestChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -1581,14 +1581,14 @@ func TestChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_MissingBatteryPct_Rejected verifies D6: submitting with
+// TestExternalChargeCreate_MissingBatteryPct_Rejected verifies D6: submitting with
 // start_battery_pct or end_battery_pct empty is rejected (422) with a
 // "Battery percentage is required" message, and the Writer is not called.
-func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
+func TestExternalChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -1603,7 +1603,7 @@ func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 		// start_battery_pct deliberately omitted
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -1623,14 +1623,14 @@ func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_OutOfRangeBatteryPct_Rejected verifies D6: out-of-range
+// TestExternalChargeCreate_OutOfRangeBatteryPct_Rejected verifies D6: out-of-range
 // start_battery_pct (e.g. 101 or -1) is rejected with the out-of-range message
 // and the Writer is not called. End battery % mirrors via the same check.
-func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
+func TestExternalChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -1658,7 +1658,7 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 				"end_battery_pct":   {tc.end},
 			}
 			w := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+			req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			if c != nil {
 				req.AddCookie(c)
@@ -1680,20 +1680,20 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 
 // --- MAG-5 D1: optional date fields default to today + cleared persists nil (T5.4) ---
 
-// TestChargePage_DateDefaultsToToday verifies D1: the create form's started_at
+// TestExternalChargePage_DateDefaultsToToday verifies D1: the create form's started_at
 // and ended_at inputs are pre-filled with today's date at the platform-default
-// zone's midnight ("YYYY-MM-DDT00:00") via ChargesPageData.DefaultStartedAt /
+// zone's midnight ("YYYY-MM-DDT00:00") via ExternalChargesPageData.DefaultStartedAt /
 // DefaultEndedAt. No browser_tz cookie is set here, so "today" resolves via
 // browserToday's clock.Zone() fallback (America/Bogota) — was UTC before
 // RM35-gateway-adopt-clock; repaired per roadmap D6.
-func TestChargePage_DateDefaultsToToday(t *testing.T) {
+func TestExternalChargePage_DateDefaultsToToday(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -1715,15 +1715,15 @@ func TestChargePage_DateDefaultsToToday(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_ClearedDates_PersistedNil verifies D1's optional contract:
+// TestExternalChargeCreate_ClearedDates_PersistedNil verifies D1's optional contract:
 // submitting the form with both started_at and ended_at cleared (empty strings)
 // still persists a created entry with nil StartedAt / nil EndedAt — the gateway
 // does not require these optional fields even with the today-default in place.
-func TestChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
+func TestExternalChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -1739,7 +1739,7 @@ func TestChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
 		// started_at and ended_at deliberately empty (clearing the today-default).
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -1762,15 +1762,15 @@ func TestChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
 
 // --- MAG-5 D7: 3-decimal energy accepted (T6.3) ---
 
-// TestChargeCreate_3DecimalEnergy_Accepted verifies D7: submitting
+// TestExternalChargeCreate_3DecimalEnergy_Accepted verifies D7: submitting
 // energy_added_kwh=7.345 (a 3-decimal value) succeeds and persists
 // EnergyAddedKWh=7.345 (the UI step=0.001 permits 3 decimals; no server-side
 // rounding). The energy > 0 check still passes.
-func TestChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
+func TestExternalChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -1785,7 +1785,7 @@ func TestChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
 		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if c != nil {
 		req.AddCookie(c)
@@ -1802,14 +1802,14 @@ func TestChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_NonPositiveEnergy_Rejected verifies the D7 parity contract:
+// TestExternalChargeCreate_NonPositiveEnergy_Rejected verifies the D7 parity contract:
 // the energy > 0 check is unchanged. energy=0 and energy=-1 are still rejected.
-func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
+func TestExternalChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
 	uid := uuid.New()
 	for _, v := range []string{"0", "-1"} {
 		writer := &fakeChargeWriter{}
 		reader := &fakeChargeReader{entries: []charging.Entry{}}
-		h := newHandlerForCharges(writer, reader)
+		h := newHandlerForExternalCharges(writer, reader)
 		r := engineWithSession(h, uid, "tok")
 		c := sessionCookie(r, uid, "tok")
 
@@ -1824,7 +1824,7 @@ func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
 			"end_battery_pct":   {"80"},
 		}
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+		req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		if c != nil {
 			req.AddCookie(c)
@@ -1842,20 +1842,20 @@ func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
 
 // --- MAG-5 D3: delete-row removal is reflected in a subsequent list (T1.3) ---
 
-// TestChargeRowDelete_ThenListReflectsRemoval verifies D3's "row is no longer
+// TestExternalChargeRowDelete_ThenListReflectsRemoval verifies D3's "row is no longer
 // present in a subsequent list render" scenario. The fakeReader.ListEntriesBy*
 // returns a static slice; we pre-seed the entry being deleted and assert the
-// charge-row-<id> marker is absent from a GET /ui/charges/list when the fake
+// external-charge-row-<id> marker is absent from a GET /ui/external-charges/list when the fake
 // reader's slice no longer carries that id (simulating the post-delete state).
 //
 // RE-POINTED for RM33 tier 3 (design.md §Test Contract "Existing tests
 // requiring REWRITE" — "likely still valid in INTENT but must be re-pointed
 // at the new response shape"): the original intent (a later GET reflects the
 // removal) is unchanged, so nothing below it was altered; this adds one new
-// assertion on the delete response ITSELF, confirming ChargeRowDelete now
-// returns the full #charges-list fragment (design.md §D-Refresh), not the old
+// assertion on the delete response ITSELF, confirming ExternalChargeRowDelete now
+// returns the full #external-charges-list fragment (design.md §D-Refresh), not the old
 // MAG-5 bare empty-row shape.
-func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
+func TestExternalChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	// Pre-delete list carries the entry; post-delete list does not. We exercise
@@ -1866,25 +1866,25 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 			EnergyAddedKWh: ptrF64(10.0), Price: 5000.0, Currency: "COP"},
 	}}
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	// Before delete: list render carries the row id.
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
 	r.ServeHTTP(w, req)
-	if !strings.Contains(w.Body.String(), "charge-row-"+id.String()) {
+	if !strings.Contains(w.Body.String(), "external-charge-row-"+id.String()) {
 		t.Fatalf("pre-delete list should contain the row id, got body=%q",
 			w.Body.String()[:min(400, w.Body.Len())])
 	}
 
 	// Delete the row.
 	wDel := httptest.NewRecorder()
-	reqDel := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+id.String(), nil)
+	reqDel := httptest.NewRequest(http.MethodDelete, "/ui/external-charges/row/"+id.String(), nil)
 	reqDel.Header.Set("X-CSRF-Token", "tok")
 	if c != nil {
 		reqDel.AddCookie(c)
@@ -1893,8 +1893,8 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	if wDel.Code != http.StatusOK {
 		t.Fatalf("want 200 on delete, got %d", wDel.Code)
 	}
-	if !strings.Contains(wDel.Body.String(), `id="charges-list"`) {
-		t.Errorf("want the delete response ITSELF to be the full #charges-list fragment (design.md §D-Refresh), got body=%q",
+	if !strings.Contains(wDel.Body.String(), `id="external-charges-list"`) {
+		t.Errorf("want the delete response ITSELF to be the full #external-charges-list fragment (design.md §D-Refresh), got body=%q",
 			wDel.Body.String()[:min(500, wDel.Body.Len())])
 	}
 
@@ -1903,12 +1903,12 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	// deletes from the real store), so we update the fixture to reflect reality.
 	reader.entries = nil
 	wList := httptest.NewRecorder()
-	reqList := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	reqList := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list", nil)
 	if c != nil {
 		reqList.AddCookie(c)
 	}
 	r.ServeHTTP(wList, reqList)
-	if strings.Contains(wList.Body.String(), "charge-row-"+id.String()) {
+	if strings.Contains(wList.Body.String(), "external-charge-row-"+id.String()) {
 		t.Errorf("post-delete list must NOT contain the row id, got body=%q",
 			wList.Body.String()[:min(400, wList.Body.Len())])
 	}
@@ -1919,7 +1919,7 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 //
 // The tests below implement design.md's Test Contract Groups A, B, C. See the
 // "Fixture convention" blockquote at the top of tasks.md §Wave 8: every
-// url.Values fixture that reaches parseChargeForm carries an explicit
+// url.Values fixture that reaches parseExternalChargeForm carries an explicit
 // "status" (Test Contract A4 makes a missing status a validation error in its
 // own right), and every negative test asserts the SPECIFIC i18n message for
 // the field under test, not just the response status code — a bare
@@ -1928,7 +1928,7 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 // ============================================================================
 
 // submitForm issues method to path with form on a fresh session for uid,
-// returning the recorder. Mirrors postCharge's shape but is parameterized
+// returning the recorder. Mirrors postExternalCharge's shape but is parameterized
 // over method/path/form so the Group A/B/C tests below can vary all three
 // (including a GET with an empty url.Values{} for B4's fresh-load check).
 func submitForm(t *testing.T, h *Handler, uid uuid.UUID, method, path string, form url.Values) *httptest.ResponseRecorder {
@@ -1959,18 +1959,18 @@ func validCreateForm() url.Values {
 	}
 }
 
-// --- Group A — parseChargeForm / handler-level (design.md Test Contract A1-A8) ---
+// --- Group A — parseExternalChargeForm / handler-level (design.md Test Contract A1-A8) ---
 
-// TestChargeCreate_A1_InProgress_OptionalFieldsOmitted_Succeeds verifies Test
+// TestExternalChargeCreate_A1_InProgress_OptionalFieldsOmitted_Succeeds verifies Test
 // Contract A1: status=IN_PROGRESS with no energy_added_kwh, no price, no
 // ended_at, no end_battery_pct still succeeds, persisting EnergyAddedKWh=nil,
 // Price=0, EndedAt=nil, EndBatteryPct=nil, Status=IN_PROGRESS.
-func TestChargeCreate_A1_InProgress_OptionalFieldsOmitted_Succeeds(t *testing.T) {
+func TestExternalChargeCreate_A1_InProgress_OptionalFieldsOmitted_Succeeds(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 
-	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", validCreateForm())
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", validCreateForm())
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("A1: want 200, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
@@ -1992,19 +1992,19 @@ func TestChargeCreate_A1_InProgress_OptionalFieldsOmitted_Succeeds(t *testing.T)
 	}
 }
 
-// TestChargeCreate_A2_Done_MissingEndedAtAndEndBatteryPct_Rejected verifies
+// TestExternalChargeCreate_A2_Done_MissingEndedAtAndEndBatteryPct_Rejected verifies
 // Test Contract A2: the same omission under status=DONE is rejected on BOTH
 // conditionally-required fields, and Writer.Create is never reached.
-func TestChargeCreate_A2_Done_MissingEndedAtAndEndBatteryPct_Rejected(t *testing.T) {
+func TestExternalChargeCreate_A2_Done_MissingEndedAtAndEndBatteryPct_Rejected(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := validCreateForm()
 	form.Set("status", "DONE")
 	// ended_at / end_battery_pct deliberately omitted.
 
-	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("A2: want 422, got %d", w.Code)
@@ -2023,20 +2023,20 @@ func TestChargeCreate_A2_Done_MissingEndedAtAndEndBatteryPct_Rejected(t *testing
 	}
 }
 
-// TestChargeCreate_A3_Done_WithEndedAtAndEndBatteryPct_Succeeds verifies Test
+// TestExternalChargeCreate_A3_Done_WithEndedAtAndEndBatteryPct_Succeeds verifies Test
 // Contract A3: status=DONE with both conditionally-required fields supplied
 // and valid succeeds, persisting Status=DONE.
-func TestChargeCreate_A3_Done_WithEndedAtAndEndBatteryPct_Succeeds(t *testing.T) {
+func TestExternalChargeCreate_A3_Done_WithEndedAtAndEndBatteryPct_Succeeds(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := validCreateForm()
 	form.Set("status", "DONE")
 	form.Set("ended_at", "2026-07-15T18:00")
 	form.Set("end_battery_pct", "90")
 
-	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("A3: want 200, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
@@ -2046,10 +2046,10 @@ func TestChargeCreate_A3_Done_WithEndedAtAndEndBatteryPct_Succeeds(t *testing.T)
 	}
 }
 
-// TestChargeCreate_A4_MissingOrInvalidStatus_Rejected verifies Test Contract
+// TestExternalChargeCreate_A4_MissingOrInvalidStatus_Rejected verifies Test Contract
 // A4: an absent or unrecognized status value is rejected on the status field
 // itself, before RequiredFieldsFor is ever consulted.
-func TestChargeCreate_A4_MissingOrInvalidStatus_Rejected(t *testing.T) {
+func TestExternalChargeCreate_A4_MissingOrInvalidStatus_Rejected(t *testing.T) {
 	uid := uuid.New()
 	for _, tc := range []struct {
 		name string
@@ -2061,7 +2061,7 @@ func TestChargeCreate_A4_MissingOrInvalidStatus_Rejected(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writer := &fakeChargeWriter{}
-			h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+			h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 
 			form := validCreateForm()
 			if tc.omit {
@@ -2070,7 +2070,7 @@ func TestChargeCreate_A4_MissingOrInvalidStatus_Rejected(t *testing.T) {
 				form.Set("status", tc.set)
 			}
 
-			w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+			w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 
 			if w.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("A4 %s: want 422, got %d", tc.name, w.Code)
@@ -2087,18 +2087,18 @@ func TestChargeCreate_A4_MissingOrInvalidStatus_Rejected(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_A5_PriceOptional verifies Test Contract A5: price="" ->
+// TestExternalChargeCreate_A5_PriceOptional verifies Test Contract A5: price="" ->
 // 0/no error; price="-1" -> validation error, Writer not called; price
 // "150.50" -> persisted as-is.
-func TestChargeCreate_A5_PriceOptional(t *testing.T) {
+func TestExternalChargeCreate_A5_PriceOptional(t *testing.T) {
 	uid := uuid.New()
 
 	t.Run("empty_defaults_to_zero", func(t *testing.T) {
 		writer := &fakeChargeWriter{}
-		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 		form := validCreateForm()
 		form.Set("price", "")
-		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 		if w.Code != http.StatusOK {
 			t.Fatalf("want 200 on empty price, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 		}
@@ -2109,10 +2109,10 @@ func TestChargeCreate_A5_PriceOptional(t *testing.T) {
 
 	t.Run("negative_rejected", func(t *testing.T) {
 		writer := &fakeChargeWriter{}
-		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 		form := validCreateForm()
 		form.Set("price", "-1")
-		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422 on negative price, got %d", w.Code)
 		}
@@ -2127,10 +2127,10 @@ func TestChargeCreate_A5_PriceOptional(t *testing.T) {
 
 	t.Run("valid_decimal_persisted", func(t *testing.T) {
 		writer := &fakeChargeWriter{}
-		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 		form := validCreateForm()
 		form.Set("price", "150.50")
-		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 		if w.Code != http.StatusOK {
 			t.Fatalf("want 200 on valid price, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 		}
@@ -2140,19 +2140,19 @@ func TestChargeCreate_A5_PriceOptional(t *testing.T) {
 	})
 }
 
-// TestChargeCreate_A6_EnergyOptional verifies Test Contract A6:
+// TestExternalChargeCreate_A6_EnergyOptional verifies Test Contract A6:
 // energy_added_kwh="" -> nil/no error; energy_added_kwh="0" -> rejected by
 // the existing "must be positive" rule, now conditioned on non-empty rather
 // than always-on.
-func TestChargeCreate_A6_EnergyOptional(t *testing.T) {
+func TestExternalChargeCreate_A6_EnergyOptional(t *testing.T) {
 	uid := uuid.New()
 
 	t.Run("empty_is_nil_no_error", func(t *testing.T) {
 		writer := &fakeChargeWriter{}
-		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 		form := validCreateForm()
 		form.Set("energy_added_kwh", "")
-		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 		if w.Code != http.StatusOK {
 			t.Fatalf("want 200 on empty energy, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 		}
@@ -2163,10 +2163,10 @@ func TestChargeCreate_A6_EnergyOptional(t *testing.T) {
 
 	t.Run("zero_rejected", func(t *testing.T) {
 		writer := &fakeChargeWriter{}
-		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 		form := validCreateForm()
 		form.Set("energy_added_kwh", "0")
-		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("want 422 on energy=0, got %d", w.Code)
 		}
@@ -2180,9 +2180,9 @@ func TestChargeCreate_A6_EnergyOptional(t *testing.T) {
 	})
 }
 
-// TestChargeCreate_A7_OdometerOptional verifies Test Contract A7: odometer_km
+// TestExternalChargeCreate_A7_OdometerOptional verifies Test Contract A7: odometer_km
 // is a new always-optional non-negative integer field.
-func TestChargeCreate_A7_OdometerOptional(t *testing.T) {
+func TestExternalChargeCreate_A7_OdometerOptional(t *testing.T) {
 	uid := uuid.New()
 	for _, tc := range []struct {
 		name      string
@@ -2198,10 +2198,10 @@ func TestChargeCreate_A7_OdometerOptional(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writer := &fakeChargeWriter{}
-			h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+			h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 			form := validCreateForm()
 			form.Set("odometer_km", tc.value)
-			w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+			w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 
 			if tc.wantOK {
 				if w.Code != http.StatusOK {
@@ -2230,15 +2230,15 @@ func TestChargeCreate_A7_OdometerOptional(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_A8_StartBatteryPctRequired_BothStatuses verifies Test
+// TestExternalChargeCreate_A8_StartBatteryPctRequired_BothStatuses verifies Test
 // Contract A8: start_battery_pct is unconditionally required, unchanged by
 // RM33, for BOTH status values.
-func TestChargeCreate_A8_StartBatteryPctRequired_BothStatuses(t *testing.T) {
+func TestExternalChargeCreate_A8_StartBatteryPctRequired_BothStatuses(t *testing.T) {
 	uid := uuid.New()
 	for _, status := range []string{"IN_PROGRESS", "DONE"} {
 		t.Run(status, func(t *testing.T) {
 			writer := &fakeChargeWriter{}
-			h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+			h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 			form := validCreateForm()
 			form.Set("status", status)
 			form.Del("start_battery_pct")
@@ -2246,7 +2246,7 @@ func TestChargeCreate_A8_StartBatteryPctRequired_BothStatuses(t *testing.T) {
 				form.Set("ended_at", "2026-07-15T18:00")
 				form.Set("end_battery_pct", "90")
 			}
-			w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+			w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 
 			if w.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("status=%s: want 422 on missing start_battery_pct, got %d", status, w.Code)
@@ -2264,16 +2264,16 @@ func TestChargeCreate_A8_StartBatteryPctRequired_BothStatuses(t *testing.T) {
 
 // --- Group B — D15 value-preservation (design.md Test Contract B1-B4) ---
 
-// TestChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct
+// TestExternalChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct
 // verifies Test Contract B1: a valid location_kind=WORK and battery values
 // but an out-of-range end_battery_pct under status=DONE re-renders the 422
 // create form with WORK still selected and the invalid "150" still echoed in
-// end_battery_pct's value — the raw ChargeFormValues, not a blank/default
+// end_battery_pct's value — the raw ExternalChargeFormValues, not a blank/default
 // field, survives the failed validation (roadmap D15).
-func TestChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct(t *testing.T) {
+func TestExternalChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := validCreateForm()
 	form.Set("status", "DONE")
@@ -2281,7 +2281,7 @@ func TestChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct(t *
 	form.Set("ended_at", "2026-07-15T18:00")
 	form.Set("end_battery_pct", "150") // out of range (0-100) — the sole invalid field
 
-	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("B1: want 422, got %d", w.Code)
@@ -2295,17 +2295,17 @@ func TestChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct(t *
 	}
 }
 
-// TestChargeRowUpdate_B2_ValidationFailure_PreservesNotesAndLocationLabel
+// TestExternalChargeRowUpdate_B2_ValidationFailure_PreservesNotesAndLocationLabel
 // verifies Test Contract B2: the inline edit row's 422 re-render still
 // carries the submitted notes/location_label text even though a different
 // field (start_battery_pct, out of range) is what failed validation, and even
 // though charging_type carries a value the <select> could never submit (a raw
 // POST bypassing the browser control).
-func TestChargeRowUpdate_B2_ValidationFailure_PreservesNotesAndLocationLabel(t *testing.T) {
+func TestExternalChargeRowUpdate_B2_ValidationFailure_PreservesNotesAndLocationLabel(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
 
 	form := validCreateForm()
 	form.Set("start_battery_pct", "150") // out of range — triggers the 422
@@ -2313,7 +2313,7 @@ func TestChargeRowUpdate_B2_ValidationFailure_PreservesNotesAndLocationLabel(t *
 	form.Set("notes", "Charged at the mall")
 	form.Set("location_label", "Centro Comercial")
 
-	w := submitForm(t, h, uid, http.MethodPut, "/ui/charges/row/"+id.String(), form)
+	w := submitForm(t, h, uid, http.MethodPut, "/ui/external-charges/row/"+id.String(), form)
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("B2: want 422, got %d", w.Code)
@@ -2330,21 +2330,21 @@ func TestChargeRowUpdate_B2_ValidationFailure_PreservesNotesAndLocationLabel(t *
 	}
 }
 
-// TestChargeCreate_B3_StatusDoneClearedEndedAt_StatusSelectionPreserved
+// TestExternalChargeCreate_B3_StatusDoneClearedEndedAt_StatusSelectionPreserved
 // verifies Test Contract B3: status="DONE" with ended_at cleared re-renders
 // the create form's status <select> still showing DONE selected — the error
 // path must not silently reset it to the IN_PROGRESS default.
-func TestChargeCreate_B3_StatusDoneClearedEndedAt_StatusSelectionPreserved(t *testing.T) {
+func TestExternalChargeCreate_B3_StatusDoneClearedEndedAt_StatusSelectionPreserved(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := validCreateForm()
 	form.Set("status", "DONE")
 	form.Set("end_battery_pct", "90")
 	// ended_at deliberately cleared — the only invalid field.
 
-	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("B3: want 422, got %d", w.Code)
@@ -2358,15 +2358,15 @@ func TestChargeCreate_B3_StatusDoneClearedEndedAt_StatusSelectionPreserved(t *te
 	}
 }
 
-// TestChargePage_B4_FreshLoad_NoRegressionInBlankFieldRendering verifies Test
-// Contract B4: a fresh GET /charges (no submission) still renders
+// TestExternalChargePage_B4_FreshLoad_NoRegressionInBlankFieldRendering verifies Test
+// Contract B4: a fresh GET /external-charges (no submission) still renders
 // energy_added_kwh / price with an empty value and no location_kind option
-// pre-selected — ChargeFormValues{}'s zero value reproduces today's
+// pre-selected — ExternalChargeFormValues{}'s zero value reproduces today's
 // fresh-load behavior with no regression from adding the struct.
-func TestChargePage_B4_FreshLoad_NoRegressionInBlankFieldRendering(t *testing.T) {
+func TestExternalChargePage_B4_FreshLoad_NoRegressionInBlankFieldRendering(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
-	w := submitForm(t, h, uid, http.MethodGet, "/charges", url.Values{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	w := submitForm(t, h, uid, http.MethodGet, "/external-charges", url.Values{})
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("B4: want 200, got %d", w.Code)
@@ -2387,45 +2387,45 @@ func TestChargePage_B4_FreshLoad_NoRegressionInBlankFieldRendering(t *testing.T)
 
 // --- Group C — template/markup assertions (design.md Test Contract C1-C7) ---
 //
-// These render fragments.ChargeCreateForm / fragments.ChargeRowEdit directly
-// (mirrors supercharger_test.go's TestChargeCreateForm-style direct-render
+// These render fragments.ExternalChargeCreateForm / fragments.ExternalChargeRowEdit directly
+// (mirrors supercharger_test.go's TestExternalChargeCreateForm-style direct-render
 // pattern and history_test.go's TestBaseAuth_RendersBrowserTZScript) rather
 // than going through the full HTTP handler chain — Group C is a
 // template/markup assertion, not a handler-behavior one, so it exercises the
-// templates' binding of ChargesPageData/ChargeEntryVM fields directly,
+// templates' binding of ExternalChargesPageData/ExternalChargeEntryVM fields directly,
 // independent of which handler code path produced those field values.
 
-// renderCreateForm renders fragments.ChargeCreateForm(d, nil) to a string in
+// renderCreateForm renders fragments.ExternalChargeCreateForm(d, nil) to a string in
 // the given language ("es"/"en" via i18n.WithLang, or "" for the ambient
 // default — i18n.FromContext resolves an unset context to Spanish).
-func renderCreateForm(t *testing.T, d fragments.ChargesPageData, lang string) string {
+func renderCreateForm(t *testing.T, d fragments.ExternalChargesPageData, lang string) string {
 	t.Helper()
 	ctx := context.Background()
 	if lang != "" {
 		ctx = i18n.WithLang(ctx, lang)
 	}
 	var body bytes.Buffer
-	if err := fragments.ChargeCreateForm(d, nil).Render(ctx, &body); err != nil {
-		t.Fatalf("render ChargeCreateForm: %v", err)
+	if err := fragments.ExternalChargeCreateForm(d, nil).Render(ctx, &body); err != nil {
+		t.Fatalf("render ExternalChargeCreateForm: %v", err)
 	}
 	return body.String()
 }
 
-// renderEditRow renders fragments.ChargeRowEdit(vm, "tok", nil, "", "") to a
+// renderEditRow renders fragments.ExternalChargeRowEdit(vm, "tok", nil, "", "") to a
 // string, same language convention as renderCreateForm. The two trailing ""
 // args are windowStartStr/windowEndStr (design.md §D-Refresh, RM33 tier 3) —
 // Group C's template/markup assertions (C1-C7) are all indifferent to the
 // filter window, so empty strings are the correct fixture here; the window
 // itself is pinned separately by Group D (§D-Include/§D-Refresh).
-func renderEditRow(t *testing.T, vm fragments.ChargeEntryVM, lang string) string {
+func renderEditRow(t *testing.T, vm fragments.ExternalChargeEntryVM, lang string) string {
 	t.Helper()
 	ctx := context.Background()
 	if lang != "" {
 		ctx = i18n.WithLang(ctx, lang)
 	}
 	var body bytes.Buffer
-	if err := fragments.ChargeRowEdit(vm, "tok", nil, "", "").Render(ctx, &body); err != nil {
-		t.Fatalf("render ChargeRowEdit: %v", err)
+	if err := fragments.ExternalChargeRowEdit(vm, "tok", nil, "", "").Render(ctx, &body); err != nil {
+		t.Fatalf("render ExternalChargeRowEdit: %v", err)
 	}
 	return body.String()
 }
@@ -2446,13 +2446,13 @@ func tagAttrsFor(body, name string) string {
 	return body[idx : idx+end+1]
 }
 
-// TestChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo
+// TestExternalChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo
 // verifies Test Contract C1 for BOTH forms: energy_added_kwh and price carry
 // no `required` attribute; start_battery_pct, charged_on, location_kind still
 // carry `required` (unconditional fields, unchanged by RM33).
-func TestChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo(t *testing.T) {
-	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
-	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
+func TestExternalChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo(t *testing.T) {
+	createBody := renderCreateForm(t, fragments.ExternalChargesPageData{}, "")
+	editBody := renderEditRow(t, fragments.ExternalChargeEntryVM{}, "")
 
 	for _, form := range []struct {
 		name string
@@ -2473,15 +2473,15 @@ func TestChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo(t *t
 	}
 }
 
-// TestChargeCreateForm_C2_FreshRender_InProgressDefaultsNoEndRequired
-// verifies Test Contract C2: a create-form ChargesPageData matching a fresh
+// TestExternalChargeCreateForm_C2_FreshRender_InProgressDefaultsNoEndRequired
+// verifies Test Contract C2: a create-form ExternalChargesPageData matching a fresh
 // (non-error) render — Status=IN_PROGRESS, RequiredEndedAt/
-// RequiredEndBatteryPct both false, mirroring buildChargesPage's own
+// RequiredEndBatteryPct both false, mirroring buildExternalChargesPage's own
 // fresh-load computation (design.md §D-Values/§D-Fields) — renders
 // IN_PROGRESS selected and no required attribute on ended_at/end_battery_pct.
-func TestChargeCreateForm_C2_FreshRender_InProgressDefaultsNoEndRequired(t *testing.T) {
-	d := fragments.ChargesPageData{
-		FormValues:            fragments.ChargeFormValues{Status: string(charging.StatusInProgress)},
+func TestExternalChargeCreateForm_C2_FreshRender_InProgressDefaultsNoEndRequired(t *testing.T) {
+	d := fragments.ExternalChargesPageData{
+		FormValues:            fragments.ExternalChargeFormValues{Status: string(charging.StatusInProgress)},
 		RequiredEndedAt:       false,
 		RequiredEndBatteryPct: false,
 	}
@@ -2500,8 +2500,8 @@ func TestChargeCreateForm_C2_FreshRender_InProgressDefaultsNoEndRequired(t *test
 	}
 }
 
-// TestChargeCreateForm_C3_DoneRequiredState_RendersRequiredAttributes
-// verifies Test Contract C3: when the create form's ChargesPageData carries
+// TestExternalChargeCreateForm_C3_DoneRequiredState_RendersRequiredAttributes
+// verifies Test Contract C3: when the create form's ExternalChargesPageData carries
 // the required-state a DONE submission produces (RequiredEndedAt=true,
 // RequiredEndBatteryPct=true — the same charging.RequiredFieldsFor(DONE)
 // lookup design.md §D-Fields describes), ended_at and end_battery_pct render
@@ -2509,22 +2509,22 @@ func TestChargeCreateForm_C2_FreshRender_InProgressDefaultsNoEndRequired(t *test
 //
 // This is a template-binding assertion (Group C's stated scope is
 // "template/markup assertions"), independent of which handler code path
-// populates these two booleans. WORKER FINDING (2026-08-29): ChargeCreate's
+// populates these two booleans. WORKER FINDING (2026-08-29): ExternalChargeCreate's
 // OWN 422/500 branches do not currently recompute RequiredEndedAt/
 // RequiredEndBatteryPct from the submitted raw.Status (task 3.3 wired that
-// recompute only for the edit-row path, via chargeEntryVMFromRawValues) — so
+// recompute only for the edit-row path, via externalChargeEntryVMFromRawValues) — so
 // a create-form validation failure under status=DONE will NOT itself produce
-// this exact ChargesPageData shape today; the create form's error re-render
-// keeps whatever buildChargesPage's unconditional StatusInProgress-based
+// this exact ExternalChargesPageData shape today; the create form's error re-render
+// keeps whatever buildExternalChargesPage's unconditional StatusInProgress-based
 // computation set. RD13's client-side htmx:load listener is design.md's own
 // documented mitigation for this ("if the two ever disagree ... the
 // disagreement is inert"), but it means the SERVER-rendered HTML on that one
 // path does not, by itself, satisfy this test's premise. See this worker's
 // final report for the full writeup; not fixed here (out of this task's
 // assigned scope — task 3.3 owns that wiring).
-func TestChargeCreateForm_C3_DoneRequiredState_RendersRequiredAttributes(t *testing.T) {
-	d := fragments.ChargesPageData{
-		FormValues:            fragments.ChargeFormValues{Status: string(charging.StatusDone)},
+func TestExternalChargeCreateForm_C3_DoneRequiredState_RendersRequiredAttributes(t *testing.T) {
+	d := fragments.ExternalChargesPageData{
+		FormValues:            fragments.ExternalChargeFormValues{Status: string(charging.StatusDone)},
 		RequiredEndedAt:       true,
 		RequiredEndBatteryPct: true,
 	}
@@ -2537,13 +2537,13 @@ func TestChargeCreateForm_C3_DoneRequiredState_RendersRequiredAttributes(t *test
 	}
 }
 
-// TestChargeRowEdit_C4_StatusSelectReflectsPersistedValue verifies Test
+// TestExternalChargeRowEdit_C4_StatusSelectReflectsPersistedValue verifies Test
 // Contract C4: the edit row's status <select> shows the PERSISTED entry's
 // status selected — DONE for a DONE entry, IN_PROGRESS for an IN_PROGRESS one.
-func TestChargeRowEdit_C4_StatusSelectReflectsPersistedValue(t *testing.T) {
+func TestExternalChargeRowEdit_C4_StatusSelectReflectsPersistedValue(t *testing.T) {
 	for _, status := range []string{"DONE", "IN_PROGRESS"} {
 		t.Run(status, func(t *testing.T) {
-			vm := fragments.ChargeEntryVM{ID: uuid.New().String(), RawStatus: status}
+			vm := fragments.ExternalChargeEntryVM{ID: uuid.New().String(), RawStatus: status}
 			body := renderEditRow(t, vm, "")
 
 			if !strings.Contains(body, `value="`+status+`" selected`) {
@@ -2560,7 +2560,7 @@ func TestChargeRowEdit_C4_StatusSelectReflectsPersistedValue(t *testing.T) {
 	}
 }
 
-// TestChargeForms_NoCurrencyField pins a form contract: neither form renders a
+// TestExternalChargeForms_NoCurrencyField pins a form contract: neither form renders a
 // Currency <input>. Currency is not user-supplied — the money rule pairs the
 // amount with a fixed currency column, so a Currency control appearing here
 // would mean the write path changed shape.
@@ -2568,9 +2568,9 @@ func TestChargeRowEdit_C4_StatusSelectReflectsPersistedValue(t *testing.T) {
 // The former C5 also asserted the COP suffix <span> and the DaisyUI compound
 // wrapper around the price input. Both were dropped (MAG-39): a suffix glyph
 // and a wrapper element are appearance, verified by hand.
-func TestChargeForms_NoCurrencyField(t *testing.T) {
-	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
-	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
+func TestExternalChargeForms_NoCurrencyField(t *testing.T) {
+	createBody := renderCreateForm(t, fragments.ExternalChargesPageData{}, "")
+	editBody := renderEditRow(t, fragments.ExternalChargeEntryVM{}, "")
 
 	for _, form := range []struct {
 		name string
@@ -2584,11 +2584,11 @@ func TestChargeForms_NoCurrencyField(t *testing.T) {
 	}
 }
 
-// TestChargeForms_C6_ACDCOptionText_BothLanguages verifies Test Contract C6:
+// TestExternalChargeForms_C6_ACDCOptionText_BothLanguages verifies Test Contract C6:
 // both forms' AC/DC <option> text matches roadmap D16's descriptive strings,
 // in both ES and EN (i18n.WithLang, mirroring the catalogue completeness
 // test's language-switch pattern).
-func TestChargeForms_C6_ACDCOptionText_BothLanguages(t *testing.T) {
+func TestExternalChargeForms_C6_ACDCOptionText_BothLanguages(t *testing.T) {
 	for _, tc := range []struct {
 		lang   string
 		wantAC string
@@ -2598,8 +2598,8 @@ func TestChargeForms_C6_ACDCOptionText_BothLanguages(t *testing.T) {
 		{"en", "AC — Slow charging (home/destination)", "DC — Fast charging (Supercharger)"},
 	} {
 		t.Run(tc.lang, func(t *testing.T) {
-			createBody := renderCreateForm(t, fragments.ChargesPageData{}, tc.lang)
-			editBody := renderEditRow(t, fragments.ChargeEntryVM{}, tc.lang)
+			createBody := renderCreateForm(t, fragments.ExternalChargesPageData{}, tc.lang)
+			editBody := renderEditRow(t, fragments.ExternalChargeEntryVM{}, tc.lang)
 			for _, form := range []struct {
 				name string
 				body string
@@ -2615,7 +2615,7 @@ func TestChargeForms_C6_ACDCOptionText_BothLanguages(t *testing.T) {
 	}
 }
 
-// TestChargeForms_NoDetailsCollapse pins a browser trap, not a layout: a
+// TestExternalChargeForms_NoDetailsCollapse pins a browser trap, not a layout: a
 // required control inside a closed <details> cannot be focused to show its
 // HTML5 validation message, so Save silently does nothing — Chrome only logs
 // "An invalid form control with name='location_kind' is not focusable". The
@@ -2624,9 +2624,9 @@ func TestChargeForms_C6_ACDCOptionText_BothLanguages(t *testing.T) {
 // The former C7 also asserted odometer_km rendered inside the optional-details
 // <section>. That part was dropped (MAG-39): where a field sits is layout, and
 // layout is verified by hand.
-func TestChargeForms_NoDetailsCollapse(t *testing.T) {
-	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
-	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
+func TestExternalChargeForms_NoDetailsCollapse(t *testing.T) {
+	createBody := renderCreateForm(t, fragments.ExternalChargesPageData{}, "")
+	editBody := renderEditRow(t, fragments.ExternalChargeEntryVM{}, "")
 
 	for _, form := range []struct {
 		name string
@@ -2640,22 +2640,22 @@ func TestChargeForms_NoDetailsCollapse(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes is the
+// TestExternalChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes is the
 // handler-level counterpart to Test Contract C3, added in wave 4 after the C3
-// template test surfaced that ChargeCreate's error branches did not satisfy it.
+// template test surfaced that ExternalChargeCreate's error branches did not satisfy it.
 //
 // C3 asserts the create form renders `required` on ended_at/end_battery_pct for
 // a DONE status, and the template does — but only if the handler hands it a
-// ChargesPageData whose Required* pair was computed from the SUBMITTED status.
+// ExternalChargesPageData whose Required* pair was computed from the SUBMITTED status.
 // The 4xx/5xx branches overwrite FormValues with the raw submission (roadmap
-// D15) and used to leave Required* on buildChargesPage's fresh-load IN_PROGRESS
+// D15) and used to leave Required* on buildExternalChargesPage's fresh-load IN_PROGRESS
 // default, so a user who picked DONE and tripped an unrelated validation error
 // got those two inputs back without `required` — the flash-of-wrong-state
 // design.md §D-Fields rules out. applyRawRequiredState fixes it; this test
 // pins the handler path a direct template render cannot reach.
-func TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes(t *testing.T) {
+func TestExternalChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 
 	// Valid in every respect EXCEPT location_kind, so the 422 is triggered by a
 	// field unrelated to the status-gated pair under assertion. Per the wave-8
@@ -2667,7 +2667,7 @@ func TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes(t *testin
 	form.Set("end_battery_pct", "80")
 	form.Del("location_kind")
 
-	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("want 422 when location_kind is missing, got %d", w.Code)
 	}
@@ -2686,17 +2686,17 @@ func TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes(t *testin
 
 // ============================================================================
 // RM33-gateway-add-entries-dashboard (MAG-18, tier 3) — Test Contract Groups
-// C, D, E (design.md). Groups A (parseChargesRange/buildChargesPresets) and B
-// (entryComplete/buildChargeTiles) already live in charges_range_test.go /
-// charges_tiles_test.go (Wave 3). These are the rendered-HTML (C) and
+// C, D, E (design.md). Groups A (parseExternalChargesRange/buildExternalChargesPresets) and B
+// (entryComplete/buildExternalChargeTiles) already live in external_charges_range_test.go /
+// external_charges_tiles_test.go (Wave 3). These are the rendered-HTML (C) and
 // httptest (D, E) groups — Wave 9.
 // ============================================================================
 
-// MAG-39: the three ChargeRow C1-C3 tests were removed here. They asserted the
+// MAG-39: the three ExternalChargeRow C1-C3 tests were removed here. They asserted the
 // row's dot CSS class (bg-success / bg-warning) and the status badge's rendered
 // text — appearance, not behaviour, and the kind of assertion a re-skin breaks
 // while the page still works. The data rule they stood for (which entries count
-// as complete) is covered by TestEntryComplete_* in charges_tiles_test.go,
+// as complete) is covered by TestEntryComplete_* in external_charges_tiles_test.go,
 // which tests the predicate directly instead of through markup.
 
 // --- Group D — window preservation (design.md Test Contract D1-D4, offline httptest) ---
@@ -2713,76 +2713,76 @@ func todayDefaultZoneMidnight() time.Time {
 	return startOfDayIn(time.Now(), clock.Zone())
 }
 
-// TestChargeCreate_D1_WindowFromFormThreadsIntoOOBRefresh verifies Test
-// Contract D1: POST /ui/charges/create with a valid submission AND
+// TestExternalChargeCreate_D1_WindowFromFormThreadsIntoOOBRefresh verifies Test
+// Contract D1: POST /ui/external-charges/create with a valid submission AND
 // start=2026-08-01&end=2026-08-31 in the form body (simulating hx-include,
-// design.md §D-Include) -> the response's OOB #charges-list div reflects THAT
+// design.md §D-Include) -> the response's OOB #external-charges-list div reflects THAT
 // window, not the default 7-day one. Asserted via the pre-formatted hidden
-// #charges-window-start/#charges-window-end input values (design.md's own
+// #external-charges-window-start/#external-charges-window-end input values (design.md's own
 // suggested assertion method), since those two inputs are rendered from
-// ChargesPageData.WindowStartStr/WindowEndStr on every #charges-list render.
-func TestChargeCreate_D1_WindowFromFormThreadsIntoOOBRefresh(t *testing.T) {
+// ExternalChargesPageData.WindowStartStr/WindowEndStr on every #external-charges-list render.
+func TestExternalChargeCreate_D1_WindowFromFormThreadsIntoOOBRefresh(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := validCreateForm()
 	form.Set("start", "2026-08-01")
 	form.Set("end", "2026-08-31")
 
-	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 	if w.Code != http.StatusOK {
 		t.Fatalf("D1: want 200 on valid create, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, `id="charges-window-start" value="2026-08-01"`) {
-		t.Errorf("D1: want the OOB #charges-list to reflect the hx-include'd start=2026-08-01, body=%q", body[:min(1500, len(body))])
+	if !strings.Contains(body, `id="external-charges-window-start" value="2026-08-01"`) {
+		t.Errorf("D1: want the OOB #external-charges-list to reflect the hx-include'd start=2026-08-01, body=%q", body[:min(1500, len(body))])
 	}
-	if !strings.Contains(body, `id="charges-window-end" value="2026-08-31"`) {
-		t.Errorf("D1: want the OOB #charges-list to reflect the hx-include'd end=2026-08-31, body=%q", body[:min(1500, len(body))])
+	if !strings.Contains(body, `id="external-charges-window-end" value="2026-08-31"`) {
+		t.Errorf("D1: want the OOB #external-charges-list to reflect the hx-include'd end=2026-08-31, body=%q", body[:min(1500, len(body))])
 	}
 }
 
-// TestChargeCreate_D2_StartEndAbsent_FallsBackToDefaultWindow verifies Test
+// TestExternalChargeCreate_D2_StartEndAbsent_FallsBackToDefaultWindow verifies Test
 // Contract D2: same as D1 but the start/end form fields are ABSENT (a client
 // with hx-include disabled/stripped) -> the OOB refresh falls back to the
 // default 7-day window, and the write's success status is unaffected
 // (design.md §D-Include: "cosmetic only, never a validation gate").
-func TestChargeCreate_D2_StartEndAbsent_FallsBackToDefaultWindow(t *testing.T) {
+func TestExternalChargeCreate_D2_StartEndAbsent_FallsBackToDefaultWindow(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := validCreateForm() // no start/end fields at all
-	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 	if w.Code != http.StatusOK {
 		t.Fatalf("D2: want 200 (absent window must never gate the write), got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
 
 	today := todayDefaultZoneMidnight()
-	wantStart := today.AddDate(0, 0, -(chargesRangeDefaultDays - 1)).Format("2006-01-02")
+	wantStart := today.AddDate(0, 0, -(externalChargesRangeDefaultDays - 1)).Format("2006-01-02")
 	wantEnd := today.Format("2006-01-02")
 	body := w.Body.String()
-	if !strings.Contains(body, `id="charges-window-start" value="`+wantStart+`"`) {
+	if !strings.Contains(body, `id="external-charges-window-start" value="`+wantStart+`"`) {
 		t.Errorf("D2: want the OOB refresh to fall back to the default window start %s, body=%q", wantStart, body[:min(1500, len(body))])
 	}
-	if !strings.Contains(body, `id="charges-window-end" value="`+wantEnd+`"`) {
+	if !strings.Contains(body, `id="external-charges-window-end" value="`+wantEnd+`"`) {
 		t.Errorf("D2: want the OOB refresh to fall back to the default window end %s, body=%q", wantEnd, body[:min(1500, len(body))])
 	}
 }
 
-// TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow restates Test
+// TestExternalChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow restates Test
 // Contract D3 for the 2026-08-29 amendment. D3 previously required a successful
-// PUT to re-render the OOB #charges-list under whatever window the hidden
+// PUT to re-render the OOB #external-charges-list under whatever window the hidden
 // start/end inputs posted. It now requires the opposite: a successful edit
 // RESETS the list to the default 7-day window, so the user lands back on the
 // "last 7 days" preset with that preset active.
 //
 // The posted window here (2026-08-01..2026-08-31) is deliberately NOT the
 // default, so a handler that still threaded it through would fail this test.
-func TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *testing.T) {
+func TestExternalChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
@@ -2796,22 +2796,22 @@ func TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *testing.
 		"start":             {"2026-08-01"},
 		"end":               {"2026-08-31"},
 	}
-	w := submitForm(t, h, uid, http.MethodPut, "/ui/charges/row/"+id.String(), form)
+	w := submitForm(t, h, uid, http.MethodPut, "/ui/external-charges/row/"+id.String(), form)
 	if w.Code != http.StatusOK {
 		t.Fatalf("D3: want 200 on valid update, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
 	body := w.Body.String()
 
-	// The response must be the #charges-list region itself, retargeted away from
-	// the form's #charge-row-{id}. The previous shape — a primary <tr> plus a
+	// The response must be the #external-charges-list region itself, retargeted away from
+	// the form's #external-charge-row-{id}. The previous shape — a primary <tr> plus a
 	// sibling <div hx-swap-oob> — never refreshed the list in the browser: htmx
 	// 2.0.4 parses responses inside a <template>, a leading <tr> puts the HTML
 	// parser in table insertion mode, and the non-table OOB sibling is
 	// foster-parented off the fragment's top level, which is the only place htmx
 	// looks for hx-swap-oob. These three assertions together are what stop that
 	// shape from coming back.
-	if got := w.Header().Get("HX-Retarget"); got != "#charges-list" {
-		t.Fatalf("D3: want HX-Retarget=#charges-list on a successful edit, got %q", got)
+	if got := w.Header().Get("HX-Retarget"); got != "#external-charges-list" {
+		t.Fatalf("D3: want HX-Retarget=#external-charges-list on a successful edit, got %q", got)
 	}
 	if got := w.Header().Get("HX-Reswap"); got != "outerHTML" {
 		t.Errorf("D3: want HX-Reswap=outerHTML, got %q", got)
@@ -2822,40 +2822,40 @@ func TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *testing.
 	if strings.HasPrefix(strings.TrimSpace(body), "<tr") {
 		t.Errorf("D3: the update response must not lead with a <tr> (puts htmx's parser in table mode); body=%q", body[:min(500, len(body))])
 	}
-	if !strings.Contains(body, `id="charges-list"`) {
-		t.Fatalf("D3: want the whole #charges-list region in the update response, body=%q", body[:min(1500, len(body))])
+	if !strings.Contains(body, `id="external-charges-list"`) {
+		t.Fatalf("D3: want the whole #external-charges-list region in the update response, body=%q", body[:min(1500, len(body))])
 	}
 
 	// The default window is derived the same way the handler derives it, via the
 	// same todayDefaultZoneMidnight() helper its sibling D2 test uses, so this
-	// test does not go stale on a date change or on chargesRangeDefaultDays.
-	wantStart, wantEnd := defaultChargesWindow(todayDefaultZoneMidnight())
-	if !strings.Contains(body, `id="charges-window-start" value="`+wantStart.Format("2006-01-02")+`"`) {
+	// test does not go stale on a date change or on externalChargesRangeDefaultDays.
+	wantStart, wantEnd := defaultExternalChargesWindow(todayDefaultZoneMidnight())
+	if !strings.Contains(body, `id="external-charges-window-start" value="`+wantStart.Format("2006-01-02")+`"`) {
 		t.Errorf("D3: a successful edit must reset the list to the default window start %s, not the posted 2026-08-01; body=%q",
 			wantStart.Format("2006-01-02"), body[:min(1500, len(body))])
 	}
-	if !strings.Contains(body, `id="charges-window-end" value="`+wantEnd.Format("2006-01-02")+`"`) {
+	if !strings.Contains(body, `id="external-charges-window-end" value="`+wantEnd.Format("2006-01-02")+`"`) {
 		t.Errorf("D3: a successful edit must reset the list to the default window end %s, not the posted 2026-08-31; body=%q",
 			wantEnd.Format("2006-01-02"), body[:min(1500, len(body))])
 	}
 	// The point of the reset: the "last 7 days" preset comes back selected.
-	// buildChargesPresets marks Active by exact-match against its own recomputed
+	// buildExternalChargesPresets marks Active by exact-match against its own recomputed
 	// window, so asserting the rendered active preset proves the reset landed on
 	// a real preset rather than merely on some 7-day range.
-	if !strings.Contains(body, `hx-get="/ui/charges/list?start=`+wantStart.Format("2006-01-02")+`&amp;end=`+wantEnd.Format("2006-01-02")+`"`) {
+	if !strings.Contains(body, `hx-get="/ui/external-charges/list?start=`+wantStart.Format("2006-01-02")+`&amp;end=`+wantEnd.Format("2006-01-02")+`"`) {
 		t.Errorf("D3: want the last-7-days preset rendered for the reset window; body=%q", body[:min(2000, len(body))])
 	}
 }
 
-// TestChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow is the other
+// TestExternalChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow is the other
 // half of the amendment: only SUCCESS resets. A failed save must not move the
 // user's filter, so the re-rendered edit form still echoes the posted window
 // back through its hidden start/end inputs — which is the whole reason those
 // inputs exist (design.md §D-Include).
-func TestChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow(t *testing.T) {
+func TestExternalChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := url.Values{
 		"csrf_token":    {"tok"},
@@ -2866,7 +2866,7 @@ func TestChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow(t *testing.T)
 		"start": {"2026-08-01"},
 		"end":   {"2026-08-31"},
 	}
-	w := submitForm(t, h, uid, http.MethodPut, "/ui/charges/row/"+id.String(), form)
+	w := submitForm(t, h, uid, http.MethodPut, "/ui/external-charges/row/"+id.String(), form)
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("D3b: want 422 on the invalid update, got %d", w.Code)
 	}
@@ -2876,16 +2876,16 @@ func TestChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow(t *testing.T)
 	}
 }
 
-// TestChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow verifies
-// Test Contract D4: DELETE /ui/charges/row/{id}?start=2026-08-01&end=2026-08-31
-// -> the response is a full #charges-list fragment (not a bare <tr>)
+// TestExternalChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow verifies
+// Test Contract D4: DELETE /ui/external-charges/row/{id}?start=2026-08-01&end=2026-08-31
+// -> the response is a full #external-charges-list fragment (not a bare <tr>)
 // reflecting the post-delete state within THAT window, and the deleted row's
 // id is absent from it. The fake Reader has no relationship to the fake
 // Writer's Delete call, so reader.entries is pre-set to already exclude the
 // deleted id — simulating the read a real charging.Reader would return after
 // the write committed (the same convention
-// TestChargeRowDelete_ThenListReflectsRemoval uses for its own later GET).
-func TestChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(t *testing.T) {
+// TestExternalChargeRowDelete_ThenListReflectsRemoval uses for its own later GET).
+func TestExternalChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(t *testing.T) {
 	uid := uuid.New()
 	keptID := uuid.New()
 	deletedID := uuid.New()
@@ -2894,12 +2894,12 @@ func TestChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(t *testi
 			EnergyAddedKWh: ptrF64(10.0), Price: 5000.0, Currency: "COP"},
 	}}
 	writer := &fakeChargeWriter{}
-	h := newHandlerForCharges(writer, reader)
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+deletedID.String()+"?start=2026-08-01&end=2026-08-31", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/ui/external-charges/row/"+deletedID.String()+"?start=2026-08-01&end=2026-08-31", nil)
 	req.Header.Set("X-CSRF-Token", "tok")
 	if c != nil {
 		req.AddCookie(c)
@@ -2910,22 +2910,22 @@ func TestChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(t *testi
 		t.Fatalf("D4: want 200 on valid delete, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, `id="charges-list"`) {
-		t.Fatalf("D4: want the full #charges-list fragment in the response, got body=%q", body[:min(1500, len(body))])
+	if !strings.Contains(body, `id="external-charges-list"`) {
+		t.Fatalf("D4: want the full #external-charges-list fragment in the response, got body=%q", body[:min(1500, len(body))])
 	}
-	if !strings.Contains(body, "charge-row-"+keptID.String()) {
+	if !strings.Contains(body, "external-charge-row-"+keptID.String()) {
 		t.Errorf("D4: want the kept entry's row still present, body=%q", body[:min(1500, len(body))])
 	}
-	if strings.Contains(body, "charge-row-"+deletedID.String()) {
+	if strings.Contains(body, "external-charge-row-"+deletedID.String()) {
 		t.Errorf("D4: want the deleted entry's row absent, body=%q", body[:min(1500, len(body))])
 	}
-	if !strings.Contains(body, `id="charges-window-start" value="2026-08-01"`) {
+	if !strings.Contains(body, `id="external-charges-window-start" value="2026-08-01"`) {
 		t.Errorf("D4: want the response to reflect the requested window start=2026-08-01, body=%q", body[:min(1500, len(body))])
 	}
-	if !strings.Contains(body, `id="charges-window-end" value="2026-08-31"`) {
+	if !strings.Contains(body, `id="external-charges-window-end" value="2026-08-31"`) {
 		t.Errorf("D4: want the response to reflect the requested window end=2026-08-31, body=%q", body[:min(1500, len(body))])
 	}
-	wantOldEmptyRow := `<tr id="charge-row-` + deletedID.String() + `"></tr>`
+	wantOldEmptyRow := `<tr id="external-charge-row-` + deletedID.String() + `"></tr>`
 	if strings.Contains(body, wantOldEmptyRow) {
 		t.Errorf("D4: delete response must NOT be a bare empty <tr> (design.md §D-Refresh), got body=%q", body[:min(500, len(body))])
 	}
@@ -2934,12 +2934,12 @@ func TestChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(t *testi
 // --- Group E — no-vehicle / malformed-window / reader-error empty states
 // (design.md Test Contract E1-E4, offline httptest) ---
 
-// TestChargePage_E1_NoRegisteredVehicles_NoFilterChrome verifies Test
+// TestExternalChargePage_E1_NoRegisteredVehicles_NoFilterChrome verifies Test
 // Contract E1: a signed-in user with ZERO registered vehicles requests
-// GET /charges -> the response contains ChargesEmptyState()'s message and
+// GET /external-charges -> the response contains ExternalChargesEmptyState()'s message and
 // contains NEITHER a preset button NOR any ui.StatTile markup NOR a <table>
 // (D-RM33-9 — assert absence, not just presence of the message).
-func TestChargePage_E1_NoRegisteredVehicles_NoFilterChrome(t *testing.T) {
+func TestExternalChargePage_E1_NoRegisteredVehicles_NoFilterChrome(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: nil}
 	h := New(Deps{
@@ -2953,7 +2953,7 @@ func TestChargePage_E1_NoRegisteredVehicles_NoFilterChrome(t *testing.T) {
 	c := sessionCookie(r, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -2977,19 +2977,19 @@ func TestChargePage_E1_NoRegisteredVehicles_NoFilterChrome(t *testing.T) {
 	}
 }
 
-// TestChargesListFragment_E2_MalformedWindow_NoFilterChrome400 verifies Test
-// Contract E2: GET /ui/charges/list?start=not-a-date&end=2026-08-31 -> HTTP
+// TestExternalChargesListFragment_E2_MalformedWindow_NoFilterChrome400 verifies Test
+// Contract E2: GET /ui/external-charges/list?start=not-a-date&end=2026-08-31 -> HTTP
 // 400, same no-chrome assertions as E1 (design.md §D-Empty state 1, the
 // malformed-window branch — both conditions collapse to the identical
 // render).
-func TestChargesListFragment_E2_MalformedWindow_NoFilterChrome400(t *testing.T) {
+func TestExternalChargesListFragment_E2_MalformedWindow_NoFilterChrome400(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
 	r := engineWithSession(h, uid, "testcsrf")
 	c := sessionCookie(r, uid, "testcsrf")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list?start=not-a-date&end=2026-08-31", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list?start=not-a-date&end=2026-08-31", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -3013,21 +3013,21 @@ func TestChargesListFragment_E2_MalformedWindow_NoFilterChrome400(t *testing.T) 
 	}
 }
 
-// TestChargesListFragment_E3_ReaderError_ShowsPresetsAndTilesAndAlert
+// TestExternalChargesListFragment_E3_ReaderError_ShowsPresetsAndTilesAndAlert
 // verifies Test Contract E3: a valid vehicle + valid window, fake Reader
 // returns an error -> response contains the preset buttons AND four
 // ui.StatTiles (all zero/—) AND a ui.Alert with the error message — NOT the
 // same render as E1/E2 (design.md §D-Empty state 2 is a strictly different
 // render from state 1).
-func TestChargesListFragment_E3_ReaderError_ShowsPresetsAndTilesAndAlert(t *testing.T) {
+func TestExternalChargesListFragment_E3_ReaderError_ShowsPresetsAndTilesAndAlert(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeChargeReader{err: errFake}
-	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, reader)
 	r := engineWithSession(h, uid, "testcsrf")
 	c := sessionCookie(r, uid, "testcsrf")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list?start=2026-08-01&end=2026-08-05", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list?start=2026-08-01&end=2026-08-05", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -3048,20 +3048,20 @@ func TestChargesListFragment_E3_ReaderError_ShowsPresetsAndTilesAndAlert(t *test
 	}
 }
 
-// TestChargesListFragment_E4_ReaderSucceedsEmptySlice_TilesZeroTableEmpty
+// TestExternalChargesListFragment_E4_ReaderSucceedsEmptySlice_TilesZeroTableEmpty
 // verifies Test Contract E4: a valid vehicle + valid window, fake Reader
 // returns []charging.Entry{} (no error) -> response contains the preset
-// buttons, tiles showing 0/— (not hidden), and ChargesEmptyState()'s message
+// buttons, tiles showing 0/— (not hidden), and ExternalChargesEmptyState()'s message
 // in place of table rows (design.md §D-Empty state 3).
-func TestChargesListFragment_E4_ReaderSucceedsEmptySlice_TilesZeroTableEmpty(t *testing.T) {
+func TestExternalChargesListFragment_E4_ReaderSucceedsEmptySlice_TilesZeroTableEmpty(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
-	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, reader)
 	r := engineWithSession(h, uid, "testcsrf")
 	c := sessionCookie(r, uid, "testcsrf")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list?start=2026-08-01&end=2026-08-05", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list?start=2026-08-01&end=2026-08-05", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -3084,7 +3084,7 @@ func TestChargesListFragment_E4_ReaderSucceedsEmptySlice_TilesZeroTableEmpty(t *
 		t.Errorf("E4: want the AvgKWh tile rendering the em-dash, body=%q", body[:min(1500, len(body))])
 	}
 	if !strings.Contains(body, "Aún no hay cargas registradas") {
-		t.Errorf("E4: want ChargesEmptyState() in place of table rows (D-Empty state 3), body=%q", body[:min(1500, len(body))])
+		t.Errorf("E4: want ExternalChargesEmptyState() in place of table rows (D-Empty state 3), body=%q", body[:min(1500, len(body))])
 	}
 	if strings.Contains(body, "<table") {
 		t.Errorf("E4: want NO <table> element when the table body is replaced by the empty state, body=%q", body[:min(1500, len(body))])

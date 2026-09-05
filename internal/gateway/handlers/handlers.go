@@ -78,8 +78,8 @@ type Deps struct {
 	AnalyticsReader analytics.Reader
 	// AnalyticsRecalculator is the analytics module's write-path port
 	// (RM29-analytics-add-vehicle-metrics design.md D5). Called ONLY by the
-	// manual-charge write handlers (ChargeCreate, ChargeRowUpdate,
-	// ChargeRowDelete), after their corresponding chargingWriter call
+	// manual-charge write handlers (ExternalChargeCreate, ExternalChargeRowUpdate,
+	// ExternalChargeRowDelete), after their corresponding chargingWriter call
 	// succeeds, so the precomputed history charts reflect the edit
 	// immediately (mirrors ChargingWriter's own narrow write-aperture
 	// exception — AGENTS.md "Exception: user-initiated writes"). Never
@@ -189,7 +189,7 @@ func (h *Handler) Dashboard(c *gin.Context) {
 // bento reflects the newly-selected vehicle WITHOUT a full page reload. It mirrors
 // the Dashboard full-page handler's vehicle resolution, then renders only the
 // "dashboard" fragment of pages.Dashboard — the same template tree, filtered to the
-// swappable region (mirrors ChargesListFragment / NavHeaderFragment).
+// swappable region (mirrors ExternalChargesListFragment / NavHeaderFragment).
 func (h *Handler) DashboardFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -664,7 +664,7 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 	// Fire the cross-region refresh event. htmx bubbles "vehicle-changed" to <body>;
 	// any page region listening with hx-trigger="vehicle-changed from:body" (the
 	// nav-header status region, the dashboard's #dashboard-content, the manual
-	// records #charges-content) then re-fetches itself for the newly-selected
+	// records #external-charges-content) then re-fetches itself for the newly-selected
 	// vehicle. The switcher stays page-agnostic — it fires one event, regions opt in.
 	// Set before renderFragment: templ.Handler only sets Content-Type/status and does
 	// not clear already-set response headers.
@@ -1165,8 +1165,8 @@ func renderFragmentError(c *gin.Context, status int, comp templ.Component, fragm
 // renderFragment emits only the named templ fragment(s) of comp — the htmx-swap path
 // (contrast with render, which emits the whole page). Pass one name for a single
 // region (the common case), or several to emit multiple sibling fragments in one
-// response body (e.g. GET /ui/charges returns the create-form + list regions that
-// live inside #charges-content). fragmentNames (not "fragments") avoids shadowing the
+// response body (e.g. GET /ui/external-charges returns the create-form + list regions that
+// live inside #external-charges-content). fragmentNames (not "fragments") avoids shadowing the
 // imported templates/fragments package.
 func renderFragment(c *gin.Context, status int, comp templ.Component, fragmentNames ...string) {
 	// templ.WithFragments takes ...any, so widen the []string. Passing several names

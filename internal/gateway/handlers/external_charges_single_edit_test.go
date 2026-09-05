@@ -34,7 +34,7 @@ func getEditFragment(h *Handler, uid, id uuid.UUID) *httptest.ResponseRecorder {
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/row/"+id.String()+"/edit", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/row/"+id.String()+"/edit", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -42,14 +42,14 @@ func getEditFragment(h *Handler, uid, id uuid.UUID) *httptest.ResponseRecorder {
 	return w
 }
 
-// TestChargeRowEditFragment_OnlyOneRowEditableAtATime pins the invariant: opening
+// TestExternalChargeRowEditFragment_OnlyOneRowEditableAtATime pins the invariant: opening
 // an editor renders the WHOLE list with exactly ONE row in edit mode. Previously
 // each Edit swapped its own <tr>, so N clicks left N competing forms on screen.
 // Counting hx-put occurrences is the direct expression of "one open editor" —
-// only ChargeRowEdit emits hx-put.
-func TestChargeRowEditFragment_OnlyOneRowEditableAtATime(t *testing.T) {
+// only ExternalChargeRowEdit emits hx-put.
+func TestExternalChargeRowEditFragment_OnlyOneRowEditableAtATime(t *testing.T) {
 	uid, idA, idB := uuid.New(), uuid.New(), uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: twoEntries(uid, idA, idB)})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: twoEntries(uid, idA, idB)})
 
 	w := getEditFragment(h, uid, idA)
 	if w.Code != http.StatusOK {
@@ -62,39 +62,39 @@ func TestChargeRowEditFragment_OnlyOneRowEditableAtATime(t *testing.T) {
 	}
 	// The edited row must be the one asked for, and the sibling must still offer
 	// its own Edit link — i.e. it rendered static, not as a second form.
-	if !strings.Contains(body, "/ui/charges/row/"+idA.String()) {
+	if !strings.Contains(body, "/ui/external-charges/row/"+idA.String()) {
 		t.Errorf("want row A rendered as the open editor; body=%q", body[:min(1200, len(body))])
 	}
-	if !strings.Contains(body, "/ui/charges/row/"+idB.String()+"/edit") {
+	if !strings.Contains(body, "/ui/external-charges/row/"+idB.String()+"/edit") {
 		t.Errorf("want row B still rendered static with its Edit action; body=%q", body[:min(1200, len(body))])
 	}
 }
 
-// TestChargeRowEditFragment_RendersWholeListRegion pins the mechanism the
-// invariant rests on: the response is the #charges-list region, so htmx replaces
+// TestExternalChargeRowEditFragment_RendersWholeListRegion pins the mechanism the
+// invariant rests on: the response is the #external-charges-list region, so htmx replaces
 // every row at once and a previously-open editor cannot survive the swap.
-func TestChargeRowEditFragment_RendersWholeListRegion(t *testing.T) {
+func TestExternalChargeRowEditFragment_RendersWholeListRegion(t *testing.T) {
 	uid, idA, idB := uuid.New(), uuid.New(), uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: twoEntries(uid, idA, idB)})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: twoEntries(uid, idA, idB)})
 
 	body := getEditFragment(h, uid, idA).Body.String()
-	if !strings.Contains(body, `id="charges-list"`) {
-		t.Errorf("edit response must be the whole #charges-list region, not a bare row; body=%q", body[:min(800, len(body))])
+	if !strings.Contains(body, `id="external-charges-list"`) {
+		t.Errorf("edit response must be the whole #external-charges-list region, not a bare row; body=%q", body[:min(800, len(body))])
 	}
 }
 
-// TestChargeRow_EditButtonTargetsTheWholeList is the markup half of the same
+// TestExternalChargeRow_EditButtonTargetsTheWholeList is the markup half of the same
 // invariant: if the Edit button ever goes back to targeting its own row, the
 // server-side single-editor rule stops being reachable, because each row would
 // again swap independently.
-func TestChargeRow_EditButtonTargetsTheWholeList(t *testing.T) {
+func TestExternalChargeRow_EditButtonTargetsTheWholeList(t *testing.T) {
 	uid, idA, idB := uuid.New(), uuid.New(), uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: twoEntries(uid, idA, idB)})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: twoEntries(uid, idA, idB)})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/list", nil)
 	req.AddCookie(c)
 	r.ServeHTTP(w, req)
 	body := w.Body.String()
@@ -105,16 +105,16 @@ func TestChargeRow_EditButtonTargetsTheWholeList(t *testing.T) {
 	}
 	// Inspect the attributes around the Edit button's hx-get.
 	seg := body[max0(editIdx-300):min(editIdx+300, len(body))]
-	if !strings.Contains(seg, `hx-target="#charges-list"`) {
-		t.Errorf("Edit must target #charges-list so only one editor can be open; surrounding markup was:\n%s", seg)
+	if !strings.Contains(seg, `hx-target="#external-charges-list"`) {
+		t.Errorf("Edit must target #external-charges-list so only one editor can be open; surrounding markup was:\n%s", seg)
 	}
 }
 
-// TestChargeRowEditFragment_UnknownEntryIs404 keeps the pre-existing contract:
+// TestExternalChargeRowEditFragment_UnknownEntryIs404 keeps the pre-existing contract:
 // an id that is not in the caller's rendered window is not editable.
-func TestChargeRowEditFragment_UnknownEntryIs404(t *testing.T) {
+func TestExternalChargeRowEditFragment_UnknownEntryIs404(t *testing.T) {
 	uid, idA, idB := uuid.New(), uuid.New(), uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: twoEntries(uid, idA, idB)})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: twoEntries(uid, idA, idB)})
 
 	if w := getEditFragment(h, uid, uuid.New()); w.Code != http.StatusNotFound {
 		t.Errorf("want 404 for an entry that is not in the list, got %d", w.Code)

@@ -33,7 +33,7 @@ Every charge mutation, whichever source it came from, is meant to run this seque
 | # | Step | Manual | Supercharger | State |
 |---|---|---|---|---|
 | 1 | Update / delete source row | `charging.Writer.Update` / `.Delete` | `charging.SessionVerifier.VerifySession` (2 fields only; no create/delete route exists) | Implemented, both |
-| 2 | Determine affected period | `recalculateAfterChargeWrite` — window `[chargedOn, chargedOn]` | `recalculateAfterSessionVerify` — window `[day−1, day+1]` around the **UTC** day of `charge_stop_date_time` | **Two separate gateway functions, two policies** |
+| 2 | Determine affected period | `recalculateAfterExternalChargeWrite` — window `[chargedOn, chargedOn]` | `recalculateAfterSessionVerify` — window `[day−1, day+1]` around the **UTC** day of `charge_stop_date_time` | **Two separate gateway functions, two policies** |
 | 3 | Recalculate | `analytics.Recalculator.Recalculate` → `deriveVehicleMetrics` | *same call, same derivation* | Implemented and genuinely centralized |
 | 4 | Persist | one tx: `UpsertVehicleMetric` × n + `DeleteVehicleMetricsInRangeExcept` | *same* | Implemented and centralized |
 | 5 | Dependent records (`charge_gaps`) | not touched | not touched | **Missing on both** — nightly job only |
@@ -48,7 +48,7 @@ known divergence lives there.
 
 | File | Role |
 |---|---|
-| `internal/gateway/handlers/charges.go` | `ChargeRowUpdate`, `ChargeRowDelete`, and the recalc hook `recalculateAfterChargeWrite`. Also `fetchEntryTeslaIDAndChargedOn` — the pre-write lookup that resolves the affected day. |
+| `internal/gateway/handlers/external_charges.go` | `ExternalChargeRowUpdate`, `ExternalChargeRowDelete`, and the recalc hook `recalculateAfterExternalChargeWrite`. Also `fetchEntryTeslaIDAndChargedOn` — the pre-write lookup that resolves the affected day. |
 | `internal/gateway/handlers/supercharger.go` | `SuperchargerRowUpdate` and its **separate** recalc hook `recalculateAfterSessionVerify`. |
 | `internal/gateway/handlers/handlers.go` | `Handler` deps: `chargingWriter`, `chargingReader`, `superchargerVerifier`, `analyticsRecalculator`. **No `GapWriter`** — which is why step 5 cannot happen here. |
 | `internal/gateway/gateway.go` | Route registration for both pages. |
@@ -93,7 +93,7 @@ known divergence lives there.
 | `source_updated_at` | max `updated_at` seen per source this run | `analytics/recalculate.go` `Reconcile` | `vehicle_metric_watermarks` — **nightly only** |
 
 Render-time only, never persisted: `Entry.CostPerKWh` / `.BatteryDelta` / `.SessionDuration`
-(`internal/charging/charging.go`), the page tiles (`charges_tiles.go`,
+(`internal/charging/charging.go`), the page tiles (`external_charges_tiles.go`,
 `buildSuperchargerTiles`), and `analytics.RecentEfficiency`.
 
 ## Known divergences
@@ -112,18 +112,18 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   `GetEntry` on the `charging.Reader` port. A miss is indistinguishable from "not found" and is
   not logged. On update this skips the old-date recalculation; **on delete it skips recalculation
   entirely**.
-  _Source: `gateway/handlers/charges.go`, `charging/service.go` `defaultLimit`._
+  _Source: `gateway/handlers/external_charges.go`, `charging/service.go` `defaultLimit`._
 - **A deleted manual entry has no nightly safety net** — `Reconcile` discovers work via
   `ListEntriesByVehicleUpdatedSince` over live rows, so a deleted row is invisible to it forever.
   The post-delete `Recalculate` is the only path, and its error is logged and swallowed.
-  _Source: `analytics/recalculate.go` `Reconcile`, `gateway/handlers/charges.go`
-  `recalculateAfterChargeWrite`._
+  _Source: `analytics/recalculate.go` `Reconcile`, `gateway/handlers/external_charges.go`
+  `recalculateAfterExternalChargeWrite`._
 - **Two recalculation windows, two functions** — `[D, D]` vs `[D−1, D+1]`. The asymmetry itself
   is defensible (`charged_on` is a bare date; `charge_stop_date_time` is a timestamp whose UTC
   day can differ from the bucketed day), but the reasoning is duplicated in two private
   functions in two files. Both windows are also too narrow across a snapshot capture gap, where
   `deriveVehicleMetrics` attributes a charge to a metric row several days later.
-  _Source: `gateway/handlers/charges.go`, `gateway/handlers/supercharger.go`,
+  _Source: `gateway/handlers/external_charges.go`, `gateway/handlers/supercharger.go`,
   `analytics/consumed.go` `deriveVehicleMetrics`._
 - **Two pack capacities** — `charging/capacity.go` returns a hardcoded `62.0`;
   `analytics/capacity.go` is a car-type map (`model3:75`, `modely:75`, `models:100`,
@@ -136,8 +136,8 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   `vehicleOwned`; `SuperchargerRowUpdate` relies solely on the SQL `AND account_id` scope (a
   documented deliberate divergence). Both are secure; the inconsistency is in the vocabulary and
   the extra read.
-  _Source: `gateway/handlers/charges.go` `vehicleOwned`, `gateway/handlers/supercharger.go` D8._
-- **Different post-write refresh** — the manual update returns an OOB `#charges-list` refresh so
+  _Source: `gateway/handlers/external_charges.go` `vehicleOwned`, `gateway/handlers/supercharger.go` D8._
+- **Different post-write refresh** — the manual update returns an OOB `#external-charges-list` refresh so
   tiles follow the edit; the Supercharger update swaps only the row. Harmless today (a battery-%
   correction changes no tile), a defect the moment that page surfaces anything derived from the
   percentages.
@@ -157,10 +157,10 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
 
 ## Conventions & gotchas
 
-- **Never add a fourth write path without a shared trigger.** `charges.go`'s own comment names
+- **Never add a fourth write path without a shared trigger.** `external_charges.go`'s own comment names
   the intended composition root — `app.RecalculateVehicleData` — which does not exist yet. Until
   it does, any new charge write must re-derive the window policy by hand.
-  _Source: `gateway/handlers/charges.go` `recalculateAfterChargeWrite` doc comment._
+  _Source: `gateway/handlers/external_charges.go` `recalculateAfterExternalChargeWrite` doc comment._
 - **Never compute a derived figure in the gateway.** The gateway calls
   `analytics.Recalculator.Recalculate` and formats results; every formula belongs to the module
   that owns the column. The tiles are the boundary case — they aggregate what is already
@@ -169,7 +169,7 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
 - **A recalculation failure never fails the user's write.** Both hooks log and swallow. This is
   deliberate — the source data *is* saved — but it means "the write succeeded" says nothing about
   whether the derived model is current.
-  _Source: `recalculateAfterChargeWrite` / `recalculateAfterSessionVerify` doc comments._
+  _Source: `recalculateAfterExternalChargeWrite` / `recalculateAfterSessionVerify` doc comments._
 - **`inferred_capacity_kwh_calc` cannot be written by any caller.** It is
   `GENERATED ALWAYS … STORED` on both tables; an attempt to write it fails with SQLSTATE 428C9.
   Do not add it to an INSERT column list or a SET clause.
@@ -186,7 +186,7 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
 - Use cases: `use-case/charging/update-manual-charge.md`,
   `use-case/charging/delete-manual-charge.md`,
   `use-case/charging/verify-session-battery.md`
-- Input ports: `input-port/charging/charges.md`,
+- Input ports: `input-port/charging/external-charges.md`,
   `input-port/charging/supercharger-stats.md`
 - Entities: `entities/vehicle-metrics/guide.md`
 - Workflows: `workflows/manual-charge-crud.md`, `workflows/supercharger-stats-read.md`

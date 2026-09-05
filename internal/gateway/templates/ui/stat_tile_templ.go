@@ -25,7 +25,7 @@ type StatTileProps struct {
 //
 // This is the module's worked example of AGENTS.md §Mobile R5 ("font size is fixed
 // once, in templates/ui/, never per page"). Three pages render these tiles —
-// /dashboard, /charges and /supercharger-stats — and all three showed the SAME
+// /dashboard, /external-charges and /supercharger-stats — and all three showed the SAME
 // overlapping-values bug on a phone (MAG-46 steps 2.1, 3.1, 4.1). It was one bug in
 // one component, not three bugs in three pages, and it is fixed here once.
 //

@@ -18,7 +18,7 @@ package ui
 // Why constants and not three hand-copied class strings: before MAG-46 there were
 // THREE different heading treatments in the module — `card-title` inside ui.Card,
 // `text-2xl font-semibold` in ui.PageHeader, and a hand-written
-// `text-lg font-semibold` heading inlined in fragments/charges_list.templ that bypassed
+// `text-lg font-semibold` heading inlined in fragments/external_charges_list.templ that bypassed
 // the kit entirely. Nothing kept them in step, so "the section title style" was not
 // a thing that existed in one place. Now it is: change these two lines and every
 // title and description in the app moves together. Same principle as navActiveClass

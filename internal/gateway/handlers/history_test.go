@@ -220,7 +220,7 @@ func historyEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN string) *
 }
 
 // newHandlerForHistory builds a Handler wired with the given
-// fakeAnalyticsReader and one registered vehicle. Mirrors newHandlerForCharges.
+// fakeAnalyticsReader and one registered vehicle. Mirrors newHandlerForExternalCharges.
 //
 // Collapses the pre-RM40 newHandlerForHistory/newHandlerForHistoryWithAnalytics
 // pair into ONE constructor (RM40-gateway-drop-telemetry-dependency,

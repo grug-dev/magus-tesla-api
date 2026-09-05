@@ -9,32 +9,32 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargePage renders the full Charge log page. It uses layouts.BaseAuth (the
+// ExternalChargesPage renders the full External charges page. It uses layouts.BaseAuth (the
 // authenticated drawer shell) and composes the create form fragment and the list
 // fragment via templ.Fragment so the handler can render either the full page
 // (initial load) or a single fragment (htmx swap) from the same template tree.
 // Chrome comes from the owned ui/ kit (PageHeader, Button); the fragments carry
 // their own Card surfaces so they stay styled when swapped in standalone.
 //
-// Both fragments sit inside the #charges-content region, which is vehicle-scoped:
+// Both fragments sit inside the #external-charges-content region, which is vehicle-scoped:
 // it subscribes to the sidebar switcher's "vehicle-changed" event (from:body) and
-// re-fetches GET /ui/charges so the entry list (filtered by the selected TeslaID)
+// re-fetches GET /ui/external-charges so the entry list (filtered by the selected TeslaID)
 // AND the create form's vehicle default follow the newly-selected vehicle — no full
-// page reload. GET /ui/charges renders both fragments back into the region's
+// page reload. GET /ui/external-charges renders both fragments back into the region's
 // innerHTML; the region element (with its flex layout + hx-trigger) persists.
-templ ChargePage(d fragments.ChargesPageData) {
-	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyChargesPageTitle)), "/charges") {
+templ ExternalChargesPage(d fragments.ExternalChargesPageData) {
+	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyChargesPageTitle)), "/external-charges") {
 		@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyChargesPageTitle)}) {
 			@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard"}) {
 				{ i18n.T(ctx, i18n.KeyChargesPageBackToDashboard) }
 			}
 		}
-		<div id="charges-content" class="flex flex-col gap-6" hx-get="/ui/charges" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
-			@templ.Fragment("charges-create-form") {
-				@fragments.ChargeCreateForm(d, nil)
+		<div id="external-charges-content" class="flex flex-col gap-6" hx-get="/ui/external-charges" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
+			@templ.Fragment("external-charges-create-form") {
+				@fragments.ExternalChargeCreateForm(d, nil)
 			}
-			@templ.Fragment("charges-list") {
-				@fragments.ChargesList(d)
+			@templ.Fragment("external-charges-list") {
+				@fragments.ExternalChargesList(d)
 			}
 		</div>
 	}

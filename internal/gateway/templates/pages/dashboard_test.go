@@ -9,7 +9,7 @@ import (
 
 // ptrBool returns a pointer to b -- a small test-local helper, mirroring the
 // ptrInt/ptrTime helpers already established in the handlers package's own test
-// files (supercharger_test.go, charges_tiles_test.go). Added by
+// files (supercharger_test.go, external_charges_tiles_test.go). Added by
 // RM38-gateway-read-dashboard-from-metrics for this package's first test file.
 func ptrBool(b bool) *bool { return &b }
 

@@ -41,7 +41,7 @@ func titleCase(s string) string {
 // header mechanism is reserved for the DELETE-body case it was built for (the Charges
 // row-delete button). Both t and csrfToken are safe to embed unescaped: t is always one of
 // the closed Themes vocabulary codes (lowercase ASCII identifiers) and csrfToken is always
-// hex.EncodeToString output (generateCSRFToken, handlers/charges.go) — neither can contain
+// hex.EncodeToString output (generateCSRFToken, handlers/external_charges.go) — neither can contain
 // a quote or backslash. templ still HTML-escapes the whole attribute value at render time
 // via the {expression} attribute binding, exactly like LangSwitcher's static hx-vals.
 func themeVals(t, csrfToken string) string {

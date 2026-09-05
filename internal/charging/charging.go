@@ -54,7 +54,7 @@ const (
 
 // Field names one field of an Entry whose presence RequiredFieldsFor can evaluate.
 // Its string value is the database COLUMN NAME, which is ALSO the gateway's form
-// input name and its validation-error map key (handlers/charges.go) — so the
+// input name and its validation-error map key (handlers/external_charges.go) — so the
 // gateway can map a Field straight onto an input with no translation table
 // (design.md D5).
 type Field string

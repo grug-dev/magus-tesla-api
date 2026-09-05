@@ -11,7 +11,7 @@ import (
 // on a charging.Entry fixture — mirrors ptrF64/ptrInt (supercharger_test.go).
 func ptrTime(t time.Time) *time.Time { return &t }
 
-// --- entryComplete / buildChargeTiles Test Contract Group B
+// --- entryComplete / buildExternalChargeTiles Test Contract Group B
 // (design.md §Test Contract Group B, RM33-gateway-add-entries-dashboard) ---
 
 // completeEntry returns a charging.Entry satisfying entryComplete's bar:
@@ -79,12 +79,12 @@ func TestEntryComplete_B3_InProgressNotSpecialCased(t *testing.T) {
 	}
 }
 
-// TestBuildChargeTiles_B4_EmptySlice is Test Contract B4: buildChargeTiles
+// TestBuildExternalChargeTiles_B4_EmptySlice is Test Contract B4: buildExternalChargeTiles
 // over an empty []charging.Entry{} -> Sessions=="0", Energy=="0.0 kWh",
 // Cost=="0.00 COP", AvgKWh=="—" (D13/D14's "0 and —" split, asserted
 // per-field).
-func TestBuildChargeTiles_B4_EmptySlice(t *testing.T) {
-	tiles := buildChargeTiles([]charging.Entry{})
+func TestBuildExternalChargeTiles_B4_EmptySlice(t *testing.T) {
+	tiles := buildExternalChargeTiles([]charging.Entry{})
 	if tiles.Sessions != "0" {
 		t.Errorf("want Sessions=0, got %s", tiles.Sessions)
 	}
@@ -99,18 +99,18 @@ func TestBuildChargeTiles_B4_EmptySlice(t *testing.T) {
 	}
 }
 
-// TestBuildChargeTiles_B5_ThreeEntriesOneNilEnergy is Test Contract B5:
+// TestBuildExternalChargeTiles_B5_ThreeEntriesOneNilEnergy is Test Contract B5:
 // three entries (one with nil EnergyAddedKWh) -> Sessions=="3",
 // Energy=="15.0 kWh" (nil-skip), Cost=="1,500.00 COP" (summed regardless of
 // nil energy), AvgKWh=="7.5 kWh" (divided by the non-nil-energy COUNT (2),
 // not the entry count (3)).
-func TestBuildChargeTiles_B5_ThreeEntriesOneNilEnergy(t *testing.T) {
+func TestBuildExternalChargeTiles_B5_ThreeEntriesOneNilEnergy(t *testing.T) {
 	entries := []charging.Entry{
 		{EnergyAddedKWh: ptrF64(10.0), Price: 1000},
 		{EnergyAddedKWh: nil, Price: 500},
 		{EnergyAddedKWh: ptrF64(5.0), Price: 0},
 	}
-	tiles := buildChargeTiles(entries)
+	tiles := buildExternalChargeTiles(entries)
 	if tiles.Sessions != "3" {
 		t.Errorf("want Sessions=3, got %s", tiles.Sessions)
 	}

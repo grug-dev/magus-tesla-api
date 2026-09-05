@@ -32,7 +32,7 @@ Status: PENDING REVIEW
 
 ## [guide] ## Conventions & gotchas — APPEND
 
-- **This page's status badge deliberately has NO `ui.Dot` beside it, unlike `/charges`.** `charge_row.templ` pairs its badge with a completeness Dot; the Supercharger row does not, and the spec forbids adding one. The Dot on `/charges` signals a *separate* completeness idea from the lifecycle status; here the status already is the completeness signal, so a Dot would restate it in a second colour vocabulary. Do not "finish the mirror" by adding one.
+- **This page's status badge deliberately has NO `ui.Dot` beside it, unlike `/external-charges`.** `external_charge_row.templ` pairs its badge with a completeness Dot; the Supercharger row does not, and the spec forbids adding one. The Dot on `/external-charges` signals a *separate* completeness idea from the lifecycle status; here the status already is the completeness signal, so a Dot would restate it in a second colour vocabulary. Do not "finish the mirror" by adding one.
   _Source: spec gateway — Requirement: Supercharger Stats session status badge._
 - **`Status` is read-only from the gateway's side — no route may set or change it.** It is always computed by `charging.SessionVerifier.VerifySession`. The inline edit form carries no status field and must never gain one: the gateway supplies the two percentages, and the status follows from them inside `charging`. A gateway-supplied status would let the UI contradict the record.
   _Source: spec gateway — Requirement: Supercharger Stats session status badge._

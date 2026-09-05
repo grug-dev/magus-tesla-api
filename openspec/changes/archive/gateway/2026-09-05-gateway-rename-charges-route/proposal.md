@@ -30,9 +30,13 @@ removes the ambiguity in the URL and in the gateway's own symbols.
   callers and no search-engine surface.
 
 - The gateway's own names follow the URL: 10 file renames, 8 handler methods, 9 templ
-  components, 4 view-model types, 8 DOM ids, and the CSRF session key.
+  components, 4 view-model types, 11 DOM ids, and the CSRF session key.
 - `nav.manual_records` becomes `nav.external_charges`. Its ES/EN values are already
   "Externas"/"External" and do not change.
+- The page's visible heading follows the label too: `charges_page.title` changes from
+  "Registro de cargas" / "Charge log" to **"Cargas externas" / "External charges"**. The key
+  identifier itself stays `KeyChargesPageTitle` — only the two values change. The sidebar keeps
+  the shorter "Externas" / "External"; the page heading carries the full noun phrase.
 
 **Explicitly NOT changed:**
 
@@ -40,8 +44,6 @@ removes the ambiguity in the URL and in the gateway's own symbols.
   the page calls. The module owns *all* charging; this page is one view over part of it.
 - The 86 `charges_*` i18n keys and their `KeyCharges*` Go identifiers. They are invisible to
   the user and to the URL, so renaming them would double the diff and buy nothing.
-- The page's own visible title, still "Registro de cargas" / "Charge log". Aligning that copy
-  with the nav label is user-facing wording and belongs in its own change.
 
 ## Capabilities
 
@@ -52,8 +54,10 @@ _None._
 ### Modified Capabilities
 
 - `gateway`: every requirement that names a `/charges` route, a `/ui/charges*` fragment route,
-  or one of the page's DOM ids now names its `external-charges` equivalent. No behaviour,
-  status code, validation rule, or scenario outcome changes — only the identifiers.
+  one of the page's DOM ids, or the page by its old display name "Charge log" now names its
+  `external-charges` / "External charges" equivalent. The requirement **Charge Log Page** is
+  renamed to **External Charges Page**. No behaviour, status code, validation rule, or scenario
+  outcome changes — only the identifiers and the page's display name.
 
 ## Impact
 
@@ -64,9 +68,10 @@ _None._
   `external_charges*.go`; the 8 exported handler methods renamed; `csrfManualChargeKey` /
   `"csrf_manualcharge"` renamed.
 - `templates/pages/charges.templ` and the five `fragments/charge*` files renamed; 9 templ
-  components and 4 view-model types renamed; 8 DOM ids renamed.
+  components and 4 view-model types renamed; 11 DOM ids renamed.
 - `templates/layouts/nav.go` — `Href` and the `Active` comparison.
-- `i18n/catalog.go` — one key identifier and one key string.
+- `i18n/catalog.go` — one key identifier, one key string, and the `charges_page.title`
+  ES/EN value pair.
 - 4 `handlers/*_test.go` files renamed and updated, plus `lang_test.go` and
   `templates/ui/nav_shell_test.go`.
 

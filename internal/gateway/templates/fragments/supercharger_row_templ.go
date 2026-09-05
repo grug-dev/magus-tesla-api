@@ -17,8 +17,8 @@ import (
 
 // SuperchargerRow renders the static view of one Supercharger session as a
 // table row. Its id="supercharger-row-{vm.ID}" matches the templ.Fragment id
-// pattern and is the target for the inline-edit swap — mirrors ChargeRow
-// (charge_row.templ).
+// pattern and is the target for the inline-edit swap — mirrors ExternalChargeRow
+// (external_charge_row.templ).
 //
 // windowStartStr/windowEndStr are the SAME ?start=&end= window the table was
 // rendered under (design.md D2, RM31-gateway-add-session-battery-edit) —
@@ -37,7 +37,7 @@ import (
 // 3.2) uniform.
 //
 // NO delete action exists for a Supercharger session (design.md Non-Goals) —
-// unlike ChargeRow, this row has exactly one action button and no
+// unlike ExternalChargeRow, this row has exactly one action button and no
 // hx-confirm.
 //
 // The Status column pairs a ui.Dot with the text ui.Badge, and BOTH survive on a
@@ -48,7 +48,7 @@ import (
 //
 // Here the dot's colours and the badge's Kinds MAY overlap (both carry `neutral` for
 // DONE_CALCULATED), and that is not the collision AGENTS.md §"UI stack" warns about.
-// That warning is about ChargeRow, where the dot means DATA COMPLETENESS and the
+// That warning is about ExternalChargeRow, where the dot means DATA COMPLETENESS and the
 // badge means LIFECYCLE — two different signals, so sharing a colour would make one
 // read as the other. This row has a single signal: dot and badge are two renderings
 // of the SAME status, so agreeing in colour is correct. Do not "fix" it by forcing
@@ -274,7 +274,7 @@ func SuperchargerRow(vm SuperchargerRowVM, csrfToken, windowStartStr, windowEndS
 			Size:    "sm",
 			Attrs: templ.Attributes{
 				// Icon-only on a phone, so the label must still reach a screen
-				// reader (AGENTS.md §Mobile R7). Mirrors ChargeRow's Edit button.
+				// reader (AGENTS.md §Mobile R7). Mirrors ExternalChargeRow's Edit button.
 				"aria-label": i18n.T(ctx, i18n.KeySuperchargerRowEdit),
 				"hx-get":     fmt.Sprintf("/ui/supercharger-stats/row/%s/edit?start=%s&end=%s", vm.ID, windowStartStr, windowEndStr),
 				"hx-target":  "#supercharger-row-" + vm.ID,

@@ -168,7 +168,7 @@ type Reader interface {
 // (RM29-analytics-add-vehicle-metrics design.md D11). Implementations live in
 // recalculate.go, mirroring Reader's own analytics.go-declares/reader.go-
 // implements split. Called by the manual-charge write path (design.md D5,
-// interim composition root internal/gateway/handlers/charges.go) and the
+// interim composition root internal/gateway/handlers/external_charges.go) and the
 // nightly poller's per-vehicle reconciliation loop (design.md D7/D8,
 // interim composition root cmd/poller) -- both interim arrangements per
 // roadmap D-non-goals; a later tier relocates the CALL, not this logic.

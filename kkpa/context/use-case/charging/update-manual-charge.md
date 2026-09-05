@@ -1,4 +1,4 @@
-# Update a manual charge record — PUT /ui/charges/row/:id
+# Update a manual charge record — PUT /ui/external-charges/row/:id
 
 > One external entry point, one output. **Backend only** — the adapter side lives in the
 > input-port file that links here. Paths + symbols only; ask CodeGraph for signatures, never
@@ -6,43 +6,43 @@
 
 ## Entry point
 
-- **Symbol:** `Handler.ChargeRowUpdate` — `internal/gateway/handlers/charges.go`
-- **Trigger:** `PUT /ui/charges/row/:id`
+- **Symbol:** `Handler.ExternalChargeRowUpdate` — `internal/gateway/handlers/external_charges.go`
+- **Trigger:** `PUT /ui/external-charges/row/:id`
 - **Module:** `charging` (the domain this serves; the handler itself lives in `internal/gateway`)
 
 ## Triggered by
 
-- `input-port/charging/charges.md` — the Manual Records page (`/charges`), inline row edit form
+- `input-port/charging/external-charges.md` — the External charges page (`/external-charges`), inline row edit form
 
 ## Input / output
 
-- **Input:** form body from `fragments.ChargeRowEdit` — `csrf_token`, `charged_on`, `status`,
+- **Input:** form body from `fragments.ExternalChargeRowEdit` — `csrf_token`, `charged_on`, `status`,
   `start_battery_pct`, `end_battery_pct`, `started_at`, `ended_at`, `energy_added_kwh`, `price`,
   `location_kind`, `location_label`, `charging_type`, `notes`, `odometer_km`, plus hidden
   `start` / `end` carrying the active filter window. The vehicle is **not** a form field — it
   comes from the session-selected vehicle. Currency is hardcoded `COP`.
 - **Output:** `200` with `fragments.ChargeRowUpdateSuccessOOB` — the static row swap plus an
-  out-of-band `#charges-list` refresh. `422` re-renders the edit row with per-field errors,
+  out-of-band `#external-charges-list` refresh. `422` re-renders the edit row with per-field errors,
   `500` with a top-of-form error, `403` on CSRF failure, `400` on an unparseable id.
 
 ## Flow
 
-1. `Handler.ChargeRowUpdate` — `internal/gateway/handlers/charges.go` — auth guard
-   (`currentUID`), `checkCSRF` against `csrf_manualcharge`, parse the id.
+1. `Handler.ExternalChargeRowUpdate` — `internal/gateway/handlers/external_charges.go` — auth guard
+   (`currentUID`), `checkCSRF` against `csrf_externalcharge`, parse the id.
 2. `account.Service.RegisteredVehicles` — tenant vehicle list for the ownership check.
 3. `windowFromForm` → `bestEffortWindow` — resolves the filter window to echo back. **Never a
    validation gate** in either direction.
-4. `Handler.parseChargeForm` — validates; delegates the required-field rule to
+4. `Handler.parseExternalChargeForm` — validates; delegates the required-field rule to
    `charging.RequiredFieldsFor(status)` rather than hardcoding it; runs `vehicleOwned`.
 5. `Handler.fetchEntryTeslaIDAndChargedOn` → `charging.Reader.ListEntriesByAccount` — reads the
    **pre-update** `charged_on`. Once the UPDATE commits the old date is unrecoverable.
    ⚠ capped at 100 rows — see `architecture/charge-record-mutation.md`.
 6. `charging.Writer.Update` — `internal/charging/service.go` — `normalizeStatus` →
    `missingFields` → `resolveEnergy` → `UpdateEntry`. A rejected update writes nothing.
-7. `Handler.recalculateAfterChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
+7. `Handler.recalculateAfterExternalChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
    for the new date; called a **second time** for the old date when the edit moved it. Errors
    logged and swallowed.
-8. `Handler.buildChargesPage` — re-reads for the OOB list refresh and the aggregation tiles.
+8. `Handler.buildExternalChargesPage` — re-reads for the OOB list refresh and the aggregation tiles.
 
 ## Database
 
@@ -55,7 +55,7 @@
 | 5 | READ | `supercharger_sessions` | `charging.SuperchargerSessionAnalyticsReader.ListSessionsByVehicleBetween` |
 | 6 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByVehicleBetween` |
 | 7 | WRITE | `vehicle_metrics` | `UpsertVehicleMetric` × n **+** `DeleteVehicleMetricsInRangeExcept`, one transaction |
-| 8 | READ | `manual_charge_entries`, `vehicles` | `buildChargesPage` |
+| 8 | READ | `manual_charge_entries`, `vehicles` | `buildExternalChargesPage` |
 
 Steps 4–7 repeat when the edit changed the date. **Not touched:** `charge_gaps`,
 `vehicle_metric_watermarks`, `supercharger_sessions` (write side).
@@ -79,7 +79,7 @@ Steps 4–7 repeat when the edit changed the date. **Not touched:** `charge_gaps
   than the Supercharger path's `[D−1, D+1]`, because `charged_on` is a bare date with no zone
   ambiguity. Do not "align" the two without reading
   `architecture/charge-record-mutation.md`.
-  _Source: `recalculateAfterChargeWrite`._
+  _Source: `recalculateAfterExternalChargeWrite`._
 - **`energy_source` is recomputed on every write and the caller's value is ignored.** Blanking
   the energy on an edit flips a `USER` row to `ESTIMATED`, and vice versa. This is correct and
   centralized in `resolveEnergy`.
@@ -87,8 +87,8 @@ Steps 4–7 repeat when the edit changed the date. **Not touched:** `charge_gaps
 - **Error branches re-render from the raw POST values, not from the parsed entry** — a value that
   failed validation has no representation in `charging.Entry`'s typed fields, so only the raw
   string survives to be echoed back.
-  _Source: `chargeEntryVMFromRawValues`._
+  _Source: `externalChargeEntryVMFromRawValues`._
 - **The filter window is cosmetic on this route.** A malformed `start`/`end` must never turn a
   successful write into an error — that is why this uses `bestEffortWindow`, not
-  `parseChargesRange`.
+  `parseExternalChargesRange`.
   _Source: `bestEffortWindow` doc comment._

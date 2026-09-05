@@ -552,7 +552,7 @@ func TestEntryStatus_C10_EmptyStatusNormalizesToInProgress(t *testing.T) {
 	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 320011)
-	e.Status = "" // zero value — parseChargeForm builds an Entry with no Status today
+	e.Status = "" // zero value — parseExternalChargeForm builds an Entry with no Status today
 
 	created, err := w.Create(ctx, e)
 	if err != nil {

@@ -16,7 +16,7 @@ import (
 func navItemsFixture() []NavItem {
 	return []NavItem{
 		{Label: "Dashboard", Href: "/dashboard", Active: true, Icon: "dashboard"},
-		{Label: "Manual Records", Href: "/charges", Icon: "ev_station", SectionLabel: "Charging"},
+		{Label: "External", Href: "/external-charges", Icon: "ev_station", SectionLabel: "Charging"},
 		{Label: "Supercharger Stats", Icon: "analytics", Placeholder: true, SectionLabel: "Charging"},
 		{Label: "Settings", Icon: "settings", Placeholder: true},
 	}
@@ -39,7 +39,7 @@ func renderNavShell(t *testing.T) string {
 func TestNavShell_PlaceholdersDoNotNavigate(t *testing.T) {
 	body := renderNavShell(t)
 
-	for _, href := range []string{`href="/dashboard"`, `href="/charges"`} {
+	for _, href := range []string{`href="/dashboard"`, `href="/external-charges"`} {
 		if !strings.Contains(body, href) {
 			t.Errorf("live nav item should keep its real href %s:\n%s", href, body)
 		}

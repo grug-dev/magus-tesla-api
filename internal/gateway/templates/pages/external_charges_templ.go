@@ -17,20 +17,20 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// ChargePage renders the full Charge log page. It uses layouts.BaseAuth (the
+// ExternalChargesPage renders the full External charges page. It uses layouts.BaseAuth (the
 // authenticated drawer shell) and composes the create form fragment and the list
 // fragment via templ.Fragment so the handler can render either the full page
 // (initial load) or a single fragment (htmx swap) from the same template tree.
 // Chrome comes from the owned ui/ kit (PageHeader, Button); the fragments carry
 // their own Card surfaces so they stay styled when swapped in standalone.
 //
-// Both fragments sit inside the #charges-content region, which is vehicle-scoped:
+// Both fragments sit inside the #external-charges-content region, which is vehicle-scoped:
 // it subscribes to the sidebar switcher's "vehicle-changed" event (from:body) and
-// re-fetches GET /ui/charges so the entry list (filtered by the selected TeslaID)
+// re-fetches GET /ui/external-charges so the entry list (filtered by the selected TeslaID)
 // AND the create form's vehicle default follow the newly-selected vehicle — no full
-// page reload. GET /ui/charges renders both fragments back into the region's
+// page reload. GET /ui/external-charges renders both fragments back into the region's
 // innerHTML; the region element (with its flex layout + hx-trigger) persists.
-func ChargePage(d fragments.ChargesPageData) templ.Component {
+func ExternalChargesPage(d fragments.ExternalChargesPageData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -90,7 +90,7 @@ func ChargePage(d fragments.ChargesPageData) templ.Component {
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesPageBackToDashboard))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/pages/charges.templ`, Line: 29, Col: 53}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/pages/external_charges.templ`, Line: 29, Col: 53}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -108,7 +108,7 @@ func ChargePage(d fragments.ChargesPageData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div id=\"charges-content\" class=\"flex flex-col gap-6\" hx-get=\"/ui/charges\" hx-trigger=\"vehicle-changed from:body\" hx-swap=\"innerHTML\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div id=\"external-charges-content\" class=\"flex flex-col gap-6\" hx-get=\"/ui/external-charges\" hx-trigger=\"vehicle-changed from:body\" hx-swap=\"innerHTML\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -124,13 +124,13 @@ func ChargePage(d fragments.ChargesPageData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = fragments.ChargeCreateForm(d, nil).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = fragments.ExternalChargeCreateForm(d, nil).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = templ.Fragment("charges-create-form").Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templ.Fragment("external-charges-create-form").Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -146,13 +146,13 @@ func ChargePage(d fragments.ChargesPageData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = fragments.ChargesList(d).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = fragments.ExternalChargesList(d).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = templ.Fragment("charges-list").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templ.Fragment("external-charges-list").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -162,7 +162,7 @@ func ChargePage(d fragments.ChargesPageData) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyChargesPageTitle)), "/charges").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyChargesPageTitle)), "/external-charges").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

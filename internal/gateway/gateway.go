@@ -71,8 +71,8 @@ type Deps struct {
 	// AnalyticsRecalculator is the analytics module's write-path port
 	// (RM29-analytics-add-vehicle-metrics design.md D5). Injected at
 	// construction via cmd/web's analytics.NewRecalculator(...). Called ONLY
-	// by the manual-charge write handlers (ChargeCreate, ChargeRowUpdate,
-	// ChargeRowDelete), after their corresponding charging.Writer call
+	// by the manual-charge write handlers (ExternalChargeCreate, ExternalChargeRowUpdate,
+	// ExternalChargeRowDelete), after their corresponding charging.Writer call
 	// succeeds, to keep the precomputed history charts current with no
 	// separate refresh step — mirrors the ChargingWriter exception's narrow
 	// aperture (AGENTS.md "Exception: user-initiated writes"). Never called
@@ -173,14 +173,14 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/settings", h.SettingsPage)
 	r.POST("/ui/theme/switch", h.ThemeSwitch)
 
-	r.GET("/charges", h.ChargePage)
-	r.GET("/ui/charges", h.ChargesContentFragment)
-	r.GET("/ui/charges/list", h.ChargesListFragment)
-	r.GET("/ui/charges/row/:id", h.ChargeRowStatic)
-	r.GET("/ui/charges/row/:id/edit", h.ChargeRowEditFragment)
-	r.POST("/ui/charges/create", h.ChargeCreate)
-	r.PUT("/ui/charges/row/:id", h.ChargeRowUpdate)
-	r.DELETE("/ui/charges/row/:id", h.ChargeRowDelete)
+	r.GET("/external-charges", h.ExternalChargesPage)
+	r.GET("/ui/external-charges", h.ExternalChargesContentFragment)
+	r.GET("/ui/external-charges/list", h.ExternalChargesListFragment)
+	r.GET("/ui/external-charges/row/:id", h.ExternalChargeRowStatic)
+	r.GET("/ui/external-charges/row/:id/edit", h.ExternalChargeRowEditFragment)
+	r.POST("/ui/external-charges/create", h.ExternalChargeCreate)
+	r.PUT("/ui/external-charges/row/:id", h.ExternalChargeRowUpdate)
+	r.DELETE("/ui/external-charges/row/:id", h.ExternalChargeRowDelete)
 
 	r.GET("/supercharger-stats", h.SuperchargerStatsPage)
 	r.GET("/ui/supercharger-stats", h.SuperchargerStatsFragment)

@@ -8,9 +8,9 @@
 | Term (UI / business) | Internal name | Type | KB path |
 |---|---|---|---|
 | `manual charge` | `charging.Writer` / `manual_charge_entries` | entity | `workflows/manual-charge-crud.md` |
-| `charge row` | `ChargeRowUpdate` / `ChargeRowDelete` | entity | `workflows/manual-charge-crud.md` |
-| `charges form` | `ChargeCreate` / `parseChargeForm` | entity | `workflows/manual-charge-crud.md` |
-| `Manual Records` | `/charges` page (`ChargePage`) | entity | `workflows/manual-charge-crud.md` |
+| `charge row` | `ExternalChargeRowUpdate` / `ExternalChargeRowDelete` | entity | `workflows/manual-charge-crud.md` |
+| `charges form` | `ExternalChargeCreate` / `parseExternalChargeForm` | entity | `workflows/manual-charge-crud.md` |
+| `External charges` | `/external-charges` page (`ExternalChargesPage`) | entity | `workflows/manual-charge-crud.md` |
 | `supercharger stats` | `SuperchargerStatsPage` / `charging.SessionReader` (read) + `charging.SessionVerifier` (write, RM31) (`supercharger_sessions`) | entity | `workflows/supercharger-stats-read.md` |
 | `Supercharger session` | `charging.Session` / mirrored into `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) by the nightly sync; its `start_battery_pct`/`end_battery_pct` are correctable by the gateway via `charging.SessionVerifier` (RM31) — still no gateway Create or Delete | entity | `workflows/supercharger-stats-read.md` |
 | `fast charging stats` | synonym of `supercharger stats` | entity | `workflows/supercharger-stats-read.md` |
@@ -47,15 +47,17 @@
 
 | Page / endpoint | Route or URI | Module | KB path |
 |---|---|---|---|
-| `Manual Records page` | `/charges` | `charging` | `input-port/charging/charges.md` |
-| `charge form layout` | `ChargeCreateForm` / `ChargeRowEdit` field set and order | `charging` | `input-port/charging/charges.md` |
-| `charge form fields` | synonym of `charge form layout` | `charging` | `input-port/charging/charges.md` |
-| `location label toggle` | RD14 — `applyChargeLocationLabelToggle` (`static/app.js`) | `charging` | `input-port/charging/charges.md` |
-| `status required toggle` | RD13 — `applyChargeStatusRequiredToggle` (`static/app.js`) | `charging` | `input-port/charging/charges.md` |
-| `charge date time sync` | RD12 — the `charged_on` → `started_at`/`ended_at` date splice | `charging` | `input-port/charging/charges.md` |
-| `one in-progress per day` | `handlers.inProgressConflictOn` — one `IN_PROGRESS` entry per (vehicle, `charged_on`) | `charging` | `input-port/charging/charges.md` |
-| `Registros manuales` | `/charges` | `charging` | `input-port/charging/charges.md` |
-| `charges page` | `/charges` | `charging` | `input-port/charging/charges.md` |
+| `External charges page` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
+| `Manual Records` (former label, renamed MAG/CH44) | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
+| `Registros manuales` (former label) | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
+| `charge form layout` | `ExternalChargeCreateForm` / `ExternalChargeRowEdit` field set and order | `charging` | `input-port/charging/external-charges.md` |
+| `charge form fields` | synonym of `charge form layout` | `charging` | `input-port/charging/external-charges.md` |
+| `location label toggle` | RD14 — `applyChargeLocationLabelToggle` (`static/app.js`) | `charging` | `input-port/charging/external-charges.md` |
+| `status required toggle` | RD13 — `applyChargeStatusRequiredToggle` (`static/app.js`) | `charging` | `input-port/charging/external-charges.md` |
+| `charge date time sync` | RD12 — the `charged_on` → `started_at`/`ended_at` date splice | `charging` | `input-port/charging/external-charges.md` |
+| `one in-progress per day` | `handlers.inProgressConflictOn` — one `IN_PROGRESS` entry per (vehicle, `charged_on`) | `charging` | `input-port/charging/external-charges.md` |
+| `Externas` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
+| `charges page` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
 | `Supercharger Stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
 | `fast charging stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
 | `Dashboard page` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
@@ -69,9 +71,9 @@
 
 | Use case | Entry point | Module | KB path |
 |---|---|---|---|
-| `edit a manual charge record` | `PUT /ui/charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
-| `update manual charge` | `PUT /ui/charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
-| `delete a manual charge record` | `DELETE /ui/charges/row/:id` | `charging` | `use-case/charging/delete-manual-charge.md` |
+| `edit a manual charge record` | `PUT /ui/external-charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
+| `update manual charge` | `PUT /ui/external-charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
+| `delete a manual charge record` | `DELETE /ui/external-charges/row/:id` | `charging` | `use-case/charging/delete-manual-charge.md` |
 | `edit a Supercharger session` | `PATCH /ui/supercharger-stats/row/:id` | `charging` | `use-case/charging/verify-session-battery.md` |
 | `read dashboard bento` | `GET /dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
 | `render the dashboard` | `GET /dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |

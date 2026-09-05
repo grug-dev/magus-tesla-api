@@ -34,12 +34,12 @@ import (
 func TestErrorFragmentsCarryOptInHeader(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	// A form with start_battery_pct cleared — exactly the shape that produced the
-	// silent 422 on PUT /ui/charges/row/:id.
+	// silent 422 on PUT /ui/external-charges/row/:id.
 	form := url.Values{
 		"csrf_token":        {"tok"},
 		"charged_on":        {"2026-08-03"},
@@ -50,7 +50,7 @@ func TestErrorFragmentsCarryOptInHeader(t *testing.T) {
 		"end_battery_pct":   {"100"},
 	}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPut, "/ui/external-charges/row/"+id.String(), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(c)
 	r.ServeHTTP(w, req)
@@ -78,12 +78,12 @@ func TestEditRowIssuesRequestFromForm(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	entry := charging.Entry{ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP"}
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/charges/row/"+id.String()+"/edit", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/external-charges/row/"+id.String()+"/edit", nil)
 	req.AddCookie(c)
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -112,7 +112,7 @@ func TestEditRowIssuesRequestFromForm(t *testing.T) {
 // tomorrow after 19:00 local.
 func TestCreateFormDateDefaults(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -123,7 +123,7 @@ func TestCreateFormDateDefaults(t *testing.T) {
 	wantDay := time.Now().In(bogota).Format("2006-01-02")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	req.AddCookie(c)
 	req.AddCookie(&http.Cookie{Name: "browser_tz", Value: "America/Bogota"})
 	r.ServeHTTP(w, req)
@@ -168,12 +168,12 @@ func TestConfirmDialogWiring(t *testing.T) {
 		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP",
 		ChargedOn: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), EnergyAddedKWh: ptrF64(0.79),
 	}
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req := httptest.NewRequest(http.MethodGet, "/external-charges", nil)
 	req.AddCookie(c)
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {

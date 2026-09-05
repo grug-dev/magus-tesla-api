@@ -947,7 +947,7 @@ func TestFormatKm(t *testing.T) {
 
 // ptrString returns a pointer to s -- a small test-local helper mirroring the
 // existing ptrInt/ptrTime helpers in this package (supercharger_test.go,
-// charges_tiles_test.go), added by RM38-gateway-read-dashboard-from-metrics for
+// external_charges_tiles_test.go), added by RM38-gateway-read-dashboard-from-metrics for
 // the new *string fields on analytics.VehicleStatus.
 func ptrString(s string) *string { return &s }
 
@@ -1290,7 +1290,7 @@ func TestNavHeaderFor_AnalyticsReaderError(t *testing.T) {
 
 // navHeaderEngine builds a minimal Gin engine with session middleware, a /_session
 // route that seeds the uid (matching the sessionCookie contract from
-// charges_test.go), and the nav-header fragment route. Reuses sessionCookie.
+// external_charges_test.go), and the nav-header fragment route. Reuses sessionCookie.
 func navHeaderEngine(h *Handler, uid uuid.UUID) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
