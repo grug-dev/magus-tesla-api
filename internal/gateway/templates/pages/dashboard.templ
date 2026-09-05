@@ -44,11 +44,8 @@ templ Dashboard(d fragments.DashboardData) {
 					<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
 						// Hero — Vehicle Status (col-span-8 on desktop).
 						<div class="md:col-span-8">
-							@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardVehicleStatusTitle), ID: "vehicle-status", Class: "h-full"}) {
-								<div class="flex items-center justify-between">
-									<p class="text-sm text-base-content/60 uppercase tracking-wider">
-										{ dashSubtitle(ctx, d) }
-									</p>
+							@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardVehicleStatusTitle), TitleSuffix: dashSubtitle(ctx, d), ID: "vehicle-status", Class: "h-full"}) {
+								<div class="flex items-center justify-end">
 									<div class="flex items-center gap-2">
 										if d.HasSnapshot && d.IsStale {
 											@ui.Badge(ui.BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyDashboardStaleBadge)})

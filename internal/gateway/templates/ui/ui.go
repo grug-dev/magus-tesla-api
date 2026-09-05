@@ -27,9 +27,15 @@ package ui
 // Note the title deliberately does NOT use DaisyUI's `card-title`: that class is
 // card-scoped, so a standalone `section` heading could never match it, which is the
 // exact drift these constants exist to prevent.
+// sectionTitleSuffixClass is the third member of that set: a short, already-formatted
+// value shown small INSIDE the title's <h2> (a software version, a count, a state) —
+// see ui.Card's TitleSuffix. font-normal is load-bearing, it cancels the font-semibold
+// the span inherits from the heading; it is deliberately NOT uppercase/tracking-wider,
+// because a value in caps beside a bold title reads as a second heading.
 const (
-	sectionTitleClass = "text-lg font-semibold text-base-content"
-	sectionDescClass  = "text-sm text-base-content/70"
+	sectionTitleClass       = "text-lg font-semibold text-base-content"
+	sectionDescClass        = "text-sm text-base-content/70"
+	sectionTitleSuffixClass = "ml-2 text-sm font-normal text-base-content/60"
 )
 
 // btnClass maps a Button variant to its DaisyUI class. Unknown/empty → primary.

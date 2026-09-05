@@ -19,8 +19,11 @@ func dashStat(hasSnapshot bool, v string) string {
 	return v
 }
 
-// dashSubtitle renders the hero subtitle under "Vehicle Status". When no snapshot
-// exists it shows "Awaiting first snapshot"; otherwise it composes the pre-computed
+// dashSubtitle renders the hero subtitle NEXT TO the "Vehicle Status" title — it is
+// passed as ui.CardProps.TitleSuffix, so the kit renders it as a small span inside the
+// card's own <h2>. It used to be a separate line on the left of the badge row, where
+// it read as if it belonged to the Locked/Sentry badges. When no snapshot exists it shows
+// "Awaiting first snapshot"; otherwise it composes the pre-computed
 // StatusLabel with the optional SoftwareVer ("Parked • Software v11.1.2"). Pure
 // presentation assembly — no business logic, no time math. ctx is an explicit
 // first parameter (this is a plain Go helper called from a .templ block, not a

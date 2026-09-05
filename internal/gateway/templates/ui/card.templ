@@ -16,11 +16,18 @@ package ui
 // Neither field styles itself: both read the module-wide sectionTitleClass /
 // sectionDescClass constants in ui.go, which ui.SectionHeader and ui.PageHeader read
 // too. That is the whole point — one definition, every page.
+//
+// TitleSuffix is an optional short value rendered small inside the same <h2>, right
+// after the title — a software version, a count, a state. It is a VALUE, already
+// formatted and already translated by the handler; it is never a label the section
+// needs to be understood (that is Desc, and TitleSuffix does not replace it). Empty
+// renders nothing, like ID.
 type CardProps struct {
-	Title string
-	Desc  string
-	ID    string
-	Class string
+	Title       string
+	TitleSuffix string
+	Desc        string
+	ID          string
+	Class       string
 }
 
 // Card is a themed surface container with an optional titled/described section
@@ -31,7 +38,12 @@ templ Card(p CardProps) {
 			if p.Title != "" || p.Desc != "" {
 				<div class="pb-5">
 					if p.Title != "" {
-						<h2 class={ sectionTitleClass }>{ p.Title }</h2>
+						<h2 class={ sectionTitleClass }>
+							{ p.Title }
+							if p.TitleSuffix != "" {
+								<span class={ sectionTitleSuffixClass }>{ p.TitleSuffix }</span>
+							}
+						</h2>
 					}
 					if p.Desc != "" {
 						<p class={ sectionDescClass }>{ p.Desc }</p>
