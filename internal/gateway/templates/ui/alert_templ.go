@@ -16,6 +16,20 @@ type AlertProps struct {
 }
 
 // Alert renders an inline status message with a body slot.
+//
+// WHY alert-soft AND NOT DAISYUI'S DEFAULT SOLID FILL (MAG-49): the default `.alert`
+// paints --alert-color as a SOLID background and puts --color-<kind>-content on top of
+// it. Every theme in this app is dark-mode-first, so a saturated solid block is the
+// loudest surface on the page — apex's error alert measured 10.89:1 against base-100,
+// brighter than any real content. `alert-soft` instead uses the status color as the TEXT
+// and an 8% wash of it as the background, which reads as a status message rather than a
+// billboard. It also decouples the alert from --color-<kind>-content entirely: the only
+// contrast that matters becomes status-on-base-100, the same pair every other themed text
+// token is already measured against.
+//
+// NOTE: soft does not make a bad status color safe. apex/halloween info at #2563eb fails
+// WCAG AA in BOTH styles (3.94:1 solid, 3.37:1 soft) — that is fixed in the theme files,
+// not here. See themes/apex.css and themes/halloween.css.
 func Alert(p AlertProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -37,7 +51,7 @@ func Alert(p AlertProps) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var2 = []any{"alert", alertClass(p.Kind), p.Class}
+		var templ_7745c5c3_Var2 = []any{"alert", "alert-soft", alertClass(p.Kind), p.Class}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err

@@ -19,6 +19,13 @@
  * 6.06:1. Apex, by comparison, fails AA in three places. If you change a value here,
  * re-measure — the point of this palette is that it passes.
  *
+ * WHY info IS THE ACCENT CYAN (MAG-49): info/success/warning/error are a STATE
+ * vocabulary, like the battery scale in _shared.css — red means error, amber warning,
+ * green success, in every theme. Only `info` is free to carry the theme's identity,
+ * because it warns of nothing. Graphite's identity there is its accent cyan (#22d3ee),
+ * which also separates info from the BLUE primary (#6b8afd) it used to sit beside as
+ * #38bdf8. Nothing else in the app uses the accent, so the two cannot collide.
+ *
  * Tailwind v4 inlines @import before processing, so the @plugin directive below resolves
  * as if it were written in input.css itself.
  */
@@ -48,10 +55,10 @@
   --color-neutral: #2b323b;
   --color-neutral-content: #e6e9ee;
   /* 10.64:1 on neutral  */
-  --color-info: #38bdf8;
-  /*  8.89:1 on base-100 */
-  --color-info-content: #04222f;
-  /*  7.69:1 on info     */
+  --color-info: #22d3ee;
+  /* 10.54:1 on base-100 — graphite's own accent; see the info note below */
+  --color-info-content: #04202a;
+  /*  9.33:1 on info     */
   --color-success: #34d399;
   /*  9.91:1 on base-100 */
   --color-success-content: #04231a;

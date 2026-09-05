@@ -11,15 +11,30 @@
  * both themes are always compiled into app.css, so switching is one attribute in
  * templates/layouts/base.templ plus `make templ && make css`.
  *
- * info/success/warning are borrowed from the daisyUI "halloween" builtin because the
- * Apex spec defines them in prose only (emerald/amber) with no exact hex. Replace them
- * with exact Apex values if/when they are pinned.
+ * STATUS COLORS (MAG-49). These were previously copy-pasted from the daisyUI "halloween"
+ * builtin, because the Apex spec defines them in prose only (emerald/amber) with no exact
+ * hex. That inheritance was a bug, not a choice: the borrowed info (#2563eb) measured
+ * 3.94:1 against its own content color and FAILED WCAG AA in the one place it is used.
+ * All four are now pinned here and measured, in both alert styles.
  *
- * KNOWN ISSUES (why graphite.css exists): with a red primary, `error` (#ffb4ab, pale
- * pink) reads calmer than a primary button, and the red collides with the shared
- * battery-low red. Contrast against base-100 also falls short of WCAG AA — primary
- * text 4.12:1, white-on-primary 4.49:1, accent 3.60:1 (AA wants 4.5:1). Apex is kept
- * as-is for brand fidelity; graphite is the accessible alternative.
+ * WHY info IS APEX'S ACCENT AND THE OTHER THREE ARE NOT: info/success/warning/error are a
+ * STATE vocabulary, the same class of thing as the battery scale in _shared.css — red means
+ * error, amber means warning, green means success, in EVERY theme. Re-hueing those per
+ * palette would make a failure read as decoration. `info` is the sole exception: it carries
+ * no danger meaning, so there is no convention to protect, and it is where a theme is
+ * allowed to show its identity. Apex's is its Electric-Blue accent, lightened from #3d5afe
+ * (3.39:1 — fails) to #7c8cff (5.62:1 — passes) without leaving the hue.
+ *
+ * KNOWN ISSUES (why graphite.css exists): contrast against base-100 falls short of WCAG
+ * AA in three BRAND slots — primary text 4.12:1, white-on-primary 4.49:1, accent 3.60:1
+ * (AA wants 4.5:1). Apex keeps them for brand fidelity; graphite is the accessible
+ * alternative. The four STATUS colors above are NOT part of that trade-off — they all
+ * clear AA here, because an unreadable error message is a defect in any palette.
+ *
+ * The old `error` (#ffb4ab, pale pink) is gone: as a solid alert fill it measured 10.89:1
+ * against base-100, the brightest surface in the whole dark UI, and pink does not read as
+ * "error". #ff8a80 is a coral that stays clearly distinct from the Tesla-red primary
+ * (#e82127) while keeping error in the red family the battery scale already uses.
  *
  * Tailwind v4 inlines @import before processing, so the @plugin directive below resolves
  * as if it were written in input.css itself.
@@ -42,14 +57,22 @@
   --color-accent-content: #ffffff;
   --color-neutral: #4a4949;
   --color-neutral-content: #e2e2e2;
-  --color-info: oklch(54.615% 0.215 262.88);
-  --color-info-content: oklch(90.923% 0.043 262.88);
-  --color-success: oklch(62.705% 0.169 149.213);
-  --color-success-content: oklch(12.541% 0.033 149.213);
-  --color-warning: oklch(66.584% 0.157 58.318);
-  --color-warning-content: oklch(13.316% 0.031 58.318);
-  --color-error: #ffb4ab;
-  --color-error-content: #690005;
+  --color-info: #7c8cff;
+  /*  6.21:1 on base-100 — apex's own accent (#3d5afe) lightened until it clears AA */
+  --color-info-content: #0b1033;
+  /*  6.21:1 on info     */
+  --color-success: #4ade80;
+  /* 10.61:1 on base-100 */
+  --color-success-content: #04231a;
+  /*  9.56:1 on success  */
+  --color-warning: #fbbf24;
+  /* 11.07:1 on base-100 */
+  --color-warning-content: #221701;
+  /* 10.56:1 on warning  */
+  --color-error: #ff8a80;
+  /*  8.10:1 on base-100 */
+  --color-error-content: #2d0704;
+  /*  8.04:1 on error    */
   --radius-selector: 0.25rem;
   --radius-field: 0.25rem;
   --radius-box: 0.5rem;

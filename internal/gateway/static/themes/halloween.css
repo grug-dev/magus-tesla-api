@@ -1,0 +1,49 @@
+/* Halloween — status-color overrides for the daisyUI BUILTIN theme (MAG-49).
+ *
+ * This file is NOT a palette. apex.css and graphite.css each own a whole theme; halloween
+ * is a daisyUI builtin registered in input.css via `@plugin "./daisyui.mjs" { themes:
+ * halloween; }`, and this file corrects exactly four of its tokens. Everything else —
+ * its orange primary, violet secondary, green accent, surfaces, radii — stays the
+ * builtin's.
+ *
+ * WHY A PLAIN RULE AND NOT AN @plugin BLOCK: re-declaring a theme named "halloween"
+ * through daisyui-theme.mjs would fight the builtin's own registration. A plain rule
+ * simply wins instead — daisyUI emits `[data-theme=halloween]{…}` inside `@layer base`,
+ * and an UNLAYERED rule beats any layered one regardless of source order or specificity.
+ * _shared.css already relies on this exact mechanism for the font tokens; see its
+ * "[data-theme]" block and the reason recorded there.
+ *
+ * WHY THESE FOUR CHANGED: info/success/warning came straight from the builtin, and its
+ * info (#2563eb) measured 3.94:1 against its own content color — a WCAG AA failure (AA
+ * wants 4.5:1) in the one place info is used. Every value below was measured against
+ * halloween's base-100 in BOTH alert styles.
+ *
+ * WHY info IS VIOLET: info/success/warning/error are a STATE vocabulary, like the battery
+ * scale in _shared.css — red means error, amber warning, green success, in every theme.
+ * Only `info` is free to carry the theme's identity, because it warns of nothing. For
+ * halloween that must be the SECONDARY (violet): its accent is green, which would collide
+ * with success, and its primary is orange, which would collide with warning. The raw
+ * secondary is far too dark to read (#7a10c2, 2.21:1), so it is lightened to #c084fc.
+ *
+ * theme-guard: this file adds `halloween` to input.css's @import shape while it is ALSO
+ * in the @plugin { themes: … } shape. The guard unions the two through `sort -u`, so the
+ * duplicate is deduped and no escape hatch is needed.
+ */
+[data-theme="halloween"] {
+  --color-info: #c084fc;
+  /*  6.71:1 on base-100 — secondary violet, lightened to clear AA */
+  --color-info-content: #2a0f45;
+  /*  6.34:1 on info     */
+  --color-success: #4ade80;
+  /* 10.18:1 on base-100 */
+  --color-success-content: #04231a;
+  /*  9.56:1 on success  */
+  --color-warning: #fdba74;
+  /* 10.52:1 on base-100 — lighter than the orange primary, so the two never read alike */
+  --color-warning-content: #2b1503;
+  /* 10.28:1 on warning  */
+  --color-error: #fb7185;
+  /*  6.59:1 on base-100 — rose, kept clear of the orange primary */
+  --color-error-content: #2f0512;
+  /*  6.78:1 on error    */
+}

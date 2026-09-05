@@ -390,10 +390,20 @@ self-hosted Inter + JetBrains Mono `@font-face` blocks, the font tokens, the
 battery-level colour scale (`--color-battery-*` + the `.text-battery-*` utilities), and
 the `.divider` reset. A theme must never redefine those — the battery scale is a *state*
 vocabulary, so "critically low" looks the same whichever palette is active. That is also
-why both palettes keep their primary out of the red/orange/yellow/green band. `halloween`
-(a daisyUI builtin, registered via the `@plugin "./daisyui.mjs" { themes: halloween; }`
-block rather than a file under `themes/`) is offered too, knowingly unstyled to this app's
-own palette conventions.
+why both palettes keep their primary out of the red/orange/yellow/green band.
+
+`halloween` is a daisyUI builtin, registered via the `@plugin "./daisyui.mjs" { themes:
+halloween; }` block rather than being a palette of its own. It is **not** unstyled: since
+MAG-49 a third file, `themes/halloween.css`, overrides its four status colours as a plain
+unlayered `[data-theme="halloween"]` rule (a `@plugin` block would fight the builtin's own
+registration). Everything else about it stays the builtin's.
+
+**Status colours follow the battery scale's rule (MAG-49).** `error`/`warning`/`success`
+are a state vocabulary — red, amber, green, in every theme; re-hueing them per palette
+would make a failure read as decoration. **`info` is the one exception** and carries each
+theme's identity: apex `#7c8cff`, graphite `#22d3ee`, halloween `#c084fc`. Alerts render
+via `alert-soft`, so the status colour is the *text*; every value is measured against its
+own `base-100` and clears WCAG AA.
 
 **CSS toolchain & deploy:** the generated `internal/gateway/static/app.css` is **committed**
 and embedded via `//go:embed static`, so a production build (`go build ./cmd/web`) is

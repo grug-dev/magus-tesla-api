@@ -6,7 +6,8 @@
  * palette — its `@plugin` block of --color-* / radius / size tokens. Everything
  * below is identical whichever palette is active, so it lives here once instead of
  * being copy-pasted into every theme. Adding a third theme = one new file with one
- * `@plugin` block; nothing here changes.
+ * `@plugin` block; nothing here changes. (halloween.css is the one file here that is NOT a
+ * palette — it corrects four status tokens on a daisyUI builtin; see its own header.)
  *
  * Imported by input.css BEFORE the theme files. See README.md §"Switching the theme".
  *

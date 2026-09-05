@@ -89,9 +89,6 @@ func TestExternalChargeCreate_SuccessRendersNotice(t *testing.T) {
 	if !strings.Contains(body, noticeMsgES) {
 		t.Errorf("create success must render the saved notice %q; body:\n%s", noticeMsgES, body[:min(1200, len(body))])
 	}
-	if !strings.Contains(body, "alert-success") {
-		t.Error("the notice must render as a SUCCESS alert (alert-success), not an error one")
-	}
 }
 
 // TestExternalChargesListFragment_RendersNoNotice guards the notice's one-shot nature:

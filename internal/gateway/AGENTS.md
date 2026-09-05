@@ -1149,6 +1149,7 @@ fallback and reflows minimally on swap) is acceptable for a dashboard app.
 | `_shared.css` | The four `@font-face` blocks, the `[data-theme]` font tokens, the battery-level scale (`--color-battery-*` + the `.text-battery-*` utilities), the `.divider` reset. Imported **first** by `input.css`. |
 | `apex.css` | The apex palette only — one `@plugin` block. Carries `default: true`. |
 | `graphite.css` | The graphite palette only — one `@plugin` block. No `default`. |
+| `halloween.css` | **Not a palette.** Four status-token overrides (`info`/`success`/`warning`/`error`) for the daisyUI *builtin* `halloween`, as a plain UNLAYERED `[data-theme="halloween"]` rule — not a `@plugin` block, which would fight the builtin's own registration (MAG-49). |
 
 A theme file contributes **only** `--color-*` / radius / size tokens. Anything shared
 belongs in `_shared.css`, so adding a palette never duplicates the fonts or the battery
@@ -1159,9 +1160,17 @@ colours. Exactly one theme may carry `default: true`.
 `pages.dashBatteryColorClass`. A palette changes what "action" looks like; it must not
 change what "critically low" looks like. The corollary binds every new theme: **keep the
 primary out of the red/orange/yellow/green band**, or one colour will mean two things.
-Apex violates this (red primary collides with battery-low, and `error` #ffb4ab reads
-calmer than a primary button); `graphite.css` exists as the accessible alternative and
-documents the measured contrast per token.
+Apex violates this for its *primary* (red collides with battery-low); `graphite.css` exists
+as the accessible alternative and documents the measured contrast per token.
+
+**The same rule governs the four status colours (MAG-49).** `error`/`warning`/`success` are
+a state vocabulary too — red means error, amber warning, green success, in EVERY theme.
+Re-hueing them per palette would make a failure read as decoration, so do not. **`info` is
+the sole exception**: it warns of nothing, so it carries no convention to protect, and it is
+where a theme shows its identity — apex `#7c8cff` (its accent, lightened), graphite
+`#22d3ee` (its accent), halloween `#c084fc` (its secondary; its accent is green and would
+collide with success). Every status colour is measured in BOTH alert styles and must clear
+WCAG AA (4.5:1); the previously inherited daisy default `#2563eb` failed at 3.94:1.
 
 **Switching:** since `RM42-gateway-add-theme-selector`, `data-theme` is resolved PER REQUEST
 from `ui.ThemeFromContext(ctx)` (design.md D1/D2 of that change), not a literal in source —
@@ -1173,6 +1182,8 @@ live in the root `README.md` §"Switching the theme".
 **Adding a theme is four steps (roadmap RM42 D10):**
 
 1. New `internal/gateway/static/themes/<name>.css` — one `@plugin` block, mirror `graphite.css`.
+   (A *builtin* being corrected rather than a new palette is the `halloween.css` shape instead:
+   a plain unlayered `[data-theme="<name>"]` rule.)
 2. One `@import "./themes/<name>.css";` line in `internal/gateway/static/input.css`.
 3. Add `"<name>"` to `ui.Themes` (`internal/gateway/templates/ui/theme.go`).
 4. `make css`.

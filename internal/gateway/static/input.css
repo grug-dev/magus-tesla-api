@@ -31,3 +31,7 @@
 @import "./themes/_shared.css";
 @import "./themes/apex.css";
 @import "./themes/graphite.css";
+/* halloween is a daisyUI BUILTIN (registered in the @plugin block above), so this file
+   is a four-token status-color correction, not a palette — see its header (MAG-49). It
+   must come after the builtin is registered. */
+@import "./themes/halloween.css";

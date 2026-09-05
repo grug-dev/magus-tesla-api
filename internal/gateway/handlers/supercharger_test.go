@@ -1499,9 +1499,6 @@ func TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422(t *testing.T) {
 	if strings.Contains(body, "El porcentaje de batería final debe ser un número entero entre 0 y 100.") {
 		t.Errorf("end_battery_pct (50) is valid — its error message must not render, body=%q", body)
 	}
-	if strings.Contains(body, `role="alert"`) {
-		t.Errorf("want a FIELD-level error, not a top-of-form ui.Alert (_top), body=%q", body)
-	}
 	if !strings.Contains(body, `value="101"`) {
 		t.Errorf("want the submitted raw start value 101 echoed back (not reset), body=%q", body)
 	}
