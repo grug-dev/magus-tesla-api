@@ -9,7 +9,7 @@
 Target guide: `input-port/charging/external-charges.md`
 Source spec:  `openspec/specs/gateway/spec.md`
 Generated:    `2026-09-05`
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-05
 
 > **Filename note.** This proposal is deliberately NOT named `gateway.md`. An earlier, still
 > unapplied `gateway.md` proposal (RM41, generated 2026-09-04, target
@@ -67,3 +67,14 @@ aliases so a search on the old name still resolves. Nothing to add.
 NO [guide] ## Component map BLOCK — spec.md carries behavior, not file paths, and the live
 component map was already updated by hand in the same change.
 -->
+
+---
+
+## APPLY-TIME VERIFICATION (2026-09-05)
+
+All three bullets checked against the code before applying, and all three hold:
+`KeyNavExternalCharges = "nav.external_charges"` renders `Externas` / `External` while
+`KeyChargesPageTitle = "charges_page.title"` carries the noun; the catalogue still uses the
+`KeyCharges*` identifiers (176 occurrences, no `KeyExternalCharges*`); and `gateway.go` has no
+`/charges` route at all — only the eight `external-charges` ones. Applied verbatim, no [index]
+block, Component map untouched.

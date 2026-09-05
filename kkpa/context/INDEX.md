@@ -12,12 +12,16 @@
 | `charges form` | `ExternalChargeCreate` / `parseExternalChargeForm` | entity | `workflows/manual-charge-crud.md` |
 | `External charges` | `/external-charges` page (`ExternalChargesPage`) | entity | `workflows/manual-charge-crud.md` |
 | `supercharger stats` | `SuperchargerStatsPage` / `charging.SessionReader` (read) + `charging.SessionVerifier` (write, RM31) (`supercharger_sessions`) | entity | `workflows/supercharger-stats-read.md` |
-| `Supercharger session` | `charging.Session` / mirrored into `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) by the nightly sync; its `start_battery_pct`/`end_battery_pct` are correctable by the gateway via `charging.SessionVerifier` (RM31) — still no gateway Create or Delete | entity | `workflows/supercharger-stats-read.md` |
+| `Supercharger session` | `charging.Session` / mirrored into `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) by the nightly sync; its `start_battery_pct`/`end_battery_pct` are correctable by the gateway via `charging.SessionVerifier` (RM31), which also auto-sets a three-state `status` (`IN_PROGRESS`/`DONE_CALCULATED`/`DONE`, RM41 tier 4) that no caller may supply — still no gateway Create or Delete | entity | `workflows/supercharger-stats-read.md` |
 | `fast charging stats` | synonym of `supercharger stats` | entity | `workflows/supercharger-stats-read.md` |
 | `charge session log` | `charging.SessionReader` / `charging.SessionWriter` (`supercharger_sessions`) | entity | `workflows/supercharger-stats-read.md` |
 | `charge session record` | synonym of `charge session log` | entity | `workflows/supercharger-stats-read.md` |
 | `session battery edit` | `SuperchargerRowUpdate` / `charging.SessionVerifier.VerifySession` | entity | `use-case/charging/verify-session-battery.md` |
 | `verify session battery` | synonym of `session battery edit` | entity | `use-case/charging/verify-session-battery.md` |
+| `account settings` (the one-row-per-account preference record: `language` + `theme`, PK `account_id`) | `account.Settings` — table `account.settings` | entity | `entities/account-settings/guide.md` |
+| `user preferences` | synonym of `account settings` → `entities/account-settings/guide.md` | entity | `entities/account-settings/guide.md` |
+| `theme preference` | `account.settings.theme` — closed vocabulary `apex` / `graphite` / `halloween`, default `graphite` | entity | `entities/account-settings/guide.md` |
+| `language preference` | `account.settings.language` — moved off `accounts.language` by RM42 tier 1, which dropped that column | entity | `entities/account-settings/guide.md` |
 | `battery percentage correction` | synonym of `session battery edit` | entity | `use-case/charging/verify-session-battery.md` |
 | `vehicle metrics` | `analytics.Recalculator` / `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calc fields` | the `_calc` columns of `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
@@ -89,7 +93,9 @@
 | `supercharger stats read` (page/fragment read flow, plus the narrow `session battery edit` write path over two fields — RM31) | `workflows/supercharger-stats-read.md` |
 | `supercharger stats date filter` (`?start=&end=`, 400-day cap) | `workflows/supercharger-stats-read.md` |
 | `supercharger stats chart axes` (`YYYY-MM` bar labels + reused kWh y-axis ticks) | `workflows/supercharger-stats-read.md` |
-| `supercharger session battery percentages` (the four `charging.Session` % columns; nil ⇒ `—`) | `workflows/supercharger-stats-read.md` |
+| `supercharger session battery percentages` (the two `charging.Session` % columns + `battery_pct_source`; nil ⇒ `—`) | `workflows/supercharger-stats-read.md` |
+| `supercharger session status` (the three-state `charging.Session.Status`: `IN_PROGRESS` / `DONE_CALCULATED` / `DONE`, recomputed on every correction) | `workflows/supercharger-stats-read.md` |
+| `supercharger status badge` (2nd-column `ui.Badge` + a `ui.Dot`; Badge Kind `primary`/`neutral`/`ghost`, Dot Variant `success`/`neutral`/`warning`; gateway-read-only) | `workflows/supercharger-stats-read.md` |
 
 ## Architecture topics
 
@@ -102,6 +108,8 @@
 | `can the gateway read telemetry` | no — forbidden by `make boundary-guard` → `architecture/telemetry-ingest-only.md` |
 | `ingest module` | synonym of `telemetry module` → `architecture/telemetry-ingest-only.md` |
 | `vehicle snapshots` | `telemetry.Snapshot` / `vehicle_snapshots` → `architecture/telemetry-ingest-only.md` |
+| `supercharger history estimate columns` | **dropped** — RM41 tier 3 removed `start_battery_pct_est` / `end_battery_pct_est`; reverses RM27 D6 → `architecture/telemetry-ingest-only.md` |
+| `verification-time snapshot pair` | synonym of `supercharger history estimate columns` → `architecture/telemetry-ingest-only.md` |
 | `nightly cycle` (the 3-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics) | `architecture/nightly-cycle.md` |
 | `nightly collection` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly poll` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |

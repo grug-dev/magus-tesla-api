@@ -119,6 +119,27 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Raw SQL inside `_test.go` files is invisible to sqlc and to `go vet`.** No assistant-runnable signal catches an unqualified table name there — only the suite does. After any schema or table change in this module, re-run a grep over the test files as the acceptance step; a green build proves nothing about them.
   _Source: spec telemetry — Requirement: Module-Scoped Database Schema (namespacing-only guarantee across all module reads)._
 
+- **`telemetry.supercharger_history` has NO battery-percentage estimate columns — do not
+  add them back.** The table once reserved a frozen verification-time snapshot pair
+  (`start_battery_pct_est` / `end_battery_pct_est`, each `SMALLINT` 0–100) for a companion
+  estimation capability. That capability was descoped before it ever shipped, so the pair
+  was NULL in every row for its whole life. RM41 tier 3 dropped both columns, reversing
+  RM27's design decision D6, which had kept them so a future estimator could land without a
+  migration. The estimator that eventually shipped (MAG-36, `derivedStartBatteryPct`) writes
+  the real `start_battery_pct` column instead, so there is nothing left for a snapshot to
+  capture. `charging.supercharger_sessions` lost its own equivalent pair in the same
+  roadmap (tier 2). _Source: spec telemetry — Requirement: Supercharger Session Ledger._
+- **A session read through the telemetry port carries the verification TRIO only — start
+  percentage, end percentage, source label.** There is no fourth and fifth estimate field.
+  Every returned session exposes the trio exactly as stored, NULL when no override was set.
+  Code or tests asserting a snapshot pair on a returned session are pre-RM41 and no longer
+  compile. _Source: spec telemetry — Requirement: Supercharger Session Read Port._
+- **The ledger NEVER persists a computed estimate under a source label.** The source label
+  is a closed, explicitly extensible set identifying a human-owned or measured origin only;
+  an estimate is a different capability's read-time concern. This rule survived the column
+  drop unchanged and is the reason no replacement estimate column was introduced.
+  _Source: spec telemetry — Requirement: Supercharger Session Ledger._
+
 ## Related KB
 
 - Features: (none yet)

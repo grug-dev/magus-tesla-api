@@ -9,7 +9,7 @@
 Target guide: `workflows/supercharger-stats-read.md`
 Source spec:  `openspec/specs/charge-session-log/spec.md`
 Generated:    `2026-09-04`
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-05
 
 > **Routing note (read before applying).** This capability resolves to an existing
 > `workflows/` guide, not to a `use-case/` file. Under the current use-case/workflow
