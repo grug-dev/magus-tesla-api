@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM44-incremental-supercharger-sync",
+  "intention": "Make the nightly Supercharger path incremental: updated_at must mean 'this row's data changed' at the telemetry and charging layers, the telemetry->charging mirror read must be watermark-bounded, and every telemetry query and Fleet API call must log its arguments.",
+  "request": "Source ticket: MAG-48 - Nightly Reconcile recalculates the whole vehicle_metrics history on every poller run. Measured 2026-09-05: 70-day window and 51/51 metric rows rewritten where the snapshot source alone needed 4 days. Owner added two scope items beyond the original bug: bound the O(all-history) mirror read, and log every telemetry query + Fleet API call with its input arguments.",
+  "status": "in-progress",
+  "autopilot": true,
+  "updated_at": "2026-09-05T21:43:25Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
+    "base": "6233334",
+    "ticket": "MAG-48",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-48/nightly-reconcile-recalculates-the-whole-vehicle-metrics-history-on",
+    "created_at": "2026-09-05T21:43:25Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [
+      "RM44-telemetry-add-query-logging",
+      "RM44-telemetry-add-change-detecting-upsert",
+      "RM44-charging-add-change-detecting-mirror",
+      "RM44-charging-add-mirror-watermark"
+    ],
+    "blocked": [],
+    "done": [],
+    "awaiting_user_verification": []
+  },
+  "decisions": [
+    {
+      "id": "D-RM44-1",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Three-layer cascade; internal/analytics is NOT changed",
+      "why": "Layer 3's filter shape is already correct - it is only ever fed lies by layers 1 and 2"
+    },
+    {
+      "id": "D-RM44-2",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "updated_at must mean 'this row's data changed' on both supercharger tables",
+      "why": "An unchanged mirror pass must stop widening the window, while a real human battery-% edit must still trigger it"
+    },
+    {
+      "id": "D-RM44-3",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The change comparison is structural, never a hand-listed WHERE predicate; includes tesla_id, excludes the human-owned columns",
+      "why": "A future column added to the SET but forgotten in a hand-listed WHERE would silently stop advancing updated_at - the original objection"
+    },
+    {
+      "id": "D-RM44-4",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The mirror's cursor is a charging-owned watermark table holding telemetry's updated_at",
+      "why": "A cursor belongs to the module that reads, never the one that is read; sharing analytics' cursor loses data because the two track different tables"
+    },
+    {
+      "id": "D-RM44-5",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "CRITICAL: the watermark never advances to now() on an empty read - only to the max updated_at observed, untouched when zero rows return",
+      "why": "A row committed one second late would sit permanently behind the cursor and never be mirrored - silent, undetectable data loss"
+    },
+    {
+      "id": "D-RM44-6",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The bounded read reuses the 24h overlap guard (updated_at >= cursor - 24h)",
+      "why": "Same commit-skew reason recalcOverlap exists in analytics; the idempotent upsert makes the re-read a no-op"
+    },
+    {
+      "id": "D-RM44-7",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Logging is an explicit, non-embedding decorator mirroring internal/telemetry/call_counter.go",
+      "why": "Embedding would let a method added later satisfy the type by promotion and go silently unlogged"
+    },
+    {
+      "id": "D-RM44-8",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Keep stdlib log.Printf with new 'telemetry query:' / 'fleet api:' prefixes; do NOT introduce slog",
+      "why": "The repo has zero slog and 40+ log.Printf lines; a second logging library inside a bug fix is out of scope"
+    },
+    {
+      "id": "D-RM44-9",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Never log a credential or a raw_data blob; enforced structurally and asserted by a test",
+      "why": "Every Fleet API method takes tesla.Credentials, so a naive 'log the arguments' leaks a live bearer token"
+    },
+    {
+      "id": "D-RM44-10",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Unit tests ARE included in every tier",
+      "why": "User was asked and changed the standing 'no unit tests' default; D3's comparison and D5's empty-read rule are exactly what a test must pin"
+    },
+    {
+      "id": "D-RM44-11",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tier order: logging first; the updated_at work splits across tiers 2 and 3",
+      "why": "The tier-1 instrument is what makes tiers 2-4 provable rather than theoretical; the split is forced by the one-module-per-worker sandbox"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM44-telemetry-add-query-logging",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Open question for its Step 2 interview: how the 5 non-ported queries are instrumented (internal store seam vs call-site logging)."
+    },
+    {
+      "id": 2,
+      "change": "RM44-telemetry-add-change-detecting-upsert",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "database design gate applies."
+    },
+    {
+      "id": 3,
+      "change": "RM44-charging-add-change-detecting-mirror",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "database design gate applies. The tier that actually stops the vehicle_metrics blow-up."
+    },
+    {
+      "id": 4,
+      "change": "RM44-charging-add-mirror-watermark",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        2,
+        3
+      ],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "database design gate applies. New watermark table. Cross-module wiring in internal/app is leader-owned."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-05T21:43:25Z",
+      "agent": "leader",
+      "event": "roadmap RM44 created from MAG-48; branch ft/RM44-MAG-48-incremental-supercharger-sync off 6233334; work-counter 44 -> 45"
+    },
+    {
+      "at": "2026-09-05T21:43:25Z",
+      "agent": "leader",
+      "event": "run scope: HALT AFTER STEP 4 (kkpa-pickup-linear-ticket path) - artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+    }
+  ]
+}

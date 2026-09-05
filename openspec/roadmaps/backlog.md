@@ -894,6 +894,42 @@ Discovered while designing RM42 (MAG-43, theme selector). Scope split confirmed 
 owner on 2026-09-04: keep MAG-43 to the settings table + page, do the caching separately.
 
 
+## 25. analytics — Log the recalculation window `Recalculate(start, end)` derives
+
+### PROPOSAL
+
+`internal/analytics` contains **zero** log statements. `Recalculator.Reconcile` derives a
+`[start, end]` window from its three watermarks and hands it to `Recalculate`, and on a
+successful run **nothing prints it**. The only place the window appears is inside an error
+string (`recalculating [%s, %s]`, `recalculate.go`), so it is visible only when the call
+already failed.
+
+This is why MAG-48 ran unnoticed for months: the nightly log showed `gap reconciliation:`
+with a *different, unrelated* trailing window, and a reader could reasonably mistake it for
+the recalculation window. Nothing ever showed that `Recalculate` was handed 70 days instead
+of 4.
+
+The fix is small: one log line per vehicle carrying the derived `[start, end]`, plus the
+per-source row counts that widened it (snapshots / supercharger sessions / manual entries),
+using the existing `metrics reconciliation:` prefix. Roughly three lines, no new dependency.
+
+**Why it is not in RM44:** RM44 instruments the *telemetry* side — the queries and their
+filters, i.e. the **inputs**. That is enough to see the cause. This item logs the analytics
+side's derived **output**, which is the thing a reader actually wants to compare against
+"how many days should this have been". Both are useful; only the first was in the owner's
+stated scope for MAG-48.
+
+**Trigger:** pick up any time — it has no dependency on RM44's tiers. Cheapest immediately
+after RM44 tier 1, while the logging conventions (`telemetry query:` prefix, `log.Printf`,
+no `slog`) are fresh.
+
+### ORIGIN
+
+Found while analysing MAG-48 on 2026-09-05 (the "Observability gap" section of that ticket).
+Raised with the owner, who scoped MAG-48's logging to the telemetry module and the Fleet API
+calls; this analytics-side line was left out of that scope and deferred here.
+
+
 
 # BRAINSTORMING
 
