@@ -22,7 +22,7 @@ Status legend: `[ ]` pending (change not created) · `[~]` in progress (change e
 
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 |---|---|---|---|---|---|
-| `[ ]` | `RM44-telemetry-add-query-logging` | `internal/telemetry` | Log every query's input arguments. All 10 public port methods (`Reader` ×5, `SuperchargerHistoryReader` ×4, `RunWriter` ×1) log account, `tesla_id`, date filters (`start`/`end`/`since`/`day`), `limit`, and row count. The 5 internal queries (`InsertVehicleSnapshot`, `UpsertSuperchargerHistory`, `InsertPollAttempt`, `ListSnapshotsByVehicle`, `ListPollAttemptsByVehicle`) log too. All 4 `tesla.VehicleService` Fleet API methods log their parameters. | — | Create the OpenSpec artifacts for `RM44-telemetry-add-query-logging`. Binding decisions D7–D11 in this roadmap. **Open question for the Step 2 interview: how the 5 non-ported queries are instrumented** (extract an internal store seam and decorate it, vs log at the call site in `service.go`) — do not decide this alone. Mirror `internal/telemetry/call_counter.go` exactly: explicit per-method implementation, NO interface embedding, plus a compile-time assertion, so a method added later is a compile error rather than a silently unlogged call. D9 (never log credentials or `raw_data`) is a hard security constraint, not a style note. |
+| `[~]` | `RM44-telemetry-add-query-logging` | `internal/telemetry` | Log every LIVE query's input arguments via four interface decorators — `store` (3 writes), `Reader` (5), `SuperchargerHistoryReader` (4), `RunWriter` (1). Each logs account, `tesla_id`, date filters (`start`/`end`/`since`/`day`), `limit`, and row count. Extend `callCounter` so all 4 `tesla.VehicleService` Fleet API methods log their parameters. Delete the 2 dead queries (D13). | — | Create the OpenSpec artifacts for `RM44-telemetry-add-query-logging`. Binding decisions D7–D14 in this roadmap. **The open question from MAG-48 is dissolved — do not re-open it:** `internal/telemetry/service.go:42` already declares a `store` interface covering `insertSnapshot`, `insertPollAttempt` and `upsertSuperchargerHistory`, so every live query is already behind an interface and NO call-site logging is needed. Mirror `internal/telemetry/call_counter.go` exactly: explicit per-method implementation, NO interface embedding, plus a compile-time assertion, so a method added later is a compile error rather than a silently unlogged call. Adding a decorator must not change any interface, so the existing test fakes keep compiling. D9 (never log credentials or `raw_data`) is a hard security constraint, not a style note. |
 | `[ ]` | `RM44-telemetry-add-change-detecting-upsert` | `internal/telemetry` | Layer 1. `UpsertSuperchargerHistory` advances `updated_at` only when the row's mirrored data actually changed. Refresh set today: `raw_data, energy_kwh, total_cost, currency, is_paid, tesla_id`. Structural comparison per D3 — a future column added to the `SET` cannot be silently omitted from the comparison. | tier 1 | Create the OpenSpec artifacts for `RM44-telemetry-add-change-detecting-upsert`. Binding decisions D1–D3 and D10 in this roadmap. The `database` design gate applies — `design.md` MUST carry the comparison mechanism, its rationale, why the hand-listed `WHERE` predicate was rejected, and the index/plan impact. Prove the change with tier 1's log lines: an unchanged re-sync must leave every `updated_at` untouched. |
 | `[ ]` | `RM44-charging-add-change-detecting-mirror` | `internal/charging` | Layer 2. `MirrorSuperchargerSession` advances `updated_at` only on a real data change. Refresh set today: `energy_kwh, total_cost, currency, is_paid, tesla_id`. Same structural comparison as tier 2. This is the tier that actually stops the `vehicle_metrics` blow-up. | tier 1 | Create the OpenSpec artifacts for `RM44-charging-add-change-detecting-mirror`. Binding decisions D1–D3, D10. The `database` design gate applies. D3's exclusions are load-bearing: `start_battery_pct`, `end_battery_pct`, `battery_pct_source` and `status` are human-owned (RM31/RM41) and MUST stay out of the comparison — a human verification must not look like a mirror change, nor the reverse. `tesla_id` MUST be in the comparison or the orphan-recovery path breaks (D3). |
 | `[ ]` | `RM44-charging-add-mirror-watermark` | `internal/charging` | Bound the `telemetry` → `charging` mirror read. New charging-owned watermark table keyed by account, holding **telemetry's** `updated_at`. `processChargingData` stops asking for the full history (`limit 0` → `MaxInt32`) and asks for `updated_at >= cursor - 24h`. Cross-module wiring in `internal/app` is leader-owned. | tier 2, tier 3 | Create the OpenSpec artifacts for `RM44-charging-add-mirror-watermark`. Binding decisions D4–D6, D10. The `database` design gate applies — full schema, index plan, and BOTH rejected alternatives with their reasons (they are already written in D4; do not re-derive or re-open them). **D5 is the highest-risk rule in this roadmap**: advancing the watermark to `now()` on an empty read loses data permanently and silently. Copy `analytics.Recalculator.Reconcile`'s existing rule rather than re-inventing it. |
@@ -131,6 +131,30 @@ live in ticket MAG-48.
   watermark behaviour. `Test-Execution-Policy` still applies in full: the assistant writes
   the tests and never runs the suite; the owner runs it and reports, and that report is
   recorded as theirs.
+
+- **D12 — Every LIVE telemetry query is already behind an interface.** MAG-48 stated that five
+  queries sit behind no interface and asked whether to extract a seam or log at the call site.
+  That premise was wrong: `internal/telemetry/service.go:42` already declares a private `store`
+  interface covering `insertSnapshot`, `insertPollAttempt` and `upsertSuperchargerHistory`. So the
+  instrumentation is **four decorators over existing interfaces** — `store`, `Reader`,
+  `SuperchargerHistoryReader`, `RunWriter` — and no call-site logging anywhere. A decorator adds no
+  method, so every existing test fake keeps compiling unchanged.
+
+- **D13 — `ListSnapshotsByVehicle` and `ListPollAttemptsByVehicle` are DELETED.** Neither has a
+  production caller; their only users are **10** call sites across 3 DB-integration test files
+  (`db_integration_test.go` ×5, `db_sourcea_integration_test.go` ×3, `db_tpms_integration_test.go` ×2),
+  each reading a row back to verify a write. *(The leader first wrote 8; the tier-1 worker
+  recounted and found 10. The real count is 10 — it changes the size of the task, not its shape.)* The user chose deletion over leaving them uninstrumented.
+
+  **Constraint on the rewrite:** those 8 assertions are replaced with **raw SQL in the test**, never
+  with another sqlc reader query. Verifying a write by calling one of the module's own live readers
+  makes the test pass through the very path it is testing; raw SQL keeps the assertion independent
+  of the code under test. This is why the deletion is a real task, not a one-line removal.
+
+- **D14 — Fleet API logging EXTENDS `callCounter`; no sibling decorator.** One type, one
+  compile-time assertion, one place a new `tesla.VehicleService` method must be added, and no
+  chaining order to get wrong. The cost — counting and logging share a type — was accepted
+  deliberately over doubling the number of places a future method must be registered.
 
 - **D11 — Tier order: logging FIRST.** Chosen by the user over "fix first, log last". The
   instrument installed in tier 1 is what makes tiers 2–4 provable: run the poller before

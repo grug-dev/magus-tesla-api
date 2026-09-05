@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-48 - Nightly Reconcile recalculates the whole vehicle_metrics history on every poller run. Measured 2026-09-05: 70-day window and 51/51 metric rows rewritten where the snapshot source alone needed 4 days. Owner added two scope items beyond the original bug: bound the O(all-history) mirror read, and log every telemetry query + Fleet API call with its input arguments.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-05T21:43:25Z",
+  "updated_at": "2026-09-05T22:09:30Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
@@ -16,9 +16,10 @@
     "created_at": "2026-09-05T21:43:25Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      "RM44-telemetry-add-query-logging"
+    ],
     "pending": [
-      "RM44-telemetry-add-query-logging",
       "RM44-telemetry-add-change-detecting-upsert",
       "RM44-charging-add-change-detecting-mirror",
       "RM44-charging-add-mirror-watermark"
@@ -115,6 +116,30 @@
       "made_by": "user",
       "decision": "Tier order: logging first; the updated_at work splits across tiers 2 and 3",
       "why": "The tier-1 instrument is what makes tiers 2-4 provable rather than theoretical; the split is forced by the one-module-per-worker sandbox"
+    },
+    {
+      "id": "D-RM44-12",
+      "at": "2026-09-05T21:55:40Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "Every LIVE telemetry query is already behind an interface (store x3, Reader x5, SuperchargerHistoryReader x4, RunWriter x1) - decorate those four, no call-site logging needed",
+      "why": "service.go:42's store seam already covers the three 'internal' writes; the ticket's premise that 5 queries sit behind no interface was wrong"
+    },
+    {
+      "id": "D-RM44-13",
+      "at": "2026-09-05T21:55:40Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "DELETE ListSnapshotsByVehicle and ListPollAttemptsByVehicle; rewrite the 10 integration-test call sites on raw SQL, never on another sqlc reader query",
+      "why": "They have no production caller. Reusing a live reader would make a test verify through the path it tests; raw SQL keeps the assertion independent"
+    },
+    {
+      "id": "D-RM44-14",
+      "at": "2026-09-05T21:55:40Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "Fleet API logging EXTENDS the existing callCounter rather than adding a sibling decorator",
+      "why": "One type, one compile-time assertion, one place a new Fleet API method must be added - no chaining order to get wrong"
     }
   ],
   "tiers": [
@@ -124,14 +149,14 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (worker) / claude-opus-5 (leader)",
+      "started_at": "2026-09-05T22:09:30Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Open question for its Step 2 interview: how the 5 non-ported queries are instrumented (internal store seam vs call-site logging)."
+      "notes": "Interview settled 2026-09-05: D12-D14. 13 live queries, all already behind interfaces. 2 dead queries deleted. callCounter extended."
     },
     {
       "id": 2,
@@ -196,6 +221,16 @@
       "at": "2026-09-05T21:43:25Z",
       "agent": "leader",
       "event": "run scope: HALT AFTER STEP 4 (kkpa-pickup-linear-ticket path) - artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-05T21:55:40Z",
+      "agent": "leader",
+      "event": "tier 1 Step 2 interview complete; D12-D14 recorded; open question from MAG-48 dissolved - the store seam already exists"
+    },
+    {
+      "at": "2026-09-05T22:09:30Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created by worker 'telemetry' (sonnet); openspec validate --strict passed; database gate does NOT apply (no schema object, verified by leader); D13 count corrected 8 -> 10"
     }
   ]
 }
