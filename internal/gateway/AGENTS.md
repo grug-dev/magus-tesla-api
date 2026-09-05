@@ -503,7 +503,7 @@ Gold standard: `templates/pages/dashboard.templ` — `connect-cta`, `vehicle-sta
 
 **Every card in this module now carries one** — MAG-46 backfilled the thirteen that
 did not (`history-odometer`, `history-battery`, `history-consumed`,
-`external-charges-create-card`, `charges-empty`, `charges-summary`, `charges-entries`,
+`external-charges-create-card`, `external-charges-empty`, `external-charges-summary`, `external-charges-entries`,
 `supercharger-empty`, `supercharger-summary`, `supercharger-kwh-per-month`,
 `supercharger-sessions`, `login-actions`, `account-blocked-message`). The rule had
 been written but never enforced, so eleven of the seventeen cards were anonymous. If
@@ -553,7 +553,7 @@ Two shapes of card pass neither Title nor Desc, and these are the whole list:
 - **A bare container for a single control the page header already explained** —
   `login-actions` (one sign-in button under a page whose heading says the rest) and
   `account-blocked-message`.
-- **An empty state whose entire body is one explanatory sentence** — `charges-empty`
+- **An empty state whose entire body is one explanatory sentence** — `external-charges-empty`
   and `supercharger-empty`. Here a description would only restate the body directly
   above it, and a title would name a section that exists solely to say "there is
   nothing here yet".

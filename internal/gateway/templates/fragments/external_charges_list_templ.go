@@ -76,7 +76,7 @@ func ExternalChargesList(d ExternalChargesPageData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Card(ui.CardProps{ID: "charges-empty"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Card(ui.CardProps{ID: "external-charges-empty"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -135,7 +135,7 @@ func ExternalChargesList(d ExternalChargesPageData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesSummaryTitle), Desc: i18n.T(ctx, i18n.KeyChargesSummaryDesc), ID: "charges-summary"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesSummaryTitle), Desc: i18n.T(ctx, i18n.KeyChargesSummaryDesc), ID: "external-charges-summary"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -242,7 +242,7 @@ func ExternalChargesList(d ExternalChargesPageData) templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesListTitle), Desc: i18n.T(ctx, i18n.KeyChargesListDesc), ID: "charges-entries"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesListTitle), Desc: i18n.T(ctx, i18n.KeyChargesListDesc), ID: "external-charges-entries"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

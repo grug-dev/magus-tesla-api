@@ -27,7 +27,7 @@ import (
 templ ExternalChargesList(d ExternalChargesPageData) {
 	<div id="external-charges-list">
 		if d.NoFilterChrome {
-			@ui.Card(ui.CardProps{ID: "charges-empty"}) {
+			@ui.Card(ui.CardProps{ID: "external-charges-empty"}) {
 				@ExternalChargesEmptyState()
 			}
 		} else {
@@ -36,10 +36,10 @@ templ ExternalChargesList(d ExternalChargesPageData) {
 			}
 			<input type="hidden" id="external-charges-window-start" value={ d.WindowStartStr }/>
 			<input type="hidden" id="external-charges-window-end" value={ d.WindowEndStr }/>
-			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesSummaryTitle), Desc: i18n.T(ctx, i18n.KeyChargesSummaryDesc), ID: "charges-summary"}) {
+			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesSummaryTitle), Desc: i18n.T(ctx, i18n.KeyChargesSummaryDesc), ID: "external-charges-summary"}) {
 				@externalChargeTiles(d.Tiles)
 			}
-			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesListTitle), Desc: i18n.T(ctx, i18n.KeyChargesListDesc), ID: "charges-entries"}) {
+			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesListTitle), Desc: i18n.T(ctx, i18n.KeyChargesListDesc), ID: "external-charges-entries"}) {
 				if d.Error != "" {
 					@ui.Alert(ui.AlertProps{Kind: "error"}) {
 						{ d.Error }
