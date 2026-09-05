@@ -72,4 +72,4 @@
 ## 9. Land it
 
 - [x] 9.1 Committed on `ft/CH44-gateway-rename-charges-route` (`0118cac`), bumping `openspec/.work-counter` 43 → 44 in the same commit. Follow-up `4296704` renamed three DOM ids the first sweep missed — see 4.3.
-- [ ] 9.2 After the owner confirms `make test` passes, run `openspec archive` and move the change folder under `openspec/changes/archive/gateway/`.
+- [x] 9.2 Archived. `openspec archive -y` synced the delta into `openspec/specs/gateway/spec.md` (15 modified, 1 renamed) and the folder was moved under `openspec/changes/archive/gateway/`, matching how the recent gateway changes are grouped. **Finding:** the CLI applies a rename as remove + append, which left `External Charges Page` at the end of the spec, away from its four sibling requirements; moved back to its original position before committing. Main spec verified: 0 `/charges`, 27 `/external-charges`, no "Charge log", 70 requirements, no duplicate titles.
