@@ -63,7 +63,7 @@ worker's task.
   `TeslaID` field.
   `depends_on`: 1a.1 · `parallel_ok`: no
 
-- [ ] **1a.3** `internal/telemetry/telemetry.go` — add
+- [x] **1a.3** `internal/telemetry/telemetry.go` — add
   `SuperchargerHistoryByAccountUpdatedSince(ctx, accountID, since)
   ([]SuperchargerHistory, error)` to the `SuperchargerHistoryReader`
   interface, doc comment verbatim from design.md "Interfaces." Acceptance:
@@ -72,14 +72,14 @@ worker's task.
   next task.
   `depends_on`: 1a.2 · `parallel_ok`: no
 
-- [ ] **1a.4** `internal/telemetry/reader.go` — implement
+- [x] **1a.4** `internal/telemetry/reader.go` — implement
   `superchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince`,
   mirroring `SuperchargerHistoryByAccount`'s shape (account-only params, the
   existing `rowToSuperchargerHistory` mapper). Acceptance: `go build
   ./internal/telemetry/...` succeeds.
   `depends_on`: 1a.3 · `parallel_ok`: no
 
-- [ ] **1a.5** `internal/telemetry/query_log.go` — add ONE explicit method to
+- [x] **1a.5** `internal/telemetry/query_log.go` — add ONE explicit method to
   `loggingSuperchargerHistoryReader` (no interface embedding, per D7):
   `SuperchargerHistoryByAccountUpdatedSince`, logging AFTER delegating,
   printing `account`, `since`, `rows` — same shape as its three siblings on
@@ -88,14 +88,14 @@ worker's task.
   compiles; `go vet ./internal/telemetry/...` succeeds.
   `depends_on`: 1a.4 · `parallel_ok`: no
 
-- [ ] **1a.6** `internal/telemetry/query_log_test.go` — add the new method to
+- [x] **1a.6** `internal/telemetry/query_log_test.go` — add the new method to
   `fakeQueryLogSCHReader` (this file's own fake, inside this worker's
   sandbox) and one test case exercising 1a.5's new log line. Acceptance:
   `go vet ./internal/telemetry/...` succeeds; `gofmt -l
   internal/telemetry/query_log_test.go` prints nothing.
   `depends_on`: 1a.5 · `parallel_ok`: with 1a.7
 
-- [ ] **1a.7** New `internal/telemetry/db_supercharger_account_updated_since_integration_test.go`
+- [x] **1a.7** New `internal/telemetry/db_supercharger_account_updated_since_integration_test.go`
   (or extend an existing `db_supercharger_*_integration_test.go` file —
   worker's choice, note it in the final report) covering T-tel-1 through
   T-tel-6 from design.md's Test Contract, verbatim expected values.
@@ -159,7 +159,7 @@ worker's task.
 
 ## Wave 2 — docs (module workers, granted AGENTS.md + spec paths)
 
-- [ ] **2.1 [doc: telemetry worker]** `internal/telemetry/AGENTS.md` — add a
+- [x] **2.1 [doc: telemetry worker]** `internal/telemetry/AGENTS.md` — add a
   short section describing `SuperchargerHistoryByAccountUpdatedSince`: its
   signature, that it is the only updated-since method that can return a
   `tesla_id IS NULL` row, and why (mirrors design.md "Interfaces").

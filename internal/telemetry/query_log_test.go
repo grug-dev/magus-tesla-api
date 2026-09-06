@@ -115,6 +115,9 @@ func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicleBetween(context.Cont
 func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicleUpdatedSince(context.Context, uuid.UUID, int64, time.Time) ([]SuperchargerHistory, error) {
 	return f.history, nil
 }
+func (f *fakeQueryLogSCHReader) SuperchargerHistoryByAccountUpdatedSince(context.Context, uuid.UUID, time.Time) ([]SuperchargerHistory, error) {
+	return f.history, nil
+}
 
 var _ SuperchargerHistoryReader = (*fakeQueryLogSCHReader)(nil)
 
@@ -366,7 +369,7 @@ func TestLoggingReader_SnapshotPrecedingDay_LogsExpectedLine(t *testing.T) {
 }
 
 // ============================================================
-// Group A / A.2 — loggingSuperchargerHistoryReader's 4 methods
+// Group A / A.2 — loggingSuperchargerHistoryReader's 5 methods
 // ============================================================
 
 // Group A.2: SuperchargerHistoryByAccount logs the RESOLVED limit
@@ -442,6 +445,26 @@ func TestLoggingSuperchargerHistoryReader_ByVehicleUpdatedSince_LogsExpectedLine
 
 	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicleUpdatedSince account=%s tesla_id=%d since=%s rows=%d\n",
 		qlAccountID, qlTeslaID, since.Format(time.RFC3339), 2)
+	if got := buf.String(); got != want {
+		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
+	}
+}
+
+// TestLoggingSuperchargerHistoryReader_ByAccountUpdatedSince_LogsExpectedLine
+// covers task 1a.5's new decorator method
+// (RM44-platform-add-mirror-watermark). No tesla_id field is logged — this
+// method has none, unlike its per-vehicle sibling above.
+func TestLoggingSuperchargerHistoryReader_ByAccountUpdatedSince_LogsExpectedLine(t *testing.T) {
+	buf := captureLog(t)
+	l := newLoggingSuperchargerHistoryReader(&fakeQueryLogSCHReader{history: twoSCHRows()})
+
+	since := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+	if _, err := l.SuperchargerHistoryByAccountUpdatedSince(context.Background(), qlAccountID, since); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByAccountUpdatedSince account=%s since=%s rows=%d\n",
+		qlAccountID, since.UTC().Format(time.RFC3339), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}

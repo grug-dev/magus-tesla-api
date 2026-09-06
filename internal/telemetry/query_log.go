@@ -189,7 +189,7 @@ func (l *loggingReader) SnapshotPrecedingDay(ctx context.Context, accountID uuid
 // --- loggingSuperchargerHistoryReader ---
 
 // loggingSuperchargerHistoryReader wraps the public SuperchargerHistoryReader
-// port and logs all 4 methods AFTER delegating to inner, so rows reflects the
+// port and logs all 5 methods AFTER delegating to inner, so rows reflects the
 // actual result (design D6). SuperchargerHistoryByAccount/ByVehicle log the
 // RESOLVED limit (via the existing resolveLimit helper in reader.go, reused
 // as-is), not the caller's raw limit argument — this is the fix's whole
@@ -244,6 +244,16 @@ func (l *loggingSuperchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSi
 	result, err := l.inner.SuperchargerHistoryByVehicleUpdatedSince(ctx, accountID, teslaID, since)
 	log.Printf("telemetry query: SuperchargerHistoryByVehicleUpdatedSince account=%s tesla_id=%d since=%s rows=%d",
 		accountID, teslaID, since.UTC().Format(time.RFC3339), len(result))
+	return result, err
+}
+
+// SuperchargerHistoryByAccountUpdatedSince implements SuperchargerHistoryReader,
+// logging after delegating (RM44-platform-add-mirror-watermark). No tesla_id
+// field is logged — this method has none, unlike its per-vehicle sibling.
+func (l *loggingSuperchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, accountID uuid.UUID, since time.Time) ([]SuperchargerHistory, error) {
+	result, err := l.inner.SuperchargerHistoryByAccountUpdatedSince(ctx, accountID, since)
+	log.Printf("telemetry query: SuperchargerHistoryByAccountUpdatedSince account=%s since=%s rows=%d",
+		accountID, since.UTC().Format(time.RFC3339), len(result))
 	return result, err
 }
 

@@ -292,9 +292,11 @@ precedent verified its own planner behavior.
 // (RM44-platform-add-mirror-watermark, roadmap D3/D20). Returns a non-nil
 // empty slice and nil error when nothing for the account has been updated
 // at or after `since` (parity with every other SuperchargerHistoryReader
-// method's empty-result contract). No new index -- updated_at is a
-// residual filter within the existing account_id-pruned scan (design.md
-// Index Plan). Reuses the existing rowToSuperchargerHistory mapper.
+// method's empty-result contract). Served by
+// idx_supercharger_history_account_updated (account_id, updated_at), added
+// by this change: account_id prunes and updated_at both bounds the range and
+// gives the ordering, so the read needs no sort step (design.md Index Plan).
+// Reuses the existing rowToSuperchargerHistory mapper.
 SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, accountID uuid.UUID, since time.Time) ([]SuperchargerHistory, error)
 ```
 

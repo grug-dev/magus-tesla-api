@@ -9,18 +9,12 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1a.3",
-      "1a.4",
-      "1a.5",
-      "1a.6",
-      "1a.7",
       "1b.1",
       "1b.2",
       "1b.3",
       "1b.4",
       "1b.5",
       "1b.6",
-      "2.1",
       "2.2",
       "2.3",
       "3.1",
@@ -32,16 +26,22 @@
     ],
     "blocked": [],
     "done": [
-      "0.1"
+      "0.1",
+      "2.1"
     ],
     "awaiting_user_verification": [
       "1a.0",
       "1a.1",
-      "1a.2"
+      "1a.2",
+      "1a.3",
+      "1a.4",
+      "1a.5",
+      "1a.6",
+      "1a.7"
     ]
   },
   "created_at": "2026-09-06T10:35:00Z",
-  "updated_at": "2026-09-06T11:08:00Z",
+  "updated_at": "2026-09-06T13:42:17Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -156,14 +156,23 @@
         "1a.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Interface method added to SuperchargerHistoryReader. Leader corrected its doc comment: it claimed \"No new index\" while this change ships one (D25).",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
     },
     {
       "id": "1a.4",
@@ -173,14 +182,23 @@
         "1a.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "reader.go implements the method, mirroring SuperchargerHistoryByAccount. Account-only params, no tesla_id. go build passes.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
     },
     {
       "id": "1a.5",
@@ -190,14 +208,23 @@
         "1a.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "One explicit method on loggingSuperchargerHistoryReader, no embedding (D7). Logs account, since, rows after delegating.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
     },
     {
       "id": "1a.6",
@@ -207,14 +234,23 @@
         "1a.5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Fake extended and one log-line test added. go vet and gofmt clean. The test itself was not run.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
     },
     {
       "id": "1a.7",
@@ -224,14 +260,23 @@
         "1a.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "New db_supercharger_account_updated_since_integration_test.go, 7 tests T-tel-1..T-tel-7. T-tel-7 asserts the EXPLAIN plan uses the new index with no Sort node.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
     },
     {
       "id": "1b.1",
@@ -343,14 +388,23 @@
         "1a.7"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md documents the new method and why it is the only updated-since read that can return a tesla_id NULL row.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
     },
     {
       "id": "2.2",
@@ -590,6 +644,21 @@
       "at": "2026-09-06T11:08:00Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT after the wave 1a slice. five_hour=90% (threshold 90, reached), context=13%. five_hour_resets_at=2026-09-06T13:30:00Z (08:30 local). Tasks 1a.0-1a.2 done and committed (d257663). Tasks 1a.3-1a.7 and all of wave 1b are pending. Nothing is blocked. Resume after the reset with: /kkpa-dev-harness-pipeline resume RM44-incremental-supercharger-sync"
+    },
+    {
+      "at": "2026-09-06T13:34:58Z",
+      "agent": "leader",
+      "event": "RESUMED after the 5-hour reset (5h 4%, ctx 14%). Wave 1a-rest dispatched: tasks 1a.3-1a.7 + doc 2.1, one serial telemetry worker (sonnet). Waves 1a and 1b stay serial because 1b.3 runs make sqlc, which rewrites every module's generated code."
+    },
+    {
+      "at": "2026-09-06T13:42:17Z",
+      "agent": "leader",
+      "event": "Wave 1a-rest reconciled. Worker flagged a real defect the leader fixed in both places: design.md's Interfaces block and the shipped telemetry.go doc comment both said 'No new index', written before the gate revision that added idx_supercharger_history_account_updated (D25). The same design.md's Index Plan and test T-tel-7 already said the opposite. Assistant-run signals clean: go build, go vet ./internal/telemetry/..., gofmt -l, migration-guard, boundary-guard. Suite NOT run."
+    },
+    {
+      "at": "2026-09-06T13:42:17Z",
+      "agent": "leader",
+      "event": "Pre-existing gap flagged by the worker, NOT fixed here: internal/telemetry/AGENTS.md never documented SuperchargerHistoryByVehicleUpdatedSince, added in an earlier tier. Out of this change's scope."
     }
   ]
 }

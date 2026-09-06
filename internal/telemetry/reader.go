@@ -215,6 +215,30 @@ func (r *superchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(ctx
 	return sessions, nil
 }
 
+// SuperchargerHistoryByAccountUpdatedSince implements SuperchargerHistoryReader. It
+// returns every Supercharger session for the given account whose updated_at is at
+// or after since, ordered oldest-first by updated_at
+// (RM44-platform-add-mirror-watermark, roadmap D20). Unlike
+// SuperchargerHistoryByVehicleUpdatedSince, this has no tesla_id param or
+// predicate, so it can return a session whose tesla_id is NULL (the
+// orphan-recovery path — design.md D6). Reuses the existing
+// rowToSuperchargerHistory mapper (mapping.go). Returns a non-nil empty slice
+// when no sessions have been updated in the window (design DBS6 parity).
+func (r *superchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, accountID uuid.UUID, since time.Time) ([]SuperchargerHistory, error) {
+	rows, err := r.q.SuperchargerHistoryByAccountUpdatedSince(ctx, telemetrydb.SuperchargerHistoryByAccountUpdatedSinceParams{
+		AccountID: accountID,
+		Since:     timestamptzFrom(since),
+	})
+	if err != nil {
+		return nil, err
+	}
+	sessions := make([]SuperchargerHistory, 0, len(rows))
+	for _, row := range rows {
+		sessions = append(sessions, rowToSuperchargerHistory(row))
+	}
+	return sessions, nil
+}
+
 // SuperchargerHistoryByVehicleBetween implements SuperchargerHistoryReader. It returns
 // Supercharger sessions for the given vehicle (within the given account) whose
 // ChargeStopDateTime falls in the caller-supplied [start, end] window, inclusive
