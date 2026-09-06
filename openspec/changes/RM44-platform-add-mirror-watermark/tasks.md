@@ -37,7 +37,7 @@ worker's task.
 
 ## Wave 1a — telemetry read method (module: telemetry worker)
 
-- [ ] **1a.0** New migration
+- [x] **1a.0** New migration
   `internal/telemetry/db/migrations/20260906000001_add_supercharger_history_account_updated_idx.sql`
   — creates `idx_supercharger_history_account_updated` on
   `telemetry.supercharger_history (account_id, updated_at)`. Exact SQL and
@@ -49,14 +49,14 @@ worker's task.
   drops the index.
   `depends_on`: 0.1 · `parallel_ok`: with charging's Wave 1b
 
-- [ ] **1a.1** `internal/telemetry/db/query.sql` — add
+- [x] **1a.1** `internal/telemetry/db/query.sql` — add
   `SuperchargerHistoryByAccountUpdatedSince`, exact SQL in design.md
   "The new telemetry query." Acceptance: `grep -c "name: SuperchargerHistoryByAccountUpdatedSince"
   internal/telemetry/db/query.sql` returns `1`; the query has no `tesla_id`
   parameter or predicate.
   `depends_on`: 1a.0 · `parallel_ok`: no
 
-- [ ] **1a.2** Run `make sqlc` to regenerate `internal/telemetry/db/query.sql.go`
+- [x] **1a.2** Run `make sqlc` to regenerate `internal/telemetry/db/query.sql.go`
   against 1a.1. Never hand-edit the generated file. Acceptance: `go build
   ./internal/telemetry/...` succeeds; the generated package exposes
   `SuperchargerHistoryByAccountUpdatedSinceParams{AccountID, Since}` with no

@@ -496,6 +496,35 @@ WHERE account_id = @account_id
   AND updated_at >= @since
 ORDER BY updated_at ASC;
 
+-- name: SuperchargerHistoryByAccountUpdatedSince :many
+-- Return every Supercharger session for one account whose updated_at is at
+-- or after @since, ordered oldest-first by updated_at. Used by
+-- SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince
+-- (RM44-platform-add-mirror-watermark, roadmap D20) to bound
+-- internal/app's nightly Supercharger mirror read.
+--
+-- UNLIKE SuperchargerHistoryByVehicleUpdatedSince, this query takes no
+-- tesla_id and filters on account_id alone -- so it is the only
+-- updated-since query that CAN return a row whose tesla_id IS NULL (a
+-- session for a vehicle that is not currently registered). That is
+-- deliberate: the mirror this bounds reads per account precisely because a
+-- per-vehicle read can never surface such a row, breaking the
+-- orphan-recovery path that lets a session get mirrored once its vehicle
+-- re-registers (roadmap D3, carried into this tier by D20).
+--
+-- Index: idx_supercharger_history_account_updated (account_id,
+-- updated_at), added by this change's own telemetry migration. It matches
+-- this query exactly -- account_id prunes to the tenant, and updated_at
+-- ASC satisfies both the range predicate and the ORDER BY in one index
+-- scan, with no sort step. Do NOT confuse it with the pre-existing
+-- idx_supercharger_history_account_time (account_id,
+-- charge_start_date_time DESC), which shares only the account_id prefix
+-- and would leave updated_at as a residual filter plus an in-memory sort.
+SELECT * FROM telemetry.supercharger_history
+WHERE account_id = @account_id
+  AND updated_at >= @since
+ORDER BY updated_at ASC;
+
 -- name: InsertPollRun :exec
 -- Inserts one poll_runs row. Called exactly once per app.ProcessVehicleData
 -- invocation via telemetry.RunWriter.RecordRun (design D3/D11/D12). Never an

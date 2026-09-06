@@ -804,6 +804,84 @@ func (q *Queries) SuperchargerHistoryByAccount(ctx context.Context, arg Supercha
 	return items, nil
 }
 
+const superchargerHistoryByAccountUpdatedSince = `-- name: SuperchargerHistoryByAccountUpdatedSince :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source FROM telemetry.supercharger_history
+WHERE account_id = $1
+  AND updated_at >= $2
+ORDER BY updated_at ASC
+`
+
+type SuperchargerHistoryByAccountUpdatedSinceParams struct {
+	AccountID uuid.UUID
+	Since     pgtype.Timestamptz
+}
+
+// Return every Supercharger session for one account whose updated_at is at
+// or after @since, ordered oldest-first by updated_at. Used by
+// SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince
+// (RM44-platform-add-mirror-watermark, roadmap D20) to bound
+// internal/app's nightly Supercharger mirror read.
+//
+// UNLIKE SuperchargerHistoryByVehicleUpdatedSince, this query takes no
+// tesla_id and filters on account_id alone -- so it is the only
+// updated-since query that CAN return a row whose tesla_id IS NULL (a
+// session for a vehicle that is not currently registered). That is
+// deliberate: the mirror this bounds reads per account precisely because a
+// per-vehicle read can never surface such a row, breaking the
+// orphan-recovery path that lets a session get mirrored once its vehicle
+// re-registers (roadmap D3, carried into this tier by D20).
+//
+// Index: idx_supercharger_history_account_updated (account_id,
+// updated_at), added by this change's own telemetry migration. It matches
+// this query exactly -- account_id prunes to the tenant, and updated_at
+// ASC satisfies both the range predicate and the ORDER BY in one index
+// scan, with no sort step. Do NOT confuse it with the pre-existing
+// idx_supercharger_history_account_time (account_id,
+// charge_start_date_time DESC), which shares only the account_id prefix
+// and would leave updated_at as a residual filter plus an in-memory sort.
+func (q *Queries) SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, arg SuperchargerHistoryByAccountUpdatedSinceParams) ([]SuperchargerHistory, error) {
+	rows, err := q.db.Query(ctx, superchargerHistoryByAccountUpdatedSince, arg.AccountID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SuperchargerHistory
+	for rows.Next() {
+		var i SuperchargerHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SiteLocationName,
+			&i.CountryCode,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.UnlatchDateTime,
+			&i.BillingType,
+			&i.VehicleMakeType,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.RawData,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const superchargerHistoryByVehicle = `-- name: SuperchargerHistoryByVehicle :many
 SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source FROM telemetry.supercharger_history
 WHERE account_id = $1
