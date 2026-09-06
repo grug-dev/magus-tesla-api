@@ -5,16 +5,10 @@
   "module": "platform (internal/telemetry + internal/charging)",
   "roadmap": "openspec/roadmaps/RM44-incremental-supercharger-sync.md",
   "request": "Roadmap RM44 tier 4. Bound the telemetry->charging Supercharger mirror read with a charging-owned watermark. Source ticket MAG-48.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
     "pending": [
-      "2.3",
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4",
-      "4.1",
       "4.2"
     ],
     "blocked": [],
@@ -25,7 +19,10 @@
       "1b.2",
       "1b.4",
       "1b.5",
-      "2.2"
+      "2.2",
+      "2.3",
+      "3.1",
+      "4.1"
     ],
     "awaiting_user_verification": [
       "1a.0",
@@ -37,11 +34,14 @@
       "1a.6",
       "1a.7",
       "1b.3",
-      "1b.6"
+      "1b.6",
+      "3.2",
+      "3.3",
+      "3.4"
     ]
   },
   "created_at": "2026-09-06T10:35:00Z",
-  "updated_at": "2026-09-06T13:49:15Z",
+  "updated_at": "2026-09-06T13:52:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -495,14 +495,23 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "openspec validate RM44-platform-add-mirror-watermark --strict passes. The three delta specs read coherently against the current main specs.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
     },
     {
       "id": "3.1",
@@ -513,14 +522,23 @@
         "1b.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "processor gains mirrorWatermarks. NewProcessor takes nine ports now. cmd/poller constructs charging.NewMirrorWatermarkStore(pool) next to NewSessionWriter.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
     },
     {
       "id": "3.2",
@@ -530,14 +548,23 @@
         "3.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "processChargingData reads the cursor, reads since cursor-24h, skips without advancing on zero rows, advances to max observed after a successful mirror. New mirrorOverlap constant.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
     },
     {
       "id": "3.3",
@@ -547,14 +574,23 @@
         "3.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Existing fakeSuperchargerHistoryReader gains a no-op method. New fakeMirrorWatermarkStore, stubSuperchargerHistoryReader, failingSessionWriter, fakeAccountOneAccount.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
     },
     {
       "id": "3.4",
@@ -564,14 +600,23 @@
         "3.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "T-app-1, T-app-2, T-app-3 added against design.md expected values. T-app-2 feeds sessions out of order so passing cannot depend on ordering.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
     },
     {
       "id": "4.1",
@@ -582,14 +627,23 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "go build ./..., go vet ./... (whole repo, now clean), gofmt -l, and all six guards pass. Every tasks.md acceptance grep returns its wanted count.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
     },
     {
       "id": "4.2",
@@ -737,6 +791,21 @@
       "at": "2026-09-06T13:49:15Z",
       "agent": "leader",
       "event": "Both module groups (1a, 1b) complete. Wave 3 is leader-owned cross-module wiring in internal/app. go vet ./... still fails at internal/app/processor_test.go:215 - the pre-flagged design.md Findings item that task 3.3 fixes."
+    },
+    {
+      "at": "2026-09-06T13:52:30Z",
+      "agent": "leader",
+      "event": "Wave 3 (cross-module wiring) implemented by the leader, plus 2.3 and 4.1. go vet ./... is now clean across the whole repo - the pre-flagged internal/app/processor_test.go:215 failure is fixed by task 3.3. All six guards pass. openspec validate --strict passes. Every tasks.md acceptance grep returns its wanted count: AdvanceMirrorWatermark=1, old unbounded SuperchargerHistoryByAccount(ctx=0, T-app tests=3, SuperchargerHistoryReader methods=5."
+    },
+    {
+      "at": "2026-09-06T13:52:30Z",
+      "agent": "leader",
+      "event": "Leader note: gofmt -l flags internal/account/testdb_test.go, internal/config/quote_test.go and internal/gateway/vehicle_image_test.go. All three are untouched by this branch (verified against the merge-base with main). Pre-existing, not this change's to fix."
+    },
+    {
+      "at": "2026-09-06T13:52:30Z",
+      "agent": "leader",
+      "event": "ASK POINT (Step 6): the suite has NOT been run. Every implementation task is awaiting-user-verification. The change does not advance to the reviewer gate until the owner reports the suite passing."
     }
   ]
 }

@@ -212,6 +212,10 @@ func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(_ 
 	return nil, nil
 }
 
+func (fakeSuperchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(_ context.Context, _ uuid.UUID, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
+	return nil, nil
+}
+
 var _ telemetry.SuperchargerHistoryReader = fakeSuperchargerHistoryReader{}
 
 // fakeSessionWriter satisfies charging.SessionWriter. Unreachable in
@@ -282,6 +286,7 @@ func newTestProcessor(collector telemetry.Collector, runWriter telemetry.RunWrit
 		fakeSuperchargerHistoryReader{},
 		runWriter,
 		fakeSessionWriter{},
+		&fakeMirrorWatermarkStore{},
 		acct,
 		fakeRecalculator{},
 		fakeAnalyticsReader{},
@@ -415,5 +420,194 @@ func TestProcessVehicleData_RecordRunFailureDoesNotMaskCycleOutcome(t *testing.T
 	}
 	if runWriter.calls != 1 {
 		t.Errorf("runWriter.calls = %d, want 1 (the attempt to record was still made, not skipped pre-emptively)", runWriter.calls)
+	}
+}
+
+// --- Fixtures T-app-1..T-app-3: the watermark-bounded Supercharger mirror
+// (RM44-platform-add-mirror-watermark) ---
+
+// fakeMirrorWatermarkStore satisfies charging.MirrorWatermarkStore. It keeps the
+// cursor in memory and counts advance calls, so a test can tell "advanced to the
+// same value" apart from "never advanced at all" — the difference roadmap D5 is
+// about.
+type fakeMirrorWatermarkStore struct {
+	cursor       time.Time
+	advanceCalls int
+	advancedTo   []time.Time
+	advanceErr   error
+}
+
+func (f *fakeMirrorWatermarkStore) MirrorWatermark(_ context.Context, _ uuid.UUID) (time.Time, error) {
+	return f.cursor, nil
+}
+
+func (f *fakeMirrorWatermarkStore) AdvanceMirrorWatermark(_ context.Context, _ uuid.UUID, observed time.Time) error {
+	f.advanceCalls++
+	f.advancedTo = append(f.advancedTo, observed)
+	if f.advanceErr != nil {
+		return f.advanceErr
+	}
+	f.cursor = observed
+	return nil
+}
+
+var _ charging.MirrorWatermarkStore = (*fakeMirrorWatermarkStore)(nil)
+
+// stubSuperchargerHistoryReader records the `since` bound it was called with and
+// returns a fixed session list, so a test can assert both the window the mirror
+// asked for and what it did with the answer.
+type stubSuperchargerHistoryReader struct {
+	fakeSuperchargerHistoryReader
+	sessions  []telemetry.SuperchargerHistory
+	sinceSeen []time.Time
+}
+
+func (s *stubSuperchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(_ context.Context, _ uuid.UUID, since time.Time) ([]telemetry.SuperchargerHistory, error) {
+	s.sinceSeen = append(s.sinceSeen, since)
+	return s.sessions, nil
+}
+
+var _ telemetry.SuperchargerHistoryReader = (*stubSuperchargerHistoryReader)(nil)
+
+// failingSessionWriter satisfies charging.SessionWriter and always fails, for the
+// partial-failure path in T-app-3.
+type failingSessionWriter struct{}
+
+func (failingSessionWriter) MirrorSessions(_ context.Context, _ uuid.UUID, _ []charging.SessionMirror) error {
+	return errors.New("mirror boom")
+}
+
+var _ charging.SessionWriter = failingSessionWriter{}
+
+// fakeAccountOneAccount reuses fakeAccountEmpty's eight unreachable methods and
+// overrides only AllRegisteredVehicles, so the mirror loop runs for exactly one
+// account.
+type fakeAccountOneAccount struct {
+	*fakeAccountEmpty
+	accountID uuid.UUID
+}
+
+func (f *fakeAccountOneAccount) AllRegisteredVehicles(_ context.Context) ([]account.OwnedVehicle, error) {
+	return []account.OwnedVehicle{{AccountID: f.accountID, TeslaID: 1, VIN: "VIN1"}}, nil
+}
+
+var _ account.Service = (*fakeAccountOneAccount)(nil)
+
+// newMirrorTestProcessor wires only the collaborators processChargingData touches.
+// The rest of the roster stays the package's shared no-op fakes.
+func newMirrorTestProcessor(
+	reader telemetry.SuperchargerHistoryReader,
+	writer charging.SessionWriter,
+	watermarks charging.MirrorWatermarkStore,
+	acct account.Service,
+) *processor {
+	return &processor{
+		collector:                 nil,
+		superchargerHistoryReader: reader,
+		runWriter:                 nil,
+		sessionWriter:             writer,
+		mirrorWatermarks:          watermarks,
+		acct:                      acct,
+		recalculator:              fakeRecalculator{},
+		analyticsReader:           fakeAnalyticsReader{},
+		gapWriter:                 fakeGapWriter{},
+		loc:                       time.UTC,
+	}
+}
+
+// session builds a telemetry.SuperchargerHistory carrying only the fields the
+// mirror maps plus the updated_at the watermark rule turns on.
+func session(accountID uuid.UUID, sessionID int64, updatedAt time.Time) telemetry.SuperchargerHistory {
+	return telemetry.SuperchargerHistory{
+		SessionID: sessionID,
+		AccountID: accountID,
+		VIN:       "VIN1",
+		UpdatedAt: updatedAt,
+	}
+}
+
+// TestProcessChargingData_EmptyReadLeavesWatermarkUntouched is T-app-1. A run
+// whose bounded read returns zero rows must not advance the watermark. Advancing
+// it would push the cursor past a row that commits a moment later, and that row
+// would never be mirrored again.
+func TestProcessChargingData_EmptyReadLeavesWatermarkUntouched(t *testing.T) {
+	accountID := uuid.New()
+	x := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+
+	watermarks := &fakeMirrorWatermarkStore{cursor: x}
+	reader := &stubSuperchargerHistoryReader{sessions: nil}
+	p := newMirrorTestProcessor(reader, fakeSessionWriter{}, watermarks,
+		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID})
+
+	p.processChargingData(context.Background())
+
+	if watermarks.advanceCalls != 0 {
+		t.Errorf("AdvanceMirrorWatermark called %d time(s), want 0", watermarks.advanceCalls)
+	}
+	if got := watermarks.cursor; !got.Equal(x) {
+		t.Errorf("watermark = %v, want it unchanged at %v", got, x)
+	}
+
+	// The read must also be bounded, not a full sweep: one overlap before X.
+	wantSince := x.Add(-mirrorOverlap)
+	if len(reader.sinceSeen) != 1 || !reader.sinceSeen[0].Equal(wantSince) {
+		t.Errorf("read since = %v, want %v", reader.sinceSeen, wantSince)
+	}
+}
+
+// TestProcessChargingData_AdvancesWatermarkToMaxObserved is T-app-2. A run that
+// returns rows advances to the highest updated_at it actually saw — never to
+// clock.Now(), and never to a lower row's value.
+func TestProcessChargingData_AdvancesWatermarkToMaxObserved(t *testing.T) {
+	accountID := uuid.New()
+	a := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	b := time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)
+	c := time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC)
+
+	watermarks := &fakeMirrorWatermarkStore{cursor: a}
+	// Deliberately out of order, so passing cannot depend on C arriving last.
+	reader := &stubSuperchargerHistoryReader{sessions: []telemetry.SuperchargerHistory{
+		session(accountID, 1, b),
+		session(accountID, 2, c),
+		session(accountID, 3, a),
+	}}
+	p := newMirrorTestProcessor(reader, fakeSessionWriter{}, watermarks,
+		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID})
+
+	p.processChargingData(context.Background())
+
+	if watermarks.advanceCalls != 1 {
+		t.Fatalf("AdvanceMirrorWatermark called %d time(s), want 1", watermarks.advanceCalls)
+	}
+	if got := watermarks.advancedTo[0]; !got.Equal(c) {
+		t.Errorf("advanced to %v, want the maximum observed updated_at %v", got, c)
+	}
+	if got := watermarks.cursor; !got.Equal(c) {
+		t.Errorf("watermark = %v, want %v", got, c)
+	}
+}
+
+// TestProcessChargingData_FailedMirrorDoesNotAdvanceWatermark is T-app-3. When
+// MirrorSessions fails the cursor must stay put, so the next run re-reads the same
+// window instead of skipping it.
+func TestProcessChargingData_FailedMirrorDoesNotAdvanceWatermark(t *testing.T) {
+	accountID := uuid.New()
+	x := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	later := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+
+	watermarks := &fakeMirrorWatermarkStore{cursor: x}
+	reader := &stubSuperchargerHistoryReader{sessions: []telemetry.SuperchargerHistory{
+		session(accountID, 1, later),
+	}}
+	p := newMirrorTestProcessor(reader, failingSessionWriter{}, watermarks,
+		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID})
+
+	p.processChargingData(context.Background())
+
+	if watermarks.advanceCalls != 0 {
+		t.Errorf("AdvanceMirrorWatermark called %d time(s), want 0 after a failed mirror", watermarks.advanceCalls)
+	}
+	if got := watermarks.cursor; !got.Equal(x) {
+		t.Errorf("watermark = %v, want it unchanged at %v", got, x)
 	}
 }

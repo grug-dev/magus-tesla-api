@@ -28,7 +28,7 @@ worker's task.
 
 ## Wave 0 — database design gate (leader, before any implementation task)
 
-- [ ] **0.1** Leader presents design.md's "Database Design" section (the full
+- [x] **0.1** Leader presents design.md's "Database Design" section (the full
   `charging.mirror_watermarks` schema, both rejected alternatives cited from
   roadmap D4, the two new sqlc queries, the new telemetry query, and the
   index plan for both) to the owner and iterates until explicitly confirmed.
@@ -177,7 +177,7 @@ worker's task.
   least `1`.
   `depends_on`: 1b.5 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** Confirm this change's own `specs/telemetry/spec.md`,
+- [x] **2.3** Confirm this change's own `specs/telemetry/spec.md`,
   `specs/charging/spec.md`, and `specs/charge-session-log/spec.md` deltas
   (already written in this change folder) still read coherently against
   the CURRENT main specs at merge time. Acceptance: `openspec validate
@@ -186,7 +186,7 @@ worker's task.
 
 ## Wave 3 — cross-module wiring (leader, after both module groups complete)
 
-- [ ] **3.1 [leader]** `internal/app/app.go` — add a `mirrorWatermarks
+- [x] **3.1 [leader]** `internal/app/app.go` — add a `mirrorWatermarks
   charging.MirrorWatermarkStore` field to `processor` and thread it through
   the existing constructor, alongside `sessionWriter`/`superchargerHistoryReader`.
   Wire `charging.NewMirrorWatermarkStore(pool)` wherever
@@ -194,7 +194,7 @@ worker's task.
   wiring). Acceptance: `go build ./cmd/web/...` succeeds.
   `depends_on`: 1b.5 · `parallel_ok`: no
 
-- [ ] **3.2 [leader]** `internal/app/processor.go` — rewrite
+- [x] **3.2 [leader]** `internal/app/processor.go` — rewrite
   `processChargingData`'s body to the exact shape in design.md
   "Cross-Module Wiring": read the watermark, call
   `SuperchargerHistoryByAccountUpdatedSince(accountID, cursor - 24h)`,
@@ -208,7 +208,7 @@ worker's task.
   replaced, not left as dead code); `go build ./internal/app/...` succeeds.
   `depends_on`: 3.1, 1a.4 · `parallel_ok`: no
 
-- [ ] **3.3 [leader]** `internal/app/processor_test.go` — add
+- [x] **3.3 [leader]** `internal/app/processor_test.go` — add
   `SuperchargerHistoryByAccountUpdatedSince` to `fakeSuperchargerHistoryReader`
   (design.md "Findings" — this fake fully implements the interface today
   and breaks compilation otherwise), and add a new
@@ -216,7 +216,7 @@ worker's task.
   Acceptance: `go vet ./internal/app/...` succeeds.
   `depends_on`: 3.2 · `parallel_ok`: no
 
-- [ ] **3.4 [leader]** Extend `internal/app/processor_test.go` with T-app-1,
+- [x] **3.4 [leader]** Extend `internal/app/processor_test.go` with T-app-1,
   T-app-2, and T-app-3 from design.md's Test Contract, verbatim expected
   values, against the new `processChargingData` shape and the fakes from
   3.3. Acceptance: `grep -c "^func TestProcessChargingData_.*Watermark"
@@ -227,7 +227,7 @@ worker's task.
 
 ## Wave 4 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **4.1** Run and report, per module: `go build ./...`, `go vet ./...`,
+- [x] **4.1** Run and report, per module: `go build ./...`, `go vet ./...`,
   `gofmt -l internal/telemetry internal/charging internal/app`, `make
   migration-guard`, `make boundary-guard`. This tier's own definition of
   done: `charging.mirror_watermarks` exists in the new migration;

@@ -15,11 +15,25 @@ import (
 )
 
 // processor is the concrete Processor implementation (design.md D10).
+// mirrorOverlap is how far BEFORE the stored watermark the Supercharger mirror
+// starts its bounded read. It is internal/analytics' recalcOverlap twin (roadmap
+// D6), deliberately a separate constant rather than a shared import: that one is
+// unexported, and the two overlaps guard different reads of different tables. A
+// shared constant would couple two modules' windows so that tuning one silently
+// retunes the other.
+//
+// It exists because a row's updated_at is assigned before its transaction commits.
+// A row can therefore appear in the table with an updated_at that a previous run
+// already read past. Re-reading one day of already-mirrored rows costs a no-op
+// upsert; missing one loses a session from the ledger for good.
+const mirrorOverlap = 24 * time.Hour
+
 type processor struct {
 	collector                 telemetry.Collector
 	superchargerHistoryReader telemetry.SuperchargerHistoryReader
 	runWriter                 telemetry.RunWriter
 	sessionWriter             charging.SessionWriter
+	mirrorWatermarks          charging.MirrorWatermarkStore
 	acct                      account.Service
 	recalculator              analytics.Recalculator
 	analyticsReader           analytics.Reader
@@ -129,6 +143,15 @@ func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, rep
 // vehicle was charged — the window, the site, the energy, the cost — without any
 // caller having to compose two modules' ports.
 //
+// The read is BOUNDED by a watermark, not a full sweep. charging owns a
+// mirror_watermarks row per account holding the highest telemetry updated_at it has
+// already copied; this step reads only sessions updated at or after that cursor
+// minus mirrorOverlap, and moves the cursor to the highest updated_at it actually
+// saw (RM44-platform-add-mirror-watermark). The cursor never moves to now(), and
+// never moves at all on a read that returns nothing — roadmap D5. Before RM44 this
+// step re-read the entire history every night, which kept every downstream
+// recalculation permanently unbounded.
+//
 // The mapping is field-name-for-field-name with no renames and no derivation (T6
 // D7). That is deliberate: it keeps the mirror auditable by inspection, and it is
 // why charge_sessions kept telemetry's column names rather than aligning with
@@ -152,8 +175,9 @@ func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, rep
 //
 // Errors are logged, never fatal, with per-account isolation mirroring the
 // reconciler: one account's failure never aborts another's, and a missed mirror
-// self-heals next cycle because MirrorSessions is idempotent — it re-reads every
-// session and upserts, rather than accumulating. Log lines are prefixed
+// self-heals next cycle because MirrorSessions is idempotent — it upserts, rather
+// than accumulating, and a failed run leaves the watermark unadvanced, so the next
+// run re-reads the same window. Log lines are prefixed
 // "session mirror:" so they stay greppable alongside "metrics reconciliation:" and
 // "gap reconciliation:".
 func (p *processor) processChargingData(ctx context.Context) {
@@ -175,20 +199,41 @@ func (p *processor) processChargingData(ctx context.Context) {
 		}
 		seen[v.AccountID] = struct{}{}
 
-		// limit 0 means "every session": telemetry's resolveLimit maps a
-		// non-positive limit to math.MaxInt32. The mirror is a full
-		// reconciliation, not a recent-window sweep, so it must not be capped.
-		sessions, err := p.superchargerHistoryReader.SuperchargerHistoryByAccount(ctx, v.AccountID, 0)
+		// The watermark is the highest telemetry updated_at this account's mirror
+		// has already copied. A zero time means "never mirrored", so the read
+		// below starts at the epoch and copies the whole history once.
+		cursor, err := p.mirrorWatermarks.MirrorWatermark(ctx, v.AccountID)
+		if err != nil {
+			log.Printf("session mirror: account %s: reading watermark: %v", v.AccountID, err)
+			continue
+		}
+
+		// Bounded read, replacing the old unbounded "every session" sweep. The
+		// window starts one overlap before the cursor for the same commit-skew
+		// reason analytics keeps its own overlap: a row whose updated_at was
+		// assigned before the previous run committed can land in the table after
+		// that run read it. Re-reading it is free — MirrorSessions is idempotent.
+		sessions, err := p.superchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince(ctx, v.AccountID, cursor.Add(-mirrorOverlap))
 		if err != nil {
 			log.Printf("session mirror: account %s: reading sessions: %v", v.AccountID, err)
 			continue
 		}
 		if len(sessions) == 0 {
+			// Roadmap D5: zero rows leaves the watermark exactly where it was.
+			// Advancing it here — to now(), or to anything else — would push the
+			// cursor past a row that commits a moment later, and that row would
+			// never be mirrored again. The loss is silent and undetectable.
 			continue
 		}
 
+		// The new cursor is the highest updated_at actually observed, never
+		// clock.Now(). Same rule and same reason as the zero-row case above.
 		mirrored := make([]charging.SessionMirror, 0, len(sessions))
+		var maxUpdated time.Time
 		for _, s := range sessions {
+			if s.UpdatedAt.After(maxUpdated) {
+				maxUpdated = s.UpdatedAt
+			}
 			mirrored = append(mirrored, charging.SessionMirror{
 				AccountID:           s.AccountID,
 				VIN:                 s.VIN,
@@ -206,6 +251,13 @@ func (p *processor) processChargingData(ctx context.Context) {
 
 		if err := p.sessionWriter.MirrorSessions(ctx, v.AccountID, mirrored); err != nil {
 			log.Printf("session mirror: account %s: %v", v.AccountID, err)
+			continue
+		}
+		// Advance only after a successful mirror. A crash or an error between the
+		// two leaves the cursor behind, so the next run re-reads the same window.
+		// That repeats work; it never loses a row.
+		if err := p.mirrorWatermarks.AdvanceMirrorWatermark(ctx, v.AccountID, maxUpdated); err != nil {
+			log.Printf("session mirror: account %s: advancing watermark: %v", v.AccountID, err)
 			continue
 		}
 		log.Printf("session mirror: account %s: %d session(s)", v.AccountID, len(mirrored))
