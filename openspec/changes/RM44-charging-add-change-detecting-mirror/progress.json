@@ -262,10 +262,19 @@
     }
   ],
   "review": {
-    "status": "in-progress",
+    "status": "reviewer-approved",
     "agent": "charging-reviewer",
     "brief": "Review this change against the artifacts, not against your own taste. Read the DIFF, not the whole module.\n\nVERIFY:\n1. Module boundary: nothing outside internal/charging/ except this change's own openspec folder.\n2. The deny-list in query.sql is the EXACT complement of the ON CONFLICT DO UPDATE SET clause. Every live column appears in exactly one of the two. This is roadmap D18 and the owner confirmed it at the database design gate. A mismatch is a BLOCKER.\n3. The implementation matches the design.md the OWNER CONFIRMED. Any DB object differing from that confirmed design is a BLOCKER.\n4. The tests assert the expected values design.md authored UP FRONT, not whatever the SQL happens to do. Specifically check the write-once case runs the identical call TWICE - that second call is the whole point, it proves no nightly churn. A test that only calls once is a finding.\n5. The schema self-check derives the LIVE column list from information_schema and never hand-types it. The written/deny lists ARE hardcoded on purpose (leader decision) - that is correct, not a finding.\n6. Doc comments and AGENTS.md no longer describe the old behaviour. charging's old 'NO WHERE PREDICATE' argument in particular must be answered, not deleted.\n7. Performance-Profile compliance: read-heavy. No new index was added in either tier - confirm that is still right.\n8. Anti-gaming: no acceptance criterion was weakened, no status self-approved, no task ticked without work.\n\nDO NOT RUN THE TEST SUITE. Judge test quality by READING the tests.\n\nSignals already run and their source:\n- ASSISTANT-RUN (leader): go build ./..., go vet ./..., all 7 guards (boundary, migration, money, tz, archive, i18n, ui), gofmt. All clean. gofmt flags 3 files in account/config/gateway - PRE-EXISTING on HEAD, not this change.\n- OWNER-RUN: go test ./internal/charging/... ./internal/telemetry/... -count=1 - both ok, uncached. This is the owner's report, not the assistant's claim.\n\nKnown and already handled, do not re-raise as new:\n- The pre-existing charging test B2 asserted the OLD contract and was inverted, not deleted, in commit dbec8ca.\n- session_id is deliberately not poked in the schema self-check: it is the ON CONFLICT match key, so poking it sends the upsert down the INSERT path.\n- Late-arriving write-once values are still not saved. The owner considered and declined it. It is backlog entry 26, not an oversight.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-06T10:15:00Z",
+        "agent": "charging-reviewer",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Read proposal.md, design.md, tasks.md, specs/charge-session-log/spec.md, progress.json, internal/charging/AGENTS.md, CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md. Reviewed the diff in 714cb71, 1548e21, dbec8ca restricted to internal/charging/. Independently ran go vet ./internal/charging/..., gofmt -l internal/charging, and make boundary-guard - all clean. Verified column completeness against the migration files directly, not by trusting the leader's count."
+      }
+    ]
   },
   "events": [
     {

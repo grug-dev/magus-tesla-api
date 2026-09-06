@@ -33,7 +33,7 @@ a schema change.
 
 ## Wave 0 — database design gate (leader, before any implementation task)
 
-- [ ] **0.1** Leader presents design.md's "Database Design" section (the exact final
+- [x] **0.1** Leader presents design.md's "Database Design" section (the exact final
   SQL, the rewritten doc comment, the governing rule and the three deny-list buckets,
   the rejected alternatives, the index plan, and the downstream effect on
   `internal/analytics`) to the owner and iterates until explicitly confirmed. No task
@@ -60,7 +60,7 @@ a schema change.
 
 ## Wave 2 — codegen (module: charging worker)
 
-- [ ] **2.1** Run `make sqlc` (or `sqlc generate`) to regenerate
+- [x] **2.1** Run `make sqlc` (or `sqlc generate`) to regenerate
   `internal/charging/db/query.sql.go` against the edited `query.sql` (1.1). Never
   hand-edit the generated file. Confirm `MirrorSuperchargerSessionParams` is
   byte-identical to before this change — the leader already verified this with sqlc
@@ -147,7 +147,7 @@ a schema change.
 
 ## Wave 5 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **5.1** Run and report: `go build ./internal/charging/...`, `go vet
+- [x] **5.1** Run and report: `go build ./internal/charging/...`, `go vet
   ./internal/charging/...`, `gofmt -l internal/charging`, `make boundary-guard`. This
   tier's own definition of done: `grep -rln "to_jsonb(supercharger_sessions" internal/charging/`
   includes `db/query.sql` and (post-codegen) `db/query.sql.go`; the three new/extended
@@ -156,7 +156,7 @@ a schema change.
   never run `go test ./...`, `make test`, `make test-with-db`, or `make check`.
   `depends_on`: 1.1, 2.1, 3.1, 3.2, 3.3, 4.1, 4.2 · `parallel_ok`: no
 
-- [ ] **5.2** Hand off to the owner the exact command to run and report:
+- [x] **5.2** Hand off to the owner the exact command to run and report:
   `go test ./internal/charging/...`. Until the owner reports it passes, this tier's
   implementation status is **awaiting-user-verification**, never "done." After deploy,
   also hand off the owner-only check from proposal.md's "Testing" section (the

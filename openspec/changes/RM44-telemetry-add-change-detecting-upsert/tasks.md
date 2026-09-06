@@ -33,7 +33,7 @@ whoever starts this change.
   missing.
   `depends_on`: — · `parallel_ok`: no
 
-- [ ] **1.2** Run `make sqlc` to regenerate `internal/telemetry/db/query.sql.go`.
+- [x] **1.2** Run `make sqlc` to regenerate `internal/telemetry/db/query.sql.go`.
   Confirm `UpsertSuperchargerHistoryParams` is unchanged (same fields, same types) —
   design.md's claim that this is a zero-call-site-churn change depends on this.
   `depends_on`: 1.1 · `parallel_ok`: no
