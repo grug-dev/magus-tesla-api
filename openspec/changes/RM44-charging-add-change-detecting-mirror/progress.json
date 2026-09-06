@@ -8,7 +8,7 @@
   "request": "Layer 2. MirrorSuperchargerSession advances updated_at only on a real data change. to_jsonb deny-list of 14 names; 5 columns compared. This is the tier that stops the vehicle_metrics blow-up.",
   "status": "applied",
   "created_at": "2026-09-06T03:20:00Z",
-  "updated_at": "2026-09-06T09:05:00Z",
+  "updated_at": "2026-09-06T09:25:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -253,6 +253,14 @@
       "decision": "Accepted the worker's reading of T5: T_prev is the updated_at AFTER the human VerifySession call, not after the earlier plain mirror.",
       "why": "That is the value the re-mirror must leave untouched. The other reading makes the assertion meaningless.",
       "at": "2026-09-06T09:05:00Z"
+    },
+    {
+      "id": "D-charging-3",
+      "at": "2026-09-06T09:25:00Z",
+      "scope": "wave:D",
+      "made_by": "autopilot",
+      "decision": "Inverted the pre-existing B2 test (TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_AdvancesUpdatedAt) instead of deleting it, and renamed it to ..._LeavesUpdatedAtUntouched.",
+      "why": "It asserted the OLD contract this tier changes. Its other checks (no duplicate row, values and created_at unchanged) are still valid, so gutting or deleting it would lose real coverage."
     }
   ],
   "review": {
@@ -286,6 +294,11 @@
       "at": "2026-09-06T09:05:00Z",
       "agent": "leader",
       "event": "Wave C reconciled. Worker reported placeholder timestamps again (the telemetry worker honestly flagged it has no clock); leader recorded real times. LEADER-RUN SIGNALS ALL CLEAN: go build, go vet, and all seven guards (boundary, migration, money, tz, archive, i18n, ui). THE SUITE HAS NOT BEEN RUN - it is the owner's. Test tasks are awaiting-user-verification, not done."
+    },
+    {
+      "at": "2026-09-06T09:25:00Z",
+      "agent": "leader",
+      "event": "OWNER RAN make test AND REPORTED A FAILURE. One pre-existing test failed: B2 in db_session_integration_test.go, asserting 'unchanged re-mirror ADVANCES updated_at' - the exact behaviour this tier changes. Neither worker caught the stale test; the owner's run did. Leader inverted the assertion and renamed the test. The other three 'advances' assertions in that file (B3 settled fees, B5 tesla_id reassigned/nulled) PASSED, which confirms a real change still advances updated_at. NOTE: internal/telemetry reported '(cached)' despite two new test files - re-run with -count=1 needed to confirm telemetry's new tests actually executed."
     }
   ]
 }

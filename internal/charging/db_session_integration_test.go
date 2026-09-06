@@ -12,7 +12,7 @@
 // Test → Test Contract case mapping:
 //
 //	B1  TestMirrorSessions_NewSessionInsertsElevenColumns
-//	B2  TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_AdvancesUpdatedAt
+//	B2  TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_LeavesUpdatedAtUntouched
 //	B3  TestMirrorSessions_SettledFeesRefreshed
 //	B4  TestMirrorSessions_WriteOnceColumnsNotRefreshed
 //	B5  TestMirrorSessions_TeslaIDRefreshedIncludingToNull
@@ -249,9 +249,17 @@ func TestMirrorSessions_NewSessionInsertsElevenColumns(t *testing.T) {
 	}
 }
 
-// B2: re-mirroring an unchanged session does not duplicate it, and DOES advance
-// updated_at — the direct assertion of D6's dropped-guard decision.
-func TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_AdvancesUpdatedAt(t *testing.T) {
+// B2: re-mirroring an unchanged session does not duplicate it, and LEAVES
+// updated_at untouched.
+//
+// This test used to assert the opposite. Until RM44-charging-add-change-detecting-
+// mirror (MAG-48) the mirror set updated_at = now() on every pass, so updated_at
+// meant "the last mirror pass touched this row". That was the bug: internal/analytics
+// reads this column to decide what to recalculate, so an unchanged pass still made it
+// redo the whole history. The query now compares the row against the incoming data and
+// keeps the old updated_at when nothing changed. B3, B5 still assert the other
+// direction — a real change DOES advance it.
+func TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_LeavesUpdatedAtUntouched(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
 	cleanupChargingSuperchargerSessions(t, pool, accountID)
@@ -291,8 +299,8 @@ func TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_AdvancesUpdatedAt(t *testi
 	if !second.CreatedAt.Equal(first.CreatedAt) {
 		t.Errorf("CreatedAt: got %v, want unchanged %v", second.CreatedAt, first.CreatedAt)
 	}
-	if !second.UpdatedAt.After(first.UpdatedAt) {
-		t.Errorf("UpdatedAt: want strictly later than %v, got %v (design.md D6: updated_at means 'last mirror pass touched this row')", first.UpdatedAt, second.UpdatedAt)
+	if !second.UpdatedAt.Equal(first.UpdatedAt) {
+		t.Errorf("UpdatedAt: want unchanged %v, got %v — an unchanged re-mirror must not advance updated_at (RM44-charging-add-change-detecting-mirror)", first.UpdatedAt, second.UpdatedAt)
 	}
 }
 
