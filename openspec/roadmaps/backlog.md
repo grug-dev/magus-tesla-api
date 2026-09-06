@@ -931,6 +931,39 @@ calls; this analytics-side line was left out of that scope and deferred here.
 
 
 
+## 26. telemetry / charging — Late-arriving write-once values are never saved
+
+### PROPOSAL
+
+Both Supercharger upserts read ~16 columns from Tesla but their `ON CONFLICT DO UPDATE SET`
+clause refreshes only a few: 6 in `telemetry.UpsertSuperchargerHistory`, 5 in
+`charging.MirrorSuperchargerSession`. Every other column is **write-once** — written at the
+first INSERT and never refreshed. That is deliberate, and RM44 tiers 2 and 3 did not change it.
+
+The gap: when Tesla sends a **later, better** value for one of those columns, we drop it. The
+clearest case is `unlatch_date_time`, which is NULL in 2 of the 8 live rows today and is
+exactly the field Tesla fills in once a session finalizes. `billing_type` and
+`charge_stop_date_time` can plausibly finalize late too. A renamed `site_location_name` is the
+same shape.
+
+Picking this up means deciding, per column, whether "write-once at the source" is actually
+true or was only ever an assumption. Any column moved into the `SET` clause must be moved OUT
+of RM44's deny-list in the same change — the two lists are exact complements, and the
+self-checking test added by RM44 (`information_schema` columns == SET-written ∪ deny-list)
+fails loudly if they drift apart. That test is the reason this can be picked up safely later.
+
+**TRIGGER to revisit:** a user reports a Supercharger session showing a blank unlatch time, a
+stale site name, or a billing state that never settles.
+
+### ORIGIN
+
+RM44 tier 2/3 design gate, 2026-09-06. The leader found the issue while reviewing the
+telemetry design: leaving write-once columns inside the change comparison made `updated_at`
+advance every night forever, because the mismatch could never resolve. Verified on the live
+PG16 dev database. The owner chose to fix only the comparison (roadmap D18) and keep today's
+write behaviour, deferring the "should we save the late value" question to this entry.
+
+
 # BRAINSTORMING
 
 
