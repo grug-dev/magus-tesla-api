@@ -393,6 +393,21 @@ existing `pgNullableText` helper for `BatteryPctSource`.
 
 ## Testing notes
 
+- **Change-detecting upsert (`RM44-telemetry-add-change-detecting-upsert`).**
+  `db_change_detection_integration_test.go` and
+  `db_change_detection_schema_test.go` prove that `UpsertSuperchargerHistory`'s
+  `updated_at` only advances when the row's real data changed. The governing
+  rule: the comparison covers exactly the columns the `SET` clause writes.
+  Everything else on `supercharger_history` sits in a 16-name deny-list, in
+  three buckets — bookkeeping (`id`, `created_at`, `updated_at`), human-owned
+  (`start_battery_pct`, `end_battery_pct`, `battery_pct_source`), and
+  write-once (the other 10 columns the `SET` clause never refreshes). The
+  schema test derives the table's real column list from
+  `information_schema` at run time and asserts it equals `SET` ∪ deny-list —
+  a column landing on neither side fails by name. Full rationale and the
+  exact expected values for every scenario: this change's design.md (moves to
+  `openspec/changes/archive/RM44-telemetry-add-change-detecting-upsert/design.md`
+  once archived).
 - **Query/call logging (`RM44-telemetry-add-query-logging`, ticket MAG-48).**
   `query_log.go` holds four decorators (`loggingStore`, `loggingReader`,
   `loggingSuperchargerHistoryReader`, `loggingRunWriter`) instrumenting this

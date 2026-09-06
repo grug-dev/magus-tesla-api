@@ -6,9 +6,9 @@
   "roadmap": "RM44-incremental-supercharger-sync",
   "tier": 3,
   "request": "Layer 2. MirrorSuperchargerSession advances updated_at only on a real data change. to_jsonb deny-list of 14 names; 5 columns compared. This is the tier that stops the vehicle_metrics blow-up.",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-09-06T03:20:00Z",
-  "updated_at": "2026-09-06T08:47:00Z",
+  "updated_at": "2026-09-06T09:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -75,14 +75,21 @@
     {
       "id": "3.1",
       "title": "Integration tests for the Test Contract cases incl. T8 write-once no-churn (run twice)",
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:50:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 900,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 23,
+        "context_pct_end": 27,
+        "approx": true,
+        "note": "wave C total, two workers run concurrently; delta shared"
+      },
+      "notes": "New file covering T1-T6 and T8, incl. T8's required second identical re-mirror call. Written, not run.",
       "depends_on": [
         "2.1"
       ]
@@ -90,14 +97,21 @@
     {
       "id": "3.2",
       "title": "Confirm T7 needs no new test; record the finding",
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:50:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 900,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 23,
+        "context_pct_end": 27,
+        "approx": true,
+        "note": "wave C total, two workers run concurrently; delta shared"
+      },
+      "notes": "Finding, no code: T7 is already covered by the existing VerifySession test. Recorded rather than adding a duplicate.",
       "depends_on": [
         "2.1"
       ]
@@ -105,14 +119,21 @@
     {
       "id": "3.3",
       "title": "New db_mirror_schema_selfcheck_integration_test.go - set equality + poke",
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:50:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 900,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 23,
+        "context_pct_end": 27,
+        "approx": true,
+        "note": "wave C total, two workers run concurrently; delta shared"
+      },
+      "notes": "Schema self-check: set-equality partition plus poke-and-verify, with documented exemptions.",
       "depends_on": [
         "2.1"
       ]
@@ -120,14 +141,21 @@
     {
       "id": "4.1",
       "title": "internal/charging/AGENTS.md - rewrite the stale NO WHERE PREDICATE paragraph",
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:50:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 900,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 23,
+        "context_pct_end": 27,
+        "approx": true,
+        "note": "wave C total, two workers run concurrently; delta shared"
+      },
+      "notes": "Rewrote the stale refresh-set paragraph in AGENTS.md Public Interface. Scope kept to that paragraph.",
       "depends_on": [
         "1.1"
       ]
@@ -135,27 +163,34 @@
     {
       "id": "4.2",
       "title": "Confirm the specs/charge-session-log delta matches the implementation",
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:50:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 900,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 23,
+        "context_pct_end": 27,
+        "approx": true,
+        "note": "wave C total, two workers run concurrently; delta shared"
+      },
+      "notes": "No drift. All three MODIFIED requirement titles exist verbatim in the main spec; openspec validate --strict passes.",
       "depends_on": []
     },
     {
       "id": "5.1",
       "title": "Run and report go build / go vet / gofmt / the guards",
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T09:05:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 90,
       "budget": null,
-      "notes": null,
+      "notes": "Leader ran go build, go vet and all seven guards for both modules. All clean. gofmt's 3 findings confirmed pre-existing on HEAD.",
       "depends_on": [
         "1.1",
         "2.1",
@@ -185,21 +220,22 @@
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "3.2",
-      "3.3",
-      "4.1",
-      "4.2",
-      "5.1",
       "5.2"
     ],
     "blocked": [],
     "done": [
       "0.1",
       "1.1",
-      "2.1"
+      "2.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "5.1"
     ],
-    "awaiting_user_verification": []
+    "awaiting_user_verification": [
+      "3.1",
+      "3.3"
+    ]
   },
   "decisions": [
     {
@@ -209,6 +245,14 @@
       "made_by": "autopilot",
       "decision": "Workers edit query.sql only. The LEADER runs make sqlc once, after both tiers' SQL edits land.",
       "why": "One sqlc.yaml regenerates all four modules, so two parallel workers running codegen would race on each other's generated files."
+    },
+    {
+      "id": "D-charging-2",
+      "scope": "wave:C",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's reading of T5: T_prev is the updated_at AFTER the human VerifySession call, not after the earlier plain mirror.",
+      "why": "That is the value the re-mirror must leave untouched. The other reading makes the assertion meaningless.",
+      "at": "2026-09-06T09:05:00Z"
     }
   ],
   "review": {
@@ -232,6 +276,16 @@
       "at": "2026-09-06T08:47:00Z",
       "agent": "leader",
       "event": "Wave A reconciled. Worker reported placeholder timestamps (00:00:00Z); leader recorded the real times instead. Codegen run once by the leader. VERIFIED: both Params structs byte-identical to HEAD; go build and go vet clean. gofmt flags 3 files in account/config/gateway - confirmed PRE-EXISTING on HEAD, not from this change."
+    },
+    {
+      "at": "2026-09-06T08:50:00Z",
+      "agent": "leader",
+      "event": "Wave C dispatched to worker 'charging' (sonnet), tasks 3.1, 3.2, 3.3, 4.1, 4.2 - one serial worker for the whole wave. Budget at dispatch: five_hour=16%, context=23%."
+    },
+    {
+      "at": "2026-09-06T09:05:00Z",
+      "agent": "leader",
+      "event": "Wave C reconciled. Worker reported placeholder timestamps again (the telemetry worker honestly flagged it has no clock); leader recorded real times. LEADER-RUN SIGNALS ALL CLEAN: go build, go vet, and all seven guards (boundary, migration, money, tz, archive, i18n, ui). THE SUITE HAS NOT BEEN RUN - it is the owner's. Test tasks are awaiting-user-verification, not done."
     }
   ]
 }

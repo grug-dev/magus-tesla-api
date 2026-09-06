@@ -73,7 +73,7 @@ a schema change.
 
 ## Wave 3 — tests (module: charging worker)
 
-- [ ] **3.1** Extend `internal/charging/db_session_integration_test.go` (or a new
+- [x] **3.1** Extend `internal/charging/db_session_integration_test.go` (or a new
   `db_session_mirror_change_detection_integration_test.go` if the existing file is
   already large — worker's choice, note it in the final report) with T1–T6 AND T8 from
   design.md's "Test Contract" table, verbatim expected values. Each case mirrors a
@@ -91,7 +91,7 @@ a schema change.
   ./internal/charging/...` succeeds.
   `depends_on`: 2.1 · `parallel_ok`: with 3.2, 3.3
 
-- [ ] **3.2** Confirm T7 (design.md Test Contract) needs no new test: search
+- [x] **3.2** Confirm T7 (design.md Test Contract) needs no new test: search
   `internal/charging/db_session_verifier_integration_test.go` for an existing case
   asserting `SessionVerifier.VerifySession` advances `updated_at` on a real edit (it
   should already exist, from RM31/RM41's own test contracts, since `VerifySession` is
@@ -101,7 +101,7 @@ a schema change.
   | grep -i updated_at` shows at least one relevant assertion, existing or newly added.
   `depends_on`: 2.1 · `parallel_ok`: with 3.1, 3.3
 
-- [ ] **3.3** New `internal/charging/db_mirror_schema_selfcheck_integration_test.go` —
+- [x] **3.3** New `internal/charging/db_mirror_schema_selfcheck_integration_test.go` —
   the D8 self-checking test from design.md's "The self-checking schema test": query
   `information_schema.columns` for `charging.supercharger_sessions` at runtime, assert
   the live column set equals `written` (the 5-column `SET`-clause list) `∪ deny` (the
@@ -124,7 +124,7 @@ a schema change.
 
 ## Wave 4 — docs (module: charging worker, granted AGENTS.md + spec paths)
 
-- [ ] **4.1** `internal/charging/AGENTS.md` — rewrite the paragraph in the
+- [x] **4.1** `internal/charging/AGENTS.md` — rewrite the paragraph in the
   §Public Interface section that currently reads "NO WHERE PREDICATE on the DO UPDATE,
   deliberately (design.md D6)... Consequence: updated_at here means 'the last mirror
   pass touched this row'..." to instead describe the new structural, deny-list
@@ -136,7 +136,7 @@ a schema change.
   returns at least `1`.
   `depends_on`: 1.1 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** Confirm this change's own `specs/charge-session-log/spec.md` delta (already
+- [x] **4.2** Confirm this change's own `specs/charge-session-log/spec.md` delta (already
   written in this change folder) still reads coherently against the CURRENT
   `openspec/specs/charge-session-log/spec.md` at merge time — the sibling tier
   (`RM44-telemetry-add-change-detecting-upsert`) touches a different capability

@@ -45,7 +45,7 @@ whoever starts this change.
 > Both files are new, disjoint files, so they can be implemented at the same time by
 > separate agents once Wave 1 is done.
 
-- [ ] **2.1** `internal/telemetry/db_change_detection_integration_test.go` (new file)
+- [x] **2.1** `internal/telemetry/db_change_detection_integration_test.go` (new file)
   — the six behavioral scenarios from design.md D7.1–D7.6, following the existing
   `DATABASE_URL`-gated pattern in `db_integration_test.go` (`internal/testdb`
   provisioning, `TestMain` auto-skip):
@@ -75,7 +75,7 @@ whoever starts this change.
     never causes permanent nightly churn.
   `depends_on`: 1.2 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** `internal/telemetry/db_change_detection_schema_test.go` (new file) —
+- [x] **2.2** `internal/telemetry/db_change_detection_schema_test.go` (new file) —
   the self-checking schema test from design.md D7.7 (roadmap D16). Two checks:
   1. `TestUpsertSuperchargerHistory_ColumnsMatchSetPlusDenylist`: query
      `information_schema.columns` for `telemetry.supercharger_history`'s real column
@@ -98,7 +98,7 @@ whoever starts this change.
 
 ## Wave 3 — Docs
 
-- [ ] **3.1** `internal/telemetry/AGENTS.md` — add a short paragraph to "Testing
+- [x] **3.1** `internal/telemetry/AGENTS.md` — add a short paragraph to "Testing
   notes" naming `db_change_detection_integration_test.go` and
   `db_change_detection_schema_test.go`, the governing rule (the comparison covers
   exactly the columns the `SET` clause writes) and the three deny-list buckets

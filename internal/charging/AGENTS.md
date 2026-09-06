@@ -223,7 +223,7 @@ item 11) writes them directly, never through this port.
 
 **The refresh set `MirrorSuperchargerSession`'s `ON CONFLICT DO UPDATE SET` touches is
 telemetry's own conflict set, minus `raw_data`** (a column `supercharger_sessions` does not
-carry): `energy_kwh, total_cost, currency, is_paid, tesla_id, updated_at`. This is not five
+carry): `energy_kwh, total_cost, currency, is_paid, tesla_id`. This is not five
 independent judgement calls — it is one rule applied mechanically: *a mirrored column gets
 exactly the write semantics its source column has* (design.md D1). Concretely,
 `site_location_name` is **not** refreshed on a re-mirror, and the reason is purely
@@ -231,6 +231,25 @@ structural: `telemetry`'s own upsert never refreshes `site_location_name` either
 neither does this one — **not** because a site name was judged unlikely to change. Apply
 the same reasoning before adding any future mirrored column: check telemetry's conflict
 clause first, and mirror it exactly.
+
+**`updated_at` means "this row's data changed," not "the last mirror pass touched this
+row"** (`RM44-charging-add-change-detecting-mirror`, MAG-48; design.md D1–D3). Before
+this change, the query set `updated_at = now()` on every mirror pass, whether or not any
+of the five refreshed columns above actually changed. That made
+`internal/analytics.Recalculator.Reconcile` — which reads this column to find sessions
+worth recalculating — see every session as new, every night. The fix: `updated_at` now
+advances only when the row's current values differ from the five columns this SET clause
+writes. The comparison is a `to_jsonb` deny-list, not a hand-picked `WHERE`: it deny-lists
+every column this query never refreshes — bookkeeping (`id`, `created_at`, `updated_at`
+itself), human-owned columns (`start_battery_pct`, `end_battery_pct`,
+`battery_pct_source`, `status`, `inferred_capacity_kwh_calc`), and write-once mirrored
+columns (`account_id`, `vin`, `session_id`, `charge_start_date_time`,
+`charge_stop_date_time`, `site_location_name`) — so the comparison covers exactly the
+five refreshed columns and nothing else. This keeps working even as the table grows:
+`db_mirror_schema_selfcheck_integration_test.go` fails the moment a new column belongs to
+neither list. See that test file, and
+`internal/charging/db_session_mirror_change_detection_integration_test.go`, for the full
+behavioral proof.
 
 The gateway and any other future caller of `SessionWriter` never import `chargingdb`
 directly, exactly as for `Writer`/`Reader` above.
