@@ -6,9 +6,9 @@
   "roadmap": "RM44-incremental-supercharger-sync",
   "tier": 3,
   "request": "Layer 2. MirrorSuperchargerSession advances updated_at only on a real data change. to_jsonb deny-list of 14 names; 5 columns compared. This is the tier that stops the vehicle_metrics blow-up.",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-09-06T03:20:00Z",
-  "updated_at": "2026-09-06T03:20:00Z",
+  "updated_at": "2026-09-06T08:47:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -38,14 +38,21 @@
     {
       "id": "1.1",
       "title": "Replace MirrorSuperchargerSession's ON CONFLICT DO UPDATE SET with the deny-list CASE; rewrite the doc comment",
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:40:00Z",
+      "completed_at": "2026-09-06T08:47:00Z",
+      "duration_seconds": 420,
+      "budget": {
+        "five_hour_pct_start": 7,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 21,
+        "context_pct_end": 24,
+        "approx": true,
+        "note": "wave A total, two workers run concurrently; delta shared"
+      },
+      "notes": "Replaced the SET clause per design.md and rewrote the stale 'NO WHERE PREDICATE' paragraph so it answers the old objection instead of repeating it. INSERT/VALUES untouched.",
       "depends_on": [
         "0.1"
       ]
@@ -53,14 +60,14 @@
     {
       "id": "2.1",
       "title": "make sqlc; confirm MirrorSuperchargerSessionParams is unchanged",
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T08:47:00Z",
+      "completed_at": "2026-09-06T08:47:00Z",
+      "duration_seconds": 60,
       "budget": null,
-      "notes": null,
+      "notes": "Leader ran make sqlc once for all modules. Only the two expected query.sql.go changed. Both Params structs verified byte-identical against HEAD, so the zero-churn claim holds. go build + go vet clean.",
       "depends_on": [
         "1.1"
       ]
@@ -178,8 +185,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "2.1",
       "3.1",
       "3.2",
       "3.3",
@@ -190,11 +195,22 @@
     ],
     "blocked": [],
     "done": [
-      "0.1"
+      "0.1",
+      "1.1",
+      "2.1"
     ],
     "awaiting_user_verification": []
   },
-  "decisions": [],
+  "decisions": [
+    {
+      "id": "D-charging-1",
+      "at": "2026-09-06T08:40:00Z",
+      "scope": "wave:A",
+      "made_by": "autopilot",
+      "decision": "Workers edit query.sql only. The LEADER runs make sqlc once, after both tiers' SQL edits land.",
+      "why": "One sqlc.yaml regenerates all four modules, so two parallel workers running codegen would race on each other's generated files."
+    }
+  ],
   "review": {
     "status": "not-started",
     "agent": null,
@@ -206,6 +222,16 @@
       "at": "2026-09-06T03:20:00Z",
       "agent": "leader",
       "event": "progress.json created. Artifacts written by worker 'charging' (sonnet), revised once after the leader found the write-once churn hole. openspec validate --strict passes. DATABASE DESIGN GATE CONFIRMED BY THE OWNER at 2026-09-06T03:20:00Z - deny-list verified against the live schema as an exact complement of the SET clause (no missing, no phantom, no overlap)."
+    },
+    {
+      "at": "2026-09-06T08:40:00Z",
+      "agent": "leader",
+      "event": "Wave A dispatched: task 1.1 to worker 'charging' (sonnet). Budget at dispatch: five_hour=7%, context=21%. Codegen deliberately withheld from workers - leader runs it once (see decision D-charging-1)."
+    },
+    {
+      "at": "2026-09-06T08:47:00Z",
+      "agent": "leader",
+      "event": "Wave A reconciled. Worker reported placeholder timestamps (00:00:00Z); leader recorded the real times instead. Codegen run once by the leader. VERIFIED: both Params structs byte-identical to HEAD; go build and go vet clean. gofmt flags 3 files in account/config/gateway - confirmed PRE-EXISTING on HEAD, not from this change."
     }
   ]
 }

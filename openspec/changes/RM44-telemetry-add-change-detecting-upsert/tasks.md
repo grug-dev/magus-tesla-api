@@ -15,7 +15,7 @@ whoever starts this change.
 
 ## Wave 1 — Change the query and regenerate
 
-- [ ] **1.1** `internal/telemetry/db/query.sql` — replace the `UpsertSuperchargerHistory`
+- [x] **1.1** `internal/telemetry/db/query.sql` — replace the `UpsertSuperchargerHistory`
   query's `ON CONFLICT (session_id) DO UPDATE SET` clause with the exact SQL in
   design.md D1: keep the six existing refreshed columns (`raw_data`, `energy_kwh`,
   `total_cost`, `currency`, `is_paid`, `tesla_id`) unchanged, and replace only the

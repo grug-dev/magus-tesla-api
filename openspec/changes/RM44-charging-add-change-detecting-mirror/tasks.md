@@ -42,7 +42,7 @@ a schema change.
 
 ## Wave 1 — the query change (module: charging worker)
 
-- [ ] **1.1** `internal/charging/db/query.sql` — replace `MirrorSuperchargerSession`'s
+- [x] **1.1** `internal/charging/db/query.sql` — replace `MirrorSuperchargerSession`'s
   doc comment and its `ON CONFLICT DO UPDATE SET` clause with the exact text in
   design.md "The exact final SQL," verbatim, including the 14-name deny-list array
   literal (NOT the earlier 8-name version — the owner corrected it after a live test;

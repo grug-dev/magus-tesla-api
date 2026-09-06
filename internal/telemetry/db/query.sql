@@ -331,11 +331,39 @@ LIMIT 1;
 -- by RM41-telemetry-drop-estimate-columns -- there is no longer a column to guard.
 -- name: UpsertSuperchargerHistory :exec
 -- Upsert one Supercharger session. On conflict with the session_id UNIQUE constraint,
--- refresh only the mutable/derived columns (raw_data, derived fields, tesla_id,
--- updated_at). Immutable columns (session_id, account_id, vin, location name,
--- country, timestamps, billing fields, created_at) are never overwritten.
+-- refresh only six mutable columns: raw_data, energy_kwh, total_cost, currency,
+-- is_paid, tesla_id.
+--
+-- updated_at only advances when the row's real data changed. The governing
+-- rule: the comparison below covers EXACTLY the columns the SET clause writes.
+-- If you add a column to SET, remove it from the deny-list. If you add a
+-- column the SET clause does NOT write, add it to the deny-list. Breaking this
+-- rule is loud, not silent: a forgotten column makes updated_at advance every
+-- night, which is easy to notice, never the other way around.
+--
+-- The deny-list has three groups, all excluded from the comparison:
+--   1. Bookkeeping (id, created_at, updated_at) -- not session data. id never
+--      differs on a conflict; created_at is write-once and EXCLUDED.created_at
+--      is a fresh default value, not the row's real one; updated_at is the
+--      column this CASE computes, so comparing it would be circular.
+--   2. Human-owned (start_battery_pct, end_battery_pct, battery_pct_source) --
+--      a person sets these by hand. They are never in the INSERT list, so
+--      EXCLUDED always has them NULL. Without this exclusion, a poller re-sync
+--      would see "set on disk" vs "NULL incoming" and wrongly call that a
+--      change, overwriting the human's work.
+--   3. Write-once (session_id, account_id, vin, site_location_name,
+--      country_code, charge_start_date_time, charge_stop_date_time,
+--      unlatch_date_time, billing_type, vehicle_make_type) -- written once on
+--      INSERT, never refreshed by this SET clause. If Tesla later sends a
+--      different value for one of these, the stored value stays as-is by
+--      design, and EXCLUDED can differ from it forever. Comparing these
+--      columns would make updated_at advance every single night, forever,
+--      for any row with such a gap -- the exact bug this query exists to fix,
+--      just moved to a different set of columns.
+--
 -- Design DBS3: supercharger_history is NOT append-only; billing state mutates
--- post-session (is_paid, invoice status change after midnight).
+-- post-session (is_paid, invoice status change after midnight). Full rationale:
+-- openspec/changes/RM44-telemetry-add-change-detecting-upsert/design.md D1/D2.
 INSERT INTO telemetry.supercharger_history (
     session_id, account_id, vin, tesla_id,
     site_location_name, country_code,
@@ -358,7 +386,13 @@ ON CONFLICT (session_id) DO UPDATE SET
     currency   = EXCLUDED.currency,
     is_paid    = EXCLUDED.is_paid,
     tesla_id   = EXCLUDED.tesla_id,
-    updated_at = now();
+    updated_at = CASE
+        WHEN to_jsonb(supercharger_history.*) - '{id,session_id,account_id,vin,site_location_name,country_code,charge_start_date_time,charge_stop_date_time,unlatch_date_time,billing_type,vehicle_make_type,created_at,updated_at,start_battery_pct,end_battery_pct,battery_pct_source}'::text[]
+             IS DISTINCT FROM
+             to_jsonb(EXCLUDED.*) - '{id,session_id,account_id,vin,site_location_name,country_code,charge_start_date_time,charge_stop_date_time,unlatch_date_time,billing_type,vehicle_make_type,created_at,updated_at,start_battery_pct,end_battery_pct,battery_pct_source}'::text[]
+        THEN now()
+        ELSE supercharger_history.updated_at
+    END;
 
 -- name: SuperchargerHistoryByAccount :many
 -- Return all Supercharger sessions for the given account, newest first, up to
