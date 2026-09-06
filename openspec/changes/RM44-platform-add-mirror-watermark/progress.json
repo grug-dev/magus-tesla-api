@@ -1,0 +1,514 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM44-platform-add-mirror-watermark",
+  "module": "platform (internal/telemetry + internal/charging)",
+  "roadmap": "openspec/roadmaps/RM44-incremental-supercharger-sync.md",
+  "request": "Roadmap RM44 tier 4. Bound the telemetry->charging Supercharger mirror read with a charging-owned watermark. Source ticket MAG-48.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1a.0",
+      "1a.1",
+      "1a.2",
+      "1a.3",
+      "1a.4",
+      "1a.5",
+      "1a.6",
+      "1a.7",
+      "1b.1",
+      "1b.2",
+      "1b.3",
+      "1b.4",
+      "1b.5",
+      "1b.6",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2"
+    ],
+    "blocked": [],
+    "done": [
+      "0.1"
+    ],
+    "awaiting_user_verification": []
+  },
+  "created_at": "2026-09-06T10:35:00Z",
+  "updated_at": "2026-09-06T10:35:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
+    "base": "6233334",
+    "ticket": "MAG-48",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-48/nightly-reconcile-recalculates-the-whole-vehicle-metrics-history-on",
+    "created_at": "2026-09-05T21:43:25Z"
+  },
+  "tasks": [
+    {
+      "id": "0.1",
+      "title": "Database design gate: owner confirms schema, rationale, index plan",
+      "module": "leader",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T10:20:00Z",
+      "completed_at": "2026-09-06T10:33:00Z",
+      "duration_seconds": 780,
+      "notes": "Owner confirmed the design with ONE change: build idx_supercharger_history_account_updated now instead of documenting it as a revisit trigger. Leader also fixed a wrong index name and a wrong fake-method count.",
+      "budget": null
+    },
+    {
+      "id": "1a.0",
+      "title": "New telemetry migration: idx_supercharger_history_account_updated",
+      "module": "telemetry",
+      "depends_on": [
+        "0.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1a.1",
+      "title": "query.sql: add SuperchargerHistoryByAccountUpdatedSince",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.0"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1a.2",
+      "title": "make sqlc: regenerate telemetry query.sql.go",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1a.3",
+      "title": "telemetry.go: declare the new interface method",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1a.4",
+      "title": "reader.go: implement the new reader method",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1a.5",
+      "title": "query_log.go: add the explicit decorator method",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1a.6",
+      "title": "query_log_test.go: extend the fake and test the log line",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.5"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1a.7",
+      "title": "DB integration tests T-tel-1..T-tel-7 (incl. EXPLAIN)",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1b.1",
+      "title": "New charging migration: charging.mirror_watermarks",
+      "module": "charging",
+      "depends_on": [
+        "0.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1b.2",
+      "title": "query.sql: GetMirrorWatermark + UpsertMirrorWatermark",
+      "module": "charging",
+      "depends_on": [
+        "1b.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1b.3",
+      "title": "make sqlc: regenerate charging models.go + query.sql.go",
+      "module": "charging",
+      "depends_on": [
+        "1b.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1b.4",
+      "title": "charging.go: declare MirrorWatermarkStore + constructor",
+      "module": "charging",
+      "depends_on": [
+        "1b.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1b.5",
+      "title": "New mirror_watermark.go: concrete implementation",
+      "module": "charging",
+      "depends_on": [
+        "1b.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1b.6",
+      "title": "DB integration tests T-cw-1..T-cw-6",
+      "module": "charging",
+      "depends_on": [
+        "1b.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "telemetry/AGENTS.md: document the new read method",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.7"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "charging/AGENTS.md: document the new table and port",
+      "module": "charging",
+      "depends_on": [
+        "1b.6"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Spec coherence check across the three delta specs",
+      "module": "leader",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "app.go: wire the MirrorWatermarkStore dependency",
+      "module": "leader",
+      "depends_on": [
+        "1a.7",
+        "1b.6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "processor.go: bounded read, mirror, advance to max observed",
+      "module": "leader",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "processor_test.go: extend the fake, add the watermark double",
+      "module": "leader",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "processor_test.go: tests T-app-1, T-app-2, T-app-3 (D5)",
+      "module": "leader",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "Assistant-run signals: build, vet, gofmt, guards",
+      "module": "leader",
+      "depends_on": [
+        "3.4",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "Hand the suite to the owner and record their report",
+      "module": "leader",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-06T10:33:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "DATABASE DESIGN GATE CONFIRMED, with one change: ship idx_supercharger_history_account_updated (account_id, updated_at) now.",
+      "why": "Owner chose certainty over a later slow-query investigation. The design had recommended no index; both positions are recorded in design.md's Index Plan.",
+      "covered_by": "roadmap D21"
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-06T10:33:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "The new index ships in a TELEMETRY migration (task 1a.0), not the charging one.",
+      "why": "It is on telemetry.supercharger_history. A module may only alter its own tables (ai/architecture.md section 2)."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-06T10:20:00Z",
+      "agent": "leader",
+      "event": "Artifacts created by worker 'charging' (sonnet); openspec validate --strict passed."
+    },
+    {
+      "at": "2026-09-06T10:25:00Z",
+      "agent": "leader",
+      "event": "Leader validation found two errors before the gate. (1) design.md cited idx_supercharger_history_vehicle_time (account_id, tesla_id, charge_start_date_time) for an account-only query; the correct existing index was account_time. Fixed. (2) The worker's finding said internal/app's fake has 2 methods; it has 4 plus a compile-time assertion at processor_test.go:215. Corrected, and a repo-wide sweep of SuperchargerHistoryReader implementors added to design.md: 4 total, 3 telemetry-owned, 1 leader-owned."
+    },
+    {
+      "at": "2026-09-06T10:25:00Z",
+      "agent": "leader",
+      "event": "Worker finding ACCEPTED and load-bearing: adding a method to SuperchargerHistoryReader breaks internal/app/processor_test.go's compile-time assertion. That file is outside both module sandboxes. Neither D20 nor D22 named it. Now explicit leader task 3.3."
+    },
+    {
+      "at": "2026-09-06T10:33:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE CONFIRMED by the owner, with one change (D1): build the index now. Artifacts updated for consistency - design.md (new migration block, Index Plan rewritten with both positions, D7 revised, T-tel-7 added), tasks.md (new task 1a.0, 1a.7 acceptance extended), proposal.md (index paragraph). openspec validate --strict re-passed."
+    }
+  ]
+}
