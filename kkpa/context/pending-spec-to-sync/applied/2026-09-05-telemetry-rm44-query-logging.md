@@ -9,7 +9,7 @@
 Target guide: `architecture/telemetry-ingest-only.md`
 Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    2026-09-06
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-05
 
 Derived from the 2 requirements added by `RM44-telemetry-add-query-logging` (MAG-48, roadmap
 RM44 tier 1): **Query And Fleet-API Argument Logging** and **Structural Exclusion Of

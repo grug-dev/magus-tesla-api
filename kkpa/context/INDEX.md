@@ -153,6 +153,9 @@
 | `supercharger history` (`telemetry.supercharger_history` — the RAW vendor upsert; NOT charging's `supercharger_sessions` mirror) | `architecture/telemetry-ingest-only.md` |
 | `telemetry schema` | the module's own Postgres schema — all four telemetry tables live there, never `public` → `architecture/telemetry-ingest-only.md` |
 | `supercharger_history vs supercharger_sessions` | two different tables — telemetry's raw upsert vs charging's mirror → `architecture/telemetry-ingest-only.md` |
+| `telemetry query logging` (every live query + Fleet API call logs its arguments; credentials and raw payloads never logged) | `architecture/telemetry-ingest-only.md` |
+| `fleet api logging` | synonym of `telemetry query logging` → `architecture/telemetry-ingest-only.md` |
+| `why is my query not logged` | the four decorated ports + the callCounter seam → `architecture/telemetry-ingest-only.md` |
 
 <!--
 Notes for the curator:
