@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-48 - Nightly Reconcile recalculates the whole vehicle_metrics history on every poller run. Measured 2026-09-05: 70-day window and 51/51 metric rows rewritten where the snapshot source alone needed 4 days. Owner added two scope items beyond the original bug: bound the O(all-history) mirror read, and log every telemetry query + Fleet API call with its input arguments.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-06T03:20:00Z",
+  "updated_at": "2026-09-06T09:55:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
@@ -16,16 +16,15 @@
     "created_at": "2026-09-05T21:43:25Z"
   },
   "rollup": {
-    "current": [
-      "RM44-telemetry-add-change-detecting-upsert",
-      "RM44-charging-add-change-detecting-mirror"
-    ],
+    "current": [],
     "pending": [
       "RM44-charging-add-mirror-watermark"
     ],
     "blocked": [],
     "done": [
-      "RM44-telemetry-add-query-logging"
+      "RM44-telemetry-add-query-logging",
+      "RM44-telemetry-add-change-detecting-upsert",
+      "RM44-charging-add-change-detecting-mirror"
     ],
     "awaiting_user_verification": []
   },
@@ -213,14 +212,20 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "claude-sonnet-5 (workers+reviewers) / claude-opus-5 (leader)",
       "started_at": "2026-09-06T02:45:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-06T09:55:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "database design gate applies."
+      "budget": {
+        "five_hour_pct_start": 7,
+        "five_hour_pct_end": 41,
+        "cost_usd_delta": 27.6,
+        "approx": true,
+        "note": "tiers 2 and 3 ran in parallel; this delta is the SHARED total for both, not per tier"
+      },
+      "notes": "Archived 2026-09-06. 5 tasks. Reviewer round 1 approved, 1 minor finding (unticked checkbox) fixed. Suite verified by the owner."
     },
     {
       "id": 3,
@@ -230,14 +235,20 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "claude-sonnet-5 (workers+reviewers) / claude-opus-5 (leader)",
       "started_at": "2026-09-06T02:45:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-06T09:55:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "database design gate applies. The tier that actually stops the vehicle_metrics blow-up."
+      "budget": {
+        "five_hour_pct_start": 7,
+        "five_hour_pct_end": 41,
+        "cost_usd_delta": 27.6,
+        "approx": true,
+        "note": "tiers 2 and 3 ran in parallel; this delta is the SHARED total for both, not per tier"
+      },
+      "notes": "Archived 2026-09-06. 10 tasks. Reviewer round 1 approved, ZERO findings. Suite verified by the owner after one stale pre-existing test (B2) was inverted."
     },
     {
       "id": 4,
@@ -318,6 +329,11 @@
       "at": "2026-09-06T03:20:00Z",
       "agent": "leader",
       "event": "Design gate confirmed by the owner for tiers 2 and 3. Deny-lists verified against the LIVE schema as exact complements of the SET clause: telemetry 16 deny + 6 set = 22 live; charging 14 deny + 5 set = 19 live; no missing, no phantom, no overlap in either. Leader fixed a stale '8 columns' line the charging worker flagged in proposal.md. progress.json created for both changes. Roadmap Status flipped to [~] for both tiers. Deferred work recorded as backlog entry 26."
+    },
+    {
+      "at": "2026-09-06T09:55:00Z",
+      "agent": "leader",
+      "event": "Tiers 2 and 3 ARCHIVED to openspec/changes/archive/{telemetry,charging}/2026-09-06-* (CLI dropped both at the archive root; moved under archive/<module>/ per this repo's grouping rule). Spec sync verified clean: telemetry +1 requirement, charge-session-log ~3 modified with scenarios inserted IN PLACE, nothing appended at EOF. Both reviewers independently rebuilt the live column lists from the migrations rather than trusting the leader's numbers. Tier 4 (RM44-charging-add-mirror-watermark) is now unblocked - it was the only tier depending on both."
     }
   ]
 }
