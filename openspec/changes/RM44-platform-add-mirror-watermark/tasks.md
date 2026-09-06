@@ -237,7 +237,7 @@ worker's task.
   ./...`, `make test`, `make test-with-db`, or `make check`.
   `depends_on`: 1a.7, 1b.6, 2.1, 2.2, 2.3, 3.4 · `parallel_ok`: no
 
-- [ ] **4.2** Hand off to the owner the exact commands to run and report:
+- [x] **4.2** Hand off to the owner the exact commands to run and report:
   `go test ./internal/telemetry/... ./internal/charging/... ./internal/app/...`.
   Until the owner reports these pass, this tier's implementation status is
   **awaiting-user-verification**, never "done." After deploy, also hand

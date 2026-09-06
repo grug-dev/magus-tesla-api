@@ -572,22 +572,25 @@ This module may import:
 - `context`, `time`, `math`, `errors`, and other Go standard library packages.
 - `github.com/google/uuid` — for `uuid.UUID` primary and tenant keys.
 - `github.com/jackc/pgx/v5` and `github.com/jackc/pgx/v5/pgxpool` — for DB connectivity.
-- `github.com/jackc/pgx/v5/pgtype` — ONLY inside `service.go` and `session_writer.go` at
-  the DB boundary. Never in public types, interfaces, `charging.go`, or any `_test.go`
-  file. `session_writer.go` gained this allowance in RM29 tier 6 for the same reason
-  `service.go` has it: it is the one file translating `charging.SessionMirror`'s plain Go
-  `*T` fields into `chargingdb.MirrorSuperchargerSessionParams`' nullable pgtype fields.
-- `internal/charging/db` (package `chargingdb`) — ONLY inside the four files that talk to
-  the database directly: `service.go`, `session_writer.go`, `session_reader.go`, and
-  `session_verifier.go`. The generated package is module-private by convention; no other
-  module imports it, and no `_test.go` file does either.
+- `github.com/jackc/pgx/v5/pgtype` — ONLY inside the four files that talk to the database
+  directly: `service.go`, `session_writer.go`, `session_reader.go`, and
+  `mirror_watermark.go`. Never in public types, interfaces, `charging.go`, or any
+  `_test.go` file. The rule is "only the files that own a query", not "only these names":
+  each of them translates plain Go `*T` fields into a generated params struct's nullable
+  pgtype fields, and translates them back on the way out.
+- `internal/charging/db` (package `chargingdb`) — ONLY inside the five files that talk to
+  the database directly: `service.go`, `session_writer.go`, `session_reader.go`,
+  `session_verifier.go`, and `mirror_watermark.go`. The generated package is module-private
+  by convention; no other module imports it, and no `_test.go` file does either.
 
-  This list said `service.go` and `session_writer.go` alone until MAG-36
-  (`charging-add-derived-start-battery-pct`) corrected it. `session_reader.go` and
-  `session_verifier.go` have imported `chargingdb` since RM31
-  (`RM31-charging-add-session-verification-port`) — the doc simply went stale and was never
-  updated. Nothing about their access was ever irregular: the rule is "only the files that
-  own a query", not "only these two names".
+  Both lists above have gone stale before. MAG-36 corrected the `chargingdb` list, which had
+  named only `service.go` and `session_writer.go` while `session_reader.go` and
+  `session_verifier.go` had imported it since RM31. RM44
+  (`RM44-platform-add-mirror-watermark`) corrected both lists again: it added
+  `mirror_watermark.go` to each, and added `session_reader.go` to the `pgtype` list, which
+  had been missing it. In every case the access was correct and only the doc was wrong.
+  When you add a file that owns a query, add it to both lists in the SAME change — a stale
+  list here reads as a boundary rule and gets trusted like one.
 
 This module MUST NOT import:
 
