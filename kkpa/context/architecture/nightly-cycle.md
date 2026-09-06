@@ -112,6 +112,33 @@
 - **The record point is a fall-through, not a second call site.** Both the success path and the failure short-circuit fall through to one measurement/record tail. Adding an early `return` anywhere in `ProcessVehicleData` silently reintroduces the untraced-run bug this design exists to prevent. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
 - **Both poller entry points are covered by construction.** The nightly schedule and `cmd/poller --once` both call `ProcessVehicleData`, so neither can diverge from the other. Never record a run from `cmd/`. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
 
+- **The Supercharger mirror's cursor is owned by `internal/charging`, and it holds the SOURCE
+  module's clock.** One row per account, at most. It records the highest last-modified instant
+  the mirror has already copied from `internal/telemetry`. The rule behind this: a cursor
+  belongs to the module that READS, never to the module that is read. `internal/telemetry` is
+  ingest-only and must not own a table describing how far its consumers have got.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+- **No cursor means the epoch, not an error.** A caller can treat "no cursor" and "never
+  mirrored" identically, so the first run after deploy backfills the account's whole history
+  once and then goes quiet. Nothing special-cases the first run.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+- **The cursor identifies neither a vehicle nor a source table.** The mirror reads one
+  account's data as a whole, from exactly one upstream source, so a `tesla_id` or a `source`
+  column would be dead weight that invites a wrong read. Adding a second upstream source later
+  is an additive migration, not a reason to add the column now.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+- **Cursors are isolated per account, and a later advance replaces an earlier one.** Reading
+  one account's cursor never returns another's.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+- **No other module touches this table.** Every read and write goes through the charging
+  module's own public port; `ai/architecture.md` §2 forbids the cross-module database read and
+  `make boundary-guard` enforces it.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
 ## Rendered view (visual map)
 
 A published Artifact renders this same cycle as a diagram — tier map, per-step call traces, the

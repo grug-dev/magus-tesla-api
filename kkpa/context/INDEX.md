@@ -46,6 +46,14 @@
 | `battery history chart` | synonym of `battery chart` | entity | `use-case/gateway/read-dashboard-history.md` |
 | `watermark vocabulary` | the closed set of table names `vehicle_metric_watermarks.source` may hold, and how it is migrated → `entities/vehicle-metrics/guide.md` |
 | `vocabulary migration` | retiring a watermark source value when another module renames its table → `entities/vehicle-metrics/guide.md` |
+| `supercharger history change detection` | when a nightly sync counts as a change to a `telemetry.supercharger_history` row (`updated_at`) | entity | `architecture/telemetry-ingest-only.md` |
+| `why does updated_at change every night` | the MAG-48 symptom, at the telemetry layer | entity | `architecture/telemetry-ingest-only.md` |
+| `account-wide updated-since read` | `telemetry.SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince` — the only updated-since port that returns sessions with no registered vehicle | entity | `architecture/telemetry-ingest-only.md` |
+| `orphaned supercharger session` | a session whose vehicle is not currently registered; reachable only through the account-wide updated-since port | entity | `architecture/telemetry-ingest-only.md` |
+| `session change detection` | when a nightly sync counts as a modification of a charge session record (`updated_at`) | entity | `workflows/supercharger-stats-read.md` |
+| `why did every session recalculate` | the MAG-48 symptom — `updated_at` used to advance on every sync pass | entity | `workflows/supercharger-stats-read.md` |
+| `bounded mirror read` | the watermark-bounded Supercharger sync (RM44 tier 4); replaced the full-history read | entity | `workflows/supercharger-stats-read.md` |
+| `why is the mirror slow` | it used to read all history every night — MAG-48, fixed by the bounded read | entity | `workflows/supercharger-stats-read.md` |
 
 ## Input ports — pages & endpoints
 
@@ -156,6 +164,10 @@
 | `telemetry query logging` (every live query + Fleet API call logs its arguments; credentials and raw payloads never logged) | `architecture/telemetry-ingest-only.md` |
 | `fleet api logging` | synonym of `telemetry query logging` → `architecture/telemetry-ingest-only.md` |
 | `why is my query not logged` | the four decorated ports + the callCounter seam → `architecture/telemetry-ingest-only.md` |
+| `mirror watermark` (the per-account cursor bounding step 2 of the nightly cycle; holds telemetry's `updated_at`, owned by `internal/charging`) | `architecture/nightly-cycle.md` |
+| `mirror cursor` | synonym of `mirror watermark` → `architecture/nightly-cycle.md` |
+| `charging.mirror_watermarks` | the table behind `mirror watermark` → `architecture/nightly-cycle.md` |
+| `who owns the mirror cursor` | the module that READS, not the one that is read → `architecture/nightly-cycle.md` |
 
 <!--
 Notes for the curator:

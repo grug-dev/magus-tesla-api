@@ -9,7 +9,7 @@
 Target guide: `workflows/supercharger-stats-read.md`
 Source spec:  `openspec/specs/charge-session-log/spec.md`
 Generated:    2026-09-06
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-06
 
 Derived from the RM44 requirements the main spec now carries (MAG-48): the 3 modified by
 `RM44-charging-add-change-detecting-mirror` (tier 3), plus **Supercharger Mirror

@@ -9,7 +9,7 @@
 Target guide: `architecture/telemetry-ingest-only.md`
 Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    2026-09-06
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-06
 
 Derived from the 2 RM44 requirements the main spec now carries (MAG-48):
 **Change-Detecting Supercharger-History Upsert** (tier 2) and
