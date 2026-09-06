@@ -11,9 +11,17 @@ Source spec:  `openspec/specs/charge-session-log/spec.md`
 Generated:    2026-09-06
 Status: PENDING REVIEW
 
-Derived from the 3 requirements modified by `RM44-charging-add-change-detecting-mirror`
-(MAG-48, roadmap RM44 tier 3). The capability already routes to an existing `workflows/`
-guide, so this proposal extends that guide instead of creating a second entry.
+Derived from the RM44 requirements the main spec now carries (MAG-48): the 3 modified by
+`RM44-charging-add-change-detecting-mirror` (tier 3), plus **Supercharger Mirror
+Synchronization Is Bounded By An Account Watermark**, added by
+`RM44-platform-add-mirror-watermark` (tier 4).
+
+**This draft REPLACES the earlier tier-3-only proposal, which was staged but never applied.**
+It is derived from the current merged main spec, so it covers both tiers.
+
+The capability already routes to an existing `workflows/` guide, so this proposal extends that
+guide instead of creating a second entry. Its sibling proposals are `telemetry.md` and
+`charging.md`.
 
 No `## Component map` block is proposed — `spec.md` carries behaviour, not file paths, so the
 live Component map is preserved untouched. `--with-filemap` was not passed.
@@ -54,7 +62,42 @@ live Component map is preserved untouched. `--with-filemap` was not passed.
   column belongs to neither list, and names the column plus which list to fix.
   _Source: spec charge-session-log — Requirement: The Charge Session Log Is Synchronized From The Source._
 
+- **The mirror reads a BOUNDED window, not the whole history.** It asks the source only for
+  sessions modified at or after this account's watermark, widened slightly to tolerate a source
+  write that commits just after the previous run read. Before MAG-48 it re-read every session
+  every night, which is what defeated every downstream cursor.
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+
+- **THE most important rule in this capability: a run whose bounded read returns nothing leaves
+  the watermark completely untouched.** Never advance it to "now". A session the source commits
+  moments after the read would fall permanently behind the cursor and never be picked up again.
+  The loss is silent and undetectable — nothing errors, nothing logs, the row simply never
+  arrives. If you change this code, this is the line to protect.
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+
+- **A run that DOES return sessions advances the watermark to the highest last-modified instant
+  actually observed — never to the run's own instant.** Same reason: advancing to "now" skips
+  anything the source commits between the read and the advance.
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+
+- **The watermark advances only AFTER the mirroring step succeeds.** A failed run leaves it
+  where it was, so the next run's bounded read still covers what the failed one did not write.
+  That repeats work; it never loses a row. Prefer that trade every time.
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+
+- **An account with no watermark backfills its whole history once**, then advances normally.
+  So the bounded read costs nothing on first deploy and needs no migration or manual seeding.
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+
+- **A session whose vehicle is not currently registered is still recovered under the bounded
+  read.** This works only because the mirror uses telemetry's ACCOUNT-wide updated-since port,
+  which applies no vehicle filter. Switching it to the per-vehicle port would drop those rows
+  and break orphan recovery without any visible error.
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+
 ## [index] ## Glossary & routing — entities — ADD ROWS
 
 | `session change detection` | when a nightly sync counts as a modification of a charge session record (`updated_at`) | entity | `workflows/supercharger-stats-read.md` |
 | `why did every session recalculate` | the MAG-48 symptom — `updated_at` used to advance on every sync pass | entity | `workflows/supercharger-stats-read.md` |
+| `bounded mirror read` | the watermark-bounded Supercharger sync (RM44 tier 4); replaced the full-history read | entity | `workflows/supercharger-stats-read.md` |
+| `why is the mirror slow` | it used to read all history every night — MAG-48, fixed by the bounded read | entity | `workflows/supercharger-stats-read.md` |

@@ -11,12 +11,17 @@ Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    2026-09-06
 Status: PENDING REVIEW
 
-Derived from the 1 requirement added by `RM44-telemetry-add-change-detecting-upsert`
-(MAG-48, roadmap RM44 tier 2): **Change-Detecting Supercharger-History Upsert**.
+Derived from the 2 RM44 requirements the main spec now carries (MAG-48):
+**Change-Detecting Supercharger-History Upsert** (tier 2) and
+**Supercharger History Account-Wide Updated-Since Read Port** (tier 4).
+
+**This draft REPLACES the earlier tier-2-only proposal, which was staged but never applied.**
+It is derived from the current merged main spec, so it covers both tiers. Tier 1's logging
+requirements were applied on 2026-09-05 and are not repeated here.
 
 Same target guide the tier-1 proposal used, so this extends it rather than creating a second
-entry. Its sibling proposal is `charge-session-log.md` — the same rule applied one layer down,
-in `internal/charging`.
+entry. Its sibling proposals are `charge-session-log.md` and `charging.md` — the same roadmap,
+one layer down, in `internal/charging`.
 
 No `## Component map` block is proposed — `spec.md` carries behaviour, not file paths, so the
 live Component map is preserved untouched. `--with-filemap` was not passed.
@@ -61,7 +66,31 @@ live Component map is preserved untouched. `--with-filemap` was not passed.
   column to the table and this test tells you what to decide.
   _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
 
+- **There are TWO updated-since read ports for Supercharger sessions, and the difference is
+  load-bearing.** The per-vehicle port filters on the vehicle identifier. The account-wide port
+  takes no vehicle at all. Only the account-wide one can return a session whose vehicle is not
+  currently registered, because a per-vehicle filter can never match a row with no vehicle
+  identity. A caller that must recover such a session once its vehicle re-registers has to use
+  the account-wide port. Picking the per-vehicle one there loses rows, silently.
+  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+
+- **The account-wide port returns oldest-first by `updated_at`, and an empty result is not an
+  error.** Nothing updated in the window returns an empty collection with no error, exactly like
+  every other read port on this module.
+  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+
+- **A session updated at exactly the requested instant is included.** The bound is inclusive at
+  both ports. A caller that treats it as exclusive will skip a row on every boundary.
+  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+
+- **No caller reaches these rows any other way.** Both updated-since ports are the only route to
+  this data for another module; nothing outside `internal/telemetry` imports
+  `internal/telemetry/db`. `make boundary-guard` enforces it.
+  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+
 ## [index] ## Glossary & routing — entities — ADD ROWS
 
 | `supercharger history change detection` | when a nightly sync counts as a change to a `telemetry.supercharger_history` row (`updated_at`) | entity | `architecture/telemetry-ingest-only.md` |
 | `why does updated_at change every night` | the MAG-48 symptom, at the telemetry layer | entity | `architecture/telemetry-ingest-only.md` |
+| `account-wide updated-since read` | `telemetry.SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince` — the only updated-since port that returns sessions with no registered vehicle | entity | `architecture/telemetry-ingest-only.md` |
+| `orphaned supercharger session` | a session whose vehicle is not currently registered; reachable only through the account-wide updated-since port | entity | `architecture/telemetry-ingest-only.md` |

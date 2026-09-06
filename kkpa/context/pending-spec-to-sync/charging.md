@@ -1,0 +1,64 @@
+# Sync proposal — charging
+
+> Staged by `kkpa-context-curate from-spec`. This is a **draft** of KB edits derived from one
+> approved OpenSpec capability spec. Review/edit the blocks below, then run
+> `/kkpa-context-curate apply-sync` to write them into the real KB. Nothing here touches the
+> canonical KB until applied. This file is self-contained — it embeds the proposed content, so it
+> stays valid even after the OpenSpec change folder is archived/moved.
+
+Target guide: `architecture/nightly-cycle.md`
+Source spec:  `openspec/specs/charging/spec.md`
+Generated:    2026-09-06
+Status: PENDING REVIEW
+
+Derived from the 1 requirement added by `RM44-platform-add-mirror-watermark`
+(MAG-48, roadmap RM44 tier 4): **Supercharger Mirror Watermark Storage**.
+
+**Routing note for the reviewer.** The `charging` capability has no dedicated architecture
+guide. This requirement is about the cursor that bounds step 2 of the nightly cycle, so the
+proposal targets `architecture/nightly-cycle.md`, where that step is already documented.
+The other two RM44 tier-4 proposals target their capabilities' existing guides:
+`telemetry.md` → `architecture/telemetry-ingest-only.md`, `charge-session-log.md` →
+`workflows/supercharger-stats-read.md`. If you would rather this content lived with the
+charge-session guide, move the block before applying.
+
+No `## Component map` block is proposed — `spec.md` carries behaviour, not file paths, so the
+live Component map is preserved untouched. `--with-filemap` was not passed.
+
+---
+
+## [guide] ## Conventions & gotchas — APPEND
+
+- **The Supercharger mirror's cursor is owned by `internal/charging`, and it holds the SOURCE
+  module's clock.** One row per account, at most. It records the highest last-modified instant
+  the mirror has already copied from `internal/telemetry`. The rule behind this: a cursor
+  belongs to the module that READS, never to the module that is read. `internal/telemetry` is
+  ingest-only and must not own a table describing how far its consumers have got.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+- **No cursor means the epoch, not an error.** A caller can treat "no cursor" and "never
+  mirrored" identically, so the first run after deploy backfills the account's whole history
+  once and then goes quiet. Nothing special-cases the first run.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+- **The cursor identifies neither a vehicle nor a source table.** The mirror reads one
+  account's data as a whole, from exactly one upstream source, so a `tesla_id` or a `source`
+  column would be dead weight that invites a wrong read. Adding a second upstream source later
+  is an additive migration, not a reason to add the column now.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+- **Cursors are isolated per account, and a later advance replaces an earlier one.** Reading
+  one account's cursor never returns another's.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+- **No other module touches this table.** Every read and write goes through the charging
+  module's own public port; `ai/architecture.md` §2 forbids the cross-module database read and
+  `make boundary-guard` enforces it.
+  _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
+
+## [index] ## Architecture topics — ADD ROWS
+
+| `mirror watermark` (the per-account cursor bounding step 2 of the nightly cycle; holds telemetry's `updated_at`, owned by `internal/charging`) | `architecture/nightly-cycle.md` |
+| `mirror cursor` | synonym of `mirror watermark` → `architecture/nightly-cycle.md` |
+| `charging.mirror_watermarks` | the table behind `mirror watermark` → `architecture/nightly-cycle.md` |
+| `who owns the mirror cursor` | the module that READS, not the one that is read → `architecture/nightly-cycle.md` |
