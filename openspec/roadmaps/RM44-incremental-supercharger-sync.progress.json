@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-48 - Nightly Reconcile recalculates the whole vehicle_metrics history on every poller run. Measured 2026-09-05: 70-day window and 51/51 metric rows rewritten where the snapshot source alone needed 4 days. Owner added two scope items beyond the original bug: bound the O(all-history) mirror read, and log every telemetry query + Fleet API call with its input arguments.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-06T00:23:45Z",
+  "updated_at": "2026-09-06T01:42:15Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
@@ -242,6 +242,16 @@
       "at": "2026-09-06T00:23:45Z",
       "agent": "leader",
       "event": "tier 1 archived to openspec/changes/archive/telemetry/2026-09-06-RM44-telemetry-add-query-logging (CLI dropped it at the archive root; moved under archive/<module>/ per this repo's grouping). openspec/specs/telemetry/spec.md +2 requirements. Reviewer approved, 0 findings."
+    },
+    {
+      "at": "2026-09-06T01:42:15Z",
+      "agent": "leader",
+      "event": "KB spec-sync STAGED (not applied) at kkpa/context/pending-spec-to-sync/telemetry.md, target architecture/telemetry-ingest-only.md. Applying is the user's step: /kkpa-context-curate apply-sync."
+    },
+    {
+      "at": "2026-09-06T01:42:15Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at tier boundary: five_hour_pct=86 (threshold 90), context_pct=23 (threshold 40); a fresh tier would cross 90 mid-work. five_hour_resets_at=1788661800 (21:30 local). Tier 1 archived and complete. Next: tier 2 RM44-telemetry-add-change-detecting-upsert or tier 3 RM44-charging-add-change-detecting-mirror, both unblocked, both carry the database design gate. Resume with: /kkpa-dev-harness-pipeline resume RM44-incremental-supercharger-sync"
     }
   ]
 }
