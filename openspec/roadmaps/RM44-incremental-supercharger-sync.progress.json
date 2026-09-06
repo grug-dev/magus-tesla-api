@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-48 - Nightly Reconcile recalculates the whole vehicle_metrics history on every poller run. Measured 2026-09-05: 70-day window and 51/51 metric rows rewritten where the snapshot source alone needed 4 days. Owner added two scope items beyond the original bug: bound the O(all-history) mirror read, and log every telemetry query + Fleet API call with its input arguments.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-05T22:09:30Z",
+  "updated_at": "2026-09-06T00:23:45Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
@@ -16,16 +16,16 @@
     "created_at": "2026-09-05T21:43:25Z"
   },
   "rollup": {
-    "current": [
-      "RM44-telemetry-add-query-logging"
-    ],
+    "current": [],
     "pending": [
       "RM44-telemetry-add-change-detecting-upsert",
       "RM44-charging-add-change-detecting-mirror",
       "RM44-charging-add-mirror-watermark"
     ],
     "blocked": [],
-    "done": [],
+    "done": [
+      "RM44-telemetry-add-query-logging"
+    ],
     "awaiting_user_verification": []
   },
   "decisions": [
@@ -149,14 +149,20 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5 (worker) / claude-opus-5 (leader)",
       "started_at": "2026-09-05T22:09:30Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Interview settled 2026-09-05: D12-D14. 13 live queries, all already behind interfaces. 2 dead queries deleted. callCounter extended."
+      "completed_at": "2026-09-06T00:23:45Z",
+      "duration_seconds": 8055,
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 71,
+        "cost_usd_delta": 13.5,
+        "approx": true,
+        "note": "3 worker waves + 1 reviewer round, one serial worker per wave"
+      },
+      "notes": "Archived 2026-09-06. 18 tasks, 3 waves, reviewer round 1 approved with zero findings. Suite verified by the owner (make test + make test-with-db)."
     },
     {
       "id": 2,
@@ -231,6 +237,11 @@
       "at": "2026-09-05T22:09:30Z",
       "agent": "leader",
       "event": "tier 1 artifacts created by worker 'telemetry' (sonnet); openspec validate --strict passed; database gate does NOT apply (no schema object, verified by leader); D13 count corrected 8 -> 10"
+    },
+    {
+      "at": "2026-09-06T00:23:45Z",
+      "agent": "leader",
+      "event": "tier 1 archived to openspec/changes/archive/telemetry/2026-09-06-RM44-telemetry-add-query-logging (CLI dropped it at the archive root; moved under archive/<module>/ per this repo's grouping). openspec/specs/telemetry/spec.md +2 requirements. Reviewer approved, 0 findings."
     }
   ]
 }

@@ -6,7 +6,7 @@
   "roadmap": "RM44-incremental-supercharger-sync",
   "tier": 1,
   "request": "Tier 1 of RM44 (MAG-48). Install the instrument the nightly path never had: every LIVE telemetry query and every Tesla Fleet API call logs its input arguments, so the recalculation-window defect fixed in tiers 2-4 is visible in the log before the fix and provably gone after. No behaviour change.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "created_at": "2026-09-05T22:10:07Z",
   "updated_at": "2026-09-06T00:17:20Z",
   "leader": {
@@ -503,10 +503,19 @@
     }
   ],
   "review": {
-    "status": null,
-    "agent": null,
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
     "brief": "Review RM44 tier 1 (telemetry query + Fleet API logging), commits d85a908, 2500c37, 7609a49. Read the DIFF, not the whole module. Validate: (1) module-boundary compliance - nothing outside internal/telemetry changed, internal/tesla untouched; (2) design.md D6/D4 are a TEST CONTRACT authored before implementation - verify the code AND the tests both match D6/D4, and specifically that the tests were not written by reading the implementation (a test that merely mirrors the code is a finding); (3) D1 - loggingStore logs only its 3 writes, 5 silent pass-throughs, no double-logging with loggingReader; (4) D2 wiring - NewReader wraps a BARE undecorated *reader, no double decoration; (5) D8 - all four decorators explicit and NON-EMBEDDING with a compile-time assertion each; embedding would let a later interface method go silently unlogged; (6) SECURITY, highest priority: creds/access token/refresh token appear in NO log line, and raw_data is logged as a byte count only. Both are asserted by tests - check the tests actually prove it; (7) D13 - the 10 rewritten test call sites use raw pool.Query/QueryRow only, never another sqlc reader query, and every original assertion survives verbatim (append-only rule); (8) resolveLimit is REUSED from reader.go, not re-derived, and SuperchargerHistoryByAccount logs the resolved limit so the pre-fix line shows limit=2147483647 - this is MAG-48's own acceptance test for the instrument; (9) no slog introduced (roadmap D8), stdlib log.Printf only; (10) anti-gaming - no task title, criterion or assertion was weakened or deleted; no schema/migration object was added (the database design gate did not fire and must not have been bypassed). Performance-Profile applies: every decorated call is on the nightly poller path, unreachable from the gateway, so one log line per query is affordable - flag any caching/buffering added instead. Test-Execution-Policy: 'Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards. The owner runs the suite and reports results.' SIGNAL PROVENANCE: assistant-run were go build ./..., go vet ./..., gofmt -l internal/telemetry/, and make boundary-guard/tz-guard/money-guard/migration-guard/i18n-guard/archive-guard - all passed. USER-REPORTED: the user ran make test and make test-with-db and reported both passed. Judge test quality by READING the tests; do not run the suite yourself.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "telemetry-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-06T00:20:34Z",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
   },
   "events": [
     {
