@@ -162,6 +162,25 @@ func (q *Queries) DeleteEntry(ctx context.Context, arg DeleteEntryParams) error 
 	return err
 }
 
+const getMirrorWatermark = `-- name: GetMirrorWatermark :one
+SELECT source_updated_at
+FROM charging.mirror_watermarks
+WHERE account_id = $1
+`
+
+// Single-row cursor lookup for one account (roadmap D20-D22). Returns
+// pgx.ErrNoRows when no watermark exists yet, which charging's
+// MirrorWatermarkStore.MirrorWatermark treats as "epoch": the account has
+// never been mirrored under the bounded read, so the caller backfills the
+// account's full Supercharger history in one pass. Served entirely by
+// mirror_watermarks_account_unique's own index — no separate CREATE INDEX.
+func (q *Queries) GetMirrorWatermark(ctx context.Context, accountID uuid.UUID) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getMirrorWatermark, accountID)
+	var source_updated_at pgtype.Timestamptz
+	err := row.Scan(&source_updated_at)
+	return source_updated_at, err
+}
+
 const listEntriesByAccount = `-- name: ListEntriesByAccount :many
 SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM charging.manual_charge_entries
 WHERE account_id = $1
@@ -926,6 +945,35 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 		&i.OdometerKm,
 	)
 	return i, err
+}
+
+const upsertMirrorWatermark = `-- name: UpsertMirrorWatermark :exec
+INSERT INTO charging.mirror_watermarks (
+    account_id, source_updated_at
+) VALUES (
+    $1, $2
+)
+ON CONFLICT (account_id) DO UPDATE SET
+    source_updated_at = EXCLUDED.source_updated_at,
+    updated_at         = now()
+`
+
+type UpsertMirrorWatermarkParams struct {
+	AccountID       uuid.UUID
+	SourceUpdatedAt pgtype.Timestamptz
+}
+
+// Advance one account's cursor (roadmap D5/D22). Called only when the
+// caller's bounded telemetry read returned at least one row, advanced to
+// the max updated_at observed on that run -- a call with zero rows never
+// reaches this query at all (the caller's own responsibility; see
+// design.md "Cross-Module Wiring"). created_at is DELIBERATELY ABSENT from
+// the SET clause -- it must record when this account's cursor was FIRST
+// created, not the most recent advance, mirroring
+// UpsertVehicleMetricWatermark's identical convention.
+func (q *Queries) UpsertMirrorWatermark(ctx context.Context, arg UpsertMirrorWatermarkParams) error {
+	_, err := q.db.Exec(ctx, upsertMirrorWatermark, arg.AccountID, arg.SourceUpdatedAt)
+	return err
 }
 
 const verifySuperchargerSession = `-- name: VerifySuperchargerSession :one

@@ -39,6 +39,16 @@ type ManualChargeEntry struct {
 	OdometerKm pgtype.Int4
 }
 
+// One Supercharger-mirror cursor per account (RM44-platform-add-mirror-watermark, MAG-48). Holds the highest telemetry.supercharger_history.updated_at this module's nightly mirror has already synchronized for that account. No row yet for an account means "epoch": the next mirror run backfills that account's whole history once. Owned by internal/charging; no other module reads this table directly.
+type MirrorWatermark struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	// The maximum updated_at internal/charging's mirror has observed from telemetry.supercharger_history for this account, as of its last run. The mirror queries SuperchargerHistoryByAccountUpdatedSince(source_updated_at - 24h) and advances this column only when that query returns at least one row -- a run that returns zero rows leaves this column UNTOUCHED (roadmap D5: advancing it to now() on an empty read would permanently and silently lose any row that commits a moment late).
+	SourceUpdatedAt pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
 // Tesla Supercharger charge sessions as owned by internal/charging: identity, the session time window, the session facts (site, energy, cost, currency, paid state), and the human-owned battery-percentage verification/estimate columns. Dense — one row per session, verified or not (design D2). Deliberately carries NO country_code, unlatch_date_time, billing_type, vehicle_make_type or raw_data (closed list, design D1). Mirrored from telemetry.supercharger_sessions by the nightly orchestrator through public ports only, in the same cycle that refreshes the source; each mirrored column has exactly its source column's write semantics, so energy_kwh / total_cost / currency / is_paid / tesla_id are refreshed on every pass and everything else mirrored is write-once. The sync path can never write the five percentage columns (design D6). No other module reads this table directly.
 type SuperchargerSession struct {
 	ID        uuid.UUID

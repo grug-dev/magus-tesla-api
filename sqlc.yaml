@@ -84,6 +84,7 @@ sql:
         rename:
           charging_manual_charge_entry:  "ManualChargeEntry"
           charging_supercharger_session: "SuperchargerSession"
+          charging_mirror_watermark:     "MirrorWatermark"
         overrides:
           - db_type: "uuid"
             go_type:

@@ -9,13 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1b.1",
-      "1b.2",
-      "1b.3",
-      "1b.4",
-      "1b.5",
-      "1b.6",
-      "2.2",
       "2.3",
       "3.1",
       "3.2",
@@ -27,7 +20,12 @@
     "blocked": [],
     "done": [
       "0.1",
-      "2.1"
+      "2.1",
+      "1b.1",
+      "1b.2",
+      "1b.4",
+      "1b.5",
+      "2.2"
     ],
     "awaiting_user_verification": [
       "1a.0",
@@ -37,11 +35,13 @@
       "1a.4",
       "1a.5",
       "1a.6",
-      "1a.7"
+      "1a.7",
+      "1b.3",
+      "1b.6"
     ]
   },
   "created_at": "2026-09-06T10:35:00Z",
-  "updated_at": "2026-09-06T13:42:17Z",
+  "updated_at": "2026-09-06T13:49:15Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -286,14 +286,23 @@
         "0.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Migration renumbered 0001 -> 0002. Telemetry 1a.0 already used 0001 and all modules share one goose_db_version table. migration-guard caught the collision.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
     },
     {
       "id": "1b.2",
@@ -303,14 +312,23 @@
         "1b.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "GetMirrorWatermark and UpsertMirrorWatermark added verbatim from design.md.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
     },
     {
       "id": "1b.3",
@@ -320,14 +338,23 @@
         "1b.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "make sqlc run. Needed one new rename entry in sqlc.yaml, else the struct generated as ChargingMirrorWatermark. Only charging generated files changed.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
     },
     {
       "id": "1b.4",
@@ -337,14 +364,23 @@
         "1b.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "MirrorWatermarkStore interface and NewMirrorWatermarkStore constructor added to charging.go.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
     },
     {
       "id": "1b.5",
@@ -354,14 +390,23 @@
         "1b.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "mirror_watermark.go mirrors session_writer.go. pgx.ErrNoRows maps to the epoch. Plain upsert, no row-count check. pgtype stays in this file.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
     },
     {
       "id": "1b.6",
@@ -371,14 +416,23 @@
         "1b.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "6 tests T-cw-1..T-cw-6 written against design.md expected values. go vet compiles them. Not run.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
     },
     {
       "id": "2.1",
@@ -414,14 +468,23 @@
         "1b.6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md gains a Supercharger mirror watermark section. It states D5: never advance to now(), only on a non-empty read.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
     },
     {
       "id": "2.3",
@@ -659,6 +722,21 @@
       "at": "2026-09-06T13:42:17Z",
       "agent": "leader",
       "event": "Pre-existing gap flagged by the worker, NOT fixed here: internal/telemetry/AGENTS.md never documented SuperchargerHistoryByVehicleUpdatedSince, added in an earlier tier. Out of this change's scope."
+    },
+    {
+      "at": "2026-09-06T13:42:40Z",
+      "agent": "leader",
+      "event": "Wave 1b dispatched: tasks 1b.1-1b.6 + doc 2.2, one serial charging worker (sonnet). Runs after 1a because 1b.3 runs make sqlc, which rewrites every module's generated code."
+    },
+    {
+      "at": "2026-09-06T13:49:15Z",
+      "agent": "leader",
+      "event": "Wave 1b reconciled. Two worker findings, both legitimate and both verified by the leader. (1) Migration version collision: telemetry 1a.0 already shipped 20260906000001 and all modules share one goose_db_version table, so make migration-guard failed hard. Worker renumbered charging to 20260906000002 per the guard's own fix. Leader updated the stale filename in tasks.md (2 refs) and design.md (1 ref). (2) sqlc.yaml needed charging_mirror_watermark: MirrorWatermark, else the struct generated as ChargingMirrorWatermark. One line in the charging block, matching the existing ManualChargeEntry pattern; git diff confirms no other module's codegen changed."
+    },
+    {
+      "at": "2026-09-06T13:49:15Z",
+      "agent": "leader",
+      "event": "Both module groups (1a, 1b) complete. Wave 3 is leader-owned cross-module wiring in internal/app. go vet ./... still fails at internal/app/processor_test.go:215 - the pre-flagged design.md Findings item that task 3.3 fixes."
     }
   ]
 }

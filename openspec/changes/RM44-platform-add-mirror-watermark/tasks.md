@@ -110,35 +110,35 @@ worker's task.
 
 ## Wave 1b — charging watermark table and port (module: charging worker)
 
-- [ ] **1b.1** New migration
-  `internal/charging/db/migrations/20260906000001_add_mirror_watermarks.sql`
+- [x] **1b.1** New migration
+  `internal/charging/db/migrations/20260906000002_add_mirror_watermarks.sql`
   — exact SQL (including both `COMMENT ON` statements) from design.md "Full
   schema." Acceptance: `make migration-guard` passes; the filename sorts
   after `20260903000004_add_session_status.sql`; `grep -c "CREATE TABLE
-  charging.mirror_watermarks" internal/charging/db/migrations/20260906000001_add_mirror_watermarks.sql`
+  charging.mirror_watermarks" internal/charging/db/migrations/20260906000002_add_mirror_watermarks.sql`
   returns `1`; no `tesla_id` or `source` column anywhere in the file.
   `depends_on`: 0.1 · `parallel_ok`: with telemetry's Wave 1a
 
-- [ ] **1b.2** `internal/charging/db/query.sql` — add `GetMirrorWatermark`
+- [x] **1b.2** `internal/charging/db/query.sql` — add `GetMirrorWatermark`
   and `UpsertMirrorWatermark`, exact SQL from design.md "The two new sqlc
   queries." Acceptance: `grep -c "name: GetMirrorWatermark"
   internal/charging/db/query.sql` returns `1`; `grep -c "name:
   UpsertMirrorWatermark" internal/charging/db/query.sql` returns `1`.
   `depends_on`: 1b.1 · `parallel_ok`: no
 
-- [ ] **1b.3** Run `make sqlc` to regenerate `internal/charging/db/{models.go,query.sql.go}`
+- [x] **1b.3** Run `make sqlc` to regenerate `internal/charging/db/{models.go,query.sql.go}`
   against 1b.1/1b.2. Never hand-edit the generated files. Acceptance: `go
   build ./internal/charging/...` succeeds; `models.go` gains a
   `MirrorWatermark` struct with `AccountID`/`SourceUpdatedAt`/`CreatedAt`/`UpdatedAt`
   fields and no `TeslaID`/`Source` field.
   `depends_on`: 1b.2 · `parallel_ok`: no
 
-- [ ] **1b.4** `internal/charging/charging.go` — declare the
+- [x] **1b.4** `internal/charging/charging.go` — declare the
   `MirrorWatermarkStore` interface and `NewMirrorWatermarkStore` constructor,
   doc comments verbatim from design.md "Interfaces."
   `depends_on`: 1b.3 · `parallel_ok`: no
 
-- [ ] **1b.5** New `internal/charging/mirror_watermark.go` — the concrete
+- [x] **1b.5** New `internal/charging/mirror_watermark.go` — the concrete
   `mirrorWatermarkStore` type and `newMirrorWatermarkStore` internal
   constructor, mirroring `session_writer.go`'s exact pattern.
   `MirrorWatermark` translates `pgx.ErrNoRows` to `(time.Time{}, nil)`
@@ -148,7 +148,7 @@ worker's task.
   MirrorWatermarkStore = (*mirrorWatermarkStore)(nil)` compiles.
   `depends_on`: 1b.4 · `parallel_ok`: no
 
-- [ ] **1b.6** New `internal/charging/db_mirror_watermark_integration_test.go`
+- [x] **1b.6** New `internal/charging/db_mirror_watermark_integration_test.go`
   covering T-cw-1 through T-cw-6 from design.md's Test Contract, verbatim
   expected values. Read back with direct SQL or `MirrorWatermarkStore`
   itself (no `pgtype` in assertions, per `internal/charging/AGENTS.md`).
@@ -167,7 +167,7 @@ worker's task.
   internal/telemetry/AGENTS.md` returns at least `1`.
   `depends_on`: 1a.4 · `parallel_ok`: with 2.2
 
-- [ ] **2.2 [doc: charging worker]** `internal/charging/AGENTS.md` — add a
+- [x] **2.2 [doc: charging worker]** `internal/charging/AGENTS.md` — add a
   short section describing `charging.mirror_watermarks`, the
   `MirrorWatermarkStore` port, and the epoch/never-advance-on-empty-read
   rule (D5), under a new subsection alongside the module's other

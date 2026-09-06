@@ -396,3 +396,32 @@ WHERE account_id = @account_id
   AND tesla_id = @tesla_id
 ORDER BY charge_stop_date_time DESC
 LIMIT @limit_count;
+
+-- name: GetMirrorWatermark :one
+-- Single-row cursor lookup for one account (roadmap D20-D22). Returns
+-- pgx.ErrNoRows when no watermark exists yet, which charging's
+-- MirrorWatermarkStore.MirrorWatermark treats as "epoch": the account has
+-- never been mirrored under the bounded read, so the caller backfills the
+-- account's full Supercharger history in one pass. Served entirely by
+-- mirror_watermarks_account_unique's own index — no separate CREATE INDEX.
+SELECT source_updated_at
+FROM charging.mirror_watermarks
+WHERE account_id = @account_id;
+
+-- name: UpsertMirrorWatermark :exec
+-- Advance one account's cursor (roadmap D5/D22). Called only when the
+-- caller's bounded telemetry read returned at least one row, advanced to
+-- the max updated_at observed on that run -- a call with zero rows never
+-- reaches this query at all (the caller's own responsibility; see
+-- design.md "Cross-Module Wiring"). created_at is DELIBERATELY ABSENT from
+-- the SET clause -- it must record when this account's cursor was FIRST
+-- created, not the most recent advance, mirroring
+-- UpsertVehicleMetricWatermark's identical convention.
+INSERT INTO charging.mirror_watermarks (
+    account_id, source_updated_at
+) VALUES (
+    @account_id, @source_updated_at
+)
+ON CONFLICT (account_id) DO UPDATE SET
+    source_updated_at = EXCLUDED.source_updated_at,
+    updated_at         = now();

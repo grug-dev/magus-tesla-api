@@ -122,7 +122,7 @@ COMMENT ON COLUMN charging.mirror_watermarks.source_updated_at IS
 DROP TABLE IF EXISTS charging.mirror_watermarks;
 ```
 
-Migration file: `internal/charging/db/migrations/20260906000001_add_mirror_watermarks.sql`
+Migration file: `internal/charging/db/migrations/20260906000002_add_mirror_watermarks.sql`
 — sorts after the latest existing charging migration
 (`20260903000004_add_session_status.sql`). Lives inside the existing
 `charging` schema (`CREATE SCHEMA IF NOT EXISTS charging` already ran in

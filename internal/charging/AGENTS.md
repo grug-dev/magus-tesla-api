@@ -518,6 +518,51 @@ percentages was manually reconstructed by the owner, not read from the car) the
 stored percentages themselves cannot show, not a recompute of the truth table above
 against their actual values (design.md "Rationale").
 
+### The Supercharger mirror watermark (RM44-platform-add-mirror-watermark, MAG-48)
+
+`charging.mirror_watermarks` is a new table, one row per account, holding the
+highest `telemetry.supercharger_history.updated_at` this module's nightly
+mirror has already synchronized. It has no `tesla_id` column: the read it
+bounds is account-wide, not per vehicle, so a per-vehicle cursor would miss
+the orphan-recovery case (a session whose vehicle re-registers). It has no
+`source` column either: this table mirrors exactly one upstream table, so a
+second source column would be speculative, not something a caller needs
+today.
+
+```go
+// MirrorWatermarkStore is the cursor port for the Supercharger mirror read.
+// One interface, two methods, one caller (internal/app) — not split like
+// SessionWriter/SessionReader/SessionVerifier, because those three serve
+// callers with different trust models and this port does not.
+type MirrorWatermarkStore interface {
+    MirrorWatermark(ctx context.Context, accountID uuid.UUID) (time.Time, error)
+    AdvanceMirrorWatermark(ctx context.Context, accountID uuid.UUID, observed time.Time) error
+}
+
+// NewMirrorWatermarkStore — the only publicly exported factory function for this port.
+func NewMirrorWatermarkStore(pool *pgxpool.Pool) MirrorWatermarkStore
+```
+
+**The most important rule: the watermark never advances to `now()`.** It
+advances only to the maximum `updated_at` the caller actually observed on a
+run, and only when that run's bounded read returned at least one row. A run
+that reads zero rows leaves the watermark untouched. This is deliberate: a
+row that commits to `telemetry.supercharger_history` a moment late would
+otherwise sit permanently behind an advanced cursor and never get mirrored —
+a silent, undetectable loss of data. `AdvanceMirrorWatermark` itself does no
+row-count check; the caller (`internal/app.processChargingData`) must call
+it only after a non-empty read, exactly mirroring
+`analytics.recalculator`'s own `watermark`/`advanceWatermark` split.
+
+No row yet for an account means "epoch" — `MirrorWatermark` returns the zero
+`time.Time`, not an error, translating `pgx.ErrNoRows` the same way
+`analytics.recalculator.watermark` does. A missing cursor backfills that
+account's whole Supercharger history once, on its first-ever mirror run.
+
+Implementation lives in `mirror_watermark.go` (`mirrorWatermarkStore`,
+mirroring `session_writer.go`'s exact concrete-type pattern). `pgtype` stays
+confined to that one file.
+
 ---
 
 ## Allowed Imports

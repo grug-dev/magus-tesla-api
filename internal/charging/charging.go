@@ -570,3 +570,46 @@ type SessionVerifier interface {
 func NewSessionVerifier(pool *pgxpool.Pool) SessionVerifier {
 	return newSessionVerifier(pool)
 }
+
+// MirrorWatermarkStore is the cursor port for the Supercharger mirror read
+// (RM44-platform-add-mirror-watermark, MAG-48). Both methods share ONE
+// caller and ONE trust model -- internal/app reads the cursor, bounds its
+// telemetry read by it, mirrors, then advances it -- unlike
+// SessionWriter/SessionReader/SessionVerifier's three-way split, which
+// exists because those ports serve callers with genuinely different trust
+// models (nightly sync vs. dashboard read vs. human edit). One port here
+// keeps the vocabulary closed rather than splitting for its own sake
+// (CLAUDE.md's "do not over-abstract" AI-efficiency rule).
+type MirrorWatermarkStore interface {
+	// MirrorWatermark returns the stored cursor for accountID: the highest
+	// telemetry updated_at the mirror has already synchronized. No stored
+	// row means "epoch" -- the zero time.Time, not an error -- so the
+	// caller's first-ever read for this account is unbounded and backfills
+	// the account's whole history once. Mirrors
+	// analytics.recalculator.watermark's identical
+	// "pgx.ErrNoRows -> time.Time{}, nil" translation exactly (design.md
+	// D5, copying rather than re-deriving analytics.Recalculator.Reconcile's
+	// own rule).
+	MirrorWatermark(ctx context.Context, accountID uuid.UUID) (time.Time, error)
+
+	// AdvanceMirrorWatermark upserts accountID's cursor to observed, the
+	// highest updated_at the caller actually saw on this run. This method
+	// MUST be called only when the caller's bounded telemetry read
+	// returned at least one row (roadmap D5) -- it performs no such check
+	// itself and trusts the caller completely, mirroring
+	// analytics.recalculator.advanceWatermark's identical division of
+	// responsibility (Reconcile decides whether to call it; the method
+	// itself just upserts). Calling this with observed == time.Time{} (the
+	// zero value) on a call the caller should not have made is a caller
+	// bug, not a case this method guards against, by design -- see
+	// design.md "Cross-Module Wiring" for why the guard lives one layer up.
+	AdvanceMirrorWatermark(ctx context.Context, accountID uuid.UUID, observed time.Time) error
+}
+
+// NewMirrorWatermarkStore constructs a MirrorWatermarkStore backed by the given
+// pgxpool. The implementation lives in mirror_watermark.go where the chargingdb
+// generated package is used. This is the only publicly exported constructor for
+// the MirrorWatermarkStore port.
+func NewMirrorWatermarkStore(pool *pgxpool.Pool) MirrorWatermarkStore {
+	return newMirrorWatermarkStore(pool)
+}
