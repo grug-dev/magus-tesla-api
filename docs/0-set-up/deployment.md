@@ -435,9 +435,13 @@ The first build can take a few minutes. Later deploys are faster.
 ### 8.9 Verify it worked
 
 ```bash
-# Expect "HTTP/2 200". Replace <domain> with your real domain.
-curl -I https://<domain>/healthz
+# Expect "200". Replace <domain> with your real domain.
+curl -s -o /dev/null -w '%{http_code}\n' https://<domain>/healthz
 ```
+
+Use a GET, not `curl -I`. `-I` sends a HEAD request, and the gateway
+registers `/healthz` with `r.GET` only, so Gin answers HEAD with 404 even
+though the service is perfectly healthy.
 
 ```bash
 # Expect every long-running service "Up" (or "healthy"), and
