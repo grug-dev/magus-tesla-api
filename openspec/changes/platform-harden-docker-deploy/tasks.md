@@ -84,6 +84,24 @@
 
 ## T3. `compose.yaml` move (the four traps) — no dependency; MUST land before T4
 
+> **CORRECTION (post-merge, commit `c7e7895`). The T3.1–T3.3 values below are WRONG
+> and were never right.** They are left exactly as written, because acceptance
+> criteria are append-only — this note supersedes them, it does not replace them.
+>
+> The owner's first real `docker compose config` failed:
+> `env file /Users/.../sw/.env not found`. Compose resolves every relative path
+> from ONE base path, which `--project-directory .` sets to the repo root — not
+> from the compose file's own folder. So the shipped, owner-verified values are:
+>
+> | Field | T3 said (wrong) | Shipped and verified |
+> |---|---|---|
+> | `env_file` (×5) | `../../.env` | `.env` |
+> | `build.context` (×3) | `../..` | `.` |
+> | Caddy volume | `./Caddyfile:...` | `./deploy/docker/Caddyfile:...` |
+>
+> `build.dockerfile: deploy/docker/Dockerfile` was always correct — it resolves
+> against `build.context`, not the base path. Full reasoning: design.md Trap 3.
+
 - [x] T3.1 Create `deploy/docker/compose.yaml`, moved from the repo-root
       `compose.yaml`. Fix `build.context` to `../..` and `build.dockerfile` to
       `deploy/docker/Dockerfile` (relative to `context`, not to this file — design.md

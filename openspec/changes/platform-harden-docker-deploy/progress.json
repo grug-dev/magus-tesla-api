@@ -5,7 +5,7 @@
   "module": "platform",
   "roadmap": null,
   "request": "resume platform-harden-docker-deploy start implementing",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [
       "T1",
@@ -25,7 +25,7 @@
     "done": []
   },
   "created_at": "2026-09-07T15:16:16Z",
-  "updated_at": "2026-09-07T15:40:00Z",
+  "updated_at": "2026-09-07T15:55:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -345,10 +345,33 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "platform-reviewer",
+    "brief": "Review CH46 (platform-harden-docker-deploy) as merged, plus the post-merge fix c7e7895. Priority 1: the corrected path rule. design.md Trap 3 was WRONG once already and shipped; verify the correction is right AND complete \u2014 every relative path in deploy/docker/compose.yaml must resolve from the repo root (the --project-directory . base), and no file may still explain the old two-mechanism rule. Priority 2: compose hardening matches design.md's per-service table exactly (logging, limits, cap_drop/cap_add, read_only, tmpfs); no deploy.resources.reservations. Priority 3: every doc command carries both flags and no stale old path survives outside openspec/changes/archive/, which is immutable and must not be touched. Priority 4: anti-gaming \u2014 no task title or acceptance criterion was weakened; every task is awaiting-user-verification, not done. Signals: go build, go vet, the three guards and openspec validate were ASSISTANT-run and passed. gofmt -l flags 3 test files, pre-existing on main, CH46 edits zero .go files. docker compose config was USER-run and passed; docker compose up has NEVER run \u2014 the db read_only and caddy cap_drop risks are unproven. Judge test quality by reading, never by running. This change has no unit tests and no database object by design.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-07T15:49:09Z",
+        "duration_seconds": 900,
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "openspec/changes/platform-harden-docker-deploy/design.md lines 88-94 (Trap 1) still show `context: ../..` as the 'Resolved' correct value for build.context, with the comment 'the repo root, from deploy/docker/'. This is the OLD, wrong resolution model (paths relative to the compose file's own folder). It directly contradicts the corrected Trap 3 section 60 lines later and the actual shipped deploy/docker/compose.yaml, which uses `context: .` (verified by reading the file: line 84 `context: .` on the migrate service, same on web and poller). A future reader who trusts Trap 1 in isolation (very plausible \u2014 it is the first trap in the doc, marked 'Resolved') could re-derive and reintroduce the exact bug that broke `docker compose config` on the owner's first run. Must be fixed before archiving \u2014 openspec/changes/archive/ is immutable, so this stale text would be frozen forever once archived.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R2",
+            "severity": "major",
+            "note": "openspec/changes/platform-harden-docker-deploy/tasks.md T3.1-T3.3 (lines ~92-106) still state the pre-fix (wrong) target values as their acceptance criteria: T3.1 says build blocks must have `context: ../..`; T3.2 says every env_file line must read `env_file: ../../.env`; T3.3 says the Caddy volume line must read `./Caddyfile:/etc/caddy/Caddyfile:ro`. None of these match the actual, corrected, owner-verified deploy/docker/compose.yaml (`context: .`, `env_file: .env` on all five services, `./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro`). The post-merge fix commit c7e7895 updated design.md's Trap 3 and File-list table, the Makefile, and backup-db.sh, but never touched tasks.md \u2014 confirmed via `git diff ddf6ebf c7e7895 -- tasks.md`, which shows only checkbox flips, no text changes. All three checkboxes are already [x], so the task record itself is internally inconsistent: marked done against acceptance text the shipped code does not satisfy. This is a documentation/audit-trail integrity gap, not a functional bug (the code, Makefile, backup-db.sh, and all docs/README files are correct and the owner verified `docker compose config` resolves) \u2014 but tasks.md must be corrected before archive, for the same immutability reason as R1.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -449,6 +472,21 @@
       "at": "2026-09-07T15:40:00Z",
       "agent": "leader",
       "event": "Fixed compose.yaml (5 env_file, 3 context, 1 volume), corrected design.md Trap 3 with the failing command and Docker's real rule, and fixed the wrong explanation in the Makefile and backup-db.sh comments. Docs needed no change: they carry commands only, and the commands did not change. Awaiting the owner's re-run."
+    },
+    {
+      "at": "2026-09-07T15:45:00Z",
+      "agent": "leader",
+      "event": "Fix committed and pushed to main as c7e7895 (owner chose main over a fix branch). Owner reported docker compose config resolves \u2014 recorded as THEIR verification, not the assistant's."
+    },
+    {
+      "at": "2026-09-07T15:55:00Z",
+      "agent": "leader",
+      "event": "Review round 1: changes-requested, 2 major findings, both ACCEPTED. R1 design.md Trap 1 still showed context: ../.. \u2014 corrected. R2 tasks.md T3.1-T3.3 still stated the pre-fix values."
+    },
+    {
+      "at": "2026-09-07T15:55:00Z",
+      "agent": "leader",
+      "event": "R2 fixed by APPENDING a correction block above T3, not by rewriting the criteria: acceptance criteria are append-only, and editing them to match the shipped values is exactly what the anti-gaming rule forbids. The three wrong originals remain verbatim."
     }
   ]
 }

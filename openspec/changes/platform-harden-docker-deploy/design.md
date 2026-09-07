@@ -77,23 +77,29 @@ sub-decision below, verified against Docker's own documentation, not assumed.
 
 #### Trap 1 — the build context must stay the repo root
 
-**Resolved.** `web`, `poller`, and `migrate` are all built from `cmd/...`, which
-needs `go.mod`, `go.sum`, `internal/`, and `cmd/` — all at the repo root. So the
-build **context** (the set of files Docker can see during a build) must stay the
-repo root, even though the `Dockerfile` itself moves.
+**Resolved. The `context:` value shown here was CORRECTED — see Trap 3.** The first
+version of this section said `context: ../..`, on the same wrong resolution model
+that broke Trap 3. `build.context` is a relative path like any other, so it resolves
+from the **one base path** Trap 3 describes, which `--project-directory .` sets to
+the repo root. The correct value is therefore `.`, not `../..`.
 
-In `compose.yaml`, `build.dockerfile:` is resolved **relative to `build.context:`**,
-not relative to the compose file. So from `deploy/docker/compose.yaml`:
+`web`, `poller`, and `migrate` are all built from `cmd/...`, which needs `go.mod`,
+`go.sum`, `internal/`, and `cmd/` — all at the repo root. So the build **context**
+(the set of files Docker can see during a build) must stay the repo root, even
+though the `Dockerfile` itself moves.
+
+`build.dockerfile:` is the one field that does NOT use the base path: it resolves
+**relative to `build.context:`**. That is why it keeps the real folder prefix.
 
 ```yaml
 build:
-  context: ../..                        # the repo root, from deploy/docker/
-  dockerfile: deploy/docker/Dockerfile  # relative to context (../..), not to this file
+  context: .                            # the repo root — the base path (Trap 3)
+  dockerfile: deploy/docker/Dockerfile  # relative to context, NOT to the base path
 ```
 
-Get this backwards — `dockerfile: Dockerfile` with `context: ../..` — and Docker
-looks for `<repo-root>/Dockerfile`, which no longer exists. This is the single
-easiest way to break this move, called out here so nobody re-derives it wrong.
+Get this backwards — `dockerfile: Dockerfile` with `context: .` — and Docker looks
+for `<repo-root>/Dockerfile`, which no longer exists. Two different rules meet in
+these two lines, which is why both traps got it wrong the first time.
 
 #### Trap 2 — the ignore file needs a new name and a new home
 
