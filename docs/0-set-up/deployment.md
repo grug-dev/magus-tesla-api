@@ -370,6 +370,20 @@ git clone <repo-url> magus-tesla-api && cd magus-tesla-api
 
 Replace `<repo-url>` with this repo's real git URL.
 
+> **Do not use `make env-setup` or `make db-setup` for this deploy.** Both
+> belong to the host development path (§1–§4 above), not Docker.
+>
+> - `make env-setup` defaults `DATABASE_URL` to `localhost`. In Docker the
+>   database host is `db`, not `localhost`. It also never asks for
+>   `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, or `BASE_DOMAIN` — the
+>   four values this Docker deploy needs most.
+> - `make db-setup` connects to a Postgres server on this host with `psql`, and
+>   needs the `goose` CLI installed. In Docker, the `db` container creates its
+>   own role and database by itself, the first time it starts. `make db-setup`
+>   never touches that container.
+>
+> Fill `.env` by hand instead, using the table in step 8.5 below.
+
 ### 8.5 Create `.env`
 
 ```bash
@@ -383,10 +397,25 @@ Open `.env` in an editor (e.g. `nano .env`) and fill in every value:
 |---|---|
 | `TESLA_CLIENT_ID`, `TESLA_CLIENT_SECRET` | Your Tesla developer app — see §2 above. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Your Google OAuth client — see §2 above. |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Pick your own values. `POSTGRES_PASSWORD` must not be empty. These create the database inside the `db` container — see `.env.example`'s comments. |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Pick your own values. `POSTGRES_PASSWORD` must not be empty — see the warning below. These create the database inside the `db` container — see `.env.example`'s comments. |
 | `DATABASE_URL` | Build it from the three values above, using the `db` service name as host: `postgres://<POSTGRES_USER>:<POSTGRES_PASSWORD>@db:5432/<POSTGRES_DB>?sslmode=disable`. |
 | `BASE_DOMAIN` | The domain from step 8.2, e.g. `magus.example.com`. Caddy uses this to get its HTTPS certificate. |
 | `BASE_URL` | `https://` plus the same domain, e.g. `https://magus.example.com`. |
+
+> **`POSTGRES_PASSWORD` must not be empty.** An empty value makes the `db`
+> container fail to start. It restarts forever, and its logs repeat this error:
+>
+> ```
+> Error: Database is uninitialized and superuser password is not specified.
+>        You must specify POSTGRES_PASSWORD to a non-empty value for the
+>        superuser.
+> ```
+>
+> Set a real password in `.env` before you continue to step 8.6. Postgres never
+> finished creating its database with an empty password, so setting a real one
+> now and starting the stack again fixes it — see
+> `docs/1-deploy/docker.md` §9 for the general rule about changing
+> `POSTGRES_PASSWORD` later, once the database already holds data.
 
 Leave `TESLA_ACCESS_TOKEN` and `TESLA_REFRESH_TOKEN` empty — the web gateway
 handles its own per-user Tesla login. Leave `MAGUS_DB_PASSWORD` empty — that

@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "platform-document-docker-deploy-failures",
+  "module": "platform",
+  "roadmap": null,
+  "request": "document the make commands / deployment failure modes found while deploying CH46",
+  "status": "applied",
+  "rollup": {
+    "current": [
+      "T1",
+      "T2",
+      "T3",
+      "T4"
+    ],
+    "pending": [],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-07T16:12:00Z",
+  "updated_at": "2026-09-07T16:12:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH47-MAG-53-platform-document-docker-deploy-failures",
+    "base": "c7e7895..4508e9b (main)",
+    "ticket": "MAG-53",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-53/document-the-docker-deploy-failure-modes-and-the-host-vs-docker-split",
+    "created_at": "2026-09-07T16:12:00Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "deployment.md \u00a78.5 \u2014 visible POSTGRES_PASSWORD warning",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-07T16:06:00Z",
+      "completed_at": "2026-09-07T16:12:00Z",
+      "duration_seconds": 360,
+      "notes": "Warning block added after the .env table in \u00a78.5, quoting the real error text. Says the empty-password crash leaves the volume uninitialized, so setting a password and starting again fixes it.",
+      "budget": {
+        "five_hour_pct_start": 67,
+        "five_hour_pct_end": 75,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.515,
+        "context_pct_end": 30,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one dispatch covered artifacts and implementation for T1-T4"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "deployment.md \u00a78 \u2014 warn against make env-setup / db-setup",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-07T16:06:00Z",
+      "completed_at": "2026-09-07T16:12:00Z",
+      "duration_seconds": 360,
+      "notes": "Warning placed between \u00a78.4 and \u00a78.5, before the reader would reach for those targets. Both reasons verified against the Makefile.",
+      "budget": {
+        "five_hour_pct_start": 67,
+        "five_hour_pct_end": 75,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.515,
+        "context_pct_end": 30,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one dispatch covered artifacts and implementation for T1-T4"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "docker.md \u2014 troubleshooting row + first-boot-only note",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-07T16:06:00Z",
+      "completed_at": "2026-09-07T16:12:00Z",
+      "duration_seconds": 360,
+      "notes": "Troubleshooting row added to docker.md \u00a79, plus a note that POSTGRES_PASSWORD applies only on first boot, with the ALTER ROLE fix. Verified against the postgres image docs.",
+      "budget": {
+        "five_hour_pct_start": 67,
+        "five_hour_pct_end": 75,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.515,
+        "context_pct_end": 30,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one dispatch covered artifacts and implementation for T1-T4"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Verification",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-07T16:06:00Z",
+      "completed_at": "2026-09-07T16:12:00Z",
+      "duration_seconds": 360,
+      "notes": "openspec validate --strict passes. make archive-guard passes. No Go file touched. Worker caught and fixed a factual slip in its own first draft during re-read.",
+      "budget": {
+        "five_hour_pct_start": 67,
+        "five_hour_pct_end": 75,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.515,
+        "context_pct_end": 30,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one dispatch covered artifacts and implementation for T1-T4"
+      }
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-07T16:12:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "one worker dispatch covered both the OpenSpec artifacts and the implementation",
+      "why": "docs-only change with no database object, so no design gate sits between the two steps; 5-hour bucket was at 67%",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-07T16:12:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "left the owner's uncommitted docs/pre-setup/ move untouched instead of folding it in or finishing it",
+      "why": "unrelated to this change; folding a doc reorganization into a failure-mode doc change would mix two concerns in one archived record",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-07T16:12:00Z",
+      "agent": "leader",
+      "event": "CH47 opened from MAG-53, created in Linear at the owner's request. Cause: the first real docker compose up failed with an empty POSTGRES_PASSWORD, an error no doc named."
+    },
+    {
+      "at": "2026-09-07T16:12:00Z",
+      "agent": "leader",
+      "event": "Found while branching: the owner's uncommitted move of layer1-app-registration.md breaks 4 relative links, and README.md:471 + CLAUDE.md:209 were ALREADY broken before it. Reported, left untouched per D2."
+    },
+    {
+      "at": "2026-09-07T16:12:00Z",
+      "agent": "leader",
+      "event": "Worker self-corrected a factual slip during its own re-read: its first draft implied the empty-password loop could leave a stale initialized volume. Postgres aborts before initdb, so the volume stays empty. Verified against the postgres image docs."
+    },
+    {
+      "at": "2026-09-07T16:12:00Z",
+      "agent": "leader",
+      "event": "Leader re-read both diffs against the files. Accurate, B2-compliant, and the ALTER ROLE note exceeds what the dispatch asked for."
+    }
+  ]
+}

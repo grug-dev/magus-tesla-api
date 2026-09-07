@@ -279,6 +279,18 @@ gunzip -c backups/magus-2026-09-07.sql.gz | docker compose --project-directory .
 | Caddy cannot get a certificate | `docker compose --project-directory . -f deploy/docker/compose.yaml logs caddy` | The DNS A record (deployment.md §8.2) does not point at this VPS yet, or ports 80/443 are blocked by a firewall. |
 | `poller` collects nothing | `docker compose --project-directory . -f deploy/docker/compose.yaml logs poller` | Check the Tesla token is valid, and that the scheduled time (`POLLER_SCHEDULE_HOUR`/`POLLER_SCHEDULE_MINUTE`) has not passed yet today. |
 | Database connection refused | `docker compose --project-directory . -f deploy/docker/compose.yaml ps` | `db` is not healthy yet (wait for its healthcheck), or `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` in `.env` do not match what `DATABASE_URL` expects. |
+| `db` restarts forever; its logs say "Database is uninitialized and superuser password is not specified" | `docker compose --project-directory . -f deploy/docker/compose.yaml logs db` | `POSTGRES_PASSWORD` is empty in `.env`. Set it, then run `docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build` again. |
+
+**About changing `POSTGRES_PASSWORD` later.** The official `postgres` image
+reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` **only** the first
+time it starts with an empty data volume. Once `db` has successfully started at
+least once, editing `POSTGRES_PASSWORD` in `.env` does **not** change the
+running database's password — the image's own docs call this out: those
+variables "will only have an effect if you start the container with a data
+directory that is empty; any pre-existing database will be left untouched on
+container startup." To change the password of a database that already has
+data, connect with `psql` (§7) and run `ALTER ROLE <user> WITH PASSWORD
+'<new password>';` — then update `.env` to match.
 
 ---
 
