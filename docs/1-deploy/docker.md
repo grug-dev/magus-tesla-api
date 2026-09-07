@@ -13,8 +13,8 @@ This file does not repeat those steps.
 
 ## 1. The mental model
 
-Five services run together, defined in `compose.yaml`. Only one of them is
-reachable from outside the VPS.
+Five services run together, defined in `deploy/docker/compose.yaml`. Only one
+of them is reachable from outside the VPS.
 
 | Service | What it does | Waits for | Reachable from outside? |
 |---|---|---|---|
@@ -27,6 +27,13 @@ reachable from outside the VPS.
 `web`, `poller`, and `db` publish no ports at all. If someone reaches your
 app, the request always goes through `caddy` first.
 
+Every service also runs hardened: a bounded log size, a CPU and memory
+limit, and reduced Linux privileges (no more than each service actually
+needs). The exact numbers and the reasoning behind them live in
+[`openspec/changes/platform-harden-docker-deploy/design.md`](../../openspec/changes/platform-harden-docker-deploy/design.md)
+— read that file for the numbers, not this doc, so this page cannot drift
+out of sync with the real `compose.yaml`.
+
 ---
 
 ## 2. Local Docker use vs. everyday development
@@ -38,13 +45,14 @@ doing before a deploy:
 
 ```bash
 # Check compose.yaml itself is valid.
-docker compose config
+docker compose --project-directory . -f deploy/docker/compose.yaml config
 
 # Build each image. These only build — no container starts, no database is
-# touched, nothing on your machine changes.
-docker build --target web .
-docker build --target poller .
-docker build --target migrate .
+# touched, nothing on your machine changes. The build context stays the
+# repo root (.) — only the -f flag points at the moved Dockerfile.
+docker build -f deploy/docker/Dockerfile --target web .
+docker build -f deploy/docker/Dockerfile --target poller .
+docker build -f deploy/docker/Dockerfile --target migrate .
 ```
 
 These four commands only build. They do not start `db`, `web`, `poller`, or
@@ -52,12 +60,13 @@ These four commands only build. They do not start `db`, `web`, `poller`, or
 
 ### What does NOT work locally: `docker compose up`
 
-**Do not run `docker compose up -d --build` on your Mac.** The `caddy`
-service asks Let's Encrypt for a real HTTPS certificate for your
-`BASE_DOMAIN`. On your Mac there is no public domain pointing at you, and
-ports 80/443 are not reachable from the internet. Caddy will fail to get a
-certificate and keep retrying — you will see `caddy` stuck restarting, not a
-working app.
+**Do not run
+`docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build`
+on your Mac.** The `caddy` service asks Let's Encrypt for a real HTTPS
+certificate for your `BASE_DOMAIN`. On your Mac there is no public domain
+pointing at you, and ports 80/443 are not reachable from the internet.
+Caddy will fail to get a certificate and keep retrying — you will see
+`caddy` stuck restarting, not a working app.
 
 `docker compose up` is a **VPS-only** command. It is meant for the real
 deploy, where `BASE_DOMAIN` points at a real server with ports 80/443 open.
@@ -104,18 +113,22 @@ every step. Come back here once that is done.
 ## 4. Everyday commands
 
 Run these from the repo root on the VPS. `docker compose up` does not work
-locally — see §2.
+locally — see §2. Every command below needs the same two flags,
+`--project-directory . -f deploy/docker/compose.yaml`, because
+`compose.yaml` now lives in `deploy/docker/`, not the repo root — `make`
+wraps these flags for you, so if you use `make` you can skip them (see the
+shortcuts note below the table).
 
 | Task | Command |
 |---|---|
-| Start everything (build if needed) | `docker compose up -d --build` |
-| Stop everything (keeps your data) | `docker compose down` |
-| Restart one service, e.g. `web` | `docker compose restart web` |
-| Rebuild after a code change | `docker compose up -d --build` |
-| Follow one service's logs, e.g. `web` | `docker compose logs -f web` |
-| Follow every service's logs | `docker compose logs -f` |
-| List what is running | `docker compose ps` |
-| Check a service's health status | `docker compose ps` (the `STATUS` column shows `healthy`/`unhealthy` for `db` and `web`) |
+| Start everything (build if needed) | `docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build` |
+| Stop everything (keeps your data) | `docker compose --project-directory . -f deploy/docker/compose.yaml down` |
+| Restart one service, e.g. `web` | `docker compose --project-directory . -f deploy/docker/compose.yaml restart web` |
+| Rebuild after a code change | `docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build` |
+| Follow one service's logs, e.g. `web` | `docker compose --project-directory . -f deploy/docker/compose.yaml logs -f web` |
+| Follow every service's logs | `docker compose --project-directory . -f deploy/docker/compose.yaml logs -f` |
+| List what is running | `docker compose --project-directory . -f deploy/docker/compose.yaml ps` |
+| Check a service's health status | `docker compose --project-directory . -f deploy/docker/compose.yaml ps` (the `STATUS` column shows `healthy`/`unhealthy` for `db` and `web`) |
 
 `make docker-up`, `make docker-down`, and `make docker-logs` are shortcuts
 for the first three rows above (`Makefile` targets, unchanged existing ones
@@ -133,7 +146,7 @@ git pull
 ```bash
 # Rebuild anything that changed, and restart it. Safe to always include
 # --build — Docker's build cache makes a no-op rebuild fast.
-docker compose up -d --build
+docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build
 ```
 
 You never need to guess whether a rebuild is required. `--build` costs almost
@@ -144,21 +157,22 @@ nothing when nothing changed, so just always run it.
 ## 6. Migrations
 
 The `migrate` service runs automatically every time you run
-`docker compose up -d --build`. It checks which migrations are already
-applied and only runs the ones that are missing. If nothing is pending, it
-exits immediately with no changes — this is safe to run as often as you like.
+`docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build`.
+It checks which migrations are already applied and only runs the ones that
+are missing. If nothing is pending, it exits immediately with no changes —
+this is safe to run as often as you like.
 
 ```bash
 # See what migrate did on the last run (which migrations it applied, or
 # that there was nothing to do).
-docker compose logs migrate
+docker compose --project-directory . -f deploy/docker/compose.yaml logs migrate
 ```
 
 To force it to run again by hand, without restarting the whole stack:
 
 ```bash
 # Re-run just the migrate service.
-docker compose up migrate
+docker compose --project-directory . -f deploy/docker/compose.yaml up migrate
 ```
 
 ```bash
@@ -200,7 +214,7 @@ program the deploy path uses, on your own machine, before pushing to the VPS.
 ```bash
 # Open an interactive psql session inside the db container. Replace
 # <POSTGRES_USER> and <POSTGRES_DB> with the values from your .env.
-docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
+docker compose --project-directory . -f deploy/docker/compose.yaml exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
 ```
 
 Once inside `psql`, run any query, e.g.:
@@ -214,20 +228,20 @@ Type `\q` to exit `psql`.
 
 ```bash
 # Take a one-off manual dump (not the scheduled backup — see §8 for that).
-docker compose exec -T db pg_dump -U <POSTGRES_USER> <POSTGRES_DB> > manual-dump.sql
+docker compose --project-directory . -f deploy/docker/compose.yaml exec -T db pg_dump -U <POSTGRES_USER> <POSTGRES_DB> > manual-dump.sql
 ```
 
 ```bash
 # Restore a dump file into the running database. This OVERWRITES existing
 # rows that the dump also contains — see the safety section (§10) first.
-cat manual-dump.sql | docker compose exec -T db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
+cat manual-dump.sql | docker compose --project-directory . -f deploy/docker/compose.yaml exec -T db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
 ```
 
 ---
 
 ## 8. Backups
 
-`deploy/backup-db.sh` runs once a day, from the cron line set up in
+`deploy/docker/backup-db.sh` runs once a day, from the cron line set up in
 `docs/0-set-up/deployment.md` §8.10. It writes a gzipped dump to:
 
 ```
@@ -251,7 +265,7 @@ To restore a backup:
 ```bash
 # Unzip and restore a dated backup file. Replace the filename and the
 # <POSTGRES_USER>/<POSTGRES_DB> values with your own from .env.
-gunzip -c backups/magus-2026-09-07.sql.gz | docker compose exec -T db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
+gunzip -c backups/magus-2026-09-07.sql.gz | docker compose --project-directory . -f deploy/docker/compose.yaml exec -T db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
 ```
 
 ---
@@ -260,11 +274,11 @@ gunzip -c backups/magus-2026-09-07.sql.gz | docker compose exec -T db psql -U <P
 
 | Symptom | Command to run | Likely cause |
 |---|---|---|
-| `web` will not start | `docker compose logs web` | `migrate` did not finish successfully (see the next row), or a bad value in `.env` (e.g. `DATABASE_URL`). |
-| `migrate` exits non-zero | `docker compose logs migrate` | `DATABASE_URL` is wrong or `db` is not reachable. Check `db`'s health with `docker compose ps`. |
-| Caddy cannot get a certificate | `docker compose logs caddy` | The DNS A record (deployment.md §8.2) does not point at this VPS yet, or ports 80/443 are blocked by a firewall. |
-| `poller` collects nothing | `docker compose logs poller` | Check the Tesla token is valid, and that the scheduled time (`POLLER_SCHEDULE_HOUR`/`POLLER_SCHEDULE_MINUTE`) has not passed yet today. |
-| Database connection refused | `docker compose ps` | `db` is not healthy yet (wait for its healthcheck), or `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` in `.env` do not match what `DATABASE_URL` expects. |
+| `web` will not start | `docker compose --project-directory . -f deploy/docker/compose.yaml logs web` | `migrate` did not finish successfully (see the next row), or a bad value in `.env` (e.g. `DATABASE_URL`). |
+| `migrate` exits non-zero | `docker compose --project-directory . -f deploy/docker/compose.yaml logs migrate` | `DATABASE_URL` is wrong or `db` is not reachable. Check `db`'s health with `docker compose --project-directory . -f deploy/docker/compose.yaml ps`. |
+| Caddy cannot get a certificate | `docker compose --project-directory . -f deploy/docker/compose.yaml logs caddy` | The DNS A record (deployment.md §8.2) does not point at this VPS yet, or ports 80/443 are blocked by a firewall. |
+| `poller` collects nothing | `docker compose --project-directory . -f deploy/docker/compose.yaml logs poller` | Check the Tesla token is valid, and that the scheduled time (`POLLER_SCHEDULE_HOUR`/`POLLER_SCHEDULE_MINUTE`) has not passed yet today. |
+| Database connection refused | `docker compose --project-directory . -f deploy/docker/compose.yaml ps` | `db` is not healthy yet (wait for its healthcheck), or `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` in `.env` do not match what `DATABASE_URL` expects. |
 
 ---
 
@@ -273,10 +287,10 @@ gunzip -c backups/magus-2026-09-07.sql.gz | docker compose exec -T db psql -U <P
 Always safe to run at any time:
 
 ```bash
-docker compose up -d --build
-docker compose logs
-docker compose ps
-docker compose restart <service>
+docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build
+docker compose --project-directory . -f deploy/docker/compose.yaml logs
+docker compose --project-directory . -f deploy/docker/compose.yaml ps
+docker compose --project-directory . -f deploy/docker/compose.yaml restart <service>
 ```
 
 **`docker compose down -v` is destructive. Never run it unless you mean to
@@ -285,7 +299,7 @@ lose all data.**
 ```bash
 # DANGER: this deletes the "pgdata" named volume — every row in the
 # database, permanently, with no undo unless you have a backup.
-docker compose down -v
+docker compose --project-directory . -f deploy/docker/compose.yaml down -v
 ```
 
 Plain `docker compose down` (no `-v`) is safe — it stops the containers but
@@ -300,10 +314,11 @@ You can move from the bundled `db` service to a managed Postgres (RDS, Cloud
 SQL, Supabase, or similar) at any time, with no code change:
 
 1. Change `.env`'s `DATABASE_URL` to the managed host's connection string.
-2. Delete (or comment out) the `db` service block in `compose.yaml`.
+2. Delete (or comment out) the `db` service block in
+   `deploy/docker/compose.yaml`.
 3. Remove `db: condition: service_healthy` from `migrate`'s `depends_on` in
-   `compose.yaml` — nothing else depends on `db` directly.
-4. Run `docker compose up -d --build`.
+   `deploy/docker/compose.yaml` — nothing else depends on `db` directly.
+4. Run `docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build`.
 
 `DATABASE_URL` is already the one thing every service reads to find the
 database. Nothing else in the code needs to change.

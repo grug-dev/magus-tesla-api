@@ -12,21 +12,21 @@
       "T2a",
       "T2b",
       "T3",
-      "T6",
       "T4",
-      "T5"
-    ],
-    "pending": [
+      "T5",
+      "T6",
       "T7a",
       "T7b",
-      "T7c",
+      "T7c"
+    ],
+    "pending": [
       "T8"
     ],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-09-07T15:16:16Z",
-  "updated_at": "2026-09-07T15:20:19Z",
+  "updated_at": "2026-09-07T15:24:07Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -34,7 +34,7 @@
   "git": {
     "strategy": "auto",
     "branch": "ft/CH46-platform-harden-docker-deploy",
-    "base": "main",
+    "base": "bb491a4 (tip of ft/CH45-MAG-37-platform-add-docker-compose-deploy)",
     "ticket": null,
     "ticket_url": null,
     "created_at": "2026-09-07T15:16:16Z"
@@ -227,14 +227,23 @@
         "T6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-07T15:21:00Z",
+      "completed_at": "2026-09-07T15:24:07Z",
+      "duration_seconds": 187,
+      "notes": "Every runnable compose command now carries both flags; docker build uses -f deploy/docker/Dockerfile. Added a hardening pointer paragraph linking design.md, no numbers copied. Leader verified: no bare command left.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.4546,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 delta covers parallel tasks T7a, T7b, T7c jointly"
+      }
     },
     {
       "id": "T7b",
@@ -250,14 +259,23 @@
         "T6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-07T15:21:00Z",
+      "completed_at": "2026-09-07T15:24:07Z",
+      "duration_seconds": 187,
+      "notes": "Four \u00a78 commands updated (8.8, 8.9, 8.10 cron path, 8.11). Found the cron line already cd's to the repo root and said so. No Docker command exists outside \u00a78.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.4546,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 delta covers parallel tasks T7a, T7b, T7c jointly"
+      }
     },
     {
       "id": "T7c",
@@ -273,14 +291,23 @@
         "T6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-07T15:21:00Z",
+      "completed_at": "2026-09-07T15:24:07Z",
+      "duration_seconds": 187,
+      "notes": "README tree now shows deploy/docker/ with all five files, no repo-root Docker entry. cmd/README.md names deploy/docker/Dockerfile. Archive untouched.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.4546,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 delta covers parallel tasks T7a, T7b, T7c jointly"
+      }
     },
     {
       "id": "T8",
@@ -365,6 +392,31 @@
       "at": "2026-09-07T15:20:19Z",
       "agent": "leader",
       "event": "wave 2 done (T4, T5). Hardening verified by parsing compose.yaml with ruby YAML and by make -n on all five docker targets. docker compose config stays the owner's (T8.4)."
+    },
+    {
+      "at": "2026-09-07T15:21:00Z",
+      "agent": "leader",
+      "event": "wave 3 start: three parallel kkpa-module-worker dispatches on Sonnet for T7a, T7b, T7c. Disjoint files. Budget start: five_hour 26%, context 17%."
+    },
+    {
+      "at": "2026-09-07T15:24:00Z",
+      "agent": "leader",
+      "event": "Topology finding: main is BEHIND by 8 commits. CH46 is stacked on ft/CH45-MAG-37, which is not merged yet. Corrected git.base from 'main'. A PR for CH46 would carry CH45's commits unless CH45 merges first."
+    },
+    {
+      "at": "2026-09-07T15:24:00Z",
+      "agent": "leader",
+      "event": "Cheap signals (T8.1/T8.2 partial): go build and go vet clean. gofmt -l flags 3 test files, all pre-existing on main and untouched by CH46 (this change edits zero .go files). migration-guard and boundary-guard pass."
+    },
+    {
+      "at": "2026-09-07T15:24:07Z",
+      "agent": "leader",
+      "event": "wave 3 done (T7a, T7b, T7c). All three workers named the doc pack they read and enumerated the design decisions they touched. Leader re-verified each diff against the files; no worker touched a sibling's file or the archive."
+    },
+    {
+      "at": "2026-09-07T15:24:07Z",
+      "agent": "leader",
+      "event": "Workers reported status 'done'. Leader downgraded all three to awaiting-user-verification: the Test-Execution-Policy reserves docker compose config/up to the owner, so no task in this change can be 'done' on the assistant's word."
     }
   ]
 }

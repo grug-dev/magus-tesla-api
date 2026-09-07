@@ -418,7 +418,9 @@ still need for local development:
 
 ```bash
 # Build the images and start every service in the background.
-docker compose up -d --build
+# Run this from the repo root. The Docker files live under deploy/docker/,
+# so every compose command needs the two flags below.
+docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build
 ```
 
 What happens, in order:
@@ -439,8 +441,8 @@ curl -I https://<domain>/healthz
 
 ```bash
 # Expect every long-running service "Up" (or "healthy"), and
-# migrate "Exited (0)".
-docker compose ps
+# migrate "Exited (0)". Run from the repo root.
+docker compose --project-directory . -f deploy/docker/compose.yaml ps
 ```
 
 If something looks wrong, see the troubleshooting table in
@@ -459,15 +461,19 @@ Add this line (edit the path to match where you cloned the repo in step 8.4):
 0 2 * * * cd /path/to/magus-tesla-api && make backup-db >> /var/log/magus-backup.log 2>&1
 ```
 
-This runs `deploy/backup-db.sh` every night at 2 AM. It writes a gzipped
-`.sql.gz` dump to `backups/` and deletes any backup older than 7 days.
+This runs `deploy/docker/backup-db.sh` every night at 2 AM. It writes a
+gzipped `.sql.gz` dump to `backups/` and deletes any backup older than 7
+days. The script builds its `docker compose` command relative to the
+current folder, so the cron line above must `cd` to the repo root first —
+it already does.
 
 ### 8.11 Deploying an update, from now on
 
 ```bash
-# Pull the latest code, then rebuild and restart what changed.
+# Pull the latest code, then rebuild and restart what changed. Run from
+# the repo root.
 git pull
-docker compose up -d --build
+docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build
 ```
 
 `--build` is always safe to include, even when nothing changed — Docker's

@@ -176,7 +176,7 @@
 
 ## T7a. `docs/1-deploy/docker.md` updates — depends on T1, T2a, T2b, T3, T4, T5, T6
 
-- [ ] T7a.1 Update every `docker compose ...` command in the file (the "Local Docker
+- [x] T7a.1 Update every `docker compose ...` command in the file (the "Local Docker
       use" section, "Everyday commands" table, "Migrations" section, "Database
       access" section, "Backups" section, "Troubleshooting" table, "Safety"
       section, "Switching to a managed database later" section) to the new
@@ -188,7 +188,7 @@
       Acceptance: no command in the file omits the two new flags where a
       `compose.yaml`-based command is shown; both `docker build` examples name
       `-f deploy/docker/Dockerfile`.
-- [ ] T7a.2 Add a short paragraph (§1, near the mental-model table) stating: every
+- [x] T7a.2 Add a short paragraph (§1, near the mental-model table) stating: every
       service now has a bounded log size, a CPU/memory limit, and reduced Linux
       privileges, and that the exact numbers and rationale live in this change's
       `design.md`. Do not restate the numbers in this doc — link to design.md's
@@ -200,7 +200,7 @@
 
 ## T7b. `docs/0-set-up/deployment.md` §8 updates — depends on T1, T2a, T2b, T3, T4, T5, T6
 
-- [ ] T7b.1 Update every Docker command in §8 (8.8 first deploy, 8.9 verify, 8.11
+- [x] T7b.1 Update every Docker command in §8 (8.8 first deploy, 8.9 verify, 8.11
       deploying an update) to the new `--project-directory . -f
       deploy/docker/compose.yaml` form.
       Acceptance: `docker compose up -d --build` and every other Compose command in
@@ -208,13 +208,13 @@
 
 ## T7c. `README.md` + `cmd/README.md` updates — depends on T1, T2a, T2b, T3, T4, T5, T6
 
-- [ ] T7c.1 Update `README.md`'s "Project Structure" tree: remove the repo-root
+- [x] T7c.1 Update `README.md`'s "Project Structure" tree: remove the repo-root
       `Dockerfile`, `.dockerignore`, `compose.yaml` lines; add a `deploy/docker/`
       entry describing the five moved files, in the same place `deploy/` is
       currently listed.
       Acceptance: the tree shows no repo-root Docker file and shows
       `deploy/docker/` with its five files named or summarized.
-- [ ] T7c.2 Update `cmd/README.md`'s `cmd/migrate` row and the paragraph below the
+- [x] T7c.2 Update `cmd/README.md`'s `cmd/migrate` row and the paragraph below the
       table: the commands (`make migrate-run`, `make docker-migrate`) are unchanged
       by name, but the paragraph naming "the repo-root `Dockerfile`" is updated to
       say `deploy/docker/Dockerfile`.

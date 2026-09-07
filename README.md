@@ -96,10 +96,10 @@ make bins        # → bin/setup, bin/web, …  (go build -o bin/ ./cmd/...)
 ```
 magus-tesla-api/
 │
-├── Dockerfile          # Multi-stage build: web, poller, migrate images (see docs/1-deploy/docker.md)
-├── .dockerignore       # Keeps secrets and dev-only files out of the Docker build context
-├── compose.yaml        # Orchestrates db, migrate, web, poller, caddy for a VPS deploy
-├── deploy/             # Caddyfile (reverse proxy + HTTPS) and the daily backup-db.sh script
+├── deploy/
+│   └── docker/          # Dockerfile, Dockerfile.dockerignore, compose.yaml, Caddyfile,
+│                        # backup-db.sh — all Docker deploy files in one folder
+│                        # (see docs/1-deploy/docker.md)
 │
 ├── cmd/               # Executable entry points — see cmd/README.md
 │   ├── setup/          # One-time Tesla OAuth flow (saves tokens to .env)
