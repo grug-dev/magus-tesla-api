@@ -558,10 +558,11 @@ same change. To check from outside, use a GET:
 curl -s -o /dev/null -w '%{http_code}\n' https://<your-domain>/healthz
 ```
 
-Optional follow-up, not done: uptime monitors (UptimeRobot and similar) often
-probe with HEAD and would report the site as down. Registering
-`r.HEAD("/healthz", ...)` alongside the GET would fix that. Left out for now —
-nothing currently probes with HEAD.
+Follow-up, now done: uptime monitors (UptimeRobot and similar) often probe
+with HEAD and would have reported the site down. `internal/gateway/gateway.go`
+registers `r.HEAD("/healthz", ...)` beside the GET. The handler is unchanged —
+Go's HTTP server drops the body for a HEAD response, and the status code is
+all a monitor reads.
 
 #### Expected noise
 
@@ -655,9 +656,9 @@ that matters.
 
 ### Smaller items
 
-- **`HEAD /healthz` returns 404.** Uptime monitors often probe with HEAD and
-  would report the site down. Fix would be `r.HEAD("/healthz", ...)` beside
-  the GET.
+- ~~**`HEAD /healthz` returns 404.**~~ Done — `internal/gateway/gateway.go`
+  now registers `r.HEAD("/healthz", ...)` beside the GET, so uptime monitors
+  that probe with HEAD (and `curl -I`) get the real status instead of 404.
 - **SSH hardening not done.** Root login and password authentication are
   still enabled.
 - **No log rotation** on `/var/log/magus-backup.log`.

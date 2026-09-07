@@ -179,7 +179,15 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/ui/nav-header", h.NavHeaderFragment)
 	r.GET("/ui/vehicle-select", h.VehicleSelectFragment)
 	r.POST("/ui/vehicle/select", h.VehicleSelect)
+	// GET and HEAD both, on purpose. Uptime monitors and `curl -I` probe with
+	// HEAD, and Gin answers a HEAD on a GET-only route with 404 — which reads as
+	// "site down" even while the service is perfectly healthy. That is exactly
+	// what the Docker healthcheck hit on the first VPS deploy (see
+	// docs/vps-installation.md step 14). Healthz itself needs no change: Go's
+	// HTTP server drops the body for a HEAD response, and the status code is the
+	// only thing a monitor reads.
 	r.GET("/healthz", h.Healthz)
+	r.HEAD("/healthz", h.Healthz)
 	r.POST("/ui/lang/switch", h.LangSwitch)
 
 	// Settings + theme switch (RM42 tier 2). Unlike /ui/lang/switch above, the
