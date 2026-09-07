@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "platform-add-docker-compose-deploy",
+  "module": "platform",
+  "roadmap": null,
+  "request": "Create a production-ready Docker Compose setup for this Go + Templ + HTMX Tesla monitoring app: Go app container, PostgreSQL, env vars via .env, automatic restarts, Postgres healthchecks, app/worker waits for Postgres, persistent data, no hardcoded secrets, simple enough for a small Hostinger VPS, and easy to move to another cloud provider later. Plus the deploy strategy and steps for a first-time VPS user.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5a", "T5b", "T5c", "T6"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-07T10:45:15Z",
+  "updated_at": "2026-09-07T10:45:15Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH45-MAG-37-platform-add-docker-compose-deploy",
+    "base": "main",
+    "ticket": "MAG-37",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-37/docker-compose",
+    "created_at": "2026-09-07T10:04:00Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Fix internal/config.Load() so a missing .env is not fatal (tests first)",
+      "module": "config",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T2",
+      "title": "Dockerfile (multi-stage, web + poller + migrate targets) and .dockerignore",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T3",
+      "title": "compose.yaml, Caddyfile, migrate entrypoint, backup script, Makefile targets",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T4",
+      "title": "Add the new deploy variables to .env.example",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T5a",
+      "title": "VPS runbook: docs/0-set-up/deployment.md new section 8",
+      "module": "platform",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T5b",
+      "title": "New Docker command reference doc: docs/1-deploy/docker.md",
+      "module": "platform",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T5c",
+      "title": "Update README.md, cmd/README.md, internal/config/AGENTS.md and cross-links",
+      "module": "platform",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T6",
+      "title": "Verification: build, vet, gofmt and the standalone guards",
+      "module": "platform",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5a", "T5b", "T5c"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "scope": "design",
+      "made_by": "user",
+      "at": "2026-09-07T10:10:00Z",
+      "what": "PostgreSQL runs as a compose service with a named volume and healthcheck; DATABASE_URL alone switches to a managed host later.",
+      "why": "Cheapest for a first VPS deploy. Keeps the ticket's requirement that the database host can change."
+    },
+    {
+      "id": "D2",
+      "scope": "design",
+      "made_by": "user",
+      "at": "2026-09-07T10:14:00Z",
+      "what": "A one-shot migrate service runs goose over the four dirs, then exits. web and poller wait on service_completed_successfully.",
+      "why": "Gives the ticket's wait-for-Postgres ordering. One command deploys. No half-migrated database."
+    },
+    {
+      "id": "D3",
+      "scope": "design",
+      "made_by": "user",
+      "at": "2026-09-07T10:18:00Z",
+      "what": "Caddy runs in compose for automatic HTTPS. Only Caddy publishes ports 80 and 443.",
+      "why": "Google OAuth allows plain http only for localhost. Without HTTPS nobody can log in."
+    },
+    {
+      "id": "D4",
+      "scope": "design",
+      "made_by": "user",
+      "at": "2026-09-07T10:22:00Z",
+      "what": "The image is built on the VPS. No registry and no CI in this change.",
+      "why": "No extra accounts or workflow files. Moving to a registry later is a one-line change."
+    },
+    {
+      "id": "D5",
+      "scope": "design",
+      "made_by": "user",
+      "at": "2026-09-07T10:27:00Z",
+      "what": "The VPS starts with an empty database. No dump or restore of the local history.",
+      "why": "Owner chose the simplest path knowingly. The leader raised the loss risk first."
+    },
+    {
+      "id": "D6",
+      "scope": "design",
+      "made_by": "user",
+      "at": "2026-09-07T10:31:00Z",
+      "what": "A daily pg_dump on the VPS keeps 7 days, wired as a make target plus one cron line.",
+      "why": "After D5 the VPS still holds data that exists nowhere else from day one."
+    },
+    {
+      "id": "D7",
+      "scope": "module-resolution",
+      "made_by": "autopilot",
+      "at": "2026-09-07T10:04:00Z",
+      "what": "Named the change platform-add-docker-compose-deploy as a single cross-cutting change, not a roadmap.",
+      "why": "It touches only internal/config plus repo-root infra. openspec/config.yaml assigns platform- to cross-cutting work."
+    },
+    {
+      "id": "D8",
+      "scope": "docs",
+      "made_by": "autopilot",
+      "at": "2026-09-07T10:38:00Z",
+      "what": "Put the new Docker command reference at docs/1-deploy/docker.md, a new folder, not docs/0-set-up/docker.md.",
+      "why": "It is a reference the owner returns to, not a one-time setup checklist. Cross-links stop either doc becoming orphaned."
+    },
+    {
+      "id": "D9",
+      "scope": "dispatch",
+      "made_by": "autopilot",
+      "at": "2026-09-07T10:36:00Z",
+      "what": "Dispatched the artifact worker on Sonnet rather than Opus.",
+      "why": "All six design decisions were settled first and every fact pre-verified. The work was authoring, not design discovery."
+    }
+  ],
+  "review": {
+    "brief": null,
+    "agent": null,
+    "status": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-09-07T10:04:00Z",
+      "type": "branch-created",
+      "detail": "ft/CH45-MAG-37-platform-add-docker-compose-deploy off main. Work counter bumped 45 to 46."
+    },
+    {
+      "at": "2026-09-07T10:33:00Z",
+      "type": "interview",
+      "detail": "Leader ran grill-me with the user as openspec/config.yaml requires. Six decisions settled (D1 to D6)."
+    },
+    {
+      "at": "2026-09-07T10:35:00Z",
+      "type": "finding",
+      "detail": "internal/config/config.go:68 godotenv.Load() errors when .env is missing, so cmd/web and cmd/poller crash in a container. Found by the leader during the interview, not stated in the ticket."
+    },
+    {
+      "at": "2026-09-07T10:36:00Z",
+      "type": "dispatch",
+      "detail": "kkpa-module-worker (agent: config, model: Sonnet) dispatched to write the OpenSpec artifacts.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 21,
+        "cost_usd_delta": 4.63,
+        "approx": false,
+        "note": "Single artifact-authoring dispatch, measured start to end."
+      }
+    },
+    {
+      "at": "2026-09-07T10:40:00Z",
+      "type": "scope-change",
+      "detail": "User asked mid-dispatch for a standalone Docker command reference doc. Sent to the live worker and folded into design.md and tasks.md as T5b."
+    },
+    {
+      "at": "2026-09-07T10:44:00Z",
+      "type": "design-gate",
+      "detail": "The built-in database gate does not apply. design.md section 'Database objects' states the change creates no table, column, index, constraint, view or migration. Leader confirmed against the artifacts."
+    },
+    {
+      "at": "2026-09-07T10:45:15Z",
+      "type": "halt",
+      "detail": "Pipeline halted after Step 4 as the kkpa-pickup-linear-ticket run requested. No implementation worker dispatched, no reviewer, no archive. Awaiting the user's review of the proposal."
+    }
+  ]
+}
