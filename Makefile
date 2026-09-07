@@ -69,9 +69,10 @@ DB_NAME := $(shell echo "$(DATABASE_URL)" | sed -E 's|.*/([^/?]+).*|\1|')
 DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/[^/?]+|\1\4/postgres|')
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
-.PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
+.PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
         db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard tidy build vet test check bins \
-        up cmd-setup cmd-explore-tesla cmd-poller-once
+        up cmd-setup cmd-explore-tesla cmd-poller-once \
+        docker-up docker-down docker-logs docker-migrate backup-db
 
 # --- Help -------------------------------------------------------------------
 
@@ -113,6 +114,22 @@ migrate-status: check-goose ## Show which migrations have been applied (per modu
 		echo "== $$dir =="; \
 		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" status; \
 	done
+
+# migrate-run does NOT depend on check-goose: it runs cmd/migrate (the same Go
+# program the Docker "migrate" service runs), not the goose CLI. It passes
+# this Makefile's own MIGRATIONS_DIRS through the MIGRATIONS_DIRS env var, so
+# there is one source of truth for the directory order — cmd/migrate's
+# internal/config.LoadMigration reads it directly (T8). This is how you test
+# the deploy path's migration program locally: same migrations, same order,
+# as migrate-up above, but through the container's own binary instead of the
+# goose CLI.
+#
+# DATABASE_URL is deliberately NOT passed on the command line here. cmd/migrate
+# reads .env itself, through config.LoadMigration(). Passing it would put the
+# database password in the process arguments, where any user on the machine can
+# read it with `ps`.
+migrate-run: ## Run cmd/migrate locally against the .env DATABASE_URL (the Docker "migrate" service's own Go program, not the goose CLI — no goose install needed)
+	MIGRATIONS_DIRS="$(MIGRATIONS_DIRS)" go run ./cmd/migrate
 
 db-setup: check-goose ## ONE COMMAND: create the app role + database (both if missing) + migrate to latest
 	@set -e; \
@@ -744,3 +761,24 @@ cmd-poller-once: ## Build cmd/poller into ./bin and run ONE collection cycle now
 	@mkdir -p bin
 	go build -o bin/poller ./cmd/poller
 	./bin/poller --once
+
+# --- Docker Compose deploy (VPS / production) --------------------------------
+# See docs/0-set-up/deployment.md §8 (first deploy) and docs/1-deploy/docker.md
+# (day-to-day commands) for the full runbook. These targets are thin wrappers
+# around `docker compose` — they build/start/stop the whole stack (db, migrate,
+# web, poller, caddy) defined in compose.yaml.
+
+docker-up: ## Build (if needed) and start the whole Docker Compose stack in the background
+	docker compose up -d --build
+
+docker-down: ## Stop and remove the whole Docker Compose stack (keeps named volumes — data survives)
+	docker compose down
+
+docker-logs: ## Follow logs from every running Docker Compose service
+	docker compose logs -f
+
+docker-migrate: ## Run the one-shot "migrate" service in Docker Compose by hand (same program docker-up already runs automatically)
+	docker compose run --rm migrate
+
+backup-db: ## Dump the compose-local Postgres database, gzip it, and prune backups older than 7 days
+	./deploy/backup-db.sh

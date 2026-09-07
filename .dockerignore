@@ -1,0 +1,15 @@
+# Keeps secrets, dev-only tools, and large or irrelevant paths out of the
+# Docker build context and the built image.
+.git
+.env
+.env.example
+*.pem
+private-key*
+bin/
+tmp/
+.air/
+internal/gateway/tools/tailwindcss
+magus-public-key-netlify/
+cmd/explore-tesla-api/output/
+kkpa/
+openspec/changes/archive/

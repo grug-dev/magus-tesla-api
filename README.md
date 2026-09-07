@@ -96,10 +96,16 @@ make bins        # → bin/setup, bin/web, …  (go build -o bin/ ./cmd/...)
 ```
 magus-tesla-api/
 │
+├── Dockerfile          # Multi-stage build: web, poller, migrate images (see docs/1-deploy/docker.md)
+├── .dockerignore       # Keeps secrets and dev-only files out of the Docker build context
+├── compose.yaml        # Orchestrates db, migrate, web, poller, caddy for a VPS deploy
+├── deploy/             # Caddyfile (reverse proxy + HTTPS) and the daily backup-db.sh script
+│
 ├── cmd/               # Executable entry points — see cmd/README.md
 │   ├── setup/          # One-time Tesla OAuth flow (saves tokens to .env)
 │   ├── web/            # Multi-tenant HTTP gateway (vehicle dashboard)
 │   ├── poller/         # Nightly telemetry collection (run once or scheduled)
+│   ├── migrate/        # One-shot goose migration runner — the "migrate" service's ENTRYPOINT
 │   └── explore-tesla-api/  # On-demand raw Tesla Fleet API JSON inspector
 │
 ├── internal/
@@ -128,7 +134,9 @@ magus-tesla-api/
 │
 └── docs/
     ├── post-registration-setup.md   # Full setup guide — start here
-    └── battery-consumed-graph.md    # How the Battery Consumed pipeline works end to end
+    ├── battery-consumed-graph.md    # How the Battery Consumed pipeline works end to end
+    ├── 0-set-up/deployment.md       # New-machine + VPS runbook (§8: Docker Compose deploy)
+    └── 1-deploy/docker.md           # Day-to-day Docker command reference (start here after the first deploy)
 ```
 
 For details on the `cmd/` convention and each binary, see [cmd/README.md](cmd/README.md).
@@ -163,6 +171,12 @@ and the one-command database setup (`make db-setup`) — is documented in:
 The database is configured entirely through `DATABASE_URL` in `.env`; `make db-setup` creates
 the database (if needed) and applies migrations idempotently. Persistence coding conventions
 live in [ai/go-conventions.md](ai/go-conventions.md) → *Persistence (Postgres + sqlc + goose)*.
+
+**Deploying to a VPS with Docker** — a first-time runbook lives in
+[docs/0-set-up/deployment.md](docs/0-set-up/deployment.md) §8; the day-to-day command
+reference (logs, migrations, backups, troubleshooting) lives in
+[docs/1-deploy/docker.md](docs/1-deploy/docker.md). Use the first once, to stand up the
+VPS; come back to the second every time after.
 
 ---
 
@@ -219,6 +233,7 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │                        tesla, config      (wiring only — no logic)       │
 │  cmd/setup ──────────► auth, config                                      │
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
+│  cmd/migrate ────────► config          (the "migrate" Docker service)    │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
 │  gateway ────────────► account, charging, analytics,                     │
 │    │                   tesla, googleauth, clock                          │

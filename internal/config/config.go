@@ -3,9 +3,12 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -63,10 +66,25 @@ func (c *Config) TeslaConnectRedirectURL() string {
 	return c.BaseURL + "/connect/tesla/callback"
 }
 
-// Load reads the .env file and returns a populated Config.
+// loadDotEnv loads the .env file into the process environment, the same way
+// for every caller in this package. A missing .env file is not an error: a
+// container has no .env and gets its config from real environment variables
+// instead. Any other error reading .env (for example, a permission error or
+// a malformed file) is still fatal. godotenv.Load() never overrides a
+// variable already set in the process environment, so a real environment
+// variable always wins over a .env value.
+func loadDotEnv() error {
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("could not load .env file: %w", err)
+	}
+	return nil
+}
+
+// Load reads the .env file and returns a populated Config. See loadDotEnv
+// for the missing-.env / real-env-wins behavior.
 func Load() (*Config, error) {
-	if err := godotenv.Load(); err != nil {
-		return nil, fmt.Errorf("step 1: could not load .env file: %w", err)
+	if err := loadDotEnv(); err != nil {
+		return nil, fmt.Errorf("step 1: %w", err)
 	}
 
 	cfg := &Config{
@@ -100,6 +118,98 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// defaultMigrationsRoot is where the Docker image COPYs each module's
+// migrations (see cmd/migrate and
+// openspec/changes/platform-add-docker-compose-deploy/design.md, decision
+// D11). Overridable via MIGRATIONS_ROOT.
+const defaultMigrationsRoot = "/migrations"
+
+// defaultMigrationModules are the four migration directory names, applied in
+// this exact order, under MigrationsRoot when MIGRATIONS_DIRS is unset. This
+// mirrors the Makefile's MIGRATIONS_DIRS variable and the image layout the
+// Dockerfile COPYs (ai/go-conventions.md §Persistence): all four apply
+// against ONE shared goose_db_version table, and charging's backfill
+// migration reads telemetry's table, so telemetry must precede charging.
+var defaultMigrationModules = []string{"account", "telemetry", "charging", "analytics"}
+
+// MigrationConfig is the config for the standalone migration tool
+// (cmd/migrate). It is a separate, smaller struct from Config because a
+// migration-only tool must not require Tesla credentials the way Load does.
+type MigrationConfig struct {
+	// DatabaseURL is the Postgres DSN to migrate. Required.
+	DatabaseURL string
+	// MigrationsRoot is the directory holding one subfolder per module's
+	// migrations (e.g. "<root>/account", "<root>/telemetry"). Defaults to
+	// "/migrations", the path the Docker image COPYs them to. Kept for the
+	// default-path case; MigrationsDirs is what cmd/migrate actually loops
+	// over.
+	MigrationsRoot string
+	// MigrationsDirs is the ordered list of migration directories to apply.
+	// When MIGRATIONS_DIRS is set (space-separated, ordered), it comes from
+	// there verbatim, split on whitespace with empty entries dropped. When
+	// unset, it is MigrationsRoot + "/" + each of defaultMigrationModules, in
+	// order — the image-default behavior, unchanged. cmd/migrate loops this
+	// slice directly; it never builds paths itself.
+	MigrationsDirs []string
+}
+
+// LoadMigration reads config for cmd/migrate. Unlike Load, it does not
+// require TESLA_CLIENT_ID/TESLA_CLIENT_SECRET — a migration-only tool has no
+// reason to validate a credential it never uses. It loads .env the same way
+// Load does (see loadDotEnv: a missing .env is not an error), then reads
+// DATABASE_URL (required), MIGRATIONS_ROOT (defaults to defaultMigrationsRoot
+// when unset), and MIGRATIONS_DIRS.
+//
+// MIGRATIONS_DIRS is an optional, space-separated, ORDERED list of migration
+// directories (e.g. "internal/account/db/migrations
+// internal/telemetry/db/migrations ..."), used to run cmd/migrate against a
+// local checkout — the Docker image layout (MigrationsRoot + a fixed module
+// name) only exists inside the built image, not in the repo. When
+// MIGRATIONS_DIRS is unset, MigrationsDirs falls back to the four
+// "<root>/<module>" paths, in the same order, so the image's compose.yaml
+// and Dockerfile need no change.
+func LoadMigration() (*MigrationConfig, error) {
+	if err := loadDotEnv(); err != nil {
+		return nil, err
+	}
+
+	dbURL := envStripped("DATABASE_URL")
+	if dbURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL must be set")
+	}
+
+	root := envStripped("MIGRATIONS_ROOT")
+	if root == "" {
+		root = defaultMigrationsRoot
+	}
+
+	dirs := splitMigrationsDirs(envStripped("MIGRATIONS_DIRS"))
+	if len(dirs) == 0 {
+		dirs = make([]string, len(defaultMigrationModules))
+		for i, name := range defaultMigrationModules {
+			dirs[i] = root + "/" + name
+		}
+	}
+
+	return &MigrationConfig{
+		DatabaseURL:    dbURL,
+		MigrationsRoot: root,
+		MigrationsDirs: dirs,
+	}, nil
+}
+
+// splitMigrationsDirs splits a space-separated MIGRATIONS_DIRS value into an
+// ordered slice, dropping empty entries so extra whitespace (including a
+// trailing space) never produces an empty directory path. Returns nil for an
+// empty input, which LoadMigration reads as "unset — use the default".
+func splitMigrationsDirs(v string) []string {
+	fields := strings.Fields(v)
+	if len(fields) == 0 {
+		return nil
+	}
+	return fields
 }
 
 // pollerTimezoneOrDefault returns v unchanged when it is non-empty (a set

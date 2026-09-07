@@ -30,8 +30,31 @@ so would invert the dependency direction (config is meant to be consumed only by
 
 Consumers call these — never `os.Getenv` directly (see `internal/config/config.go`):
 
-- `Load() (*Config, error)` — reads `.env`, returns a populated `Config`; errors if
-  `TESLA_CLIENT_ID`/`TESLA_CLIENT_SECRET` are unset or `.env` cannot be read.
+- `Load() (*Config, error)` — loads `.env` if present (a missing `.env` file is
+  **not** an error — a container has no `.env` and gets real environment variables
+  instead; see below), then returns a populated `Config`; still errors if
+  `TESLA_CLIENT_ID`/`TESLA_CLIENT_SECRET` are unset, or if `.env` exists but cannot
+  be read (e.g. a permission error). A real environment variable always wins over a
+  `.env` value.
+- `LoadMigration() (*MigrationConfig, error)` — config for the standalone
+  `cmd/migrate` tool. Same `.env`-optional loading as `Load`, but does **not**
+  require any Tesla credential — a migration-only tool has no reason to validate
+  one it never uses. Returns `DatabaseURL` (required; errors if empty),
+  `MigrationsRoot` (defaults to `/migrations` when unset), and `MigrationsDirs`
+  — the ordered directory slice `cmd/migrate` actually loops over. Added by
+  `platform-add-docker-compose-deploy` (T7) to remove `cmd/migrate`'s prior
+  `os.Getenv` calls, which violated `ai/go-conventions.md`'s "no `os.Getenv`
+  outside `internal/config`" rule.
+  - `MigrationsDirs` comes from the optional `MIGRATIONS_DIRS` env var: a
+    space-separated, ORDERED list of migration directories (e.g.
+    `internal/account/db/migrations internal/telemetry/db/migrations ...`).
+    Extra whitespace between entries is ignored — it never produces an empty
+    path. Set it to run `cmd/migrate` against a repo checkout, where the
+    Docker image's `<MigrationsRoot>/<module>` layout does not exist (T8).
+  - When `MIGRATIONS_DIRS` is unset, `MigrationsDirs` falls back to
+    `MigrationsRoot` + `/` + each of the four module names, in order
+    (account, telemetry, charging, analytics) — the image-default behavior,
+    unchanged. `compose.yaml` and the `Dockerfile` need no change for this.
 - `SaveTokens(accessToken, refreshToken string) error` — persists Tesla OAuth tokens
   back into `.env` (used by `cmd/setup`'s one-time OAuth bootstrap).
 - `(*Config) GoogleRedirectURL() string` / `(*Config) TeslaConnectRedirectURL() string` —
@@ -41,6 +64,16 @@ Consumers call these — never `os.Getenv` directly (see `internal/config/config
   here — never the host's `"Local"` zone (RM35-config-adopt-clock). A set value, valid or
   not, passes through untouched: this module does not validate it — `cmd/poller` still
   does, via `time.LoadLocation`, failing fast on an invalid IANA name at startup.
+
+### `.env` is optional (missing-file behavior)
+
+A missing `.env` file is not fatal for `Load()` or `LoadMigration()` — both fall
+back to real environment variables, which is how the Docker Compose deploy passes
+config (`platform-add-docker-compose-deploy`). A present `.env` file still loads
+normally, and a real environment variable always wins over a `.env` value
+(`godotenv.Load()`'s existing non-overriding behavior). Any other error reading
+`.env` (a permission error, a malformed file) is still fatal. Shared by both
+loaders through the internal `loadDotEnv()` helper.
 
 ## Allowed imports
 
@@ -65,7 +98,14 @@ None. No table, no migration, no `db/` package. `.env` is a local file, not a da
   `timezone_test.go` covers `pollerTimezoneOrDefault`'s unset-env-var default
   (RM35-config-adopt-clock, the one case with previously zero coverage — RM35 D6's
   narrow exception for tiers 2–6, which otherwise add no new tests).
-- `Load()` itself is not unit-tested directly — it depends on a real `.env` file in the
-  process's working directory and on `TESLA_CLIENT_ID`/`TESLA_CLIENT_SECRET` being set,
-  so its env-var-dependent branches (`pollerTimezoneOrDefault`, `envInt`, `envDuration`,
-  `envStripped`) are extracted into small pure functions and tested directly instead.
+- `config_test.go` tests `Load()` and `LoadMigration()` directly, using
+  `t.TempDir()` + `os.Chdir` (restoring both in `defer`) to control the `.env`
+  file and the real environment for each case: `.env` present, `.env` absent
+  with real env vars set, required values missing, and a real env var beating
+  a `.env` value. Added by `platform-add-docker-compose-deploy` (T1, T7).
+  `pollerTimezoneOrDefault`, `envInt`, `envDuration`, and `envStripped` stay
+  covered as small pure functions in their own test files, unchanged.
+- `config_test.go` also covers `MigrationsDirs` (T8): `MIGRATIONS_DIRS` set to
+  an ordered list, `MIGRATIONS_DIRS` unset falling back to the four
+  `<root>/<module>` default paths in order, and extra whitespace between
+  entries producing no empty directory.
