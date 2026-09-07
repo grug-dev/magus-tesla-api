@@ -112,13 +112,13 @@
 
 ## T4. `compose.yaml` hardening — depends on T3 (same file, sequential)
 
-- [ ] T4.1 Add the `x-logging` YAML anchor at the top level (design.md D2) and
+- [x] T4.1 Add the `x-logging` YAML anchor at the top level (design.md D2) and
       `logging: *default-logging` to all five services.
       Acceptance: `x-logging: &default-logging` exists once, with
       `driver: json-file`, `options: {max-size: "10m", max-file: "3"}`; all five
       services (`db`, `migrate`, `web`, `poller`, `caddy`) reference it via
       `logging: *default-logging`.
-- [ ] T4.2 Add `deploy.resources.limits.cpus` / `.memory` to all five services,
+- [x] T4.2 Add `deploy.resources.limits.cpus` / `.memory` to all five services,
       each reading from a `${VAR:-default}` pair per design.md's sizing table:
       `db` → `${DB_CPU_LIMIT:-1.0}` / `${DB_MEM_LIMIT:-1536M}`; `migrate` →
       `${MIGRATE_CPU_LIMIT:-0.5}` / `${MIGRATE_MEM_LIMIT:-256M}`; `web` →
@@ -129,7 +129,7 @@
       plain `docker compose up`).
       Acceptance: every service has both a `cpus` and a `memory` limit, using the
       exact variable names above; no `reservations` block is present.
-- [ ] T4.3 Add the D4 security hardening block to every service, per design.md's
+- [x] T4.3 Add the D4 security hardening block to every service, per design.md's
       per-service table:
       - All five: `security_opt: [no-new-privileges:true]`, `cap_drop: [ALL]`.
       - `db`: `cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]`,
@@ -144,11 +144,11 @@
 
 ## T5. `Makefile` updates — depends on T3, T2b; parallel-ok with T4
 
-- [ ] T5.1 Add `COMPOSE = docker compose --project-directory . -f
+- [x] T5.1 Add `COMPOSE = docker compose --project-directory . -f
       deploy/docker/compose.yaml` near the top of the Docker section (design.md D1,
       Trap 4).
       Acceptance: the variable exists with this exact value.
-- [ ] T5.2 Update `docker-up`, `docker-down`, `docker-logs`, `docker-migrate` to
+- [x] T5.2 Update `docker-up`, `docker-down`, `docker-logs`, `docker-migrate` to
       call `$(COMPOSE) ...` instead of `docker compose ...` (same subcommand and
       flags as today — `up -d --build`, `down`, `logs -f`,
       `run --rm migrate`). Update `backup-db` to call
@@ -156,7 +156,7 @@
       Acceptance: `grep 'docker compose ' Makefile` finds no remaining bare
       `docker compose` call inside these five targets (only `$(COMPOSE)` or the
       script call remain).
-- [ ] T5.3 Update each target's `## ...` help comment (shown by `make help`) to
+- [x] T5.3 Update each target's `## ...` help comment (shown by `make help`) to
       name the new `deploy/docker/compose.yaml` location where it currently implies
       a repo-root file.
       Acceptance: `make help`'s Docker section text no longer implies a repo-root

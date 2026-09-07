@@ -12,11 +12,11 @@
       "T2a",
       "T2b",
       "T3",
-      "T6"
+      "T6",
+      "T4",
+      "T5"
     ],
     "pending": [
-      "T4",
-      "T5",
       "T7a",
       "T7b",
       "T7c",
@@ -26,7 +26,7 @@
     "done": []
   },
   "created_at": "2026-09-07T15:16:16Z",
-  "updated_at": "2026-09-07T15:18:09Z",
+  "updated_at": "2026-09-07T15:20:19Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -144,14 +144,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T15:18:30Z",
+      "completed_at": "2026-09-07T15:20:19Z",
+      "duration_seconds": 109,
+      "notes": "x-logging anchor (10m x3) on all five services. Limits from ${VAR:-default}, no reservations. cap_drop ALL, no-new-privileges, read_only everywhere; db and caddy cap_add per design table. Ruby YAML parse confirms.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 26,
+        "five_hour_pct_delta": 3,
+        "cost_usd_delta": 1.4304,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2 delta covers T4 and T5 jointly"
+      }
     },
     {
       "id": "T5",
@@ -162,14 +171,23 @@
         "T2b"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T15:18:30Z",
+      "completed_at": "2026-09-07T15:20:19Z",
+      "duration_seconds": 109,
+      "notes": "COMPOSE variable added. Five targets use it or the new script path. make -n expands all five correctly; make help text updated.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 26,
+        "five_hour_pct_delta": 3,
+        "cost_usd_delta": 1.4304,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2 delta covers T4 and T5 jointly"
+      }
     },
     {
       "id": "T6",
@@ -342,6 +360,11 @@
       "at": "2026-09-07T15:18:09Z",
       "agent": "leader",
       "event": "wave 1 done (T1, T2a, T2b, T3, T6). Files moved and path traps fixed. Tasks are awaiting-user-verification: their real proof is docker compose config + up, which the Test-Execution-Policy reserves to the owner (T8.4)."
+    },
+    {
+      "at": "2026-09-07T15:20:19Z",
+      "agent": "leader",
+      "event": "wave 2 done (T4, T5). Hardening verified by parsing compose.yaml with ruby YAML and by make -n on all five docker targets. docker compose config stays the owner's (T8.4)."
     }
   ]
 }
