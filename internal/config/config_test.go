@@ -233,3 +233,113 @@ func TestLoadMigration_MigrationsRootSet(t *testing.T) {
 		}
 	})
 }
+
+// TestLoadMigration_MigrationsDirs* cover MigrationsDirs, the ordered
+// directory slice cmd/migrate loops directly (T8). unsetMigrationEnv already
+// clears DATABASE_URL/MIGRATIONS_ROOT; these tests also clear/restore
+// MIGRATIONS_DIRS themselves, since unsetMigrationEnv predates this variable.
+
+// unsetMigrationsDirsEnv clears MIGRATIONS_DIRS from the real environment and
+// returns a restore func for defer.
+func unsetMigrationsDirsEnv(t *testing.T) func() {
+	t.Helper()
+	orig, had := os.LookupEnv("MIGRATIONS_DIRS")
+	os.Unsetenv("MIGRATIONS_DIRS")
+	return func() {
+		if had {
+			os.Setenv("MIGRATIONS_DIRS", orig)
+		} else {
+			os.Unsetenv("MIGRATIONS_DIRS")
+		}
+	}
+}
+
+// MIGRATIONS_DIRS set to two paths: MigrationsDirs must be exactly those two,
+// in the given order — not the four-module default.
+func TestLoadMigration_MigrationsDirsSet(t *testing.T) {
+	restore := unsetMigrationEnv(t)
+	defer restore()
+	restoreDirs := unsetMigrationsDirsEnv(t)
+	defer restoreDirs()
+
+	withTempDir(t, func(dir string) {
+		os.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/magus?sslmode=disable")
+		os.Setenv("MIGRATIONS_DIRS", "internal/account/db/migrations internal/telemetry/db/migrations")
+
+		cfg, err := LoadMigration()
+		if err != nil {
+			t.Fatalf("LoadMigration() returned error: %v", err)
+		}
+		want := []string{"internal/account/db/migrations", "internal/telemetry/db/migrations"}
+		if len(cfg.MigrationsDirs) != len(want) {
+			t.Fatalf("cfg.MigrationsDirs = %v, want %v", cfg.MigrationsDirs, want)
+		}
+		for i := range want {
+			if cfg.MigrationsDirs[i] != want[i] {
+				t.Fatalf("cfg.MigrationsDirs[%d] = %q, want %q", i, cfg.MigrationsDirs[i], want[i])
+			}
+		}
+	})
+}
+
+// MIGRATIONS_DIRS unset: MigrationsDirs must fall back to the four
+// "<root>/<module>" default paths, in account, telemetry, charging, analytics
+// order — the image-default behavior, unchanged.
+func TestLoadMigration_MigrationsDirsUnsetUsesDefault(t *testing.T) {
+	restore := unsetMigrationEnv(t)
+	defer restore()
+	restoreDirs := unsetMigrationsDirsEnv(t)
+	defer restoreDirs()
+
+	withTempDir(t, func(dir string) {
+		os.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/magus?sslmode=disable")
+		// MIGRATIONS_DIRS and MIGRATIONS_ROOT both left unset.
+
+		cfg, err := LoadMigration()
+		if err != nil {
+			t.Fatalf("LoadMigration() returned error: %v", err)
+		}
+		want := []string{
+			"/migrations/account",
+			"/migrations/telemetry",
+			"/migrations/charging",
+			"/migrations/analytics",
+		}
+		if len(cfg.MigrationsDirs) != len(want) {
+			t.Fatalf("cfg.MigrationsDirs = %v, want %v", cfg.MigrationsDirs, want)
+		}
+		for i := range want {
+			if cfg.MigrationsDirs[i] != want[i] {
+				t.Fatalf("cfg.MigrationsDirs[%d] = %q, want %q", i, cfg.MigrationsDirs[i], want[i])
+			}
+		}
+	})
+}
+
+// MIGRATIONS_DIRS with extra whitespace between (and around) entries must not
+// produce an empty directory entry.
+func TestLoadMigration_MigrationsDirsExtraWhitespace(t *testing.T) {
+	restore := unsetMigrationEnv(t)
+	defer restore()
+	restoreDirs := unsetMigrationsDirsEnv(t)
+	defer restoreDirs()
+
+	withTempDir(t, func(dir string) {
+		os.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/magus?sslmode=disable")
+		os.Setenv("MIGRATIONS_DIRS", "  internal/account/db/migrations    internal/telemetry/db/migrations  ")
+
+		cfg, err := LoadMigration()
+		if err != nil {
+			t.Fatalf("LoadMigration() returned error: %v", err)
+		}
+		want := []string{"internal/account/db/migrations", "internal/telemetry/db/migrations"}
+		if len(cfg.MigrationsDirs) != len(want) {
+			t.Fatalf("cfg.MigrationsDirs = %v, want %v (no empty entries from extra whitespace)", cfg.MigrationsDirs, want)
+		}
+		for _, d := range cfg.MigrationsDirs {
+			if d == "" {
+				t.Fatalf("cfg.MigrationsDirs contains an empty entry: %v", cfg.MigrationsDirs)
+			}
+		}
+	})
+}

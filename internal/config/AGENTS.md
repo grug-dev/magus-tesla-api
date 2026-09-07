@@ -39,11 +39,22 @@ Consumers call these — never `os.Getenv` directly (see `internal/config/config
 - `LoadMigration() (*MigrationConfig, error)` — config for the standalone
   `cmd/migrate` tool. Same `.env`-optional loading as `Load`, but does **not**
   require any Tesla credential — a migration-only tool has no reason to validate
-  one it never uses. Returns `DatabaseURL` (required; errors if empty) and
-  `MigrationsRoot` (defaults to `/migrations` when unset). Added by
+  one it never uses. Returns `DatabaseURL` (required; errors if empty),
+  `MigrationsRoot` (defaults to `/migrations` when unset), and `MigrationsDirs`
+  — the ordered directory slice `cmd/migrate` actually loops over. Added by
   `platform-add-docker-compose-deploy` (T7) to remove `cmd/migrate`'s prior
   `os.Getenv` calls, which violated `ai/go-conventions.md`'s "no `os.Getenv`
   outside `internal/config`" rule.
+  - `MigrationsDirs` comes from the optional `MIGRATIONS_DIRS` env var: a
+    space-separated, ORDERED list of migration directories (e.g.
+    `internal/account/db/migrations internal/telemetry/db/migrations ...`).
+    Extra whitespace between entries is ignored — it never produces an empty
+    path. Set it to run `cmd/migrate` against a repo checkout, where the
+    Docker image's `<MigrationsRoot>/<module>` layout does not exist (T8).
+  - When `MIGRATIONS_DIRS` is unset, `MigrationsDirs` falls back to
+    `MigrationsRoot` + `/` + each of the four module names, in order
+    (account, telemetry, charging, analytics) — the image-default behavior,
+    unchanged. `compose.yaml` and the `Dockerfile` need no change for this.
 - `SaveTokens(accessToken, refreshToken string) error` — persists Tesla OAuth tokens
   back into `.env` (used by `cmd/setup`'s one-time OAuth bootstrap).
 - `(*Config) GoogleRedirectURL() string` / `(*Config) TeslaConnectRedirectURL() string` —
@@ -94,3 +105,7 @@ None. No table, no migration, no `db/` package. `.env` is a local file, not a da
   a `.env` value. Added by `platform-add-docker-compose-deploy` (T1, T7).
   `pollerTimezoneOrDefault`, `envInt`, `envDuration`, and `envStripped` stay
   covered as small pure functions in their own test files, unchanged.
+- `config_test.go` also covers `MigrationsDirs` (T8): `MIGRATIONS_DIRS` set to
+  an ordered list, `MIGRATIONS_DIRS` unset falling back to the four
+  `<root>/<module>` default paths in order, and extra whitespace between
+  entries producing no empty directory.

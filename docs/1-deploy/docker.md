@@ -124,8 +124,37 @@ To force it to run again by hand, without restarting the whole stack:
 docker compose up migrate
 ```
 
+```bash
+# Shortcut for the command above.
+make docker-migrate
+```
+
 If `migrate` exits with a non-zero code, `web` and `poller` will **not**
 start — see the troubleshooting table below.
+
+### Running migrations locally (without Docker)
+
+`cmd/migrate` is a small Go program, not the goose CLI (see its file's doc
+comment for why). You do not need Docker to run it — `make migrate-run` runs
+the exact same program directly against your `DATABASE_URL`:
+
+```bash
+# Apply pending migrations locally, using the same program the Docker
+# "migrate" service runs — no goose CLI install needed.
+make migrate-run
+```
+
+This differs from the older `make migrate-up`, which is still there and still
+works:
+
+| Target | Runs | Needs the `goose` CLI installed? |
+|---|---|---|
+| `make migrate-up` | The `goose` command-line tool, once per module directory | Yes |
+| `make migrate-run` | `cmd/migrate`, the same Go program the `migrate` container runs | No |
+
+Both apply the same migrations, in the same order (the Makefile's
+`MIGRATIONS_DIRS`). `make migrate-run` exists so you can test the exact
+program the deploy path uses, on your own machine, before pushing to the VPS.
 
 ---
 

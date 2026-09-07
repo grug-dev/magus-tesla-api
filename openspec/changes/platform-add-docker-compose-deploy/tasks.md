@@ -323,3 +323,46 @@ loader in `internal/config`, not a standing exception.
 - [x] T7.4 Update `internal/config/AGENTS.md`'s "Public interface" section to
       list `LoadMigration`, and fix its stale "Testing" note (it said `Load()`
       was not unit-tested directly — T1 already added direct tests for it).
+
+## T8. Make `cmd/migrate` runnable locally — found from the owner's own question,
+depends on T7
+
+`cmd/migrate` only worked inside the Docker image, because it built its four
+migration paths as `MigrationsRoot + "/" + module` — a layout the Dockerfile
+creates but a repo checkout does not have. The owner asked how to run it and
+found there was no way to. Fixed by teaching `LoadMigration()` an optional,
+ordered `MIGRATIONS_DIRS` env var and adding two `make` targets.
+
+- [x] T8.1 Add `MigrationsDirs []string` to `internal/config.MigrationConfig`
+      and resolve it in `LoadMigration()`: when `MIGRATIONS_DIRS` is set, split
+      it on whitespace (dropping empty entries) and use it, in order; when
+      unset, fall back to `MigrationsRoot + "/" + module` for each of the four
+      module names, in order — unchanged image-default behavior. Keep
+      `MigrationsRoot` on the struct.
+      Acceptance: `go build ./...` and `go vet ./...` clean; `gofmt -l
+      internal/config` prints nothing.
+- [x] T8.2 Change `cmd/migrate/main.go` to loop `cfg.MigrationsDirs` instead of
+      building paths itself. Delete the local `moduleDirs` var. Update the file
+      doc comment to explain both ways to run it: the image default, and
+      `MIGRATIONS_DIRS` for a local run.
+      Acceptance: `grep -rn "os.Getenv" cmd/` returns nothing (still true —
+      T8 does not reintroduce it); `go build ./cmd/migrate` succeeds.
+- [x] T8.3 Append tests to `internal/config/config_test.go` (existing tests
+      untouched): `MIGRATIONS_DIRS` set to two paths gives exactly those two in
+      order; `MIGRATIONS_DIRS` unset gives the four default paths in account,
+      telemetry, charging, analytics order; extra whitespace between entries
+      produces no empty directory.
+- [x] T8.4 Add two `Makefile` targets, next to the other `docker-`/`migrate-`
+      targets, each with a `## ` help comment: `migrate-run` (runs `cmd/migrate`
+      locally against `DATABASE_URL`, passing the Makefile's own
+      `MIGRATIONS_DIRS` — does NOT depend on `check-goose`, since it runs the Go
+      program, not the goose CLI) and `docker-migrate` (`docker compose run --rm
+      migrate`). Change no existing target.
+      Acceptance: `make help | grep -E "migrate-run|docker-migrate"` shows both.
+- [x] T8.5 Update docs in the same change: `docs/1-deploy/docker.md` §6
+      documents `make docker-migrate` and `make migrate-run`, stating plainly
+      how `migrate-run` differs from `migrate-up` (same migrations, same order;
+      `migrate-run` uses the Go program the container runs, `migrate-up` uses
+      the goose CLI). `cmd/README.md`'s `cmd/migrate` row says how to run it
+      (`make migrate-run` / `make docker-migrate`). `internal/config/AGENTS.md`
+      records the new `MIGRATIONS_DIRS` variable and its test coverage.
