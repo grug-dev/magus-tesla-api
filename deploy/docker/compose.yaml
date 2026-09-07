@@ -134,8 +134,13 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    # Must be a GET. `wget --spider` sends HEAD, and internal/gateway registers
+    # /healthz with r.GET only, so Gin answers a HEAD with 404 and the container
+    # stays "unhealthy" forever while serving traffic perfectly. -O /dev/null
+    # keeps the (tiny) body off the container filesystem, which read_only forbids
+    # writing to anyway.
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
