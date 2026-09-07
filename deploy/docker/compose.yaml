@@ -56,6 +56,15 @@ services:
     logging: *default-logging
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # migrate waits on this via depends_on: condition: service_healthy. Without
+    # it Compose refuses to start the stack at all: "container ... has no
+    # healthcheck configured". Do not remove it.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     deploy:
       resources:
         limits:
