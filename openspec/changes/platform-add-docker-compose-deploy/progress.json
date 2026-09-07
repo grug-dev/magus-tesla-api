@@ -11,15 +11,17 @@
     "pending": [],
     "blocked": [],
     "done": [
+      "T1",
       "T2",
       "T4",
       "T5a",
       "T5b",
-      "T5c"
+      "T5c",
+      "T7"
     ]
   },
   "created_at": "2026-09-07T10:45:15Z",
-  "updated_at": "2026-09-07T12:20:00Z",
+  "updated_at": "2026-09-07T13:55:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -39,7 +41,7 @@
       "module": "config",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "config",
       "model": "sonnet",
       "started_at": "2026-09-07T10:52:00Z",
@@ -52,7 +54,7 @@
         "approx": true,
         "note": "delta covers the whole T1-T4 wave jointly (one serial worker)"
       },
-      "notes": "Wrote config_test.go (4 cases) before the fix, per TDD order. Fixed Load() with errors.Is(err, fs.ErrNotExist). Updated the doc comment. go vet compiles clean. Tests not run - owner must run go test ./internal/config/..."
+      "notes": "Wrote config_test.go (4 cases) before the fix, per TDD order. Fixed Load() with errors.Is(err, fs.ErrNotExist). Updated the doc comment. go vet compiles clean. Tests not run - owne VERIFIED by the owner: go test ./internal/config/... and make test both pass."
     },
     {
       "id": "T2",
@@ -245,7 +247,7 @@
       "module": "config",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "config",
       "model": "sonnet",
       "started_at": "2026-09-07T11:41:00Z",
@@ -258,7 +260,7 @@
         "approx": true,
         "note": "delta covers the whole T7+T5a+T5b+T5c wave jointly (one serial worker)"
       },
-      "notes": "Added config.LoadMigration() and MigrationConfig, factored a shared loadDotEnv() helper, rewired cmd/migrate off os.Getenv, appended 3 tests. Leader confirmed grep finds no os.Getenv in cmd/. Tests not run."
+      "notes": "Added config.LoadMigration() and MigrationConfig, factored a shared loadDotEnv() helper, rewired cmd/migrate off os.Getenv, appended 3 tests. Leader confirmed grep finds no os.Gete VERIFIED by the owner: go test ./internal/config/... and make test both pass."
     },
     {
       "id": "T8",
@@ -280,6 +282,21 @@
         "note": "single serial dispatch (T8) plus the leader's Makefile fix"
       },
       "notes": "Added MigrationsDirs to LoadMigration(), cmd/migrate loops it, plus make migrate-run and make docker-migrate. Leader fixed the target: it no longer passes DATABASE_URL on the command line, which leaked the password to ps."
+    },
+    {
+      "id": "T9",
+      "title": "Fix cmd/migrate: per-directory sql.DB and fail-fast on a missing directory",
+      "module": "config",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T13:55:00Z",
+      "completed_at": "2026-09-07T13:55:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Owner ran make migrate-run and it failed on directory two with 'sql: database is closed'. goose Provider.Close() closes the shared handle. Leader fixed it per the internal/testdb precedent and added a stat check. Needs a re-run."
     }
   ],
   "decisions": [
@@ -394,6 +411,14 @@
       "at": "2026-09-07T12:20:00Z",
       "what": "Removed DATABASE_URL from the make migrate-run command line. cmd/migrate reads .env itself.",
       "why": "Passing it put the database password in the process arguments, readable by any user via ps."
+    },
+    {
+      "id": "D15",
+      "scope": "design",
+      "made_by": "autopilot",
+      "at": "2026-09-07T13:55:00Z",
+      "what": "cmd/migrate opens one *sql.DB per migration directory, and stats every directory before applying any.",
+      "why": "goose Provider.Close() closes the shared handle, so directory two failed. A missing dir silently applied nothing."
     }
   ],
   "review": {
@@ -532,6 +557,16 @@
         "approx": false,
         "note": "single serial dispatch (T8) plus the leader's Makefile fix"
       }
+    },
+    {
+      "at": "2026-09-07T13:55:00Z",
+      "type": "user-verification",
+      "detail": "The OWNER ran go test ./internal/config/... and make test. Both passed. Recorded as the owner's report, not the assistant's. This verifies T1 and T7."
+    },
+    {
+      "at": "2026-09-07T13:55:00Z",
+      "type": "finding",
+      "detail": "The OWNER ran make migrate-run and it failed on the second directory: 'sql: database is closed'. goose Provider.Close() closes the *sql.DB it was given, so one shared handle dies after the first directory. Only a real run could find this; cmd/ has no tests by project convention. Fixed in T9."
     }
   ]
 }

@@ -71,15 +71,24 @@ func main() {
 		log.Fatalf("migrate: %v", err)
 	}
 
-	db, err := sql.Open("pgx", cfg.DatabaseURL)
-	if err != nil {
-		log.Fatalf("migrate: open database: %v", err)
+	// Fail fast on a bad path. os.DirFS on a missing directory does not error
+	// here — goose would simply find no migrations and report "applied 0",
+	// so a typo in MIGRATIONS_DIRS would look like success and leave the
+	// database un-migrated. internal/testdb.ProvisionDirs checks the same way,
+	// for the same reason.
+	for _, dir := range cfg.MigrationsDirs {
+		info, err := os.Stat(dir)
+		if err != nil {
+			log.Fatalf("migrate: migration dir %q: %v", dir, err)
+		}
+		if !info.IsDir() {
+			log.Fatalf("migrate: migration path %q is not a directory", dir)
+		}
 	}
-	defer db.Close()
 
 	ctx := context.Background()
 	for _, dir := range cfg.MigrationsDirs {
-		if err := applyDir(ctx, db, dir); err != nil {
+		if err := applyDir(ctx, cfg.DatabaseURL, dir); err != nil {
 			log.Fatalf("migrate: %s: %v", dir, err)
 		}
 	}
@@ -99,8 +108,19 @@ func main() {
 // database that already carries analytics' later-numbered rows is refused
 // as out of order. See internal/testdb/testdb.go's applyMigrations, which
 // documents and uses the same option for the same reason.
-func applyDir(ctx context.Context, db *sql.DB, dir string) error {
+// Each directory opens its OWN *sql.DB. goose's Provider.Close() closes the
+// database handle it was given, so a single shared handle is closed by the
+// first directory and every later one fails with "sql: database is closed".
+// internal/testdb.applyMigrations opens one handle per directory for the same
+// reason; ProvisionDirs then loops over it. Follow that shape here.
+func applyDir(ctx context.Context, dsn, dir string) error {
 	log.Printf("migrate: applying %s", dir)
+
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer db.Close()
 
 	provider, err := goose.NewProvider(goose.DialectPostgres, db, os.DirFS(dir),
 		goose.WithAllowOutofOrder(true))
