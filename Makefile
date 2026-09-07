@@ -770,11 +770,12 @@ cmd-poller-once: ## Build cmd/poller into ./bin and run ONE collection cycle now
 #
 # COMPOSE is the ONE place the two required flags live. The compose file is not
 # at the repo root, so every command needs both:
-#   --project-directory .  makes ${VAR} interpolation resolve from the repo
-#                          root, so .env is found and BASE_DOMAIN etc. expand.
 #   -f deploy/docker/...   names the moved file.
-# env_file: inside compose.yaml is NOT fixed by these flags — it resolves from
-# the compose file's own folder, which is why it reads ../../.env there.
+#   --project-directory .  sets the base path Compose uses to resolve EVERY
+#                          relative path in that file — env_file, build.context
+#                          and bind mounts alike. Without it the base would be
+#                          deploy/docker/, and all three would resolve wrong.
+# So compose.yaml keeps the repo-root-relative paths it had before the move.
 # deploy/docker/backup-db.sh repeats these same two flags; change both together.
 COMPOSE = docker compose --project-directory . -f deploy/docker/compose.yaml
 

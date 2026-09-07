@@ -123,65 +123,79 @@ naming convention, not what its patterns mean. So every existing pattern (`.git`
 second, unused ignore file is exactly the kind of drift this project's docs rules
 warn about — a file nobody updates that quietly stops matching reality.
 
-#### Trap 3 — `.env` discovery (the trap most likely to bite the owner)
+#### Trap 3 — `.env` discovery (the trap that actually bit)
 
-**Resolved, verified against Docker Compose's current documentation — and the two
-mechanisms below DO need different handling. This is the trap most likely to bite
-the owner if skipped.**
+**CORRECTED after implementation. The first version of this section was wrong, and
+the error it caused is recorded below.** Keep the correction visible: the wrong rule
+is easy to re-derive from a partial reading of the Compose docs.
 
-Compose reads `.env` for **two separate purposes**, and each one resolves its path
-differently:
+**What this section first claimed (WRONG).** That Compose reads `.env` through two
+independent mechanisms with two different base paths: `${VAR}` interpolation from
+the *project directory*, and `env_file:` from the *compose file's own folder*,
+"regardless of `--project-directory`". On that reasoning the fix was
+`env_file: ../../.env` plus the `--project-directory .` flag.
 
-1. **`${VAR}` interpolation inside the compose file itself** (for example
-   `${POSTGRES_USER}` in `db`'s healthcheck). Compose looks for `.env` in the
-   **project directory**. Without any flag, the project directory defaults to the
-   compose file's own folder — `deploy/docker/`. That is the **wrong** folder; the
-   real `.env` lives at the repo root. Fix it with `--project-directory .`, run from
-   the repo root — this tells Compose "the project directory is the repo root,"
-   which is where `.env` actually is.
+**What actually happened.** With `env_file: ../../.env` and
+`--project-directory .`, run from the repo root:
 
-2. **`env_file: .env`, the line in each service that passes the whole `.env` file
-   into the container.** This path is **always** resolved relative to the compose
-   file's own location — `deploy/docker/` — **regardless of `--project-directory`**.
-   `--project-directory` does not change this. So `env_file: .env` in
-   `deploy/docker/compose.yaml` would look for `deploy/docker/.env`, which does not
-   exist — every container would start with none of its secrets. The fix is a
-   relative path from the compose file back to the repo root:
-   `env_file: ../../.env`.
+```
+$ docker compose --project-directory . -f deploy/docker/compose.yaml config
+env file /Users/cristianpena/cpena/sw/.env not found
+```
 
-**Both fixes are required together — one flag, one path change:**
+The repo root is `.../sw/github/magus-tesla-api`. Compose resolved `../../.env`
+from the **repo root**, giving `.../sw/.env` — two levels above the repo. If
+`env_file` had resolved from the compose file's folder, it would have found
+`.../magus-tesla-api/.env` and worked. It did not.
+
+**The real rule, from Docker's own documentation:**
+
+> "all paths in the files are relative to the first configuration file specified
+> with `-f`. You can use the `--project-directory` option to override this base
+> path."
+
+There is **one** base path, not two. It covers `env_file`, `build.context`, and
+bind-mount volumes together. It defaults to the compose file's own folder, and
+`--project-directory` overrides it. Because this project always passes
+`--project-directory .` from the repo root, **the base path is the repo root**, and
+every relative path in `compose.yaml` is written exactly as it was before the move:
 
 ```yaml
-# deploy/docker/compose.yaml — every service that has one:
-env_file: ../../.env    # relative to THIS file's folder, not the project directory
+# deploy/docker/compose.yaml — resolved from the repo root, not from this folder:
+env_file: .env
+build:
+  context: .
+  dockerfile: deploy/docker/Dockerfile   # relative to context, so it keeps the prefix
+volumes:
+  - ./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
 ```
 
 ```bash
-# Run from the repo root, always:
+# Run from the repo root, always. Both flags are required.
 docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build
 ```
 
-`--project-directory .` fixes interpolation (mechanism 1). `env_file: ../../.env`
-fixes the secrets passed into containers (mechanism 2). Passing only one of the two
-looks like it works — the stack starts — but leaves either the interpolated values
-or the container's own environment silently wrong. Verified directly against
-Docker's compose documentation on variable interpolation and the `env_file`
-attribute; not assumed from general Compose knowledge.
+`build.dockerfile` is the one exception: it resolves against `build.context`, not
+against the base path, so it carries the real `deploy/docker/` prefix.
 
-**A side effect worth stating, checked and harmless:** `--project-directory .` also
-sets Compose's default *project name* (used to prefix container and volume names)
-to the repo-root folder's name — the exact same value it already defaulted to
-before this move, since the compose file used to live at the repo root too. No
-container or volume gets renamed by this change.
+**Why the flag is not optional.** Drop `--project-directory .` and the base path
+falls back to `deploy/docker/`. Then `.env`, the build context, and the `Caddyfile`
+all resolve to the wrong place at once. The `Makefile`'s `COMPOSE` variable and
+`backup-db.sh` both carry the flags so no one has to remember them.
 
-**Rejected:** using only `--env-file ./.env` instead of `--project-directory .`.
-`--env-file` only overrides interpolation (mechanism 1); it does not change where
-Compose looks for its own project directory or affect `env_file:` resolution
-(mechanism 2) at all. Using it alone would still leave interpolation pointed at the
-right file by luck, while leaving mechanism 2 broken — worse, because it *looks*
-like the general-purpose fix, so a future reader would trust it. `--project-directory`
-is the correct, general fix for mechanism 1, and is required regardless of D1's
-mechanism-2 fix.
+**Side effect, checked and harmless:** `--project-directory .` also sets Compose's
+default *project name* (the prefix on container and volume names) to the repo-root
+folder's name — the same value it defaulted to before the move, when the compose
+file lived at the repo root. No container or volume is renamed by this change.
+
+**Rejected:** `--env-file ./.env` instead of `--project-directory .`. It overrides
+only the interpolation file. It does not move the base path, so the build context
+and the Caddyfile would still resolve against `deploy/docker/`.
+
+**Lesson for the reviewer.** This error survived design, implementation, and three
+doc rewrites, because every one of them trusted the design. It was caught by the
+first command that actually ran. A path rule that no command has executed is a
+hypothesis, not a decision.
 
 **One-time exception:** `docker build` (a plain image build, not via compose) takes
 no `.env` at all — it never did, and this change does not touch that.
@@ -487,7 +501,7 @@ because "it's just Docker."
 |---|---|
 | `deploy/docker/Dockerfile` | Moved from repo root. Gains `# syntax=docker/dockerfile:1` and the `--mount=type=cache` lines (D5). Stage names, binaries, and non-root users unchanged. |
 | `deploy/docker/Dockerfile.dockerignore` | Moved and renamed from the repo-root `.dockerignore` (D1, Trap 2). Same patterns, unchanged. |
-| `deploy/docker/compose.yaml` | Moved from repo root. `build.context`/`build.dockerfile` fixed (Trap 1), `env_file` path fixed (Trap 3), Caddy volume path fixed (Trap 4), `x-logging` anchor added (D2), `deploy.resources.limits` added per service (D3), `security_opt`/`cap_drop`/`cap_add`/`read_only`/`tmpfs` added per service (D4). Service list, `depends_on`, and healthchecks unchanged. |
+| `deploy/docker/compose.yaml` | Moved from repo root. Because `--project-directory .` sets the base path to the repo root, every relative path stays as it was before the move — `env_file: .env`, `context: .`, `./deploy/docker/Caddyfile` (Trap 3, corrected). Only `build.dockerfile` gains the `deploy/docker/` prefix (Trap 1). `x-logging` anchor added (D2), `deploy.resources.limits` added per service (D3), `security_opt`/`cap_drop`/`cap_add`/`read_only`/`tmpfs` added per service (D4). Service list, `depends_on`, and healthchecks unchanged. |
 | `deploy/docker/Caddyfile` | Moved from `deploy/Caddyfile`, unchanged content. |
 | `deploy/docker/backup-db.sh` | Moved from `deploy/backup-db.sh`. `BACKUP_DIR` path fixed (Trap 4); `docker compose` call gains the `--project-directory . -f deploy/docker/compose.yaml` flags. |
 | `Makefile` | New `COMPOSE` variable (D1, Trap 4). `docker-up`/`docker-down`/`docker-logs`/`docker-migrate`/`backup-db` targets updated to use it or the new script path. `## ...` help text updated. |

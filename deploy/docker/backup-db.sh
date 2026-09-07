@@ -26,7 +26,8 @@ OUT_FILE="$BACKUP_DIR/magus-$STAMP.sql.gz"
 
 echo "Backing up database '$POSTGRES_DB' to $OUT_FILE ..."
 # These two flags must stay in step with the Makefile's COMPOSE variable.
-# --project-directory . fixes ${VAR} interpolation; -f names the moved file.
+# --project-directory . sets the base path for every relative path in the
+# compose file; -f names the moved file. Both are required.
 docker compose --project-directory . -f deploy/docker/compose.yaml \
 	exec -T db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "$OUT_FILE"
 echo "Backup written: $OUT_FILE"

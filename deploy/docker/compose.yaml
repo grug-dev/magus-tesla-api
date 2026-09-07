@@ -12,16 +12,21 @@
 #
 # All secrets and config come from .env via env_file: — none are hardcoded here.
 #
-# HOW TO RUN IT. This file lives in deploy/docker/, not the repo root, so every
-# command needs two flags and must run FROM the repo root:
+# HOW TO RUN IT — both flags are REQUIRED, and you must run from the repo root:
 #
 #   docker compose --project-directory . -f deploy/docker/compose.yaml <cmd>
 #
-# --project-directory . fixes ${VAR} interpolation, which resolves against the
-# project directory. It does NOT fix env_file:, which resolves against this
-# file's own folder — that is why every env_file: below reads ../../.env. Both
-# fixes are needed; either one alone leaves the stack half-configured.
-# The Makefile's COMPOSE variable wraps these flags for you.
+# Compose resolves EVERY relative path in this file — env_file, build.context
+# and bind-mount volumes — against ONE base path. That base defaults to this
+# file's own folder, and --project-directory . overrides it to the repo root.
+# So every path below is written as if this file still sat at the repo root.
+#
+# Leaving the flag out silently changes the base to deploy/docker/, and then
+# .env, the build context and the Caddyfile all resolve to the wrong place.
+# The Makefile's COMPOSE variable wraps both flags — prefer `make docker-up`.
+#
+# Only build.dockerfile is different: it resolves against build.context, not
+# the base path, so it carries the real deploy/docker/ prefix.
 
 # Shared log settings. Docker's default json-file driver has NO size cap, so a
 # crash loop can fill a small VPS disk. Every service points at this anchor:
@@ -47,7 +52,7 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
-    env_file: ../../.env
+    env_file: .env
     logging: *default-logging
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -78,10 +83,10 @@ services:
 
   migrate:
     build:
-      context: ../..
+      context: .
       dockerfile: deploy/docker/Dockerfile
       target: migrate
-    env_file: ../../.env
+    env_file: .env
     logging: *default-logging
     depends_on:
       db:
@@ -105,10 +110,10 @@ services:
 
   web:
     build:
-      context: ../..
+      context: .
       dockerfile: deploy/docker/Dockerfile
       target: web
-    env_file: ../../.env
+    env_file: .env
     logging: *default-logging
     environment:
       # Pin the container's listen port to 8080, overriding any PORT value
@@ -144,10 +149,10 @@ services:
 
   poller:
     build:
-      context: ../..
+      context: .
       dockerfile: deploy/docker/Dockerfile
       target: poller
-    env_file: ../../.env
+    env_file: .env
     logging: *default-logging
     depends_on:
       migrate:
@@ -168,13 +173,13 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    env_file: ../../.env
+    env_file: .env
     logging: *default-logging
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

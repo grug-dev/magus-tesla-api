@@ -5,7 +5,7 @@
   "module": "platform",
   "roadmap": null,
   "request": "resume platform-harden-docker-deploy start implementing",
-  "status": "applied",
+  "status": "in-progress",
   "rollup": {
     "current": [
       "T1",
@@ -25,7 +25,7 @@
     "done": []
   },
   "created_at": "2026-09-07T15:16:16Z",
-  "updated_at": "2026-09-07T15:25:30Z",
+  "updated_at": "2026-09-07T15:40:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -368,6 +368,15 @@
       "decision": "hybrid execution \u2014 leader implements T1-T6 and T8, three parallel workers do the doc rewrites T7a/T7b/T7c",
       "why": "change touches no internal/ module, so the worker sandbox rule does not apply; doc rewrites are large and disjoint",
       "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-07T15:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "rewrote compose.yaml relative paths to repo-root base: env_file .env, context ., volume ./deploy/docker/Caddyfile",
+      "why": "owner's docker compose config disproved design Trap 3. Docker docs: --project-directory overrides the ONE base path for all relative paths.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -430,6 +439,16 @@
       "at": "2026-09-07T15:25:30Z",
       "agent": "leader",
       "event": "wave 4 done (T8). openspec validate --strict passes; every tasks.md checkbox ticked. T8.1 acceptance says 'all three clean' \u2014 build and vet are; gofmt flags 3 test files that are pre-existing on main and that CH46 does not touch. Recorded, not waived."
+    },
+    {
+      "at": "2026-09-07T15:40:00Z",
+      "agent": "leader",
+      "event": "BUG found by the owner's first real run. 'docker compose config' failed: env file /Users/.../sw/.env not found. env_file: ../../.env resolved from the repo root, not from deploy/docker/ \u2014 design.md Trap 3 was wrong."
+    },
+    {
+      "at": "2026-09-07T15:40:00Z",
+      "agent": "leader",
+      "event": "Fixed compose.yaml (5 env_file, 3 context, 1 volume), corrected design.md Trap 3 with the failing command and Docker's real rule, and fixed the wrong explanation in the Makefile and backup-db.sh comments. Docs needed no change: they carry commands only, and the commands did not change. Awaiting the owner's re-run."
     }
   ]
 }
