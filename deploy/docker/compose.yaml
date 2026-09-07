@@ -1,0 +1,204 @@
+# Orchestrates the whole magus-tesla-api stack for a Docker/VPS deploy.
+#
+# Five services, in dependency order:
+#   db      → migrate → web
+#                     → poller
+#   web     ← caddy (reverse proxy, the only service reachable from outside)
+#
+# DATABASE_URL is the one switch between this bundled db and a future managed
+# database — see openspec/changes/archive/platform/
+# 2026-09-07-platform-add-docker-compose-deploy/design.md decision D1 for the
+# exact steps to switch. Only `caddy` publishes ports.
+#
+# All secrets and config come from .env via env_file: — none are hardcoded here.
+#
+# HOW TO RUN IT. This file lives in deploy/docker/, not the repo root, so every
+# command needs two flags and must run FROM the repo root:
+#
+#   docker compose --project-directory . -f deploy/docker/compose.yaml <cmd>
+#
+# --project-directory . fixes ${VAR} interpolation, which resolves against the
+# project directory. It does NOT fix env_file:, which resolves against this
+# file's own folder — that is why every env_file: below reads ../../.env. Both
+# fixes are needed; either one alone leaves the stack half-configured.
+# The Makefile's COMPOSE variable wraps these flags for you.
+
+# Shared log settings. Docker's default json-file driver has NO size cap, so a
+# crash loop can fill a small VPS disk. Every service points at this anchor:
+# at most three files of 10 MB each, so one service can never pass 30 MB.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Every service below also carries three hardening blocks:
+#   security_opt: no-new-privileges  — a process inside can never gain more
+#     rights than it started with (blocks setuid escalation).
+#   cap_drop: ALL                    — drop every Linux capability, then add
+#     back only the few a service truly needs (cap_add).
+#   read_only: true                  — the container's root filesystem is not
+#     writable. Anything that must write gets an explicit tmpfs (RAM-backed,
+#     wiped on restart) or a named volume, which read_only does not affect.
+# The CPU and memory limits come from .env; the defaults assume a 4 GB / 2 vCPU
+# VPS. See .env.example for what each variable controls.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: ../../.env
+    logging: *default-logging
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: "${DB_CPU_LIMIT:-1.0}"
+          memory: ${DB_MEM_LIMIT:-1536M}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # The postgres image's entrypoint starts as root to chown the data
+    # directory, then steps down to the postgres user. These five capabilities
+    # are exactly what that needs — dropping them breaks the first boot.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    read_only: true
+    # pgdata is a named volume, so it stays writable under read_only. These two
+    # paths are not: postgres needs its unix socket dir and a scratch dir.
+    tmpfs:
+      - /var/run/postgresql
+      - /tmp
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: migrate
+    env_file: ../../.env
+    logging: *default-logging
+    depends_on:
+      db:
+        condition: service_healthy
+    # Deliberate exception: migrate runs once and exits 0. It must NOT restart
+    # after a clean exit — see the archived platform-add-docker-compose-deploy
+    # design.md D2.
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          cpus: "${MIGRATE_CPU_LIMIT:-0.5}"
+          memory: ${MIGRATE_MEM_LIMIT:-256M}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # A static Go binary that only talks to the database. It writes nothing to
+    # disk, so it needs no cap_add and no tmpfs.
+    read_only: true
+
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: web
+    env_file: ../../.env
+    logging: *default-logging
+    environment:
+      # Pin the container's listen port to 8080, overriding any PORT value
+      # in .env. The healthcheck below and deploy/docker/Caddyfile both hardcode
+      # web:8080 — if the owner sets PORT for local host development, both
+      # would silently break without this override winning inside the
+      # container.
+      - PORT=8080
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "${WEB_CPU_LIMIT:-0.5}"
+          memory: ${WEB_MEM_LIMIT:-256M}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Static assets are embedded in the binary, so there is no known write
+    # path. /tmp is defensive headroom for the Go runtime.
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  poller:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: poller
+    env_file: ../../.env
+    logging: *default-logging
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "${POLLER_CPU_LIMIT:-0.25}"
+          memory: ${POLLER_MEM_LIMIT:-128M}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  caddy:
+    image: caddy:2-alpine
+    env_file: ../../.env
+    logging: *default-logging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "${CADDY_CPU_LIMIT:-0.25}"
+          memory: ${CADDY_MEM_LIMIT:-128M}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Caddy binds ports 80 and 443, both below 1024, so it needs this one
+    # capability. Everything else stays dropped.
+    cap_add:
+      - NET_BIND_SERVICE
+    # /data and /config are named volumes and stay writable under read_only.
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

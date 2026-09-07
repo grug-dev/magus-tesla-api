@@ -42,7 +42,7 @@ cmd/
 | `cmd/explore-tesla-api` | `go run ./cmd/explore-tesla-api` | On-demand inspector for raw Tesla Fleet API JSON payloads | Run on-demand, exits |
 
 **`cmd/web` and `cmd/poller` are the two long-running binaries built into containers** by
-the repo-root `Dockerfile`, for production. `cmd/migrate` is also built into a container
+`deploy/docker/Dockerfile`, for production. `cmd/migrate` is also built into a container
 (the one-shot `migrate` service). See
 [`docs/1-deploy/docker.md`](../docs/1-deploy/docker.md) for the full Docker deploy
 reference.

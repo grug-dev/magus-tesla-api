@@ -766,19 +766,29 @@ cmd-poller-once: ## Build cmd/poller into ./bin and run ONE collection cycle now
 # See docs/0-set-up/deployment.md §8 (first deploy) and docs/1-deploy/docker.md
 # (day-to-day commands) for the full runbook. These targets are thin wrappers
 # around `docker compose` — they build/start/stop the whole stack (db, migrate,
-# web, poller, caddy) defined in compose.yaml.
+# web, poller, caddy) defined in deploy/docker/compose.yaml.
+#
+# COMPOSE is the ONE place the two required flags live. The compose file is not
+# at the repo root, so every command needs both:
+#   --project-directory .  makes ${VAR} interpolation resolve from the repo
+#                          root, so .env is found and BASE_DOMAIN etc. expand.
+#   -f deploy/docker/...   names the moved file.
+# env_file: inside compose.yaml is NOT fixed by these flags — it resolves from
+# the compose file's own folder, which is why it reads ../../.env there.
+# deploy/docker/backup-db.sh repeats these same two flags; change both together.
+COMPOSE = docker compose --project-directory . -f deploy/docker/compose.yaml
 
-docker-up: ## Build (if needed) and start the whole Docker Compose stack in the background
-	docker compose up -d --build
+docker-up: ## Build (if needed) and start the whole Docker Compose stack (deploy/docker/compose.yaml) in the background
+	$(COMPOSE) up -d --build
 
-docker-down: ## Stop and remove the whole Docker Compose stack (keeps named volumes — data survives)
-	docker compose down
+docker-down: ## Stop and remove the whole Docker Compose stack (deploy/docker/compose.yaml; keeps named volumes — data survives)
+	$(COMPOSE) down
 
-docker-logs: ## Follow logs from every running Docker Compose service
-	docker compose logs -f
+docker-logs: ## Follow logs from every running service in deploy/docker/compose.yaml
+	$(COMPOSE) logs -f
 
-docker-migrate: ## Run the one-shot "migrate" service in Docker Compose by hand (same program docker-up already runs automatically)
-	docker compose run --rm migrate
+docker-migrate: ## Run the one-shot "migrate" service from deploy/docker/compose.yaml by hand (same program docker-up already runs automatically)
+	$(COMPOSE) run --rm migrate
 
 backup-db: ## Dump the compose-local Postgres database, gzip it, and prune backups older than 7 days
-	./deploy/backup-db.sh
+	./deploy/docker/backup-db.sh
