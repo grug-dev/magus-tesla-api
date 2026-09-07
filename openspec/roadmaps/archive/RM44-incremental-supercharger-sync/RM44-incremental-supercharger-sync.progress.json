@@ -1,0 +1,440 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM44-incremental-supercharger-sync",
+  "intention": "Make the nightly Supercharger path incremental: updated_at must mean 'this row's data changed' at the telemetry and charging layers, the telemetry->charging mirror read must be watermark-bounded, and every telemetry query and Fleet API call must log its arguments.",
+  "request": "Source ticket: MAG-48 - Nightly Reconcile recalculates the whole vehicle_metrics history on every poller run. Measured 2026-09-05: 70-day window and 51/51 metric rows rewritten where the snapshot source alone needed 4 days. Owner added two scope items beyond the original bug: bound the O(all-history) mirror read, and log every telemetry query + Fleet API call with its input arguments.",
+  "status": "complete",
+  "autopilot": true,
+  "updated_at": "2026-09-06T14:41:16Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
+    "base": "6233334",
+    "ticket": "MAG-48",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-48/nightly-reconcile-recalculates-the-whole-vehicle-metrics-history-on",
+    "created_at": "2026-09-05T21:43:25Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "RM44-telemetry-add-query-logging",
+      "RM44-telemetry-add-change-detecting-upsert",
+      "RM44-charging-add-change-detecting-mirror",
+      "RM44-platform-add-mirror-watermark"
+    ],
+    "awaiting_user_verification": []
+  },
+  "decisions": [
+    {
+      "id": "D-RM44-1",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Three-layer cascade; internal/analytics is NOT changed",
+      "why": "Layer 3's filter shape is already correct - it is only ever fed lies by layers 1 and 2"
+    },
+    {
+      "id": "D-RM44-2",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "updated_at must mean 'this row's data changed' on both supercharger tables",
+      "why": "An unchanged mirror pass must stop widening the window, while a real human battery-% edit must still trigger it"
+    },
+    {
+      "id": "D-RM44-3",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The change comparison is structural, never a hand-listed WHERE predicate; includes tesla_id, excludes the human-owned columns",
+      "why": "A future column added to the SET but forgotten in a hand-listed WHERE would silently stop advancing updated_at - the original objection"
+    },
+    {
+      "id": "D-RM44-4",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The mirror's cursor is a charging-owned watermark table holding telemetry's updated_at",
+      "why": "A cursor belongs to the module that reads, never the one that is read; sharing analytics' cursor loses data because the two track different tables"
+    },
+    {
+      "id": "D-RM44-5",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "CRITICAL: the watermark never advances to now() on an empty read - only to the max updated_at observed, untouched when zero rows return",
+      "why": "A row committed one second late would sit permanently behind the cursor and never be mirrored - silent, undetectable data loss"
+    },
+    {
+      "id": "D-RM44-6",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The bounded read reuses the 24h overlap guard (updated_at >= cursor - 24h)",
+      "why": "Same commit-skew reason recalcOverlap exists in analytics; the idempotent upsert makes the re-read a no-op"
+    },
+    {
+      "id": "D-RM44-7",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Logging is an explicit, non-embedding decorator mirroring internal/telemetry/call_counter.go",
+      "why": "Embedding would let a method added later satisfy the type by promotion and go silently unlogged"
+    },
+    {
+      "id": "D-RM44-8",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Keep stdlib log.Printf with new 'telemetry query:' / 'fleet api:' prefixes; do NOT introduce slog",
+      "why": "The repo has zero slog and 40+ log.Printf lines; a second logging library inside a bug fix is out of scope"
+    },
+    {
+      "id": "D-RM44-9",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Never log a credential or a raw_data blob; enforced structurally and asserted by a test",
+      "why": "Every Fleet API method takes tesla.Credentials, so a naive 'log the arguments' leaks a live bearer token"
+    },
+    {
+      "id": "D-RM44-10",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Unit tests ARE included in every tier",
+      "why": "User was asked and changed the standing 'no unit tests' default; D3's comparison and D5's empty-read rule are exactly what a test must pin"
+    },
+    {
+      "id": "D-RM44-11",
+      "at": "2026-09-05T21:43:25Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tier order: logging first; the updated_at work splits across tiers 2 and 3",
+      "why": "The tier-1 instrument is what makes tiers 2-4 provable rather than theoretical; the split is forced by the one-module-per-worker sandbox"
+    },
+    {
+      "id": "D-RM44-12",
+      "at": "2026-09-05T21:55:40Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "Every LIVE telemetry query is already behind an interface (store x3, Reader x5, SuperchargerHistoryReader x4, RunWriter x1) - decorate those four, no call-site logging needed",
+      "why": "service.go:42's store seam already covers the three 'internal' writes; the ticket's premise that 5 queries sit behind no interface was wrong"
+    },
+    {
+      "id": "D-RM44-13",
+      "at": "2026-09-05T21:55:40Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "DELETE ListSnapshotsByVehicle and ListPollAttemptsByVehicle; rewrite the 10 integration-test call sites on raw SQL, never on another sqlc reader query",
+      "why": "They have no production caller. Reusing a live reader would make a test verify through the path it tests; raw SQL keeps the assertion independent"
+    },
+    {
+      "id": "D-RM44-14",
+      "at": "2026-09-05T21:55:40Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "Fleet API logging EXTENDS the existing callCounter rather than adding a sibling decorator",
+      "why": "One type, one compile-time assertion, one place a new Fleet API method must be added - no chaining order to get wrong"
+    },
+    {
+      "id": "D-RM44-15",
+      "at": "2026-09-06T02:45:00Z",
+      "scope": "tier:2+3",
+      "made_by": "user",
+      "decision": "The structural comparison is a to_jsonb DENY-LIST inside the ON CONFLICT DO UPDATE: to_jsonb(tbl.*) - deny IS DISTINCT FROM to_jsonb(EXCLUDED.*) - deny. Trigger and ROW() allow-list both rejected.",
+      "why": "Deny-list fails LOUD (a forgotten column over-updates, the known symptom); an allow-list fails SILENT, which is what D3 forbids. Verified on PG16; sqlc parses it with no Go signature change."
+    },
+    {
+      "id": "D-RM44-16",
+      "at": "2026-09-06T02:45:00Z",
+      "scope": "tier:2+3",
+      "made_by": "user",
+      "decision": "Each tier ships a self-checking DB test that reads the table's real columns from information_schema, writes a non-default sentinel into every column the upsert does not write, re-runs the identical upsert, and asserts updated_at did not move.",
+      "why": "Turns the deny-list's runtime-only failure into a deterministic test signal: adding a table column fails the test until the deny-list is updated. Zero maintenance after."
+    },
+    {
+      "id": "D-RM44-17",
+      "at": "2026-09-06T02:45:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tiers 2 and 3 run IN PARALLEL - one worker per module, both design gates presented together, one suite run, two reviewers.",
+      "why": "internal/telemetry and internal/charging are disjoint in files and both depend only on tier 1. Halves wall-clock and shares the test round-trips."
+    },
+    {
+      "id": "D-RM44-18",
+      "at": "2026-09-06T03:05:00Z",
+      "scope": "tier:2+3",
+      "made_by": "user",
+      "decision": "The comparison covers EXACTLY the columns the ON CONFLICT DO UPDATE SET writes. The deny-list is the complement of the SET clause: telemetry 16 names (6 compared), charging 14 names (5 compared). The SET clause itself is NOT widened - write-once columns keep today's behaviour.",
+      "why": "Leader proved on live PG16 that a write-once column drifting at the source advances updated_at while the stored value stays old, so the difference never resolves and that row churns every night forever. Live risk: unlatch_date_time NULL in 2 of 8 rows."
+    },
+    {
+      "id": "D-RM44-19",
+      "at": "2026-09-06T03:20:00Z",
+      "scope": "tier:2+3",
+      "made_by": "user",
+      "decision": "DATABASE DESIGN GATE CONFIRMED for both tiers. Implementation may start.",
+      "why": "Owner reviewed the design, rationale, rejected alternatives and index plan (no new index in either tier) and confirmed both."
+    },
+    {
+      "id": "D-RM44-20",
+      "at": "2026-09-06T10:05:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Add SuperchargerHistoryByAccountUpdatedSince(accountID, since) to telemetry's SuperchargerHistoryReader. Tier 4 therefore touches internal/telemetry as well as internal/charging.",
+      "why": "The mirror reads per account; the only updated-since query is per vehicle and filters tesla_id = X, so it can never return a tesla_id NULL row - exactly the orphan-recovery path D3 protects."
+    },
+    {
+      "id": "D-RM44-21",
+      "at": "2026-09-06T10:05:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "The table is charging.mirror_watermarks(id, account_id UNIQUE, source_updated_at, created_at, updated_at). No tesla_id, no source column. UNIQUE(account_id) serves the only read; no separate index.",
+      "why": "The mirror read is account-wide, not per vehicle, and charging mirrors exactly one upstream table. A second source later is an additive migration."
+    },
+    {
+      "id": "D-RM44-22",
+      "at": "2026-09-06T10:05:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "internal/app orchestrates: read cursor, read telemetry since cursor-24h, MirrorSessions, advance to max observed updated_at. charging gains MirrorWatermark + AdvanceMirrorWatermark. MirrorSessions' signature is UNCHANGED.",
+      "why": "Keeping the signature saves ~19 test call sites plus the fake. A crash between mirror and advance leaves the cursor behind - repeated work, never lost rows."
+    },
+    {
+      "id": "D-RM44-23",
+      "at": "2026-09-06T10:05:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Tier 4 stays ONE change, RM44-charging-add-mirror-watermark, implemented by two module workers (telemetry, then charging) and reviewed by one reviewer per module. No tier 5 is added.",
+      "why": "The telemetry part is one query, one reader method and one decorator line. A second full cycle - gate, reviewer, archive, spec sync - is not proportionate to ~60 lines."
+    },
+    {
+      "id": "D-RM44-24",
+      "at": "2026-09-06T10:12:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "REVISES D23. Tier 4's change is renamed RM44-platform-add-mirror-watermark and archives under archive/platform/. Still ONE change, two module workers, two reviewers.",
+      "why": "openspec/config.yaml forbids a change spanning two modules but offers the platform- prefix for cross-cutting work. The rename uses that escape instead of bending the rule."
+    },
+    {
+      "id": "D-RM44-25",
+      "at": "2026-09-06T10:35:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "DATABASE DESIGN GATE CONFIRMED for tier 4, with one change: ship idx_supercharger_history_account_updated (account_id, updated_at) now, in a telemetry migration.",
+      "why": "Owner chose certainty over a possible slow-query investigation later. The design had recommended documenting it as a revisit trigger instead; both positions are recorded."
+    },
+    {
+      "id": "D-RM44-26",
+      "at": "2026-09-06T14:41:16Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Suite verified by the OWNER for tier 4: go test over telemetry, charging and app passed.",
+      "why": "Test-Execution-Policy: the assistant never runs the suite. The pass is the owner's report."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM44-telemetry-add-query-logging",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (worker) / claude-opus-5 (leader)",
+      "started_at": "2026-09-05T22:09:30Z",
+      "completed_at": "2026-09-06T00:23:45Z",
+      "duration_seconds": 8055,
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 71,
+        "cost_usd_delta": 13.5,
+        "approx": true,
+        "note": "3 worker waves + 1 reviewer round, one serial worker per wave"
+      },
+      "notes": "Archived 2026-09-06. 18 tasks, 3 waves, reviewer round 1 approved with zero findings. Suite verified by the owner (make test + make test-with-db)."
+    },
+    {
+      "id": 2,
+      "change": "RM44-telemetry-add-change-detecting-upsert",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers+reviewers) / claude-opus-5 (leader)",
+      "started_at": "2026-09-06T02:45:00Z",
+      "completed_at": "2026-09-06T09:55:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 7,
+        "five_hour_pct_end": 41,
+        "cost_usd_delta": 27.6,
+        "approx": true,
+        "note": "tiers 2 and 3 ran in parallel; this delta is the SHARED total for both, not per tier"
+      },
+      "notes": "Archived 2026-09-06. 5 tasks. Reviewer round 1 approved, 1 minor finding (unticked checkbox) fixed. Suite verified by the owner."
+    },
+    {
+      "id": 3,
+      "change": "RM44-charging-add-change-detecting-mirror",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers+reviewers) / claude-opus-5 (leader)",
+      "started_at": "2026-09-06T02:45:00Z",
+      "completed_at": "2026-09-06T09:55:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 7,
+        "five_hour_pct_end": 41,
+        "cost_usd_delta": 27.6,
+        "approx": true,
+        "note": "tiers 2 and 3 ran in parallel; this delta is the SHARED total for both, not per tier"
+      },
+      "notes": "Archived 2026-09-06. 10 tasks. Reviewer round 1 approved, ZERO findings. Suite verified by the owner after one stale pre-existing test (B2) was inverted."
+    },
+    {
+      "id": 4,
+      "change": "RM44-platform-add-mirror-watermark",
+      "module": "platform (telemetry + charging)",
+      "optional": false,
+      "depends_on": [
+        2,
+        3
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers+reviewers) / claude-opus-5 (leader)",
+      "started_at": "2026-09-06T10:05:00Z",
+      "completed_at": "2026-09-06T14:41:16Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 82.0,
+        "five_hour_pct_end": 46.0,
+        "cost_usd_delta": 18.6,
+        "approx": true,
+        "note": "spans three sessions and one 5-hour reset, so the pct pair is not a single-bucket delta; cost is the sum of this tier's task and review budgets"
+      },
+      "notes": "Archived 2026-09-06 to openspec/changes/archive/platform/. 24 tasks, 3 implementation waves plus leader-owned cross-module wiring. TWO reviewers, one per module, both approved in round 1: telemetry zero findings, charging one minor finding (stale AGENTS.md import lists) fixed. Suite verified by the owner. Three off-plan defects found and fixed during the tier: a doc comment claiming 'No new index' against its own change, a migration version collision between two modules sharing one goose_db_version table, and a missing sqlc rename entry."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-05T21:43:25Z",
+      "agent": "leader",
+      "event": "roadmap RM44 created from MAG-48; branch ft/RM44-MAG-48-incremental-supercharger-sync off 6233334; work-counter 44 -> 45"
+    },
+    {
+      "at": "2026-09-05T21:43:25Z",
+      "agent": "leader",
+      "event": "run scope: HALT AFTER STEP 4 (kkpa-pickup-linear-ticket path) - artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-05T21:55:40Z",
+      "agent": "leader",
+      "event": "tier 1 Step 2 interview complete; D12-D14 recorded; open question from MAG-48 dissolved - the store seam already exists"
+    },
+    {
+      "at": "2026-09-05T22:09:30Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created by worker 'telemetry' (sonnet); openspec validate --strict passed; database gate does NOT apply (no schema object, verified by leader); D13 count corrected 8 -> 10"
+    },
+    {
+      "at": "2026-09-06T00:23:45Z",
+      "agent": "leader",
+      "event": "tier 1 archived to openspec/changes/archive/telemetry/2026-09-06-RM44-telemetry-add-query-logging (CLI dropped it at the archive root; moved under archive/<module>/ per this repo's grouping). openspec/specs/telemetry/spec.md +2 requirements. Reviewer approved, 0 findings."
+    },
+    {
+      "at": "2026-09-06T01:42:15Z",
+      "agent": "leader",
+      "event": "KB spec-sync STAGED (not applied) at kkpa/context/pending-spec-to-sync/telemetry.md, target architecture/telemetry-ingest-only.md. Applying is the user's step: /kkpa-context-curate apply-sync."
+    },
+    {
+      "at": "2026-09-06T01:42:15Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at tier boundary: five_hour_pct=86 (threshold 90), context_pct=23 (threshold 40); a fresh tier would cross 90 mid-work. five_hour_resets_at=1788661800 (21:30 local). Tier 1 archived and complete. Next: tier 2 RM44-telemetry-add-change-detecting-upsert or tier 3 RM44-charging-add-change-detecting-mirror, both unblocked, both carry the database design gate. Resume with: /kkpa-dev-harness-pipeline resume RM44-incremental-supercharger-sync"
+    },
+    {
+      "at": "2026-09-06T02:45:00Z",
+      "agent": "leader",
+      "event": "RESUMED. Budget reset confirmed (5h 2%, ctx 10%). Owner's applied KB sync committed 6cb3ce4. Step 2 interview done for tiers 2+3 together: D15-D17."
+    },
+    {
+      "at": "2026-09-06T02:45:00Z",
+      "agent": "leader",
+      "event": "Leader de-risk probe (reverted, tree clean): (1) deny-list CASE verified on live PG16 - unchanged re-sync left updated_at untouched with human cols set, real change advanced it; (2) sqlc v1.31.1 parses to_jsonb(EXCLUDED.*), MirrorSuperchargerSessionParams UNCHANGED so zero Go call-site/test-fake churn; go build + go vet clean."
+    },
+    {
+      "at": "2026-09-06T02:45:00Z",
+      "agent": "leader",
+      "event": "Evidence corrections to the roadmap's tier text, binding on the workers: charging.supercharger_sessions carries TWO extra non-mirrored columns the roadmap never listed (inferred_capacity_kwh_calc, status) - both MUST be in the deny-list. telemetry.supercharger_history ALSO carries start/end_battery_pct + battery_pct_source, populated in 3 of 8 live rows, so its deny-list entry is load-bearing, not defensive. raw_data has no request-volatile keys (checked all top-level + fees/invoices element keys), so keeping it IN the comparison is safe."
+    },
+    {
+      "at": "2026-09-06T03:05:00Z",
+      "agent": "leader",
+      "event": "Both tier-2 and tier-3 artifact workers returned; openspec validate --strict passed on both. Leader review of tier-2 design.md found a hole neither the roadmap nor either worker caught: the deny-list as written left the write-once columns (in INSERT, absent from SET) inside the comparison. Verified the churn on live PG16, and separately confirmed the worker's created_at claim is load-bearing (omit it and EVERY re-sync advances updated_at). Also confirmed charging.inferred_capacity_kwh_calc is GENERATED ALWAYS from energy_kwh + the two human battery columns. Owner chose the complement rule (D18) and chose NOT to widen the SET. Both workers re-dispatched via SendMessage to revise. Design gate NOT yet presented."
+    },
+    {
+      "at": "2026-09-06T03:20:00Z",
+      "agent": "leader",
+      "event": "Design gate confirmed by the owner for tiers 2 and 3. Deny-lists verified against the LIVE schema as exact complements of the SET clause: telemetry 16 deny + 6 set = 22 live; charging 14 deny + 5 set = 19 live; no missing, no phantom, no overlap in either. Leader fixed a stale '8 columns' line the charging worker flagged in proposal.md. progress.json created for both changes. Roadmap Status flipped to [~] for both tiers. Deferred work recorded as backlog entry 26."
+    },
+    {
+      "at": "2026-09-06T09:55:00Z",
+      "agent": "leader",
+      "event": "Tiers 2 and 3 ARCHIVED to openspec/changes/archive/{telemetry,charging}/2026-09-06-* (CLI dropped both at the archive root; moved under archive/<module>/ per this repo's grouping rule). Spec sync verified clean: telemetry +1 requirement, charge-session-log ~3 modified with scenarios inserted IN PLACE, nothing appended at EOF. Both reviewers independently rebuilt the live column lists from the migrations rather than trusting the leader's numbers. Tier 4 (RM44-charging-add-mirror-watermark) is now unblocked - it was the only tier depending on both."
+    },
+    {
+      "at": "2026-09-06T09:55:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at tier boundary. five_hour=54% (threshold 90), context=32% (threshold 40). Not past either, but tier 4 is the heaviest tier left - new watermark table, migration, its own database design gate, and cross-module wiring in internal/app - so context would very likely cross 40 mid-work. Tiers 1-3 are archived and complete. Nothing is awaiting the owner. KB proposals for tiers 2+3 are STAGED, not applied. Resume with: /kkpa-dev-harness-pipeline resume RM44-incremental-supercharger-sync"
+    },
+    {
+      "at": "2026-09-06T10:05:00Z",
+      "agent": "leader",
+      "event": "RESUMED for tier 4. Budget clear (5h 57%, ctx 10%). Step 2 interview done: D20-D23. Leader probe found the roadmap's tier-4 premise incomplete - processChargingData reads per ACCOUNT but telemetry's only updated-since query is per VEHICLE and filters tesla_id, so no account-wide bounded read exists. MirrorSessions already runs its upserts in one transaction; 1 production caller, 1 fake, ~19 test call sites."
+    },
+    {
+      "at": "2026-09-06T10:12:00Z",
+      "agent": "leader",
+      "event": "Leader surfaced a config conflict the interview had missed: openspec/config.yaml's proposal rule forbids a multi-module change. Owner chose the config's own platform- escape. Tier 4 renamed to RM44-platform-add-mirror-watermark; archive domain platform. D24 recorded (D23 left intact, decisions are append-only)."
+    },
+    {
+      "at": "2026-09-06T10:35:00Z",
+      "agent": "leader",
+      "event": "Tier 4 artifacts created and validated. Leader fixed two errors pre-gate: a wrong index name cited for the account-wide query, and a wrong count of the internal/app fake's methods (4, not 2, plus a compile-time assertion). Gate CONFIRMED with the index change (D25). progress.json created for the change; 24 tasks."
+    },
+    {
+      "at": "2026-09-06T10:36:30Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT before tier 4's first implementation wave. five_hour=82%, context=20%. Artifacts committed, design gate confirmed (D25). Tier 4 is in-progress with 23 of 24 tasks pending. Waves 1a and 1b will run SERIALLY because sqlc generate rewrites every module's generated code (change D3). Resume with: /kkpa-dev-harness-pipeline resume RM44-incremental-supercharger-sync"
+    },
+    {
+      "at": "2026-09-06T11:08:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT after the wave 1a slice. five_hour=90% (threshold 90, reached), context=13%. five_hour_resets_at=2026-09-06T13:30:00Z (08:30 local). Tasks 1a.0-1a.2 done and committed (d257663). Tasks 1a.3-1a.7 and all of wave 1b are pending. Nothing is blocked. Resume after the reset with: /kkpa-dev-harness-pipeline resume RM44-incremental-supercharger-sync"
+    },
+    {
+      "at": "2026-09-06T14:41:16Z",
+      "agent": "leader",
+      "event": "Tier 4 ARCHIVED to openspec/changes/archive/platform/2026-09-06-RM44-platform-add-mirror-watermark (CLI dropped it at the archive root; moved under archive/<module>/ per this repo's grouping rule). Spec sync clean: +1 requirement each to telemetry, charging and charge-session-log, nothing modified or renamed, so nothing was appended at EOF."
+    },
+    {
+      "at": "2026-09-06T14:41:16Z",
+      "agent": "leader",
+      "event": "ROADMAP RM44 COMPLETE. All four tiers archived. The MAG-48 bug is fixed end to end: updated_at now means 'this row's data changed' at both the telemetry and charging layers, the mirror read is watermark-bounded instead of O(all-history), and every telemetry query and Fleet API call logs its arguments."
+    }
+  ]
+}

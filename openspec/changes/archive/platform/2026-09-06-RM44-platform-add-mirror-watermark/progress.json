@@ -1,0 +1,872 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM44-platform-add-mirror-watermark",
+  "module": "platform (internal/telemetry + internal/charging)",
+  "roadmap": "openspec/roadmaps/RM44-incremental-supercharger-sync.md",
+  "request": "Roadmap RM44 tier 4. Bound the telemetry->charging Supercharger mirror read with a charging-owned watermark. Source ticket MAG-48.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "0.1",
+      "2.1",
+      "1b.1",
+      "1b.2",
+      "1b.4",
+      "1b.5",
+      "2.2",
+      "2.3",
+      "3.1",
+      "4.1",
+      "1a.0",
+      "1a.1",
+      "1a.2",
+      "1a.3",
+      "1a.4",
+      "1a.5",
+      "1a.6",
+      "1a.7",
+      "1b.3",
+      "1b.6",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.2"
+    ],
+    "awaiting_user_verification": []
+  },
+  "created_at": "2026-09-06T10:35:00Z",
+  "updated_at": "2026-09-06T14:40:18Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
+    "base": "6233334",
+    "ticket": "MAG-48",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-48/nightly-reconcile-recalculates-the-whole-vehicle-metrics-history-on",
+    "created_at": "2026-09-05T21:43:25Z"
+  },
+  "tasks": [
+    {
+      "id": "0.1",
+      "title": "Database design gate: owner confirms schema, rationale, index plan",
+      "module": "leader",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T10:20:00Z",
+      "completed_at": "2026-09-06T10:33:00Z",
+      "duration_seconds": 780,
+      "notes": "Owner confirmed the design with ONE change: build idx_supercharger_history_account_updated now instead of documenting it as a revisit trigger. Leader also fixed a wrong index name and a wrong fake-method count.",
+      "budget": null
+    },
+    {
+      "id": "1a.0",
+      "title": "New telemetry migration: idx_supercharger_history_account_updated",
+      "module": "telemetry",
+      "depends_on": [
+        "0.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-haiku-4-5-20251001",
+      "started_at": "2026-09-06T11:05:00Z",
+      "completed_at": "2026-09-06T11:05:40Z",
+      "duration_seconds": null,
+      "notes": "Migration written verbatim from design.md. Sorts after 20260903000003. Down drops the index. make migration-guard passes.",
+      "budget": {
+        "five_hour_pct_start": 85.0,
+        "five_hour_pct_end": 90.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.4,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole 1a.0-1a.2 slice jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1a.1",
+      "title": "query.sql: add SuperchargerHistoryByAccountUpdatedSince",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.0"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-haiku-4-5-20251001",
+      "started_at": "2026-09-06T11:05:40Z",
+      "completed_at": "2026-09-06T11:06:10Z",
+      "duration_seconds": null,
+      "notes": "Query added verbatim from design.md. Account-only, no tesla_id predicate. grep count = 1.",
+      "budget": {
+        "five_hour_pct_start": 85.0,
+        "five_hour_pct_end": 90.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.4,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole 1a.0-1a.2 slice jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1a.2",
+      "title": "make sqlc: regenerate telemetry query.sql.go",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-haiku-4-5-20251001",
+      "started_at": "2026-09-06T11:06:10Z",
+      "completed_at": "2026-09-06T11:06:30Z",
+      "duration_seconds": null,
+      "notes": "make sqlc regenerated telemetry query.sql.go only. Params struct is {AccountID, Since}, no TeslaID. go build passes.",
+      "budget": {
+        "five_hour_pct_start": 85.0,
+        "five_hour_pct_end": 90.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.4,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole 1a.0-1a.2 slice jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1a.3",
+      "title": "telemetry.go: declare the new interface method",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
+      "duration_seconds": null,
+      "notes": "Interface method added to SuperchargerHistoryReader. Leader corrected its doc comment: it claimed \"No new index\" while this change ships one (D25).",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1a.4",
+      "title": "reader.go: implement the new reader method",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
+      "duration_seconds": null,
+      "notes": "reader.go implements the method, mirroring SuperchargerHistoryByAccount. Account-only params, no tesla_id. go build passes.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1a.5",
+      "title": "query_log.go: add the explicit decorator method",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
+      "duration_seconds": null,
+      "notes": "One explicit method on loggingSuperchargerHistoryReader, no embedding (D7). Logs account, since, rows after delegating.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1a.6",
+      "title": "query_log_test.go: extend the fake and test the log line",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
+      "duration_seconds": null,
+      "notes": "Fake extended and one log-line test added. go vet and gofmt clean. The test itself was not run.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1a.7",
+      "title": "DB integration tests T-tel-1..T-tel-7 (incl. EXPLAIN)",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
+      "duration_seconds": null,
+      "notes": "New db_supercharger_account_updated_since_integration_test.go, 7 tests T-tel-1..T-tel-7. T-tel-7 asserts the EXPLAIN plan uses the new index with no Sort node.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1b.1",
+      "title": "New charging migration: charging.mirror_watermarks",
+      "module": "charging",
+      "depends_on": [
+        "0.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
+      "duration_seconds": null,
+      "notes": "Migration renumbered 0001 -> 0002. Telemetry 1a.0 already used 0001 and all modules share one goose_db_version table. migration-guard caught the collision.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1b.2",
+      "title": "query.sql: GetMirrorWatermark + UpsertMirrorWatermark",
+      "module": "charging",
+      "depends_on": [
+        "1b.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
+      "duration_seconds": null,
+      "notes": "GetMirrorWatermark and UpsertMirrorWatermark added verbatim from design.md.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1b.3",
+      "title": "make sqlc: regenerate charging models.go + query.sql.go",
+      "module": "charging",
+      "depends_on": [
+        "1b.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
+      "duration_seconds": null,
+      "notes": "make sqlc run. Needed one new rename entry in sqlc.yaml, else the struct generated as ChargingMirrorWatermark. Only charging generated files changed.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1b.4",
+      "title": "charging.go: declare MirrorWatermarkStore + constructor",
+      "module": "charging",
+      "depends_on": [
+        "1b.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
+      "duration_seconds": null,
+      "notes": "MirrorWatermarkStore interface and NewMirrorWatermarkStore constructor added to charging.go.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1b.5",
+      "title": "New mirror_watermark.go: concrete implementation",
+      "module": "charging",
+      "depends_on": [
+        "1b.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
+      "duration_seconds": null,
+      "notes": "mirror_watermark.go mirrors session_writer.go. pgx.ErrNoRows maps to the epoch. Plain upsert, no row-count check. pgtype stays in this file.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "1b.6",
+      "title": "DB integration tests T-cw-1..T-cw-6",
+      "module": "charging",
+      "depends_on": [
+        "1b.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
+      "duration_seconds": null,
+      "notes": "6 tests T-cw-1..T-cw-6 written against design.md expected values. go vet compiles them. Not run.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "telemetry/AGENTS.md: document the new read method",
+      "module": "telemetry",
+      "depends_on": [
+        "1a.7"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:34:58Z",
+      "completed_at": "2026-09-06T13:42:17Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md documents the new method and why it is the only updated-since read that can return a tesla_id NULL row.",
+      "budget": {
+        "five_hour_pct_start": 4.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 0.13,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1a.3-1a.7 + 2.1 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "charging/AGENTS.md: document the new table and port",
+      "module": "charging",
+      "depends_on": [
+        "1b.6"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T13:42:40Z",
+      "completed_at": "2026-09-06T13:49:15Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md gains a Supercharger mirror watermark section. It states D5: never advance to now(), only on a non-empty read.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 27.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.63,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers tasks 1b.1-1b.6 + 2.2 jointly, one serial worker"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "Spec coherence check across the three delta specs",
+      "module": "leader",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
+      "duration_seconds": null,
+      "notes": "openspec validate RM44-platform-add-mirror-watermark --strict passes. The three delta specs read coherently against the current main specs.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "app.go: wire the MirrorWatermarkStore dependency",
+      "module": "leader",
+      "depends_on": [
+        "1a.7",
+        "1b.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
+      "duration_seconds": null,
+      "notes": "processor gains mirrorWatermarks. NewProcessor takes nine ports now. cmd/poller constructs charging.NewMirrorWatermarkStore(pool) next to NewSessionWriter.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "processor.go: bounded read, mirror, advance to max observed",
+      "module": "leader",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
+      "duration_seconds": null,
+      "notes": "processChargingData reads the cursor, reads since cursor-24h, skips without advancing on zero rows, advances to max observed after a successful mirror. New mirrorOverlap constant.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "processor_test.go: extend the fake, add the watermark double",
+      "module": "leader",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
+      "duration_seconds": null,
+      "notes": "Existing fakeSuperchargerHistoryReader gains a no-op method. New fakeMirrorWatermarkStore, stubSuperchargerHistoryReader, failingSessionWriter, fakeAccountOneAccount.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "processor_test.go: tests T-app-1, T-app-2, T-app-3 (D5)",
+      "module": "leader",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
+      "duration_seconds": null,
+      "notes": "T-app-1, T-app-2, T-app-3 added against design.md expected values. T-app-2 feeds sessions out of order so passing cannot depend on ordering.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "Assistant-run signals: build, vet, gofmt, guards",
+      "module": "leader",
+      "depends_on": [
+        "3.4",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T13:52:30Z",
+      "completed_at": "2026-09-06T13:52:30Z",
+      "duration_seconds": null,
+      "notes": "go build ./..., go vet ./... (whole repo, now clean), gofmt -l, and all six guards pass. Every tasks.md acceptance grep returns its wanted count.",
+      "budget": {
+        "five_hour_pct_start": 27.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.35,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 + 2.3 + 4.1, leader-implemented, no worker dispatch"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "Hand the suite to the owner and record their report",
+      "module": "leader",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T14:34:34Z",
+      "completed_at": "2026-09-06T14:34:34Z",
+      "duration_seconds": null,
+      "notes": "Owner ran the suite and reported it passing. Post-deploy query-log check still outstanding, owner-only.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "charging-reviewer",
+    "brief": "Review the diff 04713db..HEAD for RM44-platform-add-mirror-watermark (tier 4 of roadmap RM44, ticket MAG-48). TWO reviewers, one per module, dispatched in parallel. telemetry-reviewer: internal/telemetry + its migration + sqlc output. charging-reviewer: internal/charging + internal/app + cmd/poller + sqlc.yaml (internal/app consumes charging's new port and implements roadmap D5, charging's own contract). Validate: module-boundary compliance (ai/architecture.md); every doc-pack convention; that the delta specs cover what shipped; test QUALITY by reading the tests (do NOT run them); the read-heavy Performance-Profile; that every DB object matches the user-confirmed design in design.md (a mismatch is a blocker); that the integration tests assert design.md's PRE-AUTHORED expected values (T-tel-1..7, T-cw-1..6, T-app-1..3) rather than whatever the implementation happens to produce; and the anti-gaming checks (no weakened acceptance criteria, no self-approved statuses). HIGHEST-VALUE TARGET: roadmap D5. The watermark must never advance to now(), and must be left completely untouched on a zero-row read. A violation is silent, undetectable data loss. Verify it in internal/app/processor.go AND that the tests actually pin it. Signals: all assistant-run (go build ./..., go vet ./..., gofmt -l, six guards, openspec validate --strict) PASS. The SUITE was run and reported PASSING by the OWNER, not by the assistant.",
+    "rounds": [
+      {
+        "round": 1,
+        "scope": "internal/telemetry",
+        "agent": "telemetry-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-06T14:37:35Z",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Zero findings. Reviewer independently rebuilt the facts and re-ran build, vet, gofmt, migration-guard and boundary-guard. Confirmed D20 in all four places (query.sql, generated code, interface, reader) plus T-tel-2; D7's named inner field, not embedding; D9's log line prints only account, since, rows. All 7 Test Contract cases reproduce design.md's pre-authored values, not back-fitted from the implementation.",
+        "leader_response": "Reviewer's informational note answered, no change needed. status=verified and review.status=in-progress are BOTH correct and not a self-approval: per the pipeline schema, verified means the OWNER reported the suite passing (Step 6), and only a reviewer may set reviewer-approved (Step 7.4). The leader has not set and will not set that field itself."
+      },
+      {
+        "round": 1,
+        "scope": "internal/charging + internal/app + cmd/poller + sqlc.yaml",
+        "agent": "charging-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-06T15:10:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/charging/AGENTS.md lines 574-583 (Allowed Imports) list only service.go and session_writer.go as allowed to import pgtype, and service.go/session_writer.go/session_reader.go/session_verifier.go as allowed to import chargingdb. mirror_watermark.go (new in this change) imports both pgtype and chargingdb but is missing from both lists. Same staleness pattern the file already documents as a past mistake (RM31, corrected by MAG-36). Not a boundary violation -- the file itself follows the pgtype-confinement rule correctly -- just a doc gap.",
+            "status": "open"
+          }
+        ],
+        "notes": "Read doc pack: CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/charging/AGENTS.md. Read change artifacts: proposal.md, design.md, tasks.md, specs/charging/spec.md, specs/charge-session-log/spec.md. Rebuilt facts independently: re-ran go build ./..., go vet ./..., gofmt -l, make migration-guard, make boundary-guard, openspec validate --strict -- all pass. D5 verified line-by-line in internal/app/processor.go: watermark advances only to the max observed updated_at (never clock.Now()), a zero-row read continues before touching mirrored/maxUpdated/AdvanceMirrorWatermark, and AdvanceMirrorWatermark is called only after a successful MirrorSessions. T-app-1/2/3 in processor_test.go pin exactly these three cases with the design.md pre-authored values (fixed dates, three out-of-order sessions, a failing SessionWriter). T-cw-1..6 in db_mirror_watermark_integration_test.go pin the pre-authored Test Contract values, no pgtype in assertions. mirror_watermarks table matches D21 exactly: id, account_id UNIQUE, source_updated_at, created_at, updated_at -- no tesla_id, no source, no index beyond UNIQUE(account_id). MirrorWatermark translates pgx.ErrNoRows to (time.Time{}, nil) per D3. MirrorSessions signature unchanged (D22). mirrorOverlap is a new local internal/app constant, not imported from analytics. Migration renumbered to ...0002 because telemetry took ...0001 on the same date and both share one goose_db_version table across MIGRATIONS_DIRS -- reasoning is sound, file is otherwise correct. sqlc.yaml addition (charging_mirror_watermark: \"MirrorWatermark\") sits entirely inside the existing charging sql: block; no other module entry changed. No boundary violations: internal/app imports no pgtype/chargingdb, holds no pool, reaches both modules only through their public ports. Anti-gaming: no task/criterion edited or weakened; progress.json task statuses match the diff; tests are genuinely DB-backed / unit-level, not placeholders.",
+        "leader_response": "Finding ACCEPTED and fixed. Triage found the doc was stale in TWO ways, not one: session_reader.go imports pgtype and was missing from that list as well. Leader rebuilt both lists from the source (grep -l over internal/charging/*.go) instead of only adding the named file. pgtype: service.go, session_writer.go, session_reader.go, mirror_watermark.go. chargingdb: those four plus session_verifier.go. The file's own history note now records both corrections and says to update both lists in the same change."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-06T10:33:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "DATABASE DESIGN GATE CONFIRMED, with one change: ship idx_supercharger_history_account_updated (account_id, updated_at) now.",
+      "why": "Owner chose certainty over a later slow-query investigation. The design had recommended no index; both positions are recorded in design.md's Index Plan.",
+      "covered_by": "roadmap D21"
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-06T10:33:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "The new index ships in a TELEMETRY migration (task 1a.0), not the charging one.",
+      "why": "It is on telemetry.supercharger_history. A module may only alter its own tables (ai/architecture.md section 2)."
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-06T10:36:30Z",
+      "scope": "wave:1a+1b",
+      "made_by": "leader",
+      "decision": "Waves 1a (telemetry) and 1b (charging) run SERIALLY, not in parallel. 1a first, then 1b.",
+      "why": "sqlc generate rewrites EVERY module's generated code in one pass, so a parallel worker would write outside its sandbox and could race a half-written query.sql. The waves are not file-disjoint."
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-06T11:05:00Z",
+      "scope": "wave:1a",
+      "made_by": "user",
+      "decision": "Wave 1a is SPLIT: dispatch only 1a.0-1a.2 now; 1a.3-1a.7 wait for the 5-hour reset.",
+      "why": "Bucket at 85% with a 90% threshold. Owner chose a cheap slice over waiting or risking a cut-off mid-wave.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-06T11:05:00Z",
+      "scope": "wave:1a",
+      "made_by": "leader",
+      "decision": "Slice 1a.0-1a.2 dispatched on Haiku, not the Sonnet default.",
+      "why": "Both SQL blocks are dictated verbatim in design.md; the third task is one make command. No design judgment is left to the worker."
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-06T11:07:00Z",
+      "scope": "wave:1a",
+      "made_by": "leader",
+      "decision": "The Step 5.7 suite ask is DEFERRED to the end of the full wave 1a, not made after this slice.",
+      "why": "The slice only adds an unused query plus its generated code. Asking the owner to run the suite twice in one wave costs a round-trip and proves nothing new."
+    },
+    {
+      "id": "D-RM44-26",
+      "at": "2026-09-06T14:34:34Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Suite verified by the OWNER: go test ./internal/telemetry/... ./internal/charging/... ./internal/app/... passed.",
+      "why": "Test-Execution-Policy: the assistant never runs the suite. This pass is the owner's report, not the assistant's claim."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-06T10:20:00Z",
+      "agent": "leader",
+      "event": "Artifacts created by worker 'charging' (sonnet); openspec validate --strict passed."
+    },
+    {
+      "at": "2026-09-06T10:25:00Z",
+      "agent": "leader",
+      "event": "Leader validation found two errors before the gate. (1) design.md cited idx_supercharger_history_vehicle_time (account_id, tesla_id, charge_start_date_time) for an account-only query; the correct existing index was account_time. Fixed. (2) The worker's finding said internal/app's fake has 2 methods; it has 4 plus a compile-time assertion at processor_test.go:215. Corrected, and a repo-wide sweep of SuperchargerHistoryReader implementors added to design.md: 4 total, 3 telemetry-owned, 1 leader-owned."
+    },
+    {
+      "at": "2026-09-06T10:25:00Z",
+      "agent": "leader",
+      "event": "Worker finding ACCEPTED and load-bearing: adding a method to SuperchargerHistoryReader breaks internal/app/processor_test.go's compile-time assertion. That file is outside both module sandboxes. Neither D20 nor D22 named it. Now explicit leader task 3.3."
+    },
+    {
+      "at": "2026-09-06T10:33:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE CONFIRMED by the owner, with one change (D1): build the index now. Artifacts updated for consistency - design.md (new migration block, Index Plan rewritten with both positions, D7 revised, T-tel-7 added), tasks.md (new task 1a.0, 1a.7 acceptance extended), proposal.md (index paragraph). openspec validate --strict re-passed."
+    },
+    {
+      "at": "2026-09-06T10:36:30Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT before wave 1a. five_hour=82% (threshold 90), context=20% (threshold 40). Not past either, but an 8-task implementation wave is projected to cross 90 mid-wave. Stopped cleanly with artifacts committed (8e918f2) and the design gate confirmed. five_hour_resets_at=2026-09-06T13:30:00Z (08:30 local). No implementation task has started; all are pending. Nothing awaits the owner. Resume with: /kkpa-dev-harness-pipeline resume RM44-incremental-supercharger-sync"
+    },
+    {
+      "at": "2026-09-06T11:05:00Z",
+      "agent": "leader",
+      "event": "RESUMED. Bucket NOT reset (82% -> 85%, resets 13:30Z); owner chose a cheap slice. Dispatched worker 'telemetry' (haiku) for tasks 1a.0-1a.2 only: index migration, query.sql, make sqlc."
+    },
+    {
+      "at": "2026-09-06T11:07:00Z",
+      "agent": "leader",
+      "event": "Wave 1a slice (1a.0-1a.2) reconciled. Leader independently verified both SQL blocks match design.md verbatim and the generated params have no TeslaID. Signals: go build, go vet, gofmt, migration-guard, boundary-guard all pass. gofmt -l flags 3 pre-existing files in other modules, untouched here."
+    },
+    {
+      "at": "2026-09-06T11:08:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT after the wave 1a slice. five_hour=90% (threshold 90, reached), context=13%. five_hour_resets_at=2026-09-06T13:30:00Z (08:30 local). Tasks 1a.0-1a.2 done and committed (d257663). Tasks 1a.3-1a.7 and all of wave 1b are pending. Nothing is blocked. Resume after the reset with: /kkpa-dev-harness-pipeline resume RM44-incremental-supercharger-sync"
+    },
+    {
+      "at": "2026-09-06T13:34:58Z",
+      "agent": "leader",
+      "event": "RESUMED after the 5-hour reset (5h 4%, ctx 14%). Wave 1a-rest dispatched: tasks 1a.3-1a.7 + doc 2.1, one serial telemetry worker (sonnet). Waves 1a and 1b stay serial because 1b.3 runs make sqlc, which rewrites every module's generated code."
+    },
+    {
+      "at": "2026-09-06T13:42:17Z",
+      "agent": "leader",
+      "event": "Wave 1a-rest reconciled. Worker flagged a real defect the leader fixed in both places: design.md's Interfaces block and the shipped telemetry.go doc comment both said 'No new index', written before the gate revision that added idx_supercharger_history_account_updated (D25). The same design.md's Index Plan and test T-tel-7 already said the opposite. Assistant-run signals clean: go build, go vet ./internal/telemetry/..., gofmt -l, migration-guard, boundary-guard. Suite NOT run."
+    },
+    {
+      "at": "2026-09-06T13:42:17Z",
+      "agent": "leader",
+      "event": "Pre-existing gap flagged by the worker, NOT fixed here: internal/telemetry/AGENTS.md never documented SuperchargerHistoryByVehicleUpdatedSince, added in an earlier tier. Out of this change's scope."
+    },
+    {
+      "at": "2026-09-06T13:42:40Z",
+      "agent": "leader",
+      "event": "Wave 1b dispatched: tasks 1b.1-1b.6 + doc 2.2, one serial charging worker (sonnet). Runs after 1a because 1b.3 runs make sqlc, which rewrites every module's generated code."
+    },
+    {
+      "at": "2026-09-06T13:49:15Z",
+      "agent": "leader",
+      "event": "Wave 1b reconciled. Two worker findings, both legitimate and both verified by the leader. (1) Migration version collision: telemetry 1a.0 already shipped 20260906000001 and all modules share one goose_db_version table, so make migration-guard failed hard. Worker renumbered charging to 20260906000002 per the guard's own fix. Leader updated the stale filename in tasks.md (2 refs) and design.md (1 ref). (2) sqlc.yaml needed charging_mirror_watermark: MirrorWatermark, else the struct generated as ChargingMirrorWatermark. One line in the charging block, matching the existing ManualChargeEntry pattern; git diff confirms no other module's codegen changed."
+    },
+    {
+      "at": "2026-09-06T13:49:15Z",
+      "agent": "leader",
+      "event": "Both module groups (1a, 1b) complete. Wave 3 is leader-owned cross-module wiring in internal/app. go vet ./... still fails at internal/app/processor_test.go:215 - the pre-flagged design.md Findings item that task 3.3 fixes."
+    },
+    {
+      "at": "2026-09-06T13:52:30Z",
+      "agent": "leader",
+      "event": "Wave 3 (cross-module wiring) implemented by the leader, plus 2.3 and 4.1. go vet ./... is now clean across the whole repo - the pre-flagged internal/app/processor_test.go:215 failure is fixed by task 3.3. All six guards pass. openspec validate --strict passes. Every tasks.md acceptance grep returns its wanted count: AdvanceMirrorWatermark=1, old unbounded SuperchargerHistoryByAccount(ctx=0, T-app tests=3, SuperchargerHistoryReader methods=5."
+    },
+    {
+      "at": "2026-09-06T13:52:30Z",
+      "agent": "leader",
+      "event": "Leader note: gofmt -l flags internal/account/testdb_test.go, internal/config/quote_test.go and internal/gateway/vehicle_image_test.go. All three are untouched by this branch (verified against the merge-base with main). Pre-existing, not this change's to fix."
+    },
+    {
+      "at": "2026-09-06T13:52:30Z",
+      "agent": "leader",
+      "event": "ASK POINT (Step 6): the suite has NOT been run. Every implementation task is awaiting-user-verification. The change does not advance to the reviewer gate until the owner reports the suite passing."
+    },
+    {
+      "at": "2026-09-06T14:34:34Z",
+      "agent": "leader",
+      "event": "USER VERIFICATION RECEIVED. The owner ran go test ./internal/telemetry/... ./internal/charging/... ./internal/app/... and reported it PASSING. This is the owner's report, recorded as theirs. 13 tasks moved from awaiting-user-verification to done; 4.2 closed. Change status -> verified. Reviewer gate may now run."
+    },
+    {
+      "at": "2026-09-06T14:34:55Z",
+      "agent": "leader",
+      "event": "Review brief written. Two reviewers dispatched in parallel (sonnet): telemetry-reviewer over internal/telemetry, charging-reviewer over internal/charging + internal/app + cmd/poller + sqlc.yaml. They are read-only and disjoint, so parallel costs nothing in correctness."
+    },
+    {
+      "at": "2026-09-06T14:37:35Z",
+      "agent": "leader",
+      "event": "Review round 1, internal/telemetry scope: APPROVED, zero findings. Reviewer raised one informational note about status=verified vs review.status=in-progress; the leader confirmed both are correct per the pipeline's own status lifecycle, not a self-approval. Awaiting the charging reviewer before the change status may move."
+    },
+    {
+      "at": "2026-09-06T14:40:18Z",
+      "agent": "leader",
+      "event": "Review round 1, internal/charging + internal/app + cmd/poller + sqlc.yaml scope: APPROVED with one minor finding. Reviewer verified all three D5 rules line by line in processor.go and confirmed T-app-1/2/3 genuinely pin them. It judged both out-of-plan changes (migration renumber, sqlc.yaml line) sound. Finding accepted and fixed; triage widened it - the AGENTS.md import lists were stale in two ways, not one."
+    },
+    {
+      "at": "2026-09-06T14:40:18Z",
+      "agent": "leader",
+      "event": "BOTH reviewers approved. review.status and change status -> reviewer-approved, set on the reviewers' verdicts, never by the leader's own judgement. The change may now archive."
+    }
+  ]
+}

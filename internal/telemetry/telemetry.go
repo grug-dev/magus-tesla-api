@@ -598,13 +598,30 @@ type SuperchargerHistoryReader interface {
 	// change). Reuses the existing rowToSuperchargerHistory mapper — no new
 	// field, no new mapper.
 	SuperchargerHistoryByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerHistory, error)
+
+	// SuperchargerHistoryByAccountUpdatedSince returns every stored Supercharger
+	// session for the given account whose updated_at is at or after `since`,
+	// ordered oldest-first by updated_at. Unlike
+	// SuperchargerHistoryByVehicleUpdatedSince, this method takes no teslaID and
+	// so is the only updated-since method that CAN return a session whose
+	// TeslaID is nil -- deliberately, so a bounded per-account mirror read
+	// still recovers a session once its vehicle re-registers
+	// (RM44-platform-add-mirror-watermark, roadmap D3/D20). Returns a non-nil
+	// empty slice and nil error when nothing for the account has been updated
+	// at or after `since` (parity with every other SuperchargerHistoryReader
+	// method's empty-result contract). Served by
+	// idx_supercharger_history_account_updated (account_id, updated_at), added
+	// by this change: account_id prunes and updated_at both bounds the range and
+	// gives the ordering, so the read needs no sort step (design.md Index Plan).
+	// Reuses the existing rowToSuperchargerHistory mapper.
+	SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, accountID uuid.UUID, since time.Time) ([]SuperchargerHistory, error)
 }
 
 // NewSuperchargerHistoryReader constructs a SuperchargerHistoryReader backed by the telemetry DB pool.
 // Implementation is in reader.go. The gateway and other callers depend on the
 // SuperchargerHistoryReader interface, never on the concrete type or on telemetrydb directly.
 func NewSuperchargerHistoryReader(pool *pgxpool.Pool) SuperchargerHistoryReader {
-	return newSuperchargerHistoryReaderImpl(pool)
+	return newLoggingSuperchargerHistoryReader(newSuperchargerHistoryReaderImpl(pool))
 }
 
 // --- poll_runs: run-level summary (RM36-telemetry-add-poll-runs) ---
@@ -668,5 +685,5 @@ type RunWriter interface {
 // or on telemetrydb directly. Implementation is in run_writer.go — the forward
 // declaration here mirrors NewSuperchargerHistoryReader's own pattern (design D12).
 func NewRunWriter(pool *pgxpool.Pool) RunWriter {
-	return newRunWriter(pool)
+	return newLoggingRunWriter(newRunWriter(pool))
 }

@@ -61,7 +61,12 @@ type Processor interface {
 // NewProcessor builds a Processor from its collaborators' PUBLIC PORTS only — every
 // argument is an interface, not a *pgxpool.Pool or a concrete DB-backed type.
 // internal/app owns no table and no pool (design.md D1/D2): every read and write
-// this use case performs happens through one of these eight arguments.
+// this use case performs happens through one of these nine arguments.
+//
+// mirrorWatermarks is charging's second port here. It holds, per account, the
+// highest telemetry updated_at the Supercharger mirror has already copied, so
+// processChargingData reads a bounded window instead of the whole history
+// (RM44-platform-add-mirror-watermark).
 //
 // runWriter is telemetry's third port here (grouped with collector and
 // superchargerHistoryReader — RM36-app-record-poll-run design D1): ProcessVehicleData
@@ -79,6 +84,7 @@ func NewProcessor(
 	superchargerHistoryReader telemetry.SuperchargerHistoryReader,
 	runWriter telemetry.RunWriter,
 	sessionWriter charging.SessionWriter,
+	mirrorWatermarks charging.MirrorWatermarkStore,
 	acct account.Service,
 	recalculator analytics.Recalculator,
 	analyticsReader analytics.Reader,
@@ -90,6 +96,7 @@ func NewProcessor(
 		superchargerHistoryReader: superchargerHistoryReader,
 		runWriter:                 runWriter,
 		sessionWriter:             sessionWriter,
+		mirrorWatermarks:          mirrorWatermarks,
 		acct:                      acct,
 		recalculator:              recalculator,
 		analyticsReader:           analyticsReader,

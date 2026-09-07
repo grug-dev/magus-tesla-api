@@ -36,7 +36,7 @@ documented — see the boundary gotcha below.
 
 ## Glossary
 
-- **Known as:** `telemetry module`, `vehicle snapshots`, `supercharger history`, `nightly collection`, `telemetry schema`, `who reads telemetry`, `telemetry vs analytics`, `can the gateway read telemetry`, `ingest module`, `poll run`, `run summary`
+- **Known as:** `telemetry module`, `vehicle snapshots`, `supercharger history`, `nightly collection`, `telemetry schema`, `who reads telemetry`, `telemetry vs analytics`, `can the gateway read telemetry`, `ingest module`, `poll run`, `run summary`, `telemetry query logging`, `fleet api logging`
 - **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerHistoryReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables (all in schema `telemetry`) `vehicle_snapshots`, `supercharger_history`, `poll_attempts`, `poll_runs`
 
 ## Component map
@@ -118,6 +118,111 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   _Source: spec telemetry — Requirement: Supercharger History Table Renamed, Scenario: A real consumer outside the module is broken only by the identifier, and visibly._
 - **Raw SQL inside `_test.go` files is invisible to sqlc and to `go vet`.** No assistant-runnable signal catches an unqualified table name there — only the suite does. After any schema or table change in this module, re-run a grep over the test files as the acceptance step; a green build proves nothing about them.
   _Source: spec telemetry — Requirement: Module-Scoped Database Schema (namespacing-only guarantee across all module reads)._
+
+- **`telemetry.supercharger_history` has NO battery-percentage estimate columns — do not
+  add them back.** The table once reserved a frozen verification-time snapshot pair
+  (`start_battery_pct_est` / `end_battery_pct_est`, each `SMALLINT` 0–100) for a companion
+  estimation capability. That capability was descoped before it ever shipped, so the pair
+  was NULL in every row for its whole life. RM41 tier 3 dropped both columns, reversing
+  RM27's design decision D6, which had kept them so a future estimator could land without a
+  migration. The estimator that eventually shipped (MAG-36, `derivedStartBatteryPct`) writes
+  the real `start_battery_pct` column instead, so there is nothing left for a snapshot to
+  capture. `charging.supercharger_sessions` lost its own equivalent pair in the same
+  roadmap (tier 2). _Source: spec telemetry — Requirement: Supercharger Session Ledger._
+- **A session read through the telemetry port carries the verification TRIO only — start
+  percentage, end percentage, source label.** There is no fourth and fifth estimate field.
+  Every returned session exposes the trio exactly as stored, NULL when no override was set.
+  Code or tests asserting a snapshot pair on a returned session are pre-RM41 and no longer
+  compile. _Source: spec telemetry — Requirement: Supercharger Session Read Port._
+- **The ledger NEVER persists a computed estimate under a source label.** The source label
+  is a closed, explicitly extensible set identifying a human-owned or measured origin only;
+  an estimate is a different capability's read-time concern. This rule survived the column
+  drop unchanged and is the reason no replacement estimate column was introduced.
+  _Source: spec telemetry — Requirement: Supercharger Session Ledger._
+
+- **Every live query and every Fleet API request logs its arguments** — each call through the
+  module's persistence write seam, its snapshot-read port, its Supercharger-history read port
+  and its poll-run write port emits one log line carrying the account and vehicle identity, the
+  date filters supplied, and — for a method returning a collection or an optional record — how
+  many records came back. Prefixes are `telemetry query:` and `fleet api:`, greppable.
+  _Source: spec telemetry — Requirement: Query And Fleet-API Argument Logging._
+- **A Supercharger-history read logs the limit the query ACTUALLY runs with, not the caller's
+  placeholder** — a caller passing "no limit" must appear in the log as the concrete resolved
+  value. Logging the placeholder would make a full-history read indistinguishable from a
+  bounded one, which is the exact blindness that let MAG-48 run unnoticed for months.
+  _Source: spec telemetry — Requirement: Query And Fleet-API Argument Logging._
+- **An account-wide Supercharger-history read states explicitly that it applied no date bound** —
+  absence of a filter must be visible in the log, not inferred from a missing field.
+  _Source: spec telemetry — Requirement: Query And Fleet-API Argument Logging._
+- **No log line may ever contain a vendor access credential** — every Fleet API method takes
+  credentials as an argument, so a naive "log the arguments" leaks a live bearer token. The
+  guarantee is structural, and a test asserts it.
+  _Source: spec telemetry — Requirement: Structural Exclusion Of Credentials And Raw Payloads From Logs._
+- **A raw external-API payload is logged as a byte size, never as content** — record the size
+  where it is useful; never the blob. A test asserts the content never appears.
+  _Source: spec telemetry — Requirement: Structural Exclusion Of Credentials And Raw Payloads From Logs._
+- **The instrumentation is an explicit, non-embedding decorator per port** — a method added to a
+  decorated interface later must become a compile error rather than a silently unlogged call.
+  Embedding would satisfy the type by promotion and defeat that.
+  _Source: spec telemetry — Requirement: Query And Fleet-API Argument Logging (implementation shape carried by roadmap decision D7/D8)._
+
+- **`updated_at` on `telemetry.supercharger_history` means "this row's data changed", not
+  "the nightly sync ran".** An unchanged re-sync leaves it untouched. A re-sync that writes at
+  least one different mirrored value advances it. Before MAG-48 every pass advanced it on
+  every row, which made the signal useless to the consumer that reads it.
+  _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
+
+- **The comparison covers exactly the columns the sync refreshes on a conflict — no more, no
+  less.** Everything else is excluded on purpose: columns a human sets by hand, and columns
+  written once at first capture and never refreshed. The spec requires exclusion to be an
+  explicit, visible decision, never the accidental result of a name missing from a
+  hand-written list.
+  _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
+
+- **A column the sync never refreshes must never enter the comparison.** If it did, and the
+  vendor later reported a different value, the mismatch could never resolve — the sync does not
+  write that column — so `updated_at` would advance every night forever. This is the trap the
+  requirement's last scenario pins, and it is why the exclusion list is the complement of the
+  refresh set rather than a short list of "obvious" columns.
+  _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
+
+- **A vehicle re-registration DOES advance `updated_at`.** A row with no vehicle identity,
+  later resolved to a registered vehicle, counts as a real change. Excluding the vehicle
+  identity from the comparison would silently break that recovery path.
+  _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
+
+- **A human-entered value on the row neither blocks change detection nor counts as a change.**
+  A verified row still reports "unchanged" on an unchanged re-sync, and the hand-entered value
+  is left exactly as it was.
+  _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
+
+- **Guard when you change this:** `internal/telemetry/db_change_detection_schema_test.go`
+  reads the table's live columns and fails if any column is in neither the refresh set nor the
+  exclusion list. Its failure message names the column and says which list to add it to. Add a
+  column to the table and this test tells you what to decide.
+  _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
+
+- **There are TWO updated-since read ports for Supercharger sessions, and the difference is
+  load-bearing.** The per-vehicle port filters on the vehicle identifier. The account-wide port
+  takes no vehicle at all. Only the account-wide one can return a session whose vehicle is not
+  currently registered, because a per-vehicle filter can never match a row with no vehicle
+  identity. A caller that must recover such a session once its vehicle re-registers has to use
+  the account-wide port. Picking the per-vehicle one there loses rows, silently.
+  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+
+- **The account-wide port returns oldest-first by `updated_at`, and an empty result is not an
+  error.** Nothing updated in the window returns an empty collection with no error, exactly like
+  every other read port on this module.
+  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+
+- **A session updated at exactly the requested instant is included.** The bound is inclusive at
+  both ports. A caller that treats it as exclusive will skip a row on every boundary.
+  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+
+- **No caller reaches these rows any other way.** Both updated-since ports are the only route to
+  this data for another module; nothing outside `internal/telemetry` imports
+  `internal/telemetry/db`. `make boundary-guard` enforces it.
+  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
 
 ## Related KB
 

@@ -174,6 +174,22 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
     field, no new mapper. Non-nil empty slice when none exist (parity with the other two
     methods). `account_id` AND `tesla_id` filter provides defense-in-depth tenant isolation.
     Added by `RM28-telemetry-add-charge-gap-storage` (MAG-15, roadmap D9/D12).
+  - `SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, accountID uuid.UUID, since time.Time) ([]SuperchargerHistory, error)`:
+    all sessions for one account whose `updated_at` is at or after `since`, ordered
+    oldest-first by `updated_at`. Added by `RM44-platform-add-mirror-watermark`
+    (MAG-48, roadmap D20), so `internal/charging`'s nightly Supercharger mirror
+    can bound its read by a cursor instead of re-reading the account's whole
+    history every night. This method takes no `teslaID`. It is the **only**
+    updated-since method on this port that can return a session with
+    `tesla_id IS NULL` — a session for a vehicle no longer registered to the
+    account. That gap is deliberate, not a bug: a per-vehicle read can never
+    see such a row, so this account-wide method is how the mirror recovers a
+    session once its vehicle re-registers (roadmap D3, carried into this tier
+    by D20). Non-nil empty slice when none exist. No new index for this
+    method beyond `idx_supercharger_history_account_updated (account_id,
+    updated_at)`, added by this same change in a telemetry migration so it
+    matches this query exactly. Reuses the existing `rowToSuperchargerHistory`
+    mapper.
   `NewSuperchargerHistoryReader(pool *pgxpool.Pool) SuperchargerHistoryReader` is the
   constructor; implementation in `reader.go`. Callers MUST NOT import `telemetrydb`
   (design DBS6).
@@ -393,6 +409,47 @@ existing `pgNullableText` helper for `BatteryPctSource`.
 
 ## Testing notes
 
+- **Change-detecting upsert (`RM44-telemetry-add-change-detecting-upsert`).**
+  `db_change_detection_integration_test.go` and
+  `db_change_detection_schema_test.go` prove that `UpsertSuperchargerHistory`'s
+  `updated_at` only advances when the row's real data changed. The governing
+  rule: the comparison covers exactly the columns the `SET` clause writes.
+  Everything else on `supercharger_history` sits in a 16-name deny-list, in
+  three buckets — bookkeeping (`id`, `created_at`, `updated_at`), human-owned
+  (`start_battery_pct`, `end_battery_pct`, `battery_pct_source`), and
+  write-once (the other 10 columns the `SET` clause never refreshes). The
+  schema test derives the table's real column list from
+  `information_schema` at run time and asserts it equals `SET` ∪ deny-list —
+  a column landing on neither side fails by name. Full rationale and the
+  exact expected values for every scenario: this change's design.md (moves to
+  `openspec/changes/archive/RM44-telemetry-add-change-detecting-upsert/design.md`
+  once archived).
+- **Mirror watermark read port (`RM44-platform-add-mirror-watermark`, ticket
+  MAG-48).** `db_supercharger_account_updated_since_integration_test.go` covers
+  `SuperchargerHistoryByAccountUpdatedSince` — sessions across vehicles, the
+  `tesla_id IS NULL` orphan case, tenant isolation, ordering, the empty
+  result, the exact `since` boundary, and an `EXPLAIN` proof that the query
+  uses `idx_supercharger_history_account_updated` with no `Sort` node (the
+  `EXPLAIN` runs inside a transaction with `SET LOCAL enable_seqscan = off`,
+  since the small test fixture would otherwise let the planner pick a Seq
+  Scan — mirrors `internal/charging`'s own `T-Order2` precedent). `updated_at`
+  is not settable through `upsertSuperchargerHistory` (the change-detecting
+  upsert computes it), so these tests insert a row, then set `updated_at`
+  with a direct SQL `UPDATE` to get an exact, known value.
+- **Query/call logging (`RM44-telemetry-add-query-logging`, ticket MAG-48).**
+  `query_log.go` holds four decorators (`loggingStore`, `loggingReader`,
+  `loggingSuperchargerHistoryReader`, `loggingRunWriter`) instrumenting this
+  module's own read/write seams, prefixing every line `telemetry query:`.
+  `call_counter.go` was extended with one `log.Printf` per Fleet API method,
+  prefixed `fleet api:`. Both are tested purely offline in `query_log_test.go`
+  and `call_counter_test.go` (fake `inner`/`minimalFakeTesla`, `log.SetOutput`
+  redirected to a buffer, restored via `t.Cleanup` — no `DATABASE_URL`, no
+  network). The guarantee that a credential or `raw_data` payload never
+  reaches a log line is enforced structurally (see design.md D3/D5) and
+  proven by test: `TestCallCounter_NeverLogsCredentials`
+  (`call_counter_test.go`) and `TestQueryLog_NeverLogsRawDataContent`
+  (`query_log_test.go`). Once this change archives, its design.md moves to
+  `openspec/changes/archive/RM44-telemetry-add-query-logging/design.md`.
 - Collection-service logic is tested **offline** with fake `account.Service` and
   `tesla.VehicleService` implementations — per-vehicle isolation, reason mapping, one-retry, wake
   timeout, multi-account. NO test may make a live Tesla API call or wake a car (the calls are paid).

@@ -9,7 +9,7 @@
 Target guide: `architecture/telemetry-ingest-only.md`
 Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    2026-09-03
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-05
 
 Derived from the delta `RM41-telemetry-drop-estimate-columns` synced into the main spec on
 2026-09-03 (2 requirements modified: **Supercharger Session Ledger**, **Supercharger Session

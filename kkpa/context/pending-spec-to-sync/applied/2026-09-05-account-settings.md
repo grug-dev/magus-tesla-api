@@ -9,7 +9,7 @@
 Target guide: `entities/account-settings/guide.md`   <!-- NEW guide; nothing in the KB covers per-account preferences today -->
 Source spec:  `openspec/specs/account/spec.md`       <!-- delta added by RM42 tier 1, archived as openspec/changes/archive/account/2026-09-04-RM42-account-add-settings-table -->
 Generated:    2026-09-04
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-05
 
 ---
 
@@ -84,3 +84,23 @@ REVIEWER NOTES — read before applying:
 | `user preferences` | synonym of `account settings` → `entities/account-settings/guide.md` | entity | `entities/account-settings/guide.md` |
 | `theme preference` | `account.settings.theme` — closed vocabulary `apex` / `graphite` / `halloween`, default `graphite` | entity | `entities/account-settings/guide.md` |
 | `language preference` | `account.settings.language` — moved off `accounts.language` by RM42 tier 1, which dropped that column | entity | `entities/account-settings/guide.md` |
+
+---
+
+## APPLY-TIME DECISIONS (2026-09-05)
+
+Reviewer note 1 — **kept the new entity guide** at `entities/account-settings/guide.md` rather
+than folding the two requirements into `architecture/schema-per-module.md`. They describe a
+record with its own table, defaults and vocabulary; that is an entity, not a schema-layout topic.
+
+Reviewer note 3 — **kept the `theme preference` and `language preference` INDEX rows.** The
+curate rules say not to index a concept's attributes, but here the two attributes ARE the whole
+entity (the row holds nothing else), so there is no per-field maintenance burden to avoid, and
+they are the words MAG-43/MAG-47 use.
+
+Facts verified against the code before applying: `account.Settings{Language, Theme}`
+(`internal/account/account.go`); `CREATE TABLE account.settings` with `account_id` PK,
+`language` default `'es'`, `theme` default `'graphite'`, and `ALTER TABLE account.accounts DROP
+COLUMN language` in the same migration (`20260904000001_add_account_settings.sql`); the theme
+vocabulary is exactly `apex` / `graphite` / `halloween` in both `account`'s constants and
+`ui.Themes`, reconciled by `make theme-guard`.

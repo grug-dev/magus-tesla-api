@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM44-telemetry-add-change-detecting-upsert",
+  "module": "telemetry",
+  "roadmap": "RM44-incremental-supercharger-sync",
+  "tier": 2,
+  "request": "Layer 1. UpsertSuperchargerHistory advances updated_at only when the row's mirrored data actually changed. to_jsonb deny-list of 16 names; 6 columns compared.",
+  "status": "verified",
+  "created_at": "2026-09-06T03:20:00Z",
+  "updated_at": "2026-09-06T09:35:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session": "5a2f5101"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
+    "base": "6233334",
+    "ticket": "MAG-48",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-48/nightly-reconcile-recalculates-the-whole-vehicle-metrics-history-on"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Replace the ON CONFLICT DO UPDATE SET clause with the deny-list CASE; rewrite the doc comment",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:40:00Z",
+      "completed_at": "2026-09-06T08:47:00Z",
+      "duration_seconds": 420,
+      "budget": {
+        "five_hour_pct_start": 7,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 21,
+        "context_pct_end": 24,
+        "approx": true,
+        "note": "wave A total, two workers run concurrently; delta shared"
+      },
+      "notes": "Replaced updated_at = now() with the deny-list CASE from design D1. Rewrote the doc comment: governing rule first, then the three buckets. INSERT/VALUES and the six SET columns untouched.",
+      "depends_on": []
+    },
+    {
+      "id": "1.2",
+      "title": "make sqlc; confirm UpsertSuperchargerHistoryParams is unchanged",
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-06T08:47:00Z",
+      "completed_at": "2026-09-06T08:47:00Z",
+      "duration_seconds": 60,
+      "budget": null,
+      "notes": "Leader ran make sqlc once for all modules. Only the two expected query.sql.go changed. Both Params structs verified byte-identical against HEAD, so the zero-churn claim holds. go build + go vet clean.",
+      "depends_on": [
+        "1.1"
+      ]
+    },
+    {
+      "id": "2.1",
+      "title": "New db_change_detection_integration_test.go - the 6 behavioural cases D7.1-D7.6",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:50:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 900,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 23,
+        "context_pct_end": 27,
+        "approx": true,
+        "note": "wave C total, two workers run concurrently; delta shared"
+      },
+      "notes": "Six behavioural tests for D7.1-D7.6, incl. the write-once double-call case. Written, not run. VERIFIED BY THE OWNER 2026-09-06.",
+      "depends_on": [
+        "1.2"
+      ]
+    },
+    {
+      "id": "2.2",
+      "title": "New db_change_detection_schema_test.go - set-equality invariant + behavioural poke (D7.7)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:50:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 900,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 23,
+        "context_pct_end": 27,
+        "approx": true,
+        "note": "wave C total, two workers run concurrently; delta shared"
+      },
+      "notes": "Schema self-check: live columns from information_schema must equal SET-written union deny-list, plus the poke test. VERIFIED BY THE OWNER 2026-09-06.",
+      "depends_on": [
+        "1.2"
+      ]
+    },
+    {
+      "id": "3.1",
+      "title": "AGENTS.md Testing notes: name both test files, the governing rule, the three buckets",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-06T08:50:00Z",
+      "completed_at": "2026-09-06T09:05:00Z",
+      "duration_seconds": 900,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 23,
+        "context_pct_end": 27,
+        "approx": true,
+        "note": "wave C total, two workers run concurrently; delta shared"
+      },
+      "notes": "AGENTS.md Testing notes: both new test files, the governing rule, the three buckets, pointer to design.md.",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ]
+    }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "3.1",
+      "2.1",
+      "2.2"
+    ],
+    "awaiting_user_verification": []
+  },
+  "decisions": [
+    {
+      "id": "D-telemetry-1",
+      "at": "2026-09-06T08:40:00Z",
+      "scope": "wave:A",
+      "made_by": "autopilot",
+      "decision": "Workers edit query.sql only. The LEADER runs make sqlc once, after both tiers' SQL edits land.",
+      "why": "One sqlc.yaml regenerates all four modules, so two parallel workers running codegen would race on each other's generated files."
+    },
+    {
+      "id": "D-telemetry-2",
+      "scope": "wave:C",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's refusal to poke session_id in the schema self-check.",
+      "why": "session_id is the ON CONFLICT match key. Poking it sends the upsert down the INSERT path, so the test would prove nothing. Matches charging's sibling exemption.",
+      "at": "2026-09-06T09:05:00Z"
+    },
+    {
+      "id": "D-telemetry-3",
+      "scope": "wave:C",
+      "made_by": "autopilot",
+      "decision": "writtenColumns/denyListColumns stay hardcoded in the test; only the LIVE column list is derived from information_schema.",
+      "why": "tasks.md asked to derive both; design.md D7.7 only requires the live list. Parsing query.sql at run time is fragile. design.md wins and matches the charging precedent.",
+      "at": "2026-09-06T09:05:00Z"
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review this change against the artifacts, not against your own taste. Read the DIFF, not the whole module.\n\nVERIFY:\n1. Module boundary: nothing outside internal/telemetry/ except this change's own openspec folder.\n2. The deny-list in query.sql is the EXACT complement of the ON CONFLICT DO UPDATE SET clause. Every live column appears in exactly one of the two. This is roadmap D18 and the owner confirmed it at the database design gate. A mismatch is a BLOCKER.\n3. The implementation matches the design.md the OWNER CONFIRMED. Any DB object differing from that confirmed design is a BLOCKER.\n4. The tests assert the expected values design.md authored UP FRONT, not whatever the SQL happens to do. Specifically check the write-once case runs the identical call TWICE - that second call is the whole point, it proves no nightly churn. A test that only calls once is a finding.\n5. The schema self-check derives the LIVE column list from information_schema and never hand-types it. The written/deny lists ARE hardcoded on purpose (leader decision) - that is correct, not a finding.\n6. Doc comments and AGENTS.md no longer describe the old behaviour. charging's old 'NO WHERE PREDICATE' argument in particular must be answered, not deleted.\n7. Performance-Profile compliance: read-heavy. No new index was added in either tier - confirm that is still right.\n8. Anti-gaming: no acceptance criterion was weakened, no status self-approved, no task ticked without work.\n\nDO NOT RUN THE TEST SUITE. Judge test quality by READING the tests.\n\nSignals already run and their source:\n- ASSISTANT-RUN (leader): go build ./..., go vet ./..., all 7 guards (boundary, migration, money, tz, archive, i18n, ui), gofmt. All clean. gofmt flags 3 files in account/config/gateway - PRE-EXISTING on HEAD, not this change.\n- OWNER-RUN: go test ./internal/charging/... ./internal/telemetry/... -count=1 - both ok, uncached. This is the owner's report, not the assistant's claim.\n\nKnown and already handled, do not re-raise as new:\n- The pre-existing charging test B2 asserted the OLD contract and was inverted, not deleted, in commit dbec8ca.\n- session_id is deliberately not poked in the schema self-check: it is the ON CONFLICT match key, so poking it sends the upsert down the INSERT path.\n- Late-arriving write-once values are still not saved. The owner considered and declined it. It is backlog entry 26, not an oversight.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-06T10:15:00Z",
+        "agent": "telemetry-reviewer",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "openspec/changes/RM44-telemetry-add-change-detecting-upsert/tasks.md:36 - task 1.2's checkbox is still \"[ ]\" (unchecked) while progress.json marks task 1.2 \"done\" with a verification note. The work itself is real and verified (see round notes) - this is a bookkeeping mismatch, not gaming. Fix the checkbox before archive.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-06T03:20:00Z",
+      "agent": "leader",
+      "event": "progress.json created. Artifacts written by worker 'telemetry' (sonnet), revised once after the leader found the write-once churn hole. openspec validate --strict passes. DATABASE DESIGN GATE CONFIRMED BY THE OWNER at 2026-09-06T03:20:00Z - deny-list verified against the live schema as an exact complement of the SET clause (no missing, no phantom, no overlap)."
+    },
+    {
+      "at": "2026-09-06T08:40:00Z",
+      "agent": "leader",
+      "event": "Wave A dispatched: task 1.1 to worker 'telemetry' (sonnet). Budget at dispatch: five_hour=7%, context=21%. Codegen deliberately withheld from workers - leader runs it once (see decision D-telemetry-1)."
+    },
+    {
+      "at": "2026-09-06T08:47:00Z",
+      "agent": "leader",
+      "event": "Wave A reconciled. Worker reported placeholder timestamps (00:00:00Z); leader recorded the real times instead. Codegen run once by the leader. VERIFIED: both Params structs byte-identical to HEAD; go build and go vet clean. gofmt flags 3 files in account/config/gateway - confirmed PRE-EXISTING on HEAD, not from this change."
+    },
+    {
+      "at": "2026-09-06T08:50:00Z",
+      "agent": "leader",
+      "event": "Wave C dispatched to worker 'telemetry' (sonnet), tasks 2.1, 2.2, 3.1 - one serial worker for the whole wave. Budget at dispatch: five_hour=16%, context=23%."
+    },
+    {
+      "at": "2026-09-06T09:05:00Z",
+      "agent": "leader",
+      "event": "Wave C reconciled. Worker reported placeholder timestamps again (the telemetry worker honestly flagged it has no clock); leader recorded real times. LEADER-RUN SIGNALS ALL CLEAN: go build, go vet, and all seven guards (boundary, migration, money, tz, archive, i18n, ui). THE SUITE HAS NOT BEEN RUN - it is the owner's. Test tasks are awaiting-user-verification, not done."
+    },
+    {
+      "at": "2026-09-06T09:35:00Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE OWNER, not by the assistant. The owner ran `go test ./internal/charging/... ./internal/telemetry/... -count=1` and reported both packages ok (charging 3.468s, telemetry 3.356s, uncached). The owner had also reported all 7 guards passing. Tests really executed rather than skipping: a fully-skipped package returns in milliseconds, and the same machine hit real Postgres timestamps in the earlier B2 failure. This verification is the OWNER'S and is recorded as theirs; the assistant never ran the suite."
+    }
+  ]
+}

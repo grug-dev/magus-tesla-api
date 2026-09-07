@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
@@ -82,5 +84,80 @@ func TestCallCounter_CountsEveryCallRegardlessOfOutcome(t *testing.T) {
 	if counter.calls != want {
 		t.Fatalf("calls = %d, want %d (list=%d wake=%d data=%d charge=%d)",
 			counter.calls, want, listCalls, wakeCalls, dataCalls, chargeCalls)
+	}
+}
+
+// TestCallCounter_LogsExpectedLines exercises all four tesla.VehicleService
+// methods and asserts the emitted "fleet api:" log line matches
+// RM44-telemetry-add-query-logging design.md D4's table exactly (Test
+// Contract Group B). Each expected line below was transcribed from D4's
+// table before re-reading call_counter.go's format strings — the assertions
+// pin what the design specifies, not what the code happens to print.
+func TestCallCounter_LogsExpectedLines(t *testing.T) {
+	buf := captureLog(t)
+	ctx := context.Background()
+	creds := tesla.Credentials{}
+	counter := newCallCounter(&minimalFakeTesla{})
+
+	if _, err := counter.ListVehicles(ctx, creds); err != nil {
+		t.Fatalf("ListVehicles: unexpected error: %v", err)
+	}
+	if _, _, err := counter.VehicleData(ctx, creds, 99); err != nil {
+		t.Fatalf("VehicleData: unexpected error: %v", err)
+	}
+	if _, err := counter.WakeUp(ctx, creds, 99); err != nil {
+		t.Fatalf("WakeUp: unexpected error: %v", err)
+	}
+	params := tesla.ChargingHistoryParams{
+		StartTime: "2026-06-01",
+		EndTime:   "2026-09-01",
+		PageNo:    2,
+		Count:     50,
+	}
+	if _, err := counter.ChargingHistory(ctx, creds, params); err != nil {
+		t.Fatalf("ChargingHistory: unexpected error: %v", err)
+	}
+
+	got := buf.String()
+	wantLines := []string{
+		"fleet api: ListVehicles",
+		fmt.Sprintf("fleet api: VehicleData vehicle_id=%d", 99),
+		fmt.Sprintf("fleet api: WakeUp vehicle_id=%d", 99),
+		fmt.Sprintf("fleet api: ChargingHistory start_time=%q end_time=%q page_no=%d count=%d",
+			params.StartTime, params.EndTime, params.PageNo, params.Count),
+	}
+	for _, want := range wantLines {
+		if !strings.Contains(got, want) {
+			t.Fatalf("log output missing line %q; got:\n%s", want, got)
+		}
+	}
+}
+
+// TestCallCounter_NeverLogsCredentials is the concrete, structural proof
+// (design D3/D9, Test Contract Group C) that a live tesla.Credentials value
+// never reaches a "fleet api:" log line through any of the 4 callCounter
+// methods.
+func TestCallCounter_NeverLogsCredentials(t *testing.T) {
+	buf := captureLog(t)
+	ctx := context.Background()
+	const secret = "SECRET-TOKEN-DO-NOT-LOG-9f3a"
+	creds := tesla.Credentials{AccessToken: secret}
+	counter := newCallCounter(&minimalFakeTesla{})
+
+	if _, err := counter.ListVehicles(ctx, creds); err != nil {
+		t.Fatalf("ListVehicles: unexpected error: %v", err)
+	}
+	if _, _, err := counter.VehicleData(ctx, creds, 1); err != nil {
+		t.Fatalf("VehicleData: unexpected error: %v", err)
+	}
+	if _, err := counter.WakeUp(ctx, creds, 1); err != nil {
+		t.Fatalf("WakeUp: unexpected error: %v", err)
+	}
+	if _, err := counter.ChargingHistory(ctx, creds, tesla.ChargingHistoryParams{}); err != nil {
+		t.Fatalf("ChargingHistory: unexpected error: %v", err)
+	}
+
+	if got := buf.String(); strings.Contains(got, secret) {
+		t.Fatalf("log output leaked credential; got:\n%s", got)
 	}
 }

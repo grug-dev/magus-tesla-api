@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
-	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
 // These tests exercise Source A of RM2-telemetry-add-charging-stats: the 6 nullable
@@ -35,6 +36,76 @@ func ptrInt(v int) *int { return &v }
 
 // ptrString is a test helper to build a *string.
 func ptrString(v string) *string { return &v }
+
+// The two helpers below replace the deleted telemetrydb.ListSnapshotsByVehicle
+// sqlc query (RM44-telemetry-add-query-logging D5/D13): each test that used to
+// call it now reads its row back with a raw SQL SELECT via the pool directly,
+// independent of this module's own reader queries, narrowed to the columns
+// that test actually asserts.
+
+// sourceAChargeRow carries the columns TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead
+// asserts.
+type sourceAChargeRow struct {
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+}
+
+func querySourceACharge(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]sourceAChargeRow, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+		        charger_actual_current_a, usable_battery_level_pct
+		   FROM telemetry.vehicle_snapshots
+		  WHERE account_id = $1 AND tesla_id = $2
+		  ORDER BY captured_at DESC`,
+		accountID, teslaID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var got []sourceAChargeRow
+	for rows.Next() {
+		var r sourceAChargeRow
+		if err := rows.Scan(&r.ChargeEnergyAddedKwh, &r.ChargerPowerKw, &r.ChargerVoltageV,
+			&r.ChargerActualCurrentA, &r.UsableBatteryLevelPct); err != nil {
+			return nil, err
+		}
+		got = append(got, r)
+	}
+	return got, rows.Err()
+}
+
+// maxRangeChargeCounterRow carries the column the two
+// TestMaxRangeChargeCounter_* tests below assert.
+type maxRangeChargeCounterRow struct {
+	MaxRangeChargeCounter pgtype.Int4
+}
+
+func queryMaxRangeChargeCounter(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]maxRangeChargeCounterRow, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT max_range_charge_counter
+		   FROM telemetry.vehicle_snapshots
+		  WHERE account_id = $1 AND tesla_id = $2
+		  ORDER BY captured_at DESC`,
+		accountID, teslaID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var got []maxRangeChargeCounterRow
+	for rows.Next() {
+		var r maxRangeChargeCounterRow
+		if err := rows.Scan(&r.MaxRangeChargeCounter); err != nil {
+			return nil, err
+		}
+		got = append(got, r)
+	}
+	return got, rows.Err()
+}
 
 // TestSourceA_ChargeEnrichment_NonNilRoundTrip verifies that all 6 charge-enrichment
 // fields round-trip faithfully when they carry non-nil, non-zero values (A5.1a).
@@ -210,14 +281,10 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
 
-	// Read back via the direct sqlc query to see raw pgtype values too.
-	q := telemetrydb.New(pool)
-	rows, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	// Read back via a direct SQL SELECT to see raw pgtype values too.
+	rows, err := querySourceACharge(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
 	if len(rows) != 1 {
 		t.Fatalf("want 1 row, got %d", len(rows))
@@ -362,13 +429,9 @@ func TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil(t *testing.T) {
 	}
 
 	// Check the raw pgtype column: it must be Valid=true (non-NULL), Int32=0.
-	q := telemetrydb.New(pool)
-	rows, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	rows, err := queryMaxRangeChargeCounter(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
 	if len(rows) != 1 {
 		t.Fatalf("want 1 row, got %d", len(rows))
@@ -425,13 +488,9 @@ func TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil(t *testing.T) {
 	}
 
 	// Raw pgtype: must be Valid=false (SQL NULL).
-	q := telemetrydb.New(pool)
-	rows, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	rows, err := queryMaxRangeChargeCounter(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
 	if len(rows) != 1 {
 		t.Fatalf("want 1 row, got %d", len(rows))

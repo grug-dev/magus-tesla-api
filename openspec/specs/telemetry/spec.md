@@ -1063,3 +1063,201 @@ unaffected by this rename).
 - **AND** `internal/gateway` still does not import `internal/telemetry` anywhere, verified by
   `make boundary-guard` continuing to pass with zero `// boundary:allow:` escape hatches
 
+### Requirement: Query And Fleet-API Argument Logging
+
+The telemetry capability SHALL log, for every call made through its existing
+persistence write seam, its snapshot-read port, its Supercharger-history read port,
+and its poll-run write port, the call's identifying and date-filtering arguments, and
+— for a method that returns a collection or a single optional record — how many
+records were returned. The telemetry capability SHALL also log, for every request it
+makes to the vendor Fleet API, that request's non-credential parameters, including the
+complete parameter set of any date-ranged request.
+
+This closes an observability gap: without it, a query's actual filter — in particular
+whether a request asked for a bounded, recent window or the vendor's entire history —
+cannot be determined from a successful run's output.
+
+#### Scenario: A snapshot read logs its account, vehicle, and window
+- **GIVEN** a call to the snapshot read port for a specific account, vehicle, and time
+  window
+- **WHEN** the call completes
+- **THEN** a log line records the account identity, the vehicle identity, the window
+  boundaries supplied, and the number of records returned
+
+#### Scenario: A Supercharger-history read with no date bound logs that fact explicitly
+- **GIVEN** a call to the account-wide Supercharger-history read port that supplies no
+  date boundary
+- **WHEN** the call completes
+- **THEN** a log line records the account identity, the limit the query actually
+  executed with, an explicit indication that no date bound was applied, and the number
+  of records returned
+
+#### Scenario: A Supercharger-history read logs the limit the query will actually use
+- **GIVEN** a call to a Supercharger-history read port with a caller-supplied limit
+  that means "no limit"
+- **WHEN** the call completes
+- **THEN** the logged limit is the concrete value the underlying query executes with,
+  not the caller's placeholder value
+
+#### Scenario: A poll-run write logs its run identity and trigger
+- **GIVEN** a call to the poll-run write port for a given run
+- **WHEN** the call is made
+- **THEN** a log line records that run's identity and what triggered it
+
+#### Scenario: A Fleet API charging-history request logs its complete parameters
+- **GIVEN** a request to the vendor Fleet API's charging-history endpoint with a
+  specific date range and pagination
+- **WHEN** the request is made
+- **THEN** a log line records the complete set of parameters supplied to that request
+
+### Requirement: Structural Exclusion Of Credentials And Raw Payloads From Logs
+
+No log line produced by the telemetry capability's instrumentation SHALL ever contain
+a vendor access credential, or the content of a stored raw external-API payload. Where
+a raw payload's size is useful to record, the instrumentation SHALL record only its
+byte size, never its content.
+
+#### Scenario: A Fleet API call with a live credential never logs it
+- **GIVEN** a request to the vendor Fleet API made with a specific access credential
+- **WHEN** the request is logged
+- **THEN** the logged line does not contain that credential's value anywhere
+
+#### Scenario: A write carrying a raw payload logs only its size
+- **GIVEN** a write of a record that includes a raw external-API payload
+- **WHEN** the write is logged
+- **THEN** the logged line contains the payload's byte size and does not contain the
+  payload's content
+
+### Requirement: Change-Detecting Supercharger-History Upsert
+
+The telemetry capability SHALL advance a Supercharger-history row's `updated_at` only
+when that row's mirrored data actually changed. A nightly re-sync that writes the same
+mirrored values it already stored SHALL leave `updated_at` untouched. A nightly
+re-sync that writes at least one different mirrored value SHALL advance `updated_at`
+to the current time.
+
+The comparison SHALL cover exactly the columns the nightly sync refreshes on a
+conflict — no more, no less. Every other column SHALL be excluded from the
+comparison: columns a human sets by hand outside the nightly sync, and columns the
+nightly sync writes once at first capture but never refreshes afterward. Excluding a
+column from the comparison SHALL be an explicit, visible decision, not the default
+outcome of a column being merely absent from a hand-written comparison list.
+
+This closes a false-signal problem: a downstream consumer reads `updated_at` to find
+what changed since it last looked. Before this requirement, every nightly re-sync
+advanced `updated_at` on every row, whether or not anything changed, making that
+signal useless.
+
+#### Scenario: An unchanged re-sync leaves `updated_at` untouched
+
+- **GIVEN** a Supercharger-history row already stored with a given `updated_at`
+- **WHEN** the nightly sync writes the same mirrored values for that session again
+- **THEN** the row's `updated_at` stays exactly what it was before
+
+#### Scenario: A real mirrored-value change advances `updated_at`
+
+- **GIVEN** a Supercharger-history row already stored
+- **WHEN** the nightly sync writes a different value for any column it mirrors
+- **THEN** the row's `updated_at` advances to the current time
+
+#### Scenario: A vehicle re-registration advances `updated_at`
+
+- **GIVEN** a Supercharger-history row with no vehicle identity recorded, because the
+  vehicle was not registered at the time of the session
+- **WHEN** the nightly sync later resolves that session to a registered vehicle
+- **THEN** the row's `updated_at` advances to the current time
+
+#### Scenario: A human-entered value on the row does not block change detection, and is never mistaken for a change itself
+
+- **GIVEN** a Supercharger-history row that a human has verified, so it carries a
+  hand-entered value outside the nightly sync's mirrored columns
+- **WHEN** the nightly sync re-writes the same mirrored values it already stored
+- **THEN** the row's `updated_at` stays exactly what it was before, and the
+  hand-entered value is left exactly as it was
+
+#### Scenario: A column the nightly sync never refreshes never causes repeated `updated_at` advances
+
+- **GIVEN** a Supercharger-history row whose stored value in a column the nightly
+  sync writes only once at first capture no longer matches what the vendor now
+  reports for that same column
+- **WHEN** the nightly sync re-writes the same mirrored values it already stored,
+  on any number of separate nights
+- **THEN** the row's `updated_at` stays exactly what it was before, every time,
+  because that mismatch is permanent and outside what the comparison covers
+
+#### Scenario: A newly mirrored column that is not excluded from the comparison is detected
+
+- **GIVEN** a Supercharger-history table with a column that is neither refreshed by
+  the nightly sync nor excluded from the change comparison
+- **WHEN** that column holds a value the nightly sync does not write
+- **THEN** the sync's own change-detection test fails, so the omission is caught
+  before it reaches production
+
+### Requirement: Supercharger History Account-Wide Updated-Since Read Port
+
+The telemetry capability SHALL expose a read port through which other
+modules can retrieve every stored Supercharger session for a single account
+whose `updated_at` is at or after a caller-supplied instant, without
+accessing the telemetry module's database tables directly and without
+identifying any particular vehicle. The port SHALL return the existing
+`SuperchargerHistory` domain type, ordered oldest-first by `updated_at`.
+Callers SHALL receive an empty result (not an error) when nothing in the
+account has been updated at or after the given instant.
+
+Unlike the per-vehicle updated-since port, this port SHALL include a session
+whose registered vehicle identifier is absent — a session for a vehicle that
+is not currently registered to the account. This is a deliberate difference,
+not an omission: a per-vehicle read can never surface such a session, so a
+caller that needs to recover a session once its vehicle re-registers SHALL
+use this account-wide port instead.
+
+#### Scenario: Sessions for every vehicle in the account are included
+- **GIVEN** an account with two vehicles, each holding one Supercharger
+  session updated at or after a given instant
+- **WHEN** the account's sessions are retrieved for modifications at or
+  after that instant
+- **THEN** both sessions are included in the result
+
+#### Scenario: A session whose vehicle is not currently registered is included
+- **GIVEN** a Supercharger session whose vehicle identification number does
+  not belong to any vehicle currently registered to the account, last
+  modified at or after a given instant
+- **WHEN** the account's sessions are retrieved for modifications at or
+  after that instant
+- **THEN** the session is included in the result
+
+#### Scenario: A different account's session does not leak
+- **GIVEN** two accounts, each holding a Supercharger session last modified
+  at or after a given instant
+- **WHEN** one account's sessions are retrieved for modifications at or
+  after that instant
+- **THEN** only that account's session is included
+
+#### Scenario: Results are ordered earliest-updated-first
+- **GIVEN** an account with multiple Supercharger sessions modified at or
+  after a given instant, with different last-modified instants
+- **WHEN** the account's sessions are retrieved for modifications at or
+  after that instant
+- **THEN** the records are ordered by their last-modified instant, earliest
+  first
+
+#### Scenario: A session modified at exactly the requested instant is included
+- **GIVEN** a Supercharger session last modified at a given instant
+- **WHEN** the account's sessions are retrieved for modifications at or
+  after that exact instant
+- **THEN** the session is included in the result
+
+#### Scenario: Empty result when nothing has been updated in the window
+- **GIVEN** an account with no Supercharger session updated at or after the
+  requested instant
+- **WHEN** the account's sessions are retrieved for modifications at or
+  after that instant
+- **THEN** an empty collection is returned, and no error is returned
+
+#### Scenario: Callers never access the telemetry database directly for this port either
+- **GIVEN** any caller that needs to detect which of an account's
+  Supercharger sessions changed recently, across every vehicle
+- **WHEN** it obtains that data
+- **THEN** it does so exclusively through this read port
+- **AND** it imports no package from `internal/telemetry/db`
+

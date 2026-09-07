@@ -68,6 +68,28 @@
 - **i18n:** every string on this page resolves through `i18n.T(ctx, key)` with both ES and EN
   non-empty. A hardcoded string is incomplete work — `make i18n-guard` enforces it.
 
+- **The page has THREE names, and they are deliberately different.** The sidebar says
+  **External** / **Externas** (`i18n.KeyNavExternalCharges`, key `nav.external_charges`); the page
+  heading says **External charges** / **Cargas externas** (`i18n.KeyChargesPageTitle`, key
+  `charges_page.title`); the route is `/external-charges`. A sidebar entry sits beside its
+  siblings under a section heading, so the adjective alone is unambiguous there; a page heading
+  stands alone and carries the noun. Do not "fix" the sidebar to match the heading.
+  _Source: spec gateway — Requirement: External Charges Page; Requirement: Navigation Items._
+- **The i18n keys still say `charges_*`, not `external_charges_*` — this is deliberate, not
+  debt.** All 86 keys for this page keep the `charges_form.*` / `charges_error.*` /
+  `charges_list.*` / `charges_page.*` prefixes and their `KeyCharges*` Go identifiers. A key is
+  never seen by a user and is not reachable from a URL, so renaming them would have added 172
+  edits that change nothing observable. Grep `KeyCharges`, not `KeyExternalCharges`. The one
+  exception is `nav.manual_records` → `nav.external_charges`, renamed because that name had become
+  factually wrong.
+  _Source: spec gateway — Requirement: External Charges Page._
+- **There is NO redirect from the old `/charges` route — it 404s.** The page is behind
+  authentication, is reached only from the sidebar, and had no external caller or indexed URL, so
+  a permanent redirect would have been cached by browsers forever to serve a bookmark that may not
+  exist. If a stale bookmark ever turns up, adding the redirect is one route line in
+  `gateway.go`. Do not assume the old path still resolves when writing a test or a link.
+  _Source: spec gateway — Requirement: External Charges Page._
+
 ## Form layout & field rules
 
 > Moved here from `internal/gateway/AGENTS.md` (MAG-39). It is `/external-charges`-specific detail,

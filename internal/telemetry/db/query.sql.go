@@ -288,124 +288,9 @@ ORDER BY tesla_id, captured_at DESC
 // The existing (account_id, tesla_id, captured_at) index covers this query: the
 // planner satisfies the WHERE and ORDER BY in a single efficient range scan.
 // This is the batch read for the dashboard (tier 5, gateway-read-stored-vehicles);
-// it avoids the N+1 that would result from calling ListSnapshotsByVehicle per vehicle.
+// it avoids the N+1 that would result from reading each vehicle's snapshots separately.
 func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]VehicleSnapshot, error) {
 	rows, err := q.db.Query(ctx, latestSnapshotsByAccount, accountID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []VehicleSnapshot
-	for rows.Next() {
-		var i VehicleSnapshot
-		if err := rows.Scan(
-			&i.ID,
-			&i.AccountID,
-			&i.TeslaID,
-			&i.CapturedAt,
-			&i.RawData,
-			&i.BatteryLevelPct,
-			&i.BatteryRangeKm,
-			&i.ChargingState,
-			&i.ChargeLimitSocPct,
-			&i.OdometerKm,
-			&i.InsideTempC,
-			&i.OutsideTempC,
-			&i.Locked,
-			&i.SentryMode,
-			&i.CarVersion,
-			&i.ChargeEnergyAddedKwh,
-			&i.ChargerPowerKw,
-			&i.ChargerVoltageV,
-			&i.ChargerActualCurrentA,
-			&i.UsableBatteryLevelPct,
-			&i.MaxRangeChargeCounter,
-			&i.TpmsPressureFlPsi,
-			&i.TpmsPressureFrPsi,
-			&i.TpmsPressureRlPsi,
-			&i.TpmsPressureRrPsi,
-			&i.CapturedDate,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPollAttemptsByVehicle = `-- name: ListPollAttemptsByVehicle :many
-SELECT id, account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by FROM telemetry.poll_attempts
-WHERE account_id = $1 AND tesla_id = $2
-ORDER BY attempted_at DESC
-`
-
-type ListPollAttemptsByVehicleParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-}
-
-// Read helper for the DATABASE_URL-gated store tests: every attempt for one
-// vehicle, newest first. Not consumed by another module (module-scoped).
-func (q *Queries) ListPollAttemptsByVehicle(ctx context.Context, arg ListPollAttemptsByVehicleParams) ([]PollAttempt, error) {
-	rows, err := q.db.Query(ctx, listPollAttemptsByVehicle, arg.AccountID, arg.TeslaID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []PollAttempt
-	for rows.Next() {
-		var i PollAttempt
-		if err := rows.Scan(
-			&i.ID,
-			&i.AccountID,
-			&i.TeslaID,
-			&i.AttemptedAt,
-			&i.Outcome,
-			&i.Reason,
-			&i.RunID,
-			&i.TriggeredBy,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSnapshotsByVehicle = `-- name: ListSnapshotsByVehicle :many
-SELECT
-    id, account_id, tesla_id, captured_at, raw_data,
-    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
-    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
-    car_version,
-    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
-    charger_actual_current_a, usable_battery_level_pct,
-    max_range_charge_counter,
-    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at
-FROM telemetry.vehicle_snapshots
-WHERE account_id = $1 AND tesla_id = $2
-ORDER BY captured_at DESC
-`
-
-type ListSnapshotsByVehicleParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-}
-
-// Read helper for the DATABASE_URL-gated store tests: every snapshot for one
-// vehicle, newest first. Not consumed by another module (module-scoped).
-// Explicit column list (no SELECT *) so sqlc generates a stable struct even when
-// schema evolves; latitude/longitude/fast_charger_type removed in 20260801000001.
-func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsByVehicleParams) ([]VehicleSnapshot, error) {
-	rows, err := q.db.Query(ctx, listSnapshotsByVehicle, arg.AccountID, arg.TeslaID)
 	if err != nil {
 		return nil, err
 	}
@@ -919,6 +804,84 @@ func (q *Queries) SuperchargerHistoryByAccount(ctx context.Context, arg Supercha
 	return items, nil
 }
 
+const superchargerHistoryByAccountUpdatedSince = `-- name: SuperchargerHistoryByAccountUpdatedSince :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source FROM telemetry.supercharger_history
+WHERE account_id = $1
+  AND updated_at >= $2
+ORDER BY updated_at ASC
+`
+
+type SuperchargerHistoryByAccountUpdatedSinceParams struct {
+	AccountID uuid.UUID
+	Since     pgtype.Timestamptz
+}
+
+// Return every Supercharger session for one account whose updated_at is at
+// or after @since, ordered oldest-first by updated_at. Used by
+// SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince
+// (RM44-platform-add-mirror-watermark, roadmap D20) to bound
+// internal/app's nightly Supercharger mirror read.
+//
+// UNLIKE SuperchargerHistoryByVehicleUpdatedSince, this query takes no
+// tesla_id and filters on account_id alone -- so it is the only
+// updated-since query that CAN return a row whose tesla_id IS NULL (a
+// session for a vehicle that is not currently registered). That is
+// deliberate: the mirror this bounds reads per account precisely because a
+// per-vehicle read can never surface such a row, breaking the
+// orphan-recovery path that lets a session get mirrored once its vehicle
+// re-registers (roadmap D3, carried into this tier by D20).
+//
+// Index: idx_supercharger_history_account_updated (account_id,
+// updated_at), added by this change's own telemetry migration. It matches
+// this query exactly -- account_id prunes to the tenant, and updated_at
+// ASC satisfies both the range predicate and the ORDER BY in one index
+// scan, with no sort step. Do NOT confuse it with the pre-existing
+// idx_supercharger_history_account_time (account_id,
+// charge_start_date_time DESC), which shares only the account_id prefix
+// and would leave updated_at as a residual filter plus an in-memory sort.
+func (q *Queries) SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, arg SuperchargerHistoryByAccountUpdatedSinceParams) ([]SuperchargerHistory, error) {
+	rows, err := q.db.Query(ctx, superchargerHistoryByAccountUpdatedSince, arg.AccountID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SuperchargerHistory
+	for rows.Next() {
+		var i SuperchargerHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SiteLocationName,
+			&i.CountryCode,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.UnlatchDateTime,
+			&i.BillingType,
+			&i.VehicleMakeType,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.RawData,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const superchargerHistoryByVehicle = `-- name: SuperchargerHistoryByVehicle :many
 SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source FROM telemetry.supercharger_history
 WHERE account_id = $1
@@ -1189,7 +1152,13 @@ ON CONFLICT (session_id) DO UPDATE SET
     currency   = EXCLUDED.currency,
     is_paid    = EXCLUDED.is_paid,
     tesla_id   = EXCLUDED.tesla_id,
-    updated_at = now()
+    updated_at = CASE
+        WHEN to_jsonb(supercharger_history.*) - '{id,session_id,account_id,vin,site_location_name,country_code,charge_start_date_time,charge_stop_date_time,unlatch_date_time,billing_type,vehicle_make_type,created_at,updated_at,start_battery_pct,end_battery_pct,battery_pct_source}'::text[]
+             IS DISTINCT FROM
+             to_jsonb(EXCLUDED.*) - '{id,session_id,account_id,vin,site_location_name,country_code,charge_start_date_time,charge_stop_date_time,unlatch_date_time,billing_type,vehicle_make_type,created_at,updated_at,start_battery_pct,end_battery_pct,battery_pct_source}'::text[]
+        THEN now()
+        ELSE supercharger_history.updated_at
+    END
 `
 
 type UpsertSuperchargerHistoryParams struct {
@@ -1224,11 +1193,39 @@ type UpsertSuperchargerHistoryParams struct {
 // write-once verification-time snapshot pair were dropped from the table entirely
 // by RM41-telemetry-drop-estimate-columns -- there is no longer a column to guard.
 // Upsert one Supercharger session. On conflict with the session_id UNIQUE constraint,
-// refresh only the mutable/derived columns (raw_data, derived fields, tesla_id,
-// updated_at). Immutable columns (session_id, account_id, vin, location name,
-// country, timestamps, billing fields, created_at) are never overwritten.
+// refresh only six mutable columns: raw_data, energy_kwh, total_cost, currency,
+// is_paid, tesla_id.
+//
+// updated_at only advances when the row's real data changed. The governing
+// rule: the comparison below covers EXACTLY the columns the SET clause writes.
+// If you add a column to SET, remove it from the deny-list. If you add a
+// column the SET clause does NOT write, add it to the deny-list. Breaking this
+// rule is loud, not silent: a forgotten column makes updated_at advance every
+// night, which is easy to notice, never the other way around.
+//
+// The deny-list has three groups, all excluded from the comparison:
+//  1. Bookkeeping (id, created_at, updated_at) -- not session data. id never
+//     differs on a conflict; created_at is write-once and EXCLUDED.created_at
+//     is a fresh default value, not the row's real one; updated_at is the
+//     column this CASE computes, so comparing it would be circular.
+//  2. Human-owned (start_battery_pct, end_battery_pct, battery_pct_source) --
+//     a person sets these by hand. They are never in the INSERT list, so
+//     EXCLUDED always has them NULL. Without this exclusion, a poller re-sync
+//     would see "set on disk" vs "NULL incoming" and wrongly call that a
+//     change, overwriting the human's work.
+//  3. Write-once (session_id, account_id, vin, site_location_name,
+//     country_code, charge_start_date_time, charge_stop_date_time,
+//     unlatch_date_time, billing_type, vehicle_make_type) -- written once on
+//     INSERT, never refreshed by this SET clause. If Tesla later sends a
+//     different value for one of these, the stored value stays as-is by
+//     design, and EXCLUDED can differ from it forever. Comparing these
+//     columns would make updated_at advance every single night, forever,
+//     for any row with such a gap -- the exact bug this query exists to fix,
+//     just moved to a different set of columns.
+//
 // Design DBS3: supercharger_history is NOT append-only; billing state mutates
-// post-session (is_paid, invoice status change after midnight).
+// post-session (is_paid, invoice status change after midnight). Full rationale:
+// openspec/changes/RM44-telemetry-add-change-detecting-upsert/design.md D1/D2.
 func (q *Queries) UpsertSuperchargerHistory(ctx context.Context, arg UpsertSuperchargerHistoryParams) error {
 	_, err := q.db.Exec(ctx, upsertSuperchargerHistory,
 		arg.SessionID,

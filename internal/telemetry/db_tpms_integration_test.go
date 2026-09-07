@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
-	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
 // These tests exercise the four TPMS pressure columns added by migration
@@ -37,6 +38,41 @@ import (
 //       precision through the REAL column.
 
 const tpmsFloatTol = 1e-5 // float32->float64 widening may lose sub-1e-5 precision
+
+// tpmsRow carries the 4 TPMS columns TestTPMS_NilRoundTrip and
+// TestTPMS_ZeroNonNilRoundTrip assert. It replaces the deleted
+// telemetrydb.ListSnapshotsByVehicle sqlc query (RM44-telemetry-add-query-logging
+// D5/D13): both tests now read their row back with a raw SQL SELECT via the
+// pool directly, independent of this module's own reader queries.
+type tpmsRow struct {
+	TpmsPressureFlPsi pgtype.Float4
+	TpmsPressureFrPsi pgtype.Float4
+	TpmsPressureRlPsi pgtype.Float4
+	TpmsPressureRrPsi pgtype.Float4
+}
+
+func queryTPMS(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]tpmsRow, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi
+		   FROM telemetry.vehicle_snapshots
+		  WHERE account_id = $1 AND tesla_id = $2
+		  ORDER BY captured_at DESC`,
+		accountID, teslaID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var got []tpmsRow
+	for rows.Next() {
+		var r tpmsRow
+		if err := rows.Scan(&r.TpmsPressureFlPsi, &r.TpmsPressureFrPsi, &r.TpmsPressureRlPsi, &r.TpmsPressureRrPsi); err != nil {
+			return nil, err
+		}
+		got = append(got, r)
+	}
+	return got, rows.Err()
+}
 
 // TestTPMS_NonNilRoundTrip verifies that all four TPMS PSI fields with non-zero
 // values round-trip faithfully through the store -> DB -> read path (T6.1a).
@@ -136,13 +172,9 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 	}
 
 	// Verify raw pgtype: all must be Valid=false (SQL NULL).
-	q := telemetrydb.New(pool)
-	rows, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	rows, err := queryTPMS(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
 	if len(rows) != 1 {
 		t.Fatalf("want 1 row, got %d", len(rows))
@@ -215,13 +247,9 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 	}
 
 	// Verify pgtype: all must be Valid=true (non-NULL), Float32=0.
-	q := telemetrydb.New(pool)
-	rows, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-	})
+	rows, err := queryTPMS(ctx, pool, accountID, teslaID)
 	if err != nil {
-		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
 	if len(rows) != 1 {
 		t.Fatalf("want 1 row, got %d", len(rows))

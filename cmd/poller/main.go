@@ -132,6 +132,7 @@ func main() {
 		superchargerHistoryReader,
 		telemetry.NewRunWriter(pool),
 		charging.NewSessionWriter(pool),
+		charging.NewMirrorWatermarkStore(pool),
 		acct,
 		recalculator,
 		analyticsReader,

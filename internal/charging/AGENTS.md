@@ -223,7 +223,7 @@ item 11) writes them directly, never through this port.
 
 **The refresh set `MirrorSuperchargerSession`'s `ON CONFLICT DO UPDATE SET` touches is
 telemetry's own conflict set, minus `raw_data`** (a column `supercharger_sessions` does not
-carry): `energy_kwh, total_cost, currency, is_paid, tesla_id, updated_at`. This is not five
+carry): `energy_kwh, total_cost, currency, is_paid, tesla_id`. This is not five
 independent judgement calls — it is one rule applied mechanically: *a mirrored column gets
 exactly the write semantics its source column has* (design.md D1). Concretely,
 `site_location_name` is **not** refreshed on a re-mirror, and the reason is purely
@@ -231,6 +231,25 @@ structural: `telemetry`'s own upsert never refreshes `site_location_name` either
 neither does this one — **not** because a site name was judged unlikely to change. Apply
 the same reasoning before adding any future mirrored column: check telemetry's conflict
 clause first, and mirror it exactly.
+
+**`updated_at` means "this row's data changed," not "the last mirror pass touched this
+row"** (`RM44-charging-add-change-detecting-mirror`, MAG-48; design.md D1–D3). Before
+this change, the query set `updated_at = now()` on every mirror pass, whether or not any
+of the five refreshed columns above actually changed. That made
+`internal/analytics.Recalculator.Reconcile` — which reads this column to find sessions
+worth recalculating — see every session as new, every night. The fix: `updated_at` now
+advances only when the row's current values differ from the five columns this SET clause
+writes. The comparison is a `to_jsonb` deny-list, not a hand-picked `WHERE`: it deny-lists
+every column this query never refreshes — bookkeeping (`id`, `created_at`, `updated_at`
+itself), human-owned columns (`start_battery_pct`, `end_battery_pct`,
+`battery_pct_source`, `status`, `inferred_capacity_kwh_calc`), and write-once mirrored
+columns (`account_id`, `vin`, `session_id`, `charge_start_date_time`,
+`charge_stop_date_time`, `site_location_name`) — so the comparison covers exactly the
+five refreshed columns and nothing else. This keeps working even as the table grows:
+`db_mirror_schema_selfcheck_integration_test.go` fails the moment a new column belongs to
+neither list. See that test file, and
+`internal/charging/db_session_mirror_change_detection_integration_test.go`, for the full
+behavioral proof.
 
 The gateway and any other future caller of `SessionWriter` never import `chargingdb`
 directly, exactly as for `Writer`/`Reader` above.
@@ -499,6 +518,51 @@ percentages was manually reconstructed by the owner, not read from the car) the
 stored percentages themselves cannot show, not a recompute of the truth table above
 against their actual values (design.md "Rationale").
 
+### The Supercharger mirror watermark (RM44-platform-add-mirror-watermark, MAG-48)
+
+`charging.mirror_watermarks` is a new table, one row per account, holding the
+highest `telemetry.supercharger_history.updated_at` this module's nightly
+mirror has already synchronized. It has no `tesla_id` column: the read it
+bounds is account-wide, not per vehicle, so a per-vehicle cursor would miss
+the orphan-recovery case (a session whose vehicle re-registers). It has no
+`source` column either: this table mirrors exactly one upstream table, so a
+second source column would be speculative, not something a caller needs
+today.
+
+```go
+// MirrorWatermarkStore is the cursor port for the Supercharger mirror read.
+// One interface, two methods, one caller (internal/app) — not split like
+// SessionWriter/SessionReader/SessionVerifier, because those three serve
+// callers with different trust models and this port does not.
+type MirrorWatermarkStore interface {
+    MirrorWatermark(ctx context.Context, accountID uuid.UUID) (time.Time, error)
+    AdvanceMirrorWatermark(ctx context.Context, accountID uuid.UUID, observed time.Time) error
+}
+
+// NewMirrorWatermarkStore — the only publicly exported factory function for this port.
+func NewMirrorWatermarkStore(pool *pgxpool.Pool) MirrorWatermarkStore
+```
+
+**The most important rule: the watermark never advances to `now()`.** It
+advances only to the maximum `updated_at` the caller actually observed on a
+run, and only when that run's bounded read returned at least one row. A run
+that reads zero rows leaves the watermark untouched. This is deliberate: a
+row that commits to `telemetry.supercharger_history` a moment late would
+otherwise sit permanently behind an advanced cursor and never get mirrored —
+a silent, undetectable loss of data. `AdvanceMirrorWatermark` itself does no
+row-count check; the caller (`internal/app.processChargingData`) must call
+it only after a non-empty read, exactly mirroring
+`analytics.recalculator`'s own `watermark`/`advanceWatermark` split.
+
+No row yet for an account means "epoch" — `MirrorWatermark` returns the zero
+`time.Time`, not an error, translating `pgx.ErrNoRows` the same way
+`analytics.recalculator.watermark` does. A missing cursor backfills that
+account's whole Supercharger history once, on its first-ever mirror run.
+
+Implementation lives in `mirror_watermark.go` (`mirrorWatermarkStore`,
+mirroring `session_writer.go`'s exact concrete-type pattern). `pgtype` stays
+confined to that one file.
+
 ---
 
 ## Allowed Imports
@@ -508,22 +572,25 @@ This module may import:
 - `context`, `time`, `math`, `errors`, and other Go standard library packages.
 - `github.com/google/uuid` — for `uuid.UUID` primary and tenant keys.
 - `github.com/jackc/pgx/v5` and `github.com/jackc/pgx/v5/pgxpool` — for DB connectivity.
-- `github.com/jackc/pgx/v5/pgtype` — ONLY inside `service.go` and `session_writer.go` at
-  the DB boundary. Never in public types, interfaces, `charging.go`, or any `_test.go`
-  file. `session_writer.go` gained this allowance in RM29 tier 6 for the same reason
-  `service.go` has it: it is the one file translating `charging.SessionMirror`'s plain Go
-  `*T` fields into `chargingdb.MirrorSuperchargerSessionParams`' nullable pgtype fields.
-- `internal/charging/db` (package `chargingdb`) — ONLY inside the four files that talk to
-  the database directly: `service.go`, `session_writer.go`, `session_reader.go`, and
-  `session_verifier.go`. The generated package is module-private by convention; no other
-  module imports it, and no `_test.go` file does either.
+- `github.com/jackc/pgx/v5/pgtype` — ONLY inside the four files that talk to the database
+  directly: `service.go`, `session_writer.go`, `session_reader.go`, and
+  `mirror_watermark.go`. Never in public types, interfaces, `charging.go`, or any
+  `_test.go` file. The rule is "only the files that own a query", not "only these names":
+  each of them translates plain Go `*T` fields into a generated params struct's nullable
+  pgtype fields, and translates them back on the way out.
+- `internal/charging/db` (package `chargingdb`) — ONLY inside the five files that talk to
+  the database directly: `service.go`, `session_writer.go`, `session_reader.go`,
+  `session_verifier.go`, and `mirror_watermark.go`. The generated package is module-private
+  by convention; no other module imports it, and no `_test.go` file does either.
 
-  This list said `service.go` and `session_writer.go` alone until MAG-36
-  (`charging-add-derived-start-battery-pct`) corrected it. `session_reader.go` and
-  `session_verifier.go` have imported `chargingdb` since RM31
-  (`RM31-charging-add-session-verification-port`) — the doc simply went stale and was never
-  updated. Nothing about their access was ever irregular: the rule is "only the files that
-  own a query", not "only these two names".
+  Both lists above have gone stale before. MAG-36 corrected the `chargingdb` list, which had
+  named only `service.go` and `session_writer.go` while `session_reader.go` and
+  `session_verifier.go` had imported it since RM31. RM44
+  (`RM44-platform-add-mirror-watermark`) corrected both lists again: it added
+  `mirror_watermark.go` to each, and added `session_reader.go` to the `pgtype` list, which
+  had been missing it. In every case the access was correct and only the doc was wrong.
+  When you add a file that owns a query, add it to both lists in the SAME change — a stale
+  list here reads as a boundary rule and gets trusted like one.
 
 This module MUST NOT import:
 

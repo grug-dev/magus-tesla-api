@@ -85,12 +85,39 @@ else about the session has changed. This capability's synchronization SHALL ther
 run regularly enough that a session's settling fees stay reflected within one
 synchronization cycle of the source updating them.
 
+**Replacing a value with an identical value is not a change.** When a synchronization
+writes the same energy delivered, total cost, currency, and payment status the record
+already carries, that write SHALL NOT count as a modification of the record — see
+"Charge Sessions Are Retrievable For A Vehicle By Recency Of Update." A record's
+human-verified battery percentages and lifecycle status SHALL play no part in this
+comparison in either direction: this capability's synchronization SHALL neither read
+nor be influenced by them, so a human correction is never mistaken for a
+synchronization change, and a synchronization pass is never mistaken for a human
+correction.
+
+**The source reporting a different value for the charging site — a fact this
+capability never updates after first recording — SHALL NOT count as a modification
+either, even though the source and the stored record now disagree.** The record
+keeps its original site name, and the disagreement itself is not treated as new
+information, on every later synchronization, not just the first one where it
+appears.
+
 #### Scenario: The charging site is recorded once and never changes
 - **GIVEN** a record already exists for an account and session identifier, carrying a
   charging site name
 - **WHEN** the charge session records are synchronized again for that session
 - **THEN** the record's charging site name is unchanged, even if the source now reports a
   different name for that session
+
+#### Scenario: A source disagreement on the charging site does not count as a modification, on any night
+- **GIVEN** a record whose charging site name the source now reports differently,
+  while the record's energy delivered, total cost, currency, payment status, and
+  registered vehicle identifier all already match the source
+- **WHEN** the charge session records are synchronized again, twice in a row, and
+  afterward that vehicle's sessions are retrieved for modifications at or after an
+  instant before either synchronization
+- **THEN** the record is NOT included in the result after either synchronization
+- **AND** the record's charging site name still reads its original value after both
 
 #### Scenario: Settled fees are reflected on the next synchronization
 - **GIVEN** a record whose energy delivered, total cost, currency or payment status were
@@ -107,6 +134,15 @@ synchronization cycle of the source updating them.
   absent
 - **AND** the record's charging site name is present
 
+#### Scenario: A verified session's data does not look like it changed on an unchanged re-synchronization
+- **GIVEN** a record whose battery percentages have been human-verified and whose
+  energy, cost, currency, payment status and registered vehicle identifier already
+  match the source
+- **WHEN** the charge session records are synchronized again with no real change on
+  either side
+- **THEN** the record's verified percentages and lifecycle status are unchanged
+- **AND** the synchronization does not count as a modification of the record
+
 ### Requirement: Registered Vehicle Identifier Is Refreshed, VIN Is Not
 
 Each charge session record SHALL carry the vehicle identification number as a durable,
@@ -114,6 +150,12 @@ write-once value, and the currently registered vehicle identifier as a value ref
 every synchronization. The registered vehicle identifier SHALL be absent when the
 session's vehicle identification number does not belong to any vehicle currently
 registered to the account.
+
+**Refreshing the registered vehicle identifier to the same value it already holds is
+not a change.** Only a synchronization that actually changes this value — including
+from absent to present, which SHALL count as a change — makes the record a
+modification for the purpose of "Charge Sessions Are Retrievable For A Vehicle By
+Recency Of Update."
 
 #### Scenario: A vehicle's registered identifier changes
 - **GIVEN** a record whose registered vehicle identifier is a given value
@@ -129,6 +171,14 @@ registered to the account.
 - **THEN** the record's registered vehicle identifier is absent
 - **AND** the record itself is retained, still identifiable by its vehicle identification
   number
+
+#### Scenario: A vehicle that reappears in the account's registration makes its record visible again
+- **GIVEN** a record whose registered vehicle identifier is absent
+- **WHEN** the charge session records are synchronized and that session's vehicle
+  identification number now belongs to a currently registered vehicle
+- **THEN** the record's registered vehicle identifier is set to that value
+- **AND** this counts as a modification of the record for "Charge Sessions Are
+  Retrievable For A Vehicle By Recency Of Update"
 
 ### Requirement: Battery Percentage Verification On A Charge Session
 
@@ -520,6 +570,14 @@ A correction made to a record's verified battery percentages SHALL count as a mo
 for the purpose of this retrieval, even when the record's charging time window is
 unchanged.
 
+**A synchronization pass that leaves every one of a record's synchronized facts
+unchanged SHALL NOT count as a modification for the purpose of this retrieval — even
+though the synchronization still ran and still touched the record.** Only a
+synchronization that actually changes at least one synchronized fact (the site's
+energy, cost, currency or payment facts, or the registered vehicle identifier) SHALL
+count as a modification. This is what lets a caller of this retrieval trust that "no
+result" means "nothing worth recalculating," not "nobody has synchronized since."
+
 A record whose vehicle is not currently registered to the account SHALL NOT be returned by
 this retrieval, for any vehicle requested, even though the record itself continues to exist
 and to be retained.
@@ -542,6 +600,26 @@ and to be retained.
 - **GIVEN** a charge session record last modified strictly before a given instant
 - **WHEN** that vehicle's sessions are retrieved for modifications at or after that instant
 - **THEN** the record is NOT included in the result
+
+#### Scenario: A synchronization that changes nothing does not make a record newly visible
+- **GIVEN** a charge session record last modified at a given instant, whose energy,
+  cost, currency, payment status and registered vehicle identifier are already
+  identical to what the source currently reports
+- **WHEN** the charge session records are synchronized again, and afterward that
+  vehicle's sessions are retrieved for modifications at or after an instant strictly
+  after the given instant but before the new synchronization
+- **THEN** the record is NOT included in the result
+- **AND** the record itself, and its data, are unchanged by the synchronization
+
+#### Scenario: A synchronization that changes one fact makes a record newly visible
+- **GIVEN** a charge session record last modified at a given instant
+- **WHEN** the charge session records are synchronized again and the source now
+  reports a different energy delivered, total cost, currency, payment status, or
+  registered vehicle identifier for that session
+- **AND** that vehicle's sessions are retrieved for modifications at or after an
+  instant strictly after the given instant
+- **THEN** the record IS included in the result
+- **AND** the retrieved record carries the changed value
 
 #### Scenario: No matching record returns an empty result
 - **GIVEN** a vehicle with no charge session record modified at or after a given instant
@@ -807,4 +885,81 @@ fixed at an earlier point in the record's history.
 - **GIVEN** a charge session record whose status is "done" or "done, calculated"
 - **WHEN** a correction clears both the record's verified percentages
 - **THEN** the record's status becomes "in progress"
+
+### Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark
+
+The charging capability's synchronization of Supercharger sessions SHALL
+read only sessions the source reports as modified at or after the account's
+own recorded watermark, rather than the source's entire history, every
+time it runs. This bound SHALL widen slightly to tolerate a source write
+that commits a short time after the watermark was last read, so a session
+committed near the boundary of a prior run is never permanently missed.
+
+**A synchronization run whose bounded read returns no session SHALL leave
+the account's watermark unchanged.** Advancing the watermark on an empty
+read would be indistinguishable, later, from a session that genuinely never
+changed — and if the watermark advanced anyway, a session that the source
+commits moments after the read would fall permanently behind the watermark
+and never be picked up by a later run. This is the capability's single
+most important synchronization guarantee.
+
+**A synchronization run whose bounded read returns at least one session
+SHALL advance the account's watermark to the highest last-modified instant
+actually observed among those sessions — never to the instant the run
+itself takes place.** Advancing to the run's own instant, rather than to
+the highest instant actually seen, risks skipping a session the source
+commits between the read and the advance.
+
+An account with no recorded watermark SHALL be treated as never having been
+synchronized: its first synchronization run SHALL read the source's entire
+history for that account once, after which its watermark advances normally.
+
+#### Scenario: An unchanged period between two runs is not re-synchronized
+- **GIVEN** an account whose Supercharger sessions were fully synchronized
+  as of a given instant, with the watermark advanced to that instant
+- **WHEN** a later synchronization run finds no session modified since that
+  instant, allowing for the tolerance window
+- **THEN** the account's watermark is unchanged after the run
+- **AND** no session is re-mirrored
+
+#### Scenario: The watermark advances to the highest instant actually seen, not to the run's own instant
+- **GIVEN** a synchronization run whose bounded read returns several
+  sessions with different last-modified instants, all earlier than the
+  moment the run itself executes
+- **WHEN** the run completes successfully
+- **THEN** the account's watermark advances to exactly the highest
+  last-modified instant among the returned sessions
+- **AND** not to the instant the run executed
+
+#### Scenario: A session committed just after the read is still recovered by a later run
+- **GIVEN** an account's watermark was last advanced to a given instant
+- **AND** a session's data changes at the source shortly after that instant,
+  within the tolerance window a later run's bounded read still covers
+- **WHEN** the next synchronization run executes
+- **THEN** that session's change is included in the run's read
+- **AND** the account's watermark advances to reflect it
+
+#### Scenario: A never-synchronized account backfills its whole history once
+- **GIVEN** an account for which the Supercharger mirror has never
+  recorded a watermark
+- **WHEN** the first synchronization run executes for that account
+- **THEN** every Supercharger session the source currently reports for that
+  account is mirrored
+- **AND** the account's watermark advances to reflect the sessions
+  observed
+
+#### Scenario: A failed mirror does not advance the watermark
+- **GIVEN** a synchronization run whose bounded read returns sessions, but
+  the mirroring step itself fails before completing
+- **WHEN** the run ends
+- **THEN** the account's watermark is unchanged from before the run
+- **AND** the next run's bounded read still covers the sessions the failed
+  run did not successfully mirror
+
+#### Scenario: A session for a currently-unregistered vehicle is still recovered
+- **GIVEN** a Supercharger session whose vehicle is not currently registered
+  to the account, modified at or after the account's watermark
+- **WHEN** the next synchronization run executes
+- **THEN** the session is included in that run's bounded read
+- **AND** it is mirrored like any other session in the run
 

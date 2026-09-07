@@ -30,9 +30,9 @@ var _ Reader = (*reader)(nil)
 // cmd/) depend on the interface, never on the concrete *reader. Mirrors how NewService
 // builds its dbStore (service.go).
 func NewReader(pool *pgxpool.Pool) Reader {
-	return &reader{
+	return newLoggingReader(&reader{
 		store: &dbStore{q: telemetrydb.New(pool)},
-	}
+	})
 }
 
 // LatestSnapshotsByAccount implements Reader. It returns the most-recently captured
@@ -203,6 +203,30 @@ func (r *superchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(ctx
 	rows, err := r.q.SuperchargerHistoryByVehicleUpdatedSince(ctx, telemetrydb.SuperchargerHistoryByVehicleUpdatedSinceParams{
 		AccountID: accountID,
 		TeslaID:   teslaIDToPgInt8(teslaID),
+		Since:     timestamptzFrom(since),
+	})
+	if err != nil {
+		return nil, err
+	}
+	sessions := make([]SuperchargerHistory, 0, len(rows))
+	for _, row := range rows {
+		sessions = append(sessions, rowToSuperchargerHistory(row))
+	}
+	return sessions, nil
+}
+
+// SuperchargerHistoryByAccountUpdatedSince implements SuperchargerHistoryReader. It
+// returns every Supercharger session for the given account whose updated_at is at
+// or after since, ordered oldest-first by updated_at
+// (RM44-platform-add-mirror-watermark, roadmap D20). Unlike
+// SuperchargerHistoryByVehicleUpdatedSince, this has no tesla_id param or
+// predicate, so it can return a session whose tesla_id is NULL (the
+// orphan-recovery path — design.md D6). Reuses the existing
+// rowToSuperchargerHistory mapper (mapping.go). Returns a non-nil empty slice
+// when no sessions have been updated in the window (design DBS6 parity).
+func (r *superchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, accountID uuid.UUID, since time.Time) ([]SuperchargerHistory, error) {
+	rows, err := r.q.SuperchargerHistoryByAccountUpdatedSince(ctx, telemetrydb.SuperchargerHistoryByAccountUpdatedSinceParams{
+		AccountID: accountID,
 		Since:     timestamptzFrom(since),
 	})
 	if err != nil {

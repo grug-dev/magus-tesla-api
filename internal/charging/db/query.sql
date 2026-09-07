@@ -183,15 +183,28 @@ ORDER BY charged_on DESC;
 -- site name was judged unlikely to change (design.md D1's rule: a mirrored column
 -- gets exactly its source column's write semantics).
 --
--- NO WHERE PREDICATE on the DO UPDATE, deliberately (design.md D6). An earlier draft
--- carried WHERE charge_sessions.tesla_id IS DISTINCT FROM EXCLUDED.tesla_id so an
--- unchanged row was not rewritten. With five refreshable columns that predicate would
--- have to name all five, and a future column added to the SET but forgotten in the
--- WHERE would silently stop advancing updated_at, with nothing in this project able
--- to catch it. Telemetry's own upsert has no such predicate either. Consequence:
--- updated_at here means "the last mirror pass touched this row" — exactly what
--- supercharger_sessions.updated_at means — and is NOT a "this row's data changed"
--- signal on either side.
+-- UPDATED_AT NOW MEANS "THIS ROW'S DATA CHANGED" (RM44-charging-add-change-
+-- detecting-mirror, MAG-48). An earlier version of this comment explained why a
+-- hand-listed WHERE predicate was rejected: a column added to the SET clause later,
+-- but forgotten in the WHERE, would silently stop being caught. The fix below answers
+-- that objection instead of repeating it.
+--
+-- THE RULE: this comparison covers EXACTLY the columns this SET clause writes —
+-- energy_kwh, total_cost, currency, is_paid, tesla_id — and nothing else. Every other
+-- column is deny-listed below, because this query never refreshes it: comparing a
+-- column this query does not write can only ever find a difference that never
+-- resolves, which would make updated_at advance every night, forever, for no reason
+-- (see design.md "The governing rule" for the live-tested failure this replaced).
+--
+-- Add a column to this SET clause later -> remove it from the deny-list below.
+-- Add a column to the table that this SET clause does not write -> add it to the
+-- deny-list. Forgetting either direction is caught by
+-- db_mirror_schema_selfcheck_integration_test.go, which fails the moment a live
+-- column belongs to neither list.
+--
+-- tesla_id stays INSIDE the comparison, deliberately: a NULL-to-value change on this
+-- column is the signal that recovers a session once its vehicle re-registers (roadmap
+-- D3). It must never be deny-listed.
 INSERT INTO charging.supercharger_sessions (
     account_id, vin, tesla_id, session_id,
     charge_start_date_time, charge_stop_date_time,
@@ -207,7 +220,13 @@ ON CONFLICT (account_id, session_id) DO UPDATE SET
     currency   = EXCLUDED.currency,
     is_paid    = EXCLUDED.is_paid,
     tesla_id   = EXCLUDED.tesla_id,
-    updated_at = now();
+    updated_at = CASE
+        WHEN to_jsonb(supercharger_sessions.*) - '{id,account_id,vin,session_id,charge_start_date_time,charge_stop_date_time,site_location_name,start_battery_pct,end_battery_pct,battery_pct_source,created_at,updated_at,inferred_capacity_kwh_calc,status}'::text[]
+             IS DISTINCT FROM
+             to_jsonb(EXCLUDED.*) - '{id,account_id,vin,session_id,charge_start_date_time,charge_stop_date_time,site_location_name,start_battery_pct,end_battery_pct,battery_pct_source,created_at,updated_at,inferred_capacity_kwh_calc,status}'::text[]
+        THEN now()
+        ELSE supercharger_sessions.updated_at
+    END;
 
 -- name: ListSessionsByVehicleBetween :many
 -- Return charge sessions for a specific vehicle within an account whose
@@ -377,3 +396,32 @@ WHERE account_id = @account_id
   AND tesla_id = @tesla_id
 ORDER BY charge_stop_date_time DESC
 LIMIT @limit_count;
+
+-- name: GetMirrorWatermark :one
+-- Single-row cursor lookup for one account (roadmap D20-D22). Returns
+-- pgx.ErrNoRows when no watermark exists yet, which charging's
+-- MirrorWatermarkStore.MirrorWatermark treats as "epoch": the account has
+-- never been mirrored under the bounded read, so the caller backfills the
+-- account's full Supercharger history in one pass. Served entirely by
+-- mirror_watermarks_account_unique's own index — no separate CREATE INDEX.
+SELECT source_updated_at
+FROM charging.mirror_watermarks
+WHERE account_id = @account_id;
+
+-- name: UpsertMirrorWatermark :exec
+-- Advance one account's cursor (roadmap D5/D22). Called only when the
+-- caller's bounded telemetry read returned at least one row, advanced to
+-- the max updated_at observed on that run -- a call with zero rows never
+-- reaches this query at all (the caller's own responsibility; see
+-- design.md "Cross-Module Wiring"). created_at is DELIBERATELY ABSENT from
+-- the SET clause -- it must record when this account's cursor was FIRST
+-- created, not the most recent advance, mirroring
+-- UpsertVehicleMetricWatermark's identical convention.
+INSERT INTO charging.mirror_watermarks (
+    account_id, source_updated_at
+) VALUES (
+    @account_id, @source_updated_at
+)
+ON CONFLICT (account_id) DO UPDATE SET
+    source_updated_at = EXCLUDED.source_updated_at,
+    updated_at         = now();

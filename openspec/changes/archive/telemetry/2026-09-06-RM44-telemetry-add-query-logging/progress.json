@@ -1,0 +1,592 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM44-telemetry-add-query-logging",
+  "module": "telemetry",
+  "roadmap": "RM44-incremental-supercharger-sync",
+  "tier": 1,
+  "request": "Tier 1 of RM44 (MAG-48). Install the instrument the nightly path never had: every LIVE telemetry query and every Tesla Fleet API call logs its input arguments, so the recalculation-window defect fixed in tiers 2-4 is visible in the log before the fix and provably gone after. No behaviour change.",
+  "status": "reviewer-approved",
+  "created_at": "2026-09-05T22:10:07Z",
+  "updated_at": "2026-09-06T00:17:20Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM44-MAG-48-incremental-supercharger-sync",
+    "base": "902fb3d",
+    "ticket": "MAG-48",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-48/nightly-reconcile-recalculates-the-whole-vehicle-metrics-history-on",
+    "created_at": "2026-09-05T22:10:07Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Delete ListSnapshotsByVehicle + ListPollAttemptsByVehicle from query.sql and regenerate",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:21:53Z",
+      "completed_at": "2026-09-05T22:28:49Z",
+      "duration_seconds": 416,
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 51,
+        "context_pct_start": 9,
+        "context_pct_end": 16,
+        "cost_usd_delta": 4.23,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "Deleted both dead query blocks from query.sql; make sqlc regenerated telemetrydb without either query or its Params type. Leader also fixed a stale doc comment on LatestSnapshotsByAccount that still named the deleted query.",
+      "depends_on": []
+    },
+    {
+      "id": "2.1",
+      "title": "query_log.go (new): loggingStore over the store seam - logs its 3 write methods, 5 silent pass-throughs",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "loggingStore: 8 store methods explicit, 3 logged before delegating, 5 silent pass-throughs. formatNullableTeslaID helper added.",
+      "depends_on": [
+        "1.1"
+      ]
+    },
+    {
+      "id": "2.2",
+      "title": "query_log.go: loggingReader + newLoggingReader over the Reader port (5 methods)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "loggingReader: all 5 Reader methods, each logged after delegating so rows/found reflect the real result.",
+      "depends_on": []
+    },
+    {
+      "id": "2.3",
+      "title": "query_log.go: loggingSuperchargerHistoryReader over SuperchargerHistoryReader (4 methods)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "loggingSuperchargerHistoryReader: 4 methods; logs resolveLimit(limit) reusing reader.go's helper, plus date_bound=none on ByAccount.",
+      "depends_on": []
+    },
+    {
+      "id": "2.4",
+      "title": "query_log.go: loggingRunWriter over RunWriter (1 method)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "loggingRunWriter: RecordRun logged before delegating, no row count.",
+      "depends_on": []
+    },
+    {
+      "id": "2.5",
+      "title": "call_counter.go: add one log.Printf per Fleet API method (D14), creds never referenced",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "4 log.Printf added to call_counter.go per D4. creds reaches only the delegate call, never a Printf arg list.",
+      "depends_on": []
+    },
+    {
+      "id": "3.1",
+      "title": "service.go NewService: wire loggingStore",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "NewService wraps the dbStore in newLoggingStore.",
+      "depends_on": [
+        "2.1"
+      ]
+    },
+    {
+      "id": "3.2",
+      "title": "reader.go NewReader: wire loggingReader",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "NewReader wraps a bare undecorated *reader in newLoggingReader (D2, no double-decoration).",
+      "depends_on": [
+        "2.2"
+      ]
+    },
+    {
+      "id": "3.3",
+      "title": "telemetry.go NewSuperchargerHistoryReader: wire the decorator",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "NewSuperchargerHistoryReader wraps the impl in the logging decorator.",
+      "depends_on": [
+        "2.3"
+      ]
+    },
+    {
+      "id": "3.4",
+      "title": "telemetry.go NewRunWriter: wire loggingRunWriter",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:57:55Z",
+      "completed_at": "2026-09-05T23:03:03Z",
+      "duration_seconds": 308,
+      "budget": {
+        "five_hour_pct_start": 51,
+        "five_hour_pct_end": 61,
+        "context_pct_start": 16,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total",
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.49
+      },
+      "notes": "NewRunWriter wraps in newLoggingRunWriter.",
+      "depends_on": [
+        "2.4"
+      ]
+    },
+    {
+      "id": "4.1",
+      "title": "db_integration_test.go: rewrite 5 call sites to raw SQL (D13)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:21:53Z",
+      "completed_at": "2026-09-05T22:28:49Z",
+      "duration_seconds": 416,
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 51,
+        "context_pct_start": 9,
+        "context_pct_end": 16,
+        "cost_usd_delta": 4.23,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "5 call sites rewritten to raw pool.Query/QueryRow SELECTs, narrowed per test. Assertions unchanged.",
+      "depends_on": [
+        "1.1"
+      ]
+    },
+    {
+      "id": "4.2",
+      "title": "db_sourcea_integration_test.go: rewrite 3 call sites to raw SQL (D13)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:21:53Z",
+      "completed_at": "2026-09-05T22:28:49Z",
+      "duration_seconds": 416,
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 51,
+        "context_pct_start": 9,
+        "context_pct_end": 16,
+        "cost_usd_delta": 4.23,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "3 call sites rewritten via 2 raw-SQL helpers (charge-enrichment, max_range_charge_counter). Assertions unchanged.",
+      "depends_on": [
+        "1.1"
+      ]
+    },
+    {
+      "id": "4.3",
+      "title": "db_tpms_integration_test.go: rewrite 2 call sites to raw SQL (D13)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T22:21:53Z",
+      "completed_at": "2026-09-05T22:28:49Z",
+      "duration_seconds": 416,
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 51,
+        "context_pct_start": 9,
+        "context_pct_end": 16,
+        "cost_usd_delta": 4.23,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "2 call sites rewritten via one raw-SQL queryTPMS helper (4 PSI columns). Assertions unchanged.",
+      "depends_on": [
+        "1.1"
+      ]
+    },
+    {
+      "id": "5.1",
+      "title": "query_log_test.go (new): Test Contract Group A - each decorator logs its documented line",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T23:03:29Z",
+      "completed_at": "2026-09-05T23:12:11Z",
+      "duration_seconds": 522,
+      "budget": {
+        "five_hour_pct_start": 61,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 18,
+        "context_pct_end": 22,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "12 tests in query_log_test.go: all 13 logged methods asserted as exact full lines, plus Group A.1 (5 silent methods, buf empty) and A.2 (limit 0 -> MaxInt32, 25 -> 25) on both methods.",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ]
+    },
+    {
+      "id": "5.2",
+      "title": "query_log_test.go: TestQueryLog_NeverLogsRawDataContent (D9)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T23:03:29Z",
+      "completed_at": "2026-09-05T23:12:11Z",
+      "duration_seconds": 522,
+      "budget": {
+        "five_hour_pct_start": 61,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 18,
+        "context_pct_end": 22,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "TestQueryLog_NeverLogsRawDataContent: marker absent from the buffer, raw_data_bytes present, for insertSnapshot and upsertSuperchargerHistory.",
+      "depends_on": [
+        "2.1"
+      ]
+    },
+    {
+      "id": "5.3",
+      "title": "call_counter_test.go: Test Contract Group B - the 4 Fleet API log lines",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T23:03:29Z",
+      "completed_at": "2026-09-05T23:12:11Z",
+      "duration_seconds": 522,
+      "budget": {
+        "five_hour_pct_start": 61,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 18,
+        "context_pct_end": 22,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "TestCallCounter_LogsExpectedLines asserts all 4 D4 lines incl. the full ChargingHistoryParams. Reuses the existing minimalFakeTesla.",
+      "depends_on": [
+        "2.5"
+      ]
+    },
+    {
+      "id": "5.4",
+      "title": "call_counter_test.go: TestCallCounter_NeverLogsCredentials (D9)",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T23:03:29Z",
+      "completed_at": "2026-09-05T23:12:11Z",
+      "duration_seconds": 522,
+      "budget": {
+        "five_hour_pct_start": 61,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 18,
+        "context_pct_end": 22,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "TestCallCounter_NeverLogsCredentials: the secret token never appears across all 4 methods.",
+      "depends_on": [
+        "2.5"
+      ]
+    },
+    {
+      "id": "6.1",
+      "title": "AGENTS.md: document the logging decorators in Testing notes",
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-05T23:03:29Z",
+      "completed_at": "2026-09-05T23:12:11Z",
+      "duration_seconds": 522,
+      "budget": {
+        "five_hour_pct_start": 61,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 18,
+        "context_pct_end": 22,
+        "approx": true,
+        "note": "one serial worker for the whole wave; delta is the wave total"
+      },
+      "notes": "AGENTS.md Testing notes now names query_log.go, the extended call_counter.go, both log prefixes, and the two security tests. Doc edit, needs no execution.",
+      "depends_on": [
+        "2.1",
+        "2.5"
+      ]
+    }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "6.1"
+    ],
+    "awaiting_user_verification": []
+  },
+  "decisions": [
+    {
+      "id": "D-CH-1",
+      "at": "2026-09-05T22:10:07Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Delete the 2 dead queries; rewrite their 10 test call sites on raw SQL, never on another sqlc reader",
+      "why": "Verifying a write through one of the module's own live readers makes the test pass through the path it tests"
+    },
+    {
+      "id": "D-CH-2",
+      "at": "2026-09-05T22:10:07Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Extend call_counter.go for Fleet API logging instead of a sibling decorator",
+      "why": "One type, one compile-time assertion, one place a new Fleet API method must be registered"
+    },
+    {
+      "id": "D-CH-3",
+      "at": "2026-09-05T22:10:07Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "loggingStore logs only its 3 write methods; its other 5 are silent pass-throughs because Reader has its own decorator",
+      "why": "store and Reader share 5 read methods, so decorating both without this would double-log every read"
+    },
+    {
+      "id": "D-CH-4",
+      "at": "2026-09-05T22:21:53Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "3 dispatch waves, each one serial worker: W1={1.1,4.1,4.2,4.3}, W2={2.1-2.5,3.1-3.4}, W3={5.1-5.4,6.1}",
+      "why": "tasks.md declares Wave1+Wave4 atomic (package will not compile between); merging the wiring and test/doc waves amortizes one doc-pack read each"
+    },
+    {
+      "id": "D-CH-5",
+      "at": "2026-09-05T22:57:55Z",
+      "scope": "wave-1",
+      "made_by": "user",
+      "decision": "Defer the suite run to Step 6; continue to waves 2-3 in this session with no checkpoint",
+      "why": "Context 16% of the 40% threshold and only 2 small waves remain, so one suite run before the reviewer gate is enough"
+    },
+    {
+      "id": "D-CH-6",
+      "at": "2026-09-06T00:16:57Z",
+      "scope": "verification",
+      "made_by": "user",
+      "decision": "Suite verified: the user ran make test and make test-with-db, both passed",
+      "why": "Test-Execution-Policy reserves the suite to the owner, so verified rests on their report, never the assistant's"
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review RM44 tier 1 (telemetry query + Fleet API logging), commits d85a908, 2500c37, 7609a49. Read the DIFF, not the whole module. Validate: (1) module-boundary compliance - nothing outside internal/telemetry changed, internal/tesla untouched; (2) design.md D6/D4 are a TEST CONTRACT authored before implementation - verify the code AND the tests both match D6/D4, and specifically that the tests were not written by reading the implementation (a test that merely mirrors the code is a finding); (3) D1 - loggingStore logs only its 3 writes, 5 silent pass-throughs, no double-logging with loggingReader; (4) D2 wiring - NewReader wraps a BARE undecorated *reader, no double decoration; (5) D8 - all four decorators explicit and NON-EMBEDDING with a compile-time assertion each; embedding would let a later interface method go silently unlogged; (6) SECURITY, highest priority: creds/access token/refresh token appear in NO log line, and raw_data is logged as a byte count only. Both are asserted by tests - check the tests actually prove it; (7) D13 - the 10 rewritten test call sites use raw pool.Query/QueryRow only, never another sqlc reader query, and every original assertion survives verbatim (append-only rule); (8) resolveLimit is REUSED from reader.go, not re-derived, and SuperchargerHistoryByAccount logs the resolved limit so the pre-fix line shows limit=2147483647 - this is MAG-48's own acceptance test for the instrument; (9) no slog introduced (roadmap D8), stdlib log.Printf only; (10) anti-gaming - no task title, criterion or assertion was weakened or deleted; no schema/migration object was added (the database design gate did not fire and must not have been bypassed). Performance-Profile applies: every decorated call is on the nightly poller path, unreachable from the gateway, so one log line per query is affordable - flag any caching/buffering added instead. Test-Execution-Policy: 'Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards. The owner runs the suite and reports results.' SIGNAL PROVENANCE: assistant-run were go build ./..., go vet ./..., gofmt -l internal/telemetry/, and make boundary-guard/tz-guard/money-guard/migration-guard/i18n-guard/archive-guard - all passed. USER-REPORTED: the user ran make test and make test-with-db and reported both passed. Judge test quality by READING the tests; do not run the suite yourself.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "telemetry-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-06T00:20:34Z",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-05T22:10:07Z",
+      "agent": "leader",
+      "event": "artifacts created by worker 'telemetry' (sonnet); openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-05T22:10:07Z",
+      "agent": "leader",
+      "event": "database design gate NOT triggered - leader independently verified no schema object in the artifacts"
+    },
+    {
+      "at": "2026-09-05T22:10:07Z",
+      "agent": "leader",
+      "event": "HALT AFTER STEP 4 per the kkpa-pickup-linear-ticket path; no implementation worker dispatched"
+    },
+    {
+      "at": "2026-09-05T22:21:53Z",
+      "agent": "leader",
+      "event": "resumed from proposed; MAG-48 Todo -> In Progress (first implementation dispatch of RM44 tier 1)"
+    },
+    {
+      "at": "2026-09-05T22:21:53Z",
+      "agent": "leader",
+      "event": "wave 1 dispatched to worker 'telemetry' (sonnet): 1.1,4.1,4.2,4.3; budget_start five_hour_pct=40 context_pct=9"
+    },
+    {
+      "at": "2026-09-05T22:28:49Z",
+      "agent": "leader",
+      "event": "wave 1 complete: 1.1 done, 4.1-4.3 awaiting-user-verification. 10 call sites rewritten (5/3/2, matches D5). D13 verified by leader: no sqlc reader query remains in any assertion. go build + go vet exit 0; gofmt -l internal/telemetry/ empty."
+    },
+    {
+      "at": "2026-09-05T22:28:49Z",
+      "agent": "leader",
+      "event": "leader fix: LatestSnapshotsByAccount doc comment still named the deleted ListSnapshotsByVehicle; reworded in query.sql + make sqlc. Docs-track-change rule."
+    },
+    {
+      "at": "2026-09-05T22:57:55Z",
+      "agent": "leader",
+      "event": "wave 2 dispatched to worker 'telemetry' (sonnet): 2.1-2.5,3.1-3.4; budget_start five_hour_pct=51 context_pct=16"
+    },
+    {
+      "at": "2026-09-05T23:03:03Z",
+      "agent": "leader",
+      "event": "wave 2 complete, all 9 awaiting-user-verification. Leader verified against D6/D4 line by line: 13 log.Printf, formats identical to the test contract; 8/5/4/1 methods, named inner field (no embedding), 4 compile-time assertions; creds absent from every Printf arg list; resolveLimit reused not redefined. build/vet exit 0, gofmt clean, boundary-guard passed."
+    },
+    {
+      "at": "2026-09-05T23:03:29Z",
+      "agent": "leader",
+      "event": "wave 3 dispatched to worker 'telemetry' (sonnet): 5.1-5.4,6.1; budget_start five_hour_pct=61 context_pct=18"
+    },
+    {
+      "at": "2026-09-05T23:12:11Z",
+      "agent": "leader",
+      "event": "wave 3 complete. Worker reports no D6/D4 mismatch. Leader verified assertion strength: 14 exact full-line compares, 1 strings.Contains (the raw-data marker, correct there); math.MaxInt32 case present on both resolved-limit tests; log.SetOutput+SetFlags restored via t.Cleanup; no t.Parallel; offline only."
+    },
+    {
+      "at": "2026-09-05T23:12:11Z",
+      "agent": "leader",
+      "event": "docs sweep: KB grep for the 2 deleted queries returned 0 hits; no public surface, module or structure change, so README/architecture table unaffected. make archive-guard passed."
+    },
+    {
+      "at": "2026-09-06T00:16:57Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE USER, not the assistant: the user ran 'make test' and 'make test-with-db' and reported both passed. 14 tasks awaiting-user-verification -> done. Assistant-run signals were only build/vet/gofmt/guards."
+    },
+    {
+      "at": "2026-09-06T00:17:20Z",
+      "agent": "leader",
+      "event": "review brief written; dispatching telemetry-reviewer (sonnet, escalate on doubt)"
+    }
+  ]
+}
