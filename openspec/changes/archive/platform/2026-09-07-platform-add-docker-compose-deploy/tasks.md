@@ -246,12 +246,12 @@ runbook** for someone who has never deployed to a VPS, covering at minimum:
 
 ## T6. Verification — depends on EVERYTHING (final wave)
 
-- [ ] T6.1 `go build ./...`, `go vet ./...`, `gofmt -l .` — all clean (T1's fix and its
+- [x] T6.1 `go build ./...`, `go vet ./...`, `gofmt -l .` — all clean (T1's fix and its
       new test file are the only Go changes in this entire proposal).
-- [ ] T6.2 `make migration-guard`, `make boundary-guard`, `make archive-guard` — all
+- [x] T6.2 `make migration-guard`, `make boundary-guard`, `make archive-guard` — all
       pass (design.md's reverse-direction check predicts no impact; this confirms it).
-- [ ] T6.3 `openspec validate --strict platform-add-docker-compose-deploy` — passes.
-- [ ] T6.4 Hand the owner the commands this pipeline does not run: the test suite
+- [x] T6.3 `openspec validate --strict platform-add-docker-compose-deploy` — passes.
+- [x] T6.4 Hand the owner the commands this pipeline does not run: the test suite
       (`go test ./...` / `make test`), plus everything Docker-specific this pipeline
       has no authorization to execute — `docker compose config` (config lint),
       `docker build --target web . && docker build --target poller . && docker build
