@@ -11,14 +11,15 @@
       "T1",
       "T2",
       "T3",
-      "T4"
+      "T4",
+      "T5"
     ],
     "pending": [],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-09-07T16:12:00Z",
-  "updated_at": "2026-09-07T16:12:00Z",
+  "updated_at": "2026-09-07T16:26:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -131,6 +132,33 @@
         "approx": true,
         "note": "one dispatch covered artifacts and implementation for T1-T4"
       }
+    },
+    {
+      "id": "T5",
+      "title": "Second failure mode \u2014 missing POSTGRES_USER / POSTGRES_DB",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T16:25:00Z",
+      "completed_at": "2026-09-07T16:26:00Z",
+      "duration_seconds": 60,
+      "notes": "Extended the \u00a78.5 warning to all three POSTGRES_* values with the real WARN text and both consequences. Added the matching docker.md row. Targeted edits, not a rewrite.",
+      "budget": {
+        "five_hour_pct_start": 78,
+        "five_hour_pct_end": 79,
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": 0.4,
+        "context_pct_end": 32,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": ""
+      }
     }
   ],
   "review": {
@@ -157,6 +185,15 @@
       "decision": "left the owner's uncommitted docs/pre-setup/ move untouched instead of folding it in or finishing it",
       "why": "unrelated to this change; folding a doc reorganization into a failure-mode doc change would mix two concerns in one archived record",
       "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-07T16:26:00Z",
+      "scope": "task:T5",
+      "made_by": "leader",
+      "decision": "added T5 to CH47 instead of opening CH48",
+      "why": "same failure family as T1, and CH47 exists to close this gap and had not been reviewed yet, so no re-review cost",
+      "covered_by": null
     }
   ],
   "events": [
@@ -179,6 +216,16 @@
       "at": "2026-09-07T16:12:00Z",
       "agent": "leader",
       "event": "Leader re-read both diffs against the files. Accurate, B2-compliant, and the ALTER ROLE note exceeds what the dispatch asked for."
+    },
+    {
+      "at": "2026-09-07T16:26:00Z",
+      "agent": "leader",
+      "event": "Owner hit a second failure mode: missing POSTGRES_USER/POSTGRES_DB. Compose only WARNs, so the stack starts and then stalls on a healthcheck that can never pass. Added as T5."
+    },
+    {
+      "at": "2026-09-07T16:26:00Z",
+      "agent": "leader",
+      "event": "T5 done with targeted edits, deliberately not a rewrite. Both CH46 bugs came from regenerating a file wholesale; this change does not repeat that method."
     }
   ]
 }

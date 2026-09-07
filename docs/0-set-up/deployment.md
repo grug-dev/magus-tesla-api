@@ -417,6 +417,24 @@ Open `.env` in an editor (e.g. `nano .env`) and fill in every value:
 > `docs/1-deploy/docker.md` §9 for the general rule about changing
 > `POSTGRES_PASSWORD` later, once the database already holds data.
 
+> **All three `POSTGRES_*` values must be set, not only the password.** If
+> `POSTGRES_USER` or `POSTGRES_DB` is missing, Compose prints:
+>
+> ```
+> WARN[0000] The "POSTGRES_USER" variable is not set. Defaulting to a blank string.
+> WARN[0000] The "POSTGRES_DB" variable is not set. Defaulting to a blank string.
+> ```
+>
+> This is a warning, not an error, so the stack still tries to start — and then
+> stalls. Two things go wrong at once:
+>
+> - `db`'s healthcheck runs `pg_isready -U "" -d ""` and never passes. `migrate`
+>   waits for `db` to be healthy, so nothing after `db` ever starts.
+> - The container falls back to the image defaults, creating the user and
+>   database as `postgres`, not the names your `DATABASE_URL` expects.
+>
+> Fill all three, and make `DATABASE_URL` carry the same three values.
+
 Leave `TESLA_ACCESS_TOKEN` and `TESLA_REFRESH_TOKEN` empty — the web gateway
 handles its own per-user Tesla login. Leave `MAGUS_DB_PASSWORD` empty — that
 variable is for the host-only `make db-setup` path, not Docker.

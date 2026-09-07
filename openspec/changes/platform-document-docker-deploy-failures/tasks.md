@@ -78,3 +78,23 @@
       pipeline does not run this (Test-Execution-Policy excludes
       `docker compose up`).
       Acceptance: none — this task's output is the command for the owner.
+
+## T5. Second failure mode — missing `POSTGRES_USER` / `POSTGRES_DB` (added after T1-T4)
+
+Found the same day, on the owner's next run. Same failure family as T1: a
+`.env` value that is missing rather than wrong, and a message that does not
+say `.env`. Added here rather than in a new change, because this change exists
+to close exactly this gap and had not been reviewed yet.
+
+- [x] T5.1 `docs/0-set-up/deployment.md` §8.5 — extend the warning to all three
+      `POSTGRES_*` values, quoting the real `WARN[0000] ... is not set` lines.
+      State both consequences: the healthcheck becomes `pg_isready -U "" -d ""`
+      and never passes, so `migrate` never starts; and the container falls back
+      to the image defaults, creating `postgres`/`postgres` instead of the names
+      `DATABASE_URL` expects.
+      Acceptance: the warning names all three variables, quotes the WARN text,
+      and states both consequences.
+- [x] T5.2 `docs/1-deploy/docker.md` §9 — add a troubleshooting row for the same
+      symptom, pointing at the same fix.
+      Acceptance: the row exists and names both `POSTGRES_USER` and
+      `POSTGRES_DB`.

@@ -280,6 +280,7 @@ gunzip -c backups/magus-2026-09-07.sql.gz | docker compose --project-directory .
 | `poller` collects nothing | `docker compose --project-directory . -f deploy/docker/compose.yaml logs poller` | Check the Tesla token is valid, and that the scheduled time (`POLLER_SCHEDULE_HOUR`/`POLLER_SCHEDULE_MINUTE`) has not passed yet today. |
 | Database connection refused | `docker compose --project-directory . -f deploy/docker/compose.yaml ps` | `db` is not healthy yet (wait for its healthcheck), or `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` in `.env` do not match what `DATABASE_URL` expects. |
 | `db` restarts forever; its logs say "Database is uninitialized and superuser password is not specified" | `docker compose --project-directory . -f deploy/docker/compose.yaml logs db` | `POSTGRES_PASSWORD` is empty in `.env`. Set it, then run `docker compose --project-directory . -f deploy/docker/compose.yaml up -d --build` again. |
+| Compose warns `The "POSTGRES_USER" variable is not set`, then the stack stalls with `db` never healthy | the warning itself, on `up` | `POSTGRES_USER` and/or `POSTGRES_DB` are missing from `.env`. The healthcheck becomes `pg_isready -U "" -d ""` and never passes, so `migrate` never starts. Set all three `POSTGRES_*` values, and make `DATABASE_URL` match them. |
 
 **About changing `POSTGRES_PASSWORD` later.** The official `postgres` image
 reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` **only** the first
