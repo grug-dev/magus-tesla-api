@@ -193,6 +193,12 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/robots.txt", handlers.RobotsTxt)
 	r.GET("/sitemap.xml", handlers.SitemapXML)
 
+	// The web app manifest. Unlike the two above it has no fixed location — it
+	// is found through the <link rel="manifest"> tag in layouts.faviconLinks —
+	// but it lives at the root beside them because it is the same kind of thing:
+	// a small generated document for a machine, not a page.
+	r.GET("/site.webmanifest", handlers.WebManifest)
+
 	// A browser, a crawler and most feed/preview tools request the bare
 	// /favicon.ico before parsing any HTML, so the <link> tags in
 	// layouts.faviconLinks are not enough on their own. A permanent redirect to

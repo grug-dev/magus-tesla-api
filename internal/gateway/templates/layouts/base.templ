@@ -96,9 +96,16 @@ templ seoHead(title string, indexable bool) {
 // benefit. If an SVG is added later, its tag goes first — browsers prefer the
 // first format they understand.
 //
-// Not linked, because nothing reads them without a web app manifest:
-// favicon-192x192.png and favicon-512x512.png (PWA install icons), and
-// favicon-180x180.png (a byte-identical duplicate of apple-touch-icon.png).
+// The manifest link is here rather than in seoHead for the same reason as the
+// icons: installing the app is not an indexing concern, and it is served to
+// every page. It points at the generated /site.webmanifest route
+// (handlers.WebManifest), which is what gives favicon-192x192.png and
+// favicon-512x512.png a job — Android reads those two sizes when a user adds the
+// site to their home screen.
+//
+// Still unlinked, and therefore still dead weight in the binary:
+// favicon-180x180.png (a byte-identical duplicate of apple-touch-icon.png) and
+// favicon-48x48.png (the .ico already covers 48).
 //
 // Paths are root-relative, not absolute: unlike og:image these are resolved by a
 // browser that already has the page's origin, so ui.Site is not needed.
@@ -107,6 +114,7 @@ templ faviconLinks() {
 	<link rel="icon" type="image/png" href="/static/img/favicon/favicon-16x16.png" sizes="16x16"/>
 	<link rel="icon" type="image/x-icon" href="/static/img/favicon/favicon.ico" sizes="48x48"/>
 	<link rel="apple-touch-icon" href="/static/img/favicon/apple-touch-icon.png" sizes="180x180"/>
+	<link rel="manifest" href="/site.webmanifest"/>
 }
 
 // baseShell is the bare document shell shared by Base (anonymous pages) and

@@ -161,6 +161,10 @@
 | `schema.org` | synonym of `JSON-LD` → `architecture/seo-metadata.md` |
 | `favicon` | `layouts.faviconLinks` + `internal/gateway/static/img/favicon/` (3 files) → `architecture/seo-metadata.md` |
 | `app icon` | synonym of `favicon` → `architecture/seo-metadata.md` |
+| `web app manifest` | `handlers.WebManifest` (`/site.webmanifest`) — generated, so the install prompt is translated → `architecture/seo-metadata.md` |
+| `site.webmanifest` | synonym of `web app manifest` → `architecture/seo-metadata.md` |
+| `PWA` | synonym of `web app manifest` → `architecture/seo-metadata.md` |
+| `add to home screen` | synonym of `web app manifest` → `architecture/seo-metadata.md` |
 | `run duration` | `ProcessVehicleData`'s clock-measured start-to-finish span → `architecture/nightly-cycle.md` |
 | `poll run` (one `poll_runs` row per collection-cycle invocation: trigger, timing, account/vehicle outcome counts, Tesla API call count) | `architecture/telemetry-ingest-only.md` |
 | `run summary` | synonym of `poll run` → `architecture/telemetry-ingest-only.md` |

@@ -298,9 +298,16 @@ func seoHead(title string, indexable bool) templ.Component {
 // benefit. If an SVG is added later, its tag goes first — browsers prefer the
 // first format they understand.
 //
-// Not linked, because nothing reads them without a web app manifest:
-// favicon-192x192.png and favicon-512x512.png (PWA install icons), and
-// favicon-180x180.png (a byte-identical duplicate of apple-touch-icon.png).
+// The manifest link is here rather than in seoHead for the same reason as the
+// icons: installing the app is not an indexing concern, and it is served to
+// every page. It points at the generated /site.webmanifest route
+// (handlers.WebManifest), which is what gives favicon-192x192.png and
+// favicon-512x512.png a job — Android reads those two sizes when a user adds the
+// site to their home screen.
+//
+// Still unlinked, and therefore still dead weight in the binary:
+// favicon-180x180.png (a byte-identical duplicate of apple-touch-icon.png) and
+// favicon-48x48.png (the .ico already covers 48).
 //
 // Paths are root-relative, not absolute: unlike og:image these are resolved by a
 // browser that already has the page's origin, so ui.Site is not needed.
@@ -325,7 +332,7 @@ func faviconLinks() templ.Component {
 			templ_7745c5c3_Var15 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<link rel=\"icon\" type=\"image/png\" href=\"/static/img/favicon/favicon-32x32.png\" sizes=\"32x32\"><link rel=\"icon\" type=\"image/png\" href=\"/static/img/favicon/favicon-16x16.png\" sizes=\"16x16\"><link rel=\"icon\" type=\"image/x-icon\" href=\"/static/img/favicon/favicon.ico\" sizes=\"48x48\"><link rel=\"apple-touch-icon\" href=\"/static/img/favicon/apple-touch-icon.png\" sizes=\"180x180\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<link rel=\"icon\" type=\"image/png\" href=\"/static/img/favicon/favicon-32x32.png\" sizes=\"32x32\"><link rel=\"icon\" type=\"image/png\" href=\"/static/img/favicon/favicon-16x16.png\" sizes=\"16x16\"><link rel=\"icon\" type=\"image/x-icon\" href=\"/static/img/favicon/favicon.ico\" sizes=\"48x48\"><link rel=\"apple-touch-icon\" href=\"/static/img/favicon/apple-touch-icon.png\" sizes=\"180x180\"><link rel=\"manifest\" href=\"/site.webmanifest\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -379,7 +386,7 @@ func baseShell(title string, indexable bool) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.FromContext(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 132, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 140, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {
@@ -392,7 +399,7 @@ func baseShell(title string, indexable bool) templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(ui.ThemeFromContext(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 132, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 140, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 		if templ_7745c5c3_Err != nil {
@@ -405,7 +412,7 @@ func baseShell(title string, indexable bool) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 136, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 144, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -575,7 +582,7 @@ func BaseAuth(title, path string) templ.Component {
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyNavOpenSidebar))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 208, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 216, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 			if templ_7745c5c3_Err != nil {
@@ -612,7 +619,7 @@ func BaseAuth(title, path string) templ.Component {
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyNavCloseSidebar))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 240, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 248, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 			if templ_7745c5c3_Err != nil {

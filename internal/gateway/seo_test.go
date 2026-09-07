@@ -305,3 +305,98 @@ func faviconHrefs(t *testing.T, body string) []string {
 	}
 	return out
 }
+
+// TestSEO_WebManifest parses the manifest and checks the fields an operating
+// system actually acts on. Parsing, not substring matching: a malformed manifest
+// is ignored whole, and no install prompt ever appears to tell you why.
+func TestSEO_WebManifest(t *testing.T) {
+	eng := testEngine(t)
+	w := httptest.NewRecorder()
+	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/site.webmanifest", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /site.webmanifest status = %d, want 200", w.Code)
+	}
+	// Serving this as application/json makes some browsers drop it silently.
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/manifest+json") {
+		t.Errorf("Content-Type = %q, want application/manifest+json", ct)
+	}
+
+	var doc map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("manifest is not valid JSON: %v\n%s", err, w.Body.String())
+	}
+	for k, want := range map[string]string{
+		"name":       "Magus Monitor",
+		"short_name": "Magus",
+		"start_url":  "/",
+		"scope":      "/",
+		"display":    "standalone",
+		"lang":       "es-CO",
+	} {
+		if got, _ := doc[k].(string); got != want {
+			t.Errorf("manifest %s = %q, want %q", k, got, want)
+		}
+	}
+
+	icons, ok := doc["icons"].([]any)
+	if !ok || len(icons) == 0 {
+		t.Fatal("manifest declares no icons")
+	}
+	// Android needs a 192 and a 512 to offer an install prompt at all. Every
+	// src must also be a file that exists, and no icon may claim "maskable" —
+	// these were not drawn with a safe zone, so the OS would clip the logo.
+	sizes := map[string]bool{}
+	for _, raw := range icons {
+		icon, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("icon entry is not an object: %v", raw)
+		}
+		src, _ := icon["src"].(string)
+		if _, err := os.Stat("." + src); err != nil {
+			t.Errorf("manifest icon %q has no file: %v", src, err)
+		}
+		if p, _ := icon["purpose"].(string); p == "maskable" {
+			t.Errorf("icon %q claims maskable; these icons have no safe zone", src)
+		}
+		s, _ := icon["sizes"].(string)
+		sizes[s] = true
+	}
+	for _, want := range []string{"192x192", "512x512"} {
+		if !sizes[want] {
+			t.Errorf("manifest missing the %s icon Android needs to offer an install", want)
+		}
+	}
+}
+
+// TestSEO_ManifestLinkedFromEveryPage asserts the <link rel="manifest"> is
+// present. Without it the manifest route is never fetched and the app cannot be
+// installed, however correct the JSON is.
+func TestSEO_ManifestLinkedFromEveryPage(t *testing.T) {
+	eng := testEngine(t)
+	w := httptest.NewRecorder()
+	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/login", nil))
+	if !strings.Contains(w.Body.String(), `<link rel="manifest" href="/site.webmanifest">`) {
+		t.Error("login head has no manifest link")
+	}
+}
+
+// TestSEO_ManifestFollowsLanguage asserts the install prompt is translated, which
+// is the whole reason the manifest is a route and not a static JSON file.
+func TestSEO_ManifestFollowsLanguage(t *testing.T) {
+	eng := testEngine(t)
+	req := httptest.NewRequest(http.MethodGet, "/site.webmanifest", nil)
+	req.AddCookie(&http.Cookie{Name: "lang", Value: "en"})
+	w := httptest.NewRecorder()
+	eng.ServeHTTP(w, req)
+
+	var doc map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("manifest is not valid JSON: %v", err)
+	}
+	if got, _ := doc["lang"].(string); got != "en-US" {
+		t.Errorf("manifest lang = %q, want en-US", got)
+	}
+	if desc, _ := doc["description"].(string); !strings.HasPrefix(desc, "Magus Monitor connects your Tesla account") {
+		t.Errorf("manifest description not in English: %q", desc)
+	}
+}

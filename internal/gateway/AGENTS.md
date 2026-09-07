@@ -1183,11 +1183,36 @@ there would be a design smell, not a missing receiver.
   **Every href must name a file that exists.** There is no `favicon.svg` tag because
   the project has no SVG icon, and a `<link>` to a missing file is a 404 on every
   page load for no benefit. `seo_test.go` `os.Stat`s each href — nothing else in the
-  build catches a dead icon link. `favicon-192x192.png`, `favicon-512x512.png` and
-  `favicon-180x180.png` sit in the folder unlinked: the first two need a web app
-  manifest (not built), and the third is a byte-identical duplicate of
-  `apple-touch-icon.png`. Everything in `static/` is `//go:embed`-ed, so an unused
-  icon is dead weight in the binary.
+  build catches a dead icon link. Still unlinked, and therefore still dead weight in
+  the binary (everything in `static/` is `//go:embed`-ed): `favicon-180x180.png` (a
+  duplicate of `apple-touch-icon.png`) and `favicon-48x48.png` (the `.ico` already
+  covers 48).
+
+- **`site.webmanifest`** is a route too (`handlers.WebManifest`), linked from
+  `faviconLinks`. It is what gives `favicon-192x192.png` and `favicon-512x512.png` a
+  job: Android reads those two sizes to offer "add to home screen". It is generated
+  rather than a static file because `name`, `short_name` and `description` appear on
+  an install prompt, so they follow the request language like every other
+  user-facing string — a static JSON file could only be one language. Serve it as
+  `application/manifest+json`; `application/json` is dropped silently by some
+  browsers.
+
+  `start_url` is `/` even though that path redirects, and that is correct for an
+  installed app: tapping the icon lands the user where they belong (`/dashboard`
+  with a session, `/login` without) instead of pinning the launcher to whichever
+  page was right at install time.
+
+  **`manifestThemeColor` is the one place a raw hex is correct in this module.** A
+  manifest is JSON read by the operating system, which cannot resolve a CSS custom
+  property. It holds graphite's `--color-base-100` because graphite is
+  `ui.DefaultTheme`; a manifest carries exactly one `theme_color` and is fetched
+  once at install, long before any per-user preference exists. If graphite's
+  base-100 changes, change the constant too — nothing links them.
+
+  **No icon claims `purpose: "maskable"`.** A maskable icon needs a safe zone drawn
+  into the artwork so the launcher can crop it to a circle. These were not drawn
+  that way, and claiming it clips the logo on every Android launcher. Same class of
+  mistake as inventing an `aggregateRating`. `seo_test.go` asserts no icon claims it.
 
 ### JSON-LD — use `templ.JSONScript`, never a hand-written `<script>`
 

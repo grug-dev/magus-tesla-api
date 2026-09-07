@@ -30,10 +30,11 @@ Every SEO tag in the app comes from one component. There is no second place.
 | strings | `internal/gateway/i18n/i18n.go` | `OGLocale(ctx)` returns `es_CO` or `en_US`. |
 | asset | `internal/gateway/static/img/magus-logo.png` | The share image. Embedded by `gateway.go`'s `//go:embed static`. |
 | crawler files | `internal/gateway/handlers/site.go` | `RobotsTxt` + `SitemapXML`. Also `robotsDisallow` and `sitemapPaths`, the two closed lists. |
+| PWA manifest | `internal/gateway/handlers/site.go` | `WebManifest` + `manifestThemeColor`. Generated, not static, so the install prompt is translated. |
 | structured data | `internal/gateway/templates/layouts/jsonld.go` | `seoJSONLD` builds the `WebApplication` node. Returns a struct, not JSON. |
 | icons | `internal/gateway/templates/layouts/base.templ` | `faviconLinks` renders the three icon `<link>` tags. |
-| icons | `internal/gateway/static/img/favicon/` | Linked: `favicon-32x32.png`, `favicon-16x16.png`, `favicon.ico`, `apple-touch-icon.png`. Unlinked: the 180/192/512 PNGs. |
-| routes | `internal/gateway/gateway.go` | `/robots.txt`, `/sitemap.xml`, and a 301 from `/favicon.ico`. |
+| icons | `internal/gateway/static/img/favicon/` | Linked from the page: `favicon-32x32.png`, `favicon-16x16.png`, `favicon.ico`, `apple-touch-icon.png`. Used by the manifest: the 192 and 512 PNGs. Unused: `favicon-180x180.png`, `favicon-48x48.png`. |
+| routes | `internal/gateway/gateway.go` | `/robots.txt`, `/sitemap.xml`, `/site.webmanifest`, and a 301 from `/favicon.ico`. |
 | tests | `internal/gateway/seo_test.go` | Pins the tags, the absolute URLs, the ES/EN switch, robots, sitemap, and the JSON-LD. |
 | docs | `internal/gateway/AGENTS.md` §"SEO & social-share metadata" | The full rule set and the rejected options. |
 
@@ -61,6 +62,9 @@ page must return 200. A redirecting path is dropped by Search Console.
 
 **To change the structured data**, edit `seoJSONLD` in `layouts/jsonld.go`. Add only fields
 this project has real data for.
+
+**To change the install prompt** (the name a phone shows on the home screen), edit
+`WebManifest` in `handlers/site.go`. The strings come from the i18n catalog.
 
 **To change the favicon**, replace the files in `internal/gateway/static/img/favicon/`. Keep
 the names `faviconLinks` uses. No code change is needed. To add a new icon format, add both
@@ -154,10 +158,30 @@ the file and its `<link>` tag. The test `os.Stat`s every href, so a tag with no 
   `favicon.svg` tag because there is no SVG file.
   _Source: `internal/gateway/seo_test.go` — `TestSEO_FaviconLinksOnEveryPage`._
 
-- **Unlinked icons still cost binary size.** Everything under `static/` is embedded by
-  `//go:embed`. `favicon-192x192.png` and `favicon-512x512.png` need a web app manifest,
-  which is not built. `favicon-180x180.png` duplicates `apple-touch-icon.png`.
+- **Unused icons still cost binary size.** Everything under `static/` is embedded by
+  `//go:embed`. `favicon-180x180.png` duplicates `apple-touch-icon.png`.
+  `favicon-48x48.png` is covered by the `.ico`. Neither is referenced.
   _Source: `internal/gateway/gateway.go` — `staticFS`._
+
+- **`manifestThemeColor` is the one correct raw hex in the gateway.** A manifest is JSON
+  read by the operating system. It cannot resolve a CSS token. The value is graphite's
+  `--color-base-100`, because graphite is the default theme. A manifest holds one colour
+  and is fetched once at install. If graphite changes, change the constant by hand.
+  _Source: `internal/gateway/handlers/site.go` — `manifestThemeColor`._
+
+- **No manifest icon may claim `purpose: "maskable"`.** A maskable icon needs a safe zone
+  drawn into the art. These icons do not have one. Claiming it clips the logo on every
+  Android launcher. A test asserts none claims it.
+  _Source: `internal/gateway/handlers/site.go` — `manifestIcon`._
+
+- **Serve the manifest as `application/manifest+json`.** `application/json` is dropped
+  silently by some browsers. No error appears. The install prompt just never shows.
+  _Source: `internal/gateway/handlers/site.go` — `WebManifest`._
+
+- **`start_url` is `/`, which redirects, and that is correct here.** An installed app
+  should open where the user belongs. A session goes to `/dashboard`, no session to
+  `/login`. Pinning a real page would freeze the launcher at install time.
+  _Source: `internal/gateway/handlers/site.go` — `WebManifest`._
 
 - **The bare `/favicon.ico` needs its own route.** A browser requests it before it parses
   any HTML. The `<link>` tags alone are not enough. `gateway.go` 301s it to the real asset.
