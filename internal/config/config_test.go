@@ -149,3 +149,87 @@ func TestLoad_RealEnvBeatsDotEnv(t *testing.T) {
 		}
 	})
 }
+
+// TestLoadMigration_* cover LoadMigration, the config loader for cmd/migrate
+// (platform-add-docker-compose-deploy, T7). Unlike Load, it must never
+// require TESLA_CLIENT_ID/TESLA_CLIENT_SECRET — a migration-only tool has no
+// reason to validate a credential it never uses.
+
+// unsetMigrationEnv clears DATABASE_URL and MIGRATIONS_ROOT from the real
+// environment and returns a restore func for defer.
+func unsetMigrationEnv(t *testing.T) func() {
+	t.Helper()
+	origURL, hadURL := os.LookupEnv("DATABASE_URL")
+	origRoot, hadRoot := os.LookupEnv("MIGRATIONS_ROOT")
+	os.Unsetenv("DATABASE_URL")
+	os.Unsetenv("MIGRATIONS_ROOT")
+	return func() {
+		if hadURL {
+			os.Setenv("DATABASE_URL", origURL)
+		} else {
+			os.Unsetenv("DATABASE_URL")
+		}
+		if hadRoot {
+			os.Setenv("MIGRATIONS_ROOT", origRoot)
+		} else {
+			os.Unsetenv("MIGRATIONS_ROOT")
+		}
+	}
+}
+
+// .env missing, DATABASE_URL set in the real environment (the container
+// case): LoadMigration must succeed with no Tesla credential requirement,
+// and MigrationsRoot must default to "/migrations".
+func TestLoadMigration_EnvFileAbsentRealEnvSet(t *testing.T) {
+	restore := unsetMigrationEnv(t)
+	defer restore()
+
+	withTempDir(t, func(dir string) {
+		// No .env file written in dir on purpose.
+		os.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/magus?sslmode=disable")
+
+		cfg, err := LoadMigration()
+		if err != nil {
+			t.Fatalf("LoadMigration() returned error: %v", err)
+		}
+		if cfg.DatabaseURL != "postgres://user:pass@db:5432/magus?sslmode=disable" {
+			t.Fatalf("cfg.DatabaseURL = %q, want the set value", cfg.DatabaseURL)
+		}
+		if cfg.MigrationsRoot != "/migrations" {
+			t.Fatalf("cfg.MigrationsRoot = %q, want default %q", cfg.MigrationsRoot, "/migrations")
+		}
+	})
+}
+
+// DATABASE_URL empty (and unset): LoadMigration must return a clear error.
+func TestLoadMigration_DatabaseURLEmpty(t *testing.T) {
+	restore := unsetMigrationEnv(t)
+	defer restore()
+
+	withTempDir(t, func(dir string) {
+		// No .env file, DATABASE_URL left unset.
+		_, err := LoadMigration()
+		if err == nil {
+			t.Fatal("LoadMigration() returned no error, want a DATABASE_URL error")
+		}
+	})
+}
+
+// MIGRATIONS_ROOT set: LoadMigration must use it instead of the default.
+func TestLoadMigration_MigrationsRootSet(t *testing.T) {
+	restore := unsetMigrationEnv(t)
+	defer restore()
+
+	withTempDir(t, func(dir string) {
+		os.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/magus?sslmode=disable")
+		os.Setenv("MIGRATIONS_ROOT", "/custom/migrations")
+
+		cfg, err := LoadMigration()
+		if err != nil {
+			t.Fatalf("LoadMigration() returned error: %v", err)
+		}
+		if cfg.MigrationsRoot != "/custom/migrations" {
+			t.Fatalf("cfg.MigrationsRoot = %q, want %q", cfg.MigrationsRoot, "/custom/migrations")
+		}
+	})
+}

@@ -5,26 +5,21 @@
   "module": "platform",
   "roadmap": null,
   "request": "Create a production-ready Docker Compose setup for this Go + Templ + HTMX Tesla monitoring app: Go app container, PostgreSQL, env vars via .env, automatic restarts, Postgres healthchecks, app/worker waits for Postgres, persistent data, no hardcoded secrets, simple enough for a small Hostinger VPS, and easy to move to another cloud provider later. Plus the deploy strategy and steps for a first-time VPS user.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "T1",
-      "T2b",
-      "T3",
-      "T5a",
-      "T5b",
-      "T5c",
-      "T6"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "T2",
-      "T4"
+      "T4",
+      "T5a",
+      "T5b",
+      "T5c"
     ]
   },
   "created_at": "2026-09-07T10:45:15Z",
-  "updated_at": "2026-09-07T11:40:00Z",
+  "updated_at": "2026-09-07T11:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -133,14 +128,20 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "config",
+      "model": "sonnet",
+      "started_at": "2026-09-07T11:41:00Z",
+      "completed_at": "2026-09-07T11:52:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 39,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 3.8,
+        "approx": true,
+        "note": "delta covers the whole T7+T5a+T5b+T5c wave jointly (one serial worker)"
+      },
+      "notes": "Appended section 8 to deployment.md: 11 numbered copy-paste steps for a first VPS deploy. Links forward to docs/1-deploy/docker.md. No existing section changed."
     },
     {
       "id": "T5b",
@@ -153,14 +154,20 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "config",
+      "model": "sonnet",
+      "started_at": "2026-09-07T11:41:00Z",
+      "completed_at": "2026-09-07T11:52:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 39,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 3.8,
+        "approx": true,
+        "note": "delta covers the whole T7+T5a+T5b+T5c wave jointly (one serial worker)"
+      },
+      "notes": "Created docs/1-deploy/docker.md, a new folder and file. All 11 sections present, verified by the leader. Tables for reference content, explicit down -v data-loss warning."
     },
     {
       "id": "T5c",
@@ -173,14 +180,20 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "config",
+      "model": "sonnet",
+      "started_at": "2026-09-07T11:41:00Z",
+      "completed_at": "2026-09-07T11:52:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 39,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 3.8,
+        "approx": true,
+        "note": "delta covers the whole T7+T5a+T5b+T5c wave jointly (one serial worker)"
+      },
+      "notes": "Updated README.md, cmd/README.md and internal/config/AGENTS.md. kkpa/context/ grep returned no hits, so no KB guide needed fixing."
     },
     {
       "id": "T6",
@@ -196,14 +209,14 @@
         "T5c"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T11:52:00Z",
+      "completed_at": "2026-09-07T11:52:00Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Leader ran all 10 signals: build, vet, ui/i18n/money/tz/migration/boundary/theme/archive guards. All pass. gofmt clean on every touched file. The test suite and docker build remain the owner's."
     },
     {
       "id": "T2b",
@@ -225,6 +238,27 @@
         "note": "single serial fix dispatch (T2b)"
       },
       "notes": "Replaced the impossible goose-CLI build with cmd/migrate using the goose library. Reworked the Dockerfile, deleted the shell entrypoint, pinned PORT=8080 in compose. Leader re-verified build, vet, gofmt and no testcontainers in deps. Docker build is the owner's step."
+    },
+    {
+      "id": "T7",
+      "title": "Move cmd/migrate env reading into internal/config (honors go-conventions.md:39)",
+      "module": "config",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "config",
+      "model": "sonnet",
+      "started_at": "2026-09-07T11:41:00Z",
+      "completed_at": "2026-09-07T11:52:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 39,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 3.8,
+        "approx": true,
+        "note": "delta covers the whole T7+T5a+T5b+T5c wave jointly (one serial worker)"
+      },
+      "notes": "Added config.LoadMigration() and MigrationConfig, factored a shared loadDotEnv() helper, rewired cmd/migrate off os.Getenv, appended 3 tests. Leader confirmed grep finds no os.Getenv in cmd/. Tests not run."
     }
   ],
   "decisions": [
@@ -315,6 +349,14 @@
       "at": "2026-09-07T11:35:00Z",
       "what": "cmd/migrate reads the four migration directories from the image filesystem instead of go:embed, and must not import internal/testdb.",
       "why": "go:embed cannot cross module folders, as internal/testdb documents. internal/testdb pulls testcontainers, which must never ship."
+    },
+    {
+      "id": "D12",
+      "scope": "design",
+      "made_by": "autopilot",
+      "at": "2026-09-07T11:41:00Z",
+      "what": "Move cmd/migrate's env reading into a small internal/config loader instead of keeping a documented os.Getenv deviation.",
+      "why": "ai/go-conventions.md:39 forbids os.Getenv outside internal/config. Fixing now costs less than a review round."
     }
   ],
   "review": {
@@ -409,6 +451,23 @@
       "at": "2026-09-07T11:40:00Z",
       "type": "finding",
       "detail": "cmd/migrate calls os.Getenv twice, which ai/go-conventions.md:39 forbids outside internal/config. The worker's justification is real (config.Load requires Tesla credentials a migration tool does not need) but the fix belongs in internal/config. Leader scheduled it into wave 2 rather than leaving it for the reviewer."
+    },
+    {
+      "at": "2026-09-07T11:41:00Z",
+      "type": "dispatch",
+      "detail": "Wave 2 dispatched: T7 (config loader fix) plus T5a, T5b, T5c (all docs). One serial worker so the docs describe the final code."
+    },
+    {
+      "at": "2026-09-07T11:52:00Z",
+      "type": "wave-complete",
+      "detail": "Wave 2 returned and verified. Leader independently ran all 10 guards plus build, vet and gofmt: every one passes. T1, T2b, T3, T6, T7 are awaiting-user-verification because only the owner runs the suite and the docker build.",
+      "budget": {
+        "five_hour_pct_start": 39,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 3.8,
+        "approx": true,
+        "note": "delta covers the whole T7+T5a+T5b+T5c wave jointly (one serial worker)"
+      }
     }
   ]
 }

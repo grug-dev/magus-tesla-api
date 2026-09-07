@@ -65,16 +65,25 @@ func (c *Config) TeslaConnectRedirectURL() string {
 	return c.BaseURL + "/connect/tesla/callback"
 }
 
-// Load reads the .env file and returns a populated Config. A missing .env file
-// is not an error: a container has no .env and gets its config from real
-// environment variables instead. A present .env file still loads normally. A
-// real environment variable always wins over a .env value, because
-// godotenv.Load() never overrides a variable already set in the process
-// environment. Any other error reading .env (for example, a permission
-// error or a malformed file) is still fatal.
-func Load() (*Config, error) {
+// loadDotEnv loads the .env file into the process environment, the same way
+// for every caller in this package. A missing .env file is not an error: a
+// container has no .env and gets its config from real environment variables
+// instead. Any other error reading .env (for example, a permission error or
+// a malformed file) is still fatal. godotenv.Load() never overrides a
+// variable already set in the process environment, so a real environment
+// variable always wins over a .env value.
+func loadDotEnv() error {
 	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("step 1: could not load .env file: %w", err)
+		return fmt.Errorf("could not load .env file: %w", err)
+	}
+	return nil
+}
+
+// Load reads the .env file and returns a populated Config. See loadDotEnv
+// for the missing-.env / real-env-wins behavior.
+func Load() (*Config, error) {
+	if err := loadDotEnv(); err != nil {
+		return nil, fmt.Errorf("step 1: %w", err)
 	}
 
 	cfg := &Config{
@@ -108,6 +117,51 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// defaultMigrationsRoot is where the Docker image COPYs each module's
+// migrations (see cmd/migrate and
+// openspec/changes/platform-add-docker-compose-deploy/design.md, decision
+// D11). Overridable via MIGRATIONS_ROOT.
+const defaultMigrationsRoot = "/migrations"
+
+// MigrationConfig is the config for the standalone migration tool
+// (cmd/migrate). It is a separate, smaller struct from Config because a
+// migration-only tool must not require Tesla credentials the way Load does.
+type MigrationConfig struct {
+	// DatabaseURL is the Postgres DSN to migrate. Required.
+	DatabaseURL string
+	// MigrationsRoot is the directory holding one subfolder per module's
+	// migrations (e.g. "<root>/account", "<root>/telemetry"). Defaults to
+	// "/migrations", the path the Docker image COPYs them to.
+	MigrationsRoot string
+}
+
+// LoadMigration reads config for cmd/migrate. Unlike Load, it does not
+// require TESLA_CLIENT_ID/TESLA_CLIENT_SECRET — a migration-only tool has no
+// reason to validate a credential it never uses. It loads .env the same way
+// Load does (see loadDotEnv: a missing .env is not an error), then reads
+// DATABASE_URL (required) and MIGRATIONS_ROOT (defaults to
+// defaultMigrationsRoot when unset).
+func LoadMigration() (*MigrationConfig, error) {
+	if err := loadDotEnv(); err != nil {
+		return nil, err
+	}
+
+	dbURL := envStripped("DATABASE_URL")
+	if dbURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL must be set")
+	}
+
+	root := envStripped("MIGRATIONS_ROOT")
+	if root == "" {
+		root = defaultMigrationsRoot
+	}
+
+	return &MigrationConfig{
+		DatabaseURL:    dbURL,
+		MigrationsRoot: root,
+	}, nil
 }
 
 // pollerTimezoneOrDefault returns v unchanged when it is non-empty (a set

@@ -26,16 +26,11 @@
 // from the image filesystem at runtime: the Dockerfile COPYs each module's
 // migrations to /migrations/<module>.
 //
-// Why not internal/config.Load(): that function also validates
-// TESLA_CLIENT_ID/TESLA_CLIENT_SECRET, which a migration-only tool has no
-// reason to require — a deploy would fail to migrate over an unrelated Tesla
-// credential check. This command reads DATABASE_URL directly with
-// os.Getenv, the one deliberate deviation from ai/go-conventions.md's "no
-// os.Getenv outside internal/config" rule, justified by config.Load()'s
-// validation being the wrong fit for this tool.
+// Config comes from internal/config.LoadMigration — see that function's doc
+// comment for why it is a separate, smaller loader than internal/config.Load.
 //
 // This file is wiring only, per CLAUDE.md's "cmd/ stays thin" rule: it reads
-// one env var, loops four fixed directories, and reports success or failure
+// config, loops four fixed directories, and reports success or failure
 // through the process exit code, which compose's service_completed_successfully
 // condition depends on.
 package main
@@ -50,15 +45,9 @@ import (
 	// Register the pgx driver as "pgx" for database/sql, which goose uses.
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
-)
 
-// defaultMigrationsRoot is where the Dockerfile COPYs each module's
-// migrations (see design.md's Dockerfile plan). Overridable via
-// MIGRATIONS_ROOT so the same binary also runs locally against the repo,
-// e.g. MIGRATIONS_ROOT=internal go run ./cmd/migrate would need a different
-// layout — in practice, local runs use the repo's own internal/<module>/db
-// paths; see the moduleDirs comment below.
-const defaultMigrationsRoot = "/migrations"
+	"github.com/cristianpena/magus-tesla-api/internal/config"
+)
 
 // moduleDirs are the four migration directories, applied in this exact
 // order, mirroring the Makefile's MIGRATIONS_DIRS
@@ -68,17 +57,12 @@ const defaultMigrationsRoot = "/migrations"
 var moduleDirs = []string{"account", "telemetry", "charging", "analytics"}
 
 func main() {
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		log.Fatal("migrate: DATABASE_URL is not set")
+	cfg, err := config.LoadMigration()
+	if err != nil {
+		log.Fatalf("migrate: %v", err)
 	}
 
-	root := os.Getenv("MIGRATIONS_ROOT")
-	if root == "" {
-		root = defaultMigrationsRoot
-	}
-
-	db, err := sql.Open("pgx", dsn)
+	db, err := sql.Open("pgx", cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("migrate: open database: %v", err)
 	}
@@ -86,7 +70,7 @@ func main() {
 
 	ctx := context.Background()
 	for _, name := range moduleDirs {
-		dir := root + "/" + name
+		dir := cfg.MigrationsRoot + "/" + name
 		if err := applyDir(ctx, db, name, dir); err != nil {
 			log.Fatalf("migrate: %s (%s): %v", name, dir, err)
 		}

@@ -305,3 +305,174 @@ go test ./...        # account integration tests run only when DATABASE_URL is s
 For the coding-side persistence conventions (sqlc/goose layout, the module-scoped DB rule,
 `DATABASE_URL` as single source of truth), see [`ai/go-conventions.md`](../ai/go-conventions.md)
 → *Persistence (Postgres + sqlc + goose)*.
+
+---
+
+## 8. Docker Compose deploy (VPS / production)
+
+This section is for a **first deploy** to a small VPS, using Docker. It does not
+need any of the tools from §1 (`sqlc`, `goose`, a local Postgres). Docker builds
+and runs everything inside containers. Follow the steps in order.
+
+### 8.1 Prepare the VPS
+
+Use a small Ubuntu VPS. Hostinger's 2 GB RAM plan is enough — Postgres, the two
+Go binaries, and Caddy all fit comfortably. Any Ubuntu 22.04+ VPS from any
+provider works the same way.
+
+Write down the VPS's **public IP address**. You need it for the next step.
+
+### 8.2 Point a DNS A record at the VPS
+
+Go to your domain's DNS provider (where you bought the domain, or its DNS
+panel). Add an **A record**:
+
+- Name: the subdomain you want, e.g. `magus`
+- Type: `A`
+- Value: the VPS's public IP from step 8.1
+
+This makes `magus.example.com` point at your VPS. DNS changes can take up to a
+few hours to spread. Caddy (step 8.8) cannot get an HTTPS certificate until
+this resolves — check with:
+
+```bash
+# Confirm the domain resolves to the VPS IP. Run this from your own machine.
+dig +short magus.example.com
+```
+
+### 8.3 Install Docker and the Compose plugin on the VPS
+
+Log into the VPS over SSH, then run:
+
+```bash
+# Install Docker and the Docker Compose plugin in one step.
+curl -fsSL https://get.docker.com | sudo sh
+```
+
+```bash
+# Let your user run docker without sudo. Log out and back in after this.
+sudo usermod -aG docker $USER
+```
+
+Log out and log back in (or run `newgrp docker`), then check it worked:
+
+```bash
+# Confirm Docker Compose is installed.
+docker compose version
+```
+
+### 8.4 Clone the repo
+
+```bash
+# Get the code onto the VPS.
+git clone <repo-url> magus-tesla-api && cd magus-tesla-api
+```
+
+Replace `<repo-url>` with this repo's real git URL.
+
+### 8.5 Create `.env`
+
+```bash
+# Copy the template. You will fill in the real values next.
+cp .env.example .env
+```
+
+Open `.env` in an editor (e.g. `nano .env`) and fill in every value:
+
+| Variable | Where to get it |
+|---|---|
+| `TESLA_CLIENT_ID`, `TESLA_CLIENT_SECRET` | Your Tesla developer app — see §2 above. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Your Google OAuth client — see §2 above. |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Pick your own values. `POSTGRES_PASSWORD` must not be empty. These create the database inside the `db` container — see `.env.example`'s comments. |
+| `DATABASE_URL` | Build it from the three values above, using the `db` service name as host: `postgres://<POSTGRES_USER>:<POSTGRES_PASSWORD>@db:5432/<POSTGRES_DB>?sslmode=disable`. |
+| `BASE_DOMAIN` | The domain from step 8.2, e.g. `magus.example.com`. Caddy uses this to get its HTTPS certificate. |
+| `BASE_URL` | `https://` plus the same domain, e.g. `https://magus.example.com`. |
+
+Leave `TESLA_ACCESS_TOKEN` and `TESLA_REFRESH_TOKEN` empty — the web gateway
+handles its own per-user Tesla login. Leave `MAGUS_DB_PASSWORD` empty — that
+variable is for the host-only `make db-setup` path, not Docker.
+
+### 8.6 Generate `SESSION_SECRET`
+
+```bash
+# Print a random 32-byte hex secret. Paste the output into .env as
+# SESSION_SECRET=<the output>.
+openssl rand -hex 32
+```
+
+Keep this value stable after you set it. Changing it later logs out every
+signed-in user.
+
+### 8.7 Add the production redirect URIs
+
+Add these two URLs — do not remove the existing `localhost` ones, which you
+still need for local development:
+
+- **Google Cloud Console** → APIs & Services → Credentials → your OAuth
+  client → Authorized redirect URIs → add `<BASE_URL>/auth/google/callback`
+  (e.g. `https://magus.example.com/auth/google/callback`).
+- **Tesla developer app** (developer.tesla.com) → add
+  `<BASE_URL>/connect/tesla/callback` to the allowed redirect URIs.
+
+### 8.8 First deploy
+
+```bash
+# Build the images and start every service in the background.
+docker compose up -d --build
+```
+
+What happens, in order:
+
+1. `db` (Postgres) starts and waits until it reports healthy.
+2. `migrate` runs all pending database migrations, then exits with code 0.
+3. `web` and `poller` start (they wait for `migrate` to finish first).
+4. `caddy` starts and requests an HTTPS certificate for `BASE_DOMAIN`.
+
+The first build can take a few minutes. Later deploys are faster.
+
+### 8.9 Verify it worked
+
+```bash
+# Expect "HTTP/2 200". Replace <domain> with your real domain.
+curl -I https://<domain>/healthz
+```
+
+```bash
+# Expect every long-running service "Up" (or "healthy"), and
+# migrate "Exited (0)".
+docker compose ps
+```
+
+If something looks wrong, see the troubleshooting table in
+`docs/1-deploy/docker.md`.
+
+### 8.10 Set up the daily backup cron
+
+```bash
+# Open your crontab editor.
+crontab -e
+```
+
+Add this line (edit the path to match where you cloned the repo in step 8.4):
+
+```
+0 2 * * * cd /path/to/magus-tesla-api && make backup-db >> /var/log/magus-backup.log 2>&1
+```
+
+This runs `deploy/backup-db.sh` every night at 2 AM. It writes a gzipped
+`.sql.gz` dump to `backups/` and deletes any backup older than 7 days.
+
+### 8.11 Deploying an update, from now on
+
+```bash
+# Pull the latest code, then rebuild and restart what changed.
+git pull
+docker compose up -d --build
+```
+
+`--build` is always safe to include, even when nothing changed — Docker's
+build cache makes a no-op rebuild fast.
+
+For every other day-to-day command — logs, restarting one service, database
+access, backups, and troubleshooting — see
+**[`docs/1-deploy/docker.md`](../1-deploy/docker.md)**.

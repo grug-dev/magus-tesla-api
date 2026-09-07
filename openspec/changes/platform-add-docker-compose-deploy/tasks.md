@@ -145,47 +145,47 @@ Add a new "## 8. Docker Compose deploy (VPS / production)" section at the end of
 existing file (do not edit any existing section). It must be a **numbered, copy-paste
 runbook** for someone who has never deployed to a VPS, covering at minimum:
 
-- [ ] T5a.1 **Buy/prepare the VPS.** Point at Hostinger's Ubuntu 22.04+ VPS plans (2 GB
+- [x] T5a.1 **Buy/prepare the VPS.** Point at Hostinger's Ubuntu 22.04+ VPS plans (2 GB
       RAM minimum — Postgres + Go binaries + Caddy comfortably fit); note the VPS's
       public IP will be needed for the DNS step next.
-- [ ] T5a.2 **Point a DNS A record** at the VPS's public IP (exact steps: in the
+- [x] T5a.2 **Point a DNS A record** at the VPS's public IP (exact steps: in the
       domain's DNS provider, add an `A` record for the chosen subdomain, e.g.
       `magus.example.com`, pointing at the VPS IP; note propagation can take up to a
       few hours, and Caddy's certificate issuance will fail until it resolves).
-- [ ] T5a.3 **Install Docker + Compose plugin** on the VPS — exact commands (Ubuntu):
+- [x] T5a.3 **Install Docker + Compose plugin** on the VPS — exact commands (Ubuntu):
       ```bash
       curl -fsSL https://get.docker.com | sudo sh
       sudo usermod -aG docker $USER
       ```
       (log out and back in for the group change to take effect), then verify with
       `docker compose version`.
-- [ ] T5a.4 **Clone the repo** on the VPS:
+- [x] T5a.4 **Clone the repo** on the VPS:
       ```bash
       git clone <repo-url> magus-tesla-api && cd magus-tesla-api
       ```
-- [ ] T5a.5 **Create `.env`** from `.env.example` (`cp .env.example .env`), then fill
+- [x] T5a.5 **Create `.env`** from `.env.example` (`cp .env.example .env`), then fill
       every value — link to §2 of this same doc for the Tesla/Google credential
       fields, and to T4.1's new `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` +
       compose-shaped `DATABASE_URL`. Set `BASE_URL=https://<the DNS name from T5a.2>`.
-- [ ] T5a.6 **Generate `SESSION_SECRET`**: `openssl rand -hex 32`, paste into `.env`.
-- [ ] T5a.7 **Add the production redirect URIs** to Google Cloud Console
+- [x] T5a.6 **Generate `SESSION_SECRET`**: `openssl rand -hex 32`, paste into `.env`.
+- [x] T5a.7 **Add the production redirect URIs** to Google Cloud Console
       (`<BASE_URL>/auth/google/callback`) and to the Tesla developer app
       (`<BASE_URL>/connect/tesla/callback`) — both alongside the existing localhost
       entries, never replacing them.
-- [ ] T5a.8 **First deploy**: `docker compose up -d --build` (or `make docker-up`).
+- [x] T5a.8 **First deploy**: `docker compose up -d --build` (or `make docker-up`).
       Explain what happens: `db` starts and becomes healthy, `migrate` runs all
       pending migrations and exits 0, `web`/`poller` start, `caddy` issues its
       certificate.
-- [ ] T5a.9 **Verify**: `curl -I https://<domain>/healthz` — expect `HTTP/2 200`. Also
+- [x] T5a.9 **Verify**: `curl -I https://<domain>/healthz` — expect `HTTP/2 200`. Also
       `docker compose ps` — expect every long-running service `Up` (or `healthy`) and
       `migrate` `Exited (0)`.
-- [ ] T5a.10 **Set up the daily backup cron**:
+- [x] T5a.10 **Set up the daily backup cron**:
       ```bash
       crontab -e
       # add:
       0 2 * * * cd /path/to/magus-tesla-api && make backup-db >> /var/log/magus-backup.log 2>&1
       ```
-- [ ] T5a.11 **Deploying an update, afterwards**:
+- [x] T5a.11 **Deploying an update, afterwards**:
       ```bash
       git pull
       docker compose up -d --build
@@ -196,7 +196,7 @@ runbook** for someone who has never deployed to a VPS, covering at minimum:
 
 ## T5b. New Docker command reference — `docs/1-deploy/docker.md` — depends on T1, T2, T3, T4
 
-- [ ] T5b.1 Create the new folder `docs/1-deploy/` and the file
+- [x] T5b.1 Create the new folder `docs/1-deploy/` and the file
       `docs/1-deploy/docker.md`, following design.md's "Docker command reference doc"
       section for structure and content, in this order: (1) the mental model table of
       all five services, (2) local Docker use vs. `make up`/host dev — when to use
@@ -217,27 +217,27 @@ runbook** for someone who has never deployed to a VPS, covering at minimum:
       Every command in its own fenced code block with a one-line plain-words purpose
       immediately above it; no unexplained placeholder — every `<...>` must say where
       to find the real value.
-- [ ] T5b.2 Add the required cross-links: this file links back to
+- [x] T5b.2 Add the required cross-links: this file links back to
       `docs/0-set-up/deployment.md` §8 (for first-time setup); `docs/0-set-up/deployment.md`
       §8 (T5a.11) links forward to this file (for day-to-day commands).
 
 ## T5c. Remaining docs — `README.md`, `cmd/README.md`, `internal/config/AGENTS.md` — depends on T1, T2, T3, T4
 
-- [ ] T5c.1 `README.md` "Project Structure" tree: add `Dockerfile`, `.dockerignore`,
+- [x] T5c.1 `README.md` "Project Structure" tree: add `Dockerfile`, `.dockerignore`,
       `compose.yaml`, and `deploy/` as new top-level entries.
-- [ ] T5c.2 `README.md` "Deployment (new machine / production)" section: add a link to
+- [x] T5c.2 `README.md` "Deployment (new machine / production)" section: add a link to
       `docs/1-deploy/docker.md` alongside the existing link to
       `docs/0-set-up/deployment.md`, one sentence distinguishing the two ("first-time
       setup" vs. "day-to-day Docker commands").
-- [ ] T5c.3 `cmd/README.md`: add a note under the `cmd/web` and `cmd/poller` table rows
+- [x] T5c.3 `cmd/README.md`: add a note under the `cmd/web` and `cmd/poller` table rows
       that both are built into containers by the repo-root `Dockerfile` for
       production, linking to `docs/1-deploy/docker.md`.
-- [ ] T5c.4 `internal/config/AGENTS.md` "Public interface" bullet for `Load()`: update
+- [x] T5c.4 `internal/config/AGENTS.md` "Public interface" bullet for `Load()`: update
       "errors if ... `.env` cannot be read" to describe the new behavior — a missing
       `.env` file is not an error (falls back to real environment variables); a
       present `.env` still loads; a real environment variable always wins over a
       `.env` value.
-- [ ] T5c.5 Confirm the `kkpa/context/` grep check (already run once at proposal time:
+- [x] T5c.5 Confirm the `kkpa/context/` grep check (already run once at proposal time:
       `grep -rl "internal/config\|POLLER_TIMEZONE\|godotenv\|\.env\b"
       kkpa/context/` returned no hits — there is no KB guide to update for this
       change). Re-run it once more before archiving, since T1–T5b may have introduced
@@ -293,3 +293,33 @@ replacing the goose CLI with a small `cmd/migrate` Go program using the goose li
       D2 itself.
       Acceptance: `make archive-guard` still passes (this change is not yet archived,
       so this is a no-op check, run anyway per policy).
+
+## T7. Fix `cmd/migrate`'s `os.Getenv` convention violation — found during doc review, depends on T2b
+
+D11's `cmd/migrate` reads `DATABASE_URL`/`MIGRATIONS_ROOT` directly with
+`os.Getenv`, documented there as a deliberate deviation from
+`ai/go-conventions.md`'s "no `os.Getenv` outside `internal/config`" rule. The
+justification was real (`config.Load()` also validates Tesla credentials, which
+a migration-only tool must not require), but the correct fix is a small typed
+loader in `internal/config`, not a standing exception.
+
+- [x] T7.1 Add `internal/config.LoadMigration() (*MigrationConfig, error)`:
+      loads `.env` the same tolerant way `Load()` does (missing-file is not
+      fatal), does NOT require any Tesla credential, errors when `DATABASE_URL`
+      is empty, and defaults `MigrationsRoot` to `/migrations` when
+      `MIGRATIONS_ROOT` is unset. The missing-`.env` logic is factored into one
+      shared `loadDotEnv()` helper used by both `Load()` and `LoadMigration()`.
+      Acceptance: `go build ./...` and `go vet ./...` clean.
+- [x] T7.2 Change `cmd/migrate/main.go` to call `config.LoadMigration()`.
+      Remove both `os.Getenv` calls and the local `defaultMigrationsRoot`
+      const. Replace the doc-comment paragraph describing the `os.Getenv`
+      deviation with one line saying config comes from `internal/config`.
+      Acceptance: `grep -rn "os.Getenv" cmd/` returns nothing.
+- [x] T7.3 Add tests for `LoadMigration()` to `internal/config/config_test.go`
+      (appended, existing tests untouched): `.env` missing with `DATABASE_URL`
+      set in the real environment; `DATABASE_URL` empty gives an error;
+      `MIGRATIONS_ROOT` unset defaults to `/migrations`; `MIGRATIONS_ROOT` set
+      is honored.
+- [x] T7.4 Update `internal/config/AGENTS.md`'s "Public interface" section to
+      list `LoadMigration`, and fix its stale "Testing" note (it said `Load()`
+      was not unit-tested directly — T1 already added direct tests for it).
