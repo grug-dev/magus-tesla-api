@@ -632,39 +632,84 @@ Tesla redirect URI after the first successful deploy, never before.**
 
 Nothing here blocks the running deploy.
 
-### Move the Tesla public key off Netlify
+| # | Item | Status |
+|---|---|---|
+| F1 | Confirm the rotated Tesla + Google secrets reached the VPS | ⬜ |
+| F2 | Check `timedatectl` — backup may run before the poller | ⬜ |
+| F3 | Move the Tesla public key off Netlify onto the app domain | ⬜ |
+| F4 | Verify the first poller run | ⬜ |
+| F5 | SSH hardening (disable root login + password auth) | ⬜ |
+| F6 | Log rotation for `/var/log/magus-backup.log` | ⬜ |
+| F7 | `HEAD /healthz` returned 404 | ✅ |
+
+### F1 — Rotated secrets on the VPS
+
+`TESLA_CLIENT_SECRET` and `GOOGLE_CLIENT_SECRET` are the same app on your
+machine and the VPS, so rotating one means updating both. Env vars are read
+when a container is **created**, so editing `.env` alone changes nothing:
+
+```bash
+nano .env
+docker compose --project-directory . -f deploy/docker/compose.yaml up -d --force-recreate
+```
+
+Then sign in once through Google, and once through "Connect your Tesla", to
+prove both secrets took.
+
+### F2 — Backup timing vs. the poller
+
+Cron uses the **server** clock, which is UTC on a default Ubuntu. The poller
+runs at 03:30 `POLLER_TIMEZONE` (default `America/Bogota`) = 08:30 UTC. A
+backup at 01:00 UTC therefore runs *before* the night's collection, so every
+dump is a night behind.
+
+```bash
+timedatectl | grep "Time zone"
+```
+
+If it says UTC, move the cron hour to just after the poller — `30 9 * * *`
+gives it an hour of headroom.
+
+### F3 — Move the Tesla public key off Netlify
 
 The EC public key is still served from `magus-monitor.netlify.app` at
 `/.well-known/appspecific/com.tesla.3p.public-key.pem`, and redeploying it
 needs a separate `netlify deploy` (see `CLAUDE.md` §External Services).
 
-Now that the app has its own domain and its own reverse proxy, that key
-belongs on the app's domain. One place to deploy, one certificate, one thing
-to renew — and the Netlify site and its CLI step disappear.
+Now that the app has its own domain and its own reverse proxy, the key belongs
+on the app's domain: one place to deploy, one certificate, one thing to renew,
+and the Netlify site and its CLI step disappear.
 
 Shape of the work: serve the file from `deploy/docker/Caddyfile`, then update
-the Tesla partner registration to the app's domain. Not started; Netlify is
-still the live source, and it works.
+the Tesla partner registration to the app's domain. Not started — Netlify is
+still the live source and it works.
 
-### Backup timing vs. the poller
+### F4 — First poller run
 
-Cron uses the **server** clock, which is UTC on a default Ubuntu. The poller
-runs at 03:30 `POLLER_TIMEZONE` (default `America/Bogota`) = 08:30 UTC. A
-backup at 01:00 UTC therefore runs before the night's collection, so every
-dump is one night behind. Check with `timedatectl` and move the cron hour if
-that matters.
+It has not run yet. After 03:30 Bogota:
 
-### Smaller items
+```bash
+docker compose --project-directory . -f deploy/docker/compose.yaml logs poller
+```
 
-- ~~**`HEAD /healthz` returns 404.**~~ Done — `internal/gateway/gateway.go`
-  now registers `r.HEAD("/healthz", ...)` beside the GET, so uptime monitors
-  that probe with HEAD (and `curl -I`) get the real status instead of 404.
-- **SSH hardening not done.** Root login and password authentication are
-  still enabled.
-- **No log rotation** on `/var/log/magus-backup.log`.
-- **First poller run** has not happened yet — verify with
-  `docker compose --project-directory . -f deploy/docker/compose.yaml logs poller`
-  after 03:30 Bogota.
+### F5 — SSH hardening
+
+Root login and password authentication are still enabled. With the `magus` key
+login proven working, both can be turned off in `/etc/ssh/sshd_config`
+(`PermitRootLogin no`, `PasswordAuthentication no`). **Keep a second SSH
+session open while doing it** — a mistake here locks you out of the VPS.
+
+### F6 — Log rotation
+
+`/var/log/magus-backup.log` grows without limit. A `logrotate` drop-in under
+`/etc/logrotate.d/` would cap it. Small file, slow growth — low urgency.
+
+### F7 — `HEAD /healthz` ✅
+
+`internal/gateway/gateway.go` now registers `r.HEAD("/healthz", ...)` beside
+the GET, so uptime monitors that probe with HEAD — and `curl -I` — get the
+real status instead of 404. The handler is unchanged: Go drops the body for a
+HEAD response, and the status code is all a monitor reads.
 
 ---
 
