@@ -34,6 +34,7 @@ func testEngine(t *testing.T) *gin.Engine {
 		Google:            google,
 		Tesla:             tesla.NewClient(),
 		SessionSecret:     "test-secret-do-not-use",
+		BaseURL:           "https://seo.test",
 		TeslaClientID:     "test-tesla-id",
 		TeslaClientSecret: "test-tesla-secret",
 		TeslaRedirectURL:  "http://localhost/connect/tesla/callback",

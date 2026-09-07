@@ -81,8 +81,13 @@ const (
 	// ==========================================================================
 
 	// --- brand / proper nouns (design.md D2 — ES=EN, cataloged, not allowlisted) ---
-	KeyBrandMagus     Key = "brand.magus"
-	KeyBrandTeslaCore Key = "brand.tesla_core"
+	KeyBrandMagus Key = "brand.magus"
+	// KeyBrandMagusMonitor is the product name in normal case ("Magus Monitor").
+	// It is cased for READING — og:site_name in layouts.seoHead sends it to a
+	// share card, where "MAGUS MONITOR" would read as shouting. The login page's
+	// <h1> renders it in caps with the `uppercase` CSS class, so the visual
+	// treatment lives in the markup and the string stays reusable.
+	KeyBrandMagusMonitor Key = "brand.magus_monitor"
 
 	// --- home page (templates/pages/home.templ) ---
 	KeyHomeSignedInAs   Key = "home.signed_in_as"
@@ -395,6 +400,21 @@ const (
 	KeyBrandPageTitle Key = "brand.page_title"
 	KeyLoginSignIn    Key = "login.sign_in"
 
+	// --- SEO / social-share metadata (layouts.seoHead, MAG-seo) ---
+	// These are the strings a search engine and a link preview (WhatsApp,
+	// Slack, X, LinkedIn) show for the PUBLIC pages — the landing page and
+	// /login. They are catalog entries like every other user-facing string,
+	// not literals in the layout: a crawler with no cookie gets the catalog's
+	// default language, which is Spanish (i18n.FromContext falls back to
+	// account.LanguageES), so "Spanish by default" needs no special case here.
+	// KeySEOHomeTitle is the landing page's <title> AND its og:title — it is a
+	// full sentence, not the "%s — Magus Monitor" composition, because the
+	// home page has no page name to interpolate and a bare "Magus Monitor"
+	// tells a search result nothing about what the product is.
+	KeySEOHomeTitle   Key = "seo.home_title"
+	KeySEODescription Key = "seo.description"
+	KeySEOImageAlt    Key = "seo.image_alt"
+
 	// --- RM34-gateway-block-inactive-login (tier 2) ---
 	// pages.AccountBlocked() — the page GoogleCallback renders at HTTP 403 for
 	// an account whose status is not Active (design.md D6/D20).
@@ -447,18 +467,22 @@ var catalog = map[Key]entry{
 
 	// --- RM24-gateway-translate-all-pages (tier 3) ---
 
-	KeyBrandMagus:     {ES: "Magus", EN: "Magus"},
-	KeyBrandTeslaCore: {ES: "TESLA CORE", EN: "TESLA CORE"},
+	KeyBrandMagus:        {ES: "Magus", EN: "Magus"},
+	KeyBrandMagusMonitor: {ES: "Magus Monitor", EN: "Magus Monitor"},
 
 	KeyHomeSignedInAs:   {ES: "Sesión iniciada como", EN: "Signed in as"},
 	KeyHomeViewVehicles: {ES: "Ver tus vehículos", EN: "View your vehicles"},
 	KeyHomeSignInGoogle: {ES: "Iniciar sesión con Google", EN: "Sign in with Google"},
 
-	KeyLoginTagline:        {ES: "Monitoreo de flota de precisión", EN: "Precision Fleet Monitoring"},
+	KeyLoginTagline:        {ES: "Inteligencia de flota Tesla para Colombia", EN: "Tesla Fleet Intelligence for Colombia"},
 	KeyLoginContinueGoogle: {ES: "Continuar con Google", EN: "Continue with Google"},
 	KeyLoginPrivacy:        {ES: "Privacidad", EN: "Privacy"},
 	KeyLoginTerms:          {ES: "Términos", EN: "Terms"},
 	KeyLoginSupport:        {ES: "Soporte", EN: "Support"},
+
+	KeySEOHomeTitle:   {ES: "Magus Monitor — Inteligencia de flota Tesla para Colombia", EN: "Magus Monitor — Tesla Fleet Intelligence for Colombia"},
+	KeySEODescription: {ES: "Magus Monitor conecta tu cuenta Tesla y convierte los datos de tu vehículo en un panel diario: batería, autonomía, odómetro, cargas y eficiencia. Hecho para Colombia, en kilómetros y grados Celsius.", EN: "Magus Monitor connects your Tesla account and turns your vehicle data into a daily dashboard: battery, range, odometer, charges and efficiency. Built for Colombia, in kilometres and degrees Celsius."},
+	KeySEOImageAlt:    {ES: "Logo de Magus Monitor", EN: "Magus Monitor logo"},
 
 	KeyDashboardStaleBadge:         {ES: "Desactualizado", EN: "Stale"},
 	KeyDashboardOdometer:           {ES: "Odómetro", EN: "Odometer"},
@@ -690,7 +714,7 @@ var catalog = map[Key]entry{
 	KeyChargesDotCompleteTooltip:   {ES: "Completo", EN: "Complete"},
 	KeyChargesDotIncompleteTooltip: {ES: "Incompleto", EN: "Incomplete"},
 
-	KeyBrandPageTitle: {ES: "%s — Magus", EN: "%s — Magus"},
+	KeyBrandPageTitle: {ES: "%s — Magus Monitor", EN: "%s — Magus Monitor"},
 	KeyLoginSignIn:    {ES: "Iniciar sesión", EN: "Sign in"},
 
 	KeyAccountBlockedTitle:   {ES: "Cuenta desactivada", EN: "Account deactivated"},

@@ -56,3 +56,19 @@ type Key string
 func T(ctx context.Context, key Key) string {
 	return translate(FromContext(ctx), key)
 }
+
+// OGLocale returns the Open Graph locale tag for the language carried on ctx —
+// the `og:locale` value in layouts.seoHead. Open Graph wants a full
+// language_TERRITORY tag, not the bare "es"/"en" that <html lang> takes, so the
+// two cannot share one value: a crawler reading og:locale="es" ignores it.
+//
+// The Spanish territory is CO on purpose. The product's tagline is "Tesla Fleet
+// Intelligence for Colombia" and every display unit is the Colombian one
+// (kilometres, °C), so es_CO is the honest tag; es_ES would tell a share card it
+// is a Spain-targeted page.
+func OGLocale(ctx context.Context) string {
+	if FromContext(ctx) == account.LanguageEN {
+		return "en_US"
+	}
+	return "es_CO"
+}

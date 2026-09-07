@@ -86,7 +86,12 @@ func main() {
 			charging.NewSuperchargerSessionAnalyticsReader(pool),
 			charging.NewReader(pool),
 		),
-		SessionSecret:     cfg.SessionSecret,
+		SessionSecret: cfg.SessionSecret,
+		// Public base URL — the same value that builds the OAuth redirect URIs
+		// above. The gateway uses it to make the SEO/social tags absolute
+		// (layouts.seoHead via handlers.SiteMiddleware); set BASE_URL to the
+		// https domain in production or link previews will point at localhost.
+		BaseURL:           cfg.BaseURL,
 		TeslaClientID:     cfg.ClientID,
 		TeslaClientSecret: cfg.ClientSecret,
 		TeslaRedirectURL:  cfg.TeslaConnectRedirectURL(),

@@ -1090,6 +1090,134 @@ swappable region**, so an htmx swap can never replace an open dialog.
 the browser has no `<dialog>` support, `app.js` returns early and htmx falls back to its
 native `confirm()` — degraded styling, but the guard itself is never lost.
 
+## SEO & social-share metadata (MAG-seo, 2026-09-07)
+
+Every search-engine and link-preview tag lives in **one** component:
+`layouts.seoHead` in `templates/layouts/base.templ`, called by `baseShell`. No page
+writes a `<meta>` tag of its own — if a page needs different metadata, the fix is a
+new catalog key, not a tag in the page.
+
+**Two audiences, one boolean.** `baseShell(title, indexable bool)`:
+
+| Shell | `indexable` | What is emitted |
+|---|---|---|
+| `layouts.Base` (public: `/login`, blocked-account) | `true` | description, `robots: index, follow`, the Open Graph set, the Twitter Card set, `<link rel="canonical">` |
+| `layouts.BaseAuth` (per-user pages behind the session) | `false` | `robots: noindex, nofollow` and nothing else |
+
+A private page gets no description and no `og:image` on purpose: a crawler never
+reaches it, so the tags buy no SEO and only risk leaking a page name into an index
+if a route is ever exposed by mistake.
+
+**Absolute URLs come from config, never from the `Host` header.** `canonical`,
+`og:url`, `og:image` and `twitter:image` must be absolute — a social scraper fetches
+the page out of band and has no origin to resolve a relative URL against, so it
+renders a blank card. The origin is `config.Config.BaseURL`, wired
+`cmd/web` → `gateway.Deps.BaseURL` → `handlers.SiteMiddleware` → `ui.Site` on the
+request context (`templates/ui/site.go`), read by `seoHead` with
+`ui.SiteFromContext(ctx)`. This mirrors how the active theme and language reach a
+template: one middleware, one context value, zero parameter threading.
+
+The `Host` header is deliberately NOT used. It is attacker-controlled on any
+request, and reflecting it into `canonical`/`og:url` is how a site ends up
+advertising someone else's domain as its own.
+
+`BASE_URL` therefore has a second job now. It already built the OAuth redirect URIs;
+it also decides what a shared link points at. **Leave it at the localhost default in
+production and every link preview points at `localhost:8080`.** When the base URL is
+empty the `ui.Site` helpers return `""` and `seoHead` omits each URL-bearing tag
+rather than emitting a broken one — a missing canonical is a small SEO loss, a
+malformed one is a bigger one.
+
+**The metadata is bilingual, Spanish by default — with no special case.** Every
+string resolves through `i18n.T(ctx, …)` (`KeySEODescription`, `KeySEOHomeTitle`,
+`KeySEOImageAlt`, `KeyBrandMagusMonitor`) and `og:locale` through `i18n.OGLocale(ctx)`
+(`es_CO` / `en_US`). A crawler is a cookie-less anonymous request, and
+`i18n.FromContext` falls back to `account.LanguageES`, so "default to Spanish" IS the
+existing default. Nothing in `seoHead` is pinned to one language.
+
+**`KeyBrandMagusMonitor` is stored in normal case** ("Magus Monitor"), not caps. It
+feeds `og:site_name`, where `MAGUS MONITOR` reads as shouting; the login `<h1>`
+uppercases it with the `uppercase` CSS class, so the visual treatment stays in the
+markup and one catalog entry serves both.
+
+**The share image** is `seoImagePath` in `base.templ` —
+`/static/img/magus-logo.png`, embedded by `gateway.go`'s existing `//go:embed static`
+like every other asset (no CDN). Replacing it is a one-line change plus the file.
+Source image: **1200×630 PNG under 300 KB** — the size every scraper crops cleanly.
+`og:image:width`/`height` are deliberately NOT emitted, because they would be a claim
+about a file this repo does not validate.
+
+**The base URL does not render a page.** `Handler.Home` 302-redirects an anonymous
+visitor from `/` to `/login` (`handlers.go`), so the site's own share card and search
+snippet are `/login`'s — every scraper follows the redirect. `pages.Home` still
+compiles but is not surfaced. If `/` ever grows a real landing page, `seoHead` needs
+no change, but `TestSEO_BaseURLRedirectsToLogin` will break on purpose to say so.
+
+### The three crawler files
+
+`robots.txt` and `sitemap.xml` are **routes**, not files under `/static` — a search
+engine fetches those two exact root paths and looks nowhere else. Both live in
+`handlers/site.go` as plain package-level functions, not methods on `*Handler`:
+they read `ui.Site` off the request context and nothing else. Needing `h.Deps`
+there would be a design smell, not a missing receiver.
+
+- **`robots.txt`** blocks `robotsDisallow` — the closed list of authenticated route
+  prefixes. Keep it in step with `gateway.go`'s route table: a new route under an
+  existing prefix needs no edit, a new **top-level** one does. This is
+  belt-and-braces; those routes already redirect anonymous requests and render
+  `noindex`. It only saves crawl budget. And it is **not** access control — the file
+  is public and names every path in it.
+- **`sitemap.xml`** lists `sitemapPaths`. `/` is deliberately **absent**: it
+  302-redirects, and Search Console drops a redirecting sitemap entry as "Page with
+  redirect". No `<lastmod>`, `<changefreq>` or `<priority>` — this app does not track
+  when a page changed, and a made-up timestamp teaches a crawler a schedule that
+  means nothing.
+- **Favicons** are `layouts.faviconLinks`, mounted in `baseShell` OUTSIDE `seoHead`
+  — a private page still needs a tab icon. Four tags over three files in
+  `static/img/favicon/`: `favicon-32x32.png` + `favicon-16x16.png` (every current
+  browser; PNG wins over `.ico` wherever both are understood), `favicon.ico` (48×48,
+  older browsers), and `apple-touch-icon.png` (180×180, iOS home screen).
+  `gateway.go` also 301s the bare `/favicon.ico` to the real asset, because a browser
+  requests that root path before it parses any HTML.
+
+  **Every href must name a file that exists.** There is no `favicon.svg` tag because
+  the project has no SVG icon, and a `<link>` to a missing file is a 404 on every
+  page load for no benefit. `seo_test.go` `os.Stat`s each href — nothing else in the
+  build catches a dead icon link. `favicon-192x192.png`, `favicon-512x512.png` and
+  `favicon-180x180.png` sit in the folder unlinked: the first two need a web app
+  manifest (not built), and the third is a byte-identical duplicate of
+  `apple-touch-icon.png`. Everything in `static/` is `//go:embed`-ed, so an unused
+  icon is dead weight in the binary.
+
+### JSON-LD — use `templ.JSONScript`, never a hand-written `<script>`
+
+Structured data is built by `seoJSONLD` (`layouts/jsonld.go`), which returns the
+**struct**, and rendered by
+`@templ.JSONScript("", seoJSONLD(ctx)).WithType("application/ld+json")`.
+
+**templ treats a `<script>` element's contents as literal text.** An
+`@templ.Raw(...)` written inside one is emitted *verbatim* to the browser — it
+compiles, it passes `go vet`, and it ships the source line as page content. This was
+hit and fixed during MAG-seo; do not reintroduce it. `templ.JSONScript` writes the
+element itself and encodes with `encoding/json`, whose encoder HTML-escapes `<`, `>`
+and `&`, so a `</script>` inside a catalog string cannot close the tag early.
+`WithType` is mandatory — the default is `application/json`, which no search engine
+reads as structured data.
+
+**Only claims this repo can stand behind go in the document.** There is no
+`aggregateRating`, `offers`, `price` or `reviewCount`, even though every SEO
+checklist asks for them: those are exactly the fields Google manually penalises when
+invented, and this project has no rating and no published price. A structured-data
+block is a set of assertions, not a wish list. `seo_test.go` asserts their absence.
+
+`inLanguage` is derived from `i18n.OGLocale` by swapping `_` for `-` (schema.org
+wants BCP 47 `es-CO`, Open Graph wants `es_CO`). Deriving it keeps ONE locale
+vocabulary; a second hand-written map is how the two drift apart.
+
+**Still not built (deliberate, not forgotten):** `hreflang` alternates and a web app
+manifest. `hreflang` has no well-defined value here — language is a cookie on the
+SAME URL, so there is no per-language URL to point an alternate at.
+
 ## Self-hosted web fonts — Inter + JetBrains Mono (RD11)
 
 The gateway's no-CDN rule (`base.templ`: "never an external CDN") now extends to

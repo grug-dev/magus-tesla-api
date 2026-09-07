@@ -79,6 +79,14 @@ type Deps struct {
 	// from a Reader-only handler.
 	AnalyticsRecalculator analytics.Recalculator
 	SessionSecret         string
+	// BaseURL is the app's public base URL (config.Config.BaseURL — e.g.
+	// https://usemagus.cloud in production, http://localhost:8080 in dev). The
+	// SAME value that already builds the OAuth redirect URIs; the gateway needs
+	// it because every SEO/social tag in layouts.seoHead (canonical, og:url,
+	// og:image) must be an ABSOLUTE URL, and a template cannot know the origin.
+	// Carried per request by handlers.SiteMiddleware. Empty is tolerated: the
+	// absolute-URL tags are then omitted rather than emitted broken.
+	BaseURL string
 	// Tesla OAuth app credentials + the web connect redirect URI.
 	TeslaClientID     string
 	TeslaClientSecret string
@@ -128,6 +136,15 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	// currentUID, which reads the session set up just above.
 	r.Use(handlers.PreferencesMiddleware(d.Account))
 
+	// handlers.SiteMiddleware carries the request's absolute-URL facts
+	// (ui.Site: the configured public base URL + the request path) so
+	// layouts.seoHead can emit a canonical link, og:url and og:image. It
+	// depends on nothing else, so its position here is free — it sits beside
+	// PreferencesMiddleware because both exist for the same reason: resolve a
+	// per-request document-<head> fact ONCE instead of threading it through
+	// every page's parameters.
+	r.Use(handlers.SiteMiddleware(d.BaseURL))
+
 	// Static assets at /static — dev vs production.
 	//
 	// Production: serve from the //go:embed copy (self-contained deploy, no
@@ -168,6 +185,23 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 
 	r.GET("/", h.Home)
 	r.GET("/login", h.LoginPage)
+
+	// Crawler-facing routes. Both must sit at the domain ROOT — a search engine
+	// fetches these two exact paths and looks nowhere else — so neither can be a
+	// file under /static. They read only the base URL off the request context
+	// (handlers.SiteMiddleware), which is why they take no *Handler receiver.
+	r.GET("/robots.txt", handlers.RobotsTxt)
+	r.GET("/sitemap.xml", handlers.SitemapXML)
+
+	// A browser, a crawler and most feed/preview tools request the bare
+	// /favicon.ico before parsing any HTML, so the <link> tags in
+	// layouts.faviconLinks are not enough on their own. A permanent redirect to
+	// the real asset keeps ONE copy of the file and works identically under both
+	// /static modes (embedded in production, on-disk under MAGUS_DEV) — serving
+	// it here directly would need its own copy of that branch.
+	r.GET("/favicon.ico", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/static/img/favicon/favicon.ico")
+	})
 	r.GET("/auth/google/login", h.GoogleLogin)
 	r.GET("/auth/google/callback", h.GoogleCallback)
 	r.POST("/logout", h.Logout)

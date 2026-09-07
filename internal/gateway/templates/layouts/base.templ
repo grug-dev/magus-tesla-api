@@ -5,6 +5,110 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
+// seoImagePath is the ONE definition of which asset a link preview shows —
+// WhatsApp, Slack, X, LinkedIn and iMessage all read og:image / twitter:image
+// from it. It is a root-relative path here and made absolute per request by
+// ui.Site.Asset, because a social scraper fetches the page from outside the
+// browser session and cannot resolve a relative URL.
+//
+// The file lives in internal/gateway/static/img/, so it is embedded in the
+// binary by gateway.staticFS (//go:embed static) and served by the app itself —
+// no external CDN, exactly like app.css and htmx.min.js. Recommended source
+// image: 1200x630 PNG under 300 KB (the size every scraper crops cleanly).
+const seoImagePath = "/static/img/magus-logo.png"
+
+// seoHead renders the search-engine and social-share metadata inside <head>.
+// It is called by baseShell, so EVERY page gets exactly one copy and no page
+// author has to remember the tag list.
+//
+// indexable splits the two audiences this app has:
+//
+//   - true (layouts.Base — the landing page, /login, the blocked-account page):
+//     public pages a crawler and a share card should see, so they get the full
+//     description + Open Graph + Twitter Card set.
+//   - false (layouts.BaseAuth — dashboard, charges, Supercharger stats,
+//     settings): per-user pages behind a session. They get robots noindex,nofollow
+//     and NOTHING else. Emitting a description or an og:image for a private page
+//     buys no SEO (a crawler never reaches it) and only risks leaking a page name
+//     into a search index if a route is ever exposed by mistake.
+//
+// Language: every string resolves through i18n.T against the request language,
+// so a visitor with no cookie — which is what a crawler always is — gets the
+// catalogue's default, Spanish. There is no separate "default the metatags to
+// Spanish" switch; that IS the default.
+//
+// Absolute URLs: canonical, og:url and the two image tags come from
+// ui.SiteFromContext(ctx) (see ui/site.go). When no base URL is configured the
+// Site helpers return "", and each such tag is skipped rather than emitted
+// broken — a missing canonical costs a little SEO, a malformed one costs more.
+templ seoHead(title string, indexable bool) {
+	if !indexable {
+		<meta name="robots" content="noindex, nofollow"/>
+	} else {
+		<meta name="description" content={ i18n.T(ctx, i18n.KeySEODescription) }/>
+		<meta name="robots" content="index, follow"/>
+		<meta property="og:type" content="website"/>
+		<meta property="og:site_name" content={ i18n.T(ctx, i18n.KeyBrandMagusMonitor) }/>
+		<meta property="og:locale" content={ i18n.OGLocale(ctx) }/>
+		<meta property="og:title" content={ title }/>
+		<meta property="og:description" content={ i18n.T(ctx, i18n.KeySEODescription) }/>
+		<meta name="twitter:card" content="summary_large_image"/>
+		<meta name="twitter:title" content={ title }/>
+		<meta name="twitter:description" content={ i18n.T(ctx, i18n.KeySEODescription) }/>
+		if canonical := ui.SiteFromContext(ctx).Canonical(); canonical != "" {
+			<link rel="canonical" href={ templ.SafeURL(canonical) }/>
+			<meta property="og:url" content={ canonical }/>
+		}
+		if img := ui.SiteFromContext(ctx).Asset(seoImagePath); img != "" {
+			<meta property="og:image" content={ img }/>
+			<meta property="og:image:alt" content={ i18n.T(ctx, i18n.KeySEOImageAlt) }/>
+			<meta name="twitter:image" content={ img }/>
+			<meta name="twitter:image:alt" content={ i18n.T(ctx, i18n.KeySEOImageAlt) }/>
+		}
+		// JSON-LD structured data. templ.JSONScript writes the <script> element
+		// AND encodes the payload; a hand-written <script> tag would NOT work
+		// here, because templ treats a script element's contents as literal
+		// text and would emit the expression verbatim. The empty id is omitted
+		// from the output — nothing needs to find this block from JavaScript.
+		// WithType is mandatory: the default is "application/json", which no
+		// search engine reads as structured data.
+		@templ.JSONScript("", seoJSONLD(ctx)).WithType("application/ld+json")
+	}
+}
+
+// faviconLinks are the browser-tab and home-screen icons. They sit OUTSIDE
+// seoHead on purpose: seoHead splits public from private, and a private page
+// still needs a tab icon.
+//
+// Four tags over three files, each covering a client the others do not:
+//
+//   - favicon-32x32.png / favicon-16x16.png — every current browser. PNG is
+//     preferred over the .ico by any browser that understands both, and the two
+//     sizes cover a normal and a HiDPI tab strip.
+//   - favicon.ico (48x48) — older browsers, and the bare /favicon.ico that a
+//     crawler or feed reader requests before it ever parses the HTML (gateway.go
+//     301s that root path here, so the file is reachable both ways).
+//   - apple-touch-icon.png (180x180) — iOS "Add to Home Screen".
+//
+// Every href below names a file that EXISTS under static/img/favicon/. There is
+// deliberately no favicon.svg link: this project's generator produced raster
+// icons only, and a <link> to a missing file is a 404 on every page load for no
+// benefit. If an SVG is added later, its tag goes first — browsers prefer the
+// first format they understand.
+//
+// Not linked, because nothing reads them without a web app manifest:
+// favicon-192x192.png and favicon-512x512.png (PWA install icons), and
+// favicon-180x180.png (a byte-identical duplicate of apple-touch-icon.png).
+//
+// Paths are root-relative, not absolute: unlike og:image these are resolved by a
+// browser that already has the page's origin, so ui.Site is not needed.
+templ faviconLinks() {
+	<link rel="icon" type="image/png" href="/static/img/favicon/favicon-32x32.png" sizes="32x32"/>
+	<link rel="icon" type="image/png" href="/static/img/favicon/favicon-16x16.png" sizes="16x16"/>
+	<link rel="icon" type="image/x-icon" href="/static/img/favicon/favicon.ico" sizes="48x48"/>
+	<link rel="apple-touch-icon" href="/static/img/favicon/apple-touch-icon.png" sizes="180x180"/>
+}
+
 // baseShell is the bare document shell shared by Base (anonymous pages) and
 // BaseAuth (authenticated pages): <!DOCTYPE>/<html>/<head>/<body>, the DaisyUI
 // theme + vendored asset tags, and the ONE shared confirmation modal
@@ -23,13 +127,15 @@ import (
 // Now each request supplies its own value from context, exactly like
 // i18n.FromContext(ctx) above it — the two attributes are populated the same
 // way, from the same middleware, on the same line pattern.
-templ baseShell(title string) {
+templ baseShell(title string, indexable bool) {
 	<!DOCTYPE html>
 	<html lang={ i18n.FromContext(ctx) } data-theme={ ui.ThemeFromContext(ctx) }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ title }</title>
+			@faviconLinks()
+			@seoHead(title, indexable)
 			<link rel="stylesheet" href="/static/app.css"/>
 			<script src="/static/htmx.min.js" defer></script>
 			<script src="/static/app.js" defer></script>
@@ -66,7 +172,7 @@ templ baseShell(title string) {
 // top-right, since these pages have no navbar to host one. Callers must NOT
 // mount their own ui.LangSwitcher — Base already provides it.
 templ Base(title string) {
-	@baseShell(title) {
+	@baseShell(title, true) {
 		<div class="fixed top-3 right-3 z-40">
 			@ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)})
 		</div>
@@ -88,7 +194,7 @@ templ Base(title string) {
 // GET /ui/nav-header — the shell paints identity-only immediately and the header
 // swaps in after, keeping the telemetry+account reads off the critical render path.
 templ BaseAuth(title, path string) {
-	@baseShell(title) {
+	@baseShell(title, false) {
 		<script>
 			try {
 				const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

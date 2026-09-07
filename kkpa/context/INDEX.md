@@ -142,6 +142,25 @@
 | `blocked login` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
 | `deactivated account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
 | `poll run summary` (one row per `ProcessVehicleData` invocation, recorded on every exit path incl. whole-cycle failure) | `architecture/nightly-cycle.md` |
+| `SEO metatags` (the one `seoHead` component that renders every search-engine and share tag; public pages indexable, `BaseAuth` pages `noindex`) | `architecture/seo-metadata.md` |
+| `metatags` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |
+| `meta tags` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |
+| `Open Graph` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |
+| `og tags` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |
+| `link preview` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |
+| `share card` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |
+| `og:image` | `seoImagePath` → `internal/gateway/static/img/magus-logo.png` → `architecture/seo-metadata.md` |
+| `canonical URL` | `ui.Site.Canonical` (absolute, built from `BASE_URL`, never from the `Host` header) → `architecture/seo-metadata.md` |
+| `noindex` | what every `layouts.BaseAuth` page emits → `architecture/seo-metadata.md` |
+| `robots tag` | synonym of `noindex` → `architecture/seo-metadata.md` |
+| `why does the shared link show the login page` | `/` 302-redirects to `/login`, so the domain's card is `/login`'s → `architecture/seo-metadata.md` |
+| `robots.txt` | `handlers.RobotsTxt` / `robotsDisallow` — a route at the domain root, never a static file → `architecture/seo-metadata.md` |
+| `sitemap.xml` | `handlers.SitemapXML` / `sitemapPaths` — lists `/login` only; `/` redirects → `architecture/seo-metadata.md` |
+| `JSON-LD` | `seoJSONLD` (`layouts/jsonld.go`) rendered by `templ.JSONScript(...).WithType("application/ld+json")` → `architecture/seo-metadata.md` |
+| `structured data` | synonym of `JSON-LD` → `architecture/seo-metadata.md` |
+| `schema.org` | synonym of `JSON-LD` → `architecture/seo-metadata.md` |
+| `favicon` | `layouts.faviconLinks` + `internal/gateway/static/img/favicon/` (3 files) → `architecture/seo-metadata.md` |
+| `app icon` | synonym of `favicon` → `architecture/seo-metadata.md` |
 | `run duration` | `ProcessVehicleData`'s clock-measured start-to-finish span → `architecture/nightly-cycle.md` |
 | `poll run` (one `poll_runs` row per collection-cycle invocation: trigger, timing, account/vehicle outcome counts, Tesla API call count) | `architecture/telemetry-ingest-only.md` |
 | `run summary` | synonym of `poll run` → `architecture/telemetry-ingest-only.md` |
