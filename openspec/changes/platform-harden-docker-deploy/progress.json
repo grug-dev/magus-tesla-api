@@ -5,7 +5,7 @@
   "module": "platform",
   "roadmap": null,
   "request": "resume platform-harden-docker-deploy start implementing",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [
       "T1",
@@ -17,16 +17,15 @@
       "T6",
       "T7a",
       "T7b",
-      "T7c"
-    ],
-    "pending": [
+      "T7c",
       "T8"
     ],
+    "pending": [],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-09-07T15:16:16Z",
-  "updated_at": "2026-09-07T15:24:07Z",
+  "updated_at": "2026-09-07T15:25:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -326,14 +325,23 @@
         "T7c"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T15:24:30Z",
+      "completed_at": "2026-09-07T15:25:30Z",
+      "duration_seconds": 60,
+      "notes": "go build and go vet clean. gofmt flags 3 test files, all pre-existing on main and untouched here. migration/boundary/archive guards pass. All five old paths gone, five new present. T8.4 commands handed to the owner.",
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": 0.35,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": ""
+      }
     }
   ],
   "review": {
@@ -417,6 +425,11 @@
       "at": "2026-09-07T15:24:07Z",
       "agent": "leader",
       "event": "Workers reported status 'done'. Leader downgraded all three to awaiting-user-verification: the Test-Execution-Policy reserves docker compose config/up to the owner, so no task in this change can be 'done' on the assistant's word."
+    },
+    {
+      "at": "2026-09-07T15:25:30Z",
+      "agent": "leader",
+      "event": "wave 4 done (T8). openspec validate --strict passes; every tasks.md checkbox ticked. T8.1 acceptance says 'all three clean' \u2014 build and vet are; gofmt flags 3 test files that are pre-existing on main and that CH46 does not touch. Recorded, not waived."
     }
   ]
 }

@@ -223,21 +223,21 @@
 
 ## T8. Verification — depends on everything
 
-- [ ] T8.1 Run `go build ./...`, `go vet ./...`, `gofmt -l .`. This change touches
+- [x] T8.1 Run `go build ./...`, `go vet ./...`, `gofmt -l .`. This change touches
       no Go file, so these are expected to pass unchanged — run them anyway as a
       regression check that nothing was accidentally broken.
       Acceptance: all three are clean.
-- [ ] T8.2 Run `make migration-guard`, `make boundary-guard`, `make archive-guard`
+- [x] T8.2 Run `make migration-guard`, `make boundary-guard`, `make archive-guard`
       to confirm design.md's "Reverse-direction check" claims of "unaffected" hold
       in practice, not just on paper.
       Acceptance: all three guards pass.
-- [ ] T8.3 Confirm no file remains at any of the five old paths (`Dockerfile`,
+- [x] T8.3 Confirm no file remains at any of the five old paths (`Dockerfile`,
       `.dockerignore`, `compose.yaml`, `deploy/Caddyfile`, `deploy/backup-db.sh`)
       and that all five exist at their new `deploy/docker/` path.
       Acceptance: `ls Dockerfile .dockerignore compose.yaml deploy/Caddyfile
       deploy/backup-db.sh` all report "No such file"; `ls deploy/docker/` lists all
       five moved files.
-- [ ] T8.4 Hand back to the owner, as commands to run (this pipeline does not run
+- [x] T8.4 Hand back to the owner, as commands to run (this pipeline does not run
       them — Test-Execution-Policy excludes `docker build`, `docker compose up`,
       and `docker compose config`):
       - `docker compose --project-directory . -f deploy/docker/compose.yaml config`
