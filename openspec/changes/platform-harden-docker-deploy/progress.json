@@ -1,0 +1,347 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "platform-harden-docker-deploy",
+  "module": "platform",
+  "roadmap": null,
+  "request": "resume platform-harden-docker-deploy start implementing",
+  "status": "in-progress",
+  "rollup": {
+    "current": [
+      "T1",
+      "T2a",
+      "T2b",
+      "T3",
+      "T6"
+    ],
+    "pending": [
+      "T4",
+      "T5",
+      "T7a",
+      "T7b",
+      "T7c",
+      "T8"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-07T15:16:16Z",
+  "updated_at": "2026-09-07T15:18:09Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH46-platform-harden-docker-deploy",
+    "base": "main",
+    "ticket": null,
+    "ticket_url": null,
+    "created_at": "2026-09-07T15:16:16Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Dockerfile move + build cache mounts",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T15:17:00Z",
+      "completed_at": "2026-09-07T15:18:09Z",
+      "duration_seconds": 69,
+      "notes": "Moved to deploy/docker/. Added syntax directive, cache mount on go mod download, two on each of three go build lines. Stage names unchanged.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 23,
+        "five_hour_pct_delta": 3,
+        "cost_usd_delta": 0.9813,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 delta covers T1, T2a, T2b, T3, T6 jointly"
+      }
+    },
+    {
+      "id": "T2a",
+      "title": "Caddyfile move to deploy/docker/",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T15:17:00Z",
+      "completed_at": "2026-09-07T15:18:09Z",
+      "duration_seconds": 69,
+      "notes": "Moved deploy/Caddyfile to deploy/docker/Caddyfile. Content unchanged.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 23,
+        "five_hour_pct_delta": 3,
+        "cost_usd_delta": 0.9813,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 delta covers T1, T2a, T2b, T3, T6 jointly"
+      }
+    },
+    {
+      "id": "T2b",
+      "title": "backup-db.sh move + BACKUP_DIR and compose flag fix",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T15:17:00Z",
+      "completed_at": "2026-09-07T15:18:09Z",
+      "duration_seconds": 69,
+      "notes": "Moved and fixed BACKUP_DIR to ../../backups. compose call now carries both flags. Executable bit kept.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 23,
+        "five_hour_pct_delta": 3,
+        "cost_usd_delta": 0.9813,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 delta covers T1, T2a, T2b, T3, T6 jointly"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "compose.yaml move \u2014 the four path traps",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T15:17:00Z",
+      "completed_at": "2026-09-07T15:18:09Z",
+      "duration_seconds": 69,
+      "notes": "Moved. context ../.., dockerfile deploy/docker/Dockerfile, five env_file to ../../.env, Caddy volume ./Caddyfile. Also fixed a stale archived design.md path in a comment.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 23,
+        "five_hour_pct_delta": 3,
+        "cost_usd_delta": 0.9813,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 delta covers T1, T2a, T2b, T3, T6 jointly"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "compose.yaml hardening \u2014 logging, resource limits, capabilities",
+      "module": "platform",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Makefile \u2014 COMPOSE variable, target and help updates",
+      "module": "platform",
+      "depends_on": [
+        "T3",
+        "T2b"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": ".env.example \u2014 ten resource-limit variables",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-07T15:17:00Z",
+      "completed_at": "2026-09-07T15:18:09Z",
+      "duration_seconds": 69,
+      "notes": "Ten *_CPU_LIMIT/*_MEM_LIMIT vars added, all commented out, each with default and rationale.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 23,
+        "five_hour_pct_delta": 3,
+        "cost_usd_delta": 0.9813,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 delta covers T1, T2a, T2b, T3, T6 jointly"
+      }
+    },
+    {
+      "id": "T7a",
+      "title": "docs/1-deploy/docker.md \u2014 commands and hardening note",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2a",
+        "T2b",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7b",
+      "title": "docs/0-set-up/deployment.md \u00a78 \u2014 Docker commands",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2a",
+        "T2b",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7c",
+      "title": "README.md + cmd/README.md \u2014 structure tree and Dockerfile path",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2a",
+        "T2b",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "Verification \u2014 build, vet, guards, old-path check, owner commands",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2a",
+        "T2b",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7a",
+        "T7b",
+        "T7c"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-07T15:16:16Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "reverted the uncommitted .env.example edit that dropped TESLA_ACCESS_TOKEN and TESLA_REFRESH_TOKEN",
+      "why": "config.go still reads and writes both vars; the edit was unrelated to CH46 and would pollute its history",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-07T15:16:16Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "hybrid execution \u2014 leader implements T1-T6 and T8, three parallel workers do the doc rewrites T7a/T7b/T7c",
+      "why": "change touches no internal/ module, so the worker sandbox rule does not apply; doc rewrites are large and disjoint",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-07T15:16:16Z",
+      "agent": "leader",
+      "event": "resumed CH46 mid-Step-3: artifacts existed untracked, no progress.json. Validated with openspec validate --strict, committed as ddf6ebf."
+    },
+    {
+      "at": "2026-09-07T15:16:16Z",
+      "agent": "leader",
+      "event": "database design gate checked and not applicable: design.md 'Database objects' declares no table, column, index, constraint, view or migration, confirmed against the task list."
+    },
+    {
+      "at": "2026-09-07T15:16:16Z",
+      "agent": "leader",
+      "event": "no Linear ticket on this branch (ft/CH46 has no ticket segment). Per Step R the ticket is not re-resolved on resume, so commits carry no Ticket: trailer."
+    },
+    {
+      "at": "2026-09-07T15:17:00Z",
+      "agent": "leader",
+      "event": "wave 1 start (T1, T2a, T2b, T3, T6) \u2014 leader-implemented per decision D2. Budget start: five_hour 20%, context 14%, cost 3.5599."
+    },
+    {
+      "at": "2026-09-07T15:18:09Z",
+      "agent": "leader",
+      "event": "wave 1 done (T1, T2a, T2b, T3, T6). Files moved and path traps fixed. Tasks are awaiting-user-verification: their real proof is docker compose config + up, which the Test-Execution-Policy reserves to the owner (T8.4)."
+    }
+  ]
+}

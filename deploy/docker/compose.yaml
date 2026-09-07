@@ -6,16 +6,28 @@
 #   web     ← caddy (reverse proxy, the only service reachable from outside)
 #
 # DATABASE_URL is the one switch between this bundled db and a future managed
-# database — see openspec/changes/platform-add-docker-compose-deploy/design.md
-# decision D1 for the exact steps to switch. Only `caddy` publishes ports.
+# database — see openspec/changes/archive/platform/
+# 2026-09-07-platform-add-docker-compose-deploy/design.md decision D1 for the
+# exact steps to switch. Only `caddy` publishes ports.
 #
 # All secrets and config come from .env via env_file: — none are hardcoded here.
+#
+# HOW TO RUN IT. This file lives in deploy/docker/, not the repo root, so every
+# command needs two flags and must run FROM the repo root:
+#
+#   docker compose --project-directory . -f deploy/docker/compose.yaml <cmd>
+#
+# --project-directory . fixes ${VAR} interpolation, which resolves against the
+# project directory. It does NOT fix env_file:, which resolves against this
+# file's own folder — that is why every env_file: below reads ../../.env. Both
+# fixes are needed; either one alone leaves the stack half-configured.
+# The Makefile's COMPOSE variable wraps these flags for you.
 
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
-    env_file: .env
+    env_file: ../../.env
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -27,10 +39,10 @@ services:
 
   migrate:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
       target: migrate
-    env_file: .env
+    env_file: ../../.env
     depends_on:
       db:
         condition: service_healthy
@@ -40,13 +52,13 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
       target: web
-    env_file: .env
+    env_file: ../../.env
     environment:
       # Pin the container's listen port to 8080, overriding any PORT value
-      # in .env. The healthcheck below and deploy/Caddyfile both hardcode
+      # in .env. The healthcheck below and deploy/docker/Caddyfile both hardcode
       # web:8080 — if the owner sets PORT for local host development, both
       # would silently break without this override winning inside the
       # container.
@@ -64,10 +76,10 @@ services:
 
   poller:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
       target: poller
-    env_file: .env
+    env_file: ../../.env
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -75,12 +87,12 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    env_file: .env
+    env_file: ../../.env
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

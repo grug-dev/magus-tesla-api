@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Multi-stage build for magus-tesla-api.
 #
 # The builder stage compiles cmd/web, cmd/poller, and cmd/migrate. cmd/migrate
@@ -15,11 +16,18 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /src
 RUN apk add --no-cache git
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/web     ./cmd/web
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/poller  ./cmd/poller
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/migrate ./cmd/migrate
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/web     ./cmd/web
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/poller  ./cmd/poller
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/migrate ./cmd/migrate
 
 # ---- web: the HTTP gateway ----
 FROM alpine:3.20 AS web

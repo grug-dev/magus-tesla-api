@@ -34,7 +34,7 @@
 
 ## T1. `Dockerfile` move + build cache mounts — no dependency, parallel-ok with T2a/T2b
 
-- [ ] T1.1 Create `deploy/docker/Dockerfile`, moved from the repo-root `Dockerfile`.
+- [x] T1.1 Create `deploy/docker/Dockerfile`, moved from the repo-root `Dockerfile`.
       Add `# syntax=docker/dockerfile:1` as the first line (required for
       `--mount=type=cache`, design.md D5). Add `--mount=type=cache,target=/go/pkg/mod`
       to the `go mod download` line, and both
@@ -47,7 +47,7 @@
       not; the three build stage names (`web`, `poller`, `migrate`) are unchanged
       (`compose.yaml`'s `target:` values, updated in T3/T4, depend on these exact
       names).
-- [ ] T1.2 Create `deploy/docker/Dockerfile.dockerignore`, moved and renamed from
+- [x] T1.2 Create `deploy/docker/Dockerfile.dockerignore`, moved and renamed from
       the repo-root `.dockerignore` (design.md D1, Trap 2). Copy every pattern
       unchanged — patterns still match against the build context root (the repo
       root), not against this file's own folder. Delete the repo-root
@@ -61,14 +61,14 @@
 
 ## T2a. `Caddyfile` move — no dependency, parallel-ok with T1/T2b
 
-- [ ] T2a.1 Create `deploy/docker/Caddyfile`, moved from `deploy/Caddyfile`, content
+- [x] T2a.1 Create `deploy/docker/Caddyfile`, moved from `deploy/Caddyfile`, content
       unchanged. Delete the old `deploy/Caddyfile`.
       Acceptance: `deploy/docker/Caddyfile` exists with unchanged content; the old
       path does not exist.
 
 ## T2b. `backup-db.sh` move + path fix — no dependency, parallel-ok with T1/T2a
 
-- [ ] T2b.1 Create `deploy/docker/backup-db.sh`, moved from `deploy/backup-db.sh`.
+- [x] T2b.1 Create `deploy/docker/backup-db.sh`, moved from `deploy/backup-db.sh`.
       Fix `BACKUP_DIR` from `"$(dirname "$0")/../backups"` to
       `"$(dirname "$0")/../../backups"` (design.md D1, Trap 4 — the script moved one
       folder deeper, so it needs one more `../` to still reach the repo-root
@@ -84,7 +84,7 @@
 
 ## T3. `compose.yaml` move (the four traps) — no dependency; MUST land before T4
 
-- [ ] T3.1 Create `deploy/docker/compose.yaml`, moved from the repo-root
+- [x] T3.1 Create `deploy/docker/compose.yaml`, moved from the repo-root
       `compose.yaml`. Fix `build.context` to `../..` and `build.dockerfile` to
       `deploy/docker/Dockerfile` (relative to `context`, not to this file — design.md
       D1, Trap 1) on all three build services (`migrate`, `web`, `poller`). Keep
@@ -92,19 +92,19 @@
       match T1's stage names exactly.
       Acceptance: every `build:` block has `context: ../..` and
       `dockerfile: deploy/docker/Dockerfile`; `target:` values unchanged.
-- [ ] T3.2 Fix every `env_file: .env` line to `env_file: ../../.env` (relative to
+- [x] T3.2 Fix every `env_file: .env` line to `env_file: ../../.env` (relative to
       this file's own folder, not the project directory — design.md D1, Trap 3,
       mechanism 2). Do not add `--project-directory` inside the file itself — that
       flag is passed on the command line (T5), not written into `compose.yaml`.
       Acceptance: every service that had `env_file: .env` now has
       `env_file: ../../.env`.
-- [ ] T3.3 Fix the Caddy volume mount from
+- [x] T3.3 Fix the Caddy volume mount from
       `./deploy/Caddyfile:/etc/caddy/Caddyfile:ro` to
       `./Caddyfile:/etc/caddy/Caddyfile:ro` (the `Caddyfile` now sits next to this
       compose file — design.md D1, Trap 4). Named volumes (`pgdata`, `caddy_data`,
       `caddy_config`) are unchanged — they are Docker-managed, not paths.
       Acceptance: the Caddy volume line reads `./Caddyfile:/etc/caddy/Caddyfile:ro`.
-- [ ] T3.4 Delete the repo-root `compose.yaml`.
+- [x] T3.4 Delete the repo-root `compose.yaml`.
       Acceptance: `deploy/docker/compose.yaml` exists with T3.1–T3.3's fixes; the
       repo-root `compose.yaml` does not exist. `depends_on`, healthchecks, `image:`
       values, `ports:`, and the `volumes:` top-level block are otherwise unchanged
@@ -164,7 +164,7 @@
 
 ## T6. `.env.example` — resource-limit variables, no dependency, parallel-ok with T1–T5
 
-- [ ] T6.1 Add the ten resource-limit variables from T4.2
+- [x] T6.1 Add the ten resource-limit variables from T4.2
       (`DB_CPU_LIMIT`/`DB_MEM_LIMIT`, `MIGRATE_CPU_LIMIT`/`MIGRATE_MEM_LIMIT`,
       `WEB_CPU_LIMIT`/`WEB_MEM_LIMIT`, `POLLER_CPU_LIMIT`/`POLLER_MEM_LIMIT`,
       `CADDY_CPU_LIMIT`/`CADDY_MEM_LIMIT`), each commented out with its default
