@@ -1,0 +1,93 @@
+# Orchestrates the whole magus-tesla-api stack for a Docker/VPS deploy.
+#
+# Five services, in dependency order:
+#   db      → migrate → web
+#                     → poller
+#   web     ← caddy (reverse proxy, the only service reachable from outside)
+#
+# DATABASE_URL is the one switch between this bundled db and a future managed
+# database — see openspec/changes/platform-add-docker-compose-deploy/design.md
+# decision D1 for the exact steps to switch. Only `caddy` publishes ports.
+#
+# All secrets and config come from .env via env_file: — none are hardcoded here.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    # Deliberate exception: migrate runs once and exits 0. It must NOT restart
+    # after a clean exit — see design.md D2.
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    env_file: .env
+    environment:
+      # Pin the container's listen port to 8080, overriding any PORT value
+      # in .env. The healthcheck below and deploy/Caddyfile both hardcode
+      # web:8080 — if the owner sets PORT for local host development, both
+      # would silently break without this override winning inside the
+      # container.
+      - PORT=8080
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  poller:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: poller
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

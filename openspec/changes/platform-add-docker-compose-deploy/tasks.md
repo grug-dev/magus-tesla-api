@@ -27,7 +27,7 @@
 
 ## T1. Fix `internal/config.Load()` for a missing `.env` — no dependencies, parallel-ok with T2/T3/T4
 
-- [ ] T1.1 Write `internal/config/config_test.go` FIRST (TDD-style), covering all four
+- [x] T1.1 Write `internal/config/config_test.go` FIRST (TDD-style), covering all four
       cases from design.md's test contract, before touching `config.go`:
       1. `.env` present with values → `Load()` succeeds, fields come from `.env`.
       2. `.env` absent, real env vars set → `Load()` succeeds (today this fails — the
@@ -45,7 +45,7 @@
       Acceptance: the new test file compiles (`go vet ./internal/config/...`) and, by
       construction, cases 2 and 4 currently FAIL against the unmodified `config.go` —
       confirm that red state before T1.2.
-- [ ] T1.2 Change `internal/config/config.go`'s `Load()`:
+- [x] T1.2 Change `internal/config/config.go`'s `Load()`:
       ```go
       if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
           return nil, fmt.Errorf("step 1: could not load .env file: %w", err)
@@ -55,13 +55,13 @@
       changes.
       Acceptance: all four T1.1 cases pass; `go vet ./internal/config/...` is clean;
       `gofmt -l internal/config/config.go` prints nothing.
-- [ ] T1.3 Update the doc comment on `Load()` to state the new behavior (a missing
+- [x] T1.3 Update the doc comment on `Load()` to state the new behavior (a missing
       `.env` is not an error; a present one still loads; a real env var always wins)
       instead of the old "errors if... `.env` cannot be read" wording.
 
 ## T2. `Dockerfile` + `.dockerignore` — no dependencies, parallel-ok with T1/T3/T4
 
-- [ ] T2.1 Write the repo-root `Dockerfile` exactly per design.md's "multi-stage
+- [x] T2.1 Write the repo-root `Dockerfile` exactly per design.md's "multi-stage
       Dockerfile plan": one `builder` stage (`golang:1.25-alpine`) compiling
       `cmd/web`, `cmd/poller`, and `github.com/pressly/goose/v3/cmd/goose` (the
       `go.mod`-pinned `v3.27.3`, not a separately chosen version); three final stages
@@ -73,7 +73,7 @@
       left for the owner to run (this pipeline does not execute `docker build` —
       see T6); the file itself must match design.md's plan exactly, stage names
       included.
-- [ ] T2.2 Write `.dockerignore` at the repo root: `.git`, `.env`, `.env.example`,
+- [x] T2.2 Write `.dockerignore` at the repo root: `.git`, `.env`, `.env.example`,
       `*.pem`, `private-key*`, `bin/`, `tmp/`, `.air/`,
       `internal/gateway/tools/tailwindcss`, `magus-public-key-netlify/`,
       `cmd/explore-tesla-api/output/`, `kkpa/`, `openspec/changes/archive/`.
@@ -83,7 +83,7 @@
 
 ## T3. `compose.yaml`, Caddy, migrate entrypoint, backup script, Makefile — no dependencies, parallel-ok with T1/T2/T4
 
-- [ ] T3.1 Write `compose.yaml` with exactly the five services and the
+- [x] T3.1 Write `compose.yaml` with exactly the five services and the
       `depends_on`/healthcheck graph from design.md: `db` (`postgres:16-alpine`,
       named volume `pgdata`, `pg_isready` healthcheck, `restart: unless-stopped`),
       `migrate` (build target `migrate`, `depends_on: db: condition: service_healthy`,
@@ -100,11 +100,11 @@
       container start) is left for the owner to confirm; the file's service names,
       `depends_on` conditions, and restart policies must match design.md's graph
       exactly, including `migrate`'s `restart: "no"` exception.
-- [ ] T3.2 Write `deploy/Caddyfile`: one site block for `{$BASE_DOMAIN}` (read from
+- [x] T3.2 Write `deploy/Caddyfile`: one site block for `{$BASE_DOMAIN}` (read from
       the environment, or hardcode with a comment showing where to edit it),
       `reverse_proxy web:8080`, relying on Caddy's default automatic HTTPS (no manual
       ACME config needed for a public domain with ports 80/443 reachable).
-- [ ] T3.3 Write `deploy/migrate-entrypoint.sh`: a `#!/bin/sh` (or `bash`) script that
+- [x] T3.3 Write `deploy/migrate-entrypoint.sh`: a `#!/bin/sh` (or `bash`) script that
       loops the four migration directories COPIED into the `migrate` image
       (`/migrations/account`, `/migrations/telemetry`, `/migrations/charging`,
       `/migrations/analytics` — in that exact order, mirroring the Makefile's
@@ -115,13 +115,13 @@
       Acceptance: the four directory names and their order match the Makefile's
       `MIGRATIONS_DIRS` value byte-for-byte in intent (source paths differ only
       because they were `COPY`'d under `/migrations/` in the image).
-- [ ] T3.4 Write `deploy/backup-db.sh`: runs
+- [x] T3.4 Write `deploy/backup-db.sh`: runs
       `docker compose exec -T db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"`,
       pipes to `gzip`, writes to a dated filename (e.g.
       `backups/magus-YYYY-MM-DD.sql.gz`), then deletes any file in that directory
       older than 7 days (`find ... -mtime +7 -delete`). Creates the `backups/`
       directory if missing.
-- [ ] T3.5 Add four `Makefile` targets (new; do not touch any existing target):
+- [x] T3.5 Add four `Makefile` targets (new; do not touch any existing target):
       `docker-up` (`docker compose up -d --build`), `docker-down`
       (`docker compose down`), `docker-logs` (`docker compose logs -f`), `backup-db`
       (`./deploy/backup-db.sh`). Add them to the existing `.PHONY` list.
@@ -130,7 +130,7 @@
 
 ## T4. `.env.example` additions — no dependencies, parallel-ok with T1/T2/T3
 
-- [ ] T4.1 Add `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` to `.env.example`,
+- [x] T4.1 Add `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` to `.env.example`,
       with a comment distinguishing them from `MAGUS_DB_PASSWORD` (host-only,
       `make db-setup`'s role bootstrap — untouched) and stating they provision the
       compose-local `db` service only; the app itself reads only `DATABASE_URL`.
@@ -260,3 +260,36 @@ runbook** for someone who has never deployed to a VPS, covering at minimum:
       `Test-Execution-Policy`'s allowed list (`go build`/`go vet`/`gofmt`/`make
       build`/`make vet`/`make bins`/the standalone guards) — Docker execution is the
       owner's step, same as the test suite.
+
+## T2b. Fix D2's impossible goose-CLI build — blocker fix, see design.md amendment (D10, D11)
+
+`go build github.com/pressly/goose/v3/cmd/goose` fails: this project depends on goose
+as a library only, so `go.sum` has no entries for 8 optional driver modules the CLI's
+`main` package imports. `docker build --target migrate` would fail on the VPS. Fixed by
+replacing the goose CLI with a small `cmd/migrate` Go program using the goose library.
+
+- [x] T2b.1 Write `cmd/migrate/main.go`: a new runnable using
+      `goose.NewProvider(goose.DialectPostgres, db, os.DirFS(dir),
+      goose.WithAllowOutofOrder(true))`, one provider per directory, applied in
+      order (account, telemetry, charging, analytics). Reads `DATABASE_URL` directly
+      with `os.Getenv` (justified in design.md D11 — `config.Load()`'s Tesla-credential
+      validation is the wrong fit). Reads the migrations root from `MIGRATIONS_ROOT`
+      (default `/migrations`). Does not import `internal/testdb`. Exits non-zero on any
+      failure. Logs which directory it applies and how many migrations it ran.
+      Acceptance: `go build ./cmd/migrate` succeeds; `go vet ./cmd/migrate` is clean;
+      `gofmt -l cmd/migrate` prints nothing.
+- [x] T2b.2 Update the `Dockerfile`: builder stage builds `/out/migrate` from
+      `./cmd/migrate` instead of the goose CLI; `migrate` final stage ships that binary
+      as `ENTRYPOINT` instead of `goose` + the shell script. Keep the four `COPY` lines
+      for the migration directories and the non-root `app` user.
+- [x] T2b.3 Delete `deploy/migrate-entrypoint.sh`. The Go binary now owns the loop over
+      directories, so the script would be a second, driftable copy of the same logic.
+- [x] T2b.4 Pin `PORT=8080` in `compose.yaml`'s `web` service `environment:` block, with
+      a comment explaining why: the healthcheck and `deploy/Caddyfile` both hardcode
+      `web:8080`, so a `PORT` set in `.env` for local host dev would otherwise silently
+      break both.
+- [x] T2b.5 Append the amendment section to `design.md` recording D10 and D11, the exact
+      `go build` error that proved D2 impossible, and this task. Do not edit or remove
+      D2 itself.
+      Acceptance: `make archive-guard` still passes (this change is not yet archived,
+      so this is a no-op check, run anyway per policy).

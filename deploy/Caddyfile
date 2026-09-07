@@ -1,0 +1,11 @@
+# Reverse proxy + automatic HTTPS for magus-tesla-api.
+#
+# BASE_DOMAIN comes from .env (compose passes it through env_file:). Caddy gets
+# a Let's Encrypt certificate for this domain automatically, as long as its
+# DNS A record points at this VPS and ports 80/443 are reachable.
+#
+# Edit here only if you are not using .env's BASE_DOMAIN — replace
+# {$BASE_DOMAIN} with your literal domain, e.g. magus.example.com.
+{$BASE_DOMAIN} {
+	reverse_proxy web:8080
+}

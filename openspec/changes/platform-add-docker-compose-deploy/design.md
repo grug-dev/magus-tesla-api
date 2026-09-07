@@ -501,3 +501,100 @@ Cross-links (each is a task in tasks.md, not left implicit):
   commands) — added at the end of the new §8.
 - Root `README.md`'s "Deployment" section → `docs/1-deploy/docker.md` (added alongside
   the existing link to `docs/0-set-up/deployment.md`).
+
+## Amendment — D2's goose-CLI plan was impossible (T2b)
+
+**D2 is kept above unchanged, as the record of what was originally decided.** This
+section records what changed and why, per the "append, never edit" rule for an
+already-decided design.
+
+### The problem
+
+D2 said the Docker builder stage would build the goose CLI from the project's own
+pinned `go.mod` version:
+
+```
+go build -o /out/goose github.com/pressly/goose/v3/cmd/goose
+```
+
+This command fails. The leader ran it for real and got:
+
+```
+go: github.com/pressly/goose/v3/cmd/goose: missing go.sum entry for module providing
+package github.com/ClickHouse/clickhouse-go/v2 (imported by github.com/pressly/goose/v3/cmd/goose)
+```
+
+and the same "missing go.sum entry" error for seven more modules: `go-sql-driver/mysql`,
+`mfridman/xflag`, `microsoft/go-mssqldb`, `tursodatabase/libsql-client-go`,
+`vertica-sql-go`, `ydb-go-sdk`, `ziutek/mymysql`.
+
+**Why:** this project imports `github.com/pressly/goose/v3` as a **library** only
+(`internal/testdb` calls `goose.NewProvider`). The goose CLI's `main` package additionally
+imports every optional database driver it supports, so building the CLI needs `go.sum`
+entries for all of them. Since nothing in this repo ever imports those drivers, `go mod
+tidy` never added them, and `go.sum` has no entries for them. `docker build --target
+migrate` would fail on the VPS with this same error — D2's plan was never buildable in
+this repo, not a transient issue.
+
+### D10 — Replace the goose CLI with a `cmd/migrate` Go program using the goose library
+
+A new runnable, `cmd/migrate/main.go`, calls `goose.NewProvider` directly — the same
+library API `internal/testdb.applyMigrations` already uses, at the same pinned
+`v3.27.3` version. It needs only the `postgres` driver, already an existing dependency
+with a valid `go.sum` entry. No CLI binary is built or shipped.
+
+The Dockerfile's builder stage now runs `go build -o /out/migrate ./cmd/migrate`
+instead of building the goose CLI. The `migrate` final stage ships this one binary as
+its `ENTRYPOINT`, instead of a `goose` binary plus a shell script.
+
+**Rejected:** vendoring or patching `go.sum` just enough to build the CLI. Rejected
+because it fights the toolchain instead of using it: `go mod tidy` would keep undoing a
+hand-edited `go.sum`, and the fix does not remove the CLI's need for eight driver
+packages this project will never use. Using the library is both simpler and the
+already-proven-working path (`internal/testdb` already does exactly this).
+
+### D11 — `cmd/migrate` reads migrations from the image filesystem, not `go:embed`
+
+`cmd/migrate` does not use `//go:embed` for the SQL files. The `//go:embed` directive
+cannot contain `..` path elements, so a package can only ever embed its own directory
+tree — it cannot reach `internal/account/db/migrations` from `cmd/migrate/`.
+`internal/testdb.ProvisionDirs`'s own doc comment documents this exact restriction, and
+it is the direct precedent this decision follows.
+
+Instead, `cmd/migrate` reads four directories at runtime with `os.DirFS`, rooted at
+`/migrations` by default (overridable with `MIGRATIONS_ROOT`). The Dockerfile already
+`COPY`s each module's migrations to `/migrations/account`, `/migrations/telemetry`,
+`/migrations/charging`, `/migrations/analytics` — this part of D2's original plan was
+correct and is unchanged.
+
+`cmd/migrate` applies the four directories in this exact order — account, telemetry,
+charging, analytics — matching the Makefile's `MIGRATIONS_DIRS` and
+`internal/testdb.ProvisionDirs`'s reasoning: charging's backfill migration reads
+telemetry's table, so telemetry must precede charging. Each directory gets its own
+`goose.NewProvider` call with `goose.WithAllowOutofOrder(true)` — the Provider API's
+equivalent of the CLI's `-allow-missing` flag, required because all four directories
+share one `goose_db_version` table (`internal/testdb/testdb.go`'s `applyMigrations`
+comment explains this in full).
+
+`cmd/migrate` does **not** import `internal/testdb` — that package pulls in
+`testcontainers-go` and its own doc comment says never ship it in a real binary.
+`cmd/migrate` calls the goose library directly instead, mirroring `testdb`'s pattern
+without depending on the test-only package.
+
+**`DATABASE_URL` is read directly with `os.Getenv`, not through `internal/config`.**
+`config.Load()` also validates `TESLA_CLIENT_ID`/`TESLA_CLIENT_SECRET`, which a
+migration-only tool has no reason to require — a deploy would fail to migrate over an
+unrelated Tesla credential check. This is a deliberate, documented deviation from
+`ai/go-conventions.md`'s "no `os.Getenv` outside `internal/config`" rule, recorded here
+and in a code comment in `cmd/migrate/main.go`.
+
+**`deploy/migrate-entrypoint.sh` is deleted.** The Go program now owns the loop over
+directories; keeping a shell script that only re-implements what the binary already
+does would be a second, driftable copy of the same logic. `compose.yaml`'s `migrate`
+service is unchanged apart from `target: migrate` still pointing at the same Dockerfile
+stage — nothing outside the Dockerfile and the deleted script changes.
+
+**Compliance with D4:** the image is still built on the VPS, with `docker compose up -d
+--build`. This amendment changes what the builder stage compiles and what the `migrate`
+stage ships — it does not introduce a registry, CI, or any pre-built image. D4 stands
+unchanged.

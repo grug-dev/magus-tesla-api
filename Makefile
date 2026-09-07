@@ -71,7 +71,8 @@ ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
         db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard tidy build vet test check bins \
-        up cmd-setup cmd-explore-tesla cmd-poller-once
+        up cmd-setup cmd-explore-tesla cmd-poller-once \
+        docker-up docker-down docker-logs backup-db
 
 # --- Help -------------------------------------------------------------------
 
@@ -744,3 +745,21 @@ cmd-poller-once: ## Build cmd/poller into ./bin and run ONE collection cycle now
 	@mkdir -p bin
 	go build -o bin/poller ./cmd/poller
 	./bin/poller --once
+
+# --- Docker Compose deploy (VPS / production) --------------------------------
+# See docs/0-set-up/deployment.md §8 (first deploy) and docs/1-deploy/docker.md
+# (day-to-day commands) for the full runbook. These targets are thin wrappers
+# around `docker compose` — they build/start/stop the whole stack (db, migrate,
+# web, poller, caddy) defined in compose.yaml.
+
+docker-up: ## Build (if needed) and start the whole Docker Compose stack in the background
+	docker compose up -d --build
+
+docker-down: ## Stop and remove the whole Docker Compose stack (keeps named volumes — data survives)
+	docker compose down
+
+docker-logs: ## Follow logs from every running Docker Compose service
+	docker compose logs -f
+
+backup-db: ## Dump the compose-local Postgres database, gzip it, and prune backups older than 7 days
+	./deploy/backup-db.sh

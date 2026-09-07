@@ -3,7 +3,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
 	"time"
@@ -63,9 +65,15 @@ func (c *Config) TeslaConnectRedirectURL() string {
 	return c.BaseURL + "/connect/tesla/callback"
 }
 
-// Load reads the .env file and returns a populated Config.
+// Load reads the .env file and returns a populated Config. A missing .env file
+// is not an error: a container has no .env and gets its config from real
+// environment variables instead. A present .env file still loads normally. A
+// real environment variable always wins over a .env value, because
+// godotenv.Load() never overrides a variable already set in the process
+// environment. Any other error reading .env (for example, a permission
+// error or a malformed file) is still fatal.
 func Load() (*Config, error) {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("step 1: could not load .env file: %w", err)
 	}
 
