@@ -664,3 +664,125 @@ that matters.
 - **First poller run** has not happened yet — verify with
   `docker compose --project-directory . -f deploy/docker/compose.yaml logs poller`
   after 03:30 Bogota.
+
+---
+
+## Connecting to the database from your machine
+
+`db` publishes its port on **loopback only**:
+
+```yaml
+ports:
+  - "127.0.0.1:5432:5432"
+```
+
+The `127.0.0.1:` prefix is the whole security model. Written as `"5432:5432"`
+Docker publishes on `0.0.0.0` and writes iptables rules that **bypass ufw**,
+so the database would be open to the internet with no firewall rule able to
+stop it. With the prefix, the port exists only on the VPS's own loopback.
+
+So the connection must travel through SSH. **The database host is always
+`localhost`, never the VPS IP.** Putting the VPS IP in the host field is the
+one mistake that looks right and always times out — nothing answers on that
+address, by design.
+
+Read the password on the VPS without printing the rest of the file:
+
+```bash
+grep '^POSTGRES_PASSWORD=' ~/magus-tesla-api/.env | cut -d= -f2-
+```
+
+### Option A — a GUI client's own SSH tunnel (used here, with Beekeeper Studio)
+
+No extra terminal. The client logs into the VPS first, then opens the database
+connection **from there** — which is why the host is `localhost`.
+
+Main connection fields, evaluated from the VPS:
+
+| Field | Value |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| User | `POSTGRES_USER` from `.env` |
+| Password | `POSTGRES_PASSWORD` from `.env` |
+| Database | `POSTGRES_DB` from `.env` |
+
+Then enable the client's **SSH Tunnel** section:
+
+| Field | Value |
+|---|---|
+| SSH Host | the VPS IP |
+| SSH Port | `22` |
+| SSH User | `magus` |
+| Auth | your SSH key, or the `magus` password |
+
+### Option B — a manual tunnel
+
+Terminal 1, left running:
+
+```bash
+ssh -L 5433:localhost:5432 magus@<VPS_IP>
+```
+
+Then connect with **no** SSH section, host `localhost`, port **5433**. Here
+`localhost:5433` is your own machine and `ssh -L` forwards it to the VPS. Port
+5433 avoids clashing with a Postgres already running locally on 5432.
+
+Check the tunnel from the command line before blaming the GUI:
+
+```bash
+ssh -L 5433:localhost:5432 magus@<VPS_IP> -N &
+psql "postgres://<user>:<password>@localhost:5433/<db>?sslmode=disable" -c '\dt'
+```
+
+If `psql` lists tables, the tunnel is fine and anything left is a client
+field.
+
+Verify the binding on the VPS after any compose change:
+
+```bash
+ss -ltnp | grep 5432      # must show 127.0.0.1:5432, never 0.0.0.0:5432
+```
+
+---
+
+## Restarting and updating
+
+| You changed | Command (from the repo root) |
+|---|---|
+| Code | `git pull && make docker-up` |
+| `compose.yaml` | `make docker-up` |
+| `.env` | `docker compose --project-directory . -f deploy/docker/compose.yaml up -d --force-recreate` |
+| Nothing, just bounce one service | `docker compose --project-directory . -f deploy/docker/compose.yaml restart web` |
+
+**`restart` does not apply port, limit or env changes.** It restarts the
+process inside the existing container; those settings belong to the container
+itself. Use `up -d`.
+
+`make docker-down` stops everything and **keeps** the named volumes, so data
+survives. `down -v` deletes them — see `docs/1-deploy/docker.md` §10.
+
+---
+
+## Never print a compose file's resolved config
+
+```bash
+docker compose --project-directory . -f deploy/docker/compose.yaml config    # DON'T
+```
+
+`config` interpolates `env_file` and prints **every secret in `.env`** —
+client secrets, session secret, Tesla tokens, database password — to the
+terminal, and into any log or transcript capturing it. This happened during
+this deploy and forced a credential rotation.
+
+To check the file is valid, read it, or strip the environment first:
+
+```bash
+docker compose --project-directory . -f deploy/docker/compose.yaml config --format json \
+  | jq 'del(.services[].environment)'
+```
+
+If secrets are ever exposed, rotate `TESLA_CLIENT_SECRET` and
+`GOOGLE_CLIENT_SECRET` (shared between your machine and the VPS), revoke the
+Tesla tokens and re-run `go run ./cmd/setup`, then regenerate `SESSION_SECRET`
+— rotating it logs every user out.
