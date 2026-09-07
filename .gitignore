@@ -5,6 +5,12 @@ private-key*
 .DS_Store
 *.zip
 
+# Database dumps written by deploy/docker/backup-db.sh (make backup-db) on the
+# VPS. They contain every row in the database — tokens, vehicle GPS, user rows.
+# The script writes them inside the repo, so without this line they show up as
+# untracked and a `git add -A` could commit them.
+backups/
+
 # Local Netlify folder
 .netlify
 
