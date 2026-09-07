@@ -366,3 +366,31 @@ ordered `MIGRATIONS_DIRS` env var and adding two `make` targets.
       the goose CLI). `cmd/README.md`'s `cmd/migrate` row says how to run it
       (`make migrate-run` / `make docker-migrate`). `internal/config/AGENTS.md`
       records the new `MIGRATIONS_DIRS` variable and its test coverage.
+
+## T10. Two small deploy-doc fixes — found during doc review, depends on T5b
+
+Two small problems found while reviewing the deploy docs. Neither changes any
+route, handler, or the database.
+
+- [x] T10.1 `internal/gateway/gateway.go`'s `NewEngine` called `gin.New()` with
+      no mode set, so Gin stayed in debug mode in production: it logged every
+      route at startup and printed verbose per-request output. Read the
+      existing `MAGUS_DEV` check once, early, and call `gin.SetMode` — debug
+      when `MAGUS_DEV` is set (host `make dev`), release otherwise — BEFORE
+      `gin.New()`. `compose.yaml` does not set `MAGUS_DEV`, so containers get
+      release mode with no extra configuration.
+      Acceptance: `go build ./...` and `go vet ./...` clean; `gofmt -l
+      internal/gateway/gateway.go` prints nothing; `gin.SetMode` runs before
+      `gin.New()`.
+- [x] T10.2 `docs/1-deploy/docker.md` §2 told the reader to run
+      `docker compose up -d --build` locally on a Mac. That does not work: the
+      `caddy` service needs a public `BASE_DOMAIN` and reachable ports 80/443
+      to get a Let's Encrypt certificate, neither of which exists on a laptop.
+      Rewrote §2 to say plainly what works locally (`docker compose config`
+      and `docker build --target <web|poller|migrate> .` — build-only, no
+      container starts), what does not (`docker compose up`, VPS-only), and
+      that `make dev` and `make migrate-run` remain the tested local tools.
+      Also fixed one contradicting line in §4 that still said the everyday
+      commands could be run locally.
+      Acceptance: §2 makes no claim that `docker build`/`docker compose up`
+      was run or tested — none has been.

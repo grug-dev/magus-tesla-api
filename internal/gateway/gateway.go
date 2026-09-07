@@ -88,6 +88,22 @@ type Deps struct {
 // NewEngine builds the gateway's Gin engine with cookie sessions, embedded /static,
 // and all routes.
 func NewEngine(d Deps) (*gin.Engine, error) {
+	// devMode is read once and reused below for both the Gin mode and the
+	// /static source. It must be read BEFORE gin.New(): gin.SetMode has no
+	// effect on an engine already built, so calling it after gin.New() would
+	// leave the engine in debug mode with the call silently doing nothing.
+	//
+	// Release mode is the default (containers, production): it stops Gin from
+	// logging every route at startup and printing verbose per-request debug
+	// output. Setting MAGUS_DEV (host development, `make dev`) switches back
+	// to debug mode. cmd/setup/callback.go already sets ReleaseMode the same
+	// way for its one-shot server.
+	devMode := os.Getenv("MAGUS_DEV") != ""
+	if devMode {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
@@ -123,7 +139,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	// rebuild or a server restart. Templ edits still need `air` to rebuild the
 	// server (the generated *_templ.go is Go source), but CSS-only changes hot-
 	// reload without the rebuild pause.
-	if os.Getenv("MAGUS_DEV") != "" {
+	if devMode {
 		r.Static("/static", "internal/gateway/static")
 	} else {
 		sub, err := fs.Sub(staticFS, "static")

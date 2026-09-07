@@ -5,23 +5,30 @@
   "module": "platform",
   "roadmap": null,
   "request": "Create a production-ready Docker Compose setup for this Go + Templ + HTMX Tesla monitoring app: Go app container, PostgreSQL, env vars via .env, automatic restarts, Postgres healthchecks, app/worker waits for Postgres, persistent data, no hardcoded secrets, simple enough for a small Hostinger VPS, and easy to move to another cloud provider later. Plus the deploy strategy and steps for a first-time VPS user.",
-  "status": "applied",
+  "status": "changes-requested",
   "rollup": {
-    "current": [],
+    "current": [
+      "T10",
+      "T3",
+      "T6"
+    ],
     "pending": [],
     "blocked": [],
     "done": [
       "T1",
       "T2",
+      "T2b",
       "T4",
       "T5a",
       "T5b",
       "T5c",
-      "T7"
+      "T7",
+      "T8",
+      "T9"
     ]
   },
   "created_at": "2026-09-07T10:45:15Z",
-  "updated_at": "2026-09-07T13:55:00Z",
+  "updated_at": "2026-09-07T14:25:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -226,7 +233,7 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "config",
       "model": "sonnet",
       "started_at": "2026-09-07T11:35:00Z",
@@ -268,7 +275,7 @@
       "module": "config",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "config",
       "model": "sonnet",
       "started_at": "2026-09-07T12:05:00Z",
@@ -289,14 +296,35 @@
       "module": "config",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-07T13:55:00Z",
       "completed_at": "2026-09-07T13:55:00Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "Owner ran make migrate-run and it failed on directory two with 'sql: database is closed'. goose Provider.Close() closes the shared handle. Leader fixed it per the internal/testdb precedent and added a stat check. Needs a re-run."
+      "notes": "goose Provider.Close() closed the shared handle, so directory two failed. Fixed with one handle per directory, per the internal/testdb precedent, plus a stat check. VERIFIED by the owner: all 4 directories apply and it exits 0."
+    },
+    {
+      "id": "T10",
+      "title": "Gin release mode by default, and correct docker.md section 2",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-09-07T14:25:00Z",
+      "completed_at": "2026-09-07T14:25:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 78,
+        "cost_usd_delta": 1.6,
+        "approx": false,
+        "note": "single serial dispatch (T10)"
+      },
+      "notes": "gin.SetMode now runs before gin.New(), release unless MAGUS_DEV is set. Docker doc section 2 no longer claims docker compose up works locally. Needs make test re-run: NewEngine now overwrites the gin.TestMode that tests set."
     }
   ],
   "decisions": [
@@ -419,13 +447,45 @@
       "at": "2026-09-07T13:55:00Z",
       "what": "cmd/migrate opens one *sql.DB per migration directory, and stats every directory before applying any.",
       "why": "goose Provider.Close() closes the shared handle, so directory two failed. A missing dir silently applied nothing."
+    },
+    {
+      "id": "D16",
+      "scope": "design",
+      "made_by": "user",
+      "at": "2026-09-07T14:25:00Z",
+      "what": "Gin mode follows MAGUS_DEV: release by default, debug only for host development. And docker.md section 2 was corrected.",
+      "why": "Gin ran in debug mode in production. The doc told the owner to run docker compose up locally, which Caddy cannot do."
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Review change platform-add-docker-compose-deploy on branch ft/CH45-MAG-37. Validate: (1) module boundaries - only internal/config was touched inside Modules-Root, everything else is repo-root infra; (2) ai/go-conventions.md:39 - no os.Getenv outside internal/config, including cmd/; (3) no secret is hardcoded in compose.yaml, Caddyfile, scripts, .env.example, or baked into the image via .dockerignore; (4) the compose depends_on/healthcheck graph matches design.md, and only caddy publishes ports; (5) cmd/ stays thin wiring per CLAUDE.md; (6) design.md D2 was NOT rewritten - the amendment for D10/D11 is appended, and archive/ is untouched; (7) docs actually match the shipped commands: docs/1-deploy/docker.md, deployment.md section 8, README.md, cmd/README.md, internal/config/AGENTS.md; (8) anti-gaming - no acceptance criterion was weakened, no status self-approved. Assistant-run signals: build, vet, gofmt, and all 10 guards - all pass. OWNER-reported (never claimed by the assistant): go test ./internal/config/... passes, make test passes, make migrate-run applies all 4 directories. NOT YET RUN BY ANYONE: docker compose config and docker build. Treat Dockerfile/compose correctness as unverified and review it by reading. Judge test quality by reading the tests, never by running them.",
+    "agent": "config-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-07T14:10:00Z",
+        "agent": "config-reviewer",
+        "model": "sonnet",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "progress.json",
+            "what": "rollup.pending listed T3 and T6, but their status is awaiting-user-verification, which groups under rollup.current.",
+            "resolution": "Accepted and fixed by the leader in this write."
+          }
+        ],
+        "budget": {
+          "five_hour_pct_start": 68,
+          "five_hour_pct_end": 73,
+          "cost_usd_delta": 1.7,
+          "approx": false,
+          "note": "review round 1"
+        }
+      }
+    ]
   },
   "events": [
     {
@@ -567,6 +627,26 @@
       "at": "2026-09-07T13:55:00Z",
       "type": "finding",
       "detail": "The OWNER ran make migrate-run and it failed on the second directory: 'sql: database is closed'. goose Provider.Close() closes the *sql.DB it was given, so one shared handle dies after the first directory. Only a real run could find this; cmd/ has no tests by project convention. Fixed in T9."
+    },
+    {
+      "at": "2026-09-07T14:00:00Z",
+      "type": "user-verification",
+      "detail": "The OWNER re-ran make migrate-run. All four directories applied and it exited 0. This verifies T2b, T8 and T9. Recorded as the owner's report, never the assistant's."
+    },
+    {
+      "at": "2026-09-07T14:10:00Z",
+      "type": "review",
+      "detail": "config-reviewer returned approved. One minor finding (F1, a rollup labeling slip) accepted and fixed. The reviewer independently re-ran openspec validate --strict, boundary-guard, archive-guard, migration-guard, gofmt, vet and build to confirm the leader's claims."
+    },
+    {
+      "at": "2026-09-07T14:25:00Z",
+      "type": "post-review-change",
+      "detail": "T10 changed internal/gateway/gateway.go and docs/1-deploy/docker.md AFTER the reviewer approved. The approval covered the pre-T10 tree, so it no longer covers HEAD. Status moved back to changes-requested pending the reviewer's re-verification."
+    },
+    {
+      "at": "2026-09-07T14:25:00Z",
+      "type": "risk",
+      "detail": "NewEngine now calls gin.SetMode(gin.ReleaseMode) when MAGUS_DEV is unset. gin.mode is a package global, so this overwrites the gin.TestMode that gateway tests set. No test asserts the mode, and Test vs Release differ only in console output, but make test must be re-run to confirm."
     }
   ]
 }

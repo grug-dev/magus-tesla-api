@@ -31,16 +31,43 @@ app, the request always goes through `caddy` first.
 
 ## 2. Local Docker use vs. everyday development
 
-You can run this whole stack locally with Docker, on your Mac:
+### What works locally: building the images
+
+You can build every image on your Mac, to check they compile. This is worth
+doing before a deploy:
 
 ```bash
-# Build and start every service locally, the same way the VPS does.
-docker compose up -d --build
+# Check compose.yaml itself is valid.
+docker compose config
+
+# Build each image. These only build — no container starts, no database is
+# touched, nothing on your machine changes.
+docker build --target web .
+docker build --target poller .
+docker build --target migrate .
 ```
 
-**Use this only to rehearse the exact production stack before a VPS deploy.**
+These four commands only build. They do not start `db`, `web`, `poller`, or
+`caddy`. Nothing runs, and nothing on your machine changes.
+
+### What does NOT work locally: `docker compose up`
+
+**Do not run `docker compose up -d --build` on your Mac.** The `caddy`
+service asks Let's Encrypt for a real HTTPS certificate for your
+`BASE_DOMAIN`. On your Mac there is no public domain pointing at you, and
+ports 80/443 are not reachable from the internet. Caddy will fail to get a
+certificate and keep retrying — you will see `caddy` stuck restarting, not a
+working app.
+
+`docker compose up` is a **VPS-only** command. It is meant for the real
+deploy, where `BASE_DOMAIN` points at a real server with ports 80/443 open.
+Nobody has run it locally, and no local workaround for the certificate
+problem has been tested — do not assume one exists.
+
+### What to use instead
+
 For everyday development — building the UI, editing templates, fixing a bug —
-use the host workflow instead:
+use the host workflow:
 
 ```bash
 # Hot-reload dev server: rebuilds Go code and CSS on every file save.
@@ -48,9 +75,19 @@ make dev
 ```
 
 `make dev` watches your files and rebuilds instantly. Docker does not —
-every code change means a full `docker compose up -d --build`, which is much
-slower. Reach for Docker locally only when you specifically want to test the
-containerized stack, not for normal day-to-day coding.
+every code change would mean a full rebuild, which is much slower. `make dev`
+is the everyday tool; Docker's role locally is only the build check above.
+
+To rehearse the deploy's migration step locally, with no Docker at all:
+
+```bash
+# Runs the same migration program the "migrate" container runs, directly
+# against your local database.
+make migrate-run
+```
+
+This has been run and works. It is the real way to check a migration before
+a deploy, without needing Docker or a VPS.
 
 ---
 
@@ -66,8 +103,8 @@ every step. Come back here once that is done.
 
 ## 4. Everyday commands
 
-Run these from the repo root on the VPS (or locally, if testing the stack
-there).
+Run these from the repo root on the VPS. `docker compose up` does not work
+locally — see §2.
 
 | Task | Command |
 |---|---|
