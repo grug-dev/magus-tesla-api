@@ -54,6 +54,15 @@ services:
     restart: unless-stopped
     env_file: .env
     logging: *default-logging
+    # Bound to 127.0.0.1 ON PURPOSE — the loopback prefix is the whole security
+    # model here. Without it ("5432:5432") Docker publishes on 0.0.0.0 and writes
+    # its own iptables rules that BYPASS ufw, so the database would be open to the
+    # internet with no firewall rule to stop it. With it, the port exists only on
+    # the VPS's own loopback and the only way in is an SSH tunnel:
+    #   ssh -L 5433:localhost:5432 <user>@<vps>   then connect to localhost:5433
+    # caddy is still the only service reachable from outside.
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     # migrate waits on this via depends_on: condition: service_healthy. Without
