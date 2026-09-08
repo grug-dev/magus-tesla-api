@@ -9,7 +9,7 @@
   "request": "Linear MAG-56 Step 1 plus the read-port half of Step 2. See openspec/roadmaps/RM50-vehicle-status-subsections.md for the binding decisions RD1-RD8.",
   "status": "in-progress",
   "created_at": "2026-09-08T16:36:11Z",
-  "updated_at": "2026-09-08T17:12:00Z",
+  "updated_at": "2026-09-08T17:32:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -25,17 +25,10 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.7",
-      "1.8",
-      "2.5",
-      "3.1",
-      "3.2",
-      "3.3",
       "4.1"
     ],
     "blocked": [],
-    "done": [],
-    "awaiting_user_verification": [
+    "done": [
       "1.1",
       "1.2",
       "1.3",
@@ -45,7 +38,15 @@
       "2.1",
       "2.2",
       "2.3",
-      "2.4"
+      "2.4",
+      "3.1",
+      "3.2",
+      "3.3"
+    ],
+    "awaiting_user_verification": [
+      "1.7",
+      "1.8",
+      "2.5"
     ]
   },
   "decisions": [
@@ -64,6 +65,14 @@
       "made_by": "leader",
       "decision": "Reorder migrationDirs in internal/analytics/testdb_test.go so analytics applies LAST, matching the Makefile's MIGRATIONS_DIRS. The migration SQL confirmed at D-GATE-1 is unchanged.",
       "why": "The rejected alternative, a to_regclass guard, makes the suite pass by making the backfill silently do nothing. That deletes the only signal that apply order is wrong."
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-08T17:32:00Z",
+      "scope": "docs",
+      "made_by": "leader",
+      "decision": "Leader overrode the worker on task 3.3 and edited kkpa/context/use-case/gateway/read-dashboard-bento.md. Its 'Nine of VehicleStatus's fields are pointers' sentence now names what the mapper reads, and points at analytics.go for the real field list.",
+      "why": "The sentence stated a property of the type, not of the mapper. VehicleStatus now holds 15 pointers, so an agent trusting the KB would conclude the TPMS fields do not exist."
     }
   ],
   "tasks": [
@@ -71,7 +80,7 @@
       "id": "1.1",
       "description": "Write the migration: 4 nullable columns + COMMENT ON COLUMN + the RD2 backfill UPDATE + Down that drops the columns.",
       "depends_on": [],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -92,7 +101,7 @@
       "depends_on": [
         "1.1"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -113,7 +122,7 @@
       "depends_on": [
         "1.2"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -134,7 +143,7 @@
       "depends_on": [
         "1.3"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -155,7 +164,7 @@
       "depends_on": [
         "1.4"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -176,7 +185,7 @@
       "depends_on": [
         "1.4"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -197,14 +206,20 @@
       "depends_on": [
         "1.5"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T17:21:00Z",
+      "completed_at": "2026-09-08T17:32:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 55,
+        "five_hour_pct_end": 76,
+        "cost_usd_delta": 5.34,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.7, 1.8, 2.5, 3.1, 3.2, 3.3 jointly"
+      },
+      "notes": "TestRecalculate_TPMS_RoundTrip added. seedSnapshot and fetchVehicleMetric extended to carry the four TPMS columns. Written, not run."
     },
     {
       "id": "1.8",
@@ -212,20 +227,26 @@
       "depends_on": [
         "1.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T17:21:00Z",
+      "completed_at": "2026-09-08T17:32:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 55,
+        "five_hour_pct_end": 76,
+        "cost_usd_delta": 5.34,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.7, 1.8, 2.5, 3.1, 3.2, 3.3 jointly"
+      },
+      "notes": "New file db_tpms_migration_integration_test.go. Mirrors the watermark migration test's ApplyVersion pattern. Covers backfill, no-match-stays-NULL, and Down/Up. Written, not run."
     },
     {
       "id": "2.1",
       "description": "Add distance_traveled_km_calc and consumed_pct to the LatestVehicleMetricsByAccount SELECT.",
       "depends_on": [],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -246,7 +267,7 @@
       "depends_on": [
         "2.1"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -267,7 +288,7 @@
       "depends_on": [
         "2.2"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -288,7 +309,7 @@
       "depends_on": [
         "2.3"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T16:40:00Z",
@@ -309,14 +330,20 @@
       "depends_on": [
         "2.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T17:21:00Z",
+      "completed_at": "2026-09-08T17:32:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 55,
+        "five_hour_pct_end": 76,
+        "cost_usd_delta": 5.34,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.7, 1.8, 2.5, 3.1, 3.2, 3.3 jointly"
+      },
+      "notes": "TestReader_LatestMetricsByAccount_TPMS_And_ExposedCalcColumns added. The existing pre-migration-row test gained six nil assertions. Written, not run."
     },
     {
       "id": "3.1",
@@ -324,14 +351,20 @@
       "depends_on": [
         "1.5"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T17:21:00Z",
+      "completed_at": "2026-09-08T17:32:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 55,
+        "five_hour_pct_end": 76,
+        "cost_usd_delta": 5.34,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.7, 1.8, 2.5, 3.1, 3.2, 3.3 jointly"
+      },
+      "notes": "AGENTS.md: four TPMS columns added to Data ownership, six new VehicleStatus fields added to the LatestMetricsByAccount port entry."
     },
     {
       "id": "3.2",
@@ -340,14 +373,20 @@
         "1.5",
         "2.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T17:21:00Z",
+      "completed_at": "2026-09-08T17:32:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 55,
+        "five_hour_pct_end": 76,
+        "cost_usd_delta": 5.34,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.7, 1.8, 2.5, 3.1, 3.2, 3.3 jointly"
+      },
+      "notes": "kkpa/context/entities/vehicle-metrics/guide.md: column list, VehicleStatus field list, and three new Conventions and gotchas bullets."
     },
     {
       "id": "3.3",
@@ -355,14 +394,20 @@
       "depends_on": [
         "3.2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T17:21:00Z",
+      "completed_at": "2026-09-08T17:32:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 55,
+        "five_hour_pct_end": 76,
+        "cost_usd_delta": 5.34,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.7, 1.8, 2.5, 3.1, 3.2, 3.3 jointly"
+      },
+      "notes": "Worker grepped kkpa/context/ and judged read-dashboard-bento.md still valid. Leader disagreed and fixed it: its 'Nine of VehicleStatus's fields are pointers' line stated a property of the type, which is now wrong. Six applied sync records and the openspec archive were correctly skipped."
     },
     {
       "id": "4.1",
@@ -412,6 +457,24 @@
       "type": "user-test-report",
       "by": "leader",
       "detail": "The OWNER ran go test ./internal/analytics/... and reported a FAILURE: provision failed with relation \"telemetry.vehicle_snapshots\" does not exist (SQLSTATE 42P01) at migration 20260908000002. Root cause: internal/analytics/testdb_test.go applied its own db/migrations before telemetry's, the opposite of Makefile MIGRATIONS_DIRS. Production was never affected. Leader fixed the order (D4) and recorded the correction in design.md. Tasks stay awaiting-user-verification until the owner re-runs."
+    },
+    {
+      "at": "2026-09-08T17:20:00Z",
+      "type": "user-verified",
+      "by": "leader",
+      "detail": "The OWNER re-ran the suite after the D4 fix and reported: 'make test passed'. Verification is the owner's, not the assistant's. Wave 1 tasks 1.1-1.6 and 2.1-2.4 move from awaiting-user-verification to done."
+    },
+    {
+      "at": "2026-09-08T17:21:00Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 2 dispatched to the analytics worker (Sonnet), serial single dispatch: DB-integration tests 1.7, 1.8, 2.5 and the docs sweep 3.1, 3.2, 3.3. Budget at dispatch: five_hour 55%, context 16%, cost $7.06."
+    },
+    {
+      "at": "2026-09-08T17:32:00Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 2 done. Tests 1.7/1.8/2.5 written but not run, so they are awaiting-user-verification. Docs 3.1/3.2/3.3 done. Leader correction on 3.3 (D5). Clean: go build, go vet, gofmt, migration-guard, boundary-guard, tz-guard, archive-guard. Worker enumerated D1, D2, D3 and Part C with compliance statements, and implemented every design.md Test Contract case with no skips. It substituted exact binary fractions for the contract's decimal values because telemetry.vehicle_snapshots stores TPMS as REAL (float4); the assertions are unchanged, only the input numbers."
     }
   ]
 }

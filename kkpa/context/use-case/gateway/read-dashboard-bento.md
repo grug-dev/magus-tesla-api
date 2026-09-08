@@ -53,12 +53,19 @@
    `RM38-gateway-read-dashboard-from-metrics`; same shape, new source type.)
 7. `mapDashboardSnapshot` — `internal/gateway/handlers/handlers.go` — formats every display
    string (`formatKm`, `°C`, `%`, `km`, charge limit) and computes `IsStale` via `isStale`.
-   `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`. Nine of
-   `VehicleStatus`'s fields are pointers (`InsideTempC`, `OutsideTempC`, `CarVersion`,
-   `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`, `SentryMode`,
-   `MaxRangeChargeCounter`) — nil never fabricates a value, it omits the corresponding
-   display field (see gotchas). `dashCountOrDash` formats the counter: nil → `"—"`, a
-   reported `0` → `"0"`.
+   `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`. This mapper
+   reads nine pointer fields of `VehicleStatus` (`InsideTempC`, `OutsideTempC`,
+   `CarVersion`, `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`,
+   `SentryMode`, `MaxRangeChargeCounter`) — nil never fabricates a value, it omits the
+   corresponding display field (see gotchas). `dashCountOrDash` formats the counter:
+   nil → `"—"`, a reported `0` → `"0"`.
+
+   **Nine is what this mapper reads, not what the type holds.** `VehicleStatus` has more
+   pointer fields than that. `RM50-analytics-add-tire-pressure-columns` added six the
+   gateway does not read yet — `TpmsPressureFLPSI`, `TpmsPressureFRPSI`,
+   `TpmsPressureRLPSI`, `TpmsPressureRRPSI`, `DistanceTraveledKmCalc` and `ConsumedPct`.
+   RM50 tiers 2 and 4 are the changes that wire them into this mapper. Read
+   `internal/analytics/analytics.go` for the current field list; do not count from here.
 8. `Handler.vehicleImage` — `internal/gateway/vehicle_image.go` — maps
    (`CarType`, `ExteriorColor`) to a `/static/img/*.png` URL, falling back to `defaultCar.png`.
 

@@ -34,10 +34,10 @@ Depends on: nothing. Blocks: A's own DB-integration tests need the migration app
 - [x] 1.6 Unit test in `internal/analytics/consumed_test.go`: the two `deriveVehicleMetrics`
       cases from design.md's Test Contract (predecessor-less row, row with a
       predecessor) plus the "one wheel absent" case. Offline, no `DATABASE_URL` needed.
-- [ ] 1.7 DB-integration test in `internal/analytics/db_integration_test.go`: the
+- [x] 1.7 DB-integration test in `internal/analytics/db_integration_test.go`: the
       `Recalculate` round-trip case from design.md's Test Contract. `DATABASE_URL`-gated,
       self-skips per this module's existing convention.
-- [ ] 1.8 DB-integration test for the migration's backfill, in a new or existing
+- [x] 1.8 DB-integration test for the migration's backfill, in a new or existing
       migration-focused test file (mirror this module's existing round-trip migration
       test convention, e.g. `20260828000001`'s): the backfill case and the
       "no matching snapshot stays NULL" case from design.md's Test Contract, plus a
@@ -60,7 +60,7 @@ Depends on: nothing (both source columns already exist). Can run in parallel wit
       matching the existing pointer-field convention (nil meaning, per design.md).
 - [x] 2.4 Add the two fields to `LatestMetricsByAccount`'s mapping loop in
       `internal/analytics/reader.go`, using the existing `ptrFloat64FromPg` helper.
-- [ ] 2.5 DB-integration test cases (can extend the same test function/file as task 1.7 or
+- [x] 2.5 DB-integration test cases (can extend the same test function/file as task 1.7 or
       1.8): the `LatestMetricsByAccount` case and the "pre-migration row" case from
       design.md's Test Contract.
 
@@ -69,15 +69,15 @@ Depends on: nothing (both source columns already exist). Can run in parallel wit
 Depends on: 1.1–1.5 and 2.1–2.4 being decided (the exact column/field names), so do this
 last.
 
-- [ ] 3.1 Update `internal/analytics/AGENTS.md`: add the four TPMS columns to "Data
+- [x] 3.1 Update `internal/analytics/AGENTS.md`: add the four TPMS columns to "Data
       ownership"'s `vehicle_metrics` description (mirroring the existing
       `max_range_charge_counter` entry's shape), and add the six new `VehicleStatus`
       fields to "Public interface (the port)"'s `LatestMetricsByAccount` entry.
-- [ ] 3.2 Update `kkpa/context/entities/vehicle-metrics/guide.md`: add the four TPMS
+- [x] 3.2 Update `kkpa/context/entities/vehicle-metrics/guide.md`: add the four TPMS
       columns to the column list and the "Conventions & gotchas" section (mirroring the
       existing eight-status-observation bullets), and add the six new fields to
       `VehicleStatus`'s field list. **Do not touch `openspec/changes/archive/`.**
-- [ ] 3.3 Confirm no other `kkpa/context/` guide references `VehicleStatus`'s field list or
+- [x] 3.3 Confirm no other `kkpa/context/` guide references `VehicleStatus`'s field list or
       `vehicle_metrics`' column list in a way this change invalidates (grep
       `kkpa/context/` for `VehicleStatus` and `vehicle_metrics` — CLAUDE.md's docs-track-
       change rule).
