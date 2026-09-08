@@ -102,15 +102,17 @@ WHERE account_id = @account_id AND status = 'Active'
 ORDER BY tesla_id;
 
 -- name: GetAccountSettings :one
--- The per-request read path: both preferences (language, theme) in a single
--- query — design.md D7's answer to the roadmap's binding "one query, both
--- values" constraint. account_id is the table's own PK, so this is a plain
--- PK lookup, no secondary index (design.md D9).
+-- The per-request read path: every preference (language, theme,
+-- analysis_start_date) in a single query — design.md D7's answer to the
+-- roadmap's binding "one query, both values" constraint, extended by
+-- RM49 D4 to a third column at zero extra query cost. account_id is the
+-- table's own PK, so this is a plain PK lookup, no secondary index
+-- (design.md D9; RM49 design.md D3).
 -- Gated by the owning account's status via EXISTS (design.md D10, carrying
 -- forward RM34 D14/D15): an Inactive account's preferences are not readable —
 -- the read behaves as though no such account exists. EXISTS (not a JOIN) keeps
--- the row shape (language, theme) unaffected by the gate.
-SELECT language, theme FROM account.settings
+-- the row shape (language, theme, analysis_start_date) unaffected by the gate.
+SELECT language, theme, analysis_start_date FROM account.settings
 WHERE account_id = @account_id
   AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active');
 
@@ -142,11 +144,15 @@ WHERE account_id = @account_id
 -- Creates the settings row for a newly provisioned account, called inside the
 -- same transaction as UpsertAccountFromOAuth (design.md D3). ON CONFLICT DO
 -- NOTHING matters because UpsertFromOAuth is also the resolve-existing-account
--- path: a returning user must never have a real settings row silently reset.
+-- path: a returning user must never have a real settings row silently reset
+-- (including its analysis_start_date).
 -- Deliberately NOT gated by account status, mirroring UpsertAccountFromOAuth's
 -- own exemption (design.md D10) — a brand-new account has no status concern yet.
-INSERT INTO account.settings (account_id)
-VALUES (@account_id)
+-- analysis_start_date is supplied by the Go caller via internal/clock
+-- (RM49 design.md D5) — never CURRENT_DATE or a column DEFAULT, both of
+-- which would resolve in the database session's time zone.
+INSERT INTO account.settings (account_id, analysis_start_date)
+VALUES (@account_id, @analysis_start_date)
 ON CONFLICT (account_id) DO NOTHING;
 
 -- name: ListAllVehicles :many

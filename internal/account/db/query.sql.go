@@ -41,28 +41,31 @@ func (q *Queries) GetAccountByProviderID(ctx context.Context, arg GetAccountByPr
 }
 
 const getAccountSettings = `-- name: GetAccountSettings :one
-SELECT language, theme FROM account.settings
+SELECT language, theme, analysis_start_date FROM account.settings
 WHERE account_id = $1
   AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active')
 `
 
 type GetAccountSettingsRow struct {
-	Language string
-	Theme    string
+	Language          string
+	Theme             string
+	AnalysisStartDate pgtype.Date
 }
 
-// The per-request read path: both preferences (language, theme) in a single
-// query — design.md D7's answer to the roadmap's binding "one query, both
-// values" constraint. account_id is the table's own PK, so this is a plain
-// PK lookup, no secondary index (design.md D9).
+// The per-request read path: every preference (language, theme,
+// analysis_start_date) in a single query — design.md D7's answer to the
+// roadmap's binding "one query, both values" constraint, extended by
+// RM49 D4 to a third column at zero extra query cost. account_id is the
+// table's own PK, so this is a plain PK lookup, no secondary index
+// (design.md D9; RM49 design.md D3).
 // Gated by the owning account's status via EXISTS (design.md D10, carrying
 // forward RM34 D14/D15): an Inactive account's preferences are not readable —
 // the read behaves as though no such account exists. EXISTS (not a JOIN) keeps
-// the row shape (language, theme) unaffected by the gate.
+// the row shape (language, theme, analysis_start_date) unaffected by the gate.
 func (q *Queries) GetAccountSettings(ctx context.Context, accountID uuid.UUID) (GetAccountSettingsRow, error) {
 	row := q.db.QueryRow(ctx, getAccountSettings, accountID)
 	var i GetAccountSettingsRow
-	err := row.Scan(&i.Language, &i.Theme)
+	err := row.Scan(&i.Language, &i.Theme, &i.AnalysisStartDate)
 	return i, err
 }
 
@@ -124,19 +127,28 @@ func (q *Queries) GetLatestTeslaTokenByAccountForUpdate(ctx context.Context, acc
 }
 
 const insertSettingsIfMissing = `-- name: InsertSettingsIfMissing :exec
-INSERT INTO account.settings (account_id)
-VALUES ($1)
+INSERT INTO account.settings (account_id, analysis_start_date)
+VALUES ($1, $2)
 ON CONFLICT (account_id) DO NOTHING
 `
+
+type InsertSettingsIfMissingParams struct {
+	AccountID         uuid.UUID
+	AnalysisStartDate pgtype.Date
+}
 
 // Creates the settings row for a newly provisioned account, called inside the
 // same transaction as UpsertAccountFromOAuth (design.md D3). ON CONFLICT DO
 // NOTHING matters because UpsertFromOAuth is also the resolve-existing-account
-// path: a returning user must never have a real settings row silently reset.
+// path: a returning user must never have a real settings row silently reset
+// (including its analysis_start_date).
 // Deliberately NOT gated by account status, mirroring UpsertAccountFromOAuth's
 // own exemption (design.md D10) — a brand-new account has no status concern yet.
-func (q *Queries) InsertSettingsIfMissing(ctx context.Context, accountID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, insertSettingsIfMissing, accountID)
+// analysis_start_date is supplied by the Go caller via internal/clock
+// (RM49 design.md D5) — never CURRENT_DATE or a column DEFAULT, both of
+// which would resolve in the database session's time zone.
+func (q *Queries) InsertSettingsIfMissing(ctx context.Context, arg InsertSettingsIfMissingParams) error {
+	_, err := q.db.Exec(ctx, insertSettingsIfMissing, arg.AccountID, arg.AnalysisStartDate)
 	return err
 }
 

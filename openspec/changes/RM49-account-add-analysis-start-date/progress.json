@@ -5,16 +5,28 @@
   "module": "account",
   "roadmap": "openspec/roadmaps/RM49-analysis-start-date.md",
   "request": "MAG-55 — store the account's analysis start date so the external-charges page can reject charges dated before it. Tier 1 of 2: the account module's column, migration and port.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+    "pending": [
+      "T5",
+      "T6",
+      "T7"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4"
+    ]
   },
   "created_at": "2026-09-08T10:54:25Z",
-  "updated_at": "2026-09-08T10:54:25Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-08T11:32:37Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM49-MAG-55-analysis-start-date",
@@ -24,13 +36,157 @@
     "created_at": "2026-09-08T10:54:25Z"
   },
   "tasks": [
-    { "id": "T1", "title": "Goose migration adding account.settings.analysis_start_date", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T2", "title": "Settings.AnalysisStartDate field + AnalysisStartDateFor on the Service port", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3", "title": "sqlc query edits + regeneration", "module": "account", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T4", "title": "Service implementation, clock-sourced date, pgtype.Date conversion", "module": "account", "depends_on": ["T2", "T3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T5", "title": "Docs: AGENTS.md, kkpa/context sweep, deployment.md deploy + rollback", "module": "account", "depends_on": ["T1", "T2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T6", "title": "Makefile and guard verification (MIGRATIONS_DIRS, migration-guard, tz-guard, db-setup)", "module": "account", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7", "title": "Final verification: build, vet, gofmt, guards", "module": "account", "depends_on": ["T4", "T5", "T6"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+    {
+      "id": "T1",
+      "title": "Goose migration adding account.settings.analysis_start_date",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:29:00Z",
+      "completed_at": "2026-09-08T11:30:00Z",
+      "duration_seconds": 60,
+      "notes": "Migration created with the exact D2 DDL. Timestamp 20260908000001 re-checked for collision — clean, no bump needed.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 73,
+        "context_pct_start": 9,
+        "context_pct_end": 12,
+        "cost_usd_delta": 2.7734,
+        "approx": true,
+        "note": "One serial worker for T1-T4; wave delta copied onto each task."
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Settings.AnalysisStartDate field + AnalysisStartDateFor on the Service port",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:29:00Z",
+      "completed_at": "2026-09-08T11:30:30Z",
+      "duration_seconds": 60,
+      "notes": "Added Settings.AnalysisStartDate and Service.AnalysisStartDateFor. Confirmed the expected build failure named only the missing method.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 73,
+        "context_pct_start": 9,
+        "context_pct_end": 12,
+        "cost_usd_delta": 2.7734,
+        "approx": true,
+        "note": "One serial worker for T1-T4; wave delta copied onto each task."
+      }
+    },
+    {
+      "id": "T3",
+      "title": "sqlc query edits + regeneration",
+      "module": "account",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:30:00Z",
+      "completed_at": "2026-09-08T11:31:00Z",
+      "duration_seconds": 60,
+      "notes": "Widened GetAccountSettings, changed InsertSettingsIfMissing params, ran make sqlc. Generated type verified as pgtype.Date. No other module's generated code changed.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 73,
+        "context_pct_start": 9,
+        "context_pct_end": 12,
+        "cost_usd_delta": 2.7734,
+        "approx": true,
+        "note": "One serial worker for T1-T4; wave delta copied onto each task."
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Service implementation, clock-sourced date, pgtype.Date conversion",
+      "module": "account",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:31:00Z",
+      "completed_at": "2026-09-08T11:32:00Z",
+      "duration_seconds": 60,
+      "notes": "Added clock import, dateFromTime helper, rewrote the UpsertFromOAuth call site, extended PreferencesFor, implemented AnalysisStartDateFor. Build and vet clean.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 73,
+        "context_pct_start": 9,
+        "context_pct_end": 12,
+        "cost_usd_delta": 2.7734,
+        "approx": true,
+        "note": "One serial worker for T1-T4; wave delta copied onto each task."
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Docs: AGENTS.md, kkpa/context sweep, deployment.md deploy + rollback",
+      "module": "account",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Makefile and guard verification (MIGRATIONS_DIRS, migration-guard, tz-guard, db-setup)",
+      "module": "account",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "Final verification: build, vet, gofmt, guards",
+      "module": "account",
+      "depends_on": [
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
   ],
   "decisions": [
     {
@@ -56,12 +212,55 @@
       "at": "2026-09-08T10:54:25Z",
       "what": "Filed backlog item 28 for the missing migration-down tooling instead of fixing it here.",
       "why": "It needs a down subcommand in cmd/migrate plus a compose invocation. Real work with its own design, and unrelated to MAG-55."
+    },
+    {
+      "id": "L3",
+      "scope": "leader:wave-batching",
+      "made_by": "autopilot",
+      "at": "2026-09-08T11:28:46Z",
+      "what": "Two waves, one serial worker each: wave 1 = T1-T4, wave 2 = T5-T7.",
+      "why": "T4 needs the sqlc type T3 produces. One worker keeps that in context; splitting would force a re-derive and a second doc-pack read."
+    },
+    {
+      "id": "L4",
+      "scope": "leader:cross-module-fix",
+      "made_by": "autopilot",
+      "at": "2026-09-08T11:32:37Z",
+      "what": "Leader added inert AnalysisStartDateFor stubs to three test doubles: internal/app, internal/telemetry, internal/gateway/handlers.",
+      "why": "The widened account.Service broke their compile. Outside the worker's sandbox, so leader-owned, exactly as T7.1 anticipated."
     }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
   "events": [
-    { "at": "2026-09-08T10:54:25Z", "what": "artifacts-created", "detail": "Worker 'account' created proposal.md, design.md, specs/account/spec.md, tasks.md. openspec validate --strict passed." },
-    { "at": "2026-09-08T10:54:25Z", "what": "design-gate-passed", "detail": "database gate confirmed by the user (decision G1). No changes requested." },
-    { "at": "2026-09-08T10:54:25Z", "what": "halt-requested", "detail": "Invoked from kkpa-pickup-linear-ticket with HALT AFTER STEP 4. No implementation worker dispatched. Resume with: /kkpa-dev-harness-pipeline resume RM49-account-add-analysis-start-date" }
+    {
+      "at": "2026-09-08T10:54:25Z",
+      "what": "artifacts-created",
+      "detail": "Worker 'account' created proposal.md, design.md, specs/account/spec.md, tasks.md. openspec validate --strict passed."
+    },
+    {
+      "at": "2026-09-08T10:54:25Z",
+      "what": "design-gate-passed",
+      "detail": "database gate confirmed by the user (decision G1). No changes requested."
+    },
+    {
+      "at": "2026-09-08T10:54:25Z",
+      "what": "halt-requested",
+      "detail": "Invoked from kkpa-pickup-linear-ticket with HALT AFTER STEP 4. No implementation worker dispatched. Resume with: /kkpa-dev-harness-pipeline resume RM49-account-add-analysis-start-date"
+    },
+    {
+      "at": "2026-09-08T11:28:46Z",
+      "what": "wave-1-dispatched",
+      "detail": "Worker 'account' (Sonnet), serial: T1 migration, T2 port, T3 sqlc, T4 service. Budget start: 5h 66%, ctx 9%, $0.7725."
+    },
+    {
+      "at": "2026-09-08T11:32:37Z",
+      "what": "wave-1-completed",
+      "detail": "T1-T4 done. sqlc type verified pgtype.Date. Leader fixed 3 cross-module test doubles. go build + go vet ./... clean. gofmt hits (testdb_test.go, quote_test.go, vehicle_image_test.go) confirmed pre-existing on HEAD. Budget: 5h 66→73%, ctx 9→12%, $2.77."
+    }
   ]
 }

@@ -166,6 +166,13 @@ func (f *fakeAccount) SetTheme(_ context.Context, id uuid.UUID, theme string) er
 	return f.setThemeErr
 }
 
+// AnalysisStartDateFor satisfies the widened account.Service (RM49 tier 1).
+// No handler reads the value yet — RM49 tier 2 adds the gateway rule and will
+// make this stub configurable then.
+func (f *fakeAccount) AnalysisStartDateFor(_ context.Context, _ uuid.UUID) (time.Time, error) {
+	return time.Time{}, nil
+}
+
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {
 	f.seedCalls++
 	f.lastSeedVehicles = vs

@@ -34,7 +34,7 @@
 
 ## T1. Goose migration (`internal/account/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create
+- [x] T1.1 Create
       `internal/account/db/migrations/20260908000001_settings_add_analysis_start_date.sql` with
       the exact DDL from `design.md` D2:
 
@@ -73,9 +73,9 @@
 
 ## T2. Domain type + port interface (`internal/account/account.go`) — no dependencies, parallel-ok with T1
 
-- [ ] T2.1 Add `AnalysisStartDate time.Time` to the `Settings` struct, with the doc comment
+- [x] T2.1 Add `AnalysisStartDate time.Time` to the `Settings` struct, with the doc comment
       from `design.md` D4.
-- [ ] T2.2 Add `AnalysisStartDateFor` to the `Service` interface, placed after `SetTheme` (the
+- [x] T2.2 Add `AnalysisStartDateFor` to the `Service` interface, placed after `SetTheme` (the
       current last method), with the doc comment from `design.md` D4:
       ```go
       AnalysisStartDateFor(ctx context.Context, accountID uuid.UUID) (time.Time, error)
@@ -86,7 +86,7 @@
 
 ## T3. sqlc query edits + regeneration (`internal/account/db/query.sql`) — depends on T1, parallel-ok with T2
 
-- [ ] T3.1 Widen `GetAccountSettings` to return the new column (design.md D4/D7 gating
+- [x] T3.1 Widen `GetAccountSettings` to return the new column (design.md D4/D7 gating
       unchanged):
       ```sql
       -- name: GetAccountSettings :one
@@ -94,14 +94,14 @@
       WHERE account_id = @account_id
         AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = settings.account_id AND a.status = 'Active');
       ```
-- [ ] T3.2 Change `InsertSettingsIfMissing` to take the date as a parameter (design.md D4):
+- [x] T3.2 Change `InsertSettingsIfMissing` to take the date as a parameter (design.md D4):
       ```sql
       -- name: InsertSettingsIfMissing :exec
       INSERT INTO account.settings (account_id, analysis_start_date)
       VALUES (@account_id, @analysis_start_date)
       ON CONFLICT (account_id) DO NOTHING;
       ```
-- [ ] T3.3 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm
+- [x] T3.3 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm
       and report the Go type sqlc infers for `Settings.AnalysisStartDate`,
       `GetAccountSettingsRow.AnalysisStartDate`, and
       `InsertSettingsIfMissingParams.AnalysisStartDate`. **Do not assume `pgtype.Date`** —
@@ -112,9 +112,9 @@
 
 ## T4. Service implementation (`internal/account/service.go`) — depends on T2, T3
 
-- [ ] T4.1 Add `internal/clock` to this file's imports (new dependency for this module —
+- [x] T4.1 Add `internal/clock` to this file's imports (new dependency for this module —
       `design.md` D5).
-- [ ] T4.2 Add a `dateFromTime` helper, mirroring `internal/charging/service.go`'s existing one
+- [x] T4.2 Add a `dateFromTime` helper, mirroring `internal/charging/service.go`'s existing one
       exactly:
       ```go
       func dateFromTime(t time.Time) pgtype.Date {
@@ -123,7 +123,7 @@
       ```
       (Adjust the return type to whatever T3.3 actually confirmed, if it differs from
       `pgtype.Date`.)
-- [ ] T4.3 Rewrite `UpsertFromOAuth`'s call to `InsertSettingsIfMissing` per `design.md` D5:
+- [x] T4.3 Rewrite `UpsertFromOAuth`'s call to `InsertSettingsIfMissing` per `design.md` D5:
       ```go
       today := clock.CalendarDay(clock.Now(), clock.Zone())
       if err := qtx.InsertSettingsIfMissing(ctx, accountdb.InsertSettingsIfMissingParams{
@@ -133,7 +133,7 @@
           return Account{}, fmt.Errorf("creating account settings: %w", err)
       }
       ```
-- [ ] T4.4 Extend `PreferencesFor`'s mapping to include the new field, and implement
+- [x] T4.4 Extend `PreferencesFor`'s mapping to include the new field, and implement
       `AnalysisStartDateFor` on top of it, mirroring `LanguageFor`/`ThemeFor` exactly:
       ```go
       func (s *service) PreferencesFor(ctx context.Context, accountID uuid.UUID) (Settings, error) {
