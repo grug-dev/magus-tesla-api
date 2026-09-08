@@ -270,6 +270,12 @@ MAG-55).
   future non-gateway caller of `charging.Writer` can still write an entry dated
   before the analysis start date — that is a known, accepted gap (roadmap D5), not a
   bug in this page.
+- **`started_at` is never compared.** The rule looks at `charged_on` only. An entry
+  whose `charged_on` is valid but whose optional `started_at` is earlier than the
+  analysis start date is accepted, and `started_at` is persisted unchanged. This is
+  deliberate (roadmap D6): `charged_on` is required on every entry and is what
+  analytics reads, while `started_at` is optional and unused there. Do not "fix" this
+  by adding a second check.
 
 Full contract, the boundary-case table, and every rejected alternative:
 `openspec/changes/archive/gateway/2026-09-08-RM49-gateway-restrict-external-charge-date/design.md`.
