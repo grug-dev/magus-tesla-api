@@ -159,11 +159,11 @@ Unit tests: excluded
 
 ## T7. Verification — depends on everything
 
-- [ ] T7.1 `go build ./...` — clean.
-- [ ] T7.2 `go vet ./...` — clean (also compiles any test files touched; there
+- [x] T7.1 `go build ./...` — clean.
+- [x] T7.2 `go vet ./...` — clean (also compiles any test files touched; there
       should be none in this change per "Unit tests: excluded").
-- [ ] T7.3 `gofmt -l` over every file this change touched — no output.
-- [ ] T7.4 `make migration-guard`, `make boundary-guard`, `make archive-guard` —
+- [x] T7.3 `gofmt -l` over every file this change touched — no output.
+- [x] T7.4 `make migration-guard`, `make boundary-guard`, `make archive-guard` —
       clean (design.md D8's reverse-direction check already predicts this; run them
       to confirm, not to discover something new).
 - [ ] T7.5 Hand off to the owner: the exact commands from `go test ./...` /
