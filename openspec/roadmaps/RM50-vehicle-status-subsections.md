@@ -156,7 +156,7 @@ archived) · `[x]` done (archived).
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
 | `[x]` | 1 | `RM50-analytics-add-tire-pressure-columns` | `analytics` | Four raw TPMS columns + backfill migration + expose travel-progress fields on the read port | — |
-| `[ ]` | 2 | `RM50-gateway-add-travel-progress-subsection` | `gateway` | `/design` (3 suggestions), Travel Progress subsection, regroup Interior/Exterior | 1 |
+| `[~]` | 2 | `RM50-gateway-add-travel-progress-subsection` | `gateway` | `/design` (3 suggestions), Travel Progress subsection, regroup Interior/Exterior | 1 |
 | `[ ]` | 3 | `RM50-analytics-add-tire-pressure-variance` | `analytics` | Four `_calc` delta columns + delta maths + expose on the read port | 1 |
 | `[ ]` | 4 | `RM50-gateway-add-tire-pressure-subsection` | `gateway` | Tire pressure subsection with per-wheel up/down icons | 2, 3 |
 
@@ -185,7 +185,7 @@ order check. Separately expose `distance_traveled_km_calc` and `consumed_pct` on
 `LatestMetricsByAccount` / `analytics.VehicleStatus` as pointer fields. Honour RD1, RD2, RD8 and
 the KB-refresh rule.*
 
-### Tier 2 — `[ ]` `RM50-gateway-add-travel-progress-subsection` (module: `gateway`; depends on tier 1)
+### Tier 2 — `[~]` `RM50-gateway-add-travel-progress-subsection` (module: `gateway`; depends on tier 1)
 
 Covers ticket **Step 2** and the regrouping half of the panel.
 
