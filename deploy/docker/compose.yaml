@@ -177,6 +177,12 @@ services:
       target: poller
     env_file: .env
     logging: *default-logging
+    # 8081 is the manual-rerun HTTP listener (platform-add-manual-rerun-api,
+    # design.md D6/D8). expose: (not ports:) means only Caddy, over this
+    # compose network, by service name, can reach it — nothing is published
+    # to the host.
+    expose:
+      - "8081"
     depends_on:
       migrate:
         condition: service_completed_successfully

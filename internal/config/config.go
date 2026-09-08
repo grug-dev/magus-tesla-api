@@ -53,6 +53,12 @@ type Config struct {
 	PollerScheduleMinute int
 	PollerTimezone       string
 	PollerWakeTimeout    time.Duration
+	// PollerRerunToken gates cmd/poller's manual-rerun HTTP listener. An empty
+	// value (unset POLLER_RERUN_TOKEN) means the listener does not start at
+	// all — no port opens, no route exists (design.md D2 of
+	// platform-add-manual-rerun-api, "fail-closed"). This module does not
+	// validate its shape; any non-empty string is accepted.
+	PollerRerunToken string
 }
 
 // GoogleRedirectURL is the exact OAuth redirect URI registered with Google.
@@ -112,6 +118,7 @@ func Load() (*Config, error) {
 	cfg.PollerScheduleMinute = envInt("POLLER_SCHEDULE_MINUTE", 30)
 	cfg.PollerTimezone = pollerTimezoneOrDefault(envStripped("POLLER_TIMEZONE"))
 	cfg.PollerWakeTimeout = envDuration("POLLER_WAKE_TIMEOUT", 90*time.Second)
+	cfg.PollerRerunToken = envStripped("POLLER_RERUN_TOKEN")
 
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		return nil, fmt.Errorf("step 1: TESLA_CLIENT_ID and TESLA_CLIENT_SECRET must be set in .env")

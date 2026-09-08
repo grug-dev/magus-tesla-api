@@ -30,15 +30,15 @@ Unit tests: excluded
 
 ## T1. `internal/config` — read `POLLER_RERUN_TOKEN` — no dependencies, parallel-ok with T3/T4
 
-- [ ] T1.1 Add `PollerRerunToken string` to `Config` in `internal/config/config.go`,
+- [x] T1.1 Add `PollerRerunToken string` to `Config` in `internal/config/config.go`,
       with a doc comment mirroring the style of the existing `PollerTimezone` field:
       state that an empty value means the manual-rerun HTTP listener does not start
       at all (design.md D2), and that this module does not validate its shape — any
       non-empty string is accepted.
-- [ ] T1.2 In `Load()`, add `cfg.PollerRerunToken = envStripped("POLLER_RERUN_TOKEN")`.
+- [x] T1.2 In `Load()`, add `cfg.PollerRerunToken = envStripped("POLLER_RERUN_TOKEN")`.
       No default, no validation — an empty value is a valid, working "disabled"
       state, not an error.
-- [ ] T1.3 Update `internal/config/AGENTS.md` → "Public interface" with a bullet for
+- [x] T1.3 Update `internal/config/AGENTS.md` → "Public interface" with a bullet for
       `Config.PollerRerunToken`, mirroring the existing `Config.PollerTimezone`
       bullet's shape and citing design.md D2.
       Acceptance: `go build ./internal/config/...` and `go vet ./internal/config/...`
@@ -92,11 +92,11 @@ Unit tests: excluded
 
 ## T3. `deploy/docker/compose.yaml` + `deploy/docker/Caddyfile` — no code dependency, parallel-ok with T1/T2/T4
 
-- [ ] T3.1 Add `expose: ["8081"]` to the `poller` service in
+- [x] T3.1 Add `expose: ["8081"]` to the `poller` service in
       `deploy/docker/compose.yaml` (design.md D8 — documentation only; no `ports:`
       entry, never published to the host). Add a short comment next to it stating why
       (only Caddy dials it, over the compose network, by service name).
-- [ ] T3.2 Rewrite `deploy/docker/Caddyfile` into the two-`handle`-block shape from
+- [x] T3.2 Rewrite `deploy/docker/Caddyfile` into the two-`handle`-block shape from
       design.md D8: `/internal/rerun/*` → `reverse_proxy poller:8081`, fallback
       `handle {}` → `reverse_proxy web:8080`. Keep the file's existing header comment
       about `BASE_DOMAIN`, extended with one line noting the new path-scoped route.
@@ -107,7 +107,7 @@ Unit tests: excluded
 
 ## T4. `.env.example` — no dependencies, parallel-ok with T1/T2/T3
 
-- [ ] T4.1 Add `POLLER_RERUN_TOKEN=` near the other poller-related settings, with a
+- [x] T4.1 Add `POLLER_RERUN_TOKEN=` near the other poller-related settings, with a
       comment: what it is for, that leaving it empty disables the endpoint entirely
       (design.md D2), how to generate a value (`openssl rand -hex 16` or similar —
       any random string works, per the owner's own "hard to guess" ask), and that

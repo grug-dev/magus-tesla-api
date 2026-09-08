@@ -64,6 +64,10 @@ Consumers call these — never `os.Getenv` directly (see `internal/config/config
   here — never the host's `"Local"` zone (RM35-config-adopt-clock). A set value, valid or
   not, passes through untouched: this module does not validate it — `cmd/poller` still
   does, via `time.LoadLocation`, failing fast on an invalid IANA name at startup.
+- `Config.PollerRerunToken` — read from `POLLER_RERUN_TOKEN`. Empty means
+  `cmd/poller`'s manual-rerun HTTP listener does not start at all: no port opens,
+  no route exists (`platform-add-manual-rerun-api` design.md D2, "fail-closed").
+  This module does not validate its shape — any non-empty string is accepted.
 
 ### `.env` is optional (missing-file behavior)
 

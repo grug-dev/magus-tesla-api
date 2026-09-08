@@ -4,17 +4,29 @@
   "change": "platform-add-manual-rerun-api",
   "module": "config",
   "roadmap": null,
-  "request": "MAG-27 — manual-rerun HTTP API for ProcessVehicleData. Expose an HTTP endpoint that triggers one internal/app.Processor.ProcessVehicleData cycle on demand, so a full sync -> charging -> analytics run can be forced without waiting for the nightly scheduler or shelling into the box to run go run ./cmd/poller --once. This was RM29 tier 8, parked by roadmap decision D9. Owner's added context, verbatim: \"I'd like to have an API (Without athentication with a resource name hard to guess) to simulate running the nightly job (Or similar how it's behaving the cmd-poller-once) just that this time is via API (Because the VPS does not allow me to run the poller)\"",
-  "status": "proposed",
+  "request": "MAG-27 \u2014 manual-rerun HTTP API for ProcessVehicleData. Expose an HTTP endpoint that triggers one internal/app.Processor.ProcessVehicleData cycle on demand, so a full sync -> charging -> analytics run can be forced without waiting for the nightly scheduler or shelling into the box to run go run ./cmd/poller --once. This was RM29 tier 8, parked by roadmap decision D9. Owner's added context, verbatim: \"I'd like to have an API (Without athentication with a resource name hard to guess) to simulate running the nightly job (Or similar how it's behaving the cmd-poller-once) just that this time is via API (Because the VPS does not allow me to run the poller)\"",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+    "pending": [
+      "T2",
+      "T5",
+      "T6",
+      "T7"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T1",
+      "T3",
+      "T4"
+    ]
   },
   "created_at": "2026-09-08T02:26:15Z",
-  "updated_at": "2026-09-08T02:26:15Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-08T02:46:27Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/CH48-MAG-27-platform-add-manual-rerun-api",
@@ -26,24 +38,32 @@
   "tasks": [
     {
       "id": "T1",
-      "title": "internal/config — read POLLER_RERUN_TOKEN",
+      "title": "internal/config \u2014 read POLLER_RERUN_TOKEN",
       "module": "config",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T02:44:11Z",
+      "completed_at": "2026-09-08T02:44:34Z",
+      "duration_seconds": 23,
+      "notes": "Added Config.PollerRerunToken field, doc comment mirrors PollerTimezone, envStripped read in Load(), AGENTS.md bullet. Build/vet/gofmt clean.",
+      "budget": {
+        "five_hour_pct_start": 39,
+        "five_hour_pct_end": 46,
+        "cost_usd_delta": 2.1,
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto T1/T3/T4; they ran serially in one dispatch"
+      }
     },
     {
       "id": "T2",
-      "title": "cmd/poller — HTTP listener, shared lock (guardedProcessor), handler",
+      "title": "cmd/poller \u2014 HTTP listener, shared lock (guardedProcessor), handler",
       "module": "config",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -56,39 +76,55 @@
     },
     {
       "id": "T3",
-      "title": "deploy/docker — compose expose 8081 + Caddyfile handle block",
+      "title": "deploy/docker \u2014 compose expose 8081 + Caddyfile handle block",
       "module": "config",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T02:44:36Z",
+      "completed_at": "2026-09-08T02:44:56Z",
+      "duration_seconds": 20,
+      "notes": "compose.yaml poller gains expose: [\"8081\"] with rationale, no ports:. Caddyfile rewritten to two handle blocks: /internal/rerun/* -> poller:8081, fallback -> web:8080.",
+      "budget": {
+        "five_hour_pct_start": 39,
+        "five_hour_pct_end": 46,
+        "cost_usd_delta": 2.1,
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto T1/T3/T4; they ran serially in one dispatch"
+      }
     },
     {
       "id": "T4",
-      "title": ".env.example — document POLLER_RERUN_TOKEN",
+      "title": ".env.example \u2014 document POLLER_RERUN_TOKEN",
       "module": "config",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T02:45:06Z",
+      "completed_at": "2026-09-08T02:45:25Z",
+      "duration_seconds": 19,
+      "notes": "POLLER_RERUN_TOKEN= added near the poller settings, with purpose, empty-disables note, openssl rand -hex 16 hint, and rotation steps.",
+      "budget": {
+        "five_hour_pct_start": 39,
+        "five_hour_pct_end": 46,
+        "cost_usd_delta": 2.1,
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto T1/T3/T4; they ran serially in one dispatch"
+      }
     },
     {
       "id": "T5",
-      "title": "Doc sweep — app/AGENTS.md, app.go, poller main.go, telemetry.go, READMEs, KB",
+      "title": "Doc sweep \u2014 app/AGENTS.md, app.go, poller main.go, telemetry.go, READMEs, KB",
       "module": "config",
-      "depends_on": ["T1", "T2", "T3"],
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -101,9 +137,13 @@
     },
     {
       "id": "T6",
-      "title": "docs/0-set-up/deployment.md — token setup and curl command",
+      "title": "docs/0-set-up/deployment.md \u2014 token setup and curl command",
       "module": "config",
-      "depends_on": ["T1", "T2", "T3"],
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -116,9 +156,16 @@
     },
     {
       "id": "T7",
-      "title": "Verification — build, vet, gofmt, guards, owner's manual contract",
+      "title": "Verification \u2014 build, vet, gofmt, guards, owner's manual contract",
       "module": "config",
-      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -224,12 +271,22 @@
     {
       "at": "2026-09-08T02:26:15Z",
       "agent": "leader",
-      "event": "Step 3 leader review: found an unspecified consequence — the scheduler's nightly tick is skipped when a manual cycle holds the lock. Put it to the user as a gate; user chose to keep TryLock on both paths and document it. Leader added the spec scenario, the D3 'Accepted cost' note, and the errCycleBusy wording rule in T2.1"
+      "event": "Step 3 leader review: found an unspecified consequence \u2014 the scheduler's nightly tick is skipped when a manual cycle holds the lock. Put it to the user as a gate; user chose to keep TryLock on both paths and document it. Leader added the spec scenario, the D3 'Accepted cost' note, and the errCycleBusy wording rule in T2.1"
     },
     {
       "at": "2026-09-08T02:26:15Z",
       "agent": "leader",
-      "event": "Step 4: progress.json created, 7 tasks seeded pending. HALT here as instructed by the pickup skill — no implementation workers dispatched, no reviewer, no archive"
+      "event": "Step 4: progress.json created, 7 tasks seeded pending. HALT here as instructed by the pickup skill \u2014 no implementation workers dispatched, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-08T02:43:17Z",
+      "agent": "leader",
+      "event": "Step 5 wave 1 dispatch: config worker (claude-sonnet) for T1 (internal/config POLLER_RERUN_TOKEN), T3 (deploy/docker compose+Caddyfile), T4 (.env.example) \u2014 serial, one dispatch. Budget at dispatch: 5h 39%, context 9%"
+    },
+    {
+      "at": "2026-09-08T02:46:27Z",
+      "agent": "leader",
+      "event": "Step 5 wave 1 complete: T1/T3/T4 done. Leader verified the diff itself. Found pre-existing gofmt drift in internal/config/quote_test.go \u2014 present on main, untouched by this change, NOT fixed here (out of scope); reported to owner. Budget after wave: 5h 46%, context 11%"
     }
   ]
 }
