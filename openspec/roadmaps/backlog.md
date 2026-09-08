@@ -984,6 +984,33 @@ RM49 decision D7. The owner chose read-only to keep the ticket small.
 
 
 
+## 28. deployment — No way to roll a migration back in the deployed stack
+
+### PROPOSAL
+
+The deployed images cannot reverse a migration. `deploy/docker/Dockerfile` never installs
+the `goose` CLI — the Dockerfile's own comment explains it cannot be built here, because
+`go.sum` has no entries for the CLI's optional driver dependencies. And `cmd/migrate/main.go`
+only calls `provider.Up(ctx)`; it has no down path at all.
+
+So the only rollback today is manual SQL inside the `db` container: run the migration's own
+Down statement by hand, then `DELETE FROM goose_db_version WHERE version_id = <version>` so
+a later deploy re-applies it. That is error-prone and easy to half-finish.
+
+The work is: add a `down` subcommand to `cmd/migrate` (goose's library already supports it,
+so no new dependency), and a matching `docker compose run` invocation documented in
+`docs/0-set-up/deployment.md`.
+
+**Trigger:** the first time a migration must actually be rolled back in production, or
+before any migration that is risky enough to want a tested reverse path.
+
+### ORIGIN
+
+RM49 tier 1 design.md D9. The worker was told to verify the roadmap's suggested rollback
+command and found it did not exist. Fixing the gap was out of scope for that tier.
+
+
+
 # BRAINSTORMING
 
 

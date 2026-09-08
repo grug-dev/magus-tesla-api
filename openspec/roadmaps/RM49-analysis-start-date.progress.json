@@ -3,7 +3,7 @@
   "kind": "roadmap",
   "roadmap": "RM49-analysis-start-date",
   "intention": "Every account stores the first day the app analyzes vehicle data, and the external-charges page rejects charges dated before it.",
-  "request": "MAG-55 — restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
+  "request": "MAG-55 \u2014 restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
   "status": "in-progress",
   "autopilot": false,
   "updated_at": "2026-09-08T10:35:30Z",
@@ -16,8 +16,12 @@
     "created_at": "2026-09-08T10:35:30Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2],
+    "current": [
+      1
+    ],
+    "pending": [
+      2
+    ],
     "blocked": [],
     "done": []
   },
@@ -70,7 +74,7 @@
       "module": "account",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
       "model": null,
       "started_at": null,
@@ -84,7 +88,9 @@
       "change": "RM49-gateway-restrict-external-charge-date",
       "module": "gateway",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "assistant": "Claude Code",
       "model": null,
