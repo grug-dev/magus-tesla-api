@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM49-analysis-start-date",
   "intention": "Every account stores the first day the app analyzes vehicle data, and the external-charges page rejects charges dated before it.",
-  "request": "MAG-55 \u2014 restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
+  "request": "MAG-55 — restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-08T10:35:30Z",
+  "updated_at": "2026-09-08T11:54:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM49-MAG-55-analysis-start-date",
@@ -16,14 +16,14 @@
     "created_at": "2026-09-08T10:35:30Z"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -74,14 +74,21 @@
       "module": "account",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:28:46Z",
+      "completed_at": "2026-09-08T11:54:00Z",
+      "duration_seconds": 914,
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 89,
+        "context_pct_start": 9,
+        "context_pct_end": 18,
+        "cost_usd_delta": 9.414,
+        "note": "Two worker waves, one leader cross-module fix, one stale-test fix, one review round."
+      },
+      "notes": "Archived with no review findings. The owner ran make test-with-db and reported the pass."
     },
     {
       "id": 2,
