@@ -78,6 +78,9 @@
 | `Vehicle Status panel` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
 | `Estado del vehículo` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
 | `dashboard history charts` | `/ui/dashboard/history` | `gateway` | `input-port/gateway/dashboard.md` |
+| `manual rerun endpoint` | `POST /internal/rerun/<token>` | `n/a` | `input-port/manual-rerun-endpoint.md` |
+| `rerun endpoint` | `POST /internal/rerun/<token>` | `n/a` | `input-port/manual-rerun-endpoint.md` |
+| `/internal/rerun` | `POST /internal/rerun/<token>` | `n/a` | `input-port/manual-rerun-endpoint.md` |
 
 ## Use cases
 
@@ -92,6 +95,12 @@
 | `dashboard vehicle status` | `GET /ui/dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
 | `read dashboard history charts` | `GET /ui/dashboard/history` | `gateway` | `use-case/gateway/read-dashboard-history.md` |
 | `dashboard charts` | `GET /ui/dashboard/history` | `gateway` | `use-case/gateway/read-dashboard-history.md` |
+| `trigger a manual rerun` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
+| `manual rerun` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
+| `rerun the nightly cycle` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
+| `force a collection cycle` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
+| `on-demand poll` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
+| `POLLER_RERUN_TOKEN` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
 
 ## Workflows
 

@@ -6,10 +6,20 @@
 > canonical KB until applied. This file is self-contained — it embeds the proposed content, so it
 > stays valid even after the OpenSpec change folder is archived/moved.
 
-Target guide: `use-case/app/trigger-manual-rerun.md`
+Target guide: `use-case/app/trigger-manual-rerun.md`  <!-- NEVER APPLIED — see status -->
 Source spec:  `openspec/specs/manual-rerun-api/spec.md`
 Generated:    2026-09-08
-Status: PENDING REVIEW
+Status: SUPERSEDED 2026-09-08
+
+> **Do not apply this.** It was never applied. `/kkpa-context-curate use-case "POST /internal/rerun/<token>"`
+> ran on the same day and wrote the real files, with the call path traced from the code:
+>
+> - `use-case/trigger-manual-rerun.md`
+> - `input-port/manual-rerun-endpoint.md`
+>
+> The owner chose a flat path, so this file's `use-case/app/...` target is wrong. Applying it
+> would create a second, thinner guide at that path. Kept only as the record of what the spec
+> alone produced, before the code was read.
 
 ---
 
