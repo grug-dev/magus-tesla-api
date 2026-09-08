@@ -69,6 +69,7 @@
 | `status required toggle` | RD13 — `applyChargeStatusRequiredToggle` (`static/app.js`) | `charging` | `input-port/charging/external-charges.md` |
 | `charge date time sync` | RD12 — the `charged_on` → `started_at`/`ended_at` date splice | `charging` | `input-port/charging/external-charges.md` |
 | `one in-progress per day` | `handlers.inProgressConflictOn` — one `IN_PROGRESS` entry per (vehicle, `charged_on`) | `charging` | `input-port/charging/external-charges.md` |
+| `charge date before analysis start` | `handlers.parseExternalChargeForm`'s `AnalysisStartDateFor` check — rejects a `charged_on` before the account's analysis start date (RM49 tier 2, MAG-55) | `charging` | `input-port/charging/external-charges.md` |
 | `Externas` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
 | `charges page` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
 | `Supercharger Stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |

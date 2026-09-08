@@ -229,6 +229,51 @@ conflicting date as `YYYY-MM-DD`.
 - **Only `IN_PROGRESS` submissions are checked** — a `DONE` submission returns without
   reading anything.
 
+## Manual charge rule: charged_on cannot be before the account's analysis start date
+
+A manual charge entry's `charged_on` must be on or after the account's analysis start
+date. Enforced in `handlers.parseExternalChargeForm` (`handlers/external_charges.go`),
+the single shared parser for both write paths — `ExternalChargeCreate`
+(`POST /ui/external-charges/create`) and `ExternalChargeRowUpdate`
+(`PUT /ui/external-charges/row/:id`). Added by
+`RM49-gateway-restrict-external-charge-date` (tier 2 of roadmap `RM49-analysis-start-date`,
+MAG-55).
+
+- **Where it runs.** Inside the existing `charged_on` parse block, only after
+  `chargedOnStr` parses cleanly. An empty or malformed date keeps its own earlier
+  error and this check never runs for that submission.
+- **What it calls.** `account.Service.AnalysisStartDateFor(ctx, uid)` — the same
+  account port the gateway already depends on as `h.acct`. No new `Deps` field, no
+  new module dependency.
+- **The comparison.** Both `chargedOn` (from `time.Parse("2006-01-02", ...)`) and
+  the account's analysis start date are UTC-midnight `time.Time` values for a
+  calendar day, so a plain `chargedOn.Before(minDate)` is correct with no zone
+  conversion. `Before` is a strict `<`: a `charged_on` **equal to** the analysis
+  start date is **accepted** — this is the deliberate boundary case, not an
+  off-by-one.
+- **On rejection.** `errs["charged_on"]` is set to `KeyChargesErrorDateBeforeAnalysisStart`,
+  formatted with the analysis start date as `YYYY-MM-DD`. Same red-label path every
+  other `charged_on` error already uses.
+- **Lookup failure fails closed.** A DB-level error from `AnalysisStartDateFor` sets
+  `errs["_top"]` to `KeyChargesErrorCouldNotValidateAnalysisStartDate` instead of
+  silently letting the write through. This should not normally fire — every account
+  has exactly one settings row (see `entities/account-settings/guide.md`).
+- **`min` attribute — convenience only, not the rule.** Both the create form's and
+  the row-edit form's `charged_on` date input carry
+  `Attrs: templ.Attributes{"min": ...}`, sourced from a new
+  `ExternalChargesPageData.MinChargedOn string` field, computed once per page render
+  by `buildExternalChargesPage` / `ExternalChargeRowUpdate`. This only stops most
+  browsers from offering an earlier date in their picker — the server-side check
+  above is what actually enforces the rule, and still runs even if a client bypasses
+  the browser control.
+- **`internal/charging` is untouched.** This is a gateway-only, form-level check. A
+  future non-gateway caller of `charging.Writer` can still write an entry dated
+  before the analysis start date — that is a known, accepted gap (roadmap D5), not a
+  bug in this page.
+
+Full contract, the boundary-case table, and every rejected alternative:
+`openspec/changes/RM49-gateway-restrict-external-charge-date/design.md`.
+
 ## Manual charge success notice
 
 `fragments.ExternalChargesPageData.Notice` is the success counterpart of `.Error`: a non-empty value

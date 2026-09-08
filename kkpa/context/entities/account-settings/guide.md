@@ -74,3 +74,6 @@ All KB links are relative to `kkpa/context/`, never to this file.
   read-time rule)
 - Use cases: the gateway's theme and language switches call the account module's write ports;
   see `internal/gateway/AGENTS.md` §"Exception: language switch" / §"Exception: theme switch".
+- Read consumers of `AnalysisStartDateFor`: the gateway's `/external-charges` form reads it to
+  reject a `charged_on` before that date — see `input-port/charging/external-charges.md`
+  (RM49 tier 2, MAG-55).

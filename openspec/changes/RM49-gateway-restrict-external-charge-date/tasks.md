@@ -95,7 +95,7 @@
 
 ## T4. Docs (`kkpa/context/input-port/charging/external-charges.md`, `kkpa/context/INDEX.md`) — depends on T2, T3
 
-- [ ] T4.1 Add a new section to `kkpa/context/input-port/charging/external-charges.md`,
+- [x] T4.1 Add a new section to `kkpa/context/input-port/charging/external-charges.md`,
       titled to mirror its existing "Manual charge rule: one IN_PROGRESS entry per
       (vehicle, charged_on)" section (e.g. "Manual charge rule: charged_on cannot be
       before the account's analysis start date"). State: where the check runs
@@ -104,7 +104,7 @@
       the `min`-attribute convenience (D5), and that `internal/charging` is untouched
       (roadmap D5). Link back to this change's `design.md` for the full contract, the same
       way the existing sections link to their own originating changes.
-- [ ] T4.2 Read `kkpa/context/INDEX.md`'s existing "analysis start date" row (added by
+- [x] T4.2 Read `kkpa/context/INDEX.md`'s existing "analysis start date" row (added by
       tier 1) and confirm whether it needs updating to name this tier as a consumer of
       `AnalysisStartDateFor`. Update it if so; report either way (`CLAUDE.md`'s
       docs-track-change / KB rule — grep `kkpa/context/` for the module and read every
@@ -113,23 +113,23 @@
 
 ## T5. Verification — depends on T1, T2, T3, T4
 
-- [ ] T5.1 `go build ./...` and `go vet ./...` pass repo-wide.
-- [ ] T5.2 `gofmt -l` reports no diff for any file this tier touched.
-- [ ] T5.3 `make ui-guard` passes — the only new markup is an `Attrs` entry on an
+- [x] T5.1 `go build ./...` and `go vet ./...` pass repo-wide.
+- [x] T5.2 `gofmt -l` reports no diff for any file this tier touched.
+- [x] T5.3 `make ui-guard` passes — the only new markup is an `Attrs` entry on an
       existing `ui.Input` call, the sanctioned use of that prop; no raw DaisyUI class was
       inlined.
-- [ ] T5.4 `make i18n-guard` passes — both new strings resolve through `i18n.T(...)`, no
+- [x] T5.4 `make i18n-guard` passes — both new strings resolve through `i18n.T(...)`, no
       hardcoded literal was introduced.
-- [ ] T5.5 `make tz-guard` and `make boundary-guard` pass — reproduce `design.md`'s
+- [x] T5.5 `make tz-guard` and `make boundary-guard` pass — reproduce `design.md`'s
       "Reverse-Direction Check" reasoning by hand (no raw `time.Now()`, no hardcoded zone,
       no new cross-module import) and confirm it holds; report the result rather than
       assuming it.
-- [ ] T5.6 Confirm no file outside `internal/gateway/`, this change's own folder, or
+- [x] T5.6 Confirm no file outside `internal/gateway/`, this change's own folder, or
       `kkpa/context/` was touched.
-- [ ] T5.7 Report the exact test-suite commands the owner may run to exercise this change
+- [x] T5.7 Report the exact test-suite commands the owner may run to exercise this change
       by hand (`design.md`'s "Test Contract commands" section) — this tier adds no new
       `_test.go` file (roadmap D10), so there is no new automated test to point at;
       `design.md`'s "Rejection Contract" table is what the owner checks manually against
       the running app.
-- [ ] T5.8 `openspec validate RM49-gateway-restrict-external-charge-date --strict` passes
+- [x] T5.8 `openspec validate RM49-gateway-restrict-external-charge-date --strict` passes
       and every `tasks.md` checkbox above reflects real completion.

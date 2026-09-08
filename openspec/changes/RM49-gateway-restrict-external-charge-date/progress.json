@@ -5,22 +5,21 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM49-analysis-start-date.md",
   "request": "MAG-55 \u2014 restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [
       "T1",
       "T2",
-      "T3"
-    ],
-    "pending": [
+      "T3",
       "T4",
       "T5"
     ],
+    "pending": [],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-09-08T14:48:00Z",
-  "updated_at": "2026-09-08T14:53:00Z",
+  "updated_at": "2026-09-08T14:56:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -119,14 +118,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:53:26Z",
+      "completed_at": "2026-09-08T14:55:27Z",
+      "duration_seconds": 121,
+      "notes": "Added a new section to kkpa/context/input-port/charging/external-charges.md and one INDEX.md row. Leader added the missing AnalysisStartDateFor read-consumer link to entities/account-settings/guide.md.",
+      "budget": {
+        "five_hour_pct_start": 45,
+        "five_hour_pct_end": 51,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.009,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T4-T5; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "T5",
@@ -139,14 +147,23 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:53:26Z",
+      "completed_at": "2026-09-08T14:55:27Z",
+      "duration_seconds": 121,
+      "notes": "go build, go vet, gofmt on touched files, ui-guard, i18n-guard, tz-guard, boundary-guard, archive-guard and openspec validate --strict all pass. Three gofmt diffs are pre-existing and untouched.",
+      "budget": {
+        "five_hour_pct_start": 45,
+        "five_hour_pct_end": 51,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.009,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T4-T5; the wave delta is copied onto each task."
+      }
     }
   ],
   "review": {
@@ -171,6 +188,16 @@
       "at": "2026-09-08T14:53:00Z",
       "agent": "leader",
       "event": "wave 1 (T1, T2, T3) returned. Leader checked the diff against design.md D1-D4: the check sits in parseExternalChargeForm's parsed branch, uses chargedOn.Before(minDate), fails closed on lookup error, and MinChargedOn is computed once before the early return. Assistant-run signals: go build, go vet, gofmt on touched files, make ui-guard, make i18n-guard, all pass. Suite NOT run - owner's job."
+    },
+    {
+      "at": "2026-09-08T14:54:00Z",
+      "agent": "leader",
+      "event": "dispatched one serial gateway worker (Sonnet) for wave 2 (T4 docs, T5 verification). Wave 1 commit 1643b58."
+    },
+    {
+      "at": "2026-09-08T14:56:30Z",
+      "agent": "leader",
+      "event": "wave 2 (T4, T5) returned. All assistant-run signals pass: go build, go vet, gofmt on touched files, ui-guard, i18n-guard, tz-guard, boundary-guard, archive-guard, openspec validate --strict. The suite has NOT been run - it is the owner's. Every task is awaiting-user-verification. The reviewer gate does not run until the owner reports the suite result."
     }
   ]
 }
