@@ -272,7 +272,7 @@ MAG-55).
   bug in this page.
 
 Full contract, the boundary-case table, and every rejected alternative:
-`openspec/changes/RM49-gateway-restrict-external-charge-date/design.md`.
+`openspec/changes/archive/gateway/2026-09-08-RM49-gateway-restrict-external-charge-date/design.md`.
 
 ## Manual charge success notice
 

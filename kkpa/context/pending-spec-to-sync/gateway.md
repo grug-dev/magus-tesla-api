@@ -1,0 +1,36 @@
+# Sync proposal — gateway
+
+> Staged by `kkpa-context-curate from-spec`. This is a **draft** of KB edits derived from one
+> approved OpenSpec capability spec. Review/edit the blocks below, then run
+> `/kkpa-context-curate apply-sync` to write them into the real KB. Nothing here touches the
+> canonical KB until applied. This file is self-contained — it embeds the proposed content, so it
+> stays valid even after the OpenSpec change folder is archived/moved.
+
+Target guide: `input-port/charging/external-charges.md`
+Source spec:  `openspec/specs/gateway/spec.md`
+Generated:    2026-09-08
+Status: PENDING REVIEW
+
+Scope note: this proposal covers ONLY the requirement added by
+`RM49-gateway-restrict-external-charge-date` (MAG-55) — "External Charge Date Restricted
+To Analysis Start". Every other gateway requirement in the spec is already reflected in
+the KB and produced no delta.
+
+The rule itself is already documented in the target guide, under the section
+`## Manual charge rule: charged_on cannot be before the account's analysis start date`,
+written during the change (task T4). One spec scenario is NOT yet recorded there: the
+explicit exclusion of `started_at` from the comparison. That is the single block below.
+
+INDEX rows: no change. `charge date before analysis start` already routes to this guide,
+and `analysis start date` already routes to `entities/account-settings/guide.md`.
+
+---
+
+## [guide] ## Manual charge rule: charged_on cannot be before the account's analysis start date — APPEND
+
+- **`started_at` is never compared.** The rule looks at `charged_on` only. An entry whose
+  `charged_on` is valid but whose optional `started_at` is earlier than the analysis start
+  date is accepted, and `started_at` is persisted unchanged. This is deliberate (roadmap
+  D6): `charged_on` is required on every entry and is what analytics reads, while
+  `started_at` is optional and unused there. Do not "fix" this by adding a second check.
+  _Source: spec gateway — Requirement: External Charge Date Restricted To Analysis Start._
