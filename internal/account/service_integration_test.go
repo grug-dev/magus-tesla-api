@@ -816,7 +816,21 @@ func TestAccountSettings_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PreferencesFor (fresh account): %v", err)
 	}
-	want := Settings{Language: LanguageES, Theme: ThemeGraphite}
+
+	// RM49 Test Contract items 4-5: a fresh signup's analysis start date is
+	// today's calendar day in America/Bogota, stored as UTC midnight of that
+	// day. The zone and the truncation are recomputed here instead of calling
+	// internal/clock, so a regression in the production helper cannot hide
+	// behind the same call. make tz-guard skips _test.go files, which is what
+	// makes pinning the zone name here legal.
+	bogota, err := time.LoadLocation("America/Bogota")
+	if err != nil {
+		t.Fatalf("loading America/Bogota: %v", err)
+	}
+	local := time.Now().In(bogota)
+	wantStart := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
+
+	want := Settings{Language: LanguageES, Theme: ThemeGraphite, AnalysisStartDate: wantStart}
 	if prefs != want {
 		t.Fatalf("fresh account settings: want %+v, got %+v", want, prefs)
 	}
@@ -869,7 +883,7 @@ func TestAccountSettings_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PreferencesFor (after out-of-band write): %v", err)
 	}
-	want = Settings{Language: LanguageES, Theme: ThemeGraphite}
+	want = Settings{Language: LanguageES, Theme: ThemeGraphite, AnalysisStartDate: wantStart}
 	if prefs != want {
 		t.Fatalf("PreferencesFor after out-of-band write: want %+v, got %+v", want, prefs)
 	}
@@ -906,7 +920,7 @@ func TestAccountSettings_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PreferencesFor (after reactivating): %v", err)
 	}
-	want = Settings{Language: LanguageES, Theme: ThemeGraphite}
+	want = Settings{Language: LanguageES, Theme: ThemeGraphite, AnalysisStartDate: wantStart}
 	if prefs != want {
 		t.Fatalf("no-op writes against inactive account changed stored values: want unchanged %+v, got %+v", want, prefs)
 	}

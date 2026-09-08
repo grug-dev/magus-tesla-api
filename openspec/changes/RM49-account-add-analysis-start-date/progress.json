@@ -23,7 +23,7 @@
     ]
   },
   "created_at": "2026-09-08T10:54:25Z",
-  "updated_at": "2026-09-08T11:36:43Z",
+  "updated_at": "2026-09-08T11:47:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -269,6 +269,14 @@
       "at": "2026-09-08T11:36:43Z",
       "what": "Corrected T1-T4 from done to awaiting-user-verification, alongside T7.",
       "why": "The change edits three existing test files and nobody has run the suite. Test-Execution-Policy reserves that pass to the owner."
+    },
+    {
+      "id": "L7",
+      "scope": "leader:stale-test-expectation",
+      "made_by": "leader",
+      "at": "2026-09-08T11:47:00Z",
+      "what": "Updated three whole-struct Settings comparisons in service_integration_test.go to include AnalysisStartDate.",
+      "why": "RM42's test compared the full struct. The new field made it fail. The code was right: it matches Test Contract items 4 and 5."
     }
   ],
   "review": {
@@ -312,6 +320,16 @@
       "at": "2026-09-08T11:36:43Z",
       "what": "wave-2-completed",
       "detail": "T5-T7 done. Leader re-ran archive-guard and boundary-guard: both pass. Docs, KB and deployment.md 8.11a landed. Budget: 5h 73->80%, ctx 12->15%, $2.79."
+    },
+    {
+      "at": "2026-09-08T11:38:00Z",
+      "what": "awaiting-user-test-run",
+      "detail": "Step 6 ask. Owner chose 'make test-with-db'. The reviewer is NOT dispatched until the owner reports the result. Owner also chose to continue in this session rather than checkpoint at 5h 80%."
+    },
+    {
+      "at": "2026-09-08T11:47:00Z",
+      "what": "user-test-run-failed",
+      "detail": "Owner ran make test-with-db. One failure: TestAccountSettings_RoundTrip, a stale RM42 expectation, not a code defect. Got 2026-09-08 UTC-midnight, exactly Test Contract items 4-5. Leader fixed the three comparisons; expectation recomputed from the zone, not from internal/clock. Re-run requested."
     }
   ]
 }
