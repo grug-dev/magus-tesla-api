@@ -399,6 +399,16 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 	windowStartStr := start.Format("2006-01-02")
 	windowEndStr := end.Format("2006-01-02")
 
+	// RM49 tier 2 (MAG-55, design.md D4): computed once, reused by every branch
+	// below, the same "computed once and reused" shape as windowStartStr/windowEndStr
+	// above. Empty on a lookup failure (rare); the template renders min="" then.
+	minChargedOn := ""
+	if minDate, err := h.acct.AnalysisStartDateFor(c.Request.Context(), uid); err != nil {
+		log.Printf("gateway: AnalysisStartDateFor error for account %s, id %s: %v", uid, id, err)
+	} else {
+		minChargedOn = minDate.Format("2006-01-02")
+	}
+
 	entry, raw, validationErrors, ok2 := h.parseExternalChargeForm(c, uid, vehicles)
 	// Same one-IN_PROGRESS-per-(vehicle, charged_on) rule the create path
 	// enforces, so flipping a DONE row back to IN_PROGRESS cannot bypass it.
@@ -428,7 +438,7 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 		// — still fragments.ExternalChargeRowEdit only, no #external-charges-list touch — only the
 		// call site's new windowStartStr/windowEndStr params are added, echoing
 		// back whatever was posted.
-		renderError(c, http.StatusUnprocessableEntity, fragments.ExternalChargeRowEdit(vm, csrfToken, validationErrors, windowStartStr, windowEndStr))
+		renderError(c, http.StatusUnprocessableEntity, fragments.ExternalChargeRowEdit(vm, csrfToken, validationErrors, windowStartStr, windowEndStr, minChargedOn))
 		return
 	}
 	entry.ID = id
@@ -455,7 +465,7 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 		vm.RawEndedAt = c.PostForm("ended_at")
 		renderError(c, http.StatusInternalServerError, fragments.ExternalChargeRowEdit(vm, csrfToken, map[string]string{
 			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
-		}, windowStartStr, windowEndStr))
+		}, windowStartStr, windowEndStr, minChargedOn))
 		return
 	}
 	h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, updated.TeslaID, updated.ChargedOn)
@@ -600,6 +610,17 @@ func defaultExternalChargesWindow(today time.Time) (start, end time.Time) {
 // end would make the "This month" preset pre-fill the create form with the
 // last day of the month.
 func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, csrfToken string, teslaIDFilter int64, today, start, end time.Time) fragments.ExternalChargesPageData {
+	// RM49 tier 2 (MAG-55, design.md D4): computed once, at the top, before the
+	// teslaIDFilter == 0 early return — the create form needs a min even with no
+	// vehicle resolved. Empty string on a lookup failure (rare); the template
+	// then renders min="" which HTML5 treats as no constraint (design.md D4).
+	minChargedOn := ""
+	if minDate, err := h.acct.AnalysisStartDateFor(ctx, uid); err != nil {
+		log.Printf("gateway: AnalysisStartDateFor error for account %s: %v", uid, err)
+	} else {
+		minChargedOn = minDate.Format("2006-01-02")
+	}
+
 	// design.md §D-RM33-9: no vehicle resolved -> NO read of any kind against
 	// charging.Reader (nor account.RegisteredVehicles, which is only needed to
 	// map entries the empty-state path never fetches) — just the same
@@ -611,6 +632,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 			CSRFToken:      csrfToken,
 			EmptyState:     true,
 			NoFilterChrome: true,
+			MinChargedOn:   minChargedOn,
 		}
 	}
 
@@ -707,6 +729,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 		DefaultChargedOn:          day,
 		DefaultStartedAt:          todayDate,
 		DefaultEndedAt:            todayDate,
+		MinChargedOn:              minChargedOn,
 		StartBatteryPctSuggestion: suggestion,
 		FormValues: fragments.ExternalChargeFormValues{
 			Status: string(charging.StatusInProgress),
@@ -1264,6 +1287,20 @@ func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicle
 		chargedOn, parseErr = time.Parse("2006-01-02", chargedOnStr)
 		if parseErr != nil {
 			errs["charged_on"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidDateFormat)
+		} else {
+			// RM49 tier 2 (MAG-55): reject a charge dated before the account's
+			// analysis start date. Only reached when charged_on itself parsed
+			// cleanly. See design.md D1-D3.
+			minDate, err := h.acct.AnalysisStartDateFor(c.Request.Context(), uid)
+			if err != nil {
+				log.Printf("gateway: AnalysisStartDateFor error for account %s: %v", uid, err)
+				errs["_top"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotValidateAnalysisStartDate)
+			} else if chargedOn.Before(minDate) {
+				errs["charged_on"] = fmt.Sprintf(
+					i18n.T(c.Request.Context(), i18n.KeyChargesErrorDateBeforeAnalysisStart),
+					minDate.Format("2006-01-02"),
+				)
+			}
 		}
 	}
 

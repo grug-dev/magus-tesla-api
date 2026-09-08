@@ -4,17 +4,27 @@
   "change": "RM49-gateway-restrict-external-charge-date",
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM49-analysis-start-date.md",
-  "request": "MAG-55 — restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
-  "status": "proposed",
+  "request": "MAG-55 \u2014 restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5"],
+    "current": [
+      "T1",
+      "T2",
+      "T3"
+    ],
+    "pending": [
+      "T4",
+      "T5"
+    ],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-09-08T14:48:00Z",
-  "updated_at": "2026-09-08T14:48:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-08T14:53:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM49-MAG-55-analysis-start-date",
@@ -30,50 +40,84 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:48:30Z",
+      "completed_at": "2026-09-08T14:52:46Z",
+      "duration_seconds": 256,
+      "notes": "Added KeyChargesErrorDateBeforeAnalysisStart and KeyChargesErrorCouldNotValidateAnalysisStartDate to catalog.go, const block and map, ES+EN non-empty.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.253,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T3; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "T2",
       "title": "Handler logic: analysis-start-date check + MinChargedOn",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:48:30Z",
+      "completed_at": "2026-09-08T14:52:46Z",
+      "duration_seconds": 256,
+      "notes": "Added the check in parseExternalChargeForm, MinChargedOn on ExternalChargesPageData, minChargedOn computed once in buildExternalChargesPage and ExternalChargeRowUpdate.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.253,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T3; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "T3",
       "title": "Template wiring: min attribute + new row-edit parameter",
       "module": "gateway",
-      "depends_on": ["T2"],
+      "depends_on": [
+        "T2"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:48:30Z",
+      "completed_at": "2026-09-08T14:52:46Z",
+      "duration_seconds": 256,
+      "notes": "Added the min attribute to both date inputs, extended ExternalChargeRowEdit to six params, updated its call site. Ran make templ and make css. Also fixed one call site in external_charges_test.go: signature drift only, no assertion changed.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.253,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T3; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "T4",
       "title": "Docs: KB input-port guide + INDEX check",
       "module": "gateway",
-      "depends_on": ["T2", "T3"],
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -88,7 +132,12 @@
       "id": "T5",
       "title": "Verification: build, vet, gofmt, guards",
       "module": "gateway",
-      "depends_on": ["T1", "T2", "T3", "T4"],
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -112,6 +161,16 @@
       "at": "2026-09-08T14:46:15Z",
       "agent": "leader",
       "event": "artifacts created by the gateway worker (Sonnet) and validated with openspec validate --strict. No database object touched, so the database design gate does not apply. Artifact wave budget: five_hour_pct 22 -> 36, cost_usd delta 4.755."
+    },
+    {
+      "at": "2026-09-08T14:50:00Z",
+      "agent": "leader",
+      "event": "dispatched one serial gateway worker (Sonnet) for wave 1 (T1, T2, T3). Serial, not parallel: T2 needs T1's i18n keys to compile and T3 needs T2's field and parameter names."
+    },
+    {
+      "at": "2026-09-08T14:53:00Z",
+      "agent": "leader",
+      "event": "wave 1 (T1, T2, T3) returned. Leader checked the diff against design.md D1-D4: the check sits in parseExternalChargeForm's parsed branch, uses chargedOn.Before(minDate), fails closed on lookup error, and MinChargedOn is computed once before the early return. Assistant-run signals: go build, go vet, gofmt on touched files, make ui-guard, make i18n-guard, all pass. Suite NOT run - owner's job."
     }
   ]
 }

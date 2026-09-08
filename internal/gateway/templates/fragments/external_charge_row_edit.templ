@@ -51,7 +51,12 @@ import (
 // PUT DOES parse request bodies, so plain hidden inputs are a valid wire path
 // here. ExternalChargeRowUpdate reads them (best-effort, never a validation gate) to
 // resolve the window its post-write #external-charges-list OOB refresh renders.
-templ ExternalChargeRowEdit(vm ExternalChargeEntryVM, csrfToken string, validationErrors map[string]string, windowStartStr, windowEndStr string) {
+//
+// minChargedOn (RM49 tier 2, MAG-55, design.md D4) is the account's analysis
+// start date, pre-formatted "YYYY-MM-DD" — the charged_on input's min
+// attribute, a convenience only. The server-side rejection in
+// parseExternalChargeForm is the real rule and applies regardless of this value.
+templ ExternalChargeRowEdit(vm ExternalChargeEntryVM, csrfToken string, validationErrors map[string]string, windowStartStr, windowEndStr, minChargedOn string) {
 	<tr id={ "external-charge-row-" + vm.ID }>
 		<td colspan="9">
 			<p id={ "external-charge-row-hint-" + vm.ID } class="text-sm text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormEditHint) }</p>
@@ -78,7 +83,7 @@ templ ExternalChargeRowEdit(vm ExternalChargeEntryVM, csrfToken string, validati
 						}
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormDate), Error: validationErrors["charged_on"]}) {
-						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: vm.RawChargedOn, Required: true})
+						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: vm.RawChargedOn, Required: true, Attrs: templ.Attributes{"min": minChargedOn}})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEnergyAdded), Error: validationErrors["energy_added_kwh"], Optional: true}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: vm.RawEnergyKWh, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})

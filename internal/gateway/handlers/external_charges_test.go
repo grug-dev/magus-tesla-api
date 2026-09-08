@@ -2411,12 +2411,15 @@ func renderCreateForm(t *testing.T, d fragments.ExternalChargesPageData, lang st
 	return body.String()
 }
 
-// renderEditRow renders fragments.ExternalChargeRowEdit(vm, "tok", nil, "", "") to a
-// string, same language convention as renderCreateForm. The two trailing ""
-// args are windowStartStr/windowEndStr (design.md §D-Refresh, RM33 tier 3) —
+// renderEditRow renders fragments.ExternalChargeRowEdit(vm, "tok", nil, "", "", "") to a
+// string, same language convention as renderCreateForm. The first two trailing
+// "" args are windowStartStr/windowEndStr (design.md §D-Refresh, RM33 tier 3) —
 // Group C's template/markup assertions (C1-C7) are all indifferent to the
 // filter window, so empty strings are the correct fixture here; the window
-// itself is pinned separately by Group D (§D-Include/§D-Refresh).
+// itself is pinned separately by Group D (§D-Include/§D-Refresh). The third
+// trailing "" is minChargedOn (RM49 tier 2, MAG-55, design.md D4) — Group C's
+// assertions are equally indifferent to the min attribute's value, so an
+// empty string (rendering min="", HTML5's no-op) is the correct fixture here too.
 func renderEditRow(t *testing.T, vm fragments.ExternalChargeEntryVM, lang string) string {
 	t.Helper()
 	ctx := context.Background()
@@ -2424,7 +2427,7 @@ func renderEditRow(t *testing.T, vm fragments.ExternalChargeEntryVM, lang string
 		ctx = i18n.WithLang(ctx, lang)
 	}
 	var body bytes.Buffer
-	if err := fragments.ExternalChargeRowEdit(vm, "tok", nil, "", "").Render(ctx, &body); err != nil {
+	if err := fragments.ExternalChargeRowEdit(vm, "tok", nil, "", "", "").Render(ctx, &body); err != nil {
 		t.Fatalf("render ExternalChargeRowEdit: %v", err)
 	}
 	return body.String()

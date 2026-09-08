@@ -88,7 +88,7 @@ templ ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[s
 						}
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormDate), Error: validationErrors["charged_on"]}) {
-						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true})
+						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true, Attrs: templ.Attributes{"min": d.MinChargedOn}})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEnergyAdded), Error: validationErrors["energy_added_kwh"], Optional: true}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: d.FormValues.EnergyAddedKWh, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})

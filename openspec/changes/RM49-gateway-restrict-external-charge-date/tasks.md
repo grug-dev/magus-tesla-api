@@ -31,13 +31,13 @@
 
 ## T1. i18n catalogue keys (`internal/gateway/i18n/catalog.go`) — no dependencies
 
-- [ ] T1.1 Add `KeyChargesErrorDateBeforeAnalysisStart` (`"charges_error.
+- [x] T1.1 Add `KeyChargesErrorDateBeforeAnalysisStart` (`"charges_error.
       date_before_analysis_start"`) to the `Key` const block, in the `charges_error`
       group, near `KeyChargesErrorInProgressExists` (same "%s date" shape — see its own
       doc comment for the pattern to mirror). Add its ES/EN entry to the catalogue map,
       both non-empty, with exactly one `%s` verb for the formatted analysis start date.
       See `design.md` D6 for a starting wording.
-- [ ] T1.2 Add `KeyChargesErrorCouldNotValidateAnalysisStartDate` (`"charges_error.
+- [x] T1.2 Add `KeyChargesErrorCouldNotValidateAnalysisStartDate` (`"charges_error.
       could_not_validate_analysis_start_date"`), near
       `KeyChargesErrorCouldNotValidateVehicleOwnership` (same "internal lookup failed"
       shape). Add its ES/EN entry, both non-empty, no `%s` verb.
@@ -48,9 +48,9 @@
 
 ## T2. Handler logic (`internal/gateway/handlers/external_charges.go`, `internal/gateway/templates/fragments/external_charges_vm.go`) — depends on T1
 
-- [ ] T2.1 Add `MinChargedOn string` to `ExternalChargesPageData`
+- [x] T2.1 Add `MinChargedOn string` to `ExternalChargesPageData`
       (`external_charges_vm.go`), with the doc comment from `design.md` D4.
-- [ ] T2.2 In `parseExternalChargeForm`, add the analysis-start-date check exactly as
+- [x] T2.2 In `parseExternalChargeForm`, add the analysis-start-date check exactly as
       `design.md` D1 specifies: inside the existing `charged_on` parse block, only reached
       when `chargedOnStr` parsed successfully. Call `h.acct.AnalysisStartDateFor(c.Request.
       Context(), uid)`. On error, log it and set `errs["_top"]` to the new
@@ -58,11 +58,11 @@
       success, if `chargedOn.Before(minDate)`, set `errs["charged_on"]` to
       `fmt.Sprintf(i18n.T(...KeyChargesErrorDateBeforeAnalysisStart), minDate.Format("2006-01-02"))`
       (D2 — the exact comparison and the accept-on-boundary case).
-- [ ] T2.3 In `buildExternalChargesPage`, compute `minChargedOn` once, at the top of the
+- [x] T2.3 In `buildExternalChargesPage`, compute `minChargedOn` once, at the top of the
       function, BEFORE the `teslaIDFilter == 0` early return (D4 — the create form needs a
       `min` even with no vehicle resolved). Set it on both `fragments.
       ExternalChargesPageData{}` return literals (the early-return one and the final one).
-- [ ] T2.4 In `ExternalChargeRowUpdate`, compute `minChargedOn` once, near where
+- [x] T2.4 In `ExternalChargeRowUpdate`, compute `minChargedOn` once, near where
       `windowStartStr`/`windowEndStr` are already computed once and reused (mirror that
       existing pattern exactly — same function, same "computed once, reused by every
       branch" shape). Pass it as the new sixth argument to both of this function's
@@ -76,17 +76,17 @@
 
 ## T3. Template wiring (`internal/gateway/templates/fragments/external_charge_create_form.templ`, `external_charge_row_edit.templ`, `external_charges_list.templ`) — depends on T2
 
-- [ ] T3.1 In `external_charge_create_form.templ`, add `Attrs: templ.Attributes{"min":
+- [x] T3.1 In `external_charge_create_form.templ`, add `Attrs: templ.Attributes{"min":
       d.MinChargedOn}` to the existing `charged_on` `ui.Input(...)` call (design.md D5) —
       do not touch any other field on this form.
-- [ ] T3.2 In `external_charge_row_edit.templ`: add `minChargedOn string` as the sixth
+- [x] T3.2 In `external_charge_row_edit.templ`: add `minChargedOn string` as the sixth
       parameter of the `templ ExternalChargeRowEdit(...)` signature (after
       `windowStartStr, windowEndStr`), and add `Attrs: templ.Attributes{"min":
       minChargedOn}` to its `charged_on` `ui.Input(...)` call.
-- [ ] T3.3 In `external_charges_list.templ`, update its one call site of
+- [x] T3.3 In `external_charges_list.templ`, update its one call site of
       `ExternalChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr)` to
       pass `d.MinChargedOn` as the new sixth argument.
-- [ ] T3.4 Run `make templ` (regenerates the three `*_templ.go` files) then `make css`
+- [x] T3.4 Run `make templ` (regenerates the three `*_templ.go` files) then `make css`
       (no new class is introduced by this tier, but run it per the module's standing
       "always finish with make css" convention after any `.templ` edit).
       Acceptance: `go build ./...` now passes repo-wide (T2.4's expected failure from the

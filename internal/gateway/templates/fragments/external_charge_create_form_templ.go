@@ -297,7 +297,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true, Attrs: templ.Attributes{"min": d.MinChargedOn}}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

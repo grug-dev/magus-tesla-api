@@ -335,6 +335,16 @@ const (
 	// YYYY-MM-DD by the handler — the template never formats a date.
 	KeyChargesErrorInProgressExists Key = "charges_error.in_progress_exists"
 
+	// KeyChargesErrorDateBeforeAnalysisStart carries a single %s verb for the account's
+	// analysis start date, formatted YYYY-MM-DD by the handler — mirrors
+	// KeyChargesErrorInProgressExists's exact shape (RM49 tier 2, MAG-55).
+	KeyChargesErrorDateBeforeAnalysisStart Key = "charges_error.date_before_analysis_start"
+
+	// KeyChargesErrorCouldNotValidateAnalysisStartDate is the design.md D3 lookup-failure
+	// message, mirroring KeyChargesErrorCouldNotValidateVehicleOwnership's shape
+	// (RM49 tier 2, MAG-55).
+	KeyChargesErrorCouldNotValidateAnalysisStartDate Key = "charges_error.could_not_validate_analysis_start_date"
+
 	// --- charges success notices (handlers/external_charges.go: ExternalChargeCreate success path) ---
 	KeyChargesNoticeEntryCreated Key = "charges_notice.entry_created"
 
@@ -648,33 +658,35 @@ var catalog = map[Key]entry{
 
 	KeyFormOptional: {ES: "(opcional)", EN: "(optional)"},
 
-	KeyChargesErrorSelectVehicle:                    {ES: "Selecciona un vehículo.", EN: "Please select a vehicle."},
-	KeyChargesErrorDateRequired:                     {ES: "La fecha es obligatoria.", EN: "Date is required."},
-	KeyChargesErrorInvalidDateFormat:                {ES: "Formato de fecha inválido.", EN: "Invalid date format."},
-	KeyChargesErrorEnergyPositive:                   {ES: "La energía debe ser un número positivo.", EN: "Energy must be a positive number."},
-	KeyChargesErrorPriceNonNegative:                 {ES: "El precio debe ser un número no negativo.", EN: "Price must be a non-negative number."},
-	KeyChargesErrorLocationRequired:                 {ES: "La ubicación es obligatoria.", EN: "Location is required."},
-	KeyChargesErrorBatteryPctRequired:               {ES: "El porcentaje de batería es obligatorio.", EN: "Battery percentage is required."},
-	KeyChargesErrorStartBatteryPctRange:             {ES: "El porcentaje de batería inicial debe ser un número entero entre 0 y 100.", EN: "Start battery percentage must be an integer between 0 and 100."},
-	KeyChargesErrorEndBatteryPctRange:               {ES: "El porcentaje de batería final debe ser un número entero entre 0 y 100.", EN: "End battery percentage must be an integer between 0 and 100."},
-	KeyChargesErrorEndBeforeStart:                   {ES: "La hora de finalización no puede ser anterior a la hora de inicio.", EN: "End time cannot be before start time."},
-	KeyChargesErrorCouldNotLoadVehicles:             {ES: "No se pudieron cargar tus vehículos — inténtalo de nuevo.", EN: "Could not load your vehicles — please try again."},
-	KeyChargesErrorCouldNotLoadEntries:              {ES: "No se pudieron cargar tus registros — inténtalo de nuevo.", EN: "Could not load your entries — please try again."},
-	KeyChargesErrorCouldNotSaveEntry:                {ES: "No se pudo guardar tu registro — inténtalo de nuevo.", EN: "Could not save your entry — please try again."},
-	KeyChargesErrorCouldNotDeleteEntry:              {ES: "No se pudo eliminar el registro — inténtalo de nuevo.", EN: "Could not delete entry — please try again."},
-	KeyChargesErrorBatterySuggestion:                {ES: "Última: %d%%", EN: "Latest: %d%%"},
-	KeyChargesErrorCouldNotStartChargeLog:           {ES: "no se pudo iniciar el registro de cargas", EN: "could not start charge log"},
-	KeyChargesErrorCouldNotRefreshChargeLog:         {ES: "no se pudo actualizar el registro de cargas", EN: "could not refresh charge log"},
-	KeyChargesErrorInvalidID:                        {ES: "id inválido", EN: "invalid id"},
-	KeyChargesErrorEntryNotFound:                    {ES: "registro no encontrado", EN: "entry not found"},
-	KeyChargesErrorCouldNotValidateVehicleOwnership: {ES: "no se pudo validar la propiedad del vehículo", EN: "could not validate vehicle ownership"},
-	KeyChargesErrorVehicleNotOwned:                  {ES: "el vehículo no pertenece a esta cuenta", EN: "vehicle not owned by this account"},
-	KeyChargesErrorInvalidCSRFToken:                 {ES: "token csrf inválido", EN: "invalid csrf token"},
-	KeyChargesErrorEndedAtRequired:                  {ES: "La hora de fin es obligatoria cuando el estado es Finalizada.", EN: "Ended at is required when status is Done."},
-	KeyChargesErrorStatusInvalid:                    {ES: "Estado inválido.", EN: "Invalid status."},
-	KeyChargesErrorOdometerInvalid:                  {ES: "El odómetro debe ser un número entero no negativo.", EN: "Odometer must be a non-negative whole number."},
-	KeyChargesErrorInProgressExists:                 {ES: "Ya existe una carga en progreso para el %s.", EN: "There is already a charge in progress for %s."},
-	KeyChargesNoticeEntryCreated:                    {ES: "Registro agregado correctamente.", EN: "Entry saved successfully."},
+	KeyChargesErrorSelectVehicle:                     {ES: "Selecciona un vehículo.", EN: "Please select a vehicle."},
+	KeyChargesErrorDateRequired:                      {ES: "La fecha es obligatoria.", EN: "Date is required."},
+	KeyChargesErrorInvalidDateFormat:                 {ES: "Formato de fecha inválido.", EN: "Invalid date format."},
+	KeyChargesErrorEnergyPositive:                    {ES: "La energía debe ser un número positivo.", EN: "Energy must be a positive number."},
+	KeyChargesErrorPriceNonNegative:                  {ES: "El precio debe ser un número no negativo.", EN: "Price must be a non-negative number."},
+	KeyChargesErrorLocationRequired:                  {ES: "La ubicación es obligatoria.", EN: "Location is required."},
+	KeyChargesErrorBatteryPctRequired:                {ES: "El porcentaje de batería es obligatorio.", EN: "Battery percentage is required."},
+	KeyChargesErrorStartBatteryPctRange:              {ES: "El porcentaje de batería inicial debe ser un número entero entre 0 y 100.", EN: "Start battery percentage must be an integer between 0 and 100."},
+	KeyChargesErrorEndBatteryPctRange:                {ES: "El porcentaje de batería final debe ser un número entero entre 0 y 100.", EN: "End battery percentage must be an integer between 0 and 100."},
+	KeyChargesErrorEndBeforeStart:                    {ES: "La hora de finalización no puede ser anterior a la hora de inicio.", EN: "End time cannot be before start time."},
+	KeyChargesErrorCouldNotLoadVehicles:              {ES: "No se pudieron cargar tus vehículos — inténtalo de nuevo.", EN: "Could not load your vehicles — please try again."},
+	KeyChargesErrorCouldNotLoadEntries:               {ES: "No se pudieron cargar tus registros — inténtalo de nuevo.", EN: "Could not load your entries — please try again."},
+	KeyChargesErrorCouldNotSaveEntry:                 {ES: "No se pudo guardar tu registro — inténtalo de nuevo.", EN: "Could not save your entry — please try again."},
+	KeyChargesErrorCouldNotDeleteEntry:               {ES: "No se pudo eliminar el registro — inténtalo de nuevo.", EN: "Could not delete entry — please try again."},
+	KeyChargesErrorBatterySuggestion:                 {ES: "Última: %d%%", EN: "Latest: %d%%"},
+	KeyChargesErrorCouldNotStartChargeLog:            {ES: "no se pudo iniciar el registro de cargas", EN: "could not start charge log"},
+	KeyChargesErrorCouldNotRefreshChargeLog:          {ES: "no se pudo actualizar el registro de cargas", EN: "could not refresh charge log"},
+	KeyChargesErrorInvalidID:                         {ES: "id inválido", EN: "invalid id"},
+	KeyChargesErrorEntryNotFound:                     {ES: "registro no encontrado", EN: "entry not found"},
+	KeyChargesErrorCouldNotValidateVehicleOwnership:  {ES: "no se pudo validar la propiedad del vehículo", EN: "could not validate vehicle ownership"},
+	KeyChargesErrorVehicleNotOwned:                   {ES: "el vehículo no pertenece a esta cuenta", EN: "vehicle not owned by this account"},
+	KeyChargesErrorInvalidCSRFToken:                  {ES: "token csrf inválido", EN: "invalid csrf token"},
+	KeyChargesErrorEndedAtRequired:                   {ES: "La hora de fin es obligatoria cuando el estado es Finalizada.", EN: "Ended at is required when status is Done."},
+	KeyChargesErrorStatusInvalid:                     {ES: "Estado inválido.", EN: "Invalid status."},
+	KeyChargesErrorOdometerInvalid:                   {ES: "El odómetro debe ser un número entero no negativo.", EN: "Odometer must be a non-negative whole number."},
+	KeyChargesErrorInProgressExists:                  {ES: "Ya existe una carga en progreso para el %s.", EN: "There is already a charge in progress for %s."},
+	KeyChargesErrorDateBeforeAnalysisStart:           {ES: "La fecha no puede ser anterior al %s, el inicio del análisis de tu cuenta.", EN: "Date cannot be before %s, when your account's analysis starts."},
+	KeyChargesErrorCouldNotValidateAnalysisStartDate: {ES: "no se pudo validar la fecha de inicio del análisis", EN: "could not validate analysis start date"},
+	KeyChargesNoticeEntryCreated:                     {ES: "Registro agregado correctamente.", EN: "Entry saved successfully."},
 
 	KeyLangSwitchErrorUnsupportedLanguage:   {ES: "idioma no soportado", EN: "unsupported language"},
 	KeyLangSwitchErrorCouldNotSaveLanguage:  {ES: "no se pudo guardar la preferencia de idioma", EN: "could not save language preference"},
