@@ -163,17 +163,17 @@
 
 ## T5. Docs (`internal/account/AGENTS.md`, `kkpa/context/`, `docs/0-set-up/deployment.md`) — depends on T1, T2, parallel-ok with T3/T4/T6
 
-- [ ] T5.1 Update `internal/account/AGENTS.md`'s "Public interface" section to list
+- [x] T5.1 Update `internal/account/AGENTS.md`'s "Public interface" section to list
       `AnalysisStartDateFor(ctx, accountID) (time.Time, error)`, and note that `Settings`/
       `PreferencesFor` now also carry `AnalysisStartDate` — required by `CLAUDE.md`'s
       docs-track-change rule (a module's public surface changed in this change, not a
       follow-up).
-- [ ] T5.2 Grep `kkpa/context/` for `account.settings`, `PreferencesFor`, and the account port
+- [x] T5.2 Grep `kkpa/context/` for `account.settings`, `PreferencesFor`, and the account port
       (`grep -rl "account\.settings\|PreferencesFor\|account\.Service" kkpa/context/`) and read
       every match. Fix any guide whose consumer map, file map, or described behavior this
       change invalidates. Report which files were checked and which (if any) were edited, per
       `CLAUDE.md`'s KB rule.
-- [ ] T5.3 Add the verified deploy + rollback steps for this migration to
+- [x] T5.3 Add the verified deploy + rollback steps for this migration to
       `docs/0-set-up/deployment.md`, near the existing §8.8 "First deploy" / §8.11 "Deploying an
       update" sections — the exact commands from `design.md` D8 (deploy, no extra step) and D9
       (the verified manual `psql` + `goose_db_version` rollback procedure, NOT the roadmap's
@@ -184,21 +184,21 @@
 
 ## T6. Makefile / guard verification — depends on T1, parallel-ok with T2/T3/T4/T5
 
-- [ ] T6.1 Confirm `MIGRATIONS_DIRS` in the `Makefile` needs no change — `internal/account/db/
+- [x] T6.1 Confirm `MIGRATIONS_DIRS` in the `Makefile` needs no change — `internal/account/db/
       migrations` is already listed, and T1's new file lives in that same directory.
-- [ ] T6.2 Confirm `db-setup`/`db-reset` role-and-ownership assumptions hold: read the
+- [x] T6.2 Confirm `db-setup`/`db-reset` role-and-ownership assumptions hold: read the
       `db-reset`/`db-setup` targets and confirm they operate at the whole-database level (drop
       + recreate `OWNER $ROLE`), so the new column needs no separate ownership handling — it is
       added to a table the app role already owns since `RM39`'s schema move. Report what was
       read and concluded, not just "unaffected" (`design.md`'s "Reverse-Direction Check").
-- [ ] T6.3 Confirm `sqlc.yaml` needs no structural change — the existing `account` module
+- [x] T6.3 Confirm `sqlc.yaml` needs no structural change — the existing `account` module
       `sql:` entry's `schema:` already points at `internal/account/db/migrations`, which now
       includes T1's file automatically.
-- [ ] T6.4 Run `make migration-guard` (or reproduce its collision check manually) after T1
+- [x] T6.4 Run `make migration-guard` (or reproduce its collision check manually) after T1
       lands, to confirm `20260908000001` (or whatever timestamp T1.1 actually used, if bumped
       for a collision) does not collide with any migration in `internal/telemetry`,
       `internal/charging`, or `internal/analytics`. Report the result.
-- [ ] T6.5 Run `make tz-guard` after T4 lands. Confirm it passes: the migration's `AT TIME ZONE
+- [x] T6.5 Run `make tz-guard` after T4 lands. Confirm it passes: the migration's `AT TIME ZONE
       'America/Bogota'` literal is a `.sql` file and outside the guard's scan (`internal
       --include='*.go'`); the Go-side date computation (`clock.CalendarDay(clock.Now(),
       clock.Zone())`) calls only functions defined inside `internal/clock`, so no raw
@@ -207,20 +207,20 @@
 
 ## T7. Verification — depends on T1–T6
 
-- [ ] T7.1 `go build ./...` and `go vet ./...` pass repo-wide. If the widened `account.Service`
+- [x] T7.1 `go build ./...` and `go vet ./...` pass repo-wide. If the widened `account.Service`
       interface breaks compilation of a fake/double in a sibling module's test file, that is a
       leader-owned cross-module fix — flag it, do not edit outside `internal/account`.
-- [ ] T7.2 `gofmt -l` reports no diff for any file this tier touched.
-- [ ] T7.3 Boundary check: `internal/account` still does not import `internal/tesla` or
+- [x] T7.2 `gofmt -l` reports no diff for any file this tier touched.
+- [x] T7.3 Boundary check: `internal/account` still does not import `internal/tesla` or
       `internal/gateway`; the new `internal/clock` import creates no cycle (`internal/clock`
       imports only stdlib); `pgtype` does not appear in any public type or interface signature;
       no file outside `internal/account` (other than a leader-owned cross-module fix per T7.1),
       `openspec/changes/RM49-account-add-analysis-start-date/`, `docs/0-set-up/deployment.md`,
       or `kkpa/context/` was touched.
-- [ ] T7.4 Report the exact test-suite commands the owner may run to exercise this change by
+- [x] T7.4 Report the exact test-suite commands the owner may run to exercise this change by
       hand if they choose (`go test ./internal/account/...` and the full `go test ./...` /
       `make test-with-db`) — this tier adds no new `_test.go` file (roadmap D10), so there is no
       new test to point at; existing tests must still compile and the owner's run is what
       confirms nothing broke.
-- [ ] T7.5 `openspec validate RM49-account-add-analysis-start-date --strict` passes and every
+- [x] T7.5 `openspec validate RM49-account-add-analysis-start-date --strict` passes and every
       `tasks.md` checkbox above reflects real completion.

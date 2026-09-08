@@ -487,6 +487,47 @@ For every other day-to-day command — logs, restarting one service, database
 access, backups, and troubleshooting — see
 **[`docs/1-deploy/docker.md`](../1-deploy/docker.md)**.
 
+### 8.11a Rolling back a migration
+
+A normal deploy (8.11) needs no extra step: the `migrate` service already applies every
+pending migration before `web`/`poller` start.
+
+**A plain `goose down` does NOT work in this stack.** Two things are missing on purpose:
+
+- No running container has the `goose` CLI installed. The `migrate` image only copies the
+  compiled `cmd/migrate` binary and the migration `.sql` files — never the `goose` tool
+  itself.
+- `cmd/migrate` (the program the `migrate` service runs) only applies migrations forward.
+  It has no "down" command at all.
+
+So if a migration needs to be undone, do it by hand with `psql`, inside the `db`
+container:
+
+```bash
+# 1. Open psql inside the running db container. Replace <user> and <db>
+#    with your real POSTGRES_USER / POSTGRES_DB values from .env.
+docker compose --project-directory . -f deploy/docker/compose.yaml exec db \
+  psql -U <user> -d <db>
+```
+
+```sql
+-- 2. Run the migration's own "-- +goose Down" SQL by hand. Example, for
+--    20260908000001_settings_add_analysis_start_date.sql:
+ALTER TABLE account.settings DROP COLUMN analysis_start_date;
+
+-- 3. Tell goose the migration no longer counts as applied, so the next
+--    deploy re-runs it instead of skipping it. version_id is the
+--    migration's filename timestamp (the 14 digits at the start).
+DELETE FROM goose_db_version WHERE version_id = 20260908000001;
+```
+
+Step 3 matters: skip it, and the next `migrate` run believes this migration already ran
+and will not re-apply it — the schema and the code then quietly disagree.
+
+This procedure works for any migration, not only this one — always use that migration's
+own `-- +goose Down` SQL and its own filename timestamp. There is currently no automated
+rollback tool in this deploy path; this manual `psql` procedure is the only verified way.
+
 ### 8.12 Manual rerun — trigger one cycle on demand
 
 The poller collects data every night on its own schedule. If you cannot wait for

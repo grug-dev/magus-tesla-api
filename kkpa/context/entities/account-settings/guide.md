@@ -9,7 +9,11 @@
 - **Known as:** `account settings`, `user preferences`, `per-user preferences`, `settings row`
   (UI/business)
 - **Internal name:** `account.Settings` — table `account.settings`, one row per account, PK
-  `account_id`. Holds exactly two preferences today: `language` and `theme`.
+  `account_id`. Holds three fields today: `language`, `theme`, and `analysis_start_date`
+  (the first day, in `America/Bogota`, the platform analyzes the account's vehicle data —
+  added by `RM49-account-add-analysis-start-date` tier 1, MAG-55). `analysis_start_date` is
+  read-only: it is set once at signup from `internal/clock`, and this module has no write
+  port for it yet.
 
 ## Component map
 
@@ -51,10 +55,15 @@
   therefore no "no settings row yet" state to branch on — missing-row and at-its-default are the
   same state, so a read needs no COALESCE and no missing-row path.
   _Source: spec account — Requirement: Settings Row Guaranteed At Account Creation._
-- **Both preferences come back in ONE lookup.** A caller that needs language and theme for one
-  render must use the combined port; adding a second round trip regresses the guarantee this
-  requirement exists to make. _Source: spec account — Requirement: Settings Row Guaranteed At
-  Account Creation._
+- **All three fields come back in ONE lookup.** A caller that needs more than one field for
+  one render must use the combined port (`PreferencesFor`); adding a second round trip
+  regresses the guarantee this requirement exists to make. _Source: spec account —
+  Requirement: Settings Row Guaranteed At Account Creation._
+- **`analysis_start_date` is read-only in this module.** There is no write port. A single-field
+  reader, `AnalysisStartDateFor`, is built on top of `PreferencesFor` — same combined-lookup
+  rule as `LanguageFor`/`ThemeFor`. The value is computed once, at signup, from
+  `internal/clock` (never a raw `time.Now()` or a SQL `CURRENT_DATE`, both of which use the
+  wrong time zone). _Source: `RM49-account-add-analysis-start-date` design.md D4/D5._
 
 ## Related KB
 

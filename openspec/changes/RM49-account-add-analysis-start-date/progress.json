@@ -5,24 +5,25 @@
   "module": "account",
   "roadmap": "openspec/roadmaps/RM49-analysis-start-date.md",
   "request": "MAG-55 — store the account's analysis start date so the external-charges page can reject charges dated before it. Tier 1 of 2: the account module's column, migration and port.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "T5",
-      "T6",
-      "T7"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
+      "T5",
+      "T6"
+    ],
+    "awaiting_user_verification": [
       "T1",
       "T2",
       "T3",
-      "T4"
+      "T4",
+      "T7"
     ]
   },
   "created_at": "2026-09-08T10:54:25Z",
-  "updated_at": "2026-09-08T11:32:37Z",
+  "updated_at": "2026-09-08T11:36:43Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -42,7 +43,7 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T11:29:00Z",
@@ -65,7 +66,7 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T11:29:00Z",
@@ -90,7 +91,7 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T11:30:00Z",
@@ -116,7 +117,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T11:31:00Z",
@@ -142,14 +143,22 @@
         "T2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:33:30Z",
+      "completed_at": "2026-09-08T11:35:30Z",
+      "duration_seconds": 90,
+      "notes": "Updated AGENTS.md public interface and boundaries. Edited 2 live KB files. Added deployment.md 8.11a with the verified manual psql rollback. Left applied-proposal records alone.",
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 80,
+        "context_pct_start": 12,
+        "context_pct_end": 15,
+        "cost_usd_delta": 2.793,
+        "approx": true,
+        "note": "One serial worker for T5-T7; wave delta copied onto each task."
+      }
     },
     {
       "id": "T6",
@@ -159,14 +168,22 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:33:30Z",
+      "completed_at": "2026-09-08T11:35:00Z",
+      "duration_seconds": 90,
+      "notes": "Read the Makefile: MIGRATIONS_DIRS, db-setup/db-reset and sqlc.yaml all need no change. make migration-guard and make tz-guard both pass.",
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 80,
+        "context_pct_start": 12,
+        "context_pct_end": 15,
+        "cost_usd_delta": 2.793,
+        "approx": true,
+        "note": "One serial worker for T5-T7; wave delta copied onto each task."
+      }
     },
     {
       "id": "T7",
@@ -178,14 +195,22 @@
         "T6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:35:30Z",
+      "completed_at": "2026-09-08T11:36:00Z",
+      "duration_seconds": 90,
+      "notes": "Build, vet, gofmt, boundary check and openspec validate --strict all pass. The suite is the owner's to run.",
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 80,
+        "context_pct_start": 12,
+        "context_pct_end": 15,
+        "cost_usd_delta": 2.793,
+        "approx": true,
+        "note": "One serial worker for T5-T7; wave delta copied onto each task."
+      }
     }
   ],
   "decisions": [
@@ -228,6 +253,22 @@
       "at": "2026-09-08T11:32:37Z",
       "what": "Leader added inert AnalysisStartDateFor stubs to three test doubles: internal/app, internal/telemetry, internal/gateway/handlers.",
       "why": "The widened account.Service broke their compile. Outside the worker's sandbox, so leader-owned, exactly as T7.1 anticipated."
+    },
+    {
+      "id": "L5",
+      "scope": "leader:test-ask-timing",
+      "made_by": "autopilot",
+      "at": "2026-09-08T11:33:30Z",
+      "what": "Deferred the wave-1 test ask to the single Step 6 ask before the reviewer.",
+      "why": "Wave 2 is docs, guards and verification only. It adds no Go code, so one ask covers both waves and saves a round-trip."
+    },
+    {
+      "id": "L6",
+      "scope": "leader:status-honesty",
+      "made_by": "autopilot",
+      "at": "2026-09-08T11:36:43Z",
+      "what": "Corrected T1-T4 from done to awaiting-user-verification, alongside T7.",
+      "why": "The change edits three existing test files and nobody has run the suite. Test-Execution-Policy reserves that pass to the owner."
     }
   ],
   "review": {
@@ -261,6 +302,16 @@
       "at": "2026-09-08T11:32:37Z",
       "what": "wave-1-completed",
       "detail": "T1-T4 done. sqlc type verified pgtype.Date. Leader fixed 3 cross-module test doubles. go build + go vet ./... clean. gofmt hits (testdb_test.go, quote_test.go, vehicle_image_test.go) confirmed pre-existing on HEAD. Budget: 5h 66→73%, ctx 9→12%, $2.77."
+    },
+    {
+      "at": "2026-09-08T11:33:30Z",
+      "what": "wave-2-dispatched",
+      "detail": "Worker 'account' (Sonnet), serial: T5 docs, T6 Makefile/guard verification, T7 final verification. Budget start: 5h 73%, ctx 12%."
+    },
+    {
+      "at": "2026-09-08T11:36:43Z",
+      "what": "wave-2-completed",
+      "detail": "T5-T7 done. Leader re-ran archive-guard and boundary-guard: both pass. Docs, KB and deployment.md 8.11a landed. Budget: 5h 73->80%, ctx 12->15%, $2.79."
     }
   ]
 }
