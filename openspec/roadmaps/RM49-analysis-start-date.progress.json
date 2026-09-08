@@ -6,7 +6,7 @@
   "request": "MAG-55 — restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-08T11:54:00Z",
+  "updated_at": "2026-09-08T11:54:30Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM49-MAG-55-analysis-start-date",
@@ -106,6 +106,13 @@
       "duration_seconds": null,
       "budget": null,
       "notes": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-08T11:54:30Z",
+      "what": "budget-checkpoint",
+      "detail": "Tier 1 archived. Checkpoint gate tripped at the tier boundary: five_hour_pct 90 (threshold 90), context_pct 19, five_hour_resets_at 1788876000 (2026-09-08T14:00:00Z). Tier 2 NOT started. Pending on resume: (1) the kkpa-context-curate from-spec KB sync for openspec/specs/account/spec.md, (2) tier 2 RM49-gateway-restrict-external-charge-date. Linear DONE must NOT fire — the roadmap is not complete."
     }
   ]
 }
