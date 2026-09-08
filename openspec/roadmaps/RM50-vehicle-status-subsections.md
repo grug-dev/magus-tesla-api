@@ -148,6 +148,51 @@ the suite — the owner runs it and reports.
   column list, `VehicleStatus`'s field list, and the stat-tile row. Never touch
   `openspec/changes/archive/`.
 
+### RD9 — The panel layout is `/design` Option B (settled 2026-09-08, tier 2)
+
+Inside the panel card, an inner 12-column grid. Left column (`md:col-span-4`): the vehicle
+image, then the Odometer and 100% Charges tiles stacked. Right column (`md:col-span-8`): the
+three named subsections stacked, each with a `ui.SectionHeader`. Tire pressure is a **2x2**
+grid, not one row of four — the right column is too narrow for four.
+
+**Why:** the user picked it from three artboards drawn with the app's real tokens. It is the
+most compact option, so the 8-col hero stays close in height to the 4-col column beside it.
+
+**Cost accepted:** "which wheel" is harder to read than the rejected wheel-map option.
+
+### RD10 — Each tyre tile also shows the numeric delta
+
+The up/down icon sits beside the value; the number (e.g. "+0.4 vs prev. day") goes on the
+tile's `Desc` line. This applies to tier 4's tyre tiles.
+
+**Why:** the ticket asked only for an icon, and the user confirmed keeping the number. Tier 3
+computes it anyway, so it costs two i18n keys and no new data.
+
+**Not applied to Travel Progress.** Those two values are already single-day deltas, so a line
+underneath would repeat the number the value already shows.
+
+### RD11 — The `ui/` kit gained two things in tier 2
+
+`ui.Icon` has `trending_up` and `trending_down`. `ui.StatTileProps` has `Trend string` —
+`"up"`, `"down"`, or empty for no icon.
+
+**Why:** the arrows did not exist, and `StatTile` had no slot for one. A page hand-writing that
+markup would bypass the kit, which the module forbids.
+
+### RD12 — Tier 3 backfills the tyre deltas by self-join, inside analytics' own schema
+
+The migration updates `analytics.vehicle_metrics` from itself, computing each row's four delta
+values against the previous day's row.
+
+**Why:** tier 1 already copied the raw `tpms_pressure_*_psi` columns into `vehicle_metrics`, so
+the delta is computable without leaving the module's own schema. **Unlike RD2 this is NOT a
+boundary deviation** — no cross-schema read, nothing to record as an exception.
+
+**Rejected:** (a) no backfill, letting the nightly `Reconcile` fill old rows — it depends on
+Reconcile recalculating full history as a side effect of the supercharger watermark, and if
+that side effect changes, old rows stay NULL and nobody notices; (b) resetting the
+`vehicle_snapshots` watermark — it rewrites every derived row instead of only the new columns.
+
 ## Tiers
 
 Status legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not
@@ -157,7 +202,7 @@ archived) · `[x]` done (archived).
 |---|---|---|---|---|---|
 | `[x]` | 1 | `RM50-analytics-add-tire-pressure-columns` | `analytics` | Four raw TPMS columns + backfill migration + expose travel-progress fields on the read port | — |
 | `[x]` | 2 | `RM50-gateway-add-travel-progress-subsection` | `gateway` | `/design` (3 suggestions), Travel Progress subsection, regroup Interior/Exterior | 1 |
-| `[ ]` | 3 | `RM50-analytics-add-tire-pressure-variance` | `analytics` | Four `_calc` delta columns + delta maths + expose on the read port | 1 |
+| `[~]` | 3 | `RM50-analytics-add-tire-pressure-variance` | `analytics` | Four `_calc` delta columns + delta maths + expose on the read port | 1 |
 | `[ ]` | 4 | `RM50-gateway-add-tire-pressure-subsection` | `gateway` | Tire pressure subsection with per-wheel up/down icons | 2, 3 |
 
 ### Tier 1 — `[x]` `RM50-analytics-add-tire-pressure-columns` (module: `analytics`)
@@ -207,7 +252,7 @@ existing interior/exterior temperature tiles into their own subsection. Semantic
 (RD6), bilingual labels, no markup-coupled tests (RD8). The data path is `Handler.dashboardFor`,
 not the history fragment (RD7).*
 
-### Tier 3 — `[ ]` `RM50-analytics-add-tire-pressure-variance` (module: `analytics`; depends on tier 1)
+### Tier 3 — `[~]` `RM50-analytics-add-tire-pressure-variance` (module: `analytics`; depends on tier 1)
 
 Covers the backend half of ticket **Step 3**.
 
