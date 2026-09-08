@@ -21,9 +21,10 @@ type Account struct {
 }
 
 type AccountSetting struct {
-	AccountID uuid.UUID
-	Language  string
-	Theme     string
+	AccountID         uuid.UUID
+	Language          string
+	Theme             string
+	AnalysisStartDate pgtype.Date
 }
 
 type TeslaToken struct {

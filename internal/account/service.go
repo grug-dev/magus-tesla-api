@@ -13,6 +13,7 @@ import (
 
 	accountdb "github.com/cristianpena/magus-tesla-api/internal/account/db"
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 )
 
 // refreshMargin refreshes a Tesla access token this long before it actually
@@ -72,7 +73,15 @@ func (s *service) UpsertFromOAuth(ctx context.Context, id OAuthIdentity) (Accoun
 		return Account{}, fmt.Errorf("upserting account from oauth: %w", err)
 	}
 
-	if err := qtx.InsertSettingsIfMissing(ctx, row.ID); err != nil {
+	// analysis_start_date is computed here, in Go, through internal/clock — the
+	// platform's one sanctioned owner of "what day is it" (design.md D5). Never
+	// CURRENT_DATE or a column DEFAULT: both would resolve in the database
+	// session's time zone, not America/Bogota.
+	today := clock.CalendarDay(clock.Now(), clock.Zone())
+	if err := qtx.InsertSettingsIfMissing(ctx, accountdb.InsertSettingsIfMissingParams{
+		AccountID:         row.ID,
+		AnalysisStartDate: dateFromTime(today),
+	}); err != nil {
 		return Account{}, fmt.Errorf("creating account settings: %w", err)
 	}
 
@@ -211,9 +220,21 @@ func (s *service) PreferencesFor(ctx context.Context, accountID uuid.UUID) (Sett
 		return Settings{}, fmt.Errorf("loading account settings: %w", err)
 	}
 	return Settings{
-		Language: normalizeLanguage(row.Language),
-		Theme:    normalizeTheme(row.Theme),
+		Language:          normalizeLanguage(row.Language),
+		Theme:             normalizeTheme(row.Theme),
+		AnalysisStartDate: row.AnalysisStartDate.Time,
 	}, nil
+}
+
+// AnalysisStartDateFor returns the account's analysis start date, implemented
+// on top of PreferencesFor exactly as LanguageFor/ThemeFor are (design.md D4):
+// a caller that needs only this value still costs one query.
+func (s *service) AnalysisStartDateFor(ctx context.Context, accountID uuid.UUID) (time.Time, error) {
+	prefs, err := s.PreferencesFor(ctx, accountID)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return prefs.AnalysisStartDate, nil
 }
 
 func (s *service) LanguageFor(ctx context.Context, accountID uuid.UUID) (string, error) {
@@ -297,6 +318,12 @@ func normalizeTheme(theme string) string {
 
 func isSupportedTheme(theme string) bool {
 	return theme == ThemeApex || theme == ThemeGraphite || theme == ThemeHalloween
+}
+
+// dateFromTime converts a time.Time to a valid pgtype.Date for a DATE column.
+// Mirrors internal/charging/service.go's helper of the same name exactly.
+func dateFromTime(t time.Time) pgtype.Date {
+	return pgtype.Date{Time: t, Valid: true}
 }
 
 // --- row → domain mapping ---

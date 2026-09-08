@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM49-gateway-restrict-external-charge-date",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM49-analysis-start-date.md",
+  "request": "MAG-55 \u2014 restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5"
+    ]
+  },
+  "created_at": "2026-09-08T14:48:00Z",
+  "updated_at": "2026-09-08T15:15:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM49-MAG-55-analysis-start-date",
+    "base": "main",
+    "ticket": "MAG-55",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-55/external-charges",
+    "created_at": "2026-09-08T10:35:30Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "i18n catalogue keys",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:48:30Z",
+      "completed_at": "2026-09-08T14:52:46Z",
+      "duration_seconds": 256,
+      "notes": "Added KeyChargesErrorDateBeforeAnalysisStart and KeyChargesErrorCouldNotValidateAnalysisStartDate to catalog.go, const block and map, ES+EN non-empty.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.253,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T3; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Handler logic: analysis-start-date check + MinChargedOn",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:48:30Z",
+      "completed_at": "2026-09-08T14:52:46Z",
+      "duration_seconds": 256,
+      "notes": "Added the check in parseExternalChargeForm, MinChargedOn on ExternalChargesPageData, minChargedOn computed once in buildExternalChargesPage and ExternalChargeRowUpdate.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.253,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T3; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Template wiring: min attribute + new row-edit parameter",
+      "module": "gateway",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:48:30Z",
+      "completed_at": "2026-09-08T14:52:46Z",
+      "duration_seconds": 256,
+      "notes": "Added the min attribute to both date inputs, extended ExternalChargeRowEdit to six params, updated its call site. Ran make templ and make css. Also fixed one call site in external_charges_test.go: signature drift only, no assertion changed.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.253,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T3; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Docs: KB input-port guide + INDEX check",
+      "module": "gateway",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:53:26Z",
+      "completed_at": "2026-09-08T14:55:27Z",
+      "duration_seconds": 121,
+      "notes": "Added a new section to kkpa/context/input-port/charging/external-charges.md and one INDEX.md row. Leader added the missing AnalysisStartDateFor read-consumer link to entities/account-settings/guide.md.",
+      "budget": {
+        "five_hour_pct_start": 45,
+        "five_hour_pct_end": 51,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.009,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T4-T5; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Verification: build, vet, gofmt, guards",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:53:26Z",
+      "completed_at": "2026-09-08T14:55:27Z",
+      "duration_seconds": 121,
+      "notes": "go build, go vet, gofmt on touched files, ui-guard, i18n-guard, tz-guard, boundary-guard, archive-guard and openspec validate --strict all pass. Three gofmt diffs are pre-existing and untouched.",
+      "budget": {
+        "five_hour_pct_start": 45,
+        "five_hour_pct_end": 51,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.009,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T4-T5; the wave delta is copied onto each task."
+      }
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review the tier-2 diff only: commits 1643b58 and bd9add9 on ft/RM49-MAG-55-analysis-start-date. Read the diff, not the whole module. Validate: (1) module-boundary compliance - internal/account is reached only through its public Go interface, no accountdb import, no HTML outside internal/gateway; (2) internal/charging is untouched, which is roadmap decision D5 and deliberate; (3) the shipped code matches design.md D1-D6, especially D2's boundary case: a charged_on equal to the analysis start date must be ACCEPTED; (4) D3's fail-closed path - a lookup error must save nothing; (5) every new user-facing string resolves through i18n.T with ES and EN both non-empty; (6) spec and tasks coverage - specs/gateway/spec.md describes the shipped behavior; (7) the read-heavy Performance-Profile: note that ExternalChargeRowUpdate now calls AnalysisStartDateFor once for minChargedOn and parseExternalChargeForm calls it again in the same request. Judge whether that second primary-key lookup is acceptable or a finding; (8) anti-gaming - no acceptance criterion was weakened, no status self-approved, and the one edit to external_charges_test.go is a signature-drift fix only, with no assertion changed. Roadmap D10 means this tier ships NO new tests; do not file a finding asking for tests. No database object is touched. Signals: assistant-run and passing - go build, go vet, gofmt on touched files, ui-guard, i18n-guard, tz-guard, boundary-guard, archive-guard, openspec validate --strict. User-reported and passing - make test-with-db. You do not run the suite; judge test quality by reading, not by running.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-08T15:13:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "internal/gateway/handlers/external_charges.go",
+            "what": "ExternalChargeRowUpdate calls AnalysisStartDateFor once at line 406 for minChargedOn, then parseExternalChargeForm calls it again at line 1294 for the validation check. Same for ExternalChargeCreate's error branches (parseExternalChargeForm plus buildExternalChargesPage). Two lookups per write request instead of one.",
+            "why": "Each call is a single indexed primary-key read (account.settings.account_id), and this happens only on user-initiated writes, not the dashboard read path the Performance-Profile protects. Cost is trivial. Not a blocker. Worth a one-line note if a future change adds more callers in the same request, so the duplication does not silently grow."
+          }
+        ],
+        "duration_seconds": 100,
+        "budget": {
+          "five_hour_pct_start": 3,
+          "five_hour_pct_end": 8,
+          "five_hour_pct_delta": 5,
+          "cost_usd_delta": 1.753,
+          "context_pct_end": 10,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "Review round 1, one gateway-reviewer on Sonnet."
+        }
+      }
+    ]
+  },
+  "decisions": [],
+  "events": [
+    {
+      "at": "2026-09-08T14:46:15Z",
+      "agent": "leader",
+      "event": "artifacts created by the gateway worker (Sonnet) and validated with openspec validate --strict. No database object touched, so the database design gate does not apply. Artifact wave budget: five_hour_pct 22 -> 36, cost_usd delta 4.755."
+    },
+    {
+      "at": "2026-09-08T14:50:00Z",
+      "agent": "leader",
+      "event": "dispatched one serial gateway worker (Sonnet) for wave 1 (T1, T2, T3). Serial, not parallel: T2 needs T1's i18n keys to compile and T3 needs T2's field and parameter names."
+    },
+    {
+      "at": "2026-09-08T14:53:00Z",
+      "agent": "leader",
+      "event": "wave 1 (T1, T2, T3) returned. Leader checked the diff against design.md D1-D4: the check sits in parseExternalChargeForm's parsed branch, uses chargedOn.Before(minDate), fails closed on lookup error, and MinChargedOn is computed once before the early return. Assistant-run signals: go build, go vet, gofmt on touched files, make ui-guard, make i18n-guard, all pass. Suite NOT run - owner's job."
+    },
+    {
+      "at": "2026-09-08T14:54:00Z",
+      "agent": "leader",
+      "event": "dispatched one serial gateway worker (Sonnet) for wave 2 (T4 docs, T5 verification). Wave 1 commit 1643b58."
+    },
+    {
+      "at": "2026-09-08T14:56:30Z",
+      "agent": "leader",
+      "event": "wave 2 (T4, T5) returned. All assistant-run signals pass: go build, go vet, gofmt on touched files, ui-guard, i18n-guard, tz-guard, boundary-guard, archive-guard, openspec validate --strict. The suite has NOT been run - it is the owner's. Every task is awaiting-user-verification. The reviewer gate does not run until the owner reports the suite result."
+    },
+    {
+      "at": "2026-09-08T15:05:00Z",
+      "agent": "leader",
+      "event": "The OWNER ran make test-with-db and reported it passing. Recorded as the owner's verification, not the assistant's. All five tasks move to done and the change moves to verified."
+    },
+    {
+      "at": "2026-09-08T15:11:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session. Dispatched gateway-reviewer (Sonnet) for review round 1. Budget at dispatch: five_hour_pct 3, context_pct 9, cost_usd 0.899."
+    },
+    {
+      "at": "2026-09-08T15:15:00Z",
+      "agent": "leader",
+      "event": "review round 1 returned approved with one minor finding (F1: two AnalysisStartDateFor lookups per write request). Leader triaged F1 and accepted the reviewer's own judgement: the write path is not the read path the Performance-Profile protects, and each call is one indexed PK read. No fix. Change archived under archive/gateway/, delta spec synced into openspec/specs/gateway/spec.md (1 requirement added)."
+    }
+  ]
+}

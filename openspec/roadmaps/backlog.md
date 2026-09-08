@@ -964,6 +964,53 @@ PG16 dev database. The owner chose to fix only the comparison (roadmap D18) and 
 write behaviour, deferring the "should we save the late value" question to this entry.
 
 
+## 27. account / gateway — Let the user change `analysis_start_date`
+
+### PROPOSAL
+
+RM49 stores `account.settings.analysis_start_date` and makes it read-only. It is set
+once at signup, copied from `account.accounts.created_at`. The user cannot change it.
+
+This item is to make it editable on the `/settings` page. The work is: one form field,
+a `SetAnalysisStartDate` write port method on `account.Service`, its own validation
+(not in the future, not before the account was created), and ES + EN catalogue entries.
+
+**Trigger:** the owner wants to analyze charges from before signup, or wants to move
+the start date forward to drop an early period of bad data.
+
+### ORIGIN
+
+RM49 decision D7. The owner chose read-only to keep the ticket small.
+
+
+
+## 28. deployment — No way to roll a migration back in the deployed stack
+
+### PROPOSAL
+
+The deployed images cannot reverse a migration. `deploy/docker/Dockerfile` never installs
+the `goose` CLI — the Dockerfile's own comment explains it cannot be built here, because
+`go.sum` has no entries for the CLI's optional driver dependencies. And `cmd/migrate/main.go`
+only calls `provider.Up(ctx)`; it has no down path at all.
+
+So the only rollback today is manual SQL inside the `db` container: run the migration's own
+Down statement by hand, then `DELETE FROM goose_db_version WHERE version_id = <version>` so
+a later deploy re-applies it. That is error-prone and easy to half-finish.
+
+The work is: add a `down` subcommand to `cmd/migrate` (goose's library already supports it,
+so no new dependency), and a matching `docker compose run` invocation documented in
+`docs/0-set-up/deployment.md`.
+
+**Trigger:** the first time a migration must actually be rolled back in production, or
+before any migration that is risky enough to want a tested reverse path.
+
+### ORIGIN
+
+RM49 tier 1 design.md D9. The worker was told to verify the roadmap's suggested rollback
+command and found it did not exist. Fixing the gap was out of scope for that tier.
+
+
+
 # BRAINSTORMING
 
 

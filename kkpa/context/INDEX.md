@@ -18,10 +18,11 @@
 | `charge session record` | synonym of `charge session log` | entity | `workflows/supercharger-stats-read.md` |
 | `session battery edit` | `SuperchargerRowUpdate` / `charging.SessionVerifier.VerifySession` | entity | `use-case/charging/verify-session-battery.md` |
 | `verify session battery` | synonym of `session battery edit` | entity | `use-case/charging/verify-session-battery.md` |
-| `account settings` (the one-row-per-account preference record: `language` + `theme`, PK `account_id`) | `account.Settings` — table `account.settings` | entity | `entities/account-settings/guide.md` |
+| `account settings` (the one-row-per-account record: `language` + `theme` + `analysis_start_date`, PK `account_id`) | `account.Settings` — table `account.settings` | entity | `entities/account-settings/guide.md` |
 | `user preferences` | synonym of `account settings` → `entities/account-settings/guide.md` | entity | `entities/account-settings/guide.md` |
 | `theme preference` | `account.settings.theme` — closed vocabulary `apex` / `graphite` / `halloween`, default `graphite` | entity | `entities/account-settings/guide.md` |
 | `language preference` | `account.settings.language` — moved off `accounts.language` by RM42 tier 1, which dropped that column | entity | `entities/account-settings/guide.md` |
+| `analysis start date` | `account.settings.analysis_start_date` — read-only, set at signup from `internal/clock`; `account.Service.AnalysisStartDateFor` (RM49 tier 1, MAG-55) | entity | `entities/account-settings/guide.md` |
 | `battery percentage correction` | synonym of `session battery edit` | entity | `use-case/charging/verify-session-battery.md` |
 | `vehicle metrics` | `analytics.Recalculator` / `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calc fields` | the `_calc` columns of `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
@@ -68,6 +69,7 @@
 | `status required toggle` | RD13 — `applyChargeStatusRequiredToggle` (`static/app.js`) | `charging` | `input-port/charging/external-charges.md` |
 | `charge date time sync` | RD12 — the `charged_on` → `started_at`/`ended_at` date splice | `charging` | `input-port/charging/external-charges.md` |
 | `one in-progress per day` | `handlers.inProgressConflictOn` — one `IN_PROGRESS` entry per (vehicle, `charged_on`) | `charging` | `input-port/charging/external-charges.md` |
+| `charge date before analysis start` | `handlers.parseExternalChargeForm`'s `AnalysisStartDateFor` check — rejects a `charged_on` before the account's analysis start date (RM49 tier 2, MAG-55) | `charging` | `input-port/charging/external-charges.md` |
 | `Externas` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
 | `charges page` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
 | `Supercharger Stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |

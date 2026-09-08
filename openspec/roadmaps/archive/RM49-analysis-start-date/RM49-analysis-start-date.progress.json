@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM49-analysis-start-date",
+  "intention": "Every account stores the first day the app analyzes vehicle data, and the external-charges page rejects charges dated before it.",
+  "request": "MAG-55 \u2014 restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
+  "status": "complete",
+  "autopilot": false,
+  "updated_at": "2026-09-08T15:15:00Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM49-MAG-55-analysis-start-date",
+    "base": "main",
+    "ticket": "MAG-55",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-55/external-charges",
+    "created_at": "2026-09-08T10:35:30Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "scope": "roadmap:table-choice",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "analysis_start_date DATE NOT NULL lives on account.settings, not on accounts or vehicles.",
+      "why": "settings is already the one-row-per-account typed table (RM42 D3). Per-vehicle is more correct once a second car exists, but costs teslaID plumbing today."
+    },
+    {
+      "id": "D5",
+      "scope": "roadmap:enforcement",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "The rule is enforced in internal/gateway only. internal/charging is not touched.",
+      "why": "Trades domain-level safety for one fewer module and wave. Accepted consequence: a non-gateway caller of charging.Writer can still save a bad date."
+    },
+    {
+      "id": "D6",
+      "scope": "roadmap:date-field",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "The rule compares Entry.ChargedOn only, never StartedAt.",
+      "why": "ChargedOn is required on every entry and is what analytics uses. StartedAt is optional and unused there."
+    },
+    {
+      "id": "D7",
+      "scope": "roadmap:editability",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "The date is read-only. No settings form field, no write port method.",
+      "why": "Keeps the ticket small. Editing is deferred to backlog item 27 with its own trigger."
+    },
+    {
+      "id": "D10",
+      "scope": "roadmap:tests",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "No unit tests in this roadmap.",
+      "why": "The owner's standing default. Build, vet and the guards still run."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM49-account-add-analysis-start-date",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T11:28:46Z",
+      "completed_at": "2026-09-08T11:54:00Z",
+      "duration_seconds": 914,
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 89,
+        "context_pct_start": 9,
+        "context_pct_end": 18,
+        "cost_usd_delta": 9.414,
+        "note": "Two worker waves, one leader cross-module fix, one stale-test fix, one review round."
+      },
+      "notes": "Archived with no review findings. The owner ran make test-with-db and reported the pass."
+    },
+    {
+      "id": 2,
+      "change": "RM49-gateway-restrict-external-charge-date",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T14:36:00Z",
+      "completed_at": "2026-09-08T15:15:00Z",
+      "duration_seconds": 2340,
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 8,
+        "context_pct_start": 9,
+        "context_pct_end": 10,
+        "cost_usd_delta": 13.77,
+        "note": "Artifacts + two worker waves in the first session, review round 1 in a second session after a checkpoint. The 5-hour bucket reset between them."
+      },
+      "notes": "Reviewer approved in round 1 with one minor finding, accepted without a fix. The owner ran make test-with-db and reported the pass."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-08T11:54:30Z",
+      "what": "budget-checkpoint",
+      "detail": "Tier 1 archived. Checkpoint gate tripped at the tier boundary: five_hour_pct 90 (threshold 90), context_pct 19, five_hour_resets_at 1788876000 (2026-09-08T14:00:00Z). Tier 2 NOT started. Pending on resume: (1) the kkpa-context-curate from-spec KB sync for openspec/specs/account/spec.md, (2) tier 2 RM49-gateway-restrict-external-charge-date. Linear DONE must NOT fire \u2014 the roadmap is not complete."
+    },
+    {
+      "at": "2026-09-08T14:48:00Z",
+      "what": "tier-2-artifacts",
+      "detail": "RM49-gateway-restrict-external-charge-date artifacts created and validated. Tier 2 moved to proposed. Tier 1 KB sync checked on resume: openspec/specs/account/spec.md is already reflected in kkpa/context/entities/account-settings/guide.md and INDEX.md, so no sync proposal was staged."
+    },
+    {
+      "at": "2026-09-08T15:15:00Z",
+      "what": "roadmap-complete",
+      "detail": "Tier 2 archived. Every tier is archived, so RM49 is complete. Both roadmap files move to openspec/roadmaps/archive/RM49-analysis-start-date/. Linear DONE fires now for MAG-55."
+    }
+  ]
+}

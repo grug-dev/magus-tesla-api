@@ -177,6 +177,12 @@ type ExternalChargesPageData struct {
 	DefaultStartedAt string
 	DefaultEndedAt   string
 
+	// MinChargedOn is the account's analysis start date, pre-formatted "YYYY-MM-DD" by
+	// the handler, for the charged_on date input's min attribute (roadmap D8) — a
+	// convenience only. Empty when the lookup failed (rare); the server-side check in
+	// parseExternalChargeForm is the actual rule and runs regardless of this value.
+	MinChargedOn string
+
 	// StartBatteryPctSuggestion is a placeholder / helper-label string for the
 	// start_battery_pct field built from the active vehicle's latest telemetry
 	// snapshot BatteryLevelPct (D2). Empty string when no telemetry snapshot exists

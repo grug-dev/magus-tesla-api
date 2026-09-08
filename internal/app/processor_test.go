@@ -188,6 +188,12 @@ func (f *fakeAccountEmpty) SetTheme(_ context.Context, _ uuid.UUID, _ string) er
 	return nil
 }
 
+// AnalysisStartDateFor satisfies the widened account.Service (RM49 tier 1).
+// The processor never reads the analysis start date, so this is an inert stub.
+func (f *fakeAccountEmpty) AnalysisStartDateFor(_ context.Context, _ uuid.UUID) (time.Time, error) {
+	return time.Time{}, nil
+}
+
 var _ account.Service = (*fakeAccountEmpty)(nil)
 
 // fakeSuperchargerHistoryReader satisfies telemetry.SuperchargerHistoryReader. Every method

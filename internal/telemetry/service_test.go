@@ -101,6 +101,13 @@ func (f *fakeAccount) SetTheme(_ context.Context, _ uuid.UUID, _ string) error {
 	return nil
 }
 
+// AnalysisStartDateFor satisfies the widened account.Service (RM49 tier 1).
+// The nightly collector never reads the analysis start date, so this is an
+// inert stub.
+func (f *fakeAccount) AnalysisStartDateFor(_ context.Context, _ uuid.UUID) (time.Time, error) {
+	return time.Time{}, nil
+}
+
 func (f *fakeAccount) SetVehicleConfigIfEmpty(_ context.Context, accountID uuid.UUID, teslaID int64, exteriorColor, carType string) error {
 	f.configCaptures = append(f.configCaptures, configCapture{accountID, teslaID, exteriorColor, carType})
 	if f.configCaptureErr != nil {

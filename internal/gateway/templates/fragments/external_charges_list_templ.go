@@ -212,7 +212,7 @@ func ExternalChargesList(d ExternalChargesPageData) templ.Component {
 						ctx = templ.InitializeContext(ctx)
 						for _, vm := range d.Entries {
 							if vm.ID != "" && vm.ID == d.EditingID {
-								templ_7745c5c3_Err = ExternalChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr).Render(ctx, templ_7745c5c3_Buffer)
+								templ_7745c5c3_Err = ExternalChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr, d.MinChargedOn).Render(ctx, templ_7745c5c3_Buffer)
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
 								}

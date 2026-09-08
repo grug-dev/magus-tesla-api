@@ -158,11 +158,18 @@ type SeedVehicle struct {
 }
 
 // Settings is an account's persisted preferences: always exactly one row per
-// account (design.md D3/D4), holding both Language (always LanguageES or
-// LanguageEN) and Theme (always ThemeApex, ThemeGraphite, or ThemeHalloween).
+// account (design.md D3/D4), holding Language (always LanguageES or
+// LanguageEN), Theme (always ThemeApex, ThemeGraphite, or ThemeHalloween), and
+// AnalysisStartDate.
 type Settings struct {
 	Language string
 	Theme    string
+	// AnalysisStartDate is the first calendar day (America/Bogota) the platform
+	// analyzes this account's vehicle data. Set once, at signup, from the
+	// account's creation date (roadmap RM49 D1/D4/D7) — there is no write port
+	// for it in this module yet; making it editable is deferred (see the
+	// roadmap's "Future work").
+	AnalysisStartDate time.Time
 }
 
 // Service is the account module's public port. The gateway and sibling modules
@@ -264,4 +271,12 @@ type Service interface {
 	// ErrUnsupportedTheme (detect with errors.Is) WITHOUT writing. Mirrors
 	// SetLanguage exactly.
 	SetTheme(ctx context.Context, accountID uuid.UUID, theme string) error
+
+	// AnalysisStartDateFor returns the account's analysis start date: the first
+	// calendar day (America/Bogota) the platform analyzes this account's vehicle
+	// data. It never returns a zero time for a valid account — every account has
+	// exactly one settings row (RM42 D3/D4), and this column is NOT NULL. Mirrors
+	// LanguageFor/ThemeFor exactly: it only errors on an actual lookup failure
+	// (unknown accountID, DB error), never because of the stored value's shape.
+	AnalysisStartDateFor(ctx context.Context, accountID uuid.UUID) (time.Time, error)
 }
