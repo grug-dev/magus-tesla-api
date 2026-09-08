@@ -205,6 +205,41 @@ editing the Makefile itself. **Finding: no change needed to `MIGRATIONS_DIRS`, n
 needed beyond what already exists.** This backfill's `FROM telemetry.vehicle_snapshots`
 clause is always resolvable.
 
+#### Correction found during wave 1 — the check above covered production only
+
+The check above is correct for every real environment, and it stayed correct. It was
+incomplete: it read the Makefile and never read the **test** harness, which builds its own
+database and does not use `MIGRATIONS_DIRS` at all.
+
+`internal/analytics/testdb_test.go` listed its own `migrationDirs` with `db/migrations`
+(analytics) FIRST, then telemetry, then charging — the opposite of the Makefile's order.
+Its comment said "Order is irrelevant today — there are no cross-module foreign keys",
+which was true until this change. The backfill is not a foreign key, but it does read
+another module's table, so it made order matter for the first time.
+
+The owner's test run caught it:
+
+```
+provision: apply migrations: goose up: partial migration error
+(type:sql,version:20260908000002):
+ERROR: relation "telemetry.vehicle_snapshots" does not exist (SQLSTATE 42P01)
+```
+
+**Fix (D4):** reorder `migrationDirs` so analytics is applied LAST, matching
+`MIGRATIONS_DIRS`. The migration SQL is unchanged — the user-confirmed design of
+D-GATE-1 stands exactly as approved.
+
+**Rejected:** wrapping the backfill in a `to_regclass('telemetry.vehicle_snapshots') IS
+NOT NULL` guard so it skips when the table is absent. It would have made the suite pass,
+but by making the backfill do nothing in silence. The failure we saw is the only signal
+that the apply order is wrong; a guard deletes that signal and would let a real
+environment ship with an empty backfill and no error. It would also change SQL the user
+confirmed at the design gate.
+
+**Lesson for later tiers:** "which order do migrations apply in" has two answers in this
+repo — the Makefile's, and each test package's own `migrationDirs`. A cross-schema
+statement must check both.
+
 ### SQL
 
 ```sql

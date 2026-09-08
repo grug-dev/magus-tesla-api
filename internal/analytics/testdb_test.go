@@ -40,14 +40,22 @@ import (
 )
 
 // migrationDirs are relative to THIS package's directory, which is `go test`'s
-// working directory for this package's test binary. Order is irrelevant today —
-// there are no cross-module foreign keys (ai/architecture.md §2) — and the
-// directories are applied one goose provider at a time, never merged, because
-// migration versions are unique within a module but not across the repo.
+// working directory for this package's test binary. The directories are applied
+// one goose provider at a time, never merged, because migration versions are
+// unique within a module but not across the repo.
+//
+// ORDER MATTERS, and it must match the Makefile's own MIGRATIONS_DIRS order:
+// every other module before analytics. There are still no cross-module foreign
+// keys (ai/architecture.md §2), but RM50's TPMS backfill migration
+// (20260908000002) reads telemetry.vehicle_snapshots inside its own UPDATE. With
+// analytics applied first that table does not exist yet, and the whole provision
+// fails with `relation "telemetry.vehicle_snapshots" does not exist`. Production
+// never had this problem — Makefile MIGRATIONS_DIRS already ordered telemetry
+// before analytics; only this list disagreed. Keep analytics LAST.
 var migrationDirs = []string{
-	"db/migrations",
 	"../telemetry/db/migrations",
 	"../charging/db/migrations",
+	"db/migrations",
 }
 
 // testDSN is the connection string provisioned by TestMain and used by

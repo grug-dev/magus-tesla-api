@@ -9,7 +9,7 @@
   "request": "Linear MAG-56 Step 1 plus the read-port half of Step 2. See openspec/roadmaps/RM50-vehicle-status-subsections.md for the binding decisions RD1-RD8.",
   "status": "in-progress",
   "created_at": "2026-09-08T16:36:11Z",
-  "updated_at": "2026-09-08T16:46:00Z",
+  "updated_at": "2026-09-08T17:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -56,6 +56,14 @@
       "made_by": "user",
       "decision": "User confirmed at the design gate: four nullable DOUBLE PRECISION TPMS columns with no DEFAULT, no new index, and the cross-schema backfill UPDATE joining on vm.metric_date = vs.captured_date - 1. Down migration drops the columns only.",
       "why": "Shown the full schema, the projected-only index analysis, and the silent-NULL risk on unmatched rows. Confirmed all three without change."
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-08T17:12:00Z",
+      "scope": "test-harness",
+      "made_by": "leader",
+      "decision": "Reorder migrationDirs in internal/analytics/testdb_test.go so analytics applies LAST, matching the Makefile's MIGRATIONS_DIRS. The migration SQL confirmed at D-GATE-1 is unchanged.",
+      "why": "The rejected alternative, a to_regclass guard, makes the suite pass by making the backfill silently do nothing. That deletes the only signal that apply order is wrong."
     }
   ],
   "tasks": [
@@ -398,6 +406,12 @@
       "type": "wave-completed",
       "by": "leader",
       "detail": "Wave 1 done. Worker reported all 10 tasks complete; leader set them awaiting-user-verification because the offline unit tests were written but not run. Leader fix: make migration-guard found version 20260908000001 already used by internal/account, so the migration was renumbered to 20260908000002 and the filename updated in design.md and tasks.md. Clean: go build, go vet, gofmt -l internal/analytics, make migration-guard, make boundary-guard, make tz-guard. Worker report enumerated D1, D2, D3 and RD2 with compliance statements; leader cross-checked D2 in consumed.go (both branches) and D3 (no index anywhere)."
+    },
+    {
+      "at": "2026-09-08T17:12:00Z",
+      "type": "user-test-report",
+      "by": "leader",
+      "detail": "The OWNER ran go test ./internal/analytics/... and reported a FAILURE: provision failed with relation \"telemetry.vehicle_snapshots\" does not exist (SQLSTATE 42P01) at migration 20260908000002. Root cause: internal/analytics/testdb_test.go applied its own db/migrations before telemetry's, the opposite of Makefile MIGRATIONS_DIRS. Production was never affected. Leader fixed the order (D4) and recorded the correction in design.md. Tasks stay awaiting-user-verification until the owner re-runs."
     }
   ]
 }
