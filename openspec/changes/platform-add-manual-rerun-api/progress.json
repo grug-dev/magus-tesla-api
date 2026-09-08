@@ -9,20 +9,22 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T2",
       "T5",
       "T6",
       "T7"
     ],
     "blocked": [],
     "done": [
-      "T1",
       "T3",
       "T4"
+    ],
+    "awaiting_user_verification": [
+      "T1",
+      "T2"
     ]
   },
   "created_at": "2026-09-08T02:26:15Z",
-  "updated_at": "2026-09-08T02:46:27Z",
+  "updated_at": "2026-09-08T02:55:03Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -42,7 +44,7 @@
       "module": "config",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "config",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T02:44:11Z",
@@ -65,14 +67,20 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T02:47:10Z",
+      "completed_at": "2026-09-08T02:49:53Z",
+      "duration_seconds": 163,
+      "notes": "rerun.go adds guardedProcessor (D3 verbatim), errCycleBusy, rerunHandler closing over the root ctx (D4b). main.go wraps once before the --once branch and uses guarded everywhere. Leader added newRerunMux panic guard (D9).",
+      "budget": {
+        "five_hour_pct_start": 46,
+        "five_hour_pct_end": 54,
+        "cost_usd_delta": 2.59,
+        "approx": false,
+        "note": "single serial dispatch; includes the leader's own D9 fix and design.md edit"
+      }
     },
     {
       "id": "T3",
@@ -255,6 +263,14 @@
       "made_by": "user",
       "decision": "unit tests excluded",
       "why": "cmd/poller has never had a test file, by design. Testing would force the handler into a new internal/ package, contradicting D1."
+    },
+    {
+      "id": "L1",
+      "at": "2026-09-08T02:55:03Z",
+      "scope": "design:D9",
+      "made_by": "user",
+      "decision": "a token that makes an invalid ServeMux pattern turns the listener off, it never panics the poller",
+      "why": "Leader found http.ServeMux panics on a bad pattern. With restart: unless-stopped that crash-loops the poller and kills the nightly cycle. Owner picked the guard over a loud crash."
     }
   ],
   "events": [
@@ -287,6 +303,21 @@
       "at": "2026-09-08T02:46:27Z",
       "agent": "leader",
       "event": "Step 5 wave 1 complete: T1/T3/T4 done. Leader verified the diff itself. Found pre-existing gofmt drift in internal/config/quote_test.go \u2014 present on main, untouched by this change, NOT fixed here (out of scope); reported to owner. Budget after wave: 5h 46%, context 11%"
+    },
+    {
+      "at": "2026-09-08T02:46:50Z",
+      "agent": "leader",
+      "event": "Step 5.7: T1 changed Go code, so it is awaiting-user-verification, not done. Owner asked to run go test ./internal/config/... T3 and T4 touch no Go code and stay done. Wave 2 dispatched in parallel so the owner can run tests while it works"
+    },
+    {
+      "at": "2026-09-08T02:46:56Z",
+      "agent": "leader",
+      "event": "Step 5 wave 2 dispatch: config worker (claude-sonnet) for T2 \u2014 cmd/poller/rerun.go guardedProcessor + handler, main.go wiring. Budget at dispatch: 5h 46%, context 11%"
+    },
+    {
+      "at": "2026-09-08T02:55:03Z",
+      "agent": "leader",
+      "event": "Step 5 wave 2 complete: T2 awaiting-user-verification. Leader read rerun.go and main.go itself and checked every spec scenario. Found an unnamed risk: a bad POLLER_RERUN_TOKEN panics http.ServeMux and crash-loops the poller. Put it to the user as a gate; user chose the guard. Leader added newRerunMux (recover) plus design.md D9. build/vet/gofmt/boundary-guard clean. Budget after wave: 5h 54%, context 14%"
     }
   ]
 }

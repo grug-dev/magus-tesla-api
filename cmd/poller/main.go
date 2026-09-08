@@ -17,8 +17,11 @@
 // Both paths drive the SAME port, so they cannot diverge: the scheduler's tick and
 // --once both call ProcessVehicleData and then telemetry.LogCycle. Each invocation
 // stamps its own run_id across every poll_attempts row it writes, plus
-// triggered_by = "scheduler" for both paths (a future manual-rerun API would pass
-// "api" — RM29 tier 8, parked).
+// triggered_by = "scheduler" for both paths. A third entry point, the
+// manual-rerun HTTP listener (rerun.go), stamps triggered_by = "api" instead.
+// All three call ProcessVehicleData through the same guardedProcessor
+// (rerun.go), so no two of them can ever run at the same time (design.md D3 of
+// platform-add-manual-rerun-api).
 //
 // BOTH paths load and validate POLLER_TIMEZONE: the nightly path schedules in it, and
 // both paths date each capture by it (telemetry.Config.Location). An invalid value is
@@ -34,6 +37,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
@@ -48,6 +52,12 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
+
+// rerunAddr is the internal listen address for the manual-rerun HTTP listener
+// (design.md D6). Never published to the host — only Caddy, inside the same
+// compose network, dials it. Not a config var: the port has no legitimate
+// reason to vary, so a knob here would be pure token cost for future readers.
+const rerunAddr = ":8081"
 
 func main() {
 	once := flag.Bool("once", false, "run one collection cycle immediately and exit (skip the daily scheduler)")
@@ -140,8 +150,40 @@ func main() {
 		loc,
 	)
 
+	// Wrapped once, unconditionally, before branching on --once. Every call site
+	// below uses guarded, never the raw processor, so zero code paths call
+	// ProcessVehicleData un-guarded: the scheduler's nightly tick and an
+	// API-triggered rerun (wired below) can never run at the same time
+	// (design.md D3 of platform-add-manual-rerun-api).
+	guarded := &guardedProcessor{inner: processor}
+
 	if !*once {
-		scheduler := app.NewScheduler(processor, cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, tcfg)
+		scheduler := app.NewScheduler(guarded, cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, tcfg)
+
+		// The manual-rerun HTTP listener. Off by default: it starts only when
+		// POLLER_RERUN_TOKEN is set (fail-closed, design.md D2). The secret
+		// itself is the last path segment of the only route this mux knows —
+		// no manual comparison anywhere (design.md D5). The handler closes
+		// over ctx, the ROOT context built above, never a *http.Request's own
+		// context, so a rerun keeps running after the handler's 202 response
+		// (design.md D4(b)).
+		if cfg.PollerRerunToken == "" {
+			log.Println("manual-rerun listener OFF (POLLER_RERUN_TOKEN not set)")
+		} else if mux, err := newRerunMux(ctx, cfg.PollerRerunToken, guarded); err != nil {
+			// A token that cannot be a URL path segment turns the listener off.
+			// It never stops the poller (design.md D9): the nightly cycle is
+			// worth more than this endpoint.
+			log.Printf("manual-rerun listener OFF: %v", err)
+		} else {
+			go func() {
+				if err := http.ListenAndServe(rerunAddr, mux); err != nil {
+					// Logged, never fatal: the listener is an optional
+					// capability and must never take the poller itself down.
+					log.Printf("manual-rerun listener stopped: %v", err)
+				}
+			}()
+			log.Printf("manual-rerun listener on %s (POLLER_RERUN_TOKEN set)", rerunAddr)
+		}
 
 		log.Printf("poller started: nightly collection at %02d:%02d %s (wake timeout %s)",
 			cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, cfg.PollerWakeTimeout)
@@ -160,8 +202,10 @@ func main() {
 		// is still the poller, and the owner does not need --once distinguishable
 		// (RD7). ProcessVehicleData returns nil for per-vehicle failures
 		// (per-vehicle isolation); a non-nil error means a whole-cycle
-		// (enumeration) failure → exit 1.
-		report, err := processor.ProcessVehicleData(ctx, telemetry.TriggeredByScheduler)
+		// (enumeration) failure → exit 1. Goes through guarded like every other
+		// call site — inert here since nothing else can contend for the lock in
+		// a one-shot CLI run, but it keeps the un-guarded call-site count at zero.
+		report, err := guarded.ProcessVehicleData(ctx, telemetry.TriggeredByScheduler)
 		telemetry.LogCycle(report, err)
 		if err != nil {
 			log.Fatalf("one-shot collection: %v", err)

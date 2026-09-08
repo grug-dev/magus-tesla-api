@@ -3,7 +3,9 @@
 > Numbering note: **D1–D4 each transcribe one settled owner decision** from the
 > pickup interview (cited in their heading). They are not re-opened here. **D5–D8**
 > are buildability decisions this artifacts pass had to make to turn D1–D4 into a
-> buildable change — each says so in its heading.
+> buildable change — each says so in its heading. **D9** was added by the leader
+> during wave 2, after a risk the earlier decisions did not name; the owner chose it
+> at a gate.
 
 ## Context
 
@@ -396,6 +398,30 @@ the actual `Makefile` and `openspec/config.yaml`, not assumed):
 
 Finding: all of the above are unaffected, verified by reading the Makefile and the
 guard implementations, not assumed unaffected because "it's just one route."
+
+### D9 — A bad token turns the listener off, it never stops the poller (leader, wave 2)
+
+D2 says `internal/config` accepts any non-empty `POLLER_RERUN_TOKEN` and does not
+check its shape. D5 says the token is pasted into the registered pattern
+(`"POST /internal/rerun/"+token`). Those two together have a cost D2 and D5 did not
+name: Go's `http.ServeMux` **panics** on a malformed pattern. A token holding a curly
+brace, say `ab{cd`, makes `mux.HandleFunc` panic. The panic kills `main()`. Compose
+runs the poller with `restart: unless-stopped`, so the container crash-loops, and the
+03:30 nightly cycle never runs again until someone edits `.env`.
+
+That trades the whole product for an optional endpoint. `cmd/poller/rerun.go` now
+builds the mux in `newRerunMux`, which recovers that panic and returns an error. The
+caller logs the error and leaves the listener off. The poller keeps its schedule.
+
+The owner was shown this and chose it over two alternatives.
+
+**Rejected — leave the panic.** The log line is loud, but the nightly cycle stops
+until the owner notices the crash-loop. A typo should not cost a night of data.
+
+**Rejected — validate the token in `internal/config`.** It would reopen D2, which
+deliberately keeps `internal/config` free of shape rules, and it would move a
+`net/http` concern into a module that must not know about `net/http`.
+
 
 ## Database objects
 

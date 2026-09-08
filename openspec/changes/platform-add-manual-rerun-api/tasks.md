@@ -46,7 +46,7 @@ Unit tests: excluded
 
 ## T2. `cmd/poller` — the HTTP listener, the shared lock, the handler — depends on T1
 
-- [ ] T2.1 Create `cmd/poller/rerun.go` (`package main`) with the `guardedProcessor`
+- [x] T2.1 Create `cmd/poller/rerun.go` (`package main`) with the `guardedProcessor`
       type from design.md D3 verbatim: `ProcessVehicleData` (satisfies
       `app.Processor`, used by the scheduler) and `TryStartAPIRun` (used by the HTTP
       handler), sharing one `sync.Mutex`. Define `errCycleBusy` as a sentinel error
@@ -56,14 +56,14 @@ Unit tests: excluded
       scheduled run was skipped"`. This is what satisfies the spec scenario "The
       scheduler skips its turn when a manual cycle is running" (design.md D3,
       "Accepted cost").
-- [ ] T2.2 In the same file, add the HTTP handler: built as a closure over the root
+- [x] T2.2 In the same file, add the HTTP handler: built as a closure over the root
       `ctx` (the `signal.NotifyContext` value from `main()`) and the `*guardedProcessor`
       — NEVER over `r.Context()` (design.md D4(b) — read that section before writing
       this function; it is the most likely bug in this change). On
       `TryStartAPIRun(ctx)` returning `ok == false`, write `409` and return. On
       `ok == true`, write `202` with body `{"status":"started"}` and
       `Content-Type: application/json`, THEN `go start()`.
-- [ ] T2.3 In `cmd/poller/main.go`: after building `processor := app.NewProcessor(...)`
+- [x] T2.3 In `cmd/poller/main.go`: after building `processor := app.NewProcessor(...)`
       (existing line, unconditional — before the `if !*once` branch), wrap it —
       `guarded := &guardedProcessor{inner: processor}` — once, unconditionally. Use
       `guarded` in BOTH branches below it, not the raw `processor`: pass `guarded` to
@@ -82,7 +82,7 @@ Unit tests: excluded
       taking the poller itself down), and log one clear startup line stating the
       listener is up (or, symmetrically, that it is OFF because the token is unset).
       Define `const rerunAddr = ":8081"` (design.md D6) at package level.
-- [ ] T2.4 Update `cmd/poller/main.go`'s package doc comment: the "a future
+- [x] T2.4 Update `cmd/poller/main.go`'s package doc comment: the "a future
       manual-rerun API would pass 'api'" sentence is no longer future — state plainly
       that both entry points (the scheduler's tick and this listener) call
       `ProcessVehicleData` through the same `guardedProcessor`, so neither can run
