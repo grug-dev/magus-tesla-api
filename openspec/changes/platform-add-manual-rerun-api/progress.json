@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "platform-add-manual-rerun-api",
+  "module": "config",
+  "roadmap": null,
+  "request": "MAG-27 — manual-rerun HTTP API for ProcessVehicleData. Expose an HTTP endpoint that triggers one internal/app.Processor.ProcessVehicleData cycle on demand, so a full sync -> charging -> analytics run can be forced without waiting for the nightly scheduler or shelling into the box to run go run ./cmd/poller --once. This was RM29 tier 8, parked by roadmap decision D9. Owner's added context, verbatim: \"I'd like to have an API (Without athentication with a resource name hard to guess) to simulate running the nightly job (Or similar how it's behaving the cmd-poller-once) just that this time is via API (Because the VPS does not allow me to run the poller)\"",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-08T02:26:15Z",
+  "updated_at": "2026-09-08T02:26:15Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH48-MAG-27-platform-add-manual-rerun-api",
+    "base": "main",
+    "ticket": "MAG-27",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-27/manual-rerun-http-api-for-processvehicledata",
+    "created_at": "2026-09-08T02:26:15Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "internal/config — read POLLER_RERUN_TOKEN",
+      "module": "config",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "cmd/poller — HTTP listener, shared lock (guardedProcessor), handler",
+      "module": "config",
+      "depends_on": ["T1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "deploy/docker — compose expose 8081 + Caddyfile handle block",
+      "module": "config",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": ".env.example — document POLLER_RERUN_TOKEN",
+      "module": "config",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Doc sweep — app/AGENTS.md, app.go, poller main.go, telemetry.go, READMEs, KB",
+      "module": "config",
+      "depends_on": ["T1", "T2", "T3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "docs/0-set-up/deployment.md — token setup and curl command",
+      "module": "config",
+      "depends_on": ["T1", "T2", "T3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "Verification — build, vet, gofmt, guards, owner's manual contract",
+      "module": "config",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "P1",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "change:module",
+      "made_by": "autopilot",
+      "decision": "owning module = config; change name takes the platform- prefix",
+      "why": "Only internal/config gets code. internal/app is doc-only. The substance is in cmd/poller and deploy/docker, so it is cross-cutting."
+    },
+    {
+      "id": "P2",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "change:branch",
+      "made_by": "autopilot",
+      "decision": "used CH48, not the counter's CH47",
+      "why": "Branch ft/CH47-MAG-53 already exists, so 47 was taken. Numbers are monotonic and never reused. Counter set to 49."
+    },
+    {
+      "id": "P3",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "change:design-gate",
+      "made_by": "autopilot",
+      "decision": "the built-in database design gate does not fire",
+      "why": "The change adds no table, column, index, constraint, view or migration. design.md D7 records why no triggered_by index is added."
+    },
+    {
+      "id": "D9-1",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "design:D1",
+      "made_by": "user",
+      "decision": "the listener lives inside cmd/poller",
+      "why": "The poller already builds the Processor. One instance is shared by both triggers, so they cannot drift. Rejected cmd/web and a new binary."
+    },
+    {
+      "id": "D9-2",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "design:D2",
+      "made_by": "user",
+      "decision": "no auth; secret path segment POLLER_RERUN_TOKEN from .env, fail closed",
+      "why": "Owner asked for a hard-to-guess resource name. Empty var means no route at all. Owner knowingly accepted the secret appearing in Caddy logs."
+    },
+    {
+      "id": "D9-3",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "design:D3",
+      "made_by": "user",
+      "decision": "overlap rejected with 409, via one shared mutex covering both triggers",
+      "why": "Two paid Fleet API cycles must never run at once. Rejected queueing and rejected allowing concurrency."
+    },
+    {
+      "id": "D9-4",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "design:D4",
+      "made_by": "user",
+      "decision": "202 Accepted, cycle runs in background on the poller root context",
+      "why": "Owner will not wait 1-3 minutes for the car to wake. Body carries no run_id, because the port signature is out of scope."
+    },
+    {
+      "id": "D9-5",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "design:D3",
+      "made_by": "user",
+      "decision": "a nightly run is skipped if a manual cycle is running; documented, not prevented",
+      "why": "Leader found this gap after the worker returned. Owner chose one lock behaviour over never losing a night. Spec scenario and D3 note added."
+    },
+    {
+      "id": "D9-6",
+      "at": "2026-09-08T02:26:15Z",
+      "scope": "change:tests",
+      "made_by": "user",
+      "decision": "unit tests excluded",
+      "why": "cmd/poller has never had a test file, by design. Testing would force the handler into a new internal/ package, contradicting D1."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-08T02:26:15Z",
+      "agent": "leader",
+      "event": "Step 0-2: config discovered in CLAUDE.md; budget available; branch ft/CH48-MAG-27-platform-add-manual-rerun-api created off main; work counter 47 -> 49 (47 already taken by an existing branch); Step 2 interview was run by kkpa-pickup-linear-ticket before dispatch, so no grill-me re-run"
+    },
+    {
+      "at": "2026-09-08T02:26:15Z",
+      "agent": "leader",
+      "event": "Step 3: dispatched config worker (claude-sonnet) to write artifacts; returned proposal.md, design.md, specs/manual-rerun-api/spec.md, tasks.md; openspec validate --strict passes"
+    },
+    {
+      "at": "2026-09-08T02:26:15Z",
+      "agent": "leader",
+      "event": "Step 3 leader review: found an unspecified consequence — the scheduler's nightly tick is skipped when a manual cycle holds the lock. Put it to the user as a gate; user chose to keep TryLock on both paths and document it. Leader added the spec scenario, the D3 'Accepted cost' note, and the errCycleBusy wording rule in T2.1"
+    },
+    {
+      "at": "2026-09-08T02:26:15Z",
+      "agent": "leader",
+      "event": "Step 4: progress.json created, 7 tasks seeded pending. HALT here as instructed by the pickup skill — no implementation workers dispatched, no reviewer, no archive"
+    }
+  ]
+}
