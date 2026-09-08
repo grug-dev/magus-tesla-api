@@ -2937,12 +2937,14 @@ configuration value. The blocked page SHALL be presented in both supported langu
 The dashboard's Vehicle Status card (`/dashboard`, `/ui/dashboard`) SHALL show the
 active vehicle's locked state and sentry-mode state as badges in the card's header
 row, alongside the existing staleness badge, and SHALL NOT show a separate "Status"
-stat tile in its mini-stat grid. The card subtitle SHALL continue to show the
-charging-derived status word exactly as before this change — only the stat tile is
-removed, not the subtitle's status word. The mini-stat grid SHALL render four tiles
-(odometer, interior temperature, exterior temperature, and the lifetime count of
-charges to 100%) — two per row on small screens, a single row on desktop. The
-prohibition is on a "Status" tile specifically, not on the grid ever growing.
+stat tile anywhere in the card. The card subtitle SHALL continue to show the
+charging-derived status word exactly as before this change — only a "Status" tile is
+prohibited, not the subtitle's status word.
+
+The card's mini-stat tiles (odometer, interior temperature, exterior temperature, the
+lifetime count of charges to 100%, and any tile added by a later capability) are
+grouped per the "Dashboard Vehicle Status Panel Groups Metrics Into Named Subsections"
+requirement below — this requirement no longer prescribes their grid shape or count.
 
 A locked-state badge SHALL render only when the active vehicle's latest precomputed
 row carries a locked observation; an absent observation SHALL render no badge at
@@ -2957,8 +2959,7 @@ independently to the sentry-mode badge.
 - **THEN** the Vehicle Status card header shows a "Locked" badge in a
   success-colored (green) style
 - **AND** shows a "Sentry: On" badge in a warning-colored style
-- **AND** the mini-stat grid shows the odometer, interior temperature, exterior
-  temperature and 100%-charge-count tiles — and no "Status" tile
+- **AND** no "Status" tile is shown anywhere on the card
 
 #### Scenario: Unlocked and sentry-off render distinct badge colors from locked and sentry-on
 
@@ -3464,4 +3465,113 @@ overrides the `min` attribute in the browser.
 - **WHEN** the server receives the submission
 - **THEN** the server-side rejection above still applies
 - **AND** the entry is still not persisted
+
+### Requirement: Dashboard Vehicle Status Panel Groups Metrics Into Named Subsections
+
+The dashboard's Vehicle Status card SHALL present its metrics as: a lifetime-facts area
+(the vehicle image plus the odometer reading and the lifetime count of charges to 100%,
+stacked, not grouped under a subsection heading) and a set of named subsections, each
+introduced by a title and a one-sentence description resolved through the translation
+catalogue. On a viewport at or above the module's tablet breakpoint the lifetime-facts
+area and the subsections SHALL render as two side-by-side columns; below that breakpoint
+they SHALL stack in one column, with the lifetime-facts area (image and its two tiles)
+appearing before the subsections.
+
+A subsection MAY exist in the layout with no content yet, reserved for a metric a later
+capability adds — such a reservation SHALL render nothing (no heading, no empty grid)
+until that capability ships.
+
+#### Scenario: Desktop viewport shows two side-by-side columns
+
+- **GIVEN** a signed-in user with an active vehicle and a stored status row
+- **WHEN** the dashboard is rendered on a viewport at or above the tablet breakpoint
+- **THEN** the vehicle image, odometer tile and 100%-charges tile render in a left
+  column
+- **AND** the named subsections render in a right column, each with its own title and
+  description
+
+#### Scenario: Narrow viewport stacks lifetime facts before subsections
+
+- **GIVEN** the same signed-in user
+- **WHEN** the dashboard is rendered on a viewport below the tablet breakpoint
+- **THEN** the vehicle image and its two tiles render first
+- **AND** every subsection renders after them, in the same top-to-bottom order as the
+  desktop layout
+
+#### Scenario: A reserved, not-yet-built subsection renders nothing
+
+- **GIVEN** the layout reserves a position for a subsection whose data capability has
+  not shipped yet
+- **WHEN** the dashboard is rendered
+- **THEN** no heading, description, or empty tile grid appears at that position
+- **AND** the subsections before and after it render normally, unaffected by the gap
+
+### Requirement: Dashboard Travel Progress Subsection
+
+The dashboard's Vehicle Status card SHALL include a "Travel Progress" subsection
+showing two values for the active vehicle's latest computed day: the distance
+travelled and the battery percentage used. Each value SHALL be read from the
+account's latest precomputed vehicle-status row through the existing analytics read
+port — no new database read, no live Tesla Fleet API call.
+
+The distance-travelled value SHALL always display a trend indicator meaning "this
+metric accumulates" (a visually up/increasing indicator), and the battery-used value
+SHALL always display a trend indicator meaning "this metric depletes" (a visually
+down/decreasing indicator) — both indicators SHALL be fixed by the metric's identity,
+not computed from whether the value increased or decreased since a previous day. Each
+indicator SHALL be rendered in a distinct semantic color (an "increasing" color for
+distance travelled, a "decreasing" color for battery used), never a hardcoded color
+value.
+
+Either value SHALL render a placeholder — never a fabricated zero — when the
+underlying computed value is absent, which happens when the latest computed day has no
+prior day to compare against, or when there is no stored status row at all for the
+active vehicle.
+
+#### Scenario: Both values render with their fixed trend indicators
+
+- **GIVEN** a signed-in user whose active vehicle's latest precomputed row reports a
+  non-absent distance-travelled value and a non-absent battery-used value for the
+  latest computed day
+- **WHEN** the dashboard is rendered
+- **THEN** the Travel Progress subsection shows the distance travelled with an
+  "increasing" trend indicator in its semantic color
+- **AND** shows the battery percentage used with a "decreasing" trend indicator in its
+  own semantic color
+- **AND** neither indicator's direction depends on whether that day's value was larger
+  or smaller than a previous day's
+
+#### Scenario: A day with no predecessor renders a placeholder, not a fabricated zero
+
+- **GIVEN** a signed-in user whose active vehicle's latest precomputed row exists but
+  its distance-travelled and battery-used values are absent (the latest computed day
+  has no prior day to derive them against)
+- **WHEN** the dashboard is rendered
+- **THEN** the Travel Progress subsection shows its placeholder for both values
+- **AND** neither value is shown as `0`
+
+#### Scenario: No stored status row renders the same placeholder as every other tile
+
+- **GIVEN** a signed-in user whose active vehicle has no stored status row yet
+- **WHEN** the dashboard is rendered
+- **THEN** the Travel Progress subsection shows its placeholder for both values,
+  identically to how every other tile on the card renders its own placeholder in this
+  state
+
+#### Scenario: No new database read or Tesla call is introduced
+
+- **GIVEN** the Travel Progress subsection's two values
+- **WHEN** the dashboard is rendered
+- **THEN** both values come from the same account-status read the rest of the card
+  already performs
+- **AND** no additional database query and no Tesla Fleet API call is made to render
+  this subsection
+
+#### Scenario: Both labels resolve through the translation catalogue
+
+- **GIVEN** the Travel Progress subsection's title, description, and the two value
+  labels
+- **WHEN** they are rendered in either supported language
+- **THEN** each resolves through the translation catalogue
+- **AND** both `ES` and `EN` are non-empty for every one of them
 
