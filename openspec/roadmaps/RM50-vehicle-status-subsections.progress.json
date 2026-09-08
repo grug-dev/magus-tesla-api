@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM50-vehicle-status-subsections",
+  "intention": "The /dashboard Vehicle Status panel is regrouped into three named subsections — Travel Progress (latest distance travelled + battery drain), Tire pressure (PSI, one value per wheel with a day-over-day up/down icon), and Interior/Exterior (the existing temperature tiles). vehicle_metrics gains four raw TPMS columns and four TPMS delta _calc columns so the panel reads one precomputed row and computes nothing at request time (Linear MAG-56).",
+  "request": "/kkpa-pickup-linear-ticket MAG-56 — Vehicle Status Change: add new subsections to the Vehicle Status fields (Tire pressure PSI, Travel Progress) and group the existing interior/exterior fields into their own subsection. Step 1 mirror the tpms_pressure_*_psi columns from telemetry.vehicle_snapshots into analytics.vehicle_metrics with a backfill migration. Step 2 show the latest Distance Traveled and Battery Consumption. Step 3 add four _calc tyre-pressure variance columns compared against the previous date and display them with up/down icons. Do not add cosmetic tests. Use /design for 3 layout suggestions.",
+  "autopilot": false,
+  "status": "in-progress",
+  "created_at": "2026-09-08T15:55:09Z",
+  "updated_at": "2026-09-08T15:55:09Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM50-MAG-56-vehicle-status-subsections",
+    "base": "main",
+    "created_at": "2026-09-08T15:55:09Z",
+    "ticket": "MAG-56",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-56/vehicle-status-change"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2, 3, 4],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tyre-pressure variance is stored as four scalar _calc columns (tpms_pressure_fl_psi_calc, _fr_, _rl_, _rr_), not a JSONB blob.",
+      "why": "The unit-suffix rule needs a real column to carry _psi. sqlc gives a typed *float64 per column; JSONB gives []byte the gateway must unmarshal by hand. Four wheels is a fixed set."
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Existing rows are backfilled by a cross-schema SQL migration (UPDATE analytics.vehicle_metrics FROM telemetry.vehicle_snapshots). This is an informed deviation from the analytics spec requirement 'No Cross-Module Database Access', and must be recorded as such in the tier design.",
+      "why": "User chose it after seeing the recommended watermark-reset alternative and being told it breaks the written rule. It is a one-off data backfill, not a runtime read path."
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The tyre-pressure delta compares against the previous day, same shape as distance_traveled_km_calc. No dead-zone threshold and no target-pressure comparison.",
+      "why": "Cheapest option and reuses the existing maths layer. Accepted cost: the delta partly tracks air temperature (~1 PSI per 5.5 C), which is not a defect and must not be 'fixed'."
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-08T15:52:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Run /design at tier 2 for three Vehicle Status panel layout suggestions. Output must be buildable with Go Templ + htmx and the existing internal/gateway/templates/ui/ kit, not free-form HTML/CSS.",
+      "why": "User confirmed the ticket's embedded /design directive, then added the Templ+htmx constraint. Layout does not change what analytics must produce, so it runs at the first gateway tier."
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-08T15:50:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tiers alternate analytics -> gateway -> analytics -> gateway, following the ticket's own step order, instead of grouping all backend work first.",
+      "why": "Gives a visible screen change after tier 2 and a natural stop point after every tier, which is what the ticket asked for. Cost: two gateway tiers instead of one."
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "The label colour from the ticket, rgb(231 189 184 / var(--tw-text-opacity, 1)), is never hardcoded. It maps to the existing semantic theme token.",
+      "why": "make ui-guard forbids raw colour values and inline DaisyUI classes. The ticket value was read off an apex screenshot; graphite and halloween must render correctly too."
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "The ticket's Step 2 names the wrong endpoint. Travel Progress data comes from the bento path (Handler.dashboardFor, GET /dashboard + /ui/dashboard via LatestMetricsByAccount), not GET /ui/dashboard/history.",
+      "why": "The history endpoint renders only the #dashboard-history charts region below the panel. It cannot feed the Vehicle Status panel. Verified in the KB and the handler."
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "No cosmetic tests: no template tests coupled to markup, CSS classes, ARIA, or element placement. The pure delta maths in internal/analytics/consumption.go is worth a unit test.",
+      "why": "User wrote 'DO not add cosmetic tests' in the ticket. Matches the project's own rule on markup-coupled tests."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM50-analytics-add-tire-pressure-columns",
+      "module": "analytics",
+      "depends_on": [],
+      "optional": false,
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Ticket Step 1 plus the read-port half of Step 2. Four raw TPMS columns copied verbatim from telemetry.Snapshot's existing public fields, the RD2 backfill migration, and distance_traveled_km_calc + consumed_pct exposed on LatestMetricsByAccount."
+    },
+    {
+      "id": 2,
+      "change": "RM50-gateway-add-travel-progress-subsection",
+      "module": "gateway",
+      "depends_on": [1],
+      "optional": false,
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Ticket Step 2. Runs /design first for three Templ+htmx layouts (RD4), then builds the Travel Progress subsection and regroups the interior/exterior tiles."
+    },
+    {
+      "id": 3,
+      "change": "RM50-analytics-add-tire-pressure-variance",
+      "module": "analytics",
+      "depends_on": [1],
+      "optional": false,
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Backend half of ticket Step 3. The four _calc delta columns of RD1, derived from prev vs cur, NULL without a predecessor, exposed on the read port."
+    },
+    {
+      "id": 4,
+      "change": "RM50-gateway-add-tire-pressure-subsection",
+      "module": "gateway",
+      "depends_on": [2, 3],
+      "optional": false,
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Display half of ticket Step 3. Four wheel values with up/down icons from the _calc deltas. A NULL delta renders the value with no icon."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-08T15:55:09Z",
+      "type": "roadmap-created",
+      "by": "leader",
+      "detail": "RM50 created from Linear MAG-56 via kkpa-pickup-linear-ticket. Multi-module (analytics + gateway) so Step 1b applies. Work counter 50 -> 51. Branch ft/RM50-MAG-56-vehicle-status-subsections off main. Budget at creation: five_hour 21%, context 16%. Runtime Claude Code, native subagents available, budget cache available."
+    }
+  ]
+}
