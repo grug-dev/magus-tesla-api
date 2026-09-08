@@ -14,10 +14,14 @@
 
 - **Route / URI:** `/dashboard`
 - **Description:** The signed-in landing page for the **selected** vehicle. A 12-column bento
-  grid: an 8-col "Vehicle Status" hero (car image, four stat tiles — Odometer / Interior /
-  Exterior / 100% Charges — software version, last-updated line, stale badge; the locked
-  and sentry states are header badges, there is no "Status" tile) and a 4-col vital-stats column
-  (battery %, range, charge limit) above a self-loading history-charts region.
+  grid: an 8-col "Vehicle Status" hero (badge row — stale/locked/sentry — then an inner
+  12-col split: a left column with the car image plus two lifetime tiles, Odometer and
+  100% Charges; a right column of named subsections, "Travel Progress" — distance
+  travelled, battery used — and "Interior / Exterior" — interior temp, exterior temp,
+  with a tier-4 placeholder for a future Tire pressure subsection between them — then
+  software version, last-updated line; the locked and sentry states are header badges,
+  there is no "Status" tile) and a 4-col vital-stats column (battery %, range, charge
+  limit) above a self-loading history-charts region.
 - **Module:** `gateway`
 
 ## Front-end component map
@@ -26,7 +30,7 @@ The files that render this page. A UI-only change should never need the use-case
 
 | File | Role |
 |---|---|
-| `internal/gateway/templates/pages/dashboard.templ` | The page. Bento grid, `Vehicle Status` hero (its stat grid is `grid-cols-2 lg:grid-cols-4` — 2x2 on phone/tablet, one row on desktop; never `sm:grid-cols-3`, which strands the fourth tile), battery card, and the empty `#dashboard-history` container. Wraps everything in `@templ.Fragment("dashboard")` so the htmx swap can re-emit just this region. |
+| `internal/gateway/templates/pages/dashboard.templ` | The page. Bento grid, `Vehicle Status` hero (below the badge row, an inner `grid-cols-1 md:grid-cols-12` split: left column image + two lifetime `ui.StatTile`s, right column named `<section>` subsections each with a `grid-cols-2` tile row — see `internal/gateway/AGENTS.md` §"UI stack" for the current subsection list), battery card, and the empty `#dashboard-history` container. Wraps everything in `@templ.Fragment("dashboard")` so the htmx swap can re-emit just this region. |
 | `internal/gateway/templates/pages/dashboard.go` | Template helpers: `dashSubtitle`, `dashStat` (`—` placeholder), `dashBatteryColorClass` (a thin adapter over `ui.BatteryBandClass`), `dashPctAttr` (returns an `int` for `ui.Progress`), `dashChargeLimit`. |
 | `internal/gateway/templates/fragments/dashboard_vm.go` | `fragments.DashboardData` — the logic-free view model. Every metric is a pre-computed display string. |
 | `internal/gateway/templates/pages/dashboard_history.templ` | The `#dashboard-history` **contents**: the three charts + the window preset selector. Wrapped in `@templ.Fragment("dashboard-history")`. |

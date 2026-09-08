@@ -195,6 +195,21 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   VM's string percentage and delegates) and the sidebar vehicle block. Do not re-derive the
   bands anywhere else — that is the drift this function exists to prevent. Tokens themselves
   live in `static/themes/_shared.css` §"Battery-level metric colors".
+- **`ui.StatTileProps.Trend`** (`templates/ui/stat_tile.templ`) — an optional `"up"` /
+  `"down"` string that adds a small trend glyph next to the stat value (`"up"` →
+  `trending_up`, green; `"down"` → `trending_down`, red). Empty renders no icon, so old
+  call sites are unaffected. Added by `RM50-gateway-add-travel-progress-subsection` D3,
+  with the two new glyph names added to `ui.Icon` (`templates/ui/icon.templ`) at the
+  same time. Same pattern as `ui.BadgeProps.Kind` / `ui.DotProps.Variant`: a small closed
+  string list, not a bool pair.
+- **The Vehicle Status card (`vehicle-status`, `pages/dashboard.templ`) is now split
+  into named subsections**, not one flat tile row. Left column: the vehicle image plus
+  the two lifetime tiles (Odometer, MaxRangeCharges). Right column: named `<section>`
+  blocks — `travel-progress` (Distance travelled, Battery used) today, then a tier-4
+  placeholder comment for `tire-pressure`, then `interior-exterior` (Interior,
+  Exterior). Added by `RM50-gateway-add-travel-progress-subsection` D1. A future
+  subsection follows this same shape: its own `<section id="...">`, its own
+  `ui.SectionHeader`, its own `grid-cols-2` tile row.
 - **Semantic tokens only — never hex / raw palette** (`bg-base-100`, `primary`,
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).

@@ -51,37 +51,37 @@ T6 are sequential after T4.
 
 ## T4. Panel layout (D1) — depends on T1, T2, T3
 
-- [ ] 4.1 In `internal/gateway/templates/pages/dashboard.templ`, replace the image +
+- [x] 4.1 In `internal/gateway/templates/pages/dashboard.templ`, replace the image +
       `grid-cols-2 lg:grid-cols-4` flat tile block inside the `vehicle-status` card with
       the Option B inner grid from design.md D1: left column (image + Odometer +
       MaxRangeCharges, stacked), right column (`travel-progress` section, a `//` comment
       marking the tier-4 Tire-pressure insertion point, `interior-exterior` section).
       Keep the badge row and the "Last updated" footnote exactly where they are today.
-- [ ] 4.2 Run `make templ && make css`. Confirm `git diff --stat
+- [x] 4.2 Run `make templ && make css`. Confirm `git diff --stat
       internal/gateway/static/app.css` shows a change (new `md:col-span-4`/`-8`,
       `shrink-0` utilities).
-- [ ] 4.3 `go build ./...`, `go vet ./...`, `gofmt -l internal/gateway`.
-- [ ] 4.4 `make ui-guard` and `make i18n-guard` — both must pass per design.md D8.
+- [x] 4.3 `go build ./...`, `go vet ./...`, `gofmt -l internal/gateway`.
+- [x] 4.4 `make ui-guard` and `make i18n-guard` — both must pass per design.md D8.
 
 ## T5. Docs (D9) — depends on T4
 
-- [ ] 5.1 `internal/gateway/AGENTS.md` — add the short note from design.md D9: the
+- [x] 5.1 `internal/gateway/AGENTS.md` — add the short note from design.md D9: the
       Vehicle Status panel's new subsection layout, plus `StatTileProps.Trend` and the
       two new `Icon` glyphs.
-- [ ] 5.2 `kkpa/context/use-case/gateway/read-dashboard-bento.md` — correct the stat-row
+- [x] 5.2 `kkpa/context/use-case/gateway/read-dashboard-bento.md` — correct the stat-row
       description and the "nine pointer fields" count per design.md D9.
-- [ ] 5.3 `kkpa/context/input-port/gateway/dashboard.md` — correct the page Description
+- [x] 5.3 `kkpa/context/input-port/gateway/dashboard.md` — correct the page Description
       row's tile-layout sentence per design.md D9.
-- [ ] 5.4 Confirm no other KB file describes this page's old flat tile row: `grep -rl
+- [x] 5.4 Confirm no other KB file describes this page's old flat tile row: `grep -rl
       "dashboard.*tile\|stat.tile" kkpa/context/` and check any hit.
 
 ## T6. Verification (do not run the suite — see Test-Execution-Policy) — depends on T5
 
-- [ ] 6.1 `go build ./...`
-- [ ] 6.2 `go vet ./...` (compiles the new/extended `_test.go` files too)
-- [ ] 6.3 `gofmt -l internal/gateway` (expect no output)
-- [ ] 6.4 `make ui-guard`
-- [ ] 6.5 `make i18n-guard`
-- [ ] 6.6 `make templ && make css`, confirm no uncommitted diff remains afterward
-- [ ] 6.7 Hand back to the owner: `go test ./internal/gateway/...` (the two extended
+- [x] 6.1 `go build ./...`
+- [x] 6.2 `go vet ./...` (compiles the new/extended `_test.go` files too)
+- [x] 6.3 `gofmt -l internal/gateway` (expect no output)
+- [x] 6.4 `make ui-guard`
+- [x] 6.5 `make i18n-guard`
+- [x] 6.6 `make templ && make css`, confirm no uncommitted diff remains afterward
+- [x] 6.7 Hand back to the owner: `go test ./internal/gateway/...` (the two extended
       fixture tests) and `make check` — Claude does not run either.

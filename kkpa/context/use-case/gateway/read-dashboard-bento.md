@@ -29,10 +29,14 @@
 
 - The rendered Vehicle Status card's status-bearing outputs are: locked badge (present /
   absent), sentry badge (present / absent), staleness badge (present / absent), the subtitle's
-  charging-derived status word, and a three-tile stat row. Each badge is independently
-  driven by its own `*bool`; absence of a value means absence of the badge. The stat row
-  is four tiles: odometer, interior temp, exterior temp, and the lifetime 100%-charge
-  count (MAG-47).
+  charging-derived status word, and the tile layout below it. Each badge is independently
+  driven by its own `*bool`; absence of a value means absence of the badge. Since
+  `RM50-gateway-add-travel-progress-subsection`, the tiles are no longer one flat row: a
+  left column holds two lifetime tiles (odometer, the 100%-charge count), and a right
+  column holds named subsections, each its own two-tile row — "Travel Progress"
+  (distance travelled, battery used, both from the latest computed day) and
+  "Interior / Exterior" (interior temp, exterior temp). A third subsection, Tire
+  pressure, is a placeholder comment only until tier 4 builds it.
 
 ## Flow
 
@@ -54,18 +58,21 @@
 7. `mapDashboardSnapshot` — `internal/gateway/handlers/handlers.go` — formats every display
    string (`formatKm`, `°C`, `%`, `km`, charge limit) and computes `IsStale` via `isStale`.
    `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`. This mapper
-   reads nine pointer fields of `VehicleStatus` (`InsideTempC`, `OutsideTempC`,
-   `CarVersion`, `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`,
-   `SentryMode`, `MaxRangeChargeCounter`) — nil never fabricates a value, it omits the
-   corresponding display field (see gotchas). `dashCountOrDash` formats the counter:
-   nil → `"—"`, a reported `0` → `"0"`.
+   reads eleven pointer fields of `VehicleStatus`: the nine from `RM38` (`InsideTempC`,
+   `OutsideTempC`, `CarVersion`, `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`,
+   `Locked`, `SentryMode`, `MaxRangeChargeCounter`) plus two added by
+   `RM50-gateway-add-travel-progress-subsection` tier 2 (`DistanceTraveledKmCalc`,
+   `ConsumedPct`) — nil never fabricates a value, it omits the corresponding display
+   field (see gotchas). `dashCountOrDash` formats the counter: nil → `"—"`, a reported
+   `0` → `"0"`. `dashDistanceOrDash`/`dashBatteryUsedOrDash` follow the same nil → `"—"`
+   rule for the two new fields.
 
-   **Nine is what this mapper reads, not what the type holds.** `VehicleStatus` has more
-   pointer fields than that. `RM50-analytics-add-tire-pressure-columns` added six the
-   gateway does not read yet — `TpmsPressureFLPSI`, `TpmsPressureFRPSI`,
-   `TpmsPressureRLPSI`, `TpmsPressureRRPSI`, `DistanceTraveledKmCalc` and `ConsumedPct`.
-   RM50 tiers 2 and 4 are the changes that wire them into this mapper. Read
-   `internal/analytics/analytics.go` for the current field list; do not count from here.
+   **Eleven is what this mapper reads, not what the type holds.** `VehicleStatus` has
+   more pointer fields than that. `RM50-analytics-add-tire-pressure-columns` added four
+   the gateway still does not read — `TpmsPressureFLPSI`, `TpmsPressureFRPSI`,
+   `TpmsPressureRLPSI`, `TpmsPressureRRPSI`. RM50 tier 4 is the change that wires them
+   into this mapper. Read `internal/analytics/analytics.go` for the current field list;
+   do not count from here.
 8. `Handler.vehicleImage` — `internal/gateway/vehicle_image.go` — maps
    (`CarType`, `ExteriorColor`) to a `/static/img/*.png` URL, falling back to `defaultCar.png`.
 
@@ -166,11 +173,15 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
 
 - **The Vehicle Status card shows locked/sentry as header badges, and has no "Status" stat
   tile.** The card header row carries the locked badge, the sentry badge and the staleness
-  badge together; none suppresses the others, and each appears purely on its own value. The
-  mini-stat grid holds four tiles — odometer, interior temp, exterior temp, 100%-charge
-  count (MAG-47 added the fourth) — laid out 2x2 below `lg` and one row on desktop. The card **subtitle keeps** the charging-derived status word ("Parked • Software
-  v11.1.2"); only the tile was removed. Do not "restore" a Status tile, and do not drop the
-  subtitle's status word.
+  badge together; none suppresses the others, and each appears purely on its own value.
+  Below the badge row, a 12-col inner grid splits the tiles: a left column (odometer,
+  100%-charge count, stacked) beside the vehicle image, and a right column of named
+  subsections — "Travel Progress" (distance travelled, battery used) and
+  "Interior / Exterior" (interior temp, exterior temp), each its own two-tile row
+  (`RM50-gateway-add-travel-progress-subsection`; MAG-47 had added the fourth tile to
+  the earlier flat row, since replaced by this layout). The card **subtitle keeps** the
+  charging-derived status word ("Parked • Software v11.1.2"); only the tile was removed.
+  Do not "restore" a Status tile, and do not drop the subtitle's status word.
   _Source: spec gateway — Requirement: Dashboard Vehicle Status Card Shows Locked and Sentry-Mode Badges, Not a Status Tile._
 - **Badge styles are fixed and three-state.** Locked → success (green); unlocked → error
   (red); sentry on → warning; sentry off → ghost; **absent → no badge at all**. Absence is
