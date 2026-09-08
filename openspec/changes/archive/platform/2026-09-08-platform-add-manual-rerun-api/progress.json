@@ -5,7 +5,7 @@
   "module": "config",
   "roadmap": null,
   "request": "MAG-27 \u2014 manual-rerun HTTP API for ProcessVehicleData. Expose an HTTP endpoint that triggers one internal/app.Processor.ProcessVehicleData cycle on demand, so a full sync -> charging -> analytics run can be forced without waiting for the nightly scheduler or shelling into the box to run go run ./cmd/poller --once. This was RM29 tier 8, parked by roadmap decision D9. Owner's added context, verbatim: \"I'd like to have an API (Without athentication with a resource name hard to guess) to simulate running the nightly job (Or similar how it's behaving the cmd-poller-once) just that this time is via API (Because the VPS does not allow me to run the poller)\"",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -22,7 +22,7 @@
     "awaiting_user_verification": []
   },
   "created_at": "2026-09-08T02:26:15Z",
-  "updated_at": "2026-09-08T03:12:23Z",
+  "updated_at": "2026-09-08T03:16:04Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -202,10 +202,18 @@
     }
   ],
   "review": {
-    "status": "in-progress",
+    "status": "reviewer-approved",
     "agent": "config-reviewer",
     "brief": "Review the four wave commits 0ad6118..dc1ed06 as one diff. Check: (1) every design.md decision D1-D9 is honoured in the code, especially D4(b) \u2014 the handler must close over the poller ROOT ctx, never r.Context(); (2) D3 \u2014 no code path calls ProcessVehicleData un-guarded, and one mutex covers both triggers; (3) every spec scenario in specs/manual-rerun-api/spec.md is satisfied by real code; (4) module boundaries \u2014 internal/app and internal/telemetry received doc-comment edits ONLY, no logic; internal/config gained no net/http knowledge; (5) doc-pack conventions, including CLAUDE.md's docs-track-structural-change rule and the archive-immutability rule; (6) the declared Performance-Profile; (7) anti-gaming \u2014 no acceptance criterion was weakened, no status self-approved. Signals: go build, go vet, gofmt and migration/boundary/archive/tz/money guards were ASSISTANT-run and clean. `make test` was USER-run and the user reported it passed \u2014 do not run the suite yourself. Unit tests are excluded by owner decision D9-6, so their absence is not a finding.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-07T00:00:00Z",
+        "agent": "config-reviewer",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
   },
   "decisions": [
     {
@@ -367,6 +375,11 @@
       "at": "2026-09-08T03:12:23Z",
       "agent": "leader",
       "event": "Step 7: review brief written, config-reviewer (claude-sonnet) dispatched over the four wave commits"
+    },
+    {
+      "at": "2026-09-08T03:16:04Z",
+      "agent": "leader",
+      "event": "Step 7: config-reviewer returned approved, round 1, zero findings. D4(b) and D3 both verified in code by the reviewer. Step 8: openspec archive --yes synced the delta into openspec/specs/manual-rerun-api/spec.md and moved the folder; leader moved it under archive/platform/ per this repo's module grouping. The one incomplete task is T7.5, the owner's own VPS verification, which is correct"
     }
   ]
 }
