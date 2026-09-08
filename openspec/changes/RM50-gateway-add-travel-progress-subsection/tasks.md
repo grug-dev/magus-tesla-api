@@ -8,45 +8,45 @@ T6 are sequential after T4.
 
 ## T1. `ui/` kit additions (D3, D4, RD11) — no dependencies
 
-- [ ] 1.1 In `internal/gateway/templates/ui/icon.templ`: add `case "trending_up"` and
+- [x] 1.1 In `internal/gateway/templates/ui/icon.templ`: add `case "trending_up"` and
       `case "trending_down"` to `iconMarkup`'s switch, using the path data in design.md
       D4. Update `IconProps.Name`'s doc-comment vocabulary list to include both names.
-- [ ] 1.2 In `internal/gateway/templates/ui/stat_tile.templ`: add `Trend string` to
+- [x] 1.2 In `internal/gateway/templates/ui/stat_tile.templ`: add `Trend string` to
       `StatTileProps` (doc comment per design.md D3). Wrap the existing `stat-value` div
       and a new `statTrendIcon(p.Trend)` call in a `flex items-center gap-1` row. Add the
       `statTrendIcon` templ function (design.md D3) — `"up"` → `trending_up` icon,
       `text-success`; `"down"` → `trending_down` icon, `text-error`; default → nothing.
-- [ ] 1.3 Run `make templ` to regenerate `icon_templ.go` and `stat_tile_templ.go`. Run
+- [x] 1.3 Run `make templ` to regenerate `icon_templ.go` and `stat_tile_templ.go`. Run
       `make css` — no new Tailwind utility is introduced by this task, but the module's
       own regeneration cheatsheet requires it after any `.templ` edit.
-- [ ] 1.4 `go build ./...` and `go vet ./...` to confirm the new field compiles and every
+- [x] 1.4 `go build ./...` and `go vet ./...` to confirm the new field compiles and every
       existing `ui.StatTile(` call site (grep `internal/gateway/templates` for it) still
       compiles unchanged (they don't set `Trend`, so it defaults to `""` — no rendering
       change, per design.md D3's own verification note).
 
 ## T2. i18n catalogue (D6) — no dependencies
 
-- [ ] 2.1 In `internal/gateway/i18n/catalog.go`, add six `Key` constants + six `catalog`
+- [x] 2.1 In `internal/gateway/i18n/catalog.go`, add six `Key` constants + six `catalog`
       entries (`ES`/`EN` on the same line each, design.md D6's table verbatim) in the
       existing `dashboard.*` namespace, next to the other `KeyDashboard*` entries.
-- [ ] 2.2 No new test needed — `TestCatalog_AllKeysHaveBothLanguages` covers the six new
+- [x] 2.2 No new test needed — `TestCatalog_AllKeysHaveBothLanguages` covers the six new
       keys automatically. Confirm by inspection that every new line has both languages
       non-empty (mirrors `RM42-gateway-add-theme-selector` T2.2's precedent).
 
 ## T3. View model + handler mapping (D2) — no dependencies
 
-- [ ] 3.1 In `internal/gateway/templates/fragments/dashboard_vm.go`, add
+- [x] 3.1 In `internal/gateway/templates/fragments/dashboard_vm.go`, add
       `DistanceTraveled string` and `BatteryUsed string` to `DashboardData` (doc comments
       per design.md D2).
-- [ ] 3.2 In `internal/gateway/handlers/handlers.go`, add `dashDistanceOrDash(v
+- [x] 3.2 In `internal/gateway/handlers/handlers.go`, add `dashDistanceOrDash(v
       *float64) string` and `dashBatteryUsedOrDash(v *float64) string` (design.md D2,
       verbatim). Add the two mapping lines to `mapDashboardSnapshot`.
-- [ ] 3.3 In `internal/gateway/handlers/handlers_test.go`, extend
+- [x] 3.3 In `internal/gateway/handlers/handlers_test.go`, extend
       `TestMapDashboardSnapshot_FixtureFull` and `TestMapDashboardSnapshot_FixtureNil`
       per design.md's Test Contract — add `DistanceTraveledKmCalc`/`ConsumedPct` to the
       full fixture, assert `"45 km"`/`"12.3%"`; assert `"—"`/`"—"` on the nil fixture (no
       fixture change needed there, only new assertions). Offline test, no `DATABASE_URL`.
-- [ ] 3.4 `go build ./...` and `go vet ./...` to confirm the new fields, formatters and
+- [x] 3.4 `go build ./...` and `go vet ./...` to confirm the new fields, formatters and
       test assertions compile.
 
 ## T4. Panel layout (D1) — depends on T1, T2, T3

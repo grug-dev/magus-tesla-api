@@ -48,6 +48,15 @@ type DashboardData struct {
 	// same placeholder the temperatures use. A reported 0 renders as "0".
 	MaxRangeCharges string
 
+	// --- Travel Progress subsection (RM50 tier 2) ---
+	// DistanceTraveled is the latest computed day's driven distance ("45 km"), or "—"
+	// when the day has no predecessor (nil DistanceTraveledKmCalc) or there is no
+	// snapshot at all. Never a fabricated 0.
+	DistanceTraveled string
+	// BatteryUsed is the latest computed day's battery percent used ("12.3%"), or "—"
+	// under the same nil rule as DistanceTraveled.
+	BatteryUsed string
+
 	// --- Battery card ---
 	Battery     string // "94%"  — the big display number
 	BatteryPct  string // "94"   — bare value for the <progress value=""> attribute

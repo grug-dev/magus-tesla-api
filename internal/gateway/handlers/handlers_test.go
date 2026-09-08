@@ -814,7 +814,9 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 		ChargeLimitSocPct: ptrInt(80),
 		CapturedAt:        &capturedAt,
 
-		MaxRangeChargeCounter: ptrInt(12),
+		MaxRangeChargeCounter:  ptrInt(12),
+		DistanceTraveledKmCalc: ptrF64(45.2),
+		ConsumedPct:            ptrF64(12.3),
 	}
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	var vm fragments.DashboardData
@@ -865,6 +867,12 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 	if vm.MaxRangeCharges != "12" {
 		t.Errorf("want MaxRangeCharges %q, got %q", "12", vm.MaxRangeCharges)
 	}
+	if vm.DistanceTraveled != "45 km" {
+		t.Errorf("want DistanceTraveled %q, got %q", "45 km", vm.DistanceTraveled)
+	}
+	if vm.BatteryUsed != "12.3%" {
+		t.Errorf("want BatteryUsed %q, got %q", "12.3%", vm.BatteryUsed)
+	}
 }
 
 func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
@@ -902,6 +910,12 @@ func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
 	}
 	if vm.MaxRangeCharges != "—" {
 		t.Errorf("want MaxRangeCharges %q (nil counter), got %q", "—", vm.MaxRangeCharges)
+	}
+	if vm.DistanceTraveled != "—" {
+		t.Errorf("want DistanceTraveled %q (nil DistanceTraveledKmCalc), got %q", "—", vm.DistanceTraveled)
+	}
+	if vm.BatteryUsed != "—" {
+		t.Errorf("want BatteryUsed %q (nil ConsumedPct), got %q", "—", vm.BatteryUsed)
 	}
 	// Odometer/Battery/RangeNow are always non-pointer — unaffected by the nil fixture.
 	if vm.Odometer != "18,452 km" {

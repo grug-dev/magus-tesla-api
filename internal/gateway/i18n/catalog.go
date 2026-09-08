@@ -115,6 +115,14 @@ const (
 	KeyDashboardAwaitingSnapshot   Key = "dashboard.awaiting_snapshot"
 	KeyDashboardChargeLimit        Key = "dashboard.charge_limit"
 
+	// --- dashboard Vehicle Status subsections (RM50-gateway-add-travel-progress-subsection D6) ---
+	KeyDashboardTravelProgressTitle   Key = "dashboard.travel_progress_title"
+	KeyDashboardTravelProgressDesc    Key = "dashboard.travel_progress_desc"
+	KeyDashboardInteriorExteriorTitle Key = "dashboard.interior_exterior_title"
+	KeyDashboardInteriorExteriorDesc  Key = "dashboard.interior_exterior_desc"
+	KeyDashboardDistanceTraveled      Key = "dashboard.distance_traveled"
+	KeyDashboardBatteryUsed           Key = "dashboard.battery_used"
+
 	// --- dashboard status (handlers.go: dashStatus, mapDashboardSnapshot — D5) ---
 	KeyDashboardStatusCharging        Key = "dashboard_status.charging"
 	KeyDashboardStatusParked          Key = "dashboard_status.parked"
@@ -506,6 +514,13 @@ var catalog = map[Key]entry{
 	KeyDashboardBatteryTitle:       {ES: "Carga de batería", EN: "Battery Charge"},
 	KeyDashboardAwaitingSnapshot:   {ES: "Esperando el primer dato", EN: "Awaiting first snapshot"},
 	KeyDashboardChargeLimit:        {ES: "Límite %d%%", EN: "Limit %d%%"},
+
+	KeyDashboardTravelProgressTitle:   {ES: "Progreso de viaje", EN: "Travel Progress"},
+	KeyDashboardTravelProgressDesc:    {ES: "Distancia recorrida y batería usada en el último día calculado.", EN: "Distance travelled and battery used on the last computed day."},
+	KeyDashboardInteriorExteriorTitle: {ES: "Interior / Exterior", EN: "Interior / Exterior"},
+	KeyDashboardInteriorExteriorDesc:  {ES: "Temperatura dentro y fuera del vehículo.", EN: "Temperature inside and outside the vehicle."},
+	KeyDashboardDistanceTraveled:      {ES: "Distancia recorrida", EN: "Distance travelled"},
+	KeyDashboardBatteryUsed:           {ES: "Batería usada", EN: "Battery used"},
 
 	KeyDashboardStatusCharging:        {ES: "Cargando", EN: "Charging"},
 	KeyDashboardStatusParked:          {ES: "Estacionado", EN: "Parked"},

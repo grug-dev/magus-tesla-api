@@ -463,6 +463,29 @@ func dashCountOrDash(v *int) string {
 	return strconv.Itoa(*v)
 }
 
+// dashDistanceOrDash formats the latest day's driven distance. nil -> "—" (no
+// predecessor day, or the row predates RM50 tier 1). Reuses formatKm — the same
+// formatter the Odometer tile already uses — so a raw/negative correction-day
+// value (see analytics.VehicleStatus.DistanceTraveledKmCalc's own doc comment:
+// "never averaged", never clamped) renders exactly as the history chart already
+// renders the same field (formatKmRaw in history.go) — not a new edge case.
+func dashDistanceOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return formatKm(*v)
+}
+
+// dashBatteryUsedOrDash formats the latest day's battery percent used. nil -> "—",
+// same rule as dashDistanceOrDash. Reuses formatPctRaw — the consumed chart's own
+// one-decimal formatter — so the tile and the chart agree on precision.
+func dashBatteryUsedOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return formatPctRaw(*v) + "%"
+}
+
 // mapDashboardSnapshot fills the dashboard view model's display fields from the
 // account's latest per-vehicle status row. All derivation/rounding/unit-formatting
 // happens here so the template receives fully-computed strings (gateway spec
@@ -490,6 +513,8 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, vs a
 	vm.InsideTemp = dashTempOrDash(vs.InsideTempC)
 	vm.OutsideTemp = dashTempOrDash(vs.OutsideTempC)
 	vm.MaxRangeCharges = dashCountOrDash(vs.MaxRangeChargeCounter)
+	vm.DistanceTraveled = dashDistanceOrDash(vs.DistanceTraveledKmCalc)
+	vm.BatteryUsed = dashBatteryUsedOrDash(vs.ConsumedPct)
 	vm.Battery = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
 	vm.BatteryPct = strconv.Itoa(vs.BatteryLevelPct)
 	vm.RangeNow = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)
