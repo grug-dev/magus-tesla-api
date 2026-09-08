@@ -115,27 +115,27 @@ Unit tests: excluded
 
 ## T5. Doc sweep — depends on T1, T2, T3
 
-- [ ] T5.1 `internal/app/AGENTS.md` — replace "the tier-8 API will live in its own
+- [x] T5.1 `internal/app/AGENTS.md` — replace "the tier-8 API will live in its own
       `cmd/` binary" (in the `## Responsibility` section, under "Why here rather than
       `cmd/poller`") with the corrected fact: the manual-rerun API lives inside
       `cmd/poller` (design.md D1), calling `Processor` through a `cmd/poller`-local
       lock (design.md D3), not inside `internal/app` itself.
-- [ ] T5.2 `internal/app/app.go`'s package doc comment — the line "Scheduler and the
+- [x] T5.2 `internal/app/app.go`'s package doc comment — the line "Scheduler and the
       future manual-rerun API (roadmap tier 8, parked) are peer driving adapters"
       drops "future" and "parked": the API adapter now exists, in `cmd/poller`.
-- [ ] T5.3 `internal/telemetry/telemetry.go` — the `TriggeredByAPI` constant's doc
+- [x] T5.3 `internal/telemetry/telemetry.go` — the `TriggeredByAPI` constant's doc
       comment ("a future manual re-run via HTTP (RM29 tier 8, parked)") drops
       "future" and "parked" and points at this change by name.
-- [ ] T5.4 Root `README.md` — two spots: the `internal/app` row in the Architecture
+- [x] T5.4 Root `README.md` — two spots: the `internal/app` row in the Architecture
       table ("Called by `cmd/poller` and, later, the parked manual-rerun API")
       becomes "Called by `cmd/poller`'s scheduler and its manual-rerun HTTP
       listener"; the `poll_attempts` row's "`api` once the parked manual-rerun API
       exists" becomes "`api` for a manual rerun via `cmd/poller`'s HTTP listener
       (platform-add-manual-rerun-api)".
-- [ ] T5.5 `cmd/README.md` — the `cmd/poller` row gains its second responsibility:
+- [x] T5.5 `cmd/README.md` — the `cmd/poller` row gains its second responsibility:
       state plainly that it also serves the manual-rerun HTTP endpoint (path,
       `POLLER_RERUN_TOKEN` gate, off-by-default) alongside the scheduler.
-- [ ] T5.6 `kkpa/context/architecture/nightly-cycle.md` → "Related KB" — the line
+- [x] T5.6 `kkpa/context/architecture/nightly-cycle.md` → "Related KB" — the line
       "Use cases: (none — the cycle has no external HTTP trigger; the tier-8
       manual-rerun API is parked)" is now false: the cycle DOES have an external HTTP
       trigger. Correct it to state the trigger exists (`cmd/poller`'s
@@ -148,7 +148,7 @@ Unit tests: excluded
 
 ## T6. `docs/0-set-up/deployment.md` — depends on T1, T2, T3
 
-- [ ] T6.1 Add a new numbered subsection after the existing §8.11 ("Deploying an
+- [x] T6.1 Add a new numbered subsection after the existing §8.11 ("Deploying an
       update, from now on"): how to set `POLLER_RERUN_TOKEN` in `.env`, restart the
       stack, and the exact `curl -i -X POST https://<domain>/internal/rerun/<token>`
       command with its expected `202 Accepted` / `{"status":"started"}` response and

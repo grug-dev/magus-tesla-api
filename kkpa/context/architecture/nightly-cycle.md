@@ -158,7 +158,9 @@ so the link above stays valid.
 ## Related KB
 
 - Features: (none)
-- Use cases: (none — the cycle has no external HTTP trigger; the tier-8 manual-rerun API is parked)
+- Use cases: the cycle has one external HTTP trigger — `cmd/poller`'s
+  `POST /internal/rerun/<token>` listener (`platform-add-manual-rerun-api` design.md).
+  No full use-case guide yet; a KB sync is staged after this change archives.
 - Workflows: `workflows/manual-charge-crud.md` (the other trigger of `Recalculator`, on user write), `workflows/supercharger-stats-read.md` (the page that reads the `supercharger_sessions` mirror this cycle writes)
 - Architecture: `architecture/telemetry-ingest-only.md` (telemetry's own consumer map)
 - Entities: `entities/vehicle-metrics/guide.md` (what step 3 derives and stores)

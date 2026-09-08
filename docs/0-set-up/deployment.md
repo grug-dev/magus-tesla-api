@@ -486,3 +486,79 @@ build cache makes a no-op rebuild fast.
 For every other day-to-day command — logs, restarting one service, database
 access, backups, and troubleshooting — see
 **[`docs/1-deploy/docker.md`](../1-deploy/docker.md)**.
+
+### 8.12 Manual rerun — trigger one cycle on demand
+
+The poller collects data every night on its own schedule. If you cannot wait for
+that — for example, you just fixed a problem and want to check it right now — you
+can trigger one extra cycle by hand, over HTTPS, without SSH.
+
+This needs one `.env` value, `POLLER_RERUN_TOKEN`. It is empty by default, and an
+empty value turns the whole endpoint off: no port opens, no route exists. Set it to
+enable the feature.
+
+```bash
+# Generate a random token. Any random string works — it only needs to be
+# hard to guess.
+openssl rand -hex 16
+```
+
+Paste the output into `.env` as `POLLER_RERUN_TOKEN=<the output>`, then restart the
+stack so the poller picks it up:
+
+```bash
+docker compose --project-directory . -f deploy/docker/compose.yaml up -d
+```
+
+Check the poller log to confirm the listener started:
+
+```bash
+docker compose --project-directory . -f deploy/docker/compose.yaml logs poller --tail=20
+```
+
+You should see one of two lines:
+
+- `manual-rerun listener on :8081 (POLLER_RERUN_TOKEN set)` — the endpoint is on.
+- `manual-rerun listener OFF: ...` — the token cannot be used in a URL path (for
+  example, it has a `{` or `}` in it). The listener stays off, but **the poller
+  itself keeps running its nightly schedule** — a bad token never stops it.
+  Generate a new token with `openssl rand -hex 16` and try again.
+
+Now trigger a cycle. Replace `<domain>` with your real domain and `<token>` with
+your `POLLER_RERUN_TOKEN` value:
+
+```bash
+curl -i -X POST https://<domain>/internal/rerun/<token>
+```
+
+Expect an immediate response — well under a second, because the cycle runs in the
+background:
+
+```
+HTTP/1.1 202 Accepted
+Content-Type: application/json
+
+{"status":"started"}
+```
+
+The response does not carry a run ID. If you call the same URL again while a cycle
+is still running (either this one, or the nightly one), you get:
+
+```
+HTTP/1.1 409 Conflict
+```
+
+This means only one cycle — nightly or manual — ever runs at a time. A cycle takes
+1-3 minutes, longer if the car is asleep and needs to wake up. To find the run
+afterward, query the database:
+
+```sql
+SELECT run_id, triggered_by, started_at, finished_at, duration_seconds
+FROM telemetry.poll_runs
+WHERE triggered_by = 'api'
+ORDER BY started_at DESC
+LIMIT 1;
+```
+
+Rotating the token is a plain `.env` edit plus the same restart command above — no
+rebuild needed.
