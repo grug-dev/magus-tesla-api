@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM49-analysis-start-date",
+  "intention": "Every account stores the first day the app analyzes vehicle data, and the external-charges page rejects charges dated before it.",
+  "request": "MAG-55 — restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
+  "status": "in-progress",
+  "autopilot": false,
+  "updated_at": "2026-09-08T10:35:30Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM49-MAG-55-analysis-start-date",
+    "base": "main",
+    "ticket": "MAG-55",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-55/external-charges",
+    "created_at": "2026-09-08T10:35:30Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "scope": "roadmap:table-choice",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "analysis_start_date DATE NOT NULL lives on account.settings, not on accounts or vehicles.",
+      "why": "settings is already the one-row-per-account typed table (RM42 D3). Per-vehicle is more correct once a second car exists, but costs teslaID plumbing today."
+    },
+    {
+      "id": "D5",
+      "scope": "roadmap:enforcement",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "The rule is enforced in internal/gateway only. internal/charging is not touched.",
+      "why": "Trades domain-level safety for one fewer module and wave. Accepted consequence: a non-gateway caller of charging.Writer can still save a bad date."
+    },
+    {
+      "id": "D6",
+      "scope": "roadmap:date-field",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "The rule compares Entry.ChargedOn only, never StartedAt.",
+      "why": "ChargedOn is required on every entry and is what analytics uses. StartedAt is optional and unused there."
+    },
+    {
+      "id": "D7",
+      "scope": "roadmap:editability",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "The date is read-only. No settings form field, no write port method.",
+      "why": "Keeps the ticket small. Editing is deferred to backlog item 27 with its own trigger."
+    },
+    {
+      "id": "D10",
+      "scope": "roadmap:tests",
+      "made_by": "user",
+      "at": "2026-09-08T10:35:30Z",
+      "what": "No unit tests in this roadmap.",
+      "why": "The owner's standing default. Build, vet and the guards still run."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM49-account-add-analysis-start-date",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "change": "RM49-gateway-restrict-external-charge-date",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ]
+}

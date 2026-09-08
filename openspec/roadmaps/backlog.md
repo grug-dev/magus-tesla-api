@@ -964,6 +964,26 @@ PG16 dev database. The owner chose to fix only the comparison (roadmap D18) and 
 write behaviour, deferring the "should we save the late value" question to this entry.
 
 
+## 27. account / gateway — Let the user change `analysis_start_date`
+
+### PROPOSAL
+
+RM49 stores `account.settings.analysis_start_date` and makes it read-only. It is set
+once at signup, copied from `account.accounts.created_at`. The user cannot change it.
+
+This item is to make it editable on the `/settings` page. The work is: one form field,
+a `SetAnalysisStartDate` write port method on `account.Service`, its own validation
+(not in the future, not before the account was created), and ES + EN catalogue entries.
+
+**Trigger:** the owner wants to analyze charges from before signup, or wants to move
+the start date forward to drop an early period of bad data.
+
+### ORIGIN
+
+RM49 decision D7. The owner chose read-only to keep the ticket small.
+
+
+
 # BRAINSTORMING
 
 
