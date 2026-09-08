@@ -6,6 +6,16 @@
 #
 # Edit here only if you are not using .env's BASE_DOMAIN — replace
 # {$BASE_DOMAIN} with your literal domain, e.g. magus.example.com.
+#
+# /internal/rerun/* routes to the poller's manual-rerun listener
+# (platform-add-manual-rerun-api, design.md D8); everything else keeps going
+# to web:8080. Caddy forwards the whole subtree — it does not know the
+# secret; poller's own handler accepts or 404s the exact path.
 {$BASE_DOMAIN} {
-	reverse_proxy web:8080
+	handle /internal/rerun/* {
+		reverse_proxy poller:8081
+	}
+	handle {
+		reverse_proxy web:8080
+	}
 }

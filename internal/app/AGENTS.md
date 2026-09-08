@@ -58,11 +58,12 @@ composition fact — the distinction the reviewer checks:
 Why here rather than `cmd/poller`: `scheduler.go` is ~130 lines of timer, date and
 DST-aware rollover logic, and `CLAUDE.md` §Non-negotiables says *"`cmd/` stays thin (zero
 business logic)"* — putting it in `cmd/` would have refilled the very file this tier
-exists to empty. The accepted cost is that the two peer adapters are no longer symmetric
-in location (the tier-8 API will live in its own `cmd/` binary): the `cmd/` rule is
-written, the symmetry is taste. Full reasoning, including the leader's correction of its
-own earlier framing: `openspec/changes/RM29-app-add-process-vehicle-data/design.md`
-**D3** and **D4**.
+exists to empty. The manual-rerun API (tier 8) now lives inside `cmd/poller` itself, not
+in its own `cmd/` binary (`platform-add-manual-rerun-api` design.md D1): it calls
+`Processor` through a `cmd/poller`-local lock, `guardedProcessor` (design.md D3), not
+through code inside `internal/app`. Full reasoning for the scheduler's own placement,
+including the leader's correction of its own earlier framing:
+`openspec/changes/RM29-app-add-process-vehicle-data/design.md` **D3** and **D4**.
 
 A whole-cycle failure in step 1 (fleet-data sync) skips steps 2 and 3 entirely for that
 invocation — the same short-circuit `cmd/poller`'s `reconcilingCollector` had before this
@@ -112,9 +113,9 @@ interface-first):
   - `nextRun` stays **unexported and pure** (no clock, no sleeping) so the schedule-time
     math remains unit-testable in isolation. Keep it that way.
 
-No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3; the future
-tier-8 API is a separate `cmd/` binary that will call `Processor`, not code inside this
-module).
+No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3; the
+tier-8 manual-rerun API lives inside `cmd/poller`, which calls `Processor`, not code
+inside this module — `platform-add-manual-rerun-api` design.md D1).
 
 ## Allowed / forbidden imports
 

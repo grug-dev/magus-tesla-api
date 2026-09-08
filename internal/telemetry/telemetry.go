@@ -180,7 +180,8 @@ const (
 	// TriggeredByScheduler — the nightly scheduled poller (internal/app's Scheduler),
 	// including cmd/poller --once.
 	TriggeredByScheduler TriggeredBy = "scheduler"
-	// TriggeredByAPI — a future manual re-run via HTTP (RM29 tier 8, parked).
+	// TriggeredByAPI — a manual re-run via cmd/poller's HTTP listener
+	// (platform-add-manual-rerun-api).
 	TriggeredByAPI TriggeredBy = "api"
 )
 

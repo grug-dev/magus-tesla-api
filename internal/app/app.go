@@ -13,11 +13,11 @@
 //	API ────────┘                         ├── Process Charging data (the T6 mirror)
 //	                                      └── Recalculate Analytics (analytics)
 //
-// Scheduler and the future manual-rerun API (roadmap tier 8, parked) are peer
-// driving adapters that CALL this port — neither is inside Processor.
-// ProcessVehicleData has no knowledge of when a cycle runs or how it was triggered
-// beyond the telemetry.TriggeredBy value its caller passes in; it only knows what
-// one cycle does (design.md D3).
+// Scheduler and the manual-rerun API (cmd/poller's HTTP listener,
+// platform-add-manual-rerun-api) are peer driving adapters that CALL this port —
+// neither is inside Processor. ProcessVehicleData has no knowledge of when a cycle
+// runs or how it was triggered beyond the telemetry.TriggeredBy value its caller
+// passes in; it only knows what one cycle does (design.md D3).
 //
 // This package also HOSTS the scheduled driving adapter (Scheduler/NewScheduler/Run,
 // scheduler.go), relocated from internal/telemetry (design.md D4, carrying RD8,
@@ -42,8 +42,8 @@ import (
 )
 
 // Processor is the platform's application-layer port — see the package doc comment
-// for the three-step diagram (design.md D3). Scheduler and the future manual-rerun
-// API are peer driving adapters that CALL Processor from the outside; neither is
+// for the three-step diagram (design.md D3). Scheduler and the manual-rerun API
+// are peer driving adapters that CALL Processor from the outside; neither is
 // part of it.
 type Processor interface {
 	// ProcessVehicleData runs one full cycle for triggeredBy. It generates a fresh
