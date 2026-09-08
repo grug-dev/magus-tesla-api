@@ -139,15 +139,20 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   `navHeaderFor` treats it as forced-Asleep, never Connected (roadmap D9).
   _Source: `internal/analytics/analytics.go`'s `LatestMetricsByAccount` doc comment;
   `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D8._
-- **Nil pointer fields omit, never fabricate.** Nine `VehicleStatus` fields are pointers
-  (`InsideTempC`, `OutsideTempC`, `CarVersion`, `ChargeLimitSocPct`, `ChargingState`,
-  `CapturedAt`, `Locked`, `SentryMode`, `MaxRangeChargeCounter`). A nil value means "not yet
+- **Nil pointer fields omit, never fabricate.** Eleven `VehicleStatus` fields this mapper
+  reads are pointers — the nine from `RM38` (`InsideTempC`, `OutsideTempC`, `CarVersion`,
+  `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`, `SentryMode`,
+  `MaxRangeChargeCounter`) plus the two from `RM50`
+  (`DistanceTraveledKmCalc`, `ConsumedPct`). A nil value means "not yet
   computed since the migration" — for `SentryMode` and `MaxRangeChargeCounter` it can also
-  mean "not reported this capture" — and the corresponding display field is left
-  empty/omitted (e.g. `"—"` for a nil temperature or a nil 100%-charge count, no
-  Locked/Sentry badge) — it is never defaulted to a fabricated `false`/`0`/`""`. The
+  mean "not reported this capture", and for the two `RM50` fields it means the latest
+  computed day has no prior day to derive them against — and the corresponding display
+  field is left empty/omitted (e.g. `"—"` for a nil temperature, a nil 100%-charge count,
+  or a nil distance travelled, no Locked/Sentry badge) — it is never defaulted to a
+  fabricated `false`/`0`/`""`. The
   counter's real `0` is a reading, not an absence, and renders as `"0"`. See design.md D2's per-field table for the exact rule per field.
-  _Source: `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D3/D7._
+  _Source: `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D3/D7;
+  `openspec/changes/archive/gateway/2026-09-08-RM50-gateway-add-travel-progress-subsection/design.md` D2._
 - **Four distinct degradation states, never a 500.** `NeedsConnect` (no registered vehicles ⇒
   connect prompt), `TelemetryUnavailable` (reader error ⇒ warning `Alert` + identity-only
   bento — the field name is a historical holdover, the read is now against analytics), `HasSnapshot=false` (registered but no
