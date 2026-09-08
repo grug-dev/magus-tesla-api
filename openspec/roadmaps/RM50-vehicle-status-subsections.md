@@ -155,12 +155,12 @@ archived) · `[x]` done (archived).
 
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
-| `[~]` | 1 | `RM50-analytics-add-tire-pressure-columns` | `analytics` | Four raw TPMS columns + backfill migration + expose travel-progress fields on the read port | — |
+| `[x]` | 1 | `RM50-analytics-add-tire-pressure-columns` | `analytics` | Four raw TPMS columns + backfill migration + expose travel-progress fields on the read port | — |
 | `[ ]` | 2 | `RM50-gateway-add-travel-progress-subsection` | `gateway` | `/design` (3 suggestions), Travel Progress subsection, regroup Interior/Exterior | 1 |
 | `[ ]` | 3 | `RM50-analytics-add-tire-pressure-variance` | `analytics` | Four `_calc` delta columns + delta maths + expose on the read port | 1 |
 | `[ ]` | 4 | `RM50-gateway-add-tire-pressure-subsection` | `gateway` | Tire pressure subsection with per-wheel up/down icons | 2, 3 |
 
-### Tier 1 — `[~]` `RM50-analytics-add-tire-pressure-columns` (module: `analytics`)
+### Tier 1 — `[x]` `RM50-analytics-add-tire-pressure-columns` (module: `analytics`)
 
 Covers ticket **Step 1**, plus the read-port half of **Step 2**.
 

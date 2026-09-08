@@ -84,15 +84,15 @@ last.
 
 ## Verification (do not run the suite — see Test-Execution-Policy)
 
-- [ ] 4.1 `go build ./...`
-- [ ] 4.2 `go vet ./...`
-- [ ] 4.3 `gofmt -l internal/analytics`
-- [ ] 4.4 `make migration-guard` (checks the new migration's version number has no
+- [x] 4.1 `go build ./...`
+- [x] 4.2 `go vet ./...`
+- [x] 4.3 `gofmt -l internal/analytics`
+- [x] 4.4 `make migration-guard` (checks the new migration's version number has no
       collision across module directories)
-- [ ] 4.5 `make boundary-guard` (confirms the backfill migration, as expected, does not
+- [x] 4.5 `make boundary-guard` (confirms the backfill migration, as expected, does not
       trip it — design.md Part C already verified this by reading the guard's grep
       target; this step re-confirms after the file exists)
-- [ ] 4.6 Report the exact suite commands to the owner:
+- [x] 4.6 Report the exact suite commands to the owner:
       `go test ./internal/analytics/...` (offline tests must pass with `DATABASE_URL`
       unset; DB-integration tests self-skip in that case and need `DATABASE_URL` set, or
       Docker running, to actually exercise tasks 1.7/1.8/2.5).
