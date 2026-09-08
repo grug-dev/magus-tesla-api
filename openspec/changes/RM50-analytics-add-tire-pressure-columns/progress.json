@@ -7,9 +7,9 @@
   "tier": 1,
   "intention": "vehicle_metrics gains four raw TPMS PSI columns copied verbatim from telemetry.Snapshot, a one-off cross-schema backfill for existing rows, and two already-existing columns (distance_traveled_km_calc, consumed_pct) newly exposed on the LatestMetricsByAccount read port so the dashboard panel can show Travel Progress.",
   "request": "Linear MAG-56 Step 1 plus the read-port half of Step 2. See openspec/roadmaps/RM50-vehicle-status-subsections.md for the binding decisions RD1-RD8.",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-09-08T16:36:11Z",
-  "updated_at": "2026-09-08T16:36:11Z",
+  "updated_at": "2026-09-08T16:46:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -25,18 +25,8 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "1.2",
-      "1.3",
-      "1.4",
-      "1.5",
-      "1.6",
       "1.7",
       "1.8",
-      "2.1",
-      "2.2",
-      "2.3",
-      "2.4",
       "2.5",
       "3.1",
       "3.2",
@@ -44,7 +34,19 @@
       "4.1"
     ],
     "blocked": [],
-    "done": []
+    "done": [],
+    "awaiting_user_verification": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4"
+    ]
   },
   "decisions": [
     {
@@ -61,14 +63,20 @@
       "id": "1.1",
       "description": "Write the migration: 4 nullable columns + COMMENT ON COLUMN + the RD2 backfill UPDATE + Down that drops the columns.",
       "depends_on": [],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "Migration 20260908000002_add_tpms_pressure_columns.sql: 4 nullable columns, COMMENT ON COLUMN, the RD2 backfill UPDATE, Down drops columns only. Leader renumbered 0001 -> 0002 after make migration-guard found a collision with internal/account."
     },
     {
       "id": "1.2",
@@ -76,14 +84,20 @@
       "depends_on": [
         "1.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "Four TPMS columns added to UpsertVehicleMetric's INSERT, VALUES and ON CONFLICT DO UPDATE SET in query.sql."
     },
     {
       "id": "1.3",
@@ -91,14 +105,20 @@
       "depends_on": [
         "1.2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "make sqlc ran once, together with 2.2. COMMENT ON COLUMN text confirmed present in models.go."
     },
     {
       "id": "1.4",
@@ -106,14 +126,20 @@
       "depends_on": [
         "1.3"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "Four pointer fields on vehicleMetricRow, populated from cur in BOTH branches of deriveVehicleMetrics. Direct assignment, no address-taking. Matches D2."
     },
     {
       "id": "1.5",
@@ -121,14 +147,20 @@
       "depends_on": [
         "1.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "Four fields mapped in upsertVehicleMetricParamsFrom via the existing pgFloat8FromPtr helper. No new mapping code."
     },
     {
       "id": "1.6",
@@ -136,14 +168,20 @@
       "depends_on": [
         "1.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "Three offline tests in consumed_test.go: predecessor-less row, row with predecessor, one wheel absent. Compile under go vet. Not executed."
     },
     {
       "id": "1.7",
@@ -179,14 +217,20 @@
       "id": "2.1",
       "description": "Add distance_traveled_km_calc and consumed_pct to the LatestVehicleMetricsByAccount SELECT.",
       "depends_on": [],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "Six columns added to the LatestVehicleMetricsByAccount SELECT (4 TPMS + distance_traveled_km_calc + consumed_pct). Doc comment carries the D3 no-new-index note."
     },
     {
       "id": "2.2",
@@ -194,14 +238,20 @@
       "depends_on": [
         "2.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "Same single make sqlc run as 1.3."
     },
     {
       "id": "2.3",
@@ -209,14 +259,20 @@
       "depends_on": [
         "2.2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "VehicleStatus gains six *float64 fields with doc comments stating the nil meaning."
     },
     {
       "id": "2.4",
@@ -224,14 +280,20 @@
       "depends_on": [
         "2.3"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T16:40:00Z",
+      "completed_at": "2026-09-08T16:46:00Z",
+      "duration_seconds": 360,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 51,
+        "cost_usd_delta": 4.08,
+        "approx": true,
+        "note": "one serial wave dispatch; delta covers tasks 1.1-1.6 and 2.1-2.4 jointly"
+      },
+      "notes": "Six lines added to the LatestMetricsByAccount mapping loop, all via the existing ptrFloat64FromPg helper."
     },
     {
       "id": "2.5",
@@ -324,6 +386,18 @@
       "type": "artifacts-created",
       "by": "leader",
       "detail": "Tier 1 artifacts written by the analytics worker (Sonnet) and validated with openspec validate --strict: valid. Design gate opened and CONFIRMED by the user (D-GATE-1). Pipeline halts here per the kkpa-pickup-linear-ticket scope: no implementation workers dispatched."
+    },
+    {
+      "at": "2026-09-08T16:40:00Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 1 dispatched to the analytics worker (Sonnet), serial single dispatch: tasks 1.1-1.6 and 2.1-2.4 (schema, sqlc regen, Go mapping, offline unit test). Budget at dispatch: five_hour 41%, context 9%, cost $0.645."
+    },
+    {
+      "at": "2026-09-08T16:46:00Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 1 done. Worker reported all 10 tasks complete; leader set them awaiting-user-verification because the offline unit tests were written but not run. Leader fix: make migration-guard found version 20260908000001 already used by internal/account, so the migration was renumbered to 20260908000002 and the filename updated in design.md and tasks.md. Clean: go build, go vet, gofmt -l internal/analytics, make migration-guard, make boundary-guard, make tz-guard. Worker report enumerated D1, D2, D3 and RD2 with compliance statements; leader cross-checked D2 in consumed.go (both branches) and D3 (no index anywhere)."
     }
   ]
 }

@@ -162,26 +162,34 @@ SELECT DISTINCT ON (tesla_id)
     tesla_id, battery_level_pct, battery_range_km, odometer_km,
     inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
     charging_state, charge_limit_soc_pct, captured_at,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    distance_traveled_km_calc, consumed_pct
 FROM analytics.vehicle_metrics
 WHERE account_id = $1
 ORDER BY tesla_id, metric_date DESC
 `
 
 type LatestVehicleMetricsByAccountRow struct {
-	TeslaID               int64
-	BatteryLevelPct       int32
-	BatteryRangeKm        float64
-	OdometerKm            float64
-	InsideTempC           pgtype.Float8
-	OutsideTempC          pgtype.Float8
-	Locked                pgtype.Bool
-	SentryMode            pgtype.Bool
-	CarVersion            pgtype.Text
-	ChargingState         pgtype.Text
-	ChargeLimitSocPct     pgtype.Int4
-	CapturedAt            pgtype.Timestamptz
-	MaxRangeChargeCounter pgtype.Int4
+	TeslaID                int64
+	BatteryLevelPct        int32
+	BatteryRangeKm         float64
+	OdometerKm             float64
+	InsideTempC            pgtype.Float8
+	OutsideTempC           pgtype.Float8
+	Locked                 pgtype.Bool
+	SentryMode             pgtype.Bool
+	CarVersion             pgtype.Text
+	ChargingState          pgtype.Text
+	ChargeLimitSocPct      pgtype.Int4
+	CapturedAt             pgtype.Timestamptz
+	MaxRangeChargeCounter  pgtype.Int4
+	TpmsPressureFlPsi      pgtype.Float8
+	TpmsPressureFrPsi      pgtype.Float8
+	TpmsPressureRlPsi      pgtype.Float8
+	TpmsPressureRrPsi      pgtype.Float8
+	DistanceTraveledKmCalc pgtype.Float8
+	ConsumedPct            pgtype.Float8
 }
 
 // Backs analytics.Reader.LatestMetricsByAccount (design D5/D6 of
@@ -199,6 +207,12 @@ type LatestVehicleMetricsByAccountRow struct {
 // "100% Charges" tile: it is one more nullable raw observation on the same
 // latest row, so it adds a column to an existing read, not a second query --
 // and no index, since it appears in no WHERE/ORDER BY.
+// RM50-analytics-add-tire-pressure-columns widens this SELECT by six more
+// columns: the four new tpms_pressure_*_psi raw observations, plus two
+// pre-existing columns (distance_traveled_km_calc, consumed_pct) gaining
+// their first consumer on this read port. All six are PROJECTED ONLY -- none
+// appears in a WHERE, JOIN, or ORDER BY -- so idx_vehicle_metrics_latest
+// still serves this query exactly as before; no index change (design.md D3).
 func (q *Queries) LatestVehicleMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]LatestVehicleMetricsByAccountRow, error) {
 	rows, err := q.db.Query(ctx, latestVehicleMetricsByAccount, accountID)
 	if err != nil {
@@ -222,6 +236,12 @@ func (q *Queries) LatestVehicleMetricsByAccount(ctx context.Context, accountID u
 			&i.ChargeLimitSocPct,
 			&i.CapturedAt,
 			&i.MaxRangeChargeCounter,
+			&i.TpmsPressureFlPsi,
+			&i.TpmsPressureFrPsi,
+			&i.TpmsPressureRlPsi,
+			&i.TpmsPressureRrPsi,
+			&i.DistanceTraveledKmCalc,
+			&i.ConsumedPct,
 		); err != nil {
 			return nil, err
 		}
@@ -284,7 +304,8 @@ INSERT INTO analytics.vehicle_metrics (
     consumed_pct, flagged, missing_charging_type,
     locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
     charging_state, charge_limit_soc_pct, captured_at,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6,
@@ -293,7 +314,8 @@ INSERT INTO analytics.vehicle_metrics (
     $12, $13, $14,
     $15, $16, $17, $18, $19,
     $20, $21, $22,
-    $23
+    $23,
+    $24, $25, $26, $27
 )
 ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     battery_level_pct         = EXCLUDED.battery_level_pct,
@@ -316,6 +338,10 @@ ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     charge_limit_soc_pct        = EXCLUDED.charge_limit_soc_pct,
     captured_at                 = EXCLUDED.captured_at,
     max_range_charge_counter    = EXCLUDED.max_range_charge_counter,
+    tpms_pressure_fl_psi        = EXCLUDED.tpms_pressure_fl_psi,
+    tpms_pressure_fr_psi        = EXCLUDED.tpms_pressure_fr_psi,
+    tpms_pressure_rl_psi        = EXCLUDED.tpms_pressure_rl_psi,
+    tpms_pressure_rr_psi        = EXCLUDED.tpms_pressure_rr_psi,
     updated_at                 = now()
 `
 
@@ -343,6 +369,10 @@ type UpsertVehicleMetricParams struct {
 	ChargeLimitSocPct      pgtype.Int4
 	CapturedAt             pgtype.Timestamptz
 	MaxRangeChargeCounter  pgtype.Int4
+	TpmsPressureFlPsi      pgtype.Float8
+	TpmsPressureFrPsi      pgtype.Float8
+	TpmsPressureRlPsi      pgtype.Float8
+	TpmsPressureRrPsi      pgtype.Float8
 }
 
 // Queries for the analytics module. sqlc generates package `analyticsdb` from
@@ -373,6 +403,10 @@ type UpsertVehicleMetricParams struct {
 // max_range_charge_counter follows that same rule: another raw observation
 // copied verbatim from the day's own snapshot, refreshed on every
 // re-derivation, populated with or without a predecessor.
+// The four tpms_pressure_*_psi columns (RM50-analytics-add-tire-pressure-columns)
+// follow the identical rule: raw observations copied verbatim from the day's own
+// telemetry.Snapshot, refreshed on every re-derivation, populated with or without
+// a predecessor (design.md D2).
 func (q *Queries) UpsertVehicleMetric(ctx context.Context, arg UpsertVehicleMetricParams) error {
 	_, err := q.db.Exec(ctx, upsertVehicleMetric,
 		arg.AccountID,
@@ -398,6 +432,10 @@ func (q *Queries) UpsertVehicleMetric(ctx context.Context, arg UpsertVehicleMetr
 		arg.ChargeLimitSocPct,
 		arg.CapturedAt,
 		arg.MaxRangeChargeCounter,
+		arg.TpmsPressureFlPsi,
+		arg.TpmsPressureFrPsi,
+		arg.TpmsPressureRlPsi,
+		arg.TpmsPressureRrPsi,
 	)
 	return err
 }

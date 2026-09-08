@@ -267,19 +267,25 @@ func (r *reader) LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID
 	out := make([]VehicleStatus, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, VehicleStatus{
-			TeslaID:               row.TeslaID,
-			BatteryLevelPct:       int(row.BatteryLevelPct),
-			BatteryRangeKm:        row.BatteryRangeKm,
-			OdometerKm:            row.OdometerKm,
-			InsideTempC:           ptrFloat64FromPg(row.InsideTempC),
-			OutsideTempC:          ptrFloat64FromPg(row.OutsideTempC),
-			Locked:                ptrBoolFromPg(row.Locked),
-			SentryMode:            ptrBoolFromPg(row.SentryMode),
-			CarVersion:            ptrStringFromPg(row.CarVersion),
-			ChargingState:         ptrStringFromPg(row.ChargingState),
-			ChargeLimitSocPct:     ptrIntFromPg(row.ChargeLimitSocPct),
-			CapturedAt:            ptrTimeFromPg(row.CapturedAt),
-			MaxRangeChargeCounter: ptrIntFromPg(row.MaxRangeChargeCounter),
+			TeslaID:                row.TeslaID,
+			BatteryLevelPct:        int(row.BatteryLevelPct),
+			BatteryRangeKm:         row.BatteryRangeKm,
+			OdometerKm:             row.OdometerKm,
+			InsideTempC:            ptrFloat64FromPg(row.InsideTempC),
+			OutsideTempC:           ptrFloat64FromPg(row.OutsideTempC),
+			Locked:                 ptrBoolFromPg(row.Locked),
+			SentryMode:             ptrBoolFromPg(row.SentryMode),
+			CarVersion:             ptrStringFromPg(row.CarVersion),
+			ChargingState:          ptrStringFromPg(row.ChargingState),
+			ChargeLimitSocPct:      ptrIntFromPg(row.ChargeLimitSocPct),
+			CapturedAt:             ptrTimeFromPg(row.CapturedAt),
+			MaxRangeChargeCounter:  ptrIntFromPg(row.MaxRangeChargeCounter),
+			TpmsPressureFLPSI:      ptrFloat64FromPg(row.TpmsPressureFlPsi),
+			TpmsPressureFRPSI:      ptrFloat64FromPg(row.TpmsPressureFrPsi),
+			TpmsPressureRLPSI:      ptrFloat64FromPg(row.TpmsPressureRlPsi),
+			TpmsPressureRRPSI:      ptrFloat64FromPg(row.TpmsPressureRrPsi),
+			DistanceTraveledKmCalc: ptrFloat64FromPg(row.DistanceTraveledKmCalc),
+			ConsumedPct:            ptrFloat64FromPg(row.ConsumedPct),
 		})
 	}
 	return out, nil

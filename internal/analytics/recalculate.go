@@ -227,6 +227,10 @@ func upsertVehicleMetricParamsFrom(row vehicleMetricRow) analyticsdb.UpsertVehic
 		ChargeLimitSocPct:      pgInt4FromPtr(row.ChargeLimitSocPct),
 		CapturedAt:             pgTimestamptzFromPtr(row.CapturedAt),
 		MaxRangeChargeCounter:  pgInt4FromPtr(row.MaxRangeChargeCounter),
+		TpmsPressureFlPsi:      pgFloat8FromPtr(row.TpmsPressureFLPSI),
+		TpmsPressureFrPsi:      pgFloat8FromPtr(row.TpmsPressureFRPSI),
+		TpmsPressureRlPsi:      pgFloat8FromPtr(row.TpmsPressureRLPSI),
+		TpmsPressureRrPsi:      pgFloat8FromPtr(row.TpmsPressureRRPSI),
 	}
 }
 

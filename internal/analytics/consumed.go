@@ -72,6 +72,16 @@ type vehicleMetricRow struct {
 	// distinguishable from nil.
 	MaxRangeChargeCounter *int
 
+	// The four TPMS (tire-pressure) columns (RM50-analytics-add-tire-pressure-columns
+	// design.md D2) are a raw observation on exactly the same terms as
+	// MaxRangeChargeCounter above -- copied verbatim from cur in BOTH branches, never
+	// derived, never converted (telemetry.Snapshot already stores them in PSI). Already
+	// *float64 on telemetry.Snapshot, so assigned directly, not address-taken.
+	TpmsPressureFLPSI *float64
+	TpmsPressureFRPSI *float64
+	TpmsPressureRLPSI *float64
+	TpmsPressureRRPSI *float64
+
 	// The five _calc columns (D9) -- computed by consumption.go's
 	// deriveConsumption from this row's snapshot pair. They used to be copied
 	// verbatim off telemetry.Snapshot's own _calc fields; RM29 tier 4 moved
@@ -274,6 +284,10 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 				CapturedAt:        &cur.CapturedAt,
 
 				MaxRangeChargeCounter: cur.MaxRangeChargeCounter,
+				TpmsPressureFLPSI:     cur.TpmsPressureFLPSI,
+				TpmsPressureFRPSI:     cur.TpmsPressureFRPSI,
+				TpmsPressureRLPSI:     cur.TpmsPressureRLPSI,
+				TpmsPressureRRPSI:     cur.TpmsPressureRRPSI,
 				Flagged:               false,
 			})
 			continue
@@ -314,6 +328,10 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			ChargeLimitSocPct:      &cur.ChargeLimitSocPct,
 			CapturedAt:             &cur.CapturedAt,
 			MaxRangeChargeCounter:  cur.MaxRangeChargeCounter,
+			TpmsPressureFLPSI:      cur.TpmsPressureFLPSI,
+			TpmsPressureFRPSI:      cur.TpmsPressureFRPSI,
+			TpmsPressureRLPSI:      cur.TpmsPressureRLPSI,
+			TpmsPressureRRPSI:      cur.TpmsPressureRRPSI,
 			DistanceTraveledKmCalc: calc.DistanceTraveledKmCalc,
 			BatteryUsedPctCalc:     calc.BatteryUsedPctCalc,
 			KmPerPctCalc:           calc.KmPerPctCalc,

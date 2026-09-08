@@ -9,29 +9,29 @@ share Go files with A or B.
 
 Depends on: nothing. Blocks: A's own DB-integration tests need the migration applied.
 
-- [ ] 1.1 Write migration
-      `internal/analytics/db/migrations/20260908000001_add_tpms_pressure_columns.sql`:
+- [x] 1.1 Write migration
+      `internal/analytics/db/migrations/20260908000002_add_tpms_pressure_columns.sql`:
       `ADD COLUMN` for the four nullable `DOUBLE PRECISION` columns plus their
       `COMMENT ON COLUMN` text, then the `UPDATE ... FROM telemetry.vehicle_snapshots`
       backfill, then the `Down` block dropping the four columns. Exact SQL: `design.md`
       Part A "Schema"/"Column comments" and Part C "SQL".
-- [ ] 1.2 Add `tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi,
+- [x] 1.2 Add `tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi,
       tpms_pressure_rr_psi` to `UpsertVehicleMetric`'s column list, VALUES list, and
       `ON CONFLICT DO UPDATE SET` clause in `internal/analytics/db/query.sql`.
-- [ ] 1.3 Run `make sqlc` to regenerate `internal/analytics/db/models.go` and
+- [x] 1.3 Run `make sqlc` to regenerate `internal/analytics/db/models.go` and
       `query.sql.go`. Confirm the four new columns' `COMMENT ON COLUMN` text lands in
       `models.go`'s `VehicleMetric` struct doc comment (the KB's own documented gotcha —
       easy to miss because the build stays green either way).
-- [ ] 1.4 Add four fields (`TpmsPressureFLPSI *float64`, …) to `vehicleMetricRow` in
+- [x] 1.4 Add four fields (`TpmsPressureFLPSI *float64`, …) to `vehicleMetricRow` in
       `internal/analytics/consumed.go`. Populate them from `cur`'s already-public
       `TpmsPressureFLPSI`/`FR`/`RL`/`RR` fields in **both** branches of
       `deriveVehicleMetrics` (the predecessor-less branch and the normal branch) — see
       design.md D2. Direct pointer assignment, no `&cur.Field` address-taking (the source
       fields are already `*float64`, unlike `Locked`/`CarVersion`).
-- [ ] 1.5 Add the four fields to `upsertVehicleMetricParamsFrom` in
+- [x] 1.5 Add the four fields to `upsertVehicleMetricParamsFrom` in
       `internal/analytics/recalculate.go`, using the existing `pgFloat8FromPtr` helper —
       no new mapping code.
-- [ ] 1.6 Unit test in `internal/analytics/consumed_test.go`: the two `deriveVehicleMetrics`
+- [x] 1.6 Unit test in `internal/analytics/consumed_test.go`: the two `deriveVehicleMetrics`
       cases from design.md's Test Contract (predecessor-less row, row with a
       predecessor) plus the "one wheel absent" case. Offline, no `DATABASE_URL` needed.
 - [ ] 1.7 DB-integration test in `internal/analytics/db_integration_test.go`: the
@@ -49,16 +49,16 @@ Depends on: nothing (both source columns already exist). Can run in parallel wit
 — touches different lines of the same two files, so coordinate the final merge of
 `query.sql`/`analytics.go`/`reader.go` if done by a separate agent in the same wave.
 
-- [ ] 2.1 Add `distance_traveled_km_calc, consumed_pct` to `LatestVehicleMetricsByAccount`'s
+- [x] 2.1 Add `distance_traveled_km_calc, consumed_pct` to `LatestVehicleMetricsByAccount`'s
       SELECT column list in `internal/analytics/db/query.sql`. Update its doc comment to
       note the widened projection and the "no new index" conclusion (design.md D3).
-- [ ] 2.2 Run `make sqlc` (same regeneration as task 1.3 — coordinate so this does not
+- [x] 2.2 Run `make sqlc` (same regeneration as task 1.3 — coordinate so this does not
       clobber Half A's generated changes; regenerating once after both SQL edits land is
       fine).
-- [ ] 2.3 Add `DistanceTraveledKmCalc *float64` and `ConsumedPct *float64` to
+- [x] 2.3 Add `DistanceTraveledKmCalc *float64` and `ConsumedPct *float64` to
       `analytics.VehicleStatus` in `internal/analytics/analytics.go`, with a doc comment
       matching the existing pointer-field convention (nil meaning, per design.md).
-- [ ] 2.4 Add the two fields to `LatestMetricsByAccount`'s mapping loop in
+- [x] 2.4 Add the two fields to `LatestMetricsByAccount`'s mapping loop in
       `internal/analytics/reader.go`, using the existing `ptrFloat64FromPg` helper.
 - [ ] 2.5 DB-integration test cases (can extend the same test function/file as task 1.7 or
       1.8): the `LatestMetricsByAccount` case and the "pre-migration row" case from

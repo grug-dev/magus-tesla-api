@@ -319,6 +319,23 @@ type VehicleStatus struct {
 	// "the vehicle did not report it" or "the row predates the column". A
 	// reported 0 is a real value — never collapse it to nil.
 	MaxRangeChargeCounter *int
+	// TpmsPressureFLPSI/FR/RL/RR are the four tire-pressure raw observations
+	// (RM50-analytics-add-tire-pressure-columns), copied verbatim from the day's own
+	// telemetry.Snapshot -- already PSI, no conversion. Pointer for the same reason as
+	// the fields above: nil means the vehicle did not report TPMS at capture, OR this
+	// row predates the RM50 migration and was not touched by its one-off backfill
+	// (design.md "NULL meaning").
+	TpmsPressureFLPSI *float64
+	TpmsPressureFRPSI *float64
+	TpmsPressureRLPSI *float64
+	TpmsPressureRRPSI *float64
+	// DistanceTraveledKmCalc/ConsumedPct are the same two _calc columns
+	// ConsumedByDay/OdometerDeltaByDay already read, newly exposed on this "latest
+	// row" port (RM50-analytics-add-tire-pressure-columns design.md Part B). Pointer
+	// because both are nullable: nil on a predecessor-less day (design.md D9), exactly
+	// as documented on DayConsumption.ConsumedPct/DayDistance.KmDriven above.
+	DistanceTraveledKmCalc *float64
+	ConsumedPct            *float64
 }
 
 // Efficiency is one computed rolling-efficiency result — our own domain model,

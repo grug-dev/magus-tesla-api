@@ -74,6 +74,11 @@ func mustFloat(t *testing.T, v *float64) float64 {
 // tests below, which need to set telemetry.Snapshot.SentryMode (*bool).
 func boolPtr(v bool) *bool { return &v }
 
+// floatPtr returns a pointer to v -- this package's *float64 fixture builder for the
+// RM50-analytics-add-tire-pressure-columns tests below, mirroring boolPtr/intPtr
+// above.
+func floatPtr(v float64) *float64 { return &v }
+
 // TestDeriveVehicleMetrics_SingleSessionSingleDay_MatchesRoadmapExample covers
 // design.md Test Contract (a) -- the roadmap's own verified worked example: one
 // Supercharger session inside a single day's window, expect ConsumedPct = 11.
@@ -1071,4 +1076,161 @@ func TestDeriveVehicleMetrics_FixtureRM38B_StatusColumnsPopulatedWithoutPredeces
 	if entry.MissingChargingType != "" {
 		t.Errorf("MissingChargingType: want \"\" (NULL), got %v", entry.MissingChargingType)
 	}
+}
+
+// --- RM50-analytics-add-tire-pressure-columns (task 1.6) -- the two
+// deriveVehicleMetrics cases from design.md's Test Contract, plus the "one
+// wheel absent" case tasks.md asks for. Expected values are copied verbatim
+// from design.md's Test Contract, never derived by reading consumed.go.
+
+// TestDeriveVehicleMetrics_TPMS_PredecessorLess_CopiesVerbatim covers
+// design.md's Test Contract "Input 1 -- predecessor-less row": the four TPMS
+// fields are copied verbatim from cur, in the SAME branch that already
+// leaves DistanceTraveledKmCalc nil for this row (design D2 -- a raw
+// observation, not a _calc column, so it does not share the _calc columns'
+// nil-on-no-predecessor rule). RL is deliberately nil in the fixture itself
+// -- design.md's own "one wheel absent" input -- so this single test also
+// proves an absent wheel travels through as nil, not a fabricated zero.
+func TestDeriveVehicleMetrics_TPMS_PredecessorLess_CopiesVerbatim(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(42)
+
+	cur := telemetry.Snapshot{
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        time.Date(2026, 8, 5, 3, 30, 0, 0, time.UTC),
+		CapturedDate:      day(2026, 8, 5),
+		OdometerKm:        500.0,
+		BatteryLevelPct:   90,
+		BatteryRangeKm:    320.0,
+		TpmsPressureFLPSI: floatPtr(42.5),
+		TpmsPressureFRPSI: floatPtr(43.0),
+		TpmsPressureRLPSI: nil, // absent this capture -- must stay nil, never 0
+		TpmsPressureRRPSI: floatPtr(41.8),
+	}
+
+	start := day(2026, 8, 4)
+	end := day(2026, 8, 4)
+
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{cur}, nil, nil, start, end)
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry (dense table, design.md D9), got %d: %+v", len(got), got)
+	}
+	entry := got[0]
+
+	assertFloatPtr(t, "TpmsPressureFLPSI", entry.TpmsPressureFLPSI, floatPtr(42.5))
+	assertFloatPtr(t, "TpmsPressureFRPSI", entry.TpmsPressureFRPSI, floatPtr(43.0))
+	assertFloatPtr(t, "TpmsPressureRLPSI", entry.TpmsPressureRLPSI, nil)
+	assertFloatPtr(t, "TpmsPressureRRPSI", entry.TpmsPressureRRPSI, floatPtr(41.8))
+
+	// Unaffected by TPMS (design.md Input 1's own assertion).
+	if entry.Flagged {
+		t.Error("Flagged: want false, TPMS never affects gap detection")
+	}
+	if entry.DistanceTraveledKmCalc != nil {
+		t.Errorf("DistanceTraveledKmCalc: want nil (no predecessor), got %v", *entry.DistanceTraveledKmCalc)
+	}
+}
+
+// TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev covers
+// design.md's Test Contract "Input 2 -- row with a predecessor": the emitted
+// row for cur carries cur's own TPMS values, copied through the SAME
+// derivation that computes DistanceTraveledKmCalc for this row -- i.e. TPMS
+// population does not depend on which branch the row takes; only its SOURCE
+// value (cur's own field) differs from prev. prev is deliberately given
+// different TPMS values so a leak from prev instead of cur is caught here,
+// mirroring the RM38 fixtures' own "opposite value on prev" regression guard.
+func TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(42)
+
+	prevDay := day(2026, 8, 10)
+	curDay := day(2026, 8, 11)
+
+	prev := telemetry.Snapshot{
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
+		CapturedDate:      prevDay,
+		OdometerKm:        1000.0,
+		BatteryLevelPct:   80,
+		BatteryRangeKm:    300.0,
+		TpmsPressureFLPSI: floatPtr(35.0),
+		TpmsPressureFRPSI: floatPtr(35.2),
+		TpmsPressureRLPSI: floatPtr(35.1),
+		TpmsPressureRRPSI: floatPtr(35.3),
+	}
+	cur := telemetry.Snapshot{
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC),
+		CapturedDate:      curDay,
+		OdometerKm:        1050.0,
+		BatteryLevelPct:   65,
+		BatteryRangeKm:    280.0,
+		TpmsPressureFLPSI: floatPtr(40.0),
+		TpmsPressureFRPSI: floatPtr(40.1),
+		TpmsPressureRLPSI: floatPtr(40.2),
+		TpmsPressureRRPSI: floatPtr(40.3),
+	}
+
+	start := day(2026, 8, 10)
+	end := day(2026, 8, 10)
+
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, nil, start, end)
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	entry := got[0]
+
+	assertFloatPtr(t, "TpmsPressureFLPSI", entry.TpmsPressureFLPSI, floatPtr(40.0))
+	assertFloatPtr(t, "TpmsPressureFRPSI", entry.TpmsPressureFRPSI, floatPtr(40.1))
+	assertFloatPtr(t, "TpmsPressureRLPSI", entry.TpmsPressureRLPSI, floatPtr(40.2))
+	assertFloatPtr(t, "TpmsPressureRRPSI", entry.TpmsPressureRRPSI, floatPtr(40.3))
+}
+
+// TestDeriveVehicleMetrics_TPMS_OneWheelAbsent_WithPredecessor covers the
+// "one wheel absent" case tasks.md asks for in the WITH-predecessor branch
+// (the sibling of TestDeriveVehicleMetrics_TPMS_PredecessorLess_CopiesVerbatim's
+// no-predecessor case above) -- a missing wheel reading must stay nil, never
+// a fabricated zero, regardless of which branch the row takes.
+func TestDeriveVehicleMetrics_TPMS_OneWheelAbsent_WithPredecessor(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(42)
+
+	prevDay := day(2026, 8, 10)
+	curDay := day(2026, 8, 11)
+
+	prev := telemetry.Snapshot{
+		AccountID:    accountID,
+		TeslaID:      teslaID,
+		CapturedAt:   time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
+		CapturedDate: prevDay,
+		OdometerKm:   1000.0,
+	}
+	cur := telemetry.Snapshot{
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC),
+		CapturedDate:      curDay,
+		OdometerKm:        1050.0,
+		TpmsPressureFLPSI: floatPtr(38.0),
+		TpmsPressureFRPSI: nil, // absent this capture -- must stay nil, never 0
+		TpmsPressureRLPSI: floatPtr(38.1),
+		TpmsPressureRRPSI: floatPtr(38.2),
+	}
+
+	start := day(2026, 8, 10)
+	end := day(2026, 8, 10)
+
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, nil, start, end)
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	entry := got[0]
+
+	assertFloatPtr(t, "TpmsPressureFLPSI", entry.TpmsPressureFLPSI, floatPtr(38.0))
+	assertFloatPtr(t, "TpmsPressureFRPSI", entry.TpmsPressureFRPSI, nil)
+	assertFloatPtr(t, "TpmsPressureRLPSI", entry.TpmsPressureRLPSI, floatPtr(38.1))
+	assertFloatPtr(t, "TpmsPressureRRPSI", entry.TpmsPressureRRPSI, floatPtr(38.2))
 }
