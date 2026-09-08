@@ -4,9 +4,9 @@
   "roadmap": "RM49-analysis-start-date",
   "intention": "Every account stores the first day the app analyzes vehicle data, and the external-charges page rejects charges dated before it.",
   "request": "MAG-55 \u2014 restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": false,
-  "updated_at": "2026-09-08T14:48:00Z",
+  "updated_at": "2026-09-08T15:15:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM49-MAG-55-analysis-start-date",
@@ -16,13 +16,12 @@
     "created_at": "2026-09-08T10:35:30Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -98,14 +97,21 @@
       "depends_on": [
         1
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T14:36:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "completed_at": "2026-09-08T15:15:00Z",
+      "duration_seconds": 2340,
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 8,
+        "context_pct_start": 9,
+        "context_pct_end": 10,
+        "cost_usd_delta": 13.77,
+        "note": "Artifacts + two worker waves in the first session, review round 1 in a second session after a checkpoint. The 5-hour bucket reset between them."
+      },
+      "notes": "Reviewer approved in round 1 with one minor finding, accepted without a fix. The owner ran make test-with-db and reported the pass."
     }
   ],
   "events": [
@@ -118,6 +124,11 @@
       "at": "2026-09-08T14:48:00Z",
       "what": "tier-2-artifacts",
       "detail": "RM49-gateway-restrict-external-charge-date artifacts created and validated. Tier 2 moved to proposed. Tier 1 KB sync checked on resume: openspec/specs/account/spec.md is already reflected in kkpa/context/entities/account-settings/guide.md and INDEX.md, so no sync proposal was staged."
+    },
+    {
+      "at": "2026-09-08T15:15:00Z",
+      "what": "roadmap-complete",
+      "detail": "Tier 2 archived. Every tier is archived, so RM49 is complete. Both roadmap files move to openspec/roadmaps/archive/RM49-analysis-start-date/. Linear DONE fires now for MAG-55."
     }
   ]
 }

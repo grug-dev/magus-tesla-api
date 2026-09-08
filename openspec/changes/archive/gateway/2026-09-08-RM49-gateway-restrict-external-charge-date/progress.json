@@ -5,21 +5,21 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM49-analysis-start-date.md",
   "request": "MAG-55 \u2014 restrict adding external charges for dates before the account's analysis start date; persist that date in a new column and suggest where it belongs.",
-  "status": "applied",
+  "status": "archived",
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "T1",
       "T2",
       "T3",
       "T4",
       "T5"
-    ],
-    "pending": [],
-    "blocked": [],
-    "done": []
+    ]
   },
   "created_at": "2026-09-08T14:48:00Z",
-  "updated_at": "2026-09-08T14:56:30Z",
+  "updated_at": "2026-09-08T15:15:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -39,7 +39,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T14:48:30Z",
@@ -65,7 +65,7 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T14:48:30Z",
@@ -91,7 +91,7 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T14:48:30Z",
@@ -118,7 +118,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T14:53:26Z",
@@ -147,7 +147,7 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-08T14:53:26Z",
@@ -167,10 +167,38 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review the tier-2 diff only: commits 1643b58 and bd9add9 on ft/RM49-MAG-55-analysis-start-date. Read the diff, not the whole module. Validate: (1) module-boundary compliance - internal/account is reached only through its public Go interface, no accountdb import, no HTML outside internal/gateway; (2) internal/charging is untouched, which is roadmap decision D5 and deliberate; (3) the shipped code matches design.md D1-D6, especially D2's boundary case: a charged_on equal to the analysis start date must be ACCEPTED; (4) D3's fail-closed path - a lookup error must save nothing; (5) every new user-facing string resolves through i18n.T with ES and EN both non-empty; (6) spec and tasks coverage - specs/gateway/spec.md describes the shipped behavior; (7) the read-heavy Performance-Profile: note that ExternalChargeRowUpdate now calls AnalysisStartDateFor once for minChargedOn and parseExternalChargeForm calls it again in the same request. Judge whether that second primary-key lookup is acceptable or a finding; (8) anti-gaming - no acceptance criterion was weakened, no status self-approved, and the one edit to external_charges_test.go is a signature-drift fix only, with no assertion changed. Roadmap D10 means this tier ships NO new tests; do not file a finding asking for tests. No database object is touched. Signals: assistant-run and passing - go build, go vet, gofmt on touched files, ui-guard, i18n-guard, tz-guard, boundary-guard, archive-guard, openspec validate --strict. User-reported and passing - make test-with-db. You do not run the suite; judge test quality by reading, not by running.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-08T15:13:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "internal/gateway/handlers/external_charges.go",
+            "what": "ExternalChargeRowUpdate calls AnalysisStartDateFor once at line 406 for minChargedOn, then parseExternalChargeForm calls it again at line 1294 for the validation check. Same for ExternalChargeCreate's error branches (parseExternalChargeForm plus buildExternalChargesPage). Two lookups per write request instead of one.",
+            "why": "Each call is a single indexed primary-key read (account.settings.account_id), and this happens only on user-initiated writes, not the dashboard read path the Performance-Profile protects. Cost is trivial. Not a blocker. Worth a one-line note if a future change adds more callers in the same request, so the duplication does not silently grow."
+          }
+        ],
+        "duration_seconds": 100,
+        "budget": {
+          "five_hour_pct_start": 3,
+          "five_hour_pct_end": 8,
+          "five_hour_pct_delta": 5,
+          "cost_usd_delta": 1.753,
+          "context_pct_end": 10,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "Review round 1, one gateway-reviewer on Sonnet."
+        }
+      }
+    ]
   },
   "decisions": [],
   "events": [
@@ -198,6 +226,21 @@
       "at": "2026-09-08T14:56:30Z",
       "agent": "leader",
       "event": "wave 2 (T4, T5) returned. All assistant-run signals pass: go build, go vet, gofmt on touched files, ui-guard, i18n-guard, tz-guard, boundary-guard, archive-guard, openspec validate --strict. The suite has NOT been run - it is the owner's. Every task is awaiting-user-verification. The reviewer gate does not run until the owner reports the suite result."
+    },
+    {
+      "at": "2026-09-08T15:05:00Z",
+      "agent": "leader",
+      "event": "The OWNER ran make test-with-db and reported it passing. Recorded as the owner's verification, not the assistant's. All five tasks move to done and the change moves to verified."
+    },
+    {
+      "at": "2026-09-08T15:11:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session. Dispatched gateway-reviewer (Sonnet) for review round 1. Budget at dispatch: five_hour_pct 3, context_pct 9, cost_usd 0.899."
+    },
+    {
+      "at": "2026-09-08T15:15:00Z",
+      "agent": "leader",
+      "event": "review round 1 returned approved with one minor finding (F1: two AnalysisStartDateFor lookups per write request). Leader triaged F1 and accepted the reviewer's own judgement: the write path is not the read path the Performance-Profile protects, and each call is one indexed PK read. No fix. Change archived under archive/gateway/, delta spec synced into openspec/specs/gateway/spec.md (1 requirement added)."
     }
   ]
 }
