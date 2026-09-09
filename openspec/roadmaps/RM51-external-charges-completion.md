@@ -221,10 +221,10 @@ archived) · `[x]` done (archived).
 
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
-| `[ ]` | 1 | `RM51-charging-derive-status-and-price-source` | `charging` | Auto-promote to `DONE` on both writes + `price_source` column, backfill and rule | — |
+| `[~]` | 1 | `RM51-charging-derive-status-and-price-source` | `charging` | Auto-promote to `DONE` on both writes + `price_source` column, backfill and rule | — |
 | `[ ]` | 2 | `RM51-gateway-add-free-charge-and-month-preset` | `gateway` | "This charge was free" checkbox on both forms + "last month" date preset | 1 |
 
-### Tier 1 — `[ ]` `RM51-charging-derive-status-and-price-source` (module: `charging`)
+### Tier 1 — `[~]` `RM51-charging-derive-status-and-price-source` (module: `charging`)
 
 Covers ticket bullets **1** and the storage half of **2**.
 
