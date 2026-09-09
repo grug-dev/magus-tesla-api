@@ -82,9 +82,15 @@ templ Dashboard(d fragments.DashboardData) {
 											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardBatteryUsed), Value: dashStat(d.HasSnapshot, d.BatteryUsed), Trend: "down"})
 										</div>
 									</section>
-									// tier 4 (RM50-gateway-add-tire-pressure-subsection, depends on
-									// tiers 2 and 3) inserts the Tire pressure (PSI)
-									// <section id="tire-pressure"> block HERE.
+									<section id="tire-pressure">
+										@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyDashboardTirePressureTitle), Desc: i18n.T(ctx, i18n.KeyDashboardTirePressureDesc)})
+										<div class="grid grid-cols-2 gap-3">
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardTireFL), Value: dashStat(d.HasSnapshot, d.TirePressureFL.Value), Trend: d.TirePressureFL.Trend, Desc: d.TirePressureFL.Delta})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardTireFR), Value: dashStat(d.HasSnapshot, d.TirePressureFR.Value), Trend: d.TirePressureFR.Trend, Desc: d.TirePressureFR.Delta})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardTireRL), Value: dashStat(d.HasSnapshot, d.TirePressureRL.Value), Trend: d.TirePressureRL.Trend, Desc: d.TirePressureRL.Delta})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardTireRR), Value: dashStat(d.HasSnapshot, d.TirePressureRR.Value), Trend: d.TirePressureRR.Trend, Desc: d.TirePressureRR.Delta})
+										</div>
+									</section>
 									<section id="interior-exterior">
 										@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyDashboardInteriorExteriorTitle), Desc: i18n.T(ctx, i18n.KeyDashboardInteriorExteriorDesc)})
 										<div class="grid grid-cols-2 gap-3">

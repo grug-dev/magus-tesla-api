@@ -77,3 +77,25 @@ func formatKmRaw(km float64) string {
 func formatPctRaw(pct float64) string {
 	return strconv.FormatFloat(pct, 'f', 1, 64)
 }
+
+// formatPSI renders a tyre-pressure value to one decimal place with a " PSI"
+// suffix — e.g. 42.06 -> "42.1 PSI". Mirrors formatKm's "round once, unit-
+// suffix here" shape; PSI needs sub-integer precision (a ~1 PSI leak is
+// meaningful), unlike formatKm's whole-number odometer.
+func formatPSI(psi float64) string {
+	return strconv.FormatFloat(psi, 'f', 1, 64) + " PSI"
+}
+
+// formatSignedPSI renders a signed tyre-pressure delta to one decimal place,
+// no unit suffix (the caller's i18n format string supplies the "vs prev. day"
+// context) — e.g. 0.4 -> "+0.4", -0.4 -> "-0.4", 0.0 -> "0.0". Explicit "+"
+// only for a strictly positive value; strconv's own "-" already covers a
+// negative one; zero gets neither sign, matching dashTireTrend's own "0.0 is
+// neither up nor down" rule.
+func formatSignedPSI(v float64) string {
+	s := strconv.FormatFloat(v, 'f', 1, 64)
+	if v > 0 {
+		return "+" + s
+	}
+	return s
+}

@@ -5,9 +5,9 @@
   "module": "gateway",
   "roadmap": "RM50-vehicle-status-subsections",
   "tier": 4,
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-09-09T08:45:24Z",
-  "updated_at": "2026-09-09T08:45:24Z",
+  "updated_at": "2026-09-09T08:49:09Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -22,16 +22,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "1.2",
-      "1.3",
-      "1.4",
-      "2.1",
-      "2.2",
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4",
       "4.1",
       "4.2",
       "4.3",
@@ -48,7 +38,18 @@
       "6.7"
     ],
     "blocked": [],
-    "done": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4"
+    ],
     "awaiting-user-verification": []
   },
   "tasks": [
@@ -56,13 +57,19 @@
       "id": "1.1",
       "title": "Formatters + view model + handler mapping \u2014 step 1.1",
       "depends_on": [],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "formatPSI and formatSignedPSI added to format.go, per design D4."
     },
     {
       "id": "1.2",
@@ -70,13 +77,19 @@
       "depends_on": [
         "1.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "TireWheelVM struct plus four named DashboardData fields added, per D2."
     },
     {
       "id": "1.3",
@@ -84,13 +97,19 @@
       "depends_on": [
         "1.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "dashPSIOrDash, dashTireTrend, dashTireDelta, dashTireWheel plus four mapping lines, per D3/D6."
     },
     {
       "id": "1.4",
@@ -98,25 +117,37 @@
       "depends_on": [
         "1.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "Build failed here only on the not-yet-added i18n key. T2 resolved it, as the task order intended."
     },
     {
       "id": "2.1",
       "title": "i18n catalogue \u2014 step 2.1",
       "depends_on": [],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "Seven Key constants and seven catalogue entries added, ES and EN both non-empty."
     },
     {
       "id": "2.2",
@@ -124,13 +155,19 @@
       "depends_on": [
         "2.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "Checked by inspection: all seven new lines carry both languages."
     },
     {
       "id": "3.1",
@@ -139,13 +176,19 @@
         "1.4",
         "2.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "tire-pressure section added to dashboard.templ as a 2x2 grid, FL FR RL RR order."
     },
     {
       "id": "3.2",
@@ -153,13 +196,19 @@
       "depends_on": [
         "3.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "make templ and make css ran clean. app.css had no diff, so no new Tailwind utility was needed."
     },
     {
       "id": "3.3",
@@ -167,13 +216,19 @@
       "depends_on": [
         "3.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "go build and go vet clean. gofmt flagged only vehicle_image_test.go, which this change never touched."
     },
     {
       "id": "3.4",
@@ -181,13 +236,19 @@
       "depends_on": [
         "3.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "make ui-guard and make i18n-guard both pass."
     },
     {
       "id": "4.1",
@@ -418,6 +479,18 @@
       "type": "artifacts-created",
       "by": "leader",
       "detail": "Tier 4 artifacts created and validated with openspec validate --strict. Worker confirmed it reuses tier 2's real ui.StatTileProps.Trend and the trending_up/trending_down Icon glyphs, not a second trend mechanism. No database change, so no design gate. One decision the roadmap did not cover went to the user: the 0.0-delta rendering (D-zero-delta)."
+    },
+    {
+      "at": "2026-09-09T08:45:35Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 1 dispatched: one serial gateway worker on Sonnet for T1 (formatters + view model + mapping), T2 (i18n) and T3 (panel layout). Budget at start: five_hour 31%, context 20%."
+    },
+    {
+      "at": "2026-09-09T08:49:09Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 1 done. Worker read the full doc pack and enumerated D1-D10. The leader independently verified RD14 in handlers.go: dashTireTrend returns \"\" for nil and for 0.0, while dashTireDelta returns \"\" only for nil. So a real zero shows its number with no arrow, and an unknown shows neither. Pre-existing gofmt drift in vehicle_image_test.go confirmed untouched by this change. Budget: five_hour 31%->49%."
     }
   ]
 }

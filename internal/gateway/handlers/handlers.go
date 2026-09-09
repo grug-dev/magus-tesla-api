@@ -486,6 +486,56 @@ func dashBatteryUsedOrDash(v *float64) string {
 	return formatPctRaw(*v) + "%"
 }
 
+// dashPSIOrDash formats a raw tyre-pressure reading. nil -> "—" (the vehicle did
+// not report TPMS at capture, or the row predates the RM50 tier 1 migration).
+// Same nil-placeholder rule as dashTempOrDash.
+func dashPSIOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return formatPSI(*v)
+}
+
+// dashTireTrend maps a tyre-pressure delta to a StatTile Trend value. nil (no
+// predecessor day, or either day's raw wheel reading missing — analytics.
+// VehicleStatus.TpmsPressureFLPSICalc's own doc comment) and exactly 0.0 (a
+// real "no change" reading, RD13) both render no icon: ui.StatTileProps.Trend
+// only models "up"/"down"/"", and the roadmap explicitly forbids inventing a
+// third, neutral glyph. Positive -> "up", negative -> "down".
+func dashTireTrend(v *float64) string {
+	if v == nil || *v == 0 {
+		return ""
+	}
+	if *v > 0 {
+		return "up"
+	}
+	return "down"
+}
+
+// dashTireDelta formats a tyre-pressure delta as the tile's stat-desc line
+// (RD10), e.g. "+0.4 vs prev. day". nil -> "" (no line at all) — never a
+// fabricated "0.0 vs prev. day" for an unknown delta. A real 0.0 DOES render
+// ("0.0 vs prev. day"), because it is a known value, not an absent one (RD13)
+// — distinct from dashTireTrend's own "0.0 gets no icon" rule; the two
+// functions answer different questions from the same input.
+func dashTireDelta(ctx context.Context, v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardTireDeltaDesc), formatSignedPSI(*v))
+}
+
+// dashTireWheel builds one wheel's TireWheelVM from its raw reading and delta.
+// Small builder so mapDashboardSnapshot's four call sites (D6) are one line
+// each instead of three.
+func dashTireWheel(ctx context.Context, raw, delta *float64) fragments.TireWheelVM {
+	return fragments.TireWheelVM{
+		Value: dashPSIOrDash(raw),
+		Trend: dashTireTrend(delta),
+		Delta: dashTireDelta(ctx, delta),
+	}
+}
+
 // mapDashboardSnapshot fills the dashboard view model's display fields from the
 // account's latest per-vehicle status row. All derivation/rounding/unit-formatting
 // happens here so the template receives fully-computed strings (gateway spec
@@ -515,6 +565,10 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, vs a
 	vm.MaxRangeCharges = dashCountOrDash(vs.MaxRangeChargeCounter)
 	vm.DistanceTraveled = dashDistanceOrDash(vs.DistanceTraveledKmCalc)
 	vm.BatteryUsed = dashBatteryUsedOrDash(vs.ConsumedPct)
+	vm.TirePressureFL = dashTireWheel(ctx, vs.TpmsPressureFLPSI, vs.TpmsPressureFLPSICalc)
+	vm.TirePressureFR = dashTireWheel(ctx, vs.TpmsPressureFRPSI, vs.TpmsPressureFRPSICalc)
+	vm.TirePressureRL = dashTireWheel(ctx, vs.TpmsPressureRLPSI, vs.TpmsPressureRLPSICalc)
+	vm.TirePressureRR = dashTireWheel(ctx, vs.TpmsPressureRRPSI, vs.TpmsPressureRRPSICalc)
 	vm.Battery = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
 	vm.BatteryPct = strconv.Itoa(vs.BatteryLevelPct)
 	vm.RangeNow = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)

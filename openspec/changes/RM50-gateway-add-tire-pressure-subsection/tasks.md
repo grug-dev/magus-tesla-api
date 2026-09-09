@@ -8,45 +8,45 @@ T4 and T5 are sequential after T3.
 
 ## T1. Formatters + view model + handler mapping (D2, D3, D4, D6) — no dependencies
 
-- [ ] 1.1 In `internal/gateway/handlers/format.go`, add `formatPSI(psi float64)
+- [x] 1.1 In `internal/gateway/handlers/format.go`, add `formatPSI(psi float64)
       string` and `formatSignedPSI(v float64) string` (design.md D4, verbatim), next
       to the existing `formatKm`/`formatPctRaw`.
-- [ ] 1.2 In `internal/gateway/templates/fragments/dashboard_vm.go`, add the
+- [x] 1.2 In `internal/gateway/templates/fragments/dashboard_vm.go`, add the
       `TireWheelVM` struct (design.md D2, with its doc comment) and the four fields
       `TirePressureFL`/`FR`/`RL`/`RR` on `DashboardData`.
-- [ ] 1.3 In `internal/gateway/handlers/handlers.go`, add `dashPSIOrDash`,
+- [x] 1.3 In `internal/gateway/handlers/handlers.go`, add `dashPSIOrDash`,
       `dashTireTrend`, `dashTireDelta`, and `dashTireWheel` (design.md D3, verbatim,
       with their doc comments — D5 explains the zero-vs-nil distinction these
       functions must implement correctly). Add the four mapping lines to
       `mapDashboardSnapshot` (design.md D6).
-- [ ] 1.4 `go build ./...` and `go vet ./...` to confirm the new struct, fields,
+- [x] 1.4 `go build ./...` and `go vet ./...` to confirm the new struct, fields,
       formatters and mapping lines compile.
 
 ## T2. i18n catalogue (D8) — no dependencies
 
-- [ ] 2.1 In `internal/gateway/i18n/catalog.go`, add seven `Key` constants + seven
+- [x] 2.1 In `internal/gateway/i18n/catalog.go`, add seven `Key` constants + seven
       `catalog` entries (`ES`/`EN` on the same line each, design.md D8's table
       verbatim) in the existing `dashboard.*` namespace, next to the
       `KeyDashboardTravelProgress*`/`KeyDashboardInteriorExterior*` entries tier 2
       added.
-- [ ] 2.2 No new test needed — `TestCatalog_AllKeysHaveBothLanguages` covers the seven
+- [x] 2.2 No new test needed — `TestCatalog_AllKeysHaveBothLanguages` covers the seven
       new keys automatically. Confirm by inspection that every new line has both
       languages non-empty.
 
 ## T3. Panel layout (D7) — depends on T1, T2
 
-- [ ] 3.1 In `internal/gateway/templates/pages/dashboard.templ`, replace the tier-4
+- [x] 3.1 In `internal/gateway/templates/pages/dashboard.templ`, replace the tier-4
       placeholder `//` comment with the `tire-pressure` `<section>` block from
       design.md D7 — one `ui.SectionHeader` plus a `grid grid-cols-2 gap-3` of four
       `ui.StatTile`s (FL, FR, RL, RR order), each wired to its `TireWheelVM` field's
       `Value` (through the existing `dashStat(d.HasSnapshot, ...)` wrapper),
       `Trend`, and `Delta` (as `Desc`).
-- [ ] 3.2 Run `make templ && make css`. No new Tailwind utility is introduced (the
+- [x] 3.2 Run `make templ && make css`. No new Tailwind utility is introduced (the
       tile grid reuses the sibling subsections' existing `grid grid-cols-2 gap-3`
       class), but the module's own regeneration cheatsheet requires the step after
       any `.templ` edit.
-- [ ] 3.3 `go build ./...`, `go vet ./...`, `gofmt -l internal/gateway`.
-- [ ] 3.4 `make ui-guard` and `make i18n-guard` — both must pass per design.md D9.
+- [x] 3.3 `go build ./...`, `go vet ./...`, `gofmt -l internal/gateway`.
+- [x] 3.4 `make ui-guard` and `make i18n-guard` — both must pass per design.md D9.
 
 ## T4. Tests (Test Contract) — depends on T1, T3
 

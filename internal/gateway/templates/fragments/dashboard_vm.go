@@ -1,5 +1,26 @@
 package fragments
 
+// TireWheelVM is one wheel's tire-pressure tile: the current reading, its trend
+// direction, and its formatted day-over-day delta. Mirrors SuperchargerTiles'
+// "one struct per repeated shape" pattern (internal/gateway/templates/fragments/
+// supercharger_vm.go) rather than four separate flat string fields per wheel.
+type TireWheelVM struct {
+	// Value is the wheel's current pressure ("42.1 PSI"), or "—" when the raw
+	// reading is absent (the vehicle did not report TPMS at capture, or the row
+	// predates the RM50 tier 1 migration — analytics.VehicleStatus's own doc
+	// comment on TpmsPressureFLPSI). Never a fabricated value.
+	Value string
+	// Trend is "up", "down", or "" for ui.StatTileProps.Trend (tier 2's
+	// mechanism, reused verbatim — no second trend mechanism is introduced).
+	// "" covers two distinct cases: the delta is absent (unknown), or the delta
+	// is exactly 0.0 (a real "no change" reading) — see D5.
+	Trend string
+	// Delta is the tile's stat-desc line ("+0.4 vs prev. day", RD10), or "" when
+	// the delta is absent (StatTile renders no stat-desc line at all when Desc
+	// is empty — never a fabricated "0.0 vs prev. day" for an unknown delta).
+	Delta string
+}
+
 // DashboardData drives the single-vehicle dashboard page (the SELECTED vehicle's
 // latest telemetry, rendered as the Apex/Kinetic bento grid). Every display field
 // is a pre-computed string produced by the handler — the template does no
@@ -56,6 +77,12 @@ type DashboardData struct {
 	// BatteryUsed is the latest computed day's battery percent used ("12.3%"), or "—"
 	// under the same nil rule as DistanceTraveled.
 	BatteryUsed string
+
+	// --- Tire pressure (PSI) subsection (RM50 tier 4) ---
+	TirePressureFL TireWheelVM
+	TirePressureFR TireWheelVM
+	TirePressureRL TireWheelVM
+	TirePressureRR TireWheelVM
 
 	// --- Battery card ---
 	Battery     string // "94%"  — the big display number
