@@ -80,6 +80,7 @@ templ Dashboard(d fragments.DashboardData) {
 										<div class="grid grid-cols-2 gap-3">
 											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardDistanceTraveled), Value: dashStat(d.HasSnapshot, d.DistanceTraveled), Trend: "up"})
 											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardBatteryUsed), Value: dashStat(d.HasSnapshot, d.BatteryUsed), Trend: "down"})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardEfficiency), Value: dashStat(d.HasSnapshot, d.Efficiency)})
 										</div>
 									</section>
 									<section id="tire-pressure">

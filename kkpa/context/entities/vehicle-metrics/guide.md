@@ -38,7 +38,7 @@ present) plus these pointer fields, nil meaning "no value", never a fabricated d
 `InsideTempC`, `OutsideTempC`, `Locked`, `SentryMode`, `CarVersion`, `ChargingState`,
 `ChargeLimitSocPct`, `CapturedAt`, `MaxRangeChargeCounter` (RM38/MAG-47), and, as of RM50 tier 1,
 `TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`, `TpmsPressureRRPSI`,
-`DistanceTraveledKmCalc`, `ConsumedPct`, and, as of RM50 tier 3, `TpmsPressureFLPSICalc`,
+`DistanceTraveledKmCalc`, `ConsumedPct`, `KmPerPctCalc`, and, as of RM50 tier 3, `TpmsPressureFLPSICalc`,
 `TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc`, `TpmsPressureRRPSICalc`.
 
 ## Component map
@@ -158,6 +158,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   _Source: spec analytics — Requirement: Latest Vehicle Status Per Account._
 - **Old rows get their deltas ONLY from the one-time backfill, never from a lazy read.** A row persisted before delta tracking stays absent until either the backfill migration ran, or a new capture triggers a recalculation of that same day. Reading the row does not compute the delta on the fly.
   _Source: spec analytics — Requirement: Precomputed Tyre Pressure Day-Over-Day Deltas._
+- **`km_per_pct_calc` has a stricter NULL rule than the other two travel figures, and it is on the latest-status port now.** It is NULL on a predecessor-less day like its siblings, and ALSO whenever that day's `battery_used_pct_calc` is `<= 0` — the divisor guard in `consumption.go`. A day the vehicle sat parked and charged therefore carries a distance and a consumed percent but no efficiency. The dashboard renders that as a dash, never a `0`.
+  _Source: `internal/analytics/consumption.go` divisor guard; migration `20260821000001` column comments._
 
 ## Related KB
 

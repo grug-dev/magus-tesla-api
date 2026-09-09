@@ -816,6 +816,7 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 
 		MaxRangeChargeCounter:  ptrInt(12),
 		DistanceTraveledKmCalc: ptrF64(45.2),
+		KmPerPctCalc:           ptrF64(2.84),
 		ConsumedPct:            ptrF64(12.3),
 
 		// RM50 tier 4 — one wheel per dashTireTrend/dashTireDelta branch
@@ -885,6 +886,10 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 	if vm.BatteryUsed != "12.3%" {
 		t.Errorf("want BatteryUsed %q, got %q", "12.3%", vm.BatteryUsed)
 	}
+	// 2.84 km/% rounds to one decimal: "2.8 km / %".
+	if vm.Efficiency != "2.8 km / %" {
+		t.Errorf("want Efficiency %q, got %q", "2.8 km / %", vm.Efficiency)
+	}
 
 	// RM50 tier 4 — tire pressure tiles (design.md Test Contract table).
 	wantFL := fragments.TireWheelVM{Value: "42.1 PSI", Trend: "up", Delta: "+0.4 vs prev. day"}
@@ -949,6 +954,11 @@ func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
 	}
 	if vm.BatteryUsed != "—" {
 		t.Errorf("want BatteryUsed %q (nil ConsumedPct), got %q", "—", vm.BatteryUsed)
+	}
+	// nil KmPerPctCalc means no predecessor, or battery used <= 0 -- both are
+	// "cannot say", never a fabricated 0.
+	if vm.Efficiency != "—" {
+		t.Errorf("want Efficiency %q (nil KmPerPctCalc), got %q", "—", vm.Efficiency)
 	}
 	// Odometer/Battery/RangeNow are always non-pointer — unaffected by the nil fixture.
 	if vm.Odometer != "18,452 km" {

@@ -60,7 +60,7 @@
 7. `mapDashboardSnapshot` — `internal/gateway/handlers/handlers.go` — formats every display
    string (`formatKm`, `°C`, `%`, `km`, charge limit) and computes `IsStale` via `isStale`.
    `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`. This mapper
-   reads nineteen pointer fields of `VehicleStatus`: the nine from `RM38` (`InsideTempC`,
+   reads twenty pointer fields of `VehicleStatus`: the nine from `RM38` (`InsideTempC`,
    `OutsideTempC`, `CarVersion`, `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`,
    `Locked`, `SentryMode`, `MaxRangeChargeCounter`), two added by
    `RM50-gateway-add-travel-progress-subsection` tier 2 (`DistanceTraveledKmCalc`,

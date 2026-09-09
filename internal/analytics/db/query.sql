@@ -125,7 +125,7 @@ SELECT DISTINCT ON (tesla_id)
     charging_state, charge_limit_soc_pct, captured_at,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    distance_traveled_km_calc, consumed_pct,
+    distance_traveled_km_calc, consumed_pct, km_per_pct_calc,
     tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
 FROM analytics.vehicle_metrics
 WHERE account_id = @account_id

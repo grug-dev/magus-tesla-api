@@ -122,6 +122,7 @@ const (
 	KeyDashboardInteriorExteriorDesc  Key = "dashboard.interior_exterior_desc"
 	KeyDashboardDistanceTraveled      Key = "dashboard.distance_traveled"
 	KeyDashboardBatteryUsed           Key = "dashboard.battery_used"
+	KeyDashboardEfficiency            Key = "dashboard.efficiency"
 
 	// --- dashboard Tire pressure subsection (RM50-gateway-add-tire-pressure-subsection D8) ---
 	KeyDashboardTirePressureTitle Key = "dashboard.tire_pressure_title"
@@ -530,6 +531,7 @@ var catalog = map[Key]entry{
 	KeyDashboardInteriorExteriorDesc:  {ES: "Temperatura dentro y fuera del vehículo.", EN: "Temperature inside and outside the vehicle."},
 	KeyDashboardDistanceTraveled:      {ES: "Distancia recorrida", EN: "Distance travelled"},
 	KeyDashboardBatteryUsed:           {ES: "Batería usada", EN: "Battery used"},
+	KeyDashboardEfficiency:            {ES: "Eficiencia", EN: "Efficiency"},
 
 	KeyDashboardTirePressureTitle: {ES: "Presión de llantas (PSI)", EN: "Tire pressure (PSI)"},
 	KeyDashboardTirePressureDesc:  {ES: "Presión actual de cada llanta y su cambio respecto al día anterior.", EN: "Current pressure per wheel and its change versus the previous day."},

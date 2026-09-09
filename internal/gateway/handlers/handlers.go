@@ -486,6 +486,16 @@ func dashBatteryUsedOrDash(v *float64) string {
 	return formatPctRaw(*v) + "%"
 }
 
+// dashEfficiencyOrDash formats the latest day's driving efficiency. nil -> "—",
+// which means either the day has no predecessor or its battery used was zero or
+// less. Both are real "we cannot say" cases, never a zero.
+func dashEfficiencyOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return formatKmPerPct(*v)
+}
+
 // dashPSIOrDash formats a raw tyre-pressure reading. nil -> "—" (the vehicle did
 // not report TPMS at capture, or the row predates the RM50 tier 1 migration).
 // Same nil-placeholder rule as dashTempOrDash.
@@ -565,6 +575,7 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, vs a
 	vm.MaxRangeCharges = dashCountOrDash(vs.MaxRangeChargeCounter)
 	vm.DistanceTraveled = dashDistanceOrDash(vs.DistanceTraveledKmCalc)
 	vm.BatteryUsed = dashBatteryUsedOrDash(vs.ConsumedPct)
+	vm.Efficiency = dashEfficiencyOrDash(vs.KmPerPctCalc)
 	vm.TirePressureFL = dashTireWheel(ctx, vs.TpmsPressureFLPSI, vs.TpmsPressureFLPSICalc)
 	vm.TirePressureFR = dashTireWheel(ctx, vs.TpmsPressureFRPSI, vs.TpmsPressureFRPSICalc)
 	vm.TirePressureRL = dashTireWheel(ctx, vs.TpmsPressureRLPSI, vs.TpmsPressureRLPSICalc)

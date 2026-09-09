@@ -126,7 +126,12 @@ interface-first):
   D4/D5/D6.
   `TpmsPressureFLPSI`/`FR`/`RL`/`RR` are the four tire-pressure raw observations
   (front-left/front-right/rear-left/rear-right, already PSI), added by
-  `RM50-analytics-add-tire-pressure-columns`. `DistanceTraveledKmCalc`/`ConsumedPct` are
+  `RM50-analytics-add-tire-pressure-columns`. `KmPerPctCalc` is the day's driving efficiency in km per battery
+  percent, added for the dashboard's Efficiency tile. Its nil rule is **stricter** than its
+  two siblings: nil on a predecessor-less day AND nil whenever that day's
+  `battery_used_pct_calc` is `<= 0`, because the division has no meaning then — so a
+  parked-and-charging day can carry a distance and a consumed percent but no efficiency.
+  `DistanceTraveledKmCalc`/`ConsumedPct` are
   the same two `_calc` columns `DayDistance`/`DayConsumption` already expose elsewhere in
   this port — nil on a predecessor-less day, exactly as documented there — gaining a
   second consumer on this projection (same table, same query, no new read). Full

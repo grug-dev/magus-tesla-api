@@ -164,7 +164,7 @@ SELECT DISTINCT ON (tesla_id)
     charging_state, charge_limit_soc_pct, captured_at,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    distance_traveled_km_calc, consumed_pct,
+    distance_traveled_km_calc, consumed_pct, km_per_pct_calc,
     tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
 FROM analytics.vehicle_metrics
 WHERE account_id = $1
@@ -191,6 +191,7 @@ type LatestVehicleMetricsByAccountRow struct {
 	TpmsPressureRrPsi      pgtype.Float8
 	DistanceTraveledKmCalc pgtype.Float8
 	ConsumedPct            pgtype.Float8
+	KmPerPctCalc           pgtype.Float8
 	TpmsPressureFlPsiCalc  pgtype.Float8
 	TpmsPressureFrPsiCalc  pgtype.Float8
 	TpmsPressureRlPsiCalc  pgtype.Float8
@@ -252,6 +253,7 @@ func (q *Queries) LatestVehicleMetricsByAccount(ctx context.Context, accountID u
 			&i.TpmsPressureRrPsi,
 			&i.DistanceTraveledKmCalc,
 			&i.ConsumedPct,
+			&i.KmPerPctCalc,
 			&i.TpmsPressureFlPsiCalc,
 			&i.TpmsPressureFrPsiCalc,
 			&i.TpmsPressureRlPsiCalc,

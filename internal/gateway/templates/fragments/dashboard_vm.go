@@ -77,6 +77,12 @@ type DashboardData struct {
 	// BatteryUsed is the latest computed day's battery percent used ("12.3%"), or "—"
 	// under the same nil rule as DistanceTraveled.
 	BatteryUsed string
+	// Efficiency is the latest computed day's driving efficiency ("2.8 km / %"),
+	// or "—". Its nil rule is STRICTER than the two fields above: a day with no
+	// predecessor has none, and so does a day whose battery used is zero or less,
+	// because the division has no meaning then. A parked-and-charging day can show
+	// a distance and a battery figure but no efficiency. Never a fabricated 0.
+	Efficiency string
 
 	// --- Tire pressure (PSI) subsection (RM50 tier 4) ---
 	TirePressureFL TireWheelVM

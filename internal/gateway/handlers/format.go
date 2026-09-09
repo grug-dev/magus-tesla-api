@@ -82,6 +82,13 @@ func formatPctRaw(pct float64) string {
 // suffix — e.g. 42.06 -> "42.1 PSI". Mirrors formatKm's "round once, unit-
 // suffix here" shape; PSI needs sub-integer precision (a ~1 PSI leak is
 // meaningful), unlike formatKm's whole-number odometer.
+// formatKmPerPct renders a driving-efficiency value as kilometres per battery
+// percent, to one decimal place -- e.g. 2.8 -> "2.8 km / %". One decimal because
+// the figure is small: whole numbers would collapse 2.4 and 2.9 into "2" and "3".
+func formatKmPerPct(kmPerPct float64) string {
+	return strconv.FormatFloat(kmPerPct, 'f', 1, 64) + " km / %"
+}
+
 func formatPSI(psi float64) string {
 	return strconv.FormatFloat(psi, 'f', 1, 64) + " PSI"
 }
