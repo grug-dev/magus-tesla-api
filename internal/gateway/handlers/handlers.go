@@ -463,6 +463,89 @@ func dashCountOrDash(v *int) string {
 	return strconv.Itoa(*v)
 }
 
+// dashDistanceOrDash formats the latest day's driven distance. nil -> "—" (no
+// predecessor day, or the row predates RM50 tier 1). Reuses formatKm — the same
+// formatter the Odometer tile already uses — so a raw/negative correction-day
+// value (see analytics.VehicleStatus.DistanceTraveledKmCalc's own doc comment:
+// "never averaged", never clamped) renders exactly as the history chart already
+// renders the same field (formatKmRaw in history.go) — not a new edge case.
+func dashDistanceOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return formatKm(*v)
+}
+
+// dashBatteryUsedOrDash formats the latest day's battery percent used. nil -> "—",
+// same rule as dashDistanceOrDash. Reuses formatPctRaw — the consumed chart's own
+// one-decimal formatter — so the tile and the chart agree on precision.
+func dashBatteryUsedOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return formatPctRaw(*v) + "%"
+}
+
+// dashEfficiencyOrDash formats the latest day's driving efficiency. nil -> "—",
+// which means either the day has no predecessor or its battery used was zero or
+// less. Both are real "we cannot say" cases, never a zero.
+func dashEfficiencyOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return formatKmPerPct(*v)
+}
+
+// dashPSIOrDash formats a raw tyre-pressure reading. nil -> "—" (the vehicle did
+// not report TPMS at capture, or the row predates the RM50 tier 1 migration).
+// Same nil-placeholder rule as dashTempOrDash.
+func dashPSIOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return formatPSI(*v)
+}
+
+// dashTireTrend maps a tyre-pressure delta to a StatTile Trend value. nil (no
+// predecessor day, or either day's raw wheel reading missing — analytics.
+// VehicleStatus.TpmsPressureFLPSICalc's own doc comment) and exactly 0.0 (a
+// real "no change" reading, RD13) both render no icon: ui.StatTileProps.Trend
+// only models "up"/"down"/"", and the roadmap explicitly forbids inventing a
+// third, neutral glyph. Positive -> "up", negative -> "down".
+func dashTireTrend(v *float64) string {
+	if v == nil || *v == 0 {
+		return ""
+	}
+	if *v > 0 {
+		return "up"
+	}
+	return "down"
+}
+
+// dashTireDelta formats a tyre-pressure delta as the tile's stat-desc line
+// (RD10), e.g. "+0.4 vs prev. day". nil -> "" (no line at all) — never a
+// fabricated "0.0 vs prev. day" for an unknown delta. A real 0.0 DOES render
+// ("0.0 vs prev. day"), because it is a known value, not an absent one (RD13)
+// — distinct from dashTireTrend's own "0.0 gets no icon" rule; the two
+// functions answer different questions from the same input.
+func dashTireDelta(ctx context.Context, v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardTireDeltaDesc), formatSignedPSI(*v))
+}
+
+// dashTireWheel builds one wheel's TireWheelVM from its raw reading and delta.
+// Small builder so mapDashboardSnapshot's four call sites (D6) are one line
+// each instead of three.
+func dashTireWheel(ctx context.Context, raw, delta *float64) fragments.TireWheelVM {
+	return fragments.TireWheelVM{
+		Value: dashPSIOrDash(raw),
+		Trend: dashTireTrend(delta),
+		Delta: dashTireDelta(ctx, delta),
+	}
+}
+
 // mapDashboardSnapshot fills the dashboard view model's display fields from the
 // account's latest per-vehicle status row. All derivation/rounding/unit-formatting
 // happens here so the template receives fully-computed strings (gateway spec
@@ -490,6 +573,13 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, vs a
 	vm.InsideTemp = dashTempOrDash(vs.InsideTempC)
 	vm.OutsideTemp = dashTempOrDash(vs.OutsideTempC)
 	vm.MaxRangeCharges = dashCountOrDash(vs.MaxRangeChargeCounter)
+	vm.DistanceTraveled = dashDistanceOrDash(vs.DistanceTraveledKmCalc)
+	vm.BatteryUsed = dashBatteryUsedOrDash(vs.ConsumedPct)
+	vm.Efficiency = dashEfficiencyOrDash(vs.KmPerPctCalc)
+	vm.TirePressureFL = dashTireWheel(ctx, vs.TpmsPressureFLPSI, vs.TpmsPressureFLPSICalc)
+	vm.TirePressureFR = dashTireWheel(ctx, vs.TpmsPressureFRPSI, vs.TpmsPressureFRPSICalc)
+	vm.TirePressureRL = dashTireWheel(ctx, vs.TpmsPressureRLPSI, vs.TpmsPressureRLPSICalc)
+	vm.TirePressureRR = dashTireWheel(ctx, vs.TpmsPressureRRPSI, vs.TpmsPressureRRPSICalc)
 	vm.Battery = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
 	vm.BatteryPct = strconv.Itoa(vs.BatteryLevelPct)
 	vm.RangeNow = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)

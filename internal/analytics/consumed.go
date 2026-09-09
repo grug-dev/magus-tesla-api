@@ -72,6 +72,16 @@ type vehicleMetricRow struct {
 	// distinguishable from nil.
 	MaxRangeChargeCounter *int
 
+	// The four TPMS (tire-pressure) columns (RM50-analytics-add-tire-pressure-columns
+	// design.md D2) are a raw observation on exactly the same terms as
+	// MaxRangeChargeCounter above -- copied verbatim from cur in BOTH branches, never
+	// derived, never converted (telemetry.Snapshot already stores them in PSI). Already
+	// *float64 on telemetry.Snapshot, so assigned directly, not address-taken.
+	TpmsPressureFLPSI *float64
+	TpmsPressureFRPSI *float64
+	TpmsPressureRLPSI *float64
+	TpmsPressureRRPSI *float64
+
 	// The five _calc columns (D9) -- computed by consumption.go's
 	// deriveConsumption from this row's snapshot pair. They used to be copied
 	// verbatim off telemetry.Snapshot's own _calc fields; RM29 tier 4 moved
@@ -83,6 +93,17 @@ type vehicleMetricRow struct {
 	KmPerPctCalc           *float64
 	EstimatedRangeKmCalc   *float64
 	DaysSpannedCalc        *int
+
+	// The four tyre-pressure day-over-day deltas
+	// (RM50-analytics-add-tire-pressure-variance design.md D1/D2), computed by
+	// consumption.go's deriveConsumption from this row's snapshot pair. Same
+	// nil rule as the five _calc columns above: nil iff this row's day has no
+	// predecessor snapshot at all, OR either day's own raw wheel reading is
+	// itself nil.
+	TpmsPressureFLPSICalc *float64
+	TpmsPressureFRPSICalc *float64
+	TpmsPressureRLPSICalc *float64
+	TpmsPressureRRPSICalc *float64
 
 	// D13 corrected consumption. ConsumedPct is nil under the identical
 	// "no predecessor" condition as BatteryUsedPctCalc -- there is no raw
@@ -274,6 +295,10 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 				CapturedAt:        &cur.CapturedAt,
 
 				MaxRangeChargeCounter: cur.MaxRangeChargeCounter,
+				TpmsPressureFLPSI:     cur.TpmsPressureFLPSI,
+				TpmsPressureFRPSI:     cur.TpmsPressureFRPSI,
+				TpmsPressureRLPSI:     cur.TpmsPressureRLPSI,
+				TpmsPressureRRPSI:     cur.TpmsPressureRRPSI,
 				Flagged:               false,
 			})
 			continue
@@ -314,11 +339,19 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			ChargeLimitSocPct:      &cur.ChargeLimitSocPct,
 			CapturedAt:             &cur.CapturedAt,
 			MaxRangeChargeCounter:  cur.MaxRangeChargeCounter,
+			TpmsPressureFLPSI:      cur.TpmsPressureFLPSI,
+			TpmsPressureFRPSI:      cur.TpmsPressureFRPSI,
+			TpmsPressureRLPSI:      cur.TpmsPressureRLPSI,
+			TpmsPressureRRPSI:      cur.TpmsPressureRRPSI,
 			DistanceTraveledKmCalc: calc.DistanceTraveledKmCalc,
 			BatteryUsedPctCalc:     calc.BatteryUsedPctCalc,
 			KmPerPctCalc:           calc.KmPerPctCalc,
 			EstimatedRangeKmCalc:   calc.EstimatedRangeKmCalc,
 			DaysSpannedCalc:        calc.DaysSpannedCalc,
+			TpmsPressureFLPSICalc:  calc.TpmsPressureFLPSICalc,
+			TpmsPressureFRPSICalc:  calc.TpmsPressureFRPSICalc,
+			TpmsPressureRLPSICalc:  calc.TpmsPressureRLPSICalc,
+			TpmsPressureRRPSICalc:  calc.TpmsPressureRRPSICalc,
 			ConsumedPct:            &consumed,
 			Flagged:                flagged,
 			MissingChargingType:    missingType,

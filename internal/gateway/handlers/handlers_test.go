@@ -814,7 +814,22 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 		ChargeLimitSocPct: ptrInt(80),
 		CapturedAt:        &capturedAt,
 
-		MaxRangeChargeCounter: ptrInt(12),
+		MaxRangeChargeCounter:  ptrInt(12),
+		DistanceTraveledKmCalc: ptrF64(45.2),
+		KmPerPctCalc:           ptrF64(2.84),
+		ConsumedPct:            ptrF64(12.3),
+
+		// RM50 tier 4 — one wheel per dashTireTrend/dashTireDelta branch
+		// (design.md Test Contract): FL positive, FR negative, RL exact
+		// zero, RR nil/nil (absent).
+		TpmsPressureFLPSI:     ptrF64(42.06),
+		TpmsPressureFLPSICalc: ptrF64(0.4),
+		TpmsPressureFRPSI:     ptrF64(40.6),
+		TpmsPressureFRPSICalc: ptrF64(-0.3),
+		TpmsPressureRLPSI:     ptrF64(39.2),
+		TpmsPressureRLPSICalc: ptrF64(0.0),
+		TpmsPressureRRPSI:     nil,
+		TpmsPressureRRPSICalc: nil,
 	}
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	var vm fragments.DashboardData
@@ -865,6 +880,37 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 	if vm.MaxRangeCharges != "12" {
 		t.Errorf("want MaxRangeCharges %q, got %q", "12", vm.MaxRangeCharges)
 	}
+	if vm.DistanceTraveled != "45 km" {
+		t.Errorf("want DistanceTraveled %q, got %q", "45 km", vm.DistanceTraveled)
+	}
+	if vm.BatteryUsed != "12.3%" {
+		t.Errorf("want BatteryUsed %q, got %q", "12.3%", vm.BatteryUsed)
+	}
+	// 2.84 km/% rounds to one decimal: "2.8 km / %".
+	if vm.Efficiency != "2.8 km / %" {
+		t.Errorf("want Efficiency %q, got %q", "2.8 km / %", vm.Efficiency)
+	}
+
+	// RM50 tier 4 — tire pressure tiles (design.md Test Contract table).
+	wantFL := fragments.TireWheelVM{Value: "42.1 PSI", Trend: "up", Delta: "+0.4 vs prev. day"}
+	if vm.TirePressureFL != wantFL {
+		t.Errorf("want TirePressureFL %+v, got %+v", wantFL, vm.TirePressureFL)
+	}
+	wantFR := fragments.TireWheelVM{Value: "40.6 PSI", Trend: "down", Delta: "-0.3 vs prev. day"}
+	if vm.TirePressureFR != wantFR {
+		t.Errorf("want TirePressureFR %+v, got %+v", wantFR, vm.TirePressureFR)
+	}
+	// RL: exact 0.0 delta — no trend icon, but the delta line still renders
+	// (RD14/D5: 0.0 is a known "no change" reading, not an absent one).
+	wantRL := fragments.TireWheelVM{Value: "39.2 PSI", Trend: "", Delta: "0.0 vs prev. day"}
+	if vm.TirePressureRL != wantRL {
+		t.Errorf("want TirePressureRL %+v, got %+v", wantRL, vm.TirePressureRL)
+	}
+	// RR: nil raw and nil delta — dash placeholder, no trend, no delta line.
+	wantRR := fragments.TireWheelVM{Value: "—", Trend: "", Delta: ""}
+	if vm.TirePressureRR != wantRR {
+		t.Errorf("want TirePressureRR %+v, got %+v", wantRR, vm.TirePressureRR)
+	}
 }
 
 func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
@@ -903,6 +949,17 @@ func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
 	if vm.MaxRangeCharges != "—" {
 		t.Errorf("want MaxRangeCharges %q (nil counter), got %q", "—", vm.MaxRangeCharges)
 	}
+	if vm.DistanceTraveled != "—" {
+		t.Errorf("want DistanceTraveled %q (nil DistanceTraveledKmCalc), got %q", "—", vm.DistanceTraveled)
+	}
+	if vm.BatteryUsed != "—" {
+		t.Errorf("want BatteryUsed %q (nil ConsumedPct), got %q", "—", vm.BatteryUsed)
+	}
+	// nil KmPerPctCalc means no predecessor, or battery used <= 0 -- both are
+	// "cannot say", never a fabricated 0.
+	if vm.Efficiency != "—" {
+		t.Errorf("want Efficiency %q (nil KmPerPctCalc), got %q", "—", vm.Efficiency)
+	}
 	// Odometer/Battery/RangeNow are always non-pointer — unaffected by the nil fixture.
 	if vm.Odometer != "18,452 km" {
 		t.Errorf("want Odometer %q, got %q", "18,452 km", vm.Odometer)
@@ -921,6 +978,23 @@ func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
 	}
 	if vm.SentryMode != nil {
 		t.Errorf("want SentryMode nil, got %v", vm.SentryMode)
+	}
+
+	// RM50 tier 4 — every pointer field nil means all four wheels collapse
+	// to the same zero-value TireWheelVM (dash placeholder, no trend, no
+	// delta line).
+	wantWheel := fragments.TireWheelVM{Value: "—", Trend: "", Delta: ""}
+	if vm.TirePressureFL != wantWheel {
+		t.Errorf("want TirePressureFL %+v, got %+v", wantWheel, vm.TirePressureFL)
+	}
+	if vm.TirePressureFR != wantWheel {
+		t.Errorf("want TirePressureFR %+v, got %+v", wantWheel, vm.TirePressureFR)
+	}
+	if vm.TirePressureRL != wantWheel {
+		t.Errorf("want TirePressureRL %+v, got %+v", wantWheel, vm.TirePressureRL)
+	}
+	if vm.TirePressureRR != wantWheel {
+		t.Errorf("want TirePressureRR %+v, got %+v", wantWheel, vm.TirePressureRR)
 	}
 }
 

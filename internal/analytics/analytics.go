@@ -319,6 +319,47 @@ type VehicleStatus struct {
 	// "the vehicle did not report it" or "the row predates the column". A
 	// reported 0 is a real value — never collapse it to nil.
 	MaxRangeChargeCounter *int
+	// TpmsPressureFLPSI/FR/RL/RR are the four tire-pressure raw observations
+	// (RM50-analytics-add-tire-pressure-columns), copied verbatim from the day's own
+	// telemetry.Snapshot -- already PSI, no conversion. Pointer for the same reason as
+	// the fields above: nil means the vehicle did not report TPMS at capture, OR this
+	// row predates the RM50 migration and was not touched by its one-off backfill
+	// (design.md "NULL meaning").
+	TpmsPressureFLPSI *float64
+	TpmsPressureFRPSI *float64
+	TpmsPressureRLPSI *float64
+	TpmsPressureRRPSI *float64
+	// DistanceTraveledKmCalc/ConsumedPct are the same two _calc columns
+	// ConsumedByDay/OdometerDeltaByDay already read, newly exposed on this "latest
+	// row" port (RM50-analytics-add-tire-pressure-columns design.md Part B). Pointer
+	// because both are nullable: nil on a predecessor-less day (design.md D9), exactly
+	// as documented on DayConsumption.ConsumedPct/DayDistance.KmDriven above.
+	DistanceTraveledKmCalc *float64
+	ConsumedPct            *float64
+	// KmPerPctCalc is the day's driving efficiency in kilometres per battery
+	// percent -- distance_traveled_km_calc divided by battery_used_pct_calc,
+	// computed by deriveConsumption, not here. Pointer because nullable, under
+	// a STRICTER rule than its two siblings above: nil on a predecessor-less
+	// day AND nil whenever that day's battery_used_pct_calc is <= 0, because
+	// the division has no meaning then (the divisor guard in consumption.go).
+	// A day the vehicle sat parked and charged therefore has a distance and a
+	// consumed percent but no efficiency. Never substitute 0.
+	KmPerPctCalc *float64
+	// TpmsPressureFLPSICalc/FR/RL/RR are the four tyre-pressure day-over-day
+	// deltas (RM50-analytics-add-tire-pressure-variance), one per wheel, in
+	// PSI: this day's raw reading minus the previous day's. Pointer because
+	// nullable: nil when this day has no predecessor at all, OR when either
+	// day's own raw wheel reading is itself nil (design.md D2) -- the same
+	// nil rule DistanceTraveledKmCalc/ConsumedPct above already follow, NOT
+	// the raw-observation rule the four TpmsPressure*PSI fields above follow.
+	// This delta partly reflects ambient air temperature change (about 1 PSI
+	// per 5.5 degrees C), not only a genuine pressure change -- accepted, not
+	// a defect (roadmap RD3). Never apply a threshold or a target-pressure
+	// comparison to it.
+	TpmsPressureFLPSICalc *float64
+	TpmsPressureFRPSICalc *float64
+	TpmsPressureRLPSICalc *float64
+	TpmsPressureRRPSICalc *float64
 }
 
 // Efficiency is one computed rolling-efficiency result — our own domain model,

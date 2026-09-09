@@ -115,6 +115,24 @@ const (
 	KeyDashboardAwaitingSnapshot   Key = "dashboard.awaiting_snapshot"
 	KeyDashboardChargeLimit        Key = "dashboard.charge_limit"
 
+	// --- dashboard Vehicle Status subsections (RM50-gateway-add-travel-progress-subsection D6) ---
+	KeyDashboardTravelProgressTitle   Key = "dashboard.travel_progress_title"
+	KeyDashboardTravelProgressDesc    Key = "dashboard.travel_progress_desc"
+	KeyDashboardInteriorExteriorTitle Key = "dashboard.interior_exterior_title"
+	KeyDashboardInteriorExteriorDesc  Key = "dashboard.interior_exterior_desc"
+	KeyDashboardDistanceTraveled      Key = "dashboard.distance_traveled"
+	KeyDashboardBatteryUsed           Key = "dashboard.battery_used"
+	KeyDashboardEfficiency            Key = "dashboard.efficiency"
+
+	// --- dashboard Tire pressure subsection (RM50-gateway-add-tire-pressure-subsection D8) ---
+	KeyDashboardTirePressureTitle Key = "dashboard.tire_pressure_title"
+	KeyDashboardTirePressureDesc  Key = "dashboard.tire_pressure_desc"
+	KeyDashboardTireFL            Key = "dashboard.tire_fl"
+	KeyDashboardTireFR            Key = "dashboard.tire_fr"
+	KeyDashboardTireRL            Key = "dashboard.tire_rl"
+	KeyDashboardTireRR            Key = "dashboard.tire_rr"
+	KeyDashboardTireDeltaDesc     Key = "dashboard.tire_delta_desc"
+
 	// --- dashboard status (handlers.go: dashStatus, mapDashboardSnapshot — D5) ---
 	KeyDashboardStatusCharging        Key = "dashboard_status.charging"
 	KeyDashboardStatusParked          Key = "dashboard_status.parked"
@@ -506,6 +524,22 @@ var catalog = map[Key]entry{
 	KeyDashboardBatteryTitle:       {ES: "Carga de batería", EN: "Battery Charge"},
 	KeyDashboardAwaitingSnapshot:   {ES: "Esperando el primer dato", EN: "Awaiting first snapshot"},
 	KeyDashboardChargeLimit:        {ES: "Límite %d%%", EN: "Limit %d%%"},
+
+	KeyDashboardTravelProgressTitle:   {ES: "Progreso de viaje", EN: "Travel Progress"},
+	KeyDashboardTravelProgressDesc:    {ES: "Distancia recorrida y batería usada en el último día calculado.", EN: "Distance travelled and battery used on the last computed day."},
+	KeyDashboardInteriorExteriorTitle: {ES: "Interior / Exterior", EN: "Interior / Exterior"},
+	KeyDashboardInteriorExteriorDesc:  {ES: "Temperatura dentro y fuera del vehículo.", EN: "Temperature inside and outside the vehicle."},
+	KeyDashboardDistanceTraveled:      {ES: "Distancia recorrida", EN: "Distance travelled"},
+	KeyDashboardBatteryUsed:           {ES: "Batería usada", EN: "Battery used"},
+	KeyDashboardEfficiency:            {ES: "Eficiencia", EN: "Efficiency"},
+
+	KeyDashboardTirePressureTitle: {ES: "Presión de llantas (PSI)", EN: "Tire pressure (PSI)"},
+	KeyDashboardTirePressureDesc:  {ES: "Presión actual de cada llanta y su cambio respecto al día anterior.", EN: "Current pressure per wheel and its change versus the previous day."},
+	KeyDashboardTireFL:            {ES: "Delantera izquierda", EN: "Front left"},
+	KeyDashboardTireFR:            {ES: "Delantera derecha", EN: "Front right"},
+	KeyDashboardTireRL:            {ES: "Trasera izquierda", EN: "Rear left"},
+	KeyDashboardTireRR:            {ES: "Trasera derecha", EN: "Rear right"},
+	KeyDashboardTireDeltaDesc:     {ES: "%s vs. día anterior", EN: "%s vs prev. day"},
 
 	KeyDashboardStatusCharging:        {ES: "Cargando", EN: "Charging"},
 	KeyDashboardStatusParked:          {ES: "Estacionado", EN: "Parked"},

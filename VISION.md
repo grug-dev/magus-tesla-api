@@ -70,7 +70,6 @@ Examples include:
 * Energy consumption
 * Driving efficiency
 * Distance
-* Speed
 * Trip history
 * Daily utilization
 * Monthly utilization

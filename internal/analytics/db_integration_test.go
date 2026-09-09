@@ -334,6 +334,16 @@ func TestRecalculate_ManualError_Propagates(t *testing.T) {
 // which is a behavior-preserving change for every pre-existing fixture:
 // no test in this file asserts vehicle_snapshots.charging_state/locked/etc.
 // directly, only the vehicle_metrics values Recalculate derives from them.
+//
+// RM50-analytics-add-tire-pressure-columns: also binds the four
+// s.TpmsPressure{FL,FR,RL,RR}PSI fields. The column type is REAL (float4),
+// not DOUBLE PRECISION, so a bare *float64 cannot bind directly — pgFloat4FromFloat64Ptr
+// (below) narrows it, mirroring telemetry's own production
+// float64PtrToPgFloat4 helper (service.go), which this test file cannot
+// import (unexported, and cross-module test-only imports still respect the
+// boundary). nil stays nil (SQL NULL); existing callers that never set these
+// fields keep getting NULL, a behavior-preserving change for every
+// pre-existing fixture.
 func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 	t.Helper()
 	updatedAt := s.UpdatedAt
@@ -345,23 +355,40 @@ func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 			account_id, tesla_id, captured_at, captured_date, raw_data,
 			battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
 			odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
+			tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
 			updated_at
 		) VALUES (
 			$1, $2, $3, $4, '{}'::jsonb,
 			$5, $6, $7, $8,
 			$9, $10, $11, $12, $13, $14,
-			$15
+			$15, $16, $17, $18,
+			$19
 		)`,
 		s.AccountID, s.TeslaID,
 		pgtype.Timestamptz{Time: s.CapturedAt, Valid: true},
 		dateFrom(s.CapturedDate),
 		int32(s.BatteryLevelPct), s.BatteryRangeKm, s.ChargingState, int32(s.ChargeLimitSocPct),
 		s.OdometerKm, s.InsideTempC, s.OutsideTempC, s.Locked, pgBoolFromPtr(s.SentryMode), s.CarVersion,
+		pgFloat4FromFloat64Ptr(s.TpmsPressureFLPSI), pgFloat4FromFloat64Ptr(s.TpmsPressureFRPSI),
+		pgFloat4FromFloat64Ptr(s.TpmsPressureRLPSI), pgFloat4FromFloat64Ptr(s.TpmsPressureRRPSI),
 		pgtype.Timestamptz{Time: updatedAt, Valid: true},
 	)
 	if err != nil {
 		t.Fatalf("seeding vehicle_snapshots: %v", err)
 	}
+}
+
+// pgFloat4FromFloat64Ptr maps a *float64 to a nullable pgtype.Float4 (REAL) --
+// nil becomes SQL NULL. telemetry.vehicle_snapshots' four tpms_pressure_*_psi
+// columns are REAL, not DOUBLE PRECISION, so seedSnapshot needs this narrowing
+// step; mapping.go's own pgFloat8FromPtr targets DOUBLE PRECISION columns
+// (analytics.vehicle_metrics' own tpms_pressure_*_psi columns) and is the
+// wrong type here.
+func pgFloat4FromFloat64Ptr(v *float64) pgtype.Float4 {
+	if v == nil {
+		return pgtype.Float4{Valid: false}
+	}
+	return pgtype.Float4{Float32: float32(*v), Valid: true}
 }
 
 // sessionIDSeq hands out globally-unique session_id values across this
@@ -585,7 +612,11 @@ func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, 
 // (locked/sentry_mode/car_version/inside_temp_c/outside_temp_c/
 // charging_state/charge_limit_soc_pct/captured_at) — analyticsdb.VehicleMetric
 // (models.go) already carries these fields as of Wave A/B, so only this
-// helper's SQL and Scan list needed widening.
+// helper's SQL and Scan list needed widening. Widened again by
+// RM50-analytics-add-tire-pressure-columns (task 1.7) to select/scan the
+// four tpms_pressure_*_psi columns — same reason: models.go already carries
+// them (task 1.3's sqlc regeneration), only this helper needed the SQL/Scan
+// addition.
 func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, metricDate time.Time) (analyticsdb.VehicleMetric, bool) {
 	t.Helper()
 	var m analyticsdb.VehicleMetric
@@ -595,7 +626,8 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, t
 		       km_per_pct_calc, estimated_range_km_calc, days_spanned_calc,
 		       consumed_pct, flagged, missing_charging_type, created_at, updated_at,
 		       locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
-		       charging_state, charge_limit_soc_pct, captured_at
+		       charging_state, charge_limit_soc_pct, captured_at,
+		       tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi
 		FROM analytics.vehicle_metrics
 		WHERE account_id = $1 AND tesla_id = $2 AND metric_date = $3`,
 		accountID, teslaID, dateFrom(metricDate),
@@ -604,7 +636,8 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, t
 		&m.KmPerPctCalc, &m.EstimatedRangeKmCalc, &m.DaysSpannedCalc, &m.ConsumedPct,
 		&m.Flagged, &m.MissingChargingType, &m.CreatedAt, &m.UpdatedAt,
 		&m.Locked, &m.SentryMode, &m.CarVersion, &m.InsideTempC, &m.OutsideTempC,
-		&m.ChargingState, &m.ChargeLimitSocPct, &m.CapturedAt)
+		&m.ChargingState, &m.ChargeLimitSocPct, &m.CapturedAt,
+		&m.TpmsPressureFlPsi, &m.TpmsPressureFrPsi, &m.TpmsPressureRlPsi, &m.TpmsPressureRrPsi)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return analyticsdb.VehicleMetric{}, false
 	}
@@ -2502,6 +2535,31 @@ func TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus(t *tes
 	if vs.CapturedAt != nil {
 		t.Errorf("CapturedAt: want nil, got %v", *vs.CapturedAt)
 	}
+
+	// RM50-analytics-add-tire-pressure-columns (task 2.5): the six new-to-
+	// the-port columns (four TPMS + the two newly-exposed _calc columns) are
+	// exactly like the eight RM38 fields above on this pre-migration row --
+	// seedPreMigrationVehicleMetric's INSERT never named them, so Postgres
+	// leaves them NULL, never a fabricated default (design.md's Test
+	// Contract "a pre-migration row").
+	if vs.TpmsPressureFLPSI != nil {
+		t.Errorf("TpmsPressureFLPSI: want nil, got %v", *vs.TpmsPressureFLPSI)
+	}
+	if vs.TpmsPressureFRPSI != nil {
+		t.Errorf("TpmsPressureFRPSI: want nil, got %v", *vs.TpmsPressureFRPSI)
+	}
+	if vs.TpmsPressureRLPSI != nil {
+		t.Errorf("TpmsPressureRLPSI: want nil, got %v", *vs.TpmsPressureRLPSI)
+	}
+	if vs.TpmsPressureRRPSI != nil {
+		t.Errorf("TpmsPressureRRPSI: want nil, got %v", *vs.TpmsPressureRRPSI)
+	}
+	if vs.DistanceTraveledKmCalc != nil {
+		t.Errorf("DistanceTraveledKmCalc: want nil, got %v", *vs.DistanceTraveledKmCalc)
+	}
+	if vs.ConsumedPct != nil {
+		t.Errorf("ConsumedPct: want nil, got %v", *vs.ConsumedPct)
+	}
 }
 
 // TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice
@@ -2524,5 +2582,136 @@ func TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice(t *te
 	}
 	if len(got) != 0 {
 		t.Fatalf("want 0 entries, got %d: %+v", len(got), got)
+	}
+}
+
+// ===========================================================================
+// RM50-analytics-add-tire-pressure-columns -- task 1.7 (Recalculate
+// round-trip) and task 2.5's "LatestMetricsByAccount case" (task 2.5's other
+// case, "the pre-migration row", extends
+// TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus above
+// instead of duplicating a second fixture). Expected values are copied
+// verbatim from design.md's Test Contract, never derived by reading
+// recalculate.go/reader.go.
+// ===========================================================================
+
+// TestRecalculate_TPMS_RoundTrip covers design.md's Test Contract "DB
+// integration: Recalculate round-trip" (task 1.7): one
+// telemetry.vehicle_snapshots row with all four TPMS fields non-NULL,
+// Recalculate for the day containing it, then the same four values read
+// back unconverted from analytics.vehicle_metrics.
+//
+// The four values are chosen as exact binary fractions (42.5, 42.25, 41.75,
+// 42.125) on purpose: telemetry.vehicle_snapshots' own tpms_pressure_*_psi
+// columns are REAL (float4, ai/go-conventions.md's telemetry precedent), so
+// seedSnapshot narrows through float32 on the way in. A value with a
+// non-power-of-two fraction (e.g. 41.8) would pick up a float32 rounding
+// error under 1e-6 -- irrelevant to production (telemetry's own adapter
+// converts Fleet API bar readings the same way) but larger than this
+// package's approxEqual epsilon (1e-9), which would fail the assertion for
+// a reason unrelated to the code under test. The row is predecessor-less (a
+// single seeded snapshot): design.md D2 says TPMS populates in BOTH
+// branches, so this also exercises the predecessor-less branch at the DB
+// level, mirroring Fixture RM38-B's own precedent.
+func TestRecalculate_TPMS_RoundTrip(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(990201)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	metricDate := day(2026, 9, 1)
+	cur := telemetry.Snapshot{
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        time.Date(2026, 9, 2, 3, 30, 0, 0, time.UTC),
+		CapturedDate:      metricDate.AddDate(0, 0, 1),
+		BatteryLevelPct:   72,
+		OdometerKm:        1200.0,
+		BatteryRangeKm:    290.0,
+		ChargingState:     "Disconnected",
+		ChargeLimitSocPct: 90,
+		InsideTempC:       20.0,
+		OutsideTempC:      15.0,
+		Locked:            true,
+		CarVersion:        "2026.30.1",
+		TpmsPressureFLPSI: floatPtr(42.5),
+		TpmsPressureFRPSI: floatPtr(42.25),
+		TpmsPressureRLPSI: floatPtr(41.75),
+		TpmsPressureRRPSI: floatPtr(42.125),
+	}
+	seedSnapshot(t, pool, cur)
+
+	rec := newRealRecalculator(pool)
+	if err := rec.Recalculate(ctx, accountID, teslaID, metricDate, metricDate); err != nil {
+		t.Fatalf("Recalculate: %v", err)
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, metricDate)
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row, found none")
+	}
+	if !row.TpmsPressureFlPsi.Valid || row.TpmsPressureFlPsi.Float64 != 42.5 {
+		t.Errorf("TpmsPressureFlPsi: want 42.5, got %+v", row.TpmsPressureFlPsi)
+	}
+	if !row.TpmsPressureFrPsi.Valid || row.TpmsPressureFrPsi.Float64 != 42.25 {
+		t.Errorf("TpmsPressureFrPsi: want 42.25, got %+v", row.TpmsPressureFrPsi)
+	}
+	if !row.TpmsPressureRlPsi.Valid || row.TpmsPressureRlPsi.Float64 != 41.75 {
+		t.Errorf("TpmsPressureRlPsi: want 41.75, got %+v", row.TpmsPressureRlPsi)
+	}
+	if !row.TpmsPressureRrPsi.Valid || row.TpmsPressureRrPsi.Float64 != 42.125 {
+		t.Errorf("TpmsPressureRrPsi: want 42.125, got %+v", row.TpmsPressureRrPsi)
+	}
+}
+
+// TestReader_LatestMetricsByAccount_TPMS_And_ExposedCalcColumns covers
+// design.md's Test Contract "DB integration: LatestMetricsByAccount" (task
+// 2.5): one vehicle_metrics row with non-NULL tpms_pressure_fl_psi (42.5),
+// distance_traveled_km_calc (12.3) and consumed_pct (5.0) -- all three are
+// DOUBLE PRECISION columns, not REAL, so no float32 narrowing applies and
+// exact equality is the right assertion (matching design.md's own "== 42.5"
+// wording). Seeded directly, not via Recalculate: this test is about the
+// read projection (query.sql task 2.1 / reader.go task 2.4), which
+// TestRecalculate_TPMS_RoundTrip above does not exercise (it only reads back
+// via fetchVehicleMetric's raw SQL, never through Reader).
+func TestReader_LatestMetricsByAccount_TPMS_And_ExposedCalcColumns(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(990202)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	metricDate := day(2026, 9, 3)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO analytics.vehicle_metrics (
+			account_id, tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km,
+			flagged, tpms_pressure_fl_psi, distance_traveled_km_calc, consumed_pct
+		) VALUES ($1, $2, $3, $4, $5, $6, false, $7, $8, $9)`,
+		accountID, teslaID, dateFrom(metricDate), int32(60), 800.0, 300.0,
+		42.5, 12.3, 5.0,
+	)
+	if err != nil {
+		t.Fatalf("seeding vehicle_metrics: %v", err)
+	}
+
+	rdr := newRealReader(pool)
+	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("LatestMetricsByAccount: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	vs := got[0]
+
+	if vs.TpmsPressureFLPSI == nil || *vs.TpmsPressureFLPSI != 42.5 {
+		t.Errorf("TpmsPressureFLPSI: want 42.5, got %v", vs.TpmsPressureFLPSI)
+	}
+	if vs.DistanceTraveledKmCalc == nil || *vs.DistanceTraveledKmCalc != 12.3 {
+		t.Errorf("DistanceTraveledKmCalc: want 12.3, got %v", vs.DistanceTraveledKmCalc)
+	}
+	if vs.ConsumedPct == nil || *vs.ConsumedPct != 5.0 {
+		t.Errorf("ConsumedPct: want 5.0, got %v", vs.ConsumedPct)
 	}
 }

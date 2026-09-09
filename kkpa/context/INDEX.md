@@ -55,6 +55,14 @@
 | `why did every session recalculate` | the MAG-48 symptom — `updated_at` used to advance on every sync pass | entity | `workflows/supercharger-stats-read.md` |
 | `bounded mirror read` | the watermark-bounded Supercharger sync (RM44 tier 4); replaced the full-history read | entity | `workflows/supercharger-stats-read.md` |
 | `why is the mirror slow` | it used to read all history every night — MAG-48, fixed by the bounded read | entity | `workflows/supercharger-stats-read.md` |
+| `tire pressure` | the four `tpms_pressure_*_psi` columns of `vehicle_metrics` (RM50 tier 1), raw per-day observations read via `analytics.Reader.LatestMetricsByAccount` | entity | `entities/vehicle-metrics/guide.md` |
+| `tyre pressure` | synonym of `tire pressure` | entity | `entities/vehicle-metrics/guide.md` |
+| `TPMS` | synonym of `tire pressure` (tire-pressure monitoring system) | entity | `entities/vehicle-metrics/guide.md` |
+| `tyre pressure delta` | the four `tpms_pressure_*_psi_calc` columns of `vehicle_metrics` (RM50 tier 3) — each day's wheel pressure minus the previous day's, NULL without a predecessor or a raw reading | entity | `entities/vehicle-metrics/guide.md` |
+| `tyre pressure variance` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
+| `pressure change` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
+| `travel progress` | UI name for `vehicle_metrics.distance_traveled_km_calc`, exposed on `analytics.VehicleStatus.DistanceTraveledKmCalc` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
+| `battery drain` | UI name for `vehicle_metrics.consumed_pct`, exposed on `analytics.VehicleStatus.ConsumedPct` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
 
 ## Input ports — pages & endpoints
 
@@ -83,6 +91,10 @@
 | `manual rerun endpoint` | `POST /internal/rerun/<token>` | `n/a` | `input-port/manual-rerun-endpoint.md` |
 | `rerun endpoint` | `POST /internal/rerun/<token>` | `n/a` | `input-port/manual-rerun-endpoint.md` |
 | `/internal/rerun` | `POST /internal/rerun/<token>` | `n/a` | `input-port/manual-rerun-endpoint.md` |
+| `Travel Progress` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Progreso de viaje` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Tire pressure panel` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Presión de llantas` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
 
 ## Use cases
 

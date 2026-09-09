@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM50-gateway-add-travel-progress-subsection",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM50-vehicle-status-subsections.md",
+  "request": "Ticket MAG-56 Step 2 + the regrouping half of the panel. Rebuild the /dashboard Vehicle Status panel into named subsections (RD9 layout Option B), add the Travel Progress subsection reading tier 1's DistanceTraveledKmCalc/ConsumedPct, and regroup the interior/exterior temperature tiles. Tire pressure is tier 4 and renders nothing here.",
+  "status": "verified",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ]
+  },
+  "created_at": "2026-09-08T20:43:08Z",
+  "updated_at": "2026-09-08T21:09:19Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM50-MAG-56-vehicle-status-subsections",
+    "base": "main",
+    "ticket": "MAG-56",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-56/vehicle-status-change",
+    "created_at": "2026-09-08T15:55:09Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "ui/ kit additions: trending_up/trending_down glyphs + StatTileProps.Trend (D3, D4)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T20:48:52Z",
+      "completed_at": "2026-09-08T20:51:52Z",
+      "duration_seconds": 180,
+      "notes": "Added trending_up/trending_down to icon.templ; Trend field + statTrendIcon to stat_tile.templ. All 24 existing StatTile call sites render unchanged.",
+      "budget": {
+        "five_hour_pct_start": 31.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.29,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto T1-T3; they ran serially in one dispatch"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "i18n catalogue: six new dashboard.* keys, ES+EN (D6)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T20:48:52Z",
+      "completed_at": "2026-09-08T20:51:52Z",
+      "duration_seconds": 180,
+      "notes": "Six dashboard.* keys added, ES and EN both non-empty, verbatim from design.md D6. make i18n-guard passes.",
+      "budget": {
+        "five_hour_pct_start": 31.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.29,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto T1-T3; they ran serially in one dispatch"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "View model + handler mapping: DistanceTraveled/BatteryUsed + two formatters (D2)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T20:48:52Z",
+      "completed_at": "2026-09-08T20:51:52Z",
+      "duration_seconds": 180,
+      "notes": "Added DistanceTraveled/BatteryUsed to DashboardData, two nil-safe formatters and the mapping lines. Owner ran the suite and reported it passing.",
+      "budget": {
+        "five_hour_pct_start": 31.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.29,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto T1-T3; they ran serially in one dispatch"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Panel layout: Option B inner 12-col grid in dashboard.templ (D1)",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T20:54:42Z",
+      "completed_at": "2026-09-08T20:55:46Z",
+      "duration_seconds": 64,
+      "notes": "Replaced the image and flat tile grid with D1's Option B inner grid. Badge row and Last updated footnote untouched. Tier 4's tyre slot marked by comment only.",
+      "budget": {
+        "five_hour_pct_start": 39.0,
+        "five_hour_pct_end": 48.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.15,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto T4-T6; they ran serially in one dispatch"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Docs: gateway AGENTS.md + two kkpa/context KB guides (D9)",
+      "module": "gateway",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T20:55:46Z",
+      "completed_at": "2026-09-08T20:57:39Z",
+      "duration_seconds": 113,
+      "notes": "AGENTS.md notes the subsection layout, Trend and the two glyphs. Both KB guides corrected: stale tile-row text and the pointer-field count. No archive file touched.",
+      "budget": {
+        "five_hour_pct_start": 39.0,
+        "five_hour_pct_end": 48.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.15,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto T4-T6; they ran serially in one dispatch"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Verification: build, vet, gofmt, ui-guard, i18n-guard, templ/css regen",
+      "module": "gateway",
+      "depends_on": [
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-08T20:55:46Z",
+      "completed_at": "2026-09-08T20:57:39Z",
+      "duration_seconds": 113,
+      "notes": "build, vet, ui-guard, i18n-guard all pass; leader re-ran them. gofmt flags only the pre-existing vehicle_image_test.go. Suite handed to the owner.",
+      "budget": {
+        "five_hour_pct_start": 39.0,
+        "five_hour_pct_end": 48.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.15,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto T4-T6; they ran serially in one dispatch"
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review change RM50-gateway-add-travel-progress-subsection (roadmap RM50 tier 2, module gateway). Read the diff of commits ba4f058, dc22a17, 109c7c1 against their parent -- not the whole module. Validate: (1) module-boundary compliance -- no HTML outside internal/gateway, no cross-module DB read, internal/analytics untouched; (2) every doc-pack convention -- ai/go-conventions.md, ai/htmx-conventions.md, internal/gateway/AGENTS.md, including the ui/ kit rule that pages never hand-write component markup; (3) bilingual i18n -- all six new keys have ES and EN non-empty and every new string goes through i18n.T; (4) semantic theme tokens only, no raw colour, no inline DaisyUI component class (RD6); (5) spec and tasks coverage -- every requirement in specs/gateway/spec.md is actually implemented, and the MODIFIED requirement's rewrite kept its real contract (badges, not a status tile) while dropping only the now-false grid-shape claim; (6) the implementation matches design.md D1-D9 -- a mismatch with a user-confirmed decision is a blocker finding; (7) RD-fixed -- the two Travel Progress trend icons are FIXED (up for distance, down for battery used), never delta-driven; (8) nil handling -- a nil DistanceTraveledKmCalc or ConsumedPct renders the dash placeholder, never a fabricated 0; (9) tier scope -- the Tire pressure subsection renders NOTHING here, only a comment marking where tier 4 inserts it; (10) the Performance-Profile -- this is a read path; confirm it adds no new query, no new port method and no per-request computation; (11) docs track structural change -- AGENTS.md and the two kkpa/context KB guides were corrected in the same change, and nothing under openspec/changes/archive/ was edited; (12) anti-gaming -- no acceptance criterion was weakened or deleted, no status was self-approved, and tasks.md checkboxes match what the diff actually does. TEST SIGNALS: go build, go vet, gofmt, make ui-guard and make i18n-guard were run by the ASSISTANT and pass. The test SUITE was run by the OWNER, who reported it passing; the owner also confirmed the rendered page by eye. You must NOT run the suite. Judge test quality by READING the tests, not by running them. Note RD8 deliberately forbids cosmetic tests -- markup, CSS classes, ARIA and element placement are NOT to be tested; do not raise missing layout tests as a finding. Known and accepted, not findings: gofmt flags internal/gateway/vehicle_image_test.go, which is pre-existing and untouched by this change.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-08T21:30:00Z",
+        "duration_seconds": 1500,
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-wave",
+      "at": "2026-09-08T20:43:08Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Two waves, one serial worker each: wave 1 = T1+T2+T3, wave 2 = T4+T5+T6.",
+      "why": "T1-T3 touch disjoint files but are small; one serial worker reads the doc pack once. T4-T6 are strictly sequential, so a second worker is pointless."
+    },
+    {
+      "id": "D-wave2-early",
+      "at": "2026-09-08T20:53:15Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Dispatch wave 2 now, while T3 is still awaiting the owner's test run.",
+      "why": "T3's code is complete; only the signal is missing. go vet already compiled the new test file. The hard gate is before the reviewer, not between waves."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-08T20:43:08Z",
+      "agent": "leader",
+      "event": "artifacts created and validated (openspec validate --strict passed); no database object touched, so the built-in database design gate does not apply"
+    },
+    {
+      "at": "2026-09-08T20:48:46Z",
+      "agent": "leader",
+      "event": "dispatched wave 1 (T1 ui/ kit, T2 i18n, T3 view model) to one serial gateway worker on claude-sonnet-5; budget at dispatch: five_hour 31%, context 21%"
+    },
+    {
+      "at": "2026-09-08T20:53:15Z",
+      "agent": "leader",
+      "event": "wave 1 complete (T1 done, T2 done, T3 awaiting-user-verification). go build, go vet, make ui-guard, make i18n-guard all pass. gofmt flags internal/gateway/vehicle_image_test.go, untouched by this wave and pre-existing. budget delta: five_hour 31%->39%"
+    },
+    {
+      "at": "2026-09-08T20:53:22Z",
+      "agent": "leader",
+      "event": "dispatched wave 2 (T4 panel layout, T5 docs, T6 verification) to one serial gateway worker on claude-sonnet-5; budget at dispatch: five_hour 39%, context 22%"
+    },
+    {
+      "at": "2026-09-08T20:58:26Z",
+      "agent": "leader",
+      "event": "wave 2 complete (T4, T5, T6 done). Leader re-ran go build, go vet, make ui-guard, make i18n-guard: all pass. Change is applied. T3 stays awaiting-user-verification until the owner reports the test run. budget delta: five_hour 39%->48%"
+    },
+    {
+      "at": "2026-09-08T21:09:19Z",
+      "agent": "leader",
+      "event": "THE OWNER verified this change. They ran the gateway test suite and reported it passing, and they looked at /dashboard and confirmed the Travel Progress and Interior/Exterior subsections render correctly. The assistant did not run the suite and does not claim this result."
+    }
+  ]
+}

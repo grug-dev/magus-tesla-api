@@ -1,0 +1,602 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM50-gateway-add-tire-pressure-subsection",
+  "module": "gateway",
+  "roadmap": "RM50-vehicle-status-subsections",
+  "tier": 4,
+  "status": "verified",
+  "created_at": "2026-09-09T08:45:24Z",
+  "updated_at": "2026-09-09T08:56:01Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM50-MAG-56-vehicle-status-subsections",
+    "base": "main",
+    "ticket": "MAG-56",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-56/vehicle-status-change"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "6.1",
+      "6.2",
+      "6.3",
+      "6.4",
+      "6.5",
+      "6.6",
+      "6.7"
+    ],
+    "awaiting-user-verification": []
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Formatters + view model + handler mapping \u2014 step 1.1",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "formatPSI and formatSignedPSI added to format.go, per design D4."
+    },
+    {
+      "id": "1.2",
+      "title": "Formatters + view model + handler mapping \u2014 step 1.2",
+      "depends_on": [
+        "1.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "TireWheelVM struct plus four named DashboardData fields added, per D2."
+    },
+    {
+      "id": "1.3",
+      "title": "Formatters + view model + handler mapping \u2014 step 1.3",
+      "depends_on": [
+        "1.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "dashPSIOrDash, dashTireTrend, dashTireDelta, dashTireWheel plus four mapping lines, per D3/D6."
+    },
+    {
+      "id": "1.4",
+      "title": "Formatters + view model + handler mapping \u2014 step 1.4",
+      "depends_on": [
+        "1.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "Build failed here only on the not-yet-added i18n key. T2 resolved it, as the task order intended."
+    },
+    {
+      "id": "2.1",
+      "title": "i18n catalogue \u2014 step 2.1",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "Seven Key constants and seven catalogue entries added, ES and EN both non-empty."
+    },
+    {
+      "id": "2.2",
+      "title": "i18n catalogue \u2014 step 2.2",
+      "depends_on": [
+        "2.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "Checked by inspection: all seven new lines carry both languages."
+    },
+    {
+      "id": "3.1",
+      "title": "Panel layout \u2014 step 3.1",
+      "depends_on": [
+        "1.4",
+        "2.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "tire-pressure section added to dashboard.templ as a 2x2 grid, FL FR RL RR order."
+    },
+    {
+      "id": "3.2",
+      "title": "Panel layout \u2014 step 3.2",
+      "depends_on": [
+        "3.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "make templ and make css ran clean. app.css had no diff, so no new Tailwind utility was needed."
+    },
+    {
+      "id": "3.3",
+      "title": "Panel layout \u2014 step 3.3",
+      "depends_on": [
+        "3.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "go build and go vet clean. gofmt flagged only vehicle_image_test.go, which this change never touched."
+    },
+    {
+      "id": "3.4",
+      "title": "Panel layout \u2014 step 3.4",
+      "depends_on": [
+        "3.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:44:00Z",
+      "completed_at": "2026-09-09T08:47:00Z",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "cost_usd_delta": 6.3,
+        "approx": true,
+        "note": "one serial worker for T1+T2+T3"
+      },
+      "notes": "make ui-guard and make i18n-guard both pass."
+    },
+    {
+      "id": "4.1",
+      "title": "Tests (Test Contract) \u2014 step 4.1",
+      "depends_on": [
+        "1.4",
+        "3.4"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "TestMapDashboardSnapshot_FixtureFull extended with four wheels: positive, negative, real zero, absent. Asserts the design.md contract table. Owner ran make test and make check and reported both passing."
+    },
+    {
+      "id": "4.2",
+      "title": "Tests (Test Contract) \u2014 step 4.2",
+      "depends_on": [
+        "4.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "TestMapDashboardSnapshot_FixtureNil extended: all four wheels equal the zero-value TireWheelVM with a dash. Owner ran make test and make check and reported both passing."
+    },
+    {
+      "id": "4.3",
+      "title": "Tests (Test Contract) \u2014 step 4.3",
+      "depends_on": [
+        "4.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "go build and go vet clean, so the extended tests compile. A compile check, not a test run."
+    },
+    {
+      "id": "5.1",
+      "title": "Docs \u2014 step 5.1",
+      "depends_on": [
+        "3.4"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "internal/gateway/AGENTS.md: all three panel subsections now built; the tier-4 placeholder note is gone."
+    },
+    {
+      "id": "5.2",
+      "title": "Docs \u2014 step 5.2",
+      "depends_on": [
+        "5.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "read-dashboard-bento.md corrected in three places. The mapper reads nineteen pointer fields now, not eleven, and the gap wording is gone."
+    },
+    {
+      "id": "5.3",
+      "title": "Docs \u2014 step 5.3",
+      "depends_on": [
+        "5.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "input-port/gateway/dashboard.md page description names all three subsections."
+    },
+    {
+      "id": "5.4",
+      "title": "Docs \u2014 step 5.4",
+      "depends_on": [
+        "5.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "Grep found two KB hits outside the sandbox. The leader checked both: they document analytics' own columns, not this page's layout. Neither is stale."
+    },
+    {
+      "id": "6.1",
+      "title": "Verification \u2014 step 6.1",
+      "depends_on": [
+        "4.3",
+        "5.4"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": null,
+      "notes": "go build ./... clean."
+    },
+    {
+      "id": "6.2",
+      "title": "Verification \u2014 step 6.2",
+      "depends_on": [
+        "6.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": null,
+      "notes": "go vet ./... clean. It compiles the extended test file."
+    },
+    {
+      "id": "6.3",
+      "title": "Verification \u2014 step 6.3",
+      "depends_on": [
+        "6.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": null,
+      "notes": "gofmt flags only vehicle_image_test.go, which this change never touched. Pre-existing drift."
+    },
+    {
+      "id": "6.4",
+      "title": "Verification \u2014 step 6.4",
+      "depends_on": [
+        "6.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": null,
+      "notes": "make ui-guard passed. No raw colour and no inline DaisyUI class."
+    },
+    {
+      "id": "6.5",
+      "title": "Verification \u2014 step 6.5",
+      "depends_on": [
+        "6.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": null,
+      "notes": "make i18n-guard passed. No user-facing string bypasses i18n.T."
+    },
+    {
+      "id": "6.6",
+      "title": "Verification \u2014 step 6.6",
+      "depends_on": [
+        "6.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": null,
+      "notes": "make templ and make css re-run left no diff, so the generated files are current."
+    },
+    {
+      "id": "6.7",
+      "title": "Verification \u2014 step 6.7",
+      "depends_on": [
+        "6.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": null,
+      "notes": "Suite commands handed to the owner. Awaiting their run."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-zero-delta",
+      "at": "2026-09-09T08:45:24Z",
+      "scope": "ui",
+      "made_by": "user",
+      "decision": "A real 0.0 tyre delta renders NO icon but still prints its numeric line ('0.0 vs prev. day'). A nil delta prints no line at all. No third neutral glyph is added.",
+      "why": "User picked it from three options. The numeric line already tells 'no change' apart from 'unknown', so a new glyph in the shared ui/ kit is not worth the blast radius."
+    },
+    {
+      "id": "D-no-db",
+      "at": "2026-09-09T08:45:24Z",
+      "scope": "database",
+      "made_by": "leader",
+      "decision": "Tier 4 touches no database object, so the built-in database design gate does not apply. It reads the same precomputed row tier 3 already widened.",
+      "why": "The gate exists for schema changes. Recording the check so a reviewer sees it was made, not skipped."
+    }
+  ],
+  "review": {
+    "agent": "gateway-reviewer",
+    "status": "reviewer-approved",
+    "brief": "Review commits eff7117 and 0ba946d on ft/RM50-MAG-56-vehicle-status-subsections against openspec/changes/RM50-gateway-add-tire-pressure-subsection/{design.md,specs/gateway/spec.md,tasks.md}. Check: (1) RD14 -- a real 0.0 delta renders NO icon but DOES render its numeric line; a nil delta renders neither. This is the owner's own decision and the highest-value check. Verify it in dashTireTrend/dashTireDelta AND in the tests. (2) RD11 -- the panel reuses ui.StatTileProps.Trend and the existing trending_up/trending_down glyphs. A second trend mechanism, or a new glyph, is a blocker finding. (3) The tests assert design.md's Test Contract fixtures, authored before implementation -- not whatever the code happens to do. (4) RD8 -- no cosmetic tests: nothing coupled to markup, CSS classes, ARIA or element placement. (5) RD6 -- no hardcoded colour; semantic theme tokens only. (6) i18n -- all seven new keys have non-empty ES and EN, and no user-facing string bypasses i18n.T. (7) Boundaries -- nothing outside internal/gateway except the two named KB files and this change's artifacts; no new query and no new analytics call, the panel reads the one precomputed row. (8) Anti-gaming: no weakened or deleted criteria, no self-approved status; tasks.md matches reality. (9) No HTML comments in markup. (10) Docs track the change, and openspec/changes/archive/ is untouched. SIGNAL PROVENANCE: go build, go vet, ui-guard, i18n-guard, archive-guard, boundary-guard and a templ/css idempotency check were ASSISTANT-run and clean. The suite was run by the OWNER, who reported `make test` and `make check` passing. Do NOT run the suite. Judge test quality by reading the tests. KNOWN AND OUT OF SCOPE: gofmt -l flags internal/gateway/vehicle_image_test.go. It is pre-existing drift, untouched by these commits. Do not raise it as a finding.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-09T09:15:00Z",
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-5",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "ai/agentic-workflow.md",
+          "internal/gateway/AGENTS.md"
+        ],
+        "checks": [
+          {"id": 1, "item": "RD14 zero-vs-nil rendering", "result": "pass", "note": "dashTireTrend(v) returns \"\" for nil AND for *v==0; dashTireDelta(v) returns \"\" only for nil, formats a real 0.0 as \"0.0 vs prev. day\". ui.StatTile only renders the Desc line when non-empty (stat_tile.templ), so an empty Delta truly renders nothing. Confirmed in both dashTireTrend/dashTireDelta and the FixtureFull test (RL wheel: Trend \"\", Delta \"0.0 vs prev. day\"; RR wheel nil/nil: Trend \"\", Delta \"\")."},
+          {"id": 2, "item": "RD11 reuse ui.StatTileProps.Trend / existing glyphs", "result": "pass", "note": "dashTireWheel sets fragments.TireWheelVM.Trend to \"up\"/\"down\"/\"\", passed straight into ui.StatTileProps.Trend in dashboard.templ. statTrendIcon (stat_tile.templ) switches on trending_up/trending_down, both pre-existing from tier 2 (icon.templ). No new glyph, no hand-written arrow, no second mechanism."},
+          {"id": 3, "item": "Test Contract integrity", "result": "pass", "note": "handlers_test.go fixture values (42.06/0.4, 40.6/-0.3, 39.2/0.0, nil/nil) and expected strings match design.md's Test Contract table verbatim, authored before implementation. Verified arithmetic myself: 42.06 -> \"42.1 PSI\" (rounds up correctly), formatSignedPSI(0.4)=\"+0.4\", (-0.3)=\"-0.3\", (0.0)=\"0.0\" (no sign) -- all correct."},
+          {"id": 4, "item": "RD8 no cosmetic tests", "result": "pass", "note": "Only additions are to TestMapDashboardSnapshot_FixtureFull/FixtureNil, pure Go struct-field assertions on fragments.TireWheelVM. No markup, CSS class, ARIA, or placement assertion anywhere in the diff."},
+          {"id": 5, "item": "RD6 no hardcoded colour", "result": "pass", "note": "grep for \"231 189 184\" and \"rgb(\" across every touched file returns nothing. dashboard.templ uses only ui.SectionHeader/ui.StatTile; no inline class."},
+          {"id": 6, "item": "i18n", "result": "pass", "note": "Seven new keys (KeyDashboardTirePressureTitle/Desc, KeyDashboardTireFL/FR/RL/RR, KeyDashboardTireDeltaDesc), all with non-empty ES and EN on the same line in catalog.go. make i18n-guard passed clean."},
+          {"id": 7, "item": "Boundaries and performance", "result": "pass", "note": "git diff --name-only across both commits touches only internal/gateway/* and the two named KB files (kkpa/context/use-case/gateway/read-dashboard-bento.md, kkpa/context/input-port/gateway/dashboard.md) plus this change's own openspec artifacts. All eight TPMS fields (TpmsPressureFLPSI.../Calc) confirmed to already exist as public *float64 fields on analytics.VehicleStatus (internal/analytics/analytics.go), already returned by the existing LatestMetricsByAccount call -- no new query, no new analytics port method, no new call site."},
+          {"id": 8, "item": "Anti-gaming", "result": "pass", "note": "No spec/task criterion edited or weakened. tasks.md checkboxes T1-T5 all [x] and match the diff. T6 items 6.1-6.6 remain [ ] in tasks.md even though the leader ran and reported them in progress.json/events -- this is conservative under-marking, not overstated status, and 6.7 (hand back to owner) correctly cannot be self-checked. progress.json task statuses for 4.1/4.2 moved from awaiting-user-verification to done only after the owner's own tests-verified event (2026-09-09T08:56:01Z, make test + make check reported passing) -- correctly attributed to the user, not claimed by the assistant."},
+          {"id": 9, "item": "No HTML comments", "result": "pass", "note": "grep for \"<!--\" in the dashboard.templ diff returns nothing."},
+          {"id": 10, "item": "Docs track the change / archive untouched", "result": "pass", "note": "internal/gateway/AGENTS.md, the two KB guides, and tasks.md all updated in the same change to reflect all three subsections now built and the mapper reading nineteen pointer fields. make archive-guard passed clean -- no file under openspec/changes/archive/ touched."}
+        ],
+        "deterministic_signals_rerun_by_reviewer": {
+          "go build ./...": "clean",
+          "go vet ./...": "clean",
+          "gofmt -l (touched files only)": "clean",
+          "make ui-guard": "pass",
+          "make i18n-guard": "pass",
+          "make boundary-guard": "pass",
+          "make archive-guard": "pass",
+          "make templ && make css idempotency": "no diff"
+        },
+        "findings": [],
+        "summary": "All ten brief items pass. RD14's zero-vs-nil distinction is correctly implemented and correctly tested. RD11's trend mechanism is reused verbatim, no second mechanism. Boundaries clean: only internal/gateway/ and the two named KB files change, no new query. i18n complete. No cosmetic tests, no hardcoded colour, no HTML comments, docs and archive-guard both clean. Approved."
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-09T08:45:24Z",
+      "type": "artifacts-created",
+      "by": "leader",
+      "detail": "Tier 4 artifacts created and validated with openspec validate --strict. Worker confirmed it reuses tier 2's real ui.StatTileProps.Trend and the trending_up/trending_down Icon glyphs, not a second trend mechanism. No database change, so no design gate. One decision the roadmap did not cover went to the user: the 0.0-delta rendering (D-zero-delta)."
+    },
+    {
+      "at": "2026-09-09T08:45:35Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 1 dispatched: one serial gateway worker on Sonnet for T1 (formatters + view model + mapping), T2 (i18n) and T3 (panel layout). Budget at start: five_hour 31%, context 20%."
+    },
+    {
+      "at": "2026-09-09T08:49:09Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 1 done. Worker read the full doc pack and enumerated D1-D10. The leader independently verified RD14 in handlers.go: dashTireTrend returns \"\" for nil and for 0.0, while dashTireDelta returns \"\" only for nil. So a real zero shows its number with no arrow, and an unknown shows neither. Pre-existing gofmt drift in vehicle_image_test.go confirmed untouched by this change. Budget: five_hour 31%->49%."
+    },
+    {
+      "at": "2026-09-09T08:49:09Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 2 dispatched: T4 (view-model tests against the Test Contract) and T5 (AGENTS.md + two KB files). Sandbox widened to the two named KB files. Budget at start: five_hour 49%, context 21%."
+    },
+    {
+      "at": "2026-09-09T08:53:34Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 2 done. Leader spot-checked the load-bearing assertion in handlers_test.go: the real-zero wheel asserts Trend \"\" with Delta \"0.0 vs prev. day\", the absent wheel asserts both empty. That is RD14. Leader ran T6: build, vet, ui-guard, i18n-guard, archive-guard, boundary-guard all clean, and re-running templ/css left no diff. Tests are written but NOT run. Status applied, not verified, until the owner reports the suite."
+    },
+    {
+      "at": "2026-09-09T08:56:01Z",
+      "type": "tests-verified",
+      "by": "user",
+      "detail": "The OWNER ran `make test` and `make check` and reported both passing. make check also covers build, vet, ui-guard, i18n-guard, money-guard, tz-guard, migration-guard, boundary-guard and archive-guard. Tasks 4.1 and 4.2 move to done. Status -> verified. The assistant did not run the suite."
+    },
+    {
+      "at": "2026-09-09T08:56:01Z",
+      "type": "review-dispatched",
+      "by": "leader",
+      "detail": "gateway-reviewer dispatched on Sonnet, told to escalate on doubt. Budget at start: five_hour 57%, context 22%."
+    }
+  ]
+}

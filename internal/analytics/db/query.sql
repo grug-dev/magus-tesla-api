@@ -28,6 +28,16 @@
 -- max_range_charge_counter follows that same rule: another raw observation
 -- copied verbatim from the day's own snapshot, refreshed on every
 -- re-derivation, populated with or without a predecessor.
+-- The four tpms_pressure_*_psi columns (RM50-analytics-add-tire-pressure-columns)
+-- follow the identical rule: raw observations copied verbatim from the day's own
+-- telemetry.Snapshot, refreshed on every re-derivation, populated with or without
+-- a predecessor (design.md D2).
+-- The four tpms_pressure_*_psi_calc columns (RM50-analytics-add-tire-pressure-variance)
+-- are DELTAS, not raw observations: refreshed on every re-derivation like every other
+-- column above, but NULL whenever this day has no predecessor at all, OR either day's
+-- own raw wheel reading is itself NULL (design.md D2) -- the same rule
+-- distance_traveled_km_calc and its four siblings already follow, never the raw-TPMS
+-- rule the four columns above it follow.
 INSERT INTO analytics.vehicle_metrics (
     account_id, tesla_id, metric_date,
     battery_level_pct, odometer_km, battery_range_km,
@@ -36,7 +46,9 @@ INSERT INTO analytics.vehicle_metrics (
     consumed_pct, flagged, missing_charging_type,
     locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
     charging_state, charge_limit_soc_pct, captured_at,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
 ) VALUES (
     @account_id, @tesla_id, @metric_date,
     @battery_level_pct, @odometer_km, @battery_range_km,
@@ -45,7 +57,9 @@ INSERT INTO analytics.vehicle_metrics (
     @consumed_pct, @flagged, @missing_charging_type,
     @locked, @sentry_mode, @car_version, @inside_temp_c, @outside_temp_c,
     @charging_state, @charge_limit_soc_pct, @captured_at,
-    @max_range_charge_counter
+    @max_range_charge_counter,
+    @tpms_pressure_fl_psi, @tpms_pressure_fr_psi, @tpms_pressure_rl_psi, @tpms_pressure_rr_psi,
+    @tpms_pressure_fl_psi_calc, @tpms_pressure_fr_psi_calc, @tpms_pressure_rl_psi_calc, @tpms_pressure_rr_psi_calc
 )
 ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     battery_level_pct         = EXCLUDED.battery_level_pct,
@@ -68,6 +82,14 @@ ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     charge_limit_soc_pct        = EXCLUDED.charge_limit_soc_pct,
     captured_at                 = EXCLUDED.captured_at,
     max_range_charge_counter    = EXCLUDED.max_range_charge_counter,
+    tpms_pressure_fl_psi        = EXCLUDED.tpms_pressure_fl_psi,
+    tpms_pressure_fr_psi        = EXCLUDED.tpms_pressure_fr_psi,
+    tpms_pressure_rl_psi        = EXCLUDED.tpms_pressure_rl_psi,
+    tpms_pressure_rr_psi        = EXCLUDED.tpms_pressure_rr_psi,
+    tpms_pressure_fl_psi_calc   = EXCLUDED.tpms_pressure_fl_psi_calc,
+    tpms_pressure_fr_psi_calc   = EXCLUDED.tpms_pressure_fr_psi_calc,
+    tpms_pressure_rl_psi_calc   = EXCLUDED.tpms_pressure_rl_psi_calc,
+    tpms_pressure_rr_psi_calc   = EXCLUDED.tpms_pressure_rr_psi_calc,
     updated_at                 = now();
 
 -- name: LatestVehicleMetricsByAccount :many
@@ -86,11 +108,25 @@ ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
 -- "100% Charges" tile: it is one more nullable raw observation on the same
 -- latest row, so it adds a column to an existing read, not a second query --
 -- and no index, since it appears in no WHERE/ORDER BY.
+-- RM50-analytics-add-tire-pressure-columns widens this SELECT by six more
+-- columns: the four new tpms_pressure_*_psi raw observations, plus two
+-- pre-existing columns (distance_traveled_km_calc, consumed_pct) gaining
+-- their first consumer on this read port. All six are PROJECTED ONLY -- none
+-- appears in a WHERE, JOIN, or ORDER BY -- so idx_vehicle_metrics_latest
+-- still serves this query exactly as before; no index change (design.md D3).
+-- RM50-analytics-add-tire-pressure-variance widens this SELECT by four more
+-- columns: the four tpms_pressure_*_psi_calc deltas. Same conclusion as
+-- above -- PROJECTED ONLY, never a WHERE/JOIN/ORDER BY predicate in this
+-- change or any planned one, so idx_vehicle_metrics_latest still serves
+-- this query unchanged; no index change (design.md D3).
 SELECT DISTINCT ON (tesla_id)
     tesla_id, battery_level_pct, battery_range_km, odometer_km,
     inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
     charging_state, charge_limit_soc_pct, captured_at,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    distance_traveled_km_calc, consumed_pct, km_per_pct_calc,
+    tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
 FROM analytics.vehicle_metrics
 WHERE account_id = @account_id
 ORDER BY tesla_id, metric_date DESC;

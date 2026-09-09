@@ -1,0 +1,553 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM50-analytics-add-tire-pressure-variance",
+  "module": "analytics",
+  "roadmap": "RM50-vehicle-status-subsections",
+  "tier": 3,
+  "status": "verified",
+  "created_at": "2026-09-08T21:45:00Z",
+  "updated_at": "2026-09-09T07:41:34Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM50-MAG-56-vehicle-status-subsections",
+    "base": "main",
+    "ticket": "MAG-56",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-56/vehicle-status-change"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "A.1",
+      "A.2",
+      "A.3",
+      "A.4",
+      "A.5",
+      "B.1",
+      "B.2",
+      "B.3",
+      "B.4",
+      "B.5",
+      "B.6",
+      "B.7",
+      "B.8",
+      "C.1",
+      "C.2",
+      "C.3",
+      "D.1",
+      "D.2",
+      "D.3",
+      "D.4",
+      "D.5",
+      "D.6"
+    ],
+    "awaiting-user-verification": []
+  },
+  "tasks": [
+    {
+      "id": "A.1",
+      "title": "consumptionCalc gains four TPMS delta fields",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "Four *float64 fields added to consumptionCalc in consumption.go."
+    },
+    {
+      "id": "A.2",
+      "title": "tpmsDeltaPSI helper + wire into deriveConsumption",
+      "depends_on": [
+        "A.1"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "tpmsDeltaPSI helper added; called four times in deriveConsumption's existing prev!=nil branch."
+    },
+    {
+      "id": "A.3",
+      "title": "vehicleMetricRow gains the four fields",
+      "depends_on": [
+        "A.2"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "Four fields added to vehicleMetricRow; set only in the predecessor branch of deriveVehicleMetrics."
+    },
+    {
+      "id": "A.4",
+      "title": "Unit tests in consumption_test.go",
+      "depends_on": [
+        "A.2"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "consumption_test.go: nil-prev test extended plus Fixture 1/3/4 cases. Written, not run. Owner ran make test and reported it passing."
+    },
+    {
+      "id": "A.5",
+      "title": "Unit tests in consumed_test.go",
+      "depends_on": [
+        "A.3"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "consumed_test.go: Fixture 5/6 assertions added. Worker found a design.md typo (FR 0.9 should be 4.9); leader fixed design.md. Written, not run. Owner ran make test and reported it passing."
+    },
+    {
+      "id": "B.1",
+      "title": "Migration 20260908000003 (ADD COLUMN x4 + self-join backfill + Down)",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "Migration 20260908000003: four nullable columns, comments, self-join backfill, Down block."
+    },
+    {
+      "id": "B.2",
+      "title": "UpsertVehicleMetric gains four params",
+      "depends_on": [
+        "B.1"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "UpsertVehicleMetric widened by four columns, params and ON CONFLICT SET clauses."
+    },
+    {
+      "id": "B.3",
+      "title": "LatestVehicleMetricsByAccount SELECT gains four columns",
+      "depends_on": [
+        "B.1"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "LatestVehicleMetricsByAccount SELECT widened by four columns; doc comment updated."
+    },
+    {
+      "id": "B.4",
+      "title": "make sqlc regenerate",
+      "depends_on": [
+        "B.2",
+        "B.3"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "make sqlc run. The four fields and their column comments landed in models.go."
+    },
+    {
+      "id": "B.5",
+      "title": "upsertVehicleMetricParamsFrom mapping",
+      "depends_on": [
+        "B.4",
+        "A.3"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "upsertVehicleMetricParamsFrom maps the four fields via the existing pgFloat8FromPtr."
+    },
+    {
+      "id": "B.6",
+      "title": "VehicleStatus gains four pointer fields",
+      "depends_on": [
+        "B.4"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "analytics.VehicleStatus gained four pointer fields with the nil-meaning doc comment."
+    },
+    {
+      "id": "B.7",
+      "title": "reader.go LatestMetricsByAccount mapping",
+      "depends_on": [
+        "B.6"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "reader.go LatestMetricsByAccount maps the four fields via ptrFloat64FromPg."
+    },
+    {
+      "id": "B.8",
+      "title": "Migration backfill DB-integration test",
+      "depends_on": [
+        "B.1"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:28:45Z",
+      "completed_at": "2026-09-09T07:35:20Z",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "cost_usd_delta": 4.2,
+        "approx": true,
+        "note": "one serial worker for the whole wave; per-task split not measurable"
+      },
+      "notes": "New db_tpms_variance_migration_integration_test.go mirrors tier 1: scoped provider, ApplyVersion only, t.Cleanup re-applies. Needs a database. Not run. Owner ran make test and reported it passing."
+    },
+    {
+      "id": "C.1",
+      "title": "Update internal/analytics/AGENTS.md",
+      "depends_on": [
+        "A.3",
+        "B.7"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": {
+        "five_hour_pct_start": 14,
+        "five_hour_pct_end": 22,
+        "cost_usd_delta": 2.95,
+        "approx": true,
+        "note": "wave 2 docs worker plus the leader's own KB fix and guard runs"
+      },
+      "notes": "internal/analytics/AGENTS.md: four _calc columns added to Data ownership, four fields added to the LatestMetricsByAccount entry. Opposite NULL rule stated."
+    },
+    {
+      "id": "C.2",
+      "title": "Update kkpa/context/entities/vehicle-metrics/guide.md",
+      "depends_on": [
+        "A.3",
+        "B.7"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": {
+        "five_hour_pct_start": 14,
+        "five_hour_pct_end": 22,
+        "cost_usd_delta": 2.95,
+        "approx": true,
+        "note": "wave 2 docs worker plus the leader's own KB fix and guard runs"
+      },
+      "notes": "kkpa/context/entities/vehicle-metrics/guide.md: changelog, column list, VehicleStatus fields, three new gotcha bullets."
+    },
+    {
+      "id": "C.3",
+      "title": "Grep kkpa/context/ for other invalidated guides",
+      "depends_on": [
+        "C.2"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": {
+        "five_hour_pct_start": 14,
+        "five_hour_pct_end": 22,
+        "cost_usd_delta": 2.95,
+        "approx": true,
+        "note": "wave 2 docs worker plus the leader's own KB fix and guard runs"
+      },
+      "notes": "Grep found the bento use-case guide stale (four unread fields, now eight). Outside the worker sandbox, so the LEADER fixed it. Staged pending-spec proposal left alone."
+    },
+    {
+      "id": "D.1",
+      "title": "go build ./...",
+      "depends_on": [
+        "C.3"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": null,
+      "notes": "go build ./... clean."
+    },
+    {
+      "id": "D.2",
+      "title": "go vet ./...",
+      "depends_on": [
+        "D.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": null,
+      "notes": "go vet ./... clean. It compiles the new _test.go files, so the test signatures are checked."
+    },
+    {
+      "id": "D.3",
+      "title": "gofmt -l internal/analytics",
+      "depends_on": [
+        "D.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": null,
+      "notes": "gofmt -l internal/analytics listed no files."
+    },
+    {
+      "id": "D.4",
+      "title": "make migration-guard",
+      "depends_on": [
+        "B.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": null,
+      "notes": "make migration-guard passed. Its 20260720000001 warning is pre-existing and tracked in the backlog."
+    },
+    {
+      "id": "D.5",
+      "title": "make boundary-guard",
+      "depends_on": [
+        "D.1"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": null,
+      "notes": "make boundary-guard passed. This change touches no gateway file."
+    },
+    {
+      "id": "D.6",
+      "title": "Report suite commands to the owner",
+      "depends_on": [
+        "D.2",
+        "D.3",
+        "D.4",
+        "D.5"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T07:36:30Z",
+      "completed_at": "2026-09-09T07:39:15Z",
+      "budget": null,
+      "notes": "Suite commands given to the owner. The owner ran make test and reported it passing."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-gate",
+      "at": "2026-09-08T21:40:00Z",
+      "scope": "database",
+      "made_by": "user",
+      "decision": "Design gate CONFIRMED. Four nullable DOUBLE PRECISION _calc columns, the self-join backfill migration, no new index. Also confirmed: a missing raw reading on one wheel makes that wheel's delta NULL, not all four.",
+      "why": "User answered both gate questions. Projection-only columns need no index; a 0.0 delta already means 'no change', so it must not also mean 'unknown'."
+    },
+    {
+      "id": "D-tests",
+      "at": "2026-09-08T21:45:00Z",
+      "scope": "test-scope",
+      "made_by": "leader",
+      "decision": "Restored the migration-backfill DB-integration test (B.8) that the artifact worker had cut. The Recalculate and LatestMetricsByAccount tests stay cut.",
+      "why": "RD8 bans cosmetic markup tests, not SQL tests. Tier 1's same test failed first run and found a real migration-order bug. The self-join predicate is new SQL nothing else runs."
+    },
+    {
+      "id": "D-fixture6",
+      "at": "2026-09-09T07:37:08Z",
+      "scope": "design.md",
+      "made_by": "leader",
+      "decision": "Corrected design.md Fixture 6's expected FR delta from 0.9 to 4.9. The worker asserted 4.9 in the test and flagged the mismatch.",
+      "why": "The fixture's own inputs give 40.1 - 35.2 = 4.9. The prose was a typo. Left uncorrected, the reviewer would read the test as breaking the contract."
+    },
+    {
+      "id": "D-bento-doc",
+      "at": "2026-09-09T07:41:20Z",
+      "scope": "docs",
+      "made_by": "leader",
+      "decision": "The leader fixed kkpa/context/use-case/gateway/read-dashboard-bento.md, which C.3 found stale. It said four VehicleStatus fields are unread by the gateway; it is now eight.",
+      "why": "The file is a gateway guide, outside the analytics worker's sandbox. CLAUDE.md requires the KB to be fixed in the same change that invalidates it."
+    }
+  ],
+  "review": {
+    "agent": "analytics-reviewer",
+    "status": "approved",
+    "brief": "Review commits 5a417c1 and 7f668e0 on ft/RM50-MAG-56-vehicle-status-subsections against openspec/changes/RM50-analytics-add-tire-pressure-variance/{design.md,specs/analytics/spec.md,tasks.md}. Check: (1) every DB object matches the user-confirmed gate design -- four nullable DOUBLE PRECISION _calc columns, self-join backfill, NO new index; any mismatch is a blocker finding. (2) D2's two independent NULL conditions hold in Go AND in the backfill SQL. (3) The integration and unit tests assert design.md's Test Contract fixtures, not whatever the implementation happens to do. Note: the leader corrected a real typo in Fixture 6 (FR delta 0.9 -> 4.9, derived from the fixture's own inputs) -- verify that correction is right and that no OTHER expected value was bent to fit the code. (4) Module-boundary compliance: nothing outside internal/analytics except the two doc files. (5) Doc-pack conventions: unit suffixes, no raw time.Now, never-fabricate pointer rules. (6) Anti-gaming: no weakened or deleted acceptance criteria, no self-approved status. (7) Docs track structural change, including the KB. SIGNAL PROVENANCE: go build, go vet, gofmt, migration-guard, boundary-guard and archive-guard were ASSISTANT-run and clean. The test suite was run by the OWNER, who reported `make test` passing. Do NOT run the suite yourself. Judge test quality by reading the tests.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-09T08:00:00Z",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Doc pack read: CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/analytics/AGENTS.md. Change artifacts read: design.md, specs/analytics/spec.md, tasks.md, proposal.md, progress.json. Diffs read in full: git show 5a417c1, git show 7f668e0. (1) DB gate: migration 20260908000003 adds exactly four nullable DOUBLE PRECISION columns, self-join backfill, no index change -- matches design.md and the D-gate decision exactly. Re-verified with make migration-guard (clean, pre-existing unrelated warning only). (2) D2 two-condition NULL rule verified in consumption.go (tpmsDeltaPSI returns nil if either operand nil), consumed.go (four fields left unset in the predecessor-less branch), and the backfill SQL (join miss leaves NULL; Postgres NULL arithmetic leaves NULL per missing wheel). No 0.0 fabrication anywhere. (3) Test Contract fidelity: consumption_test.go and consumed_test.go assert exactly the fixture values from design.md (Fixture 1/3/4/5/6), including the corrected Fixture 6 FR delta. Verified 40.1-35.2=4.9 by hand; FL/RL/RR unchanged and correct (5.0/5.1/5.0). No other expected value was altered. The new DB-integration test (db_tpms_variance_migration_integration_test.go) asserts hand-computed deltas from its own seeded fixtures, not implementation-derived values. (4) Boundaries: git show --stat on both commits touches only internal/analytics/*, this change's own openspec artifacts, and the two documentation files named in the brief. Re-verified with make boundary-guard (clean) and make archive-guard (clean, no archived file touched). (5) Conventions: unit suffix _psi_calc correct; no raw time.Now introduced; pointer fields never defaulted, reuse pgFloat8FromPtr/ptrFloat64FromPg per design.md's 'no new mapping code' instruction. Re-ran go build ./..., go vet ./internal/analytics/..., gofmt -l internal/analytics -- all clean. (6) Anti-gaming: tasks.md checkboxes match actual committed work; spec.md was not touched by these two commits (created earlier, not edited to fit); the only 'edit' to a pre-existing artifact is the design.md Fixture 6 typo fix, which is arithmetically correct and recorded as decision D-fixture6. review.status was untouched by the worker/leader. (7) Docs: internal/analytics/AGENTS.md and kkpa/context/entities/vehicle-metrics/guide.md updated with the four new columns/fields and the opposite-NULL-rule note. C.3's grep sweep correctly found and the leader fixed the stale bento use-case guide (4 unread fields -> 8). Spot-checked kkpa/context/use-case/gateway/read-dashboard-history.md, which references vehicle_metrics/VehicleStatus but enumerates no field list this change would invalidate -- not stale."
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-08T21:45:00Z",
+      "type": "artifacts-created",
+      "by": "leader",
+      "detail": "Tier 3 artifacts completed after resume and validated with openspec validate --strict. Database design gate CONFIRMED by the user (D-gate). Leader corrected the worker's over-cut test scope (D-tests). No code written yet."
+    },
+    {
+      "at": "2026-09-09T07:28:45Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 1 dispatched: one serial analytics worker on Sonnet for A.1-A.5 (delta maths + offline tests) and B.1-B.8 (migration, sqlc, read port, DB-integration test). Budget at start: five_hour 2%, context 9%."
+    },
+    {
+      "at": "2026-09-09T07:37:08Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 1 done. Worker read the full doc pack and enumerated D1-D3 with compliance. go build, go vet, gofmt, make migration-guard and make boundary-guard all clean. Timestamps are the wave bracket, not per task -- one serial worker. A.4/A.5/B.8 await the owner's test run. Budget: five_hour 2%->14%, ~$4.20."
+    },
+    {
+      "at": "2026-09-09T07:37:33Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 2 dispatched: docs only (C.1-C.3). Sandbox widened to the vehicle-metrics KB guide. Budget at start: five_hour 14%, context 11%."
+    },
+    {
+      "at": "2026-09-09T07:39:30Z",
+      "type": "tests-verified",
+      "by": "user",
+      "detail": "The OWNER ran `make test` and reported it passing. That target uses a disposable testcontainer Postgres, so it covers the offline maths tests (A.4, A.5) and the migration backfill test (B.8). A.4, A.5 and B.8 move from awaiting-user-verification to done. The assistant did not run the suite."
+    },
+    {
+      "at": "2026-09-09T07:41:20Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 2 (docs) done and verified. Worker read the full doc pack and enumerated D1-D3. Leader ran D.1-D.5: go build, go vet, gofmt, make migration-guard, make boundary-guard, make archive-guard -- all clean. Timestamps are the wave bracket, not per task. Status -> verified; the owner's make test pass is already recorded above."
+    },
+    {
+      "at": "2026-09-09T07:41:34Z",
+      "type": "review-dispatched",
+      "by": "leader",
+      "detail": "analytics-reviewer dispatched on Sonnet, told to escalate on doubt. Budget at start: five_hour 22%, context 13%."
+    }
+  ]
+}

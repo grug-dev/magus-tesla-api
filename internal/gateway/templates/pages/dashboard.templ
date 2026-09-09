@@ -58,24 +58,49 @@ templ Dashboard(d fragments.DashboardData) {
 										}
 									</div>
 								</div>
-							<div class="flex-1 flex items-center justify-center py-10">
-								<img src={ d.VehicleImage } alt={ d.VehicleName } class="object-contain"/>
-							</div>
-								// Two columns on a phone and a tablet, four from `lg` up (AGENTS.md
-								// §Mobile R2/R3, MAG-46 step 2.1). Three columns at 375 px leaves each
-								// tile ~66 px of usable width while "45.678 km" needs ~108 px, so the
-								// values ran out of their cells and overlapped — no font size fixes
-								// that, only the grid. Two columns give ~117 px, which fits on one line.
-								// The fourth tile makes it a clean 2x2 below `lg`, and a single row on
-								// desktop, where the 8-col hero is wide enough for four cells; do NOT
-								// put it back to a fixed grid-cols-3, and do not add sm:grid-cols-3 —
-								// that would strand the fourth tile alone on its own row.
-								<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardOdometer), Value: dashStat(d.HasSnapshot, d.Odometer)})
-									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardInterior), Value: dashStat(d.HasSnapshot, d.InsideTemp)})
-									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardExterior), Value: dashStat(d.HasSnapshot, d.OutsideTemp)})
-									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardMaxRangeCharges), Value: dashStat(d.HasSnapshot, d.MaxRangeCharges)})
+							// Inner 12-col split: left column is the image + the two lifetime
+							// stats (Odometer, MaxRangeCharges); right column holds the named
+							// subsections (RM50-gateway-add-travel-progress-subsection D1,
+							// roadmap RD9 Option B). Below `md` both collapse to one column, and
+							// DOM order already puts the image + lifetime tiles first, then the
+							// subsections in order — no order utility needed (R1: CSS-only
+							// responsiveness). `md:`, not this module's default `sm:`, matches
+							// the outer bento grid this card already sits inside (design.md D1).
+							<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+								<div class="md:col-span-4 flex flex-col items-center gap-4">
+									<img src={ d.VehicleImage } alt={ d.VehicleName } class="w-full max-w-[220px] object-contain"/>
+									<div class="w-full flex flex-col gap-3">
+										@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardOdometer), Value: dashStat(d.HasSnapshot, d.Odometer)})
+										@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardMaxRangeCharges), Value: dashStat(d.HasSnapshot, d.MaxRangeCharges)})
+									</div>
 								</div>
+								<div class="md:col-span-8 flex flex-col gap-6">
+									<section id="travel-progress">
+										@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyDashboardTravelProgressTitle), Desc: i18n.T(ctx, i18n.KeyDashboardTravelProgressDesc)})
+										<div class="grid grid-cols-2 gap-3">
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardDistanceTraveled), Value: dashStat(d.HasSnapshot, d.DistanceTraveled), Trend: "up"})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardBatteryUsed), Value: dashStat(d.HasSnapshot, d.BatteryUsed), Trend: "down"})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardEfficiency), Value: dashStat(d.HasSnapshot, d.Efficiency)})
+										</div>
+									</section>
+									<section id="tire-pressure">
+										@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyDashboardTirePressureTitle), Desc: i18n.T(ctx, i18n.KeyDashboardTirePressureDesc)})
+										<div class="grid grid-cols-2 gap-3">
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardTireFL), Value: dashStat(d.HasSnapshot, d.TirePressureFL.Value), Trend: d.TirePressureFL.Trend, Desc: d.TirePressureFL.Delta})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardTireFR), Value: dashStat(d.HasSnapshot, d.TirePressureFR.Value), Trend: d.TirePressureFR.Trend, Desc: d.TirePressureFR.Delta})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardTireRL), Value: dashStat(d.HasSnapshot, d.TirePressureRL.Value), Trend: d.TirePressureRL.Trend, Desc: d.TirePressureRL.Delta})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardTireRR), Value: dashStat(d.HasSnapshot, d.TirePressureRR.Value), Trend: d.TirePressureRR.Trend, Desc: d.TirePressureRR.Delta})
+										</div>
+									</section>
+									<section id="interior-exterior">
+										@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyDashboardInteriorExteriorTitle), Desc: i18n.T(ctx, i18n.KeyDashboardInteriorExteriorDesc)})
+										<div class="grid grid-cols-2 gap-3">
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardInterior), Value: dashStat(d.HasSnapshot, d.InsideTemp)})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardExterior), Value: dashStat(d.HasSnapshot, d.OutsideTemp)})
+										</div>
+									</section>
+								</div>
+							</div>
 								if d.HasSnapshot && d.LastUpdated != "" {
 									<p class="text-xs text-base-content/50 mt-4">{ i18n.T(ctx, i18n.KeyDashboardLastUpdated) } { d.LastUpdated }</p>
 								}

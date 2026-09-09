@@ -1,0 +1,321 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM50-vehicle-status-subsections",
+  "intention": "The /dashboard Vehicle Status panel is regrouped into three named subsections \u2014 Travel Progress (latest distance travelled + battery drain), Tire pressure (PSI, one value per wheel with a day-over-day up/down icon), and Interior/Exterior (the existing temperature tiles). vehicle_metrics gains four raw TPMS columns and four TPMS delta _calc columns so the panel reads one precomputed row and computes nothing at request time (Linear MAG-56).",
+  "request": "/kkpa-pickup-linear-ticket MAG-56 \u2014 Vehicle Status Change: add new subsections to the Vehicle Status fields (Tire pressure PSI, Travel Progress) and group the existing interior/exterior fields into their own subsection. Step 1 mirror the tpms_pressure_*_psi columns from telemetry.vehicle_snapshots into analytics.vehicle_metrics with a backfill migration. Step 2 show the latest Distance Traveled and Battery Consumption. Step 3 add four _calc tyre-pressure variance columns compared against the previous date and display them with up/down icons. Do not add cosmetic tests. Use /design for 3 layout suggestions.",
+  "autopilot": false,
+  "status": "complete",
+  "created_at": "2026-09-08T15:55:09Z",
+  "updated_at": "2026-09-09T08:58:51Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM50-MAG-56-vehicle-status-subsections",
+    "base": "main",
+    "created_at": "2026-09-08T15:55:09Z",
+    "ticket": "MAG-56",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-56/vehicle-status-change"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tyre-pressure variance is stored as four scalar _calc columns (tpms_pressure_fl_psi_calc, _fr_, _rl_, _rr_), not a JSONB blob.",
+      "why": "The unit-suffix rule needs a real column to carry _psi. sqlc gives a typed *float64 per column; JSONB gives []byte the gateway must unmarshal by hand. Four wheels is a fixed set."
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Existing rows are backfilled by a cross-schema SQL migration (UPDATE analytics.vehicle_metrics FROM telemetry.vehicle_snapshots). This is an informed deviation from the analytics spec requirement 'No Cross-Module Database Access', and must be recorded as such in the tier design.",
+      "why": "User chose it after seeing the recommended watermark-reset alternative and being told it breaks the written rule. It is a one-off data backfill, not a runtime read path."
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The tyre-pressure delta compares against the previous day, same shape as distance_traveled_km_calc. No dead-zone threshold and no target-pressure comparison.",
+      "why": "Cheapest option and reuses the existing maths layer. Accepted cost: the delta partly tracks air temperature (~1 PSI per 5.5 C), which is not a defect and must not be 'fixed'."
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-08T15:52:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Run /design at tier 2 for three Vehicle Status panel layout suggestions. Output must be buildable with Go Templ + htmx and the existing internal/gateway/templates/ui/ kit, not free-form HTML/CSS.",
+      "why": "User confirmed the ticket's embedded /design directive, then added the Templ+htmx constraint. Layout does not change what analytics must produce, so it runs at the first gateway tier."
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-08T15:50:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tiers alternate analytics -> gateway -> analytics -> gateway, following the ticket's own step order, instead of grouping all backend work first.",
+      "why": "Gives a visible screen change after tier 2 and a natural stop point after every tier, which is what the ticket asked for. Cost: two gateway tiers instead of one."
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "The label colour from the ticket, rgb(231 189 184 / var(--tw-text-opacity, 1)), is never hardcoded. It maps to the existing semantic theme token.",
+      "why": "make ui-guard forbids raw colour values and inline DaisyUI classes. The ticket value was read off an apex screenshot; graphite and halloween must render correctly too."
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "The ticket's Step 2 names the wrong endpoint. Travel Progress data comes from the bento path (Handler.dashboardFor, GET /dashboard + /ui/dashboard via LatestMetricsByAccount), not GET /ui/dashboard/history.",
+      "why": "The history endpoint renders only the #dashboard-history charts region below the panel. It cannot feed the Vehicle Status panel. Verified in the KB and the handler."
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-08T15:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "No cosmetic tests: no template tests coupled to markup, CSS classes, ARIA, or element placement. The pure delta maths in internal/analytics/consumption.go is worth a unit test.",
+      "why": "User wrote 'DO not add cosmetic tests' in the ticket. Matches the project's own rule on markup-coupled tests."
+    },
+    {
+      "id": "RD9",
+      "at": "2026-09-08T20:32:03Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tier 2 builds layout Option B: an inner 12-col grid inside the panel -- car image plus Odometer and 100% Charges in a 4-col left column, the three named subsections stacked in an 8-col right column. Tire pressure is a 2x2 grid, not one row of four.",
+      "why": "User picked it from three /design artboards. It is the most compact option, so the 8-col hero stays close in height to the 4-col column beside it. Cost: 'which wheel' is harder to read than Option C."
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-08T20:32:03Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Each tire tile shows the numeric delta as its stat-desc line (e.g. '+0.4 vs prev. day') under the value, in addition to the up/down icon.",
+      "why": "The ticket asked only for an icon. User confirmed keeping the number. Tier 3 computes it anyway, so it costs two i18n keys and no new data."
+    },
+    {
+      "id": "RD11",
+      "at": "2026-09-08T20:32:03Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "The ui/ kit gains two things in tier 2: trending_up and trending_down glyphs in ui.Icon, and a trend field on ui.StatTileProps.",
+      "why": "The arrows do not exist and StatTile has no slot for an icon. A page hand-writing that markup would bypass the kit, which the module forbids."
+    },
+    {
+      "id": "RD12",
+      "at": "2026-09-08T21:17:58Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "Existing analytics.vehicle_metrics rows get their four tyre-delta _calc values from a backfill migration that self-joins vehicle_metrics on the previous day. Not a watermark reset, not 'wait for the nightly run'.",
+      "why": "Tier 1 already copied the raw PSI columns into vehicle_metrics, so the delta is computable inside analytics' own schema. Unlike RD2 this needs no cross-module SQL, and it does not depend on Reconcile recalculating history as a side effect."
+    },
+    {
+      "id": "RD13",
+      "at": "2026-09-08T21:40:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "Tier 3 database gate confirmed: four nullable _calc columns, self-join backfill, no new index. A wheel missing its raw reading on either day makes that wheel's delta NULL, not all four.",
+      "why": "Columns are projection-only, so an index only costs nightly write time. A 0.0 delta already means 'no pressure change' and must not also mean 'unknown'."
+    },
+    {
+      "id": "RD14",
+      "at": "2026-09-09T08:45:24Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "A real 0.0 tyre-pressure delta shows no icon but keeps its numeric line. A nil delta shows neither. No third neutral glyph.",
+      "why": "The roadmap never said what a genuine zero should look like, and only up/down glyphs exist. The number already separates 'no change' from 'unknown'."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM50-analytics-add-tire-pressure-columns",
+      "module": "analytics",
+      "depends_on": [],
+      "optional": false,
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (worker)",
+      "started_at": "2026-09-08T15:57:00Z",
+      "completed_at": "2026-09-08T17:55:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 77,
+        "cost_usd_delta": 12.32,
+        "approx": true,
+        "note": "tier 1 total: wave 1, the D4 fix, wave 2, and review round 1"
+      },
+      "notes": "Ticket Step 1 plus the read-port half of Step 2. Four raw TPMS columns copied verbatim from telemetry.Snapshot's existing public fields, the RD2 backfill migration, and distance_traveled_km_calc + consumed_pct exposed on LatestMetricsByAccount."
+    },
+    {
+      "id": 2,
+      "change": "RM50-gateway-add-travel-progress-subsection",
+      "module": "gateway",
+      "depends_on": [
+        1
+      ],
+      "optional": false,
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (workers + reviewer)",
+      "started_at": "2026-09-08T20:32:03Z",
+      "completed_at": "2026-09-08T21:13:32Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 52,
+        "cost_usd_delta": 9.6,
+        "approx": true,
+        "note": "tier 2 total: /design, artifacts, wave 1, wave 2, review round 1"
+      },
+      "notes": "Ticket Step 2. /design gave three layouts; the user chose Option B (RD9). Panel is now an inner 12-col split with Travel Progress and Interior/Exterior. ui/ kit gained trend icons. Tire pressure slot left for tier 4."
+    },
+    {
+      "id": 3,
+      "change": "RM50-analytics-add-tire-pressure-variance",
+      "module": "analytics",
+      "depends_on": [
+        1
+      ],
+      "optional": false,
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (workers + reviewer)",
+      "started_at": "2026-09-08T21:17:58Z",
+      "completed_at": "2026-09-09T07:44:38Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 24,
+        "cost_usd_delta": 8.2,
+        "approx": true,
+        "note": "tier 3 total: wave 1, wave 2, review round 1, archive. Artifacts were paid for in the previous session."
+      },
+      "notes": "Backend half of ticket Step 3. Four _calc delta columns, the tpmsDeltaPSI helper, the self-join backfill migration, and the four fields on the read port. Reviewer approved round 1 with zero findings. The OWNER ran make test and reported it passing."
+    },
+    {
+      "id": 4,
+      "change": "RM50-gateway-add-tire-pressure-subsection",
+      "module": "gateway",
+      "depends_on": [
+        2,
+        3
+      ],
+      "optional": false,
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (workers + reviewer)",
+      "started_at": "2026-09-09T07:59:04Z",
+      "completed_at": "2026-09-09T08:58:51Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 58,
+        "cost_usd_delta": 10.3,
+        "approx": true,
+        "note": "tier 4 total: artifacts, wave 1, wave 2, review round 1, archive"
+      },
+      "notes": "Display half of ticket Step 3. Four wheel tiles in a 2x2 grid, each with a PSI value, an up or down arrow from its _calc delta, and the numeric change under it. Reuses tier 2's ui.StatTileProps.Trend. A real 0.0 shows its number with no arrow; an unknown shows neither (RD14). Reviewer approved round 1, zero findings. The OWNER ran make test and make check and reported both passing."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-08T15:55:09Z",
+      "type": "roadmap-created",
+      "by": "leader",
+      "detail": "RM50 created from Linear MAG-56 via kkpa-pickup-linear-ticket. Multi-module (analytics + gateway) so Step 1b applies. Work counter 50 -> 51. Branch ft/RM50-MAG-56-vehicle-status-subsections off main. Budget at creation: five_hour 21%, context 16%. Runtime Claude Code, native subagents available, budget cache available."
+    },
+    {
+      "at": "2026-09-08T16:36:11Z",
+      "type": "tier-proposed",
+      "by": "leader",
+      "detail": "Tier 1 artifacts created and validated. Database design gate CONFIRMED by the user. Pipeline halted before implementation per the pickup-skill scope."
+    },
+    {
+      "at": "2026-09-08T17:55:00Z",
+      "type": "tier-archived",
+      "by": "leader",
+      "detail": "Tier 1 archived. Two owner-reported test runs: the first FAILED on migration ordering and produced the D4 fix, the second and third passed (make test, then make test-with-db). Reviewer approved round 1. Autopilot is off, so tier 2 waits for the user."
+    },
+    {
+      "at": "2026-09-08T20:32:03Z",
+      "type": "tier-started",
+      "by": "leader",
+      "detail": "Tier 2 started after resume. /design ran per RD4: three panel layouts published as an artifact; user chose Option B (RD9) and kept the numeric tyre delta (RD10). Budget at resume: five_hour 3%, context 9%."
+    },
+    {
+      "at": "2026-09-08T21:13:32Z",
+      "type": "tier-archived",
+      "by": "leader",
+      "detail": "Tier 2 archived into openspec/changes/archive/gateway/. Reviewer approved round 1 with zero findings. The OWNER ran the test suite and reported it passing, and confirmed the rendered page by eye. Autopilot is off, so tier 3 waits for the user."
+    },
+    {
+      "at": "2026-09-08T21:17:58Z",
+      "type": "tier-started",
+      "by": "leader",
+      "detail": "Tier 3 started. RD12 settled with the user before any artifact: backfill by self-join inside analytics' own schema. Budget at start: five_hour 66%, context 28% -- a checkpoint is likely mid-tier."
+    },
+    {
+      "at": "2026-09-08T21:23:00Z",
+      "type": "resumed",
+      "by": "leader",
+      "detail": "Fresh session resumed tier 3 at Step 3. Only proposal.md existed; worker re-dispatched to finish design.md, specs and tasks.md. Budget at resume: five_hour 80%, context 10%. Bucket resets 2026-09-09T01:10:00Z."
+    },
+    {
+      "at": "2026-09-08T21:46:00Z",
+      "type": "checkpoint",
+      "by": "leader",
+      "detail": "Tier 3 artifacts done, design gate confirmed, change progress.json seeded. Checkpoint at the Step 3/5 boundary: five_hour 91% (threshold 90), context 13%. Bucket resets 2026-09-09T01:10:00Z. No wave dispatched yet, so no work is mid-flight."
+    },
+    {
+      "at": "2026-09-08T22:00:00Z",
+      "type": "checkpoint",
+      "by": "leader",
+      "detail": "Resume attempted for tier 3, held at the Step 3/5 boundary. The 5-hour bucket had not reset: 96% (threshold 90), context 9%. Bucket resets 2026-09-09T01:10:00Z. User chose to wait. No wave dispatched, tree clean, no work mid-flight."
+    },
+    {
+      "at": "2026-09-09T07:44:38Z",
+      "type": "tier-archived",
+      "by": "leader",
+      "detail": "Tier 3 archived into openspec/changes/archive/analytics/. Reviewer approved round 1, zero findings. The OWNER ran make test and reported it passing. The leader fixed a design.md Fixture 6 typo (FR delta 0.9 -> 4.9) and a stale gateway bento KB guide (four unread VehicleStatus fields, now eight). Autopilot is off, so tier 4 waits for the user."
+    },
+    {
+      "at": "2026-09-09T07:59:04Z",
+      "type": "tier-started",
+      "by": "leader",
+      "detail": "Tier 4 started at the user's go-ahead. No new interview: roadmap decisions RD6, RD8, RD9 and RD10 already settle the layout, the numeric delta line, the semantic tokens and the test scope. Tier 4 touches no database, so no design gate. Budget at start: five_hour 30%, context 18%."
+    },
+    {
+      "at": "2026-09-09T08:58:51Z",
+      "type": "tier-archived",
+      "by": "leader",
+      "detail": "Tier 4 archived into openspec/changes/archive/gateway/. Reviewer approved round 1, zero findings. The OWNER ran make test and make check and reported both passing."
+    },
+    {
+      "at": "2026-09-09T08:58:51Z",
+      "type": "roadmap-complete",
+      "by": "leader",
+      "detail": "All four RM50 tiers archived. Roadmap files moved to openspec/roadmaps/archive/RM50-vehicle-status-subsections/. The work counter is untouched: RM50 keeps its number forever. Push and PR are NOT done -- they need the user's explicit go-ahead."
+    }
+  ]
+}

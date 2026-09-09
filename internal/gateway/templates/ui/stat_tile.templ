@@ -8,6 +8,12 @@ type StatTileProps struct {
 	Value string
 	Desc  string
 	Class string
+	// Trend renders a small up/down trend glyph beside the value: "up"
+	// (text-success) or "down" (text-error). Empty (the zero value) renders no
+	// icon — every existing call site is unaffected. A third value is not
+	// modeled; add it here, not as a raw ui.Icon call at a page, if a future
+	// caller needs one (RM50-gateway-add-travel-progress-subsection D3).
+	Trend string
 }
 
 // StatTile renders a single metric using DaisyUI's stat block. Wrap several in a
@@ -54,9 +60,26 @@ type StatTileProps struct {
 templ StatTile(p StatTileProps) {
 	<div class={ "stat px-3 sm:px-6", p.Class }>
 		<div class="stat-title whitespace-normal sm:whitespace-nowrap">{ p.Label }</div>
-		<div class="stat-value font-mono text-xl sm:text-[2rem] whitespace-normal break-words sm:whitespace-nowrap">{ p.Value }</div>
+		<div class="flex items-center gap-1">
+			<div class="stat-value font-mono text-xl sm:text-[2rem] whitespace-normal break-words sm:whitespace-nowrap">{ p.Value }</div>
+			@statTrendIcon(p.Trend)
+		</div>
 		if p.Desc != "" {
 			<div class="stat-desc">{ p.Desc }</div>
 		}
 	</div>
+}
+
+// statTrendIcon renders a small up/down trend glyph beside a stat value, from a
+// closed vocabulary mirroring iconMarkup's own closed-switch shape (icon.templ).
+// "" (the zero value) renders nothing, so a StatTile with no Trend set is
+// unchanged (RM50-gateway-add-travel-progress-subsection D3).
+templ statTrendIcon(trend string) {
+	switch trend {
+	case "up":
+		@Icon(IconProps{Name: "trending_up", Class: "h-5 w-5 text-success shrink-0"})
+	case "down":
+		@Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-error shrink-0"})
+	default:
+	}
 }
