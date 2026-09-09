@@ -25,7 +25,7 @@
 |---|---|
 | `internal/gateway/templates/pages/external_charges.templ` | Page shell — tiles, create form slot, `#external-charges-list` region |
 | `internal/gateway/templates/fragments/external_charge_create_form.templ` | Create form (`hx-post` → `/ui/external-charges/create`) |
-| `internal/gateway/templates/fragments/external_charges_list.templ` | The `#external-charges-list` region + the date-range preset selector |
+| `internal/gateway/templates/fragments/external_charges_list.templ` | The `#external-charges-list` region + the date-range preset selector (three presets — see below) |
 | `internal/gateway/templates/fragments/external_charge_row.templ` | Static row; carries the Edit link and the Delete button (CSRF on the `X-CSRF-Token` header via `hx-headers`) |
 | `internal/gateway/templates/fragments/external_charge_row_edit.templ` | Inline edit form, incl. the hidden `start`/`end` window inputs |
 | `internal/gateway/templates/fragments/external_charges_vm.go` | `ExternalChargesPageData` / `ExternalChargeEntryVM` / `ExternalChargeFormValues` presentation models |
@@ -67,6 +67,15 @@
   `GET /ui/external-charges/list`, which rejects a malformed window with `400`.
 - **i18n:** every string on this page resolves through `i18n.T(ctx, key)` with both ES and EN
   non-empty. A hardcoded string is incomplete work — `make i18n-guard` enforces it.
+- **The date-range preset selector offers THREE presets, not two** — Last 7 days, This
+  month, and (added by `RM51-gateway-add-free-charge-and-month-preset`, MAG-58, tier 2)
+  **Last month**, in that order, built by `buildExternalChargesPresets`
+  (`external_charges_range.go`). "Last month" is the previous calendar month
+  (`startOfMonth(today).AddDate(0, -1, 0)` .. `endOfMonth(...)`); `time.Time.AddDate`
+  normalizes a January `today` back to the prior December with no special case. This
+  selector is a SEPARATE function from `/supercharger-stats`'s own
+  `buildSuperchargerPresets` — the two pages have never shared a preset builder, and
+  adding a preset to one does not touch the other.
 
 - **The page has THREE names, and they are deliberately different.** The sidebar says
   **External** / **Externas** (`i18n.KeyNavExternalCharges`, key `nav.external_charges`); the page
@@ -102,6 +111,19 @@ grid, followed by an always-visible **"Optional details"** `<section>` (`chargin
 `odometer_km`, `notes`). The edit row appends one edit-only extra after the shared ten:
 the read-only Vehicle display. (`location_label` moved from the optional section into the
 main grid on 2026-09-01, closing the grid behind `location_kind`.)
+
+- **A `price_confirmed` checkbox ("this charge was free") sits inside the SAME
+  `ui.Field` as `price`, not a field of its own.** It renders on both forms,
+  always visible, never `disabled`, and needs no client-side JS: `charging`
+  already ignores a checked box whenever the submitted price is greater than
+  zero (tier 1's `resolvePriceSource`), so the gateway sends the checkbox
+  state through unconditionally and does no `price > 0` special-casing of
+  its own. On the create form it echoes `FormValues.PriceConfirmed`; on the
+  edit row it shows a DERIVED value, `RawPriceConfirmed`, computed as
+  `Price == 0 && PriceSource == charging.PriceSourceUser` — this is never a
+  straight read of a stored column, because `PriceConfirmed` itself is never
+  persisted (a round-trip through `Reader` always returns `false`). Added by
+  `RM51-gateway-add-free-charge-and-month-preset` (MAG-58, tier 2).
 
 Field order and section placement are **no longer pinned by a test** (MAG-39) — they are
 verified by looking at the page. The list above is the description to keep current, not an

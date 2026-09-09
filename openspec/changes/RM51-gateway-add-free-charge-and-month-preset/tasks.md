@@ -103,7 +103,7 @@ confirmation.
 
 ## Group 4 — tests, against design.md §Test Contract (depends on Groups 1–3)
 
-- [ ] **4.1** **[module: gateway worker, offline/pure]** In
+- [x] **4.1** **[module: gateway worker, offline/pure]** In
   `internal/gateway/handlers/external_charges_test.go`, add cases **A1–A2** (checkbox parsing:
   checked → `true`, absent → `false`) and **B1–B4** (httptest-level: unconditional pass-through
   regardless of price, 422 checked-echo on both create and edit forms) exactly as design.md
@@ -112,7 +112,7 @@ confirmation.
   (`AGENTS.md` §"Do not test what the page looks like").
   `depends_on`: 2.1, 2.2, 2.4 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** **[module: gateway worker, offline/pure]** In
+- [x] **4.2** **[module: gateway worker, offline/pure]** In
   `internal/gateway/handlers/external_charges_range_test.go` (new or extended), add cases
   **C1–C5** (the "last month" window for `2026-09-09` and the January-crossing case
   `2027-01-15`, the `Active` exact-match rule, the 3-entry order) and **D1**
@@ -120,7 +120,7 @@ confirmation.
   Contract Groups C and D specify.
   `depends_on`: 3.2 · `parallel_ok`: with 4.1
 
-- [ ] **4.3** **[module: gateway worker, httptest]** In
+- [x] **4.3** **[module: gateway worker, httptest]** In
   `internal/gateway/handlers/external_charges_single_edit_test.go` (or alongside 4.1's file, per
   the existing test-file convention), add cases **B5–B7**: the edit row's checked state on a
   normal (non-error) open, for a `Price == 0 && PriceSourceUser` entry (checked), a `Price == 0 &&
@@ -130,7 +130,7 @@ confirmation.
 
 ## Group 5 — docs (any time after Groups 1–3; logically last)
 
-- [ ] **5.1** **[module: gateway worker]** Update
+- [x] **5.1** **[module: gateway worker]** Update
   `kkpa/context/input-port/charging/external-charges.md`: the form field set now includes the
   "this charge was free" checkbox (both forms), and the date-range preset selector now offers
   three presets, not two — update the line that currently says the selector holds "last 7 days"/

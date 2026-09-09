@@ -298,7 +298,7 @@ Same file(s) as the existing create/edit handler tests, new cases appended.
 
 | ID | Assertion | What it proves |
 |---|---|---|
-| **D1** | `buildSuperchargerPresets` still returns exactly 2 entries | RD8 — this tier adds no preset to the OTHER page. Cheap to assert; expensive to silently regress. |
+| **D1** | `buildSuperchargerPresets` still returns exactly 3 entries | RD8 — this tier adds no preset to the OTHER page. Cheap to assert; expensive to silently regress. **Corrected during Group 4:** this row first said "2". That was wrong about code that already shipped — `superchargerMonthPresets` is `[]int{3, 6, 12}` (`supercharger.go:43`), and `TestBuildSuperchargerPresets_ExactValues` already pins 3. The count is a fact about untouched code, not an expectation this tier authored, so fixing it does not weaken the contract. |
 
 ---
 

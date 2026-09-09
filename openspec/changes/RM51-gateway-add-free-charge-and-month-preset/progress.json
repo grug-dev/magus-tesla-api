@@ -6,9 +6,9 @@
   "roadmap": "RM51-external-charges-completion",
   "tier": 2,
   "intention": "The /external-charges page gets an always-visible 'this charge was free' checkbox beside the price input on both forms, feeding tier 1's charging.Entry.PriceConfirmed, and a third date preset 'last month' = the previous calendar month. No database change, no new JavaScript.",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-09-09T14:57:00Z",
-  "updated_at": "2026-09-09T14:59:00Z",
+  "updated_at": "2026-09-09T15:26:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,14 +23,11 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "4.1",
-      "4.2",
-      "4.3",
+    "pending": [],
+    "blocked": [],
+    "done": [
       "5.1"
     ],
-    "blocked": [],
-    "done": [],
     "awaiting-user-verification": [
       "1.1",
       "2.1",
@@ -38,10 +35,22 @@
       "2.3",
       "2.4",
       "3.1",
-      "3.2"
+      "3.2",
+      "4.1",
+      "4.2",
+      "4.3"
     ]
   },
-  "decisions": [],
+  "decisions": [
+    {
+      "id": "D1-fix",
+      "at": "2026-09-09T15:24:00Z",
+      "scope": "test-contract",
+      "made_by": "leader",
+      "decision": "design.md Test Contract D1 said buildSuperchargerPresets returns 2 entries. It returns 3. The worker asserted 3 and flagged it; the leader corrected the D1 row in design.md.",
+      "why": "The count is a fact about untouched, already-shipped code, not an expectation this tier authored. Pinning 2 would fail against the code and an existing sibling test."
+    }
+  ],
   "tasks": [
     {
       "id": "1.1",
@@ -200,14 +209,20 @@
         "2.4"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T15:12:00Z",
+      "completed_at": "2026-09-09T15:40:00Z",
+      "duration_seconds": 1680,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 99,
+        "cost_usd_delta": 5.38,
+        "approx": true,
+        "note": "one serial worker dispatch covering 4.1-5.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Added A1-A2 (checkbox parse) and B1-B4 (pass-through, 422 checked and unchecked echo) to external_charges_test.go."
     },
     {
       "id": "4.2",
@@ -216,14 +231,20 @@
         "3.2"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T15:12:00Z",
+      "completed_at": "2026-09-09T15:40:00Z",
+      "duration_seconds": 1680,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 99,
+        "cost_usd_delta": 5.38,
+        "approx": true,
+        "note": "one serial worker dispatch covering 4.1-5.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Added C1-C5 and D1 to external_charges_range_test.go. Also corrected two pre-existing cases, A7 and A8, whose len(presets)==2 assertion went stale when 3.2 shipped the third preset."
     },
     {
       "id": "4.3",
@@ -232,14 +253,20 @@
         "4.1"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T15:12:00Z",
+      "completed_at": "2026-09-09T15:40:00Z",
+      "duration_seconds": 1680,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 99,
+        "cost_usd_delta": 5.38,
+        "approx": true,
+        "note": "one serial worker dispatch covering 4.1-5.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Added B5-B7 to external_charges_single_edit_test.go, reusing the existing getEditFragment helper."
     },
     {
       "id": "5.1",
@@ -249,14 +276,20 @@
         "3.2"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T15:12:00Z",
+      "completed_at": "2026-09-09T15:40:00Z",
+      "duration_seconds": 1680,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 99,
+        "cost_usd_delta": 5.38,
+        "approx": true,
+        "note": "one serial worker dispatch covering 4.1-5.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Updated kkpa/context/input-port/charging/external-charges.md: the free-charge checkbox on both forms, and three date presets instead of two."
     }
   ],
   "review": {
@@ -295,6 +328,24 @@
       "type": "checkpoint",
       "by": "leader",
       "detail": "Budget checkpoint at the wave 1 boundary, chosen by the user. five_hour 83 percent, context 17 percent, bucket resets 2026-09-09T17:10Z. Wave 1 cost 7 points, so wave 2 was projected to cross the 90 percent threshold mid-wave. Resume with /kkpa-dev-harness-pipeline resume RM51-external-charges-completion. Next step is wave 2: tasks 4.1, 4.2, 4.3 and 5.1. The owner still owes a suite run for the wave 1 tasks, which stay awaiting-user-verification."
+    },
+    {
+      "at": "2026-09-09T15:12:00Z",
+      "type": "resumed",
+      "by": "leader",
+      "detail": "Fresh session resumed tier 2 at the wave 2 boundary. Budget at resume: five_hour 87 percent (bucket not yet reset, resets 17:10Z), context 10 percent. The user was shown the 87 percent reading and chose to run wave 2 now rather than wait for the reset."
+    },
+    {
+      "at": "2026-09-09T15:12:00Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 2 dispatched: one serial gateway worker on Sonnet for tasks 4.1, 4.2, 4.3 and 5.1. Serial because 4.3 depends on 4.1 and shares its fixtures. Sandbox internal/gateway/ plus the granted KB path kkpa/context/input-port/charging/external-charges.md. The dispatch inlines AGENTS.md lines 919-966 because a previous worker reported the file truncated at line 843."
+    },
+    {
+      "at": "2026-09-09T15:26:00Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 2 done: 4.1, 4.2, 4.3 and 5.1. Leader verified go build, go vet and all seven guards, green. gofmt -l flags three files that RM51 never touched, so they are pre-existing. The worker found design.md D1 wrong about buildSuperchargerPresets and flagged it instead of writing a failing test; the leader corrected design.md (decision D1-fix). Tests are awaiting-user-verification. Budget: five_hour 87 to 99 percent."
     }
   ]
 }
