@@ -603,6 +603,13 @@ than as a separate field. `energy_added_kwh` and `price` are **optional**: an em
 `energy_added_kwh` SHALL be stored as absent (no fabricated value), and an empty `price` SHALL be
 stored as `0`. `energy_added_kwh` SHALL accept up to three decimal places when supplied.
 
+**The price field SHALL be paired with a "this charge was free" checkbox**, always visible and
+never disabled, rendered next to the price input. The handler SHALL read this checkbox's
+submitted state and pass it to `charging.Writer.Create` as the entry's confirmed-price intent.
+The gateway SHALL NOT itself decide whether the intent is honored when the submitted price is
+greater than zero — that precedence is the `charging` module's own rule. Submitting the checkbox
+SHALL NOT require a second round-trip and SHALL NOT block the save.
+
 The form SHALL include a status control (`IN_PROGRESS` / `DONE`), defaulting to `IN_PROGRESS`.
 `ended_at` and `end_battery_pct` are **required only when the submitted status is `DONE`**; when
 the status is `IN_PROGRESS`, both may be omitted. The gateway SHALL derive this required-field
@@ -610,8 +617,8 @@ set from the `charging` module's own declarative rule rather than encode it sepa
 optional `started_at` / `ended_at` fields default to today's date but remain optional whenever
 they are not required by the entry's status. On success, the fragment SHALL reflect the new
 entry; on failure, it SHALL show validation errors in place **and SHALL preserve every value the
-user submitted — valid or not — for every field on the form**, not only the fields that already
-had a today's-date default.
+user submitted — valid or not — for every field on the form, including the "this charge was
+free" checkbox's checked state**, not only the fields that already had a today's-date default.
 
 #### Scenario: Create form rejects a missing location kind
 
@@ -678,6 +685,25 @@ had a today's-date default.
 - **WHEN** the create form is submitted
 - **THEN** the persisted entry's `currency` field is `COP` regardless of any value
   that could be supplied for it
+
+#### Scenario: A checked "this charge was free" box is passed through, unconditionally
+
+- **GIVEN** a signed-in user on the External charges page with a valid CSRF token
+- **WHEN** they submit the create form with `price` empty (or `0`) and the "this charge was
+  free" checkbox checked, all other required fields valid
+- **THEN** the gateway calls `charging.Writer.Create` with the entry's confirmed-price intent
+  set to true
+- **WHEN** the same user instead submits a `price` greater than zero with the checkbox checked
+- **THEN** the gateway still calls `charging.Writer.Create` with the intent set to true — the
+  gateway does not inspect the submitted price to decide whether to honor the checkbox itself
+
+#### Scenario: An unchecked "this charge was free" box submits as not confirmed
+
+- **GIVEN** a signed-in user on the External charges page
+- **WHEN** they submit the create form with the "this charge was free" checkbox left unchecked
+  (or absent from the request)
+- **THEN** the gateway calls `charging.Writer.Create` with the entry's confirmed-price intent
+  set to false
 
 #### Scenario: Start battery percentage is required regardless of status
 
@@ -766,14 +792,16 @@ had a today's-date default.
   is persisted with `energy_added_kwh = 7.345` (no server-side rounding to 2
   decimals)
 
-#### Scenario: A validation failure preserves every submitted value, not only the date defaults
+#### Scenario: A validation failure preserves every submitted value, including the free-charge checkbox
 
 - **GIVEN** a signed-in user submitting the create form with a valid `location_kind` of `WORK`,
   a status of `DONE`, valid battery percentages, non-empty `energy_added_kwh`, `price`,
-  `charging_type`, `location_label`, and `notes`, but an out-of-range `end_battery_pct`
+  `charging_type`, `location_label`, `notes`, and the "this charge was free" checkbox checked,
+  but an out-of-range `end_battery_pct`
 - **WHEN** the server re-renders the form at HTTP 422
 - **THEN** every one of those submitted values — including the ones with no day-based default —
   is still present in the re-rendered form's inputs, not reset to blank or to a different default
+- **AND** the "this charge was free" checkbox is still rendered checked
 - **AND** the invalid `end_battery_pct` value itself is also echoed back so the user can see and
   correct exactly what they typed
 
@@ -790,6 +818,13 @@ form's rule. `energy_added_kwh` and `price` are optional on the edit form, and `
 as a `COP` suffix on the price input rather than a separate field, mirroring the create form. A
 validation failure on this form SHALL preserve every value the user submitted, exactly as the
 create form does.
+
+**The price field on the edit form SHALL be paired with the same "this charge was free"
+checkbox as the create form.** On a normal (non-error) open, the checkbox's checked state SHALL
+reflect the entry's currently stored confirmation — checked only when the entry's price is zero
+and its price provenance is the user-confirmed kind. On a validation-failure re-render, the
+checkbox SHALL instead echo whatever the user just submitted, exactly like every other field on
+this form.
 
 #### Scenario: Edit form rejects a missing location kind
 
@@ -829,6 +864,21 @@ create form does.
   `ended_at` or `end_battery_pct`
 - **THEN** the save is rejected with a field-level validation error naming the missing field(s)
 - **AND** the stored entry is unchanged
+
+#### Scenario: Edit form's free-charge checkbox reflects the entry's stored confirmation
+
+- **GIVEN** an existing entry stored with `price` equal to zero and a price provenance the
+  `charging` module recorded as user-confirmed
+- **WHEN** the user opens its inline edit form
+- **THEN** the "this charge was free" checkbox is rendered checked
+- **GIVEN** an existing entry stored with `price` equal to zero and a price provenance the
+  `charging` module recorded as unconfirmed
+- **WHEN** the user opens its inline edit form
+- **THEN** the "this charge was free" checkbox is rendered unchecked
+- **GIVEN** an existing entry stored with a `price` greater than zero
+- **WHEN** the user opens its inline edit form
+- **THEN** the "this charge was free" checkbox is rendered unchecked, regardless of that
+  entry's stored price provenance
 
 ### Requirement: Delete Charge Entry
 
@@ -2773,13 +2823,16 @@ date change SHALL NOT populate it.
 
 ### Requirement: Charge List Date Filter
 
-The External charges page's entries list SHALL offer a date-filter preset selector with exactly two
-presets: "Last 7 days" (the default) and "This month" (the full calendar month containing
-today — the 1st through the last day of the month, not merely the days elapsed so far). Both
-presets SHALL be computed against the requesting browser's local calendar day, never UTC.
-Selecting a preset SHALL re-fetch and re-render only the `#external-charges-list` region (presets,
-tiles, and table together) without a full page reload or a change to the create form's
-displayed values.
+The External charges page's entries list SHALL offer a date-filter preset selector with exactly
+three presets: "Last 7 days" (the default), "This month" (the full calendar month containing
+today — the 1st through the last day of the month, not merely the days elapsed so far), and
+"Last month" (the full previous calendar month — the 1st through the last day of the calendar
+month immediately before the one containing today). All three presets SHALL be computed against
+the requesting browser's local calendar day, never UTC. Selecting a preset SHALL re-fetch and
+re-render only the `#external-charges-list` region (presets, tiles, and table together) without a
+full page reload or a change to the create form's displayed values. This preset selector is
+specific to the External charges page — the Supercharger Stats page's own preset selector SHALL
+be unaffected by this requirement.
 
 #### Scenario: The default window is the last 7 calendar days
 
@@ -2795,7 +2848,23 @@ displayed values.
 - **WHEN** they select the "This month" preset
 - **THEN** the entries list is filtered to the 1st through the LAST day of that calendar month
   (inclusive of days later than today, when today is not the last day of the month)
-- **AND** the "This month" preset button is shown in its active state and "Last 7 days" is not
+- **AND** the "This month" preset button is shown in its active state and the other two are not
+
+#### Scenario: Selecting "Last month" shows the full previous calendar month
+
+- **GIVEN** a signed-in user on the External charges page, where today falls in a given
+  calendar month
+- **WHEN** they select the "Last month" preset
+- **THEN** the entries list is filtered to the 1st through the LAST day of the calendar month
+  immediately before today's month
+- **AND** the "Last month" preset button is shown in its active state and the other two are not
+
+#### Scenario: "Last month" correctly crosses a year boundary in January
+
+- **GIVEN** a signed-in user on the External charges page in January of a given year
+- **WHEN** they select the "Last month" preset
+- **THEN** the entries list is filtered to December 1st through December 31st of the PREVIOUS
+  year
 
 #### Scenario: Selecting a preset refreshes only the entries region
 
@@ -2806,7 +2875,12 @@ displayed values.
 - **AND** the create form's own fields and any values the user had already typed into it are
   left untouched
 
----
+#### Scenario: The Supercharger Stats preset selector is unaffected
+
+- **GIVEN** the Supercharger Stats page's own date-filter preset selector
+- **WHEN** it is rendered, before or after this capability change
+- **THEN** it still offers exactly the presets it offered before this requirement's "Last month"
+  addition — the External charges page's third preset is not added to it
 
 ### Requirement: Charge List Aggregation Tiles
 

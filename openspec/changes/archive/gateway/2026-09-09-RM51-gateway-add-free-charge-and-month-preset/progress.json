@@ -6,9 +6,9 @@
   "roadmap": "RM51-external-charges-completion",
   "tier": 2,
   "intention": "The /external-charges page gets an always-visible 'this charge was free' checkbox beside the price input on both forms, feeding tier 1's charging.Entry.PriceConfirmed, and a third date preset 'last month' = the previous calendar month. No database change, no new JavaScript.",
-  "status": "applied",
+  "status": "archived",
   "created_at": "2026-09-09T14:57:00Z",
-  "updated_at": "2026-09-09T19:33:00Z",
+  "updated_at": "2026-09-09T20:08:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -26,9 +26,6 @@
     "pending": [],
     "blocked": [],
     "done": [
-      "5.1"
-    ],
-    "awaiting-user-verification": [
       "1.1",
       "2.1",
       "2.2",
@@ -38,8 +35,10 @@
       "3.2",
       "4.1",
       "4.2",
-      "4.3"
-    ]
+      "4.3",
+      "5.1"
+    ],
+    "awaiting-user-verification": []
   },
   "decisions": [
     {
@@ -57,7 +56,7 @@
       "title": "Create the ui.Checkbox component in templates/ui/checkbox.templ",
       "depends_on": [],
       "wave": 1,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T14:53:00Z",
@@ -77,7 +76,7 @@
       "title": "Add PriceConfirmed and RawPriceConfirmed to the external-charges view models",
       "depends_on": [],
       "wave": 1,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T14:53:00Z",
@@ -99,7 +98,7 @@
         "2.1"
       ],
       "wave": 1,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T14:53:00Z",
@@ -119,7 +118,7 @@
       "title": "Add the charges_form.price_confirmed i18n key in ES and EN",
       "depends_on": [],
       "wave": 1,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T14:53:00Z",
@@ -143,7 +142,7 @@
         "2.3"
       ],
       "wave": 1,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T14:53:00Z",
@@ -163,7 +162,7 @@
       "title": "Add the charges_range.last_month i18n key in ES and EN",
       "depends_on": [],
       "wave": 1,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T14:53:00Z",
@@ -185,7 +184,7 @@
         "3.1"
       ],
       "wave": 1,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T14:53:00Z",
@@ -209,7 +208,7 @@
         "2.4"
       ],
       "wave": 2,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T15:12:00Z",
@@ -231,7 +230,7 @@
         "3.2"
       ],
       "wave": 2,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T15:12:00Z",
@@ -253,7 +252,7 @@
         "4.1"
       ],
       "wave": 2,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T15:12:00Z",
@@ -293,10 +292,16 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM51 tier 2 (gateway) against design.md D-Checkbox, D-Parse, D-Echo, D-Order and the Test Contract. Check: (1) every change stays inside internal/gateway plus the one granted KB path; (2) no new client-side JavaScript, the RD6 constraint; (3) both new i18n keys have non-empty ES and EN; (4) the tests assert the expectations design.md authored up front, not what the code happens to do; (5) tests assert behaviour, never markup order, CSS classes or copy text (AGENTS.md lines 919-966); (6) the D1 correction and the A7/A8 count fix are honest fixes, not weakened criteria; (7) no acceptance criterion was edited or deleted to pass. No database object in this tier, so there is no schema-versus-design check. Signals: go build, go vet and seven guards were assistant-run. make check and make test were run and reported by the OWNER; do not re-run the suite.",
+    "rounds": [
+      {
+        "at": "2026-09-09T20:00:05Z",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
   },
   "events": [
     {
@@ -352,6 +357,24 @@
       "type": "awaiting-user-verification",
       "by": "leader",
       "detail": "Step 6 verify gate. openspec validate --strict passes. All 15 Test Contract cases exist as test functions: A1-A2, B1-B7, C1-C5, D1. Leader-run signals green: go build, go vet, seven guards. The suite is the owner's to run, so the change stops here and does not reach the reviewer until the owner reports a pass. Budget clear: the 5-hour bucket reset at 17:10Z."
+    },
+    {
+      "at": "2026-09-09T19:40:00Z",
+      "type": "user-verified",
+      "by": "user",
+      "detail": "The owner ran make check and make test and reported both passing. All eleven tasks move from awaiting-user-verification to done and the change reaches verified. This pass is the owner's report, not an assistant-run result."
+    },
+    {
+      "at": "2026-09-09T20:05:00Z",
+      "type": "reviewer-approved",
+      "by": "leader",
+      "detail": "gateway-reviewer approved round 1 with no findings and wrote review.status=approved. The leader only transcribed that verdict into the change status; the judgment is the reviewer's. The reviewer independently confirmed the A7/A8 count fix and the design.md D1 correction are honest fixes, not weakened criteria."
+    },
+    {
+      "at": "2026-09-09T20:08:00Z",
+      "type": "archived",
+      "by": "leader",
+      "detail": "Tier 2 archived to openspec/changes/archive/gateway/2026-09-09-RM51-gateway-add-free-charge-and-month-preset. The delta spec synced into openspec/specs/gateway/spec.md: 3 requirements modified, nothing appended at EOF. The CLI drops archives at the archive root, so the folder was git mv'd under gateway/ to match this repo's module grouping."
     }
   ]
 }

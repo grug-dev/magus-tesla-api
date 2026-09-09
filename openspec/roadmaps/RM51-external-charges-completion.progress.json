@@ -3,11 +3,11 @@
   "kind": "roadmap",
   "roadmap": "RM51-external-charges-completion",
   "intention": "A manual charge entry completes itself: charging promotes it to DONE on any write when every DONE-required field is present, never demoting. A new price_source column (USER / UNCONFIRMED) records whether a zero price is a real free charge or forgotten data, driven by an always-visible 'this charge was free' checkbox on both external-charges forms. The date filter row gains a third preset, 'last month' = the previous calendar month (Linear MAG-58).",
-  "request": "/kkpa-pickup-linear-ticket MAG-58 — [Chargin] External Charges V2 - Done Status. Page: external-charges. (1) When editing a record and the user fills up all the required fields, the API should change the status to DONE (if it is still in progress by the user) when updating manual_charge_entries. (2) When the user edits a record and the price is zero and start/end battery is filled up (ready to be DONE), prompt the user that he is sure the price is ZERO; if the user confirms, save that action as user-zero-price-confirmed or similar. (3) Add a new date filter toggle of 'last month'.",
+  "request": "/kkpa-pickup-linear-ticket MAG-58 \u2014 [Chargin] External Charges V2 - Done Status. Page: external-charges. (1) When editing a record and the user fills up all the required fields, the API should change the status to DONE (if it is still in progress by the user) when updating manual_charge_entries. (2) When the user edits a record and the price is zero and start/end battery is filled up (ready to be DONE), prompt the user that he is sure the price is ZERO; if the user confirms, save that action as user-zero-price-confirmed or similar. (3) Add a new date filter toggle of 'last month'.",
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-09T12:26:27Z",
-  "updated_at": "2026-09-09T14:59:00Z",
+  "updated_at": "2026-09-09T20:08:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,13 +21,12 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-58/chargin-external-charges-v2-done-status"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -140,14 +139,18 @@
         1
       ],
       "optional": false,
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5 (leader) / claude-sonnet-5 (workers)",
       "started_at": "2026-09-09T14:55:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-09T20:08:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "UI half of ticket bullet 2 and all of bullet 3. RD6 checkbox on both forms with no new JS, and the RD7 'last month' preset on /external-charges only (RD8)."
+      "budget": {
+        "cost_usd_delta": 8.75,
+        "approx": true,
+        "note": "wave 1 (3.37) + wave 2 (5.38); the reviewer round and the leader's own turns are not separately bracketed"
+      },
+      "notes": "UI half of ticket bullet 2 and all of bullet 3. RD6 checkbox on both forms with no new JS, and the RD7 last-month preset on /external-charges only (RD8). Archived after one review round, approved with no findings. Owner verified make check and make test."
     }
   ],
   "events": [
@@ -198,6 +201,12 @@
       "type": "checkpoint",
       "by": "leader",
       "detail": "Tier 2 stopped cleanly after wave 1. five_hour 83 percent, context 17 percent. Wave 2 (tests and KB) is the only work left before the reviewer gate."
+    },
+    {
+      "at": "2026-09-09T20:08:00Z",
+      "type": "tier-archived",
+      "by": "leader",
+      "detail": "Tier 2 archived to openspec/changes/archive/gateway/2026-09-09-RM51-gateway-add-free-charge-and-month-preset and the delta synced into openspec/specs/gateway/spec.md. gateway-reviewer approved round 1 with no findings. Tier moves [~] -> [x]. Both tiers are now archived, so the roadmap itself completes."
     }
   ]
 }
