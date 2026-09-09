@@ -203,7 +203,7 @@ archived) · `[x]` done (archived).
 | `[x]` | 1 | `RM50-analytics-add-tire-pressure-columns` | `analytics` | Four raw TPMS columns + backfill migration + expose travel-progress fields on the read port | — |
 | `[x]` | 2 | `RM50-gateway-add-travel-progress-subsection` | `gateway` | `/design` (3 suggestions), Travel Progress subsection, regroup Interior/Exterior | 1 |
 | `[x]` | 3 | `RM50-analytics-add-tire-pressure-variance` | `analytics` | Four `_calc` delta columns + delta maths + expose on the read port | 1 |
-| `[ ]` | 4 | `RM50-gateway-add-tire-pressure-subsection` | `gateway` | Tire pressure subsection with per-wheel up/down icons | 2, 3 |
+| `[~]` | 4 | `RM50-gateway-add-tire-pressure-subsection` | `gateway` | Tire pressure subsection with per-wheel up/down icons | 2, 3 |
 
 ### Tier 1 — `[x]` `RM50-analytics-add-tire-pressure-columns` (module: `analytics`)
 
@@ -268,7 +268,7 @@ like `distance_traveled_km_calc`, NULL when the day has no predecessor. Expose t
 `LatestMetricsByAccount` / `analytics.VehicleStatus`. Honour RD3 — previous-day baseline, no
 threshold, and record that the delta partly tracks air temperature. Unit-test the maths only.*
 
-### Tier 4 — `[ ]` `RM50-gateway-add-tire-pressure-subsection` (module: `gateway`; depends on tiers 2 and 3)
+### Tier 4 — `[~]` `RM50-gateway-add-tire-pressure-subsection` (module: `gateway`; depends on tiers 2 and 3)
 
 Covers the display half of ticket **Step 3**.
 

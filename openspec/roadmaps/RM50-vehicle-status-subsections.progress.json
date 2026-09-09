@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-08T15:55:09Z",
-  "updated_at": "2026-09-09T07:44:38Z",
+  "updated_at": "2026-09-09T08:45:24Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,10 +21,10 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-56/vehicle-status-change"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       4
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1,
@@ -136,6 +136,14 @@
       "made_by": "user",
       "decision": "Tier 3 database gate confirmed: four nullable _calc columns, self-join backfill, no new index. A wheel missing its raw reading on either day makes that wheel's delta NULL, not all four.",
       "why": "Columns are projection-only, so an index only costs nightly write time. A 0.0 delta already means 'no pressure change' and must not also mean 'unknown'."
+    },
+    {
+      "id": "RD14",
+      "at": "2026-09-09T08:45:24Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "A real 0.0 tyre-pressure delta shows no icon but keeps its numeric line. A nil delta shows neither. No third neutral glyph.",
+      "why": "The roadmap never said what a genuine zero should look like, and only up/down glyphs exist. The number already separates 'no change' from 'unknown'."
     }
   ],
   "tiers": [
@@ -215,10 +223,10 @@
         3
       ],
       "optional": false,
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader)",
+      "started_at": "2026-09-09T07:59:04Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -285,6 +293,12 @@
       "type": "tier-archived",
       "by": "leader",
       "detail": "Tier 3 archived into openspec/changes/archive/analytics/. Reviewer approved round 1, zero findings. The OWNER ran make test and reported it passing. The leader fixed a design.md Fixture 6 typo (FR delta 0.9 -> 4.9) and a stale gateway bento KB guide (four unread VehicleStatus fields, now eight). Autopilot is off, so tier 4 waits for the user."
+    },
+    {
+      "at": "2026-09-09T07:59:04Z",
+      "type": "tier-started",
+      "by": "leader",
+      "detail": "Tier 4 started at the user's go-ahead. No new interview: roadmap decisions RD6, RD8, RD9 and RD10 already settle the layout, the numeric delta line, the semantic tokens and the test scope. Tier 4 touches no database, so no design gate. Budget at start: five_hour 30%, context 18%."
     }
   ]
 }
