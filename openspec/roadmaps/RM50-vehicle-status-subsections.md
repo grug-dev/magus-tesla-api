@@ -202,7 +202,7 @@ archived) · `[x]` done (archived).
 |---|---|---|---|---|---|
 | `[x]` | 1 | `RM50-analytics-add-tire-pressure-columns` | `analytics` | Four raw TPMS columns + backfill migration + expose travel-progress fields on the read port | — |
 | `[x]` | 2 | `RM50-gateway-add-travel-progress-subsection` | `gateway` | `/design` (3 suggestions), Travel Progress subsection, regroup Interior/Exterior | 1 |
-| `[~]` | 3 | `RM50-analytics-add-tire-pressure-variance` | `analytics` | Four `_calc` delta columns + delta maths + expose on the read port | 1 |
+| `[x]` | 3 | `RM50-analytics-add-tire-pressure-variance` | `analytics` | Four `_calc` delta columns + delta maths + expose on the read port | 1 |
 | `[ ]` | 4 | `RM50-gateway-add-tire-pressure-subsection` | `gateway` | Tire pressure subsection with per-wheel up/down icons | 2, 3 |
 
 ### Tier 1 — `[x]` `RM50-analytics-add-tire-pressure-columns` (module: `analytics`)
@@ -252,7 +252,7 @@ existing interior/exterior temperature tiles into their own subsection. Semantic
 (RD6), bilingual labels, no markup-coupled tests (RD8). The data path is `Handler.dashboardFor`,
 not the history fragment (RD7).*
 
-### Tier 3 — `[~]` `RM50-analytics-add-tire-pressure-variance` (module: `analytics`; depends on tier 1)
+### Tier 3 — `[x]` `RM50-analytics-add-tire-pressure-variance` (module: `analytics`; depends on tier 1)
 
 Covers the backend half of ticket **Step 3**.
 

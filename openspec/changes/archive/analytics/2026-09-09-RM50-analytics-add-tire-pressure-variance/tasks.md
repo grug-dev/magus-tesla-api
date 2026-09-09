@@ -96,14 +96,14 @@ this last.
 
 ## Verification (do not run the suite — see Test-Execution-Policy)
 
-- [ ] D.1 `go build ./...`
-- [ ] D.2 `go vet ./...`
-- [ ] D.3 `gofmt -l internal/analytics`
-- [ ] D.4 `make migration-guard` (checks the new migration's version number has no
+- [x] D.1 `go build ./...`
+- [x] D.2 `go vet ./...`
+- [x] D.3 `gofmt -l internal/analytics`
+- [x] D.4 `make migration-guard` (checks the new migration's version number has no
       collision across module directories)
-- [ ] D.5 `make boundary-guard` (confirms no `internal/gateway` file was touched — this
+- [x] D.5 `make boundary-guard` (confirms no `internal/gateway` file was touched — this
       change touches none, so the guard should be a pure no-op pass)
-- [ ] D.6 Report the exact suite commands to the owner:
+- [x] D.6 Report the exact suite commands to the owner:
       `go test ./internal/analytics/...` (offline tests, including this change's new
       A.4/A.5 assertions, must pass with `DATABASE_URL` unset; and `make test-with-db` for B.8's new
       migration test, which needs a database and self-skips without one).

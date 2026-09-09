@@ -2,12 +2,12 @@
   "schema_version": 1,
   "kind": "roadmap",
   "roadmap": "RM50-vehicle-status-subsections",
-  "intention": "The /dashboard Vehicle Status panel is regrouped into three named subsections — Travel Progress (latest distance travelled + battery drain), Tire pressure (PSI, one value per wheel with a day-over-day up/down icon), and Interior/Exterior (the existing temperature tiles). vehicle_metrics gains four raw TPMS columns and four TPMS delta _calc columns so the panel reads one precomputed row and computes nothing at request time (Linear MAG-56).",
-  "request": "/kkpa-pickup-linear-ticket MAG-56 — Vehicle Status Change: add new subsections to the Vehicle Status fields (Tire pressure PSI, Travel Progress) and group the existing interior/exterior fields into their own subsection. Step 1 mirror the tpms_pressure_*_psi columns from telemetry.vehicle_snapshots into analytics.vehicle_metrics with a backfill migration. Step 2 show the latest Distance Traveled and Battery Consumption. Step 3 add four _calc tyre-pressure variance columns compared against the previous date and display them with up/down icons. Do not add cosmetic tests. Use /design for 3 layout suggestions.",
+  "intention": "The /dashboard Vehicle Status panel is regrouped into three named subsections \u2014 Travel Progress (latest distance travelled + battery drain), Tire pressure (PSI, one value per wheel with a day-over-day up/down icon), and Interior/Exterior (the existing temperature tiles). vehicle_metrics gains four raw TPMS columns and four TPMS delta _calc columns so the panel reads one precomputed row and computes nothing at request time (Linear MAG-56).",
+  "request": "/kkpa-pickup-linear-ticket MAG-56 \u2014 Vehicle Status Change: add new subsections to the Vehicle Status fields (Tire pressure PSI, Travel Progress) and group the existing interior/exterior fields into their own subsection. Step 1 mirror the tpms_pressure_*_psi columns from telemetry.vehicle_snapshots into analytics.vehicle_metrics with a backfill migration. Step 2 show the latest Distance Traveled and Battery Consumption. Step 3 add four _calc tyre-pressure variance columns compared against the previous date and display them with up/down icons. Do not add cosmetic tests. Use /design for 3 layout suggestions.",
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-08T15:55:09Z",
-  "updated_at": "2026-09-08T22:00:00Z",
+  "updated_at": "2026-09-09T07:44:38Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,16 +21,15 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-56/vehicle-status-change"
   },
   "rollup": {
-    "current": [
-      3
-    ],
+    "current": [],
     "pending": [
       4
     ],
     "blocked": [],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -192,14 +191,20 @@
         1
       ],
       "optional": false,
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": "claude-opus-5 (leader)",
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (workers + reviewer)",
       "started_at": "2026-09-08T21:17:58Z",
-      "completed_at": null,
+      "completed_at": "2026-09-09T07:44:38Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Backend half of ticket Step 3. The four _calc delta columns of RD1, derived from prev vs cur, NULL without a predecessor, exposed on the read port. Artifacts done and gate confirmed 2026-09-08T21:40Z; no code written yet."
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 24,
+        "cost_usd_delta": 8.2,
+        "approx": true,
+        "note": "tier 3 total: wave 1, wave 2, review round 1, archive. Artifacts were paid for in the previous session."
+      },
+      "notes": "Backend half of ticket Step 3. Four _calc delta columns, the tpmsDeltaPSI helper, the self-join backfill migration, and the four fields on the read port. Reviewer approved round 1 with zero findings. The OWNER ran make test and reported it passing."
     },
     {
       "id": 4,
@@ -274,6 +279,12 @@
       "type": "checkpoint",
       "by": "leader",
       "detail": "Resume attempted for tier 3, held at the Step 3/5 boundary. The 5-hour bucket had not reset: 96% (threshold 90), context 9%. Bucket resets 2026-09-09T01:10:00Z. User chose to wait. No wave dispatched, tree clean, no work mid-flight."
+    },
+    {
+      "at": "2026-09-09T07:44:38Z",
+      "type": "tier-archived",
+      "by": "leader",
+      "detail": "Tier 3 archived into openspec/changes/archive/analytics/. Reviewer approved round 1, zero findings. The OWNER ran make test and reported it passing. The leader fixed a design.md Fixture 6 typo (FR delta 0.9 -> 4.9) and a stale gateway bento KB guide (four unread VehicleStatus fields, now eight). Autopilot is off, so tier 4 waits for the user."
     }
   ]
 }
