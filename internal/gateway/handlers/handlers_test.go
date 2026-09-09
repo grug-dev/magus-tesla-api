@@ -886,9 +886,9 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 	if vm.BatteryUsed != "12.3%" {
 		t.Errorf("want BatteryUsed %q, got %q", "12.3%", vm.BatteryUsed)
 	}
-	// 2.84 km/% rounds to one decimal: "2.8 km / %".
-	if vm.Efficiency != "2.8 km / %" {
-		t.Errorf("want Efficiency %q, got %q", "2.8 km / %", vm.Efficiency)
+	// 2.84 km/% rounds to one decimal: "2.8 km/%".
+	if vm.Efficiency != "2.8 km/%" {
+		t.Errorf("want Efficiency %q, got %q", "2.8 km/%", vm.Efficiency)
 	}
 
 	// RM50 tier 4 — tire pressure tiles (design.md Test Contract table).
