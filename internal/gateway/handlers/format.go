@@ -86,7 +86,7 @@ func formatPctRaw(pct float64) string {
 // percent, to one decimal place -- e.g. 2.8 -> "2.8 km / %". One decimal because
 // the figure is small: whole numbers would collapse 2.4 and 2.9 into "2" and "3".
 func formatKmPerPct(kmPerPct float64) string {
-	return strconv.FormatFloat(kmPerPct, 'f', 1, 64) + " km / %"
+	return strconv.FormatFloat(kmPerPct, 'f', 1, 64) + " km/%"
 }
 
 func formatPSI(psi float64) string {
