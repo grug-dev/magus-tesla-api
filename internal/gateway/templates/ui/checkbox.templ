@@ -1,0 +1,22 @@
+package ui
+
+// CheckboxProps configures a Checkbox. Label renders beside the control, inside
+// the same <label> element, so the whole row is one click target. Checked maps
+// to the HTML boolean `checked` attribute. Class is for extra layout utilities.
+type CheckboxProps struct {
+	Name    string
+	Label   string
+	Checked bool
+	Class   string           // extra layout utilities only
+	Attrs   templ.Attributes // extra attributes (e.g. aria-*)
+}
+
+// Checkbox renders a themed checkbox with an inline label. The DaisyUI
+// `checkbox` class is OWNED here (the adapter): an engine upgrade that renames
+// or restructures it is a one-file change, never a sweep across every form.
+templ Checkbox(p CheckboxProps) {
+	<label class={ "label cursor-pointer justify-start gap-2", p.Class }>
+		<input type="checkbox" name={ p.Name } class="checkbox" checked?={ p.Checked } { p.Attrs... }/>
+		<span class="label-text">{ p.Label }</span>
+	</label>
+}

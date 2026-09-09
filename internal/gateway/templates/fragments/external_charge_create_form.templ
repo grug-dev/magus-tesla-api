@@ -96,6 +96,7 @@ templ ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[s
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormPrice), Error: validationErrors["price"], Optional: true}) {
 						// i18n:allow: ISO currency code
 						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: d.FormValues.Price, Suffix: "COP", Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
+						@ui.Checkbox(ui.CheckboxProps{Name: "price_confirmed", Label: i18n.T(ctx, i18n.KeyChargesFormPriceConfirmed), Checked: d.FormValues.PriceConfirmed, Class: "mt-1"})
 					}
 					// D1: optional date fields moved up from "More details"; default to today (pre-computed by the handler).
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartedAt), Error: validationErrors["started_at"], Optional: true}) {

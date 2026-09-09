@@ -75,16 +75,23 @@ func endOfMonth(t time.Time) time.Time {
 	return startOfMonth(t).AddDate(0, 1, 0).AddDate(0, 0, -1)
 }
 
-// buildExternalChargesPresets builds the two named date-filter presets — "last 7
-// days" and "this month" — as fragments.RangePreset entries (design.md
-// §D-Presets, verbatim). Reuses fragments.RangePreset unchanged; no third
-// preset type. Active is computed by exact-match against each preset's own
-// recomputed window (against today), not against an arbitrary caller-passed
-// window boundary.
+// buildExternalChargesPresets builds the three named date-filter presets — "last 7
+// days", "this month" and "last month" — as fragments.RangePreset entries
+// (design.md §D-Order/§D-Presets, verbatim). Reuses fragments.RangePreset
+// unchanged; no new preset type. Active is computed by exact-match against
+// each preset's own recomputed window (against today), not against an
+// arbitrary caller-passed window boundary.
+//
+// "Last month" is appended AFTER the two existing entries — no reordering
+// (design.md §D-Order, RM51, roadmap RD7). time.Time.AddDate normalizes the
+// month/year rollback, so a January "today" correctly resolves to the prior
+// December with no special-cased branch.
 func buildExternalChargesPresets(ctx context.Context, start, end, today time.Time) []fragments.RangePreset {
 	last7Start := today.AddDate(0, 0, -(externalChargesRangeDefaultDays - 1))
 	monthStart := startOfMonth(today)
 	monthEnd := endOfMonth(today)
+	prevStart := startOfMonth(today).AddDate(0, -1, 0)
+	prevEnd := endOfMonth(prevStart)
 	return []fragments.RangePreset{
 		{
 			Label:    i18n.T(ctx, i18n.KeyChargesRangeLast7Days),
@@ -97,6 +104,12 @@ func buildExternalChargesPresets(ctx context.Context, start, end, today time.Tim
 			StartStr: monthStart.Format("2006-01-02"),
 			EndStr:   monthEnd.Format("2006-01-02"),
 			Active:   start.Equal(monthStart) && end.Equal(monthEnd),
+		},
+		{
+			Label:    i18n.T(ctx, i18n.KeyChargesRangeLastMonth),
+			StartStr: prevStart.Format("2006-01-02"),
+			EndStr:   prevEnd.Format("2006-01-02"),
+			Active:   start.Equal(prevStart) && end.Equal(prevEnd),
 		},
 	}
 }

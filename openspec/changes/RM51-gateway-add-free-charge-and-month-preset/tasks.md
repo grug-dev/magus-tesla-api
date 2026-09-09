@@ -34,7 +34,7 @@ confirmation.
 
 ## Group 1 — `ui.Checkbox` component (no dependency)
 
-- [ ] **1.1** **[module: gateway worker]** Create `internal/gateway/templates/ui/checkbox.templ`
+- [x] **1.1** **[module: gateway worker]** Create `internal/gateway/templates/ui/checkbox.templ`
   with `CheckboxProps{Name, Label, Checked, Class, Attrs}` and the `Checkbox` component, exactly
   as design.md §D-Checkbox specifies — a `<label class="label cursor-pointer justify-start
   gap-2">` wrapping a `<input type="checkbox" class="checkbox">` and a `<span class="label-text">`
@@ -43,7 +43,7 @@ confirmation.
 
 ## Group 2 — wire the "this charge was free" checkbox (depends on 1.1)
 
-- [ ] **2.1** **[module: gateway worker]** Edit
+- [x] **2.1** **[module: gateway worker]** Edit
   `internal/gateway/templates/fragments/external_charges_vm.go`: add `PriceConfirmed bool` to
   `ExternalChargeFormValues` (design.md §D-Echo) and `RawPriceConfirmed bool` to
   `ExternalChargeEntryVM`, each placed next to its sibling `Raw*`/status fields, with a doc
@@ -53,7 +53,7 @@ confirmation.
   fact 4.
   `depends_on`: — · `parallel_ok`: with 2.3, 3.1, 3.2
 
-- [ ] **2.2** **[module: gateway worker]** Edit `internal/gateway/handlers/external_charges.go`:
+- [x] **2.2** **[module: gateway worker]** Edit `internal/gateway/handlers/external_charges.go`:
   - `parseExternalChargeForm` — add `PriceConfirmed: c.PostForm("price_confirmed") != ""` to the
     `raw` literal (built FIRST, alongside every other field, design.md Context fact 3), and set
     `entry.PriceConfirmed = raw.PriceConfirmed` alongside the other `charging.Entry{...}` field
@@ -68,13 +68,13 @@ confirmation.
     returned literal.
   `depends_on`: 2.1 (needs the new struct fields to exist) · `parallel_ok`: with 2.3
 
-- [ ] **2.3** **[module: gateway worker]** Add `charges_form.price_confirmed` to
+- [x] **2.3** **[module: gateway worker]** Add `charges_form.price_confirmed` to
   `internal/gateway/i18n/catalog.go`: `Key = "charges_form.price_confirmed"`, `{ES: "Esta carga
   fue gratis", EN: "This charge was free"}` — same-line `ES`/`EN`, mirroring every existing
   `charges_form.*` entry.
   `depends_on`: — · `parallel_ok`: with 2.1, 2.2, 3.1
 
-- [ ] **2.4** **[module: gateway worker]** Edit
+- [x] **2.4** **[module: gateway worker]** Edit
   `internal/gateway/templates/fragments/external_charge_create_form.templ`: inside the existing
   price `ui.Field` block, add `@ui.Checkbox(ui.CheckboxProps{Name: "price_confirmed", Label:
   i18n.T(ctx, i18n.KeyChargesFormPriceConfirmed), Checked: d.FormValues.PriceConfirmed, Class:
@@ -87,12 +87,12 @@ confirmation.
 
 ## Group 3 — "last month" date preset (independent of Groups 1–2)
 
-- [ ] **3.1** **[module: gateway worker]** Add `charges_range.last_month` to
+- [x] **3.1** **[module: gateway worker]** Add `charges_range.last_month` to
   `internal/gateway/i18n/catalog.go`: `Key = "charges_range.last_month"`, `{ES: "Mes pasado", EN:
   "Last month"}` — same-line, mirroring `KeyChargesRangeLast7Days`/`KeyChargesRangeThisMonth`.
   `depends_on`: — · `parallel_ok`: with 2.1, 2.2, 2.3, 3.2
 
-- [ ] **3.2** **[module: gateway worker]** Edit
+- [x] **3.2** **[module: gateway worker]** Edit
   `internal/gateway/handlers/external_charges_range.go`'s `buildExternalChargesPresets`: add
   `prevStart := startOfMonth(today).AddDate(0, -1, 0)` and `prevEnd := endOfMonth(prevStart)`,
   and append a third `fragments.RangePreset` entry using `i18n.KeyChargesRangeLastMonth`, exactly
