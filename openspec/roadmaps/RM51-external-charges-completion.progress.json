@@ -3,11 +3,11 @@
   "kind": "roadmap",
   "roadmap": "RM51-external-charges-completion",
   "intention": "A manual charge entry completes itself: charging promotes it to DONE on any write when every DONE-required field is present, never demoting. A new price_source column (USER / UNCONFIRMED) records whether a zero price is a real free charge or forgotten data, driven by an always-visible 'this charge was free' checkbox on both external-charges forms. The date filter row gains a third preset, 'last month' = the previous calendar month (Linear MAG-58).",
-  "request": "/kkpa-pickup-linear-ticket MAG-58 \u2014 [Chargin] External Charges V2 - Done Status. Page: external-charges. (1) When editing a record and the user fills up all the required fields, the API should change the status to DONE (if it is still in progress by the user) when updating manual_charge_entries. (2) When the user edits a record and the price is zero and start/end battery is filled up (ready to be DONE), prompt the user that he is sure the price is ZERO; if the user confirms, save that action as user-zero-price-confirmed or similar. (3) Add a new date filter toggle of 'last month'.",
+  "request": "/kkpa-pickup-linear-ticket MAG-58 — [Chargin] External Charges V2 - Done Status. Page: external-charges. (1) When editing a record and the user fills up all the required fields, the API should change the status to DONE (if it is still in progress by the user) when updating manual_charge_entries. (2) When the user edits a record and the price is zero and start/end battery is filled up (ready to be DONE), prompt the user that he is sure the price is ZERO; if the user confirms, save that action as user-zero-price-confirmed or similar. (3) Add a new date filter toggle of 'last month'.",
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-09T12:26:27Z",
-  "updated_at": "2026-09-09T14:13:01Z",
+  "updated_at": "2026-09-09T14:55:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,10 +21,10 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-58/chargin-external-charges-v2-done-status"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       2
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1
@@ -140,10 +140,10 @@
         1
       ],
       "optional": false,
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (workers)",
+      "started_at": "2026-09-09T14:55:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -180,6 +180,18 @@
       "type": "checkpoint",
       "by": "leader",
       "detail": "User chose to stop after tier 1 rather than start tier 2. Budget at the stop: five_hour 48%, context 17%. Resume tier 2 in a fresh session with /kkpa-dev-harness-pipeline resume RM51-external-charges-completion. Linear MAG-58 stays In Progress: the DONE transition fires only when the whole roadmap archives."
+    },
+    {
+      "at": "2026-09-09T14:31:00Z",
+      "type": "resumed",
+      "by": "leader",
+      "detail": "Fresh session resumed RM51 at tier 2. Budget at resume: five_hour 58%, context 8%. Roadmap Decisions RD6/RD7/RD8 cover tier 2 in full, so no new Step 2 interview was opened. One unrelated uncommitted test fix (handlers_test.go efficiency string) was committed first at 26d85e7, with the user's confirmation, so tier 2 starts on a clean tree."
+    },
+    {
+      "at": "2026-09-09T14:55:00Z",
+      "type": "tier-proposed",
+      "by": "leader",
+      "detail": "Tier 2 artifacts written by the gateway worker and validated with openspec validate --strict. No database object, so the design gate did not fire. Tier moves [ ] -> [~]. Two waves planned: Groups 1-3 implementation, then Groups 4-5 tests and docs."
     }
   ]
 }

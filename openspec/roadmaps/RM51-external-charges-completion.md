@@ -222,7 +222,7 @@ archived) · `[x]` done (archived).
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
 | `[x]` | 1 | `RM51-charging-derive-status-and-price-source` | `charging` | Auto-promote to `DONE` on both writes + `price_source` column, backfill and rule | — |
-| `[ ]` | 2 | `RM51-gateway-add-free-charge-and-month-preset` | `gateway` | "This charge was free" checkbox on both forms + "last month" date preset | 1 |
+| `[~]` | 2 | `RM51-gateway-add-free-charge-and-month-preset` | `gateway` | "This charge was free" checkbox on both forms + "last month" date preset | 1 |
 
 ### Tier 1 — `[x]` `RM51-charging-derive-status-and-price-source` (module: `charging`)
 
@@ -255,7 +255,7 @@ write paths, with `charging` computing the column and the caller supplying only 
 order check and the Makefile/guard re-check. Refresh the KB files named in the roadmap's verified
 findings.*
 
-### Tier 2 — `[ ]` `RM51-gateway-add-free-charge-and-month-preset` (module: `gateway`; depends on tier 1)
+### Tier 2 — `[~]` `RM51-gateway-add-free-charge-and-month-preset` (module: `gateway`; depends on tier 1)
 
 Covers the UI half of ticket bullet **2** and all of bullet **3**.
 
