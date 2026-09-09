@@ -215,7 +215,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
+- [x] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
   say-so; work that is complete but unexecuted is **`awaiting-user-verification`**.
   ```bash
   make migrate-up

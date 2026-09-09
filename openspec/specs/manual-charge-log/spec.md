@@ -497,8 +497,17 @@ When a caller supplies no status at all, the capability SHALL record the entry a
 When a caller supplies a value that is neither of the two recognized statuses, the capability SHALL
 reject the request before any data is written.
 
+**When a caller submits an entry as in progress and it already carries every fact a done entry
+requires, the capability SHALL instead record it as done.** This promotion SHALL apply on both
+creating a new entry and editing an existing one, so no write path can produce an entry that
+carries every done-required fact while remaining recorded as in progress. The capability SHALL
+NOT promote an entry submitted as done that is missing a required fact — that request SHALL still
+be rejected exactly as it would be without this rule.
+
 The capability SHALL NOT restrict which status an entry may move to. An entry recorded as done may
-be moved back to in progress.
+be moved back to in progress. Moving an entry back to in progress while it still carries every
+done-required fact SHALL immediately record it as done again, by the same promotion rule — an
+entry is only genuinely reopened when a caller also clears at least one done-required fact.
 
 Every entry that existed before the capability gained this status SHALL be recorded as **in
 progress**, so that historical entries surface as unreviewed rather than silently asserted to be
@@ -558,6 +567,36 @@ complete.
 - **GIVEN** charge entries that were stored before the capability gained a status
 - **WHEN** those entries are read
 - **THEN** each one's recorded status is in progress
+
+#### Scenario: A complete in-progress entry is promoted to done on creation
+- **GIVEN** an authenticated user
+- **WHEN** they create an entry recorded as in progress that carries the charge date, the location
+  kind, the session end time and the ending battery percentage
+- **THEN** the entry is stored
+- **AND** its recorded status is done, not in progress
+
+#### Scenario: A complete in-progress entry is promoted to done on an edit
+- **GIVEN** an existing entry recorded as in progress that is missing the session end time and the
+  ending battery percentage
+- **WHEN** the user edits it, still recording it as in progress, but now supplying both missing
+  facts
+- **THEN** the stored entry's recorded status is done, not in progress
+
+#### Scenario: An incomplete done submission is rejected, promotion or not
+- **GIVEN** an authenticated user
+- **WHEN** they submit an entry explicitly recorded as done that is missing the ending battery
+  percentage
+- **THEN** the request is rejected with a validation error naming the ending battery percentage
+- **AND** no entry is stored
+
+#### Scenario: Reopening a done entry without clearing its facts promotes it right back
+- **GIVEN** an existing entry recorded as done, carrying a session end time and an ending battery
+  percentage
+- **WHEN** the user edits it to be recorded as in progress, without clearing the session end time
+  or the ending battery percentage
+- **THEN** the stored entry's recorded status is done again
+- **AND** the entry is genuinely reopened only when the user also clears at least one of those two
+  facts
 
 ### Requirement: Energy added is optional, may be derived on write, and records its provenance
 
@@ -667,4 +706,59 @@ the same vehicle carry two independent readings.
 - **GIVEN** an authenticated user
 - **WHEN** they submit an entry with an odometer reading below zero
 - **THEN** the request is rejected with a validation error
+
+### Requirement: A charge entry's price records whether a zero amount is confirmed real
+
+The manual-charge-log capability SHALL record, for every charge entry, whether its price is a
+confirmed real amount or an unconfirmed placeholder. A price greater than zero SHALL always be
+recorded as confirmed. A price of zero SHALL be recorded as confirmed only when the caller
+explicitly confirms it is a real free charge; otherwise it SHALL be recorded as unconfirmed.
+
+The capability SHALL determine this provenance itself on every create and every edit, and SHALL
+NOT accept it directly from a caller: a caller MAY only supply its confirmation intent for a zero
+price, never the recorded provenance itself. The intent SHALL be ignored when the price is greater
+than zero, since such a price is always confirmed regardless of it.
+
+Every charge entry that existed before the capability gained this provenance SHALL be recorded
+according to its own already-stored price: a positive price SHALL be recorded as confirmed, and a
+zero price SHALL be recorded as unconfirmed.
+
+#### Scenario: A positive price is always recorded as confirmed
+- **GIVEN** an authenticated user
+- **WHEN** they submit an entry with a price greater than zero
+- **THEN** the entry's recorded price provenance is confirmed
+
+#### Scenario: A confirmed zero price is recorded as confirmed
+- **GIVEN** an authenticated user
+- **WHEN** they submit an entry with a price of zero and explicitly confirm it is a real free
+  charge
+- **THEN** the entry's recorded price provenance is confirmed
+
+#### Scenario: An unconfirmed zero price is recorded as unconfirmed
+- **GIVEN** an authenticated user
+- **WHEN** they submit an entry with a price of zero without confirming it is a real free charge
+- **THEN** the entry's recorded price provenance is unconfirmed
+
+#### Scenario: A confirmation intent is ignored when the price is positive
+- **GIVEN** an authenticated user
+- **WHEN** they submit an entry with a price greater than zero, whether or not they also send a
+  confirmation intent
+- **THEN** the entry's recorded price provenance is confirmed either way
+
+#### Scenario: A caller cannot set the price provenance directly
+- **GIVEN** a caller that submits an entry with a price of zero, does not confirm it, but also
+  asserts the price provenance as confirmed
+- **WHEN** the entry is stored
+- **THEN** the entry's recorded price provenance is unconfirmed
+
+#### Scenario: Editing the price recomputes its provenance
+- **GIVEN** an existing entry whose price provenance is unconfirmed
+- **WHEN** the user edits it, confirming a zero price is a real free charge
+- **THEN** the entry's recorded price provenance is confirmed
+
+#### Scenario: Entries that pre-date this provenance are recorded from their own price
+- **GIVEN** charge entries that were stored before the capability recorded price provenance
+- **WHEN** those entries are read
+- **THEN** every entry whose price was greater than zero has its provenance recorded as confirmed
+- **AND** every entry whose price was zero has its provenance recorded as unconfirmed
 

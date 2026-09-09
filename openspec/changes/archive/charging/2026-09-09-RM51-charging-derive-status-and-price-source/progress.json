@@ -6,9 +6,9 @@
   "roadmap": "RM51-external-charges-completion",
   "tier": 1,
   "intention": "charging derives two fields on write. It promotes an entry to StatusDone when the submitted status is StatusInProgress and every DONE-required field is present, reusing missingFields against RequiredFieldsFor(StatusDone) and never demoting (RD1), on both Create and Update (RD2). It adds a price_source column (USER / UNCONFIRMED) that records whether a zero price is a real free charge or forgotten data, computed by the module from a caller-supplied PriceConfirmed boolean (RD3, RD4). No index (RD5).",
-  "status": "applied",
+  "status": "verified",
   "created_at": "2026-09-09T12:40:00Z",
-  "updated_at": "2026-09-09T13:52:31Z",
+  "updated_at": "2026-09-09T14:01:38Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,7 +24,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "O1",
       "O2"
     ],
     "blocked": [],
@@ -35,17 +34,17 @@
       "2.1",
       "2.2",
       "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
       "4.1",
       "4.2",
       "5.1",
       "L1",
-      "L2"
+      "L2",
+      "O1"
     ],
-    "awaiting_user_verification": [
-      "3.1",
-      "3.2",
-      "3.3"
-    ]
+    "awaiting_user_verification": []
   },
   "decisions": [
     {
@@ -219,7 +218,7 @@
         "2.3"
       ],
       "wave": 3,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T13:45:56Z",
@@ -232,7 +231,7 @@
         "approx": true,
         "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
       },
-      "notes": "Six offline tests added to entry_status_test.go for promoteIfComplete, asserting design.md A1-A6. Written, not run."
+      "notes": "Six offline tests added to entry_status_test.go for promoteIfComplete, asserting design.md A1-A6. Verified by the owner: make check passed."
     },
     {
       "id": "3.2",
@@ -241,7 +240,7 @@
         "2.3"
       ],
       "wave": 3,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T13:45:56Z",
@@ -254,7 +253,7 @@
         "approx": true,
         "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
       },
-      "notes": "price_source_test.go created, package charging. One table test covering A7-A10, including the precedence case. Written, not run."
+      "notes": "price_source_test.go created, package charging. One table test covering A7-A10, including the precedence case. Verified by the owner: make check passed."
     },
     {
       "id": "3.3",
@@ -263,7 +262,7 @@
         "2.3"
       ],
       "wave": 3,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-09T13:45:56Z",
@@ -276,7 +275,7 @@
         "approx": true,
         "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
       },
-      "notes": "db_promotion_price_source_integration_test.go created, 14 DATABASE_URL-gated tests for B1-B3 and C1-C11. Table references are schema-qualified. CHECK asserted by SQLSTATE 23514. Written, not run."
+      "notes": "db_promotion_price_source_integration_test.go created, 14 DATABASE_URL-gated tests for B1-B3 and C1-C11. Table references are schema-qualified. CHECK asserted by SQLSTATE 23514. Verified by the owner: make check passed."
     },
     {
       "id": "4.1",
@@ -375,14 +374,14 @@
         "5.1"
       ],
       "wave": 5,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "owner",
       "model": null,
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-09-09T14:01:38Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "Only the owner runs the suite. Nothing may be reported done on the assistant's say-so."
+      "notes": "Owner ran make migrate-up and make check and reported a pass. One unrelated pre-existing failure in internal/gateway/handlers (efficiency string) was found and fixed by the owner."
     },
     {
       "id": "O2",
@@ -402,10 +401,17 @@
     }
   ],
   "review": {
-    "status": "not-started",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "charging-reviewer",
+    "brief": "Review RM51-charging-derive-status-and-price-source (tier 1, MAG-58) against design.md D1-D7, the Test Contract, the confirmed database gate, and CLAUDE.md/ai/*.md conventions.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-09T15:10:00Z",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
   },
   "events": [
     {
@@ -482,6 +488,18 @@
         "approx": true,
         "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
       }
+    },
+    {
+      "at": "2026-09-09T14:01:38Z",
+      "type": "user-verified",
+      "by": "user",
+      "detail": "THE OWNER ran make migrate-up and make check and reported a PASS. The assistant did not run the suite and does not claim this result. The run surfaced one failure unrelated to this change: TestMapDashboardSnapshot_FixtureFull in internal/gateway/handlers, from the efficiency tile merged in 3389f83 before this branch. The owner fixed it. This branch touches no gateway file."
+    },
+    {
+      "at": "2026-09-09T14:01:38Z",
+      "type": "leader-finding",
+      "by": "leader",
+      "detail": "Three strings still read '2.8 km / %' after the owner's fix: the t.Errorf want message at handlers_test.go:891, the formatKmPerPct doc comment at format.go:86, and the DashboardVM.Efficiency doc comment at dashboard_vm.go:80. formatKmPerPct returns '2.8 km/%'. Flagged, not touched: outside this change and outside the charging module."
     }
   ]
 }
