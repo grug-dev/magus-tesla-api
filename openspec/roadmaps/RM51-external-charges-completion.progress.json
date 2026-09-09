@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM51-external-charges-completion",
+  "intention": "A manual charge entry completes itself: charging promotes it to DONE on any write when every DONE-required field is present, never demoting. A new price_source column (USER / UNCONFIRMED) records whether a zero price is a real free charge or forgotten data, driven by an always-visible 'this charge was free' checkbox on both external-charges forms. The date filter row gains a third preset, 'last month' = the previous calendar month (Linear MAG-58).",
+  "request": "/kkpa-pickup-linear-ticket MAG-58 — [Chargin] External Charges V2 - Done Status. Page: external-charges. (1) When editing a record and the user fills up all the required fields, the API should change the status to DONE (if it is still in progress by the user) when updating manual_charge_entries. (2) When the user edits a record and the price is zero and start/end battery is filled up (ready to be DONE), prompt the user that he is sure the price is ZERO; if the user confirms, save that action as user-zero-price-confirmed or similar. (3) Add a new date filter toggle of 'last month'.",
+  "autopilot": false,
+  "status": "in-progress",
+  "created_at": "2026-09-09T12:26:27Z",
+  "updated_at": "2026-09-09T12:26:27Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM51-MAG-58-external-charges-completion",
+    "base": "main",
+    "created_at": "2026-09-09T12:26:27Z",
+    "ticket": "MAG-58",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-58/chargin-external-charges-v2-done-status"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-09T12:10:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "charging promotes an entry to StatusDone when the submitted status is StatusInProgress and every DONE-required field is present. Promotion only, never demotion. The test reuses missingFields against RequiredFieldsFor(StatusDone), never a hardcoded field list.",
+      "why": "Keeps RequiredFieldsFor the single source of truth, so a future DONE field tightens promotion on its own. Accepted cost: a user cannot keep a complete entry open."
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-09T12:12:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The RD1 promotion runs on both Writer.Create and Writer.Update, not only on update as the ticket text says.",
+      "why": "Makes 'complete fields implies DONE' a real invariant of the table, instead of a rule that holds only if the row is edited later."
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-09T12:16:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Add price_source TEXT NOT NULL DEFAULT 'UNCONFIRMED' CHECK (price_source IN ('USER','UNCONFIRMED')) to charging.manual_charge_entries, plus UPDATE ... SET price_source='USER' WHERE price > 0. Rule: price>0 or a confirmed zero is USER; an unconfirmed zero is UNCONFIRMED.",
+      "why": "Mirrors energy_source, a pattern already in this table. TEXT+CHECK over ENUM for the same reason the entry_status migration gives. UNCONFIRMED as default fails closed."
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-09T12:16:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "charging computes price_source; the gateway never sends it. The caller supplies only a PriceConfirmed boolean on the write input.",
+      "why": "Same contract as energy_source, which the KB records as module-computed and never caller-supplied. Keeps the derived rule inside the module that owns the data."
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-09T12:22:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "No index on price_source. A partial index on (vehicle_vin, charged_on) WHERE price_source='UNCONFIRMED' was offered at the database gate and declined.",
+      "why": "No query filters or sorts on it. On a two-value column an index serves no read and taxes every write. The read-heavy profile does not justify an index no read uses."
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-09T12:20:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The confirmation is an always-visible 'this charge was free' checkbox on both forms. It never blocks the save and adds no new JavaScript. This is a deliberate divergence from the ticket, which asked for a blocking prompt.",
+      "why": "User chose it over a server 422 confirm panel and over a client confirm() interceptor. Keeps the sanctioned JS exception list closed at RD12/RD13/RD14. Accepted cost: a careless zero can still be saved."
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-09T12:24:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The 'last month' preset is the previous calendar month: startOfMonth(today).AddDate(0,-1,0) to endOfMonth of that.",
+      "why": "Reads as a set beside the existing 'this month' preset and reuses two helpers that already exist. A rolling 30-day window was rejected because it overlaps 'this month' for most of any month."
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-09T12:24:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "The new preset is added to /external-charges only. /supercharger-stats keeps its own presets untouched.",
+      "why": "The ticket scopes itself with the line 'Page: external-charges'. Not asked as a question because the ticket already answers it."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM51-charging-derive-status-and-price-source",
+      "module": "charging",
+      "depends_on": [],
+      "optional": false,
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Ticket bullet 1 plus the storage half of bullet 2. RD1/RD2 promotion helper called from both write paths, and the RD3 price_source column with its backfill and rule. No index (RD5)."
+    },
+    {
+      "id": 2,
+      "change": "RM51-gateway-add-free-charge-and-month-preset",
+      "module": "gateway",
+      "depends_on": [1],
+      "optional": false,
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "UI half of ticket bullet 2 and all of bullet 3. RD6 checkbox on both forms with no new JS, and the RD7 'last month' preset on /external-charges only (RD8)."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-09T12:26:27Z",
+      "type": "roadmap-created",
+      "by": "leader",
+      "detail": "RM51 created from Linear MAG-58 via kkpa-pickup-linear-ticket. Multi-module (charging + gateway) so Step 1b applies. Work counter 51 -> 52. Branch ft/RM51-MAG-58-external-charges-completion off main at cd2e0c0. Budget at creation: five_hour 77%, context 13%. Runtime Claude Code, native subagents available, budget cache available."
+    },
+    {
+      "at": "2026-09-09T12:25:00Z",
+      "type": "design-gate-confirmed",
+      "by": "leader",
+      "detail": "database gate: the user confirmed the RD3 price_source schema, its two-statement backfill, and the RD5 no-index plan before any artifact was written. The partial-index alternative was shown and declined."
+    }
+  ]
+}
