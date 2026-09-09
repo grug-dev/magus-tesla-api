@@ -336,6 +336,21 @@ type VehicleStatus struct {
 	// as documented on DayConsumption.ConsumedPct/DayDistance.KmDriven above.
 	DistanceTraveledKmCalc *float64
 	ConsumedPct            *float64
+	// TpmsPressureFLPSICalc/FR/RL/RR are the four tyre-pressure day-over-day
+	// deltas (RM50-analytics-add-tire-pressure-variance), one per wheel, in
+	// PSI: this day's raw reading minus the previous day's. Pointer because
+	// nullable: nil when this day has no predecessor at all, OR when either
+	// day's own raw wheel reading is itself nil (design.md D2) -- the same
+	// nil rule DistanceTraveledKmCalc/ConsumedPct above already follow, NOT
+	// the raw-observation rule the four TpmsPressure*PSI fields above follow.
+	// This delta partly reflects ambient air temperature change (about 1 PSI
+	// per 5.5 degrees C), not only a genuine pressure change -- accepted, not
+	// a defect (roadmap RD3). Never apply a threshold or a target-pressure
+	// comparison to it.
+	TpmsPressureFLPSICalc *float64
+	TpmsPressureFRPSICalc *float64
+	TpmsPressureRLPSICalc *float64
+	TpmsPressureRRPSICalc *float64
 }
 
 // Efficiency is one computed rolling-efficiency result — our own domain model,

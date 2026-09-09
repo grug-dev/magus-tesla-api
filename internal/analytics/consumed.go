@@ -94,6 +94,17 @@ type vehicleMetricRow struct {
 	EstimatedRangeKmCalc   *float64
 	DaysSpannedCalc        *int
 
+	// The four tyre-pressure day-over-day deltas
+	// (RM50-analytics-add-tire-pressure-variance design.md D1/D2), computed by
+	// consumption.go's deriveConsumption from this row's snapshot pair. Same
+	// nil rule as the five _calc columns above: nil iff this row's day has no
+	// predecessor snapshot at all, OR either day's own raw wheel reading is
+	// itself nil.
+	TpmsPressureFLPSICalc *float64
+	TpmsPressureFRPSICalc *float64
+	TpmsPressureRLPSICalc *float64
+	TpmsPressureRRPSICalc *float64
+
 	// D13 corrected consumption. ConsumedPct is nil under the identical
 	// "no predecessor" condition as BatteryUsedPctCalc -- there is no raw
 	// delta to correct. Flagged is NEVER a pointer: it is always false (not
@@ -337,6 +348,10 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			KmPerPctCalc:           calc.KmPerPctCalc,
 			EstimatedRangeKmCalc:   calc.EstimatedRangeKmCalc,
 			DaysSpannedCalc:        calc.DaysSpannedCalc,
+			TpmsPressureFLPSICalc:  calc.TpmsPressureFLPSICalc,
+			TpmsPressureFRPSICalc:  calc.TpmsPressureFRPSICalc,
+			TpmsPressureRLPSICalc:  calc.TpmsPressureRLPSICalc,
+			TpmsPressureRRPSICalc:  calc.TpmsPressureRRPSICalc,
 			ConsumedPct:            &consumed,
 			Flagged:                flagged,
 			MissingChargingType:    missingType,

@@ -216,6 +216,109 @@ func TestDeriveConsumption_NilPrevReturnsCurUnchanged(t *testing.T) {
 		got.KmPerPctCalc != nil || got.EstimatedRangeKmCalc != nil || got.DaysSpannedCalc != nil {
 		t.Errorf("deriveConsumption(nil, cur): want all five derived fields nil, got %+v", got)
 	}
+	// RM50-analytics-add-tire-pressure-variance design.md D2, condition 1 —
+	// no predecessor at all, so all four tyre-pressure deltas stay nil too,
+	// regardless of cur's own TPMS readings.
+	if got.TpmsPressureFLPSICalc != nil || got.TpmsPressureFRPSICalc != nil ||
+		got.TpmsPressureRLPSICalc != nil || got.TpmsPressureRRPSICalc != nil {
+		t.Errorf("deriveConsumption(nil, cur): want all four TPMS deltas nil, got %+v", got)
+	}
+}
+
+// TestDeriveConsumption_TpmsDeltas_AllFourWheelsPresent covers design.md's
+// Test Contract Fixture 1 — a predecessor exists and both days report all
+// four wheels. Expected deltas are cur minus prev (not prev minus cur), and
+// include at least one negative delta to prove sign is not clamped.
+func TestDeriveConsumption_TpmsDeltas_AllFourWheelsPresent(t *testing.T) {
+	prev := telemetry.Snapshot{
+		OdometerKm:        1000.0,
+		BatteryLevelPct:   80,
+		CapturedDate:      time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		TpmsPressureFLPSI: fp(35.0),
+		TpmsPressureFRPSI: fp(35.5),
+		TpmsPressureRLPSI: fp(36.0),
+		TpmsPressureRRPSI: fp(36.5),
+	}
+	cur := telemetry.Snapshot{
+		OdometerKm:        1050.0,
+		BatteryLevelPct:   70,
+		CapturedDate:      time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC),
+		TpmsPressureFLPSI: fp(38.5), // +3.5
+		TpmsPressureFRPSI: fp(34.0), // -1.5 (negative delta -- sign not clamped)
+		TpmsPressureRLPSI: fp(36.0), // 0.0
+		TpmsPressureRRPSI: fp(40.0), // +3.5
+	}
+
+	got := deriveConsumption(&prev, cur)
+
+	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.5))
+	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(-1.5))
+	assertFloatPtr(t, "TpmsPressureRLPSICalc", got.TpmsPressureRLPSICalc, fp(0.0))
+	assertFloatPtr(t, "TpmsPressureRRPSICalc", got.TpmsPressureRRPSICalc, fp(3.5))
+}
+
+// TestDeriveConsumption_TpmsDeltas_WheelAbsentOnCur covers design.md's Test
+// Contract Fixture 3 — a predecessor exists, but one wheel's reading is
+// absent on cur. That wheel's delta must stay nil; the other three, present
+// on both days, compute normally.
+func TestDeriveConsumption_TpmsDeltas_WheelAbsentOnCur(t *testing.T) {
+	prev := telemetry.Snapshot{
+		OdometerKm:        1000.0,
+		BatteryLevelPct:   80,
+		CapturedDate:      time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		TpmsPressureFLPSI: fp(35.0),
+		TpmsPressureFRPSI: fp(35.5),
+		TpmsPressureRLPSI: fp(35.1),
+		TpmsPressureRRPSI: fp(35.3),
+	}
+	cur := telemetry.Snapshot{
+		OdometerKm:        1050.0,
+		BatteryLevelPct:   70,
+		CapturedDate:      time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC),
+		TpmsPressureFLPSI: fp(38.0),
+		TpmsPressureFRPSI: fp(36.0),
+		TpmsPressureRLPSI: nil, // absent this capture -- must stay nil, never 0
+		TpmsPressureRRPSI: fp(38.3),
+	}
+
+	got := deriveConsumption(&prev, cur)
+
+	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.0))
+	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(0.5))
+	assertFloatPtr(t, "TpmsPressureRLPSICalc", got.TpmsPressureRLPSICalc, nil)
+	assertFloatPtr(t, "TpmsPressureRRPSICalc", got.TpmsPressureRRPSICalc, fp(3.0))
+}
+
+// TestDeriveConsumption_TpmsDeltas_WheelAbsentOnPrev covers design.md's Test
+// Contract Fixture 4 — a predecessor exists, but one wheel's reading is
+// absent on prev instead of cur. Proves the guard checks BOTH operands, not
+// only cur's.
+func TestDeriveConsumption_TpmsDeltas_WheelAbsentOnPrev(t *testing.T) {
+	prev := telemetry.Snapshot{
+		OdometerKm:        1000.0,
+		BatteryLevelPct:   80,
+		CapturedDate:      time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		TpmsPressureFLPSI: fp(35.0),
+		TpmsPressureFRPSI: fp(35.5),
+		TpmsPressureRLPSI: fp(35.1),
+		TpmsPressureRRPSI: nil, // absent on prev -- must stay nil, never 0
+	}
+	cur := telemetry.Snapshot{
+		OdometerKm:        1050.0,
+		BatteryLevelPct:   70,
+		CapturedDate:      time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC),
+		TpmsPressureFLPSI: fp(38.0),
+		TpmsPressureFRPSI: fp(36.0),
+		TpmsPressureRLPSI: fp(38.1),
+		TpmsPressureRRPSI: fp(40.3),
+	}
+
+	got := deriveConsumption(&prev, cur)
+
+	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.0))
+	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(0.5))
+	assertFloatPtr(t, "TpmsPressureRLPSICalc", got.TpmsPressureRLPSICalc, fp(3.0))
+	assertFloatPtr(t, "TpmsPressureRRPSICalc", got.TpmsPressureRRPSICalc, nil)
 }
 
 // TestDeriveConsumption_MultiDayGap covers design.md's Test Contract Fixture D

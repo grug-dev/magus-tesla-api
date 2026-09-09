@@ -164,7 +164,8 @@ SELECT DISTINCT ON (tesla_id)
     charging_state, charge_limit_soc_pct, captured_at,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    distance_traveled_km_calc, consumed_pct
+    distance_traveled_km_calc, consumed_pct,
+    tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
 FROM analytics.vehicle_metrics
 WHERE account_id = $1
 ORDER BY tesla_id, metric_date DESC
@@ -190,6 +191,10 @@ type LatestVehicleMetricsByAccountRow struct {
 	TpmsPressureRrPsi      pgtype.Float8
 	DistanceTraveledKmCalc pgtype.Float8
 	ConsumedPct            pgtype.Float8
+	TpmsPressureFlPsiCalc  pgtype.Float8
+	TpmsPressureFrPsiCalc  pgtype.Float8
+	TpmsPressureRlPsiCalc  pgtype.Float8
+	TpmsPressureRrPsiCalc  pgtype.Float8
 }
 
 // Backs analytics.Reader.LatestMetricsByAccount (design D5/D6 of
@@ -213,6 +218,11 @@ type LatestVehicleMetricsByAccountRow struct {
 // their first consumer on this read port. All six are PROJECTED ONLY -- none
 // appears in a WHERE, JOIN, or ORDER BY -- so idx_vehicle_metrics_latest
 // still serves this query exactly as before; no index change (design.md D3).
+// RM50-analytics-add-tire-pressure-variance widens this SELECT by four more
+// columns: the four tpms_pressure_*_psi_calc deltas. Same conclusion as
+// above -- PROJECTED ONLY, never a WHERE/JOIN/ORDER BY predicate in this
+// change or any planned one, so idx_vehicle_metrics_latest still serves
+// this query unchanged; no index change (design.md D3).
 func (q *Queries) LatestVehicleMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]LatestVehicleMetricsByAccountRow, error) {
 	rows, err := q.db.Query(ctx, latestVehicleMetricsByAccount, accountID)
 	if err != nil {
@@ -242,6 +252,10 @@ func (q *Queries) LatestVehicleMetricsByAccount(ctx context.Context, accountID u
 			&i.TpmsPressureRrPsi,
 			&i.DistanceTraveledKmCalc,
 			&i.ConsumedPct,
+			&i.TpmsPressureFlPsiCalc,
+			&i.TpmsPressureFrPsiCalc,
+			&i.TpmsPressureRlPsiCalc,
+			&i.TpmsPressureRrPsiCalc,
 		); err != nil {
 			return nil, err
 		}
@@ -305,7 +319,8 @@ INSERT INTO analytics.vehicle_metrics (
     locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
     charging_state, charge_limit_soc_pct, captured_at,
     max_range_charge_counter,
-    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6,
@@ -315,7 +330,8 @@ INSERT INTO analytics.vehicle_metrics (
     $15, $16, $17, $18, $19,
     $20, $21, $22,
     $23,
-    $24, $25, $26, $27
+    $24, $25, $26, $27,
+    $28, $29, $30, $31
 )
 ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     battery_level_pct         = EXCLUDED.battery_level_pct,
@@ -342,6 +358,10 @@ ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     tpms_pressure_fr_psi        = EXCLUDED.tpms_pressure_fr_psi,
     tpms_pressure_rl_psi        = EXCLUDED.tpms_pressure_rl_psi,
     tpms_pressure_rr_psi        = EXCLUDED.tpms_pressure_rr_psi,
+    tpms_pressure_fl_psi_calc   = EXCLUDED.tpms_pressure_fl_psi_calc,
+    tpms_pressure_fr_psi_calc   = EXCLUDED.tpms_pressure_fr_psi_calc,
+    tpms_pressure_rl_psi_calc   = EXCLUDED.tpms_pressure_rl_psi_calc,
+    tpms_pressure_rr_psi_calc   = EXCLUDED.tpms_pressure_rr_psi_calc,
     updated_at                 = now()
 `
 
@@ -373,6 +393,10 @@ type UpsertVehicleMetricParams struct {
 	TpmsPressureFrPsi      pgtype.Float8
 	TpmsPressureRlPsi      pgtype.Float8
 	TpmsPressureRrPsi      pgtype.Float8
+	TpmsPressureFlPsiCalc  pgtype.Float8
+	TpmsPressureFrPsiCalc  pgtype.Float8
+	TpmsPressureRlPsiCalc  pgtype.Float8
+	TpmsPressureRrPsiCalc  pgtype.Float8
 }
 
 // Queries for the analytics module. sqlc generates package `analyticsdb` from
@@ -407,6 +431,12 @@ type UpsertVehicleMetricParams struct {
 // follow the identical rule: raw observations copied verbatim from the day's own
 // telemetry.Snapshot, refreshed on every re-derivation, populated with or without
 // a predecessor (design.md D2).
+// The four tpms_pressure_*_psi_calc columns (RM50-analytics-add-tire-pressure-variance)
+// are DELTAS, not raw observations: refreshed on every re-derivation like every other
+// column above, but NULL whenever this day has no predecessor at all, OR either day's
+// own raw wheel reading is itself NULL (design.md D2) -- the same rule
+// distance_traveled_km_calc and its four siblings already follow, never the raw-TPMS
+// rule the four columns above it follow.
 func (q *Queries) UpsertVehicleMetric(ctx context.Context, arg UpsertVehicleMetricParams) error {
 	_, err := q.db.Exec(ctx, upsertVehicleMetric,
 		arg.AccountID,
@@ -436,6 +466,10 @@ func (q *Queries) UpsertVehicleMetric(ctx context.Context, arg UpsertVehicleMetr
 		arg.TpmsPressureFrPsi,
 		arg.TpmsPressureRlPsi,
 		arg.TpmsPressureRrPsi,
+		arg.TpmsPressureFlPsiCalc,
+		arg.TpmsPressureFrPsiCalc,
+		arg.TpmsPressureRlPsiCalc,
+		arg.TpmsPressureRrPsiCalc,
 	)
 	return err
 }

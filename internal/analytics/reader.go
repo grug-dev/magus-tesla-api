@@ -286,6 +286,10 @@ func (r *reader) LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID
 			TpmsPressureRRPSI:      ptrFloat64FromPg(row.TpmsPressureRrPsi),
 			DistanceTraveledKmCalc: ptrFloat64FromPg(row.DistanceTraveledKmCalc),
 			ConsumedPct:            ptrFloat64FromPg(row.ConsumedPct),
+			TpmsPressureFLPSICalc:  ptrFloat64FromPg(row.TpmsPressureFlPsiCalc),
+			TpmsPressureFRPSICalc:  ptrFloat64FromPg(row.TpmsPressureFrPsiCalc),
+			TpmsPressureRLPSICalc:  ptrFloat64FromPg(row.TpmsPressureRlPsiCalc),
+			TpmsPressureRRPSICalc:  ptrFloat64FromPg(row.TpmsPressureRrPsiCalc),
 		})
 	}
 	return out, nil

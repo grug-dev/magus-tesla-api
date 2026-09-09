@@ -40,6 +40,35 @@ type consumptionCalc struct {
 	KmPerPctCalc           *float64
 	EstimatedRangeKmCalc   *float64
 	DaysSpannedCalc        *int
+
+	// The four tyre-pressure day-over-day deltas
+	// (RM50-analytics-add-tire-pressure-variance design.md D1/D2), one per
+	// wheel, in PSI. Same nil convention as the five fields above: nil means
+	// "not computable", never a fabricated 0. Computed by tpmsDeltaPSI below,
+	// called once per wheel inside deriveConsumption.
+	TpmsPressureFLPSICalc *float64
+	TpmsPressureFRPSICalc *float64
+	TpmsPressureRLPSICalc *float64
+	TpmsPressureRRPSICalc *float64
+}
+
+// tpmsDeltaPSI computes one wheel's day-over-day tyre-pressure delta
+// (design.md D2, condition 2): cur minus prev, in PSI. Returns nil if
+// EITHER operand is nil -- there is no second number to subtract, so no
+// delta can be truthfully reported. Never fabricates a 0: a 0.0 delta
+// already means "no pressure change" elsewhere in this schema, so treating
+// a missing reading as "no change" would make every 0.0 ambiguous
+// (design.md D2's rejected alternative).
+//
+// This helper only ever needs to handle condition 2 (a missing wheel
+// reading) -- condition 1 (no predecessor day at all) is already handled by
+// deriveConsumption's own `if prev == nil` guard before this is called.
+func tpmsDeltaPSI(prev, cur *float64) *float64 {
+	if prev == nil || cur == nil {
+		return nil
+	}
+	delta := *cur - *prev
+	return &delta
 }
 
 // deriveConsumption computes the five derived-consumption figures for cur by
@@ -84,5 +113,15 @@ func deriveConsumption(prev *telemetry.Snapshot, cur telemetry.Snapshot) consump
 		estRange := kmPerPct * 100
 		calc.EstimatedRangeKmCalc = &estRange
 	}
+
+	// RM50-analytics-add-tire-pressure-variance design.md D1/D2: one delta
+	// per wheel, cur minus prev, nil if either operand's own raw reading is
+	// nil. Runs in this same "prev != nil" branch -- condition 1 (no
+	// predecessor at all) is already excluded by the guard above.
+	calc.TpmsPressureFLPSICalc = tpmsDeltaPSI(prev.TpmsPressureFLPSI, cur.TpmsPressureFLPSI)
+	calc.TpmsPressureFRPSICalc = tpmsDeltaPSI(prev.TpmsPressureFRPSI, cur.TpmsPressureFRPSI)
+	calc.TpmsPressureRLPSICalc = tpmsDeltaPSI(prev.TpmsPressureRLPSI, cur.TpmsPressureRLPSI)
+	calc.TpmsPressureRRPSICalc = tpmsDeltaPSI(prev.TpmsPressureRRPSI, cur.TpmsPressureRRPSI)
+
 	return calc
 }

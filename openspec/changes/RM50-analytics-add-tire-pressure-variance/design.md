@@ -277,7 +277,7 @@ pair (`prev` PSI values `35.0/35.2/35.1/35.3`, `cur` PSI values
 
 **Expected:** `entry.TpmsPressureFLPSICalc != nil && *entry.TpmsPressureFLPSICalc == 5.0`
 (40.0 − 35.0), and the matching value for the other three wheels
-(`0.9`, `5.1`, `5.0`).
+(`4.9`, `5.1`, `5.0`).
 
 ### Test scope — one DB-integration test, nothing else new
 

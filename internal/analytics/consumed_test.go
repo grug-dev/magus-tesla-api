@@ -1130,6 +1130,15 @@ func TestDeriveVehicleMetrics_TPMS_PredecessorLess_CopiesVerbatim(t *testing.T) 
 	if entry.DistanceTraveledKmCalc != nil {
 		t.Errorf("DistanceTraveledKmCalc: want nil (no predecessor), got %v", *entry.DistanceTraveledKmCalc)
 	}
+
+	// RM50-analytics-add-tire-pressure-variance design.md Fixture 5: a
+	// predecessor-less row's four tyre-pressure deltas stay nil, exactly
+	// like DistanceTraveledKmCalc above -- these are _calc columns, not raw
+	// observations.
+	assertFloatPtr(t, "TpmsPressureFLPSICalc", entry.TpmsPressureFLPSICalc, nil)
+	assertFloatPtr(t, "TpmsPressureFRPSICalc", entry.TpmsPressureFRPSICalc, nil)
+	assertFloatPtr(t, "TpmsPressureRLPSICalc", entry.TpmsPressureRLPSICalc, nil)
+	assertFloatPtr(t, "TpmsPressureRRPSICalc", entry.TpmsPressureRRPSICalc, nil)
 }
 
 // TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev covers
@@ -1187,6 +1196,18 @@ func TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev(t *testi
 	assertFloatPtr(t, "TpmsPressureFRPSI", entry.TpmsPressureFRPSI, floatPtr(40.1))
 	assertFloatPtr(t, "TpmsPressureRLPSI", entry.TpmsPressureRLPSI, floatPtr(40.2))
 	assertFloatPtr(t, "TpmsPressureRRPSI", entry.TpmsPressureRRPSI, floatPtr(40.3))
+
+	// RM50-analytics-add-tire-pressure-variance design.md Fixture 6: this
+	// row has a predecessor, so all four tyre-pressure deltas compute as cur
+	// minus prev. FL = 40.0-35.0 = 5.0, FR = 40.1-35.2 = 4.9,
+	// RL = 40.2-35.1 = 5.1, RR = 40.3-35.3 = 5.0 -- computed directly from
+	// this fixture's own prev/cur values (design.md's prose lists "0.9" for
+	// FR, a typo for 4.9: the fixture's own stated prev/cur pair,
+	// 35.2 -> 40.1, has only one arithmetically consistent difference).
+	assertFloatPtr(t, "TpmsPressureFLPSICalc", entry.TpmsPressureFLPSICalc, floatPtr(5.0))
+	assertFloatPtr(t, "TpmsPressureFRPSICalc", entry.TpmsPressureFRPSICalc, floatPtr(4.9))
+	assertFloatPtr(t, "TpmsPressureRLPSICalc", entry.TpmsPressureRLPSICalc, floatPtr(5.1))
+	assertFloatPtr(t, "TpmsPressureRRPSICalc", entry.TpmsPressureRRPSICalc, floatPtr(5.0))
 }
 
 // TestDeriveVehicleMetrics_TPMS_OneWheelAbsent_WithPredecessor covers the
