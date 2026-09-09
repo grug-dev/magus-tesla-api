@@ -119,9 +119,10 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		return Entry{}, err
 	}
 	e.Status = status
+	e = promoteIfComplete(e) // RD1/RD2 (design.md D1)
 
 	if missing := missingFields(e); len(missing) > 0 {
-		return Entry{}, missingFieldsError(status, missing)
+		return Entry{}, missingFieldsError(e.Status, missing)
 	}
 
 	energy, source, err := resolveEnergy(ctx, e)
@@ -139,6 +140,7 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("charging: encoding price: %w", err)
 	}
+	priceSource := resolvePriceSource(e) // RD3/RD4 (design.md D3)
 
 	params := chargingdb.CreateEntryParams{
 		AccountID:      e.AccountID,
@@ -159,12 +161,15 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		LocationKind:  stringPtrToRequired(e.LocationKind),
 		LocationLabel: stringPtrToPgText(e.LocationLabel),
 		Notes:         stringPtrToPgText(e.Notes),
-		// status and energy_source are both module-computed — status by
-		// normalizeStatus above, energy_source by resolveEnergy (design.md D4).
-		// The caller's own e.EnergySource is never read.
-		Status:       string(status),
+		// status, energy_source, and price_source are all module-computed —
+		// status by normalizeStatus/promoteIfComplete above, energy_source by
+		// resolveEnergy (design.md D4), price_source by resolvePriceSource
+		// (RM51 design.md D3). The caller's own e.EnergySource/e.PriceSource
+		// is never read.
+		Status:       string(e.Status),
 		EnergySource: string(source),
 		OdometerKm:   intPtrToPgInt4(e.OdometerKm),
+		PriceSource:  string(priceSource),
 	}
 
 	row, err := w.store.createEntry(ctx, params)
@@ -188,9 +193,10 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 		return Entry{}, err
 	}
 	e.Status = status
+	e = promoteIfComplete(e) // RD1/RD2 (design.md D1)
 
 	if missing := missingFields(e); len(missing) > 0 {
-		return Entry{}, missingFieldsError(status, missing)
+		return Entry{}, missingFieldsError(e.Status, missing)
 	}
 
 	energy, source, err := resolveEnergy(ctx, e)
@@ -206,6 +212,7 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("charging: encoding price: %w", err)
 	}
+	priceSource := resolvePriceSource(e) // RD3/RD4 (design.md D3)
 
 	params := chargingdb.UpdateEntryParams{
 		ID:              e.ID,
@@ -224,11 +231,13 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 		LocationKind:  stringPtrToRequired(e.LocationKind),
 		LocationLabel: stringPtrToPgText(e.LocationLabel),
 		Notes:         stringPtrToPgText(e.Notes),
-		// status and energy_source are both module-computed (design.md D4) — the
-		// caller's own e.EnergySource is never read.
-		Status:       string(status),
+		// status, energy_source, and price_source are all module-computed
+		// (design.md D4; RM51 design.md D3) — the caller's own
+		// e.EnergySource/e.PriceSource is never read.
+		Status:       string(e.Status),
 		EnergySource: string(source),
 		OdometerKm:   intPtrToPgInt4(e.OdometerKm),
+		PriceSource:  string(priceSource),
 	}
 
 	row, err := w.store.updateEntry(ctx, params)
@@ -272,6 +281,21 @@ func resolveEnergy(ctx context.Context, e Entry) (*float64, EnergySource, error)
 		return nil, EnergySourceUser, nil
 	}
 	return e.EnergyAddedKWh, EnergySourceUser, nil
+}
+
+// resolvePriceSource applies the RD3 rule table: a positive price is always
+// USER (someone typed a real amount); a zero price is USER only when the
+// caller confirmed it is a real free charge (e.PriceConfirmed), UNCONFIRMED
+// otherwise. The caller's own e.PriceSource is never read (design.md D3),
+// mirroring resolveEnergy's EnergySource computation.
+func resolvePriceSource(e Entry) PriceSource {
+	if e.Price > 0 {
+		return PriceSourceUser
+	}
+	if e.PriceConfirmed {
+		return PriceSourceUser
+	}
+	return PriceSourceUnconfirmed
 }
 
 // Delete removes the entry identified by id, scoped to the caller's accountID.
@@ -455,6 +479,10 @@ func newReader(pool *pgxpool.Pool) Reader {
 //   - Status: string → Status; EnergySource: string → EnergySource — plain string
 //     conversions, both module-computed on write (MAG-18/RM33 design.md D4/D5/D8).
 //   - OdometerKm: pgtype.Int4 → *int via pgInt4ToIntPtr (MAG-18/RM33 design.md D6).
+//   - PriceSource: string → PriceSource — plain string conversion, module-computed
+//     on write (RM51 design.md D3). PriceConfirmed is NOT set here and stays the
+//     Go zero value (false) on every read: it is a caller-supplied write-only
+//     intent, not a stored fact (design.md D3's "not persisted directly").
 func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 	// Price: NUMERIC → float64 (required column; Float64Value returns a
 	// pgtype.Float8 wrapper — use its Float64 field after error check, design D9).
@@ -497,6 +525,10 @@ func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 		UpdatedAt: r.UpdatedAt.Time,
 		// Nullable NUMERIC (GENERATED ALWAYS AS ... STORED) → *float64
 		InferredCapacityKWhCalc: pgNumericToFloat64Ptr(r.InferredCapacityKwhCalc),
+		// PriceSource: module-computed provenance, plain string conversion
+		// (RM51 design.md D3). PriceConfirmed stays false (Go zero value) —
+		// not persisted directly, see the mapping-rules comment above.
+		PriceSource: PriceSource(r.PriceSource),
 	}, nil
 }
 

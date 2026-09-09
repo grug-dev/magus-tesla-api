@@ -4,10 +4,14 @@
 // the date, energy added (kWh), cost, and optional metadata (battery before/after,
 // timing, charging type, location, odometer). Every entry carries a lifecycle
 // Status (IN_PROGRESS or DONE, MAG-18/RM33), and energy may be omitted and derived
-// on write from the pack capacity and the battery delta (design.md D3). The module
-// persists and retrieves these entries, enforces multi-tenant data isolation, and
-// computes derived values (cost-per-kWh, battery delta, session duration) on read
-// as value-receiver methods on Entry.
+// on write from the pack capacity and the battery delta (design.md D3). A charge
+// entry submitted as IN_PROGRESS that already carries every DONE-required fact is
+// auto-promoted to DONE on both Create and Update (RM51 design.md D1), and a zero
+// price records whether it is a confirmed real amount or an unconfirmed placeholder
+// via PriceSource (RM51 design.md D2/D3). The module persists and retrieves these
+// entries, enforces multi-tenant data isolation, and computes derived values
+// (cost-per-kWh, battery delta, session duration) on read as value-receiver methods
+// on Entry.
 //
 // Public ports are Writer (Create/Update/Delete) and Reader (list by vehicle / by
 // account). No HTML, no Templ, no Tesla adapter — this module is backend-only.
@@ -52,6 +56,19 @@ const (
 	EnergySourceEstimated EnergySource = "ESTIMATED"
 )
 
+// PriceSource is the provenance of Entry.Price: PriceSourceUser when the amount
+// is known to be real (a positive price, or a caller-confirmed zero),
+// PriceSourceUnconfirmed when a zero price has not been confirmed as a real
+// free charge (RM51 design.md D2/D3). ALWAYS COMPUTED BY internal/charging on
+// Create/Update -- a value set on the Entry passed to Writer is ignored and
+// overwritten, the same shape EnergySource already uses.
+type PriceSource string
+
+const (
+	PriceSourceUser        PriceSource = "USER"
+	PriceSourceUnconfirmed PriceSource = "UNCONFIRMED"
+)
+
 // Field names one field of an Entry whose presence RequiredFieldsFor can evaluate.
 // Its string value is the database COLUMN NAME, which is ALSO the gateway's form
 // input name and its validation-error map key (handlers/external_charges.go) — so the
@@ -69,7 +86,10 @@ const (
 // Entry is our domain model for one user-asserted charge session (no vendor suffix —
 // this is our own type, safe to build logic on, distinct from any external-API DTO;
 // see ai/architecture.md §6). Optional fields use *T: nil means the user did not
-// supply the value and it is stored as NULL in the database.
+// supply the value and it is stored as NULL in the database. A submission that is
+// IN_PROGRESS but already carries every DONE-required fact is auto-promoted to
+// DONE on Create/Update (RM51 design.md D1), and the entry's price provenance
+// (PriceSource) is always module-computed (RM51 design.md D3).
 //
 // pgtype is confined to the DB boundary inside service.go — it never appears here.
 // Timestamps map to time.Time; DATE maps to time.Time (midnight UTC).
@@ -88,6 +108,20 @@ type Entry struct {
 	ChargedOn time.Time // DATE column: midnight UTC of the charge day
 	Price     float64   // cost in Currency; NUMERIC(14,2) in DB; must be >= 0
 	Currency  string    // ISO 4217 code; defaults to 'COP' in DB
+
+	// PriceSource is the provenance of Price. ALWAYS COMPUTED BY THIS MODULE on
+	// Create/Update -- a value set here is ignored and overwritten, the same
+	// shape EnergySource already uses (design.md D3, RM51).
+	PriceSource PriceSource
+
+	// PriceConfirmed is a caller-supplied intent, read ONLY when Price == 0:
+	// true means the caller confirms a zero price is a real free charge, so it
+	// is recorded as PriceSourceUser instead of PriceSourceUnconfirmed. Ignored
+	// when Price > 0 -- such a price is always confirmed regardless of this
+	// field (design.md D5, RM51). NOT PERSISTED DIRECTLY: it drives PriceSource,
+	// which is what gets written and read back, so a round-trip through Reader
+	// always returns PriceConfirmed: false on every entry (design.md D3).
+	PriceConfirmed bool
 
 	// Optional fields — nil when not supplied by the user (NULL in DB).
 	StartedAt       *time.Time // TIMESTAMPTZ: exact session start, when known

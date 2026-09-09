@@ -37,6 +37,8 @@ type ManualChargeEntry struct {
 	EnergySource string
 	// Odometer reading in kilometres observed AT this charge event -- an observation belonging to the event, not current vehicle state, which is why it lives here and not on a vehicle table (roadmap D6). INTEGER, not NUMERIC(10,1): whole kilometres are what the user reads off the dash (the user chose this over the recommended one-decimal type). The _km suffix is mandatory under the project display-unit rule (ai/go-conventions.md). NULL means not recorded. Not indexed: nothing predicates on it.
 	OdometerKm pgtype.Int4
+	// Provenance of price: USER when the amount is known to be real (a positive price, or a caller-confirmed zero), UNCONFIRMED when a zero price has not been confirmed as a real free charge (RM51/MAG-58). Always computed by internal/charging, never accepted from a caller -- the same shape energy_source already uses. Historical rows were backfilled by their price at migration time: positive -> USER, zero -> UNCONFIRMED. Not indexed: nothing predicates on it (design.md Index Plan).
+	PriceSource string
 }
 
 // One Supercharger-mirror cursor per account (RM44-platform-add-mirror-watermark, MAG-48). Holds the highest telemetry.supercharger_history.updated_at this module's nightly mirror has already synchronized for that account. No row yet for an account means "epoch": the next mirror run backfills that account's whole history once. Owned by internal/charging; no other module reads this table directly.

@@ -37,7 +37,7 @@ human. See design.md **D1–D7** for the rationale behind each group.
 
 ## Wave 1 — schema + codegen (serialization point)
 
-- [ ] **1.1** **[module: charging worker]** Create
+- [x] **1.1** **[module: charging worker]** Create
   `internal/charging/db/migrations/20260909000001_add_price_source.sql` with the DDL in
   design.md §"Database Changes" → "The migration", **verbatim, including its full header comment
   and the `COMMENT ON COLUMN` statement**. That comment block carries D2 (why two statements, why
@@ -56,7 +56,7 @@ human. See design.md **D1–D7** for the rationale behind each group.
     impossible state here to guard against.
   `depends_on`: the owner's design-gate confirmation · `parallel_ok`: with 1.2
 
-- [ ] **1.2** **[module: charging worker]** Edit `internal/charging/db/query.sql`:
+- [x] **1.2** **[module: charging worker]** Edit `internal/charging/db/query.sql`:
   - `CreateEntry` — add `price_source` to the column list and `@price_source` to the `VALUES`.
   - `UpdateEntry` — add `price_source = @price_source` to the `SET` clause.
   - Add a short comment on each explaining that `price_source` is **computed by this module and
@@ -69,7 +69,7 @@ human. See design.md **D1–D7** for the rationale behind each group.
     and `VerifySuperchargerSession` are outside this change entirely.
   `depends_on`: — · `parallel_ok`: with 1.1
 
-- [ ] **1.3** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md` §"Builds &
+- [x] **1.3** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md` §"Builds &
   local checks") and **review the diff against design.md §"Expected sqlc diff"**, which is this
   task's acceptance criterion — not "it ran":
   - `db/models.go` — `ManualChargeEntry` gains **exactly one** field: `PriceSource string`.
@@ -87,7 +87,7 @@ human. See design.md **D1–D7** for the rationale behind each group.
 
 ## Wave 2 — domain surface, validation, service wiring
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — the domain surface:
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — the domain surface:
   - Add the exported `PriceSource` type and its two constants (`PriceSourceUser`,
     `PriceSourceUnconfirmed`), doc comment from design.md **D3** — "ALWAYS COMPUTED BY
     internal/charging on Create/Update -- a value set on the Entry passed to Writer is ignored
@@ -104,7 +104,7 @@ human. See design.md **D1–D7** for the rationale behind each group.
     price provenance and may auto-promote a complete entry to `DONE`.
   `depends_on`: 1.3 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/validation.go` — add
+- [x] **2.2** **[module: charging worker]** `internal/charging/validation.go` — add
   `promoteIfComplete(e Entry) Entry`, the full function from design.md **D1**, verbatim including
   its doc comment (the reuse of `missingFields`/`RequiredFieldsFor(StatusDone)`, the never-demote
   guarantee, and the call-site ordering it depends on). Place it beside `missingFields` in this
@@ -112,7 +112,7 @@ human. See design.md **D1–D7** for the rationale behind each group.
   `missingFields`.
   `depends_on`: 1.3 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: charging worker]** `internal/charging/service.go` — wire both rules
+- [x] **2.3** **[module: charging worker]** `internal/charging/service.go` — wire both rules
   into `Create` and `Update`. This is the join point:
   - **In both methods, immediately after `normalizeStatus` succeeds and before `missingFields`
     is called**, insert `e = promoteIfComplete(e)` (design.md **D1**, exact placement).

@@ -16,6 +16,11 @@
 -- true provenance -- the same shape VerifySuperchargerSession's @battery_pct_source already
 -- uses for charging.supercharger_sessions' human-write channel. service.go computes USER/ESTIMATED
 -- before binding this param; the query itself has no way to tell the two apart.
+--
+-- price_source is ALSO COMPUTED IN GO (RM51/MAG-58 design.md D2/D3), never accepted
+-- from the caller -- the identical precedent energy_source above already sets.
+-- service.go's resolvePriceSource computes USER/UNCONFIRMED before binding this
+-- param; the query itself has no way to tell the two apart.
 INSERT INTO charging.manual_charge_entries (
     account_id,
     tesla_id,
@@ -34,7 +39,8 @@ INSERT INTO charging.manual_charge_entries (
     notes,
     status,
     energy_source,
-    odometer_km
+    odometer_km,
+    price_source
 ) VALUES (
     @account_id,
     @tesla_id,
@@ -53,7 +59,8 @@ INSERT INTO charging.manual_charge_entries (
     @notes,
     @status,
     @energy_source,
-    @odometer_km
+    @odometer_km,
+    @price_source
 )
 RETURNING *;
 
@@ -69,6 +76,11 @@ RETURNING *;
 -- energy_source is COMPUTED IN GO, never accepted from the caller as a stored value's
 -- true provenance -- same shape as CreateEntry's @energy_source above, and the same
 -- precedent VerifySuperchargerSession's @battery_pct_source sets for charging.supercharger_sessions.
+--
+-- price_source is ALSO COMPUTED IN GO (RM51/MAG-58 design.md D2/D3), never accepted
+-- from the caller -- the identical precedent energy_source above already sets.
+-- Recomputed on every Update, never sticky: service.go's resolvePriceSource runs
+-- again against the entry's current price and confirmation intent.
 UPDATE charging.manual_charge_entries
 SET
     charged_on        = @charged_on,
@@ -86,6 +98,7 @@ SET
     status            = @status,
     energy_source     = @energy_source,
     odometer_km       = @odometer_km,
+    price_source      = @price_source,
     updated_at        = now()
 WHERE id = @id
   AND account_id = @account_id

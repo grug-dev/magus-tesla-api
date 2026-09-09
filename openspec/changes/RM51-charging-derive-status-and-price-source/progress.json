@@ -6,9 +6,9 @@
   "roadmap": "RM51-external-charges-completion",
   "tier": 1,
   "intention": "charging derives two fields on write. It promotes an entry to StatusDone when the submitted status is StatusInProgress and every DONE-required field is present, reusing missingFields against RequiredFieldsFor(StatusDone) and never demoting (RD1), on both Create and Update (RD2). It adds a price_source column (USER / UNCONFIRMED) that records whether a zero price is a real free charge or forgotten data, computed by the module from a caller-supplied PriceConfirmed boolean (RD3, RD4). No index (RD5).",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-09-09T12:40:00Z",
-  "updated_at": "2026-09-09T12:40:00Z",
+  "updated_at": "2026-09-09T13:45:04Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,9 +23,27 @@
   },
   "rollup": {
     "current": [],
-    "pending": ["1.1", "1.2", "1.3", "2.1", "2.2", "2.3", "3.1", "3.2", "3.3", "4.1", "4.2", "5.1", "L1", "L2", "O1", "O2"],
+    "pending": [
+      "3.1",
+      "3.2",
+      "3.3",
+      "4.1",
+      "4.2",
+      "5.1",
+      "L1",
+      "L2",
+      "O1",
+      "O2"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "2.3"
+    ]
   },
   "decisions": [
     {
@@ -43,25 +61,319 @@
       "made_by": "leader",
       "decision": "Corrected design.md D6 at reconcile. The worker wrote that no existing gateway call site sets Status. It does: parseExternalChargeForm sets Status on the Entry it builds. The worker had trusted a stale RM33-era comment in validation.go.",
       "why": "Left uncorrected it would teach the tier 2 worker the wrong thing about the write path, and it misstates who RD1's silent promotion actually affects."
+    },
+    {
+      "id": "L-wave-merge",
+      "at": "2026-09-09T13:37:22Z",
+      "scope": "dispatch",
+      "made_by": "leader",
+      "decision": "Waves 1 and 2 go to ONE serial worker dispatch (1.1-2.3) instead of two. Wave 3 tests plus 4.1 docs go to a second dispatch.",
+      "why": "A serial worker respects the sqlc serialization point on its own. Two dispatches instead of four saves two full doc-pack re-reads."
+    },
+    {
+      "id": "L-schema-qualify",
+      "at": "2026-09-09T13:45:04Z",
+      "scope": "migration",
+      "made_by": "leader",
+      "decision": "Accepted the worker's schema qualification of the migration to charging.manual_charge_entries, which deviates from design.md's literal DDL.",
+      "why": "Verified: the table moved to the charging schema in 20260902000003 and both later migrations qualify it. The bare name would fail at migrate-up. No D1-D7 type, default, constraint or backfill rule changed."
     }
   ],
   "tasks": [
-    { "id": "1.1", "title": "Create the price_source migration (Up two statements, Down plain DROP COLUMN)", "depends_on": [], "wave": 1, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "1.2", "title": "Edit internal/charging/db/query.sql for CreateEntry/UpdateEntry/read", "depends_on": [], "wave": 1, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "1.3", "title": "Run make sqlc so price_source reaches the generated models", "depends_on": ["1.1", "1.2"], "wave": 1, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.1", "title": "charging.go — PriceSource type, constants, Entry.PriceSource + Entry.PriceConfirmed", "depends_on": ["1.3"], "wave": 2, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.2", "title": "validation.go — promoteIfComplete + resolvePriceSource helpers", "depends_on": ["1.3"], "wave": 2, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.3", "title": "service.go — wire both rules into Writer.Create and Writer.Update", "depends_on": ["2.1", "2.2"], "wave": 2, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "3.1", "title": "entry_status_test.go — promoteIfComplete unit tests A1-A6", "depends_on": ["2.3"], "wave": 3, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "3.2", "title": "price_source_test.go — resolvePriceSource unit tests A7-A10", "depends_on": ["2.3"], "wave": 3, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "3.3", "title": "db_promotion_price_source_integration_test.go — groups B and C", "depends_on": ["2.3"], "wave": 3, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "4.1", "title": "internal/charging/AGENTS.md — document both derived-on-write rules", "depends_on": ["2.3"], "wave": 4, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "4.2", "title": "KB refresh: manual-charge-crud.md + INDEX row for price source (outside the charging sandbox)", "depends_on": ["2.3"], "wave": 4, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": "Leader-owned or needs an explicit path grant — kkpa/context/ is outside the module sandbox." },
-    { "id": "5.1", "title": "Run the cheap deterministic signals (build, vet, gofmt, guards)", "depends_on": ["3.1", "3.2", "3.3", "4.1", "4.2"], "wave": 5, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "L1", "title": "Leader: confirm build/vet green outside internal/charging (expected: no fix needed, all changes additive)", "depends_on": ["2.3"], "wave": 5, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "L2", "title": "Leader: confirm the root README.md needs no edit", "depends_on": ["2.3"], "wave": 5, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "O1", "title": "OWNER: run the suite and report results", "depends_on": ["5.1"], "wave": 5, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": "Only the owner runs the suite. Nothing may be reported done on the assistant's say-so." },
-    { "id": "O2", "title": "OWNER: confirm the real backfill of pre-existing rows after make migrate-up", "depends_on": ["5.1"], "wave": 5, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": "The integration tests only prove the column DEFAULT. The historical backfill is verified against the real dev data." }
+    {
+      "id": "1.1",
+      "title": "Create the price_source migration (Up two statements, Down plain DROP COLUMN)",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:37:22Z",
+      "completed_at": "2026-09-09T13:45:04Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 24,
+        "five_hour_pct_end": 35,
+        "cost_usd_delta": 5.0,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-2.3 jointly; the same delta is copied onto all six tasks"
+      },
+      "notes": "Migration written. Schema-qualified every reference as charging.manual_charge_entries: the table moved to the charging schema in 20260902000003 and the default search_path never includes it. Leader verified against 20260903000004 and 20260906000002. Two Up statements, no index, plain Down."
+    },
+    {
+      "id": "1.2",
+      "title": "Edit internal/charging/db/query.sql for CreateEntry/UpdateEntry/read",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:37:22Z",
+      "completed_at": "2026-09-09T13:45:04Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 24,
+        "five_hour_pct_end": 35,
+        "cost_usd_delta": 5.0,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-2.3 jointly; the same delta is copied onto all six tasks"
+      },
+      "notes": "price_source added to CreateEntry and UpdateEntry only. No read query touched, no supercharger_sessions query touched."
+    },
+    {
+      "id": "1.3",
+      "title": "Run make sqlc so price_source reaches the generated models",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "wave": 1,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:37:22Z",
+      "completed_at": "2026-09-09T13:45:04Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 24,
+        "five_hour_pct_end": 35,
+        "cost_usd_delta": 5.0,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-2.3 jointly; the same delta is copied onto all six tasks"
+      },
+      "notes": "make sqlc ran clean. Diff matches design.md: models.go and both write Params structs each gain exactly one PriceSource string field. No other Params struct changed. sqlc.yaml untouched."
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go \u2014 PriceSource type, constants, Entry.PriceSource + Entry.PriceConfirmed",
+      "depends_on": [
+        "1.3"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:37:22Z",
+      "completed_at": "2026-09-09T13:45:04Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 24,
+        "five_hour_pct_end": 35,
+        "cost_usd_delta": 5.0,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-2.3 jointly; the same delta is copied onto all six tasks"
+      },
+      "notes": "PriceSource type, its two constants, and Entry.PriceSource / Entry.PriceConfirmed added with the D3 doc comments. No interface gained, lost, or re-signed a method."
+    },
+    {
+      "id": "2.2",
+      "title": "validation.go \u2014 promoteIfComplete + resolvePriceSource helpers",
+      "depends_on": [
+        "1.3"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:37:22Z",
+      "completed_at": "2026-09-09T13:45:04Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 24,
+        "five_hour_pct_end": 35,
+        "cost_usd_delta": 5.0,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-2.3 jointly; the same delta is copied onto all six tasks"
+      },
+      "notes": "promoteIfComplete added verbatim beside missingFields. Reuses missingFields against RequiredFieldsFor(StatusDone). Never demotes."
+    },
+    {
+      "id": "2.3",
+      "title": "service.go \u2014 wire both rules into Writer.Create and Writer.Update",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:37:22Z",
+      "completed_at": "2026-09-09T13:45:04Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 24,
+        "five_hour_pct_end": 35,
+        "cost_usd_delta": 5.0,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-2.3 jointly; the same delta is copied onto all six tasks"
+      },
+      "notes": "promoteIfComplete wired into Create and Update at the D1 placement. resolvePriceSource added and bound on both Params. rowToEntry maps PriceSource and leaves PriceConfirmed false."
+    },
+    {
+      "id": "3.1",
+      "title": "entry_status_test.go \u2014 promoteIfComplete unit tests A1-A6",
+      "depends_on": [
+        "2.3"
+      ],
+      "wave": 3,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "3.2",
+      "title": "price_source_test.go \u2014 resolvePriceSource unit tests A7-A10",
+      "depends_on": [
+        "2.3"
+      ],
+      "wave": 3,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "3.3",
+      "title": "db_promotion_price_source_integration_test.go \u2014 groups B and C",
+      "depends_on": [
+        "2.3"
+      ],
+      "wave": 3,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "4.1",
+      "title": "internal/charging/AGENTS.md \u2014 document both derived-on-write rules",
+      "depends_on": [
+        "2.3"
+      ],
+      "wave": 4,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "4.2",
+      "title": "KB refresh: manual-charge-crud.md + INDEX row for price source (outside the charging sandbox)",
+      "depends_on": [
+        "2.3"
+      ],
+      "wave": 4,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Leader-owned or needs an explicit path grant \u2014 kkpa/context/ is outside the module sandbox."
+    },
+    {
+      "id": "5.1",
+      "title": "Run the cheap deterministic signals (build, vet, gofmt, guards)",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "3.3",
+        "4.1",
+        "4.2"
+      ],
+      "wave": 5,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "L1",
+      "title": "Leader: confirm build/vet green outside internal/charging (expected: no fix needed, all changes additive)",
+      "depends_on": [
+        "2.3"
+      ],
+      "wave": 5,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "L2",
+      "title": "Leader: confirm the root README.md needs no edit",
+      "depends_on": [
+        "2.3"
+      ],
+      "wave": 5,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "O1",
+      "title": "OWNER: run the suite and report results",
+      "depends_on": [
+        "5.1"
+      ],
+      "wave": 5,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Only the owner runs the suite. Nothing may be reported done on the assistant's say-so."
+    },
+    {
+      "id": "O2",
+      "title": "OWNER: confirm the real backfill of pre-existing rows after make migrate-up",
+      "depends_on": [
+        "5.1"
+      ],
+      "wave": 5,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The integration tests only prove the column DEFAULT. The historical backfill is verified against the real dev data."
+    }
   ],
   "review": {
     "status": "not-started",
@@ -93,13 +405,32 @@
       "at": "2026-09-09T12:39:00Z",
       "type": "design-gate-confirmed",
       "by": "leader",
-      "detail": "database gate, second pass: the user confirmed D7 — the Down migration stays a plain unguarded DROP COLUMN. The guarded alternative (refuse while any confirmed zero-price row exists) was shown and declined. The RD3 schema, backfill and RD5 no-index plan were confirmed earlier, before the roadmap was written."
+      "detail": "database gate, second pass: the user confirmed D7 \u2014 the Down migration stays a plain unguarded DROP COLUMN. The guarded alternative (refuse while any confirmed zero-price row exists) was shown and declined. The RD3 schema, backfill and RD5 no-index plan were confirmed earlier, before the roadmap was written."
     },
     {
       "at": "2026-09-09T12:40:00Z",
       "type": "halt",
       "by": "leader",
       "detail": "HALT AFTER STEP 4, as instructed by kkpa-pickup-linear-ticket. No implementation worker dispatched, no reviewer, no archive. The user reviews the proposal before implementation. Resume with: /kkpa-dev-harness-pipeline resume RM51-charging-derive-status-and-price-source"
+    },
+    {
+      "at": "2026-09-09T13:37:22Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave A (1.1-2.3) dispatched to the charging worker on claude-sonnet-5: migration, query.sql, make sqlc, charging.go surface, promoteIfComplete, service.go wiring. Budget at dispatch: five_hour 24%, context 10%, cost 0.84 USD."
+    },
+    {
+      "at": "2026-09-09T13:45:04Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave A (1.1-2.3) done. Leader verified the schema-qualification deviation against the two post-move migrations and confirmed design.md already specifies missingFieldsError(e.Status, ...), so the worker's change there is compliant, not drift. Leader re-ran the signals: go build ./..., go vet ./..., gofmt -l internal/charging, make migration-guard - all clean.",
+      "budget": {
+        "five_hour_pct_start": 24,
+        "five_hour_pct_end": 35,
+        "cost_usd_delta": 5.0,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-2.3 jointly; the same delta is copied onto all six tasks"
+      }
     }
   ]
 }
