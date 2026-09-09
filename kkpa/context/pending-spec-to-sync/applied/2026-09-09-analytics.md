@@ -9,7 +9,7 @@
 Target guide: `entities/vehicle-metrics/guide.md`
 Source spec:  `openspec/specs/analytics/spec.md`
 Generated:    2026-09-09
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-09
 
 ---
 

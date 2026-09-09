@@ -237,3 +237,17 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   Neither `internal/telemetry/db` nor `internal/analytics/db`. All access is through the
   `analytics.Reader` and `account.Service` public interfaces.
   _Source: spec gateway — Scenario: Gateway never imports telemetrydb or analyticsdb for this read._
+- **The two Travel Progress trend icons are fixed, never computed.** Distance travelled always shows the "increasing" icon and battery used always shows the "decreasing" icon. The direction states what the metric *is* — distance accumulates, charge depletes — not whether the value rose or fell since a previous day. Tyre pressure sits beside it with a real delta-driven icon. The two rules live side by side on purpose.
+  _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
+- **Trend colours are semantic tokens, never a hardcoded value.** The "increasing" and "decreasing" indicators each resolve to their own semantic colour so the three themes (apex, graphite, halloween) all render correctly. `make ui-guard` fails a raw colour.
+  _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
+- **A reserved subsection renders nothing at all — no heading, no description, no empty grid.** The layout may hold a position for a metric a later capability adds. Until that capability ships, the section is absent from the markup, not present and empty. The module has no exception for "not built yet". All three subsections are built today, so nothing is reserved right now; keep the rule for the next one.
+  _Source: spec gateway — Requirement: Dashboard Vehicle Status Panel Groups Metrics Into Named Subsections._
+- **No subsection adds a read of its own.** Travel Progress and all four tyre values come from the same `LatestMetricsByAccount` row the card already fetches. No new query, no new port method, no Tesla Fleet API call. Keep it that way — this is the read-heavy path.
+  _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection; Requirement: Dashboard Tire Pressure Subsection._
+- **A tyre tile has THREE states, and two of them look the same on purpose.** A positive change shows the "increased" icon; a negative change shows "decreased"; an **exactly zero** change and an **absent** change both show **no icon**. They are told apart by the numeric line instead: a zero change still prints its line, an absent change prints none. Never add a third "no change" glyph, and never print a fabricated `0.0` for an absent reading — that would erase the difference between "pressure held steady" and "we have no reading".
+  _Source: spec gateway — Requirement: Dashboard Tire Pressure Subsection._
+- **Every wheel is judged on its own.** One wheel missing its reading or its delta never changes what the other three render. Do not treat the four tiles as a group.
+  _Source: spec gateway — Requirement: Dashboard Tire Pressure Subsection._
+- **There is exactly one way to render a trend indicator on this page.** Tyre pressure reuses the mechanism Travel Progress introduced. A second, independent way of drawing an arrow is forbidden by the requirement itself, not merely discouraged.
+  _Source: spec gateway — Requirement: Dashboard Tire Pressure Subsection._
