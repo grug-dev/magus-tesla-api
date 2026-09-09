@@ -4,6 +4,7 @@
 private-key*
 .DS_Store
 *.zip
+.idea
 
 # Database dumps written by deploy/docker/backup-db.sh (make backup-db) on the
 # VPS. They contain every row in the database — tokens, vehicle GPS, user rows.
