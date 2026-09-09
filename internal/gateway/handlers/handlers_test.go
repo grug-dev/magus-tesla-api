@@ -817,6 +817,18 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 		MaxRangeChargeCounter:  ptrInt(12),
 		DistanceTraveledKmCalc: ptrF64(45.2),
 		ConsumedPct:            ptrF64(12.3),
+
+		// RM50 tier 4 — one wheel per dashTireTrend/dashTireDelta branch
+		// (design.md Test Contract): FL positive, FR negative, RL exact
+		// zero, RR nil/nil (absent).
+		TpmsPressureFLPSI:     ptrF64(42.06),
+		TpmsPressureFLPSICalc: ptrF64(0.4),
+		TpmsPressureFRPSI:     ptrF64(40.6),
+		TpmsPressureFRPSICalc: ptrF64(-0.3),
+		TpmsPressureRLPSI:     ptrF64(39.2),
+		TpmsPressureRLPSICalc: ptrF64(0.0),
+		TpmsPressureRRPSI:     nil,
+		TpmsPressureRRPSICalc: nil,
 	}
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	var vm fragments.DashboardData
@@ -872,6 +884,27 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 	}
 	if vm.BatteryUsed != "12.3%" {
 		t.Errorf("want BatteryUsed %q, got %q", "12.3%", vm.BatteryUsed)
+	}
+
+	// RM50 tier 4 — tire pressure tiles (design.md Test Contract table).
+	wantFL := fragments.TireWheelVM{Value: "42.1 PSI", Trend: "up", Delta: "+0.4 vs prev. day"}
+	if vm.TirePressureFL != wantFL {
+		t.Errorf("want TirePressureFL %+v, got %+v", wantFL, vm.TirePressureFL)
+	}
+	wantFR := fragments.TireWheelVM{Value: "40.6 PSI", Trend: "down", Delta: "-0.3 vs prev. day"}
+	if vm.TirePressureFR != wantFR {
+		t.Errorf("want TirePressureFR %+v, got %+v", wantFR, vm.TirePressureFR)
+	}
+	// RL: exact 0.0 delta — no trend icon, but the delta line still renders
+	// (RD14/D5: 0.0 is a known "no change" reading, not an absent one).
+	wantRL := fragments.TireWheelVM{Value: "39.2 PSI", Trend: "", Delta: "0.0 vs prev. day"}
+	if vm.TirePressureRL != wantRL {
+		t.Errorf("want TirePressureRL %+v, got %+v", wantRL, vm.TirePressureRL)
+	}
+	// RR: nil raw and nil delta — dash placeholder, no trend, no delta line.
+	wantRR := fragments.TireWheelVM{Value: "—", Trend: "", Delta: ""}
+	if vm.TirePressureRR != wantRR {
+		t.Errorf("want TirePressureRR %+v, got %+v", wantRR, vm.TirePressureRR)
 	}
 }
 
@@ -935,6 +968,23 @@ func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
 	}
 	if vm.SentryMode != nil {
 		t.Errorf("want SentryMode nil, got %v", vm.SentryMode)
+	}
+
+	// RM50 tier 4 — every pointer field nil means all four wheels collapse
+	// to the same zero-value TireWheelVM (dash placeholder, no trend, no
+	// delta line).
+	wantWheel := fragments.TireWheelVM{Value: "—", Trend: "", Delta: ""}
+	if vm.TirePressureFL != wantWheel {
+		t.Errorf("want TirePressureFL %+v, got %+v", wantWheel, vm.TirePressureFL)
+	}
+	if vm.TirePressureFR != wantWheel {
+		t.Errorf("want TirePressureFR %+v, got %+v", wantWheel, vm.TirePressureFR)
+	}
+	if vm.TirePressureRL != wantWheel {
+		t.Errorf("want TirePressureRL %+v, got %+v", wantWheel, vm.TirePressureRL)
+	}
+	if vm.TirePressureRR != wantWheel {
+		t.Errorf("want TirePressureRR %+v, got %+v", wantWheel, vm.TirePressureRR)
 	}
 }
 

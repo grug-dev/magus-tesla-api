@@ -33,10 +33,12 @@
   driven by its own `*bool`; absence of a value means absence of the badge. Since
   `RM50-gateway-add-travel-progress-subsection`, the tiles are no longer one flat row: a
   left column holds two lifetime tiles (odometer, the 100%-charge count), and a right
-  column holds named subsections, each its own two-tile row — "Travel Progress"
-  (distance travelled, battery used, both from the latest computed day) and
-  "Interior / Exterior" (interior temp, exterior temp). A third subsection, Tire
-  pressure, is a placeholder comment only until tier 4 builds it.
+  column holds three named subsections, each its own two-tile (or 2×2) row — "Travel
+  Progress" (distance travelled, battery used, both from the latest computed day),
+  "Tire pressure" (four wheels — FL, FR, RL, RR — each a PSI reading, an up/down trend,
+  and its day-over-day delta, added by `RM50-gateway-add-tire-pressure-subsection`),
+  and "Interior / Exterior" (interior temp, exterior temp). All three subsections are
+  now built; none is a placeholder.
 
 ## Flow
 
@@ -58,24 +60,25 @@
 7. `mapDashboardSnapshot` — `internal/gateway/handlers/handlers.go` — formats every display
    string (`formatKm`, `°C`, `%`, `km`, charge limit) and computes `IsStale` via `isStale`.
    `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`. This mapper
-   reads eleven pointer fields of `VehicleStatus`: the nine from `RM38` (`InsideTempC`,
+   reads nineteen pointer fields of `VehicleStatus`: the nine from `RM38` (`InsideTempC`,
    `OutsideTempC`, `CarVersion`, `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`,
-   `Locked`, `SentryMode`, `MaxRangeChargeCounter`) plus two added by
+   `Locked`, `SentryMode`, `MaxRangeChargeCounter`), two added by
    `RM50-gateway-add-travel-progress-subsection` tier 2 (`DistanceTraveledKmCalc`,
-   `ConsumedPct`) — nil never fabricates a value, it omits the corresponding display
-   field (see gotchas). `dashCountOrDash` formats the counter: nil → `"—"`, a reported
-   `0` → `"0"`. `dashDistanceOrDash`/`dashBatteryUsedOrDash` follow the same nil → `"—"`
-   rule for the two new fields.
+   `ConsumedPct`), and eight added by `RM50-gateway-add-tire-pressure-subsection` tier 4
+   — the four raw readings (`TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`,
+   `TpmsPressureRRPSI`) and the four day-over-day deltas (`TpmsPressureFLPSICalc`,
+   `TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc`, `TpmsPressureRRPSICalc`) — nil never
+   fabricates a value, it omits the corresponding display field (see gotchas).
+   `dashCountOrDash` formats the counter: nil → `"—"`, a reported `0` → `"0"`.
+   `dashDistanceOrDash`/`dashBatteryUsedOrDash` follow the same nil → `"—"` rule for the
+   travel-progress fields, and `dashPSIOrDash`/`dashTireTrend`/`dashTireDelta` follow the
+   equivalent rule for the tire fields (a real `0.0` delta is a known "no change" value
+   and still renders its delta line, just with no trend icon — RD14).
 
-   **Eleven is what this mapper reads, not what the type holds.** `VehicleStatus` has
-   more pointer fields than that. Eight of them the gateway still does not read:
-   `RM50-analytics-add-tire-pressure-columns` added the four raw readings
-   (`TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`, `TpmsPressureRRPSI`),
-   and `RM50-analytics-add-tire-pressure-variance` added the four day-over-day deltas
-   (`TpmsPressureFLPSICalc`, `TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc`,
-   `TpmsPressureRRPSICalc`). RM50 tier 4 is the change that wires all eight into this
-   mapper. Read `internal/analytics/analytics.go` for the current field list; do not
-   count from here.
+   **Nineteen is what this mapper reads — that now matches what the type holds.**
+   `RM50-gateway-add-tire-pressure-subsection` (tier 4) was the change that wired the
+   eight TPMS fields in; before it, this mapper read only eleven. Read
+   `internal/analytics/analytics.go` for the current field list; do not count from here.
 8. `Handler.vehicleImage` — `internal/gateway/vehicle_image.go` — maps
    (`CarType`, `ExteriorColor`) to a `/static/img/*.png` URL, falling back to `defaultCar.png`.
 
@@ -142,20 +145,26 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   `navHeaderFor` treats it as forced-Asleep, never Connected (roadmap D9).
   _Source: `internal/analytics/analytics.go`'s `LatestMetricsByAccount` doc comment;
   `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D8._
-- **Nil pointer fields omit, never fabricate.** Eleven `VehicleStatus` fields this mapper
+- **Nil pointer fields omit, never fabricate.** Nineteen `VehicleStatus` fields this mapper
   reads are pointers — the nine from `RM38` (`InsideTempC`, `OutsideTempC`, `CarVersion`,
   `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`, `SentryMode`,
-  `MaxRangeChargeCounter`) plus the two from `RM50`
-  (`DistanceTraveledKmCalc`, `ConsumedPct`). A nil value means "not yet
-  computed since the migration" — for `SentryMode` and `MaxRangeChargeCounter` it can also
-  mean "not reported this capture", and for the two `RM50` fields it means the latest
-  computed day has no prior day to derive them against — and the corresponding display
-  field is left empty/omitted (e.g. `"—"` for a nil temperature, a nil 100%-charge count,
-  or a nil distance travelled, no Locked/Sentry badge) — it is never defaulted to a
-  fabricated `false`/`0`/`""`. The
-  counter's real `0` is a reading, not an absence, and renders as `"0"`. See design.md D2's per-field table for the exact rule per field.
+  `MaxRangeChargeCounter`), the two from `RM50` tier 2
+  (`DistanceTraveledKmCalc`, `ConsumedPct`), and the eight from `RM50` tier 4
+  (`TpmsPressureFLPSI`/`FR`/`RL`/`RR` and `TpmsPressureFLPSICalc`/`FR`/`RL`/`RR`). A nil
+  value means "not yet computed since the migration" — for `SentryMode` and
+  `MaxRangeChargeCounter` it can also mean "not reported this capture", for the two
+  tier-2 fields it means the latest computed day has no prior day to derive them against,
+  and for the four raw tire fields it means the vehicle did not report TPMS at capture —
+  and the corresponding display field is left empty/omitted (e.g. `"—"` for a nil
+  temperature, a nil 100%-charge count, a nil distance travelled, or a nil tire pressure,
+  no Locked/Sentry badge) — it is never defaulted to a fabricated `false`/`0`/`""`. The
+  counter's real `0` is a reading, not an absence, and renders as `"0"`; a real `0.0` tire
+  delta is likewise a reading, not an absence — it renders its delta line, only its trend
+  icon is suppressed (RD14). See design.md D2's per-field table for the exact rule per
+  field.
   _Source: `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D3/D7;
-  `openspec/changes/archive/gateway/2026-09-08-RM50-gateway-add-travel-progress-subsection/design.md` D2._
+  `openspec/changes/archive/gateway/2026-09-08-RM50-gateway-add-travel-progress-subsection/design.md` D2;
+  `openspec/changes/RM50-gateway-add-tire-pressure-subsection/design.md` D3/D5._
 - **Four distinct degradation states, never a 500.** `NeedsConnect` (no registered vehicles ⇒
   connect prompt), `TelemetryUnavailable` (reader error ⇒ warning `Alert` + identity-only
   bento — the field name is a historical holdover, the read is now against analytics), `HasSnapshot=false` (registered but no
@@ -184,10 +193,13 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   badge together; none suppresses the others, and each appears purely on its own value.
   Below the badge row, a 12-col inner grid splits the tiles: a left column (odometer,
   100%-charge count, stacked) beside the vehicle image, and a right column of named
-  subsections — "Travel Progress" (distance travelled, battery used) and
-  "Interior / Exterior" (interior temp, exterior temp), each its own two-tile row
-  (`RM50-gateway-add-travel-progress-subsection`; MAG-47 had added the fourth tile to
-  the earlier flat row, since replaced by this layout). The card **subtitle keeps** the
+  subsections — "Travel Progress" (distance travelled, battery used), "Tire pressure"
+  (four wheels — FL, FR, RL, RR — each a PSI reading, an up/down trend, and its
+  day-over-day delta), and "Interior / Exterior" (interior temp, exterior temp), each
+  its own tile row (`RM50-gateway-add-travel-progress-subsection` added the first and
+  third; `RM50-gateway-add-tire-pressure-subsection` filled in the middle one; MAG-47
+  had added the fourth tile to the earlier flat row, since replaced by this layout).
+  The card **subtitle keeps** the
   charging-derived status word ("Parked • Software v11.1.2"); only the tile was removed.
   Do not "restore" a Status tile, and do not drop the subtitle's status word.
   _Source: spec gateway — Requirement: Dashboard Vehicle Status Card Shows Locked and Sentry-Mode Badges, Not a Status Tile._

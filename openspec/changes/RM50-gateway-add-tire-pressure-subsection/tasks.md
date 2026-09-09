@@ -50,28 +50,28 @@ T4 and T5 are sequential after T3.
 
 ## T4. Tests (Test Contract) — depends on T1, T3
 
-- [ ] 4.1 In `internal/gateway/handlers/handlers_test.go`, extend
+- [x] 4.1 In `internal/gateway/handlers/handlers_test.go`, extend
       `TestMapDashboardSnapshot_FixtureFull` per design.md's Test Contract table —
       add the four wheels' raw/delta values to the fixture (FL positive, FR negative,
       RL exact zero, RR nil/nil) and assert every wheel's `Value`/`Trend`/`Delta`
       against the table's expected values.
-- [ ] 4.2 Extend `TestMapDashboardSnapshot_FixtureNil` — no fixture change needed
+- [x] 4.2 Extend `TestMapDashboardSnapshot_FixtureNil` — no fixture change needed
       (every pointer field is already nil); add assertions that all four
       `TirePressure*` fields equal the zero-value `TireWheelVM{Value: "—"}`.
-- [ ] 4.3 `go build ./...` and `go vet ./...` to confirm the extended tests compile.
+- [x] 4.3 `go build ./...` and `go vet ./...` to confirm the extended tests compile.
 
 ## T5. Docs (D10) — depends on T3
 
-- [ ] 5.1 `internal/gateway/AGENTS.md` — add the short note from design.md D10: the
+- [x] 5.1 `internal/gateway/AGENTS.md` — add the short note from design.md D10: the
       Vehicle Status panel's three named subsections are now all built (Travel
       Progress, Tire pressure, Interior/Exterior) — the tier-4 placeholder this file
       may still reference from tier 2 is superseded.
-- [ ] 5.2 `kkpa/context/use-case/gateway/read-dashboard-bento.md` — correct the
+- [x] 5.2 `kkpa/context/use-case/gateway/read-dashboard-bento.md` — correct the
       stat-row description (the tier-2 gap is now filled) and the
       `mapDashboardSnapshot` pointer-field count per design.md D10.
-- [ ] 5.3 `kkpa/context/input-port/gateway/dashboard.md` — correct the page
+- [x] 5.3 `kkpa/context/input-port/gateway/dashboard.md` — correct the page
       Description row to name all three subsections per design.md D10.
-- [ ] 5.4 Confirm no other KB file describes this page's tile layout as having a gap:
+- [x] 5.4 Confirm no other KB file describes this page's tile layout as having a gap:
       `grep -rl "dashboard.*tile\|stat.tile\|tire.pressure" kkpa/context/` and check
       any hit.
 

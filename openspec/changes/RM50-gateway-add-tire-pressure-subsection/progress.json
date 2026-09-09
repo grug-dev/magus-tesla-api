@@ -5,9 +5,9 @@
   "module": "gateway",
   "roadmap": "RM50-vehicle-status-subsections",
   "tier": 4,
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-09-09T08:45:24Z",
-  "updated_at": "2026-09-09T08:49:09Z",
+  "updated_at": "2026-09-09T08:53:34Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,9 +21,19 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "4.1",
-      "4.2",
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
       "4.3",
       "5.1",
       "5.2",
@@ -37,20 +47,10 @@
       "6.6",
       "6.7"
     ],
-    "blocked": [],
-    "done": [
-      "1.1",
-      "1.2",
-      "1.3",
-      "1.4",
-      "2.1",
-      "2.2",
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4"
-    ],
-    "awaiting-user-verification": []
+    "awaiting-user-verification": [
+      "4.1",
+      "4.2"
+    ]
   },
   "tasks": [
     {
@@ -257,13 +257,19 @@
         "1.4",
         "3.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "TestMapDashboardSnapshot_FixtureFull extended with four wheels: positive, negative, real zero, absent. Asserts the design.md contract table. Written, not run."
     },
     {
       "id": "4.2",
@@ -271,13 +277,19 @@
       "depends_on": [
         "4.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "TestMapDashboardSnapshot_FixtureNil extended: all four wheels equal the zero-value TireWheelVM with a dash. Written, not run."
     },
     {
       "id": "4.3",
@@ -285,13 +297,19 @@
       "depends_on": [
         "4.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "go build and go vet clean, so the extended tests compile. A compile check, not a test run."
     },
     {
       "id": "5.1",
@@ -299,13 +317,19 @@
       "depends_on": [
         "3.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "internal/gateway/AGENTS.md: all three panel subsections now built; the tier-4 placeholder note is gone."
     },
     {
       "id": "5.2",
@@ -313,13 +337,19 @@
       "depends_on": [
         "5.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "read-dashboard-bento.md corrected in three places. The mapper reads nineteen pointer fields now, not eleven, and the gap wording is gone."
     },
     {
       "id": "5.3",
@@ -327,13 +357,19 @@
       "depends_on": [
         "5.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "input-port/gateway/dashboard.md page description names all three subsections."
     },
     {
       "id": "5.4",
@@ -341,13 +377,19 @@
       "depends_on": [
         "5.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "one serial worker for T4+T5"
+      },
+      "notes": "Grep found two KB hits outside the sandbox. The leader checked both: they document analytics' own columns, not this page's layout. Neither is stale."
     },
     {
       "id": "6.1",
@@ -356,13 +398,13 @@
         "4.3",
         "5.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
       "budget": null,
-      "notes": null
+      "notes": "go build ./... clean."
     },
     {
       "id": "6.2",
@@ -370,13 +412,13 @@
       "depends_on": [
         "6.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
       "budget": null,
-      "notes": null
+      "notes": "go vet ./... clean. It compiles the extended test file."
     },
     {
       "id": "6.3",
@@ -384,13 +426,13 @@
       "depends_on": [
         "6.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
       "budget": null,
-      "notes": null
+      "notes": "gofmt flags only vehicle_image_test.go, which this change never touched. Pre-existing drift."
     },
     {
       "id": "6.4",
@@ -398,13 +440,13 @@
       "depends_on": [
         "6.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
       "budget": null,
-      "notes": null
+      "notes": "make ui-guard passed. No raw colour and no inline DaisyUI class."
     },
     {
       "id": "6.5",
@@ -412,13 +454,13 @@
       "depends_on": [
         "6.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
       "budget": null,
-      "notes": null
+      "notes": "make i18n-guard passed. No user-facing string bypasses i18n.T."
     },
     {
       "id": "6.6",
@@ -426,13 +468,13 @@
       "depends_on": [
         "6.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
       "budget": null,
-      "notes": null
+      "notes": "make templ and make css re-run left no diff, so the generated files are current."
     },
     {
       "id": "6.7",
@@ -440,13 +482,13 @@
       "depends_on": [
         "6.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T08:49:00Z",
+      "completed_at": "2026-09-09T08:53:00Z",
       "budget": null,
-      "notes": null
+      "notes": "Suite commands handed to the owner. Awaiting their run."
     }
   ],
   "decisions": [
@@ -491,6 +533,18 @@
       "type": "wave-completed",
       "by": "leader",
       "detail": "Wave 1 done. Worker read the full doc pack and enumerated D1-D10. The leader independently verified RD14 in handlers.go: dashTireTrend returns \"\" for nil and for 0.0, while dashTireDelta returns \"\" only for nil. So a real zero shows its number with no arrow, and an unknown shows neither. Pre-existing gofmt drift in vehicle_image_test.go confirmed untouched by this change. Budget: five_hour 31%->49%."
+    },
+    {
+      "at": "2026-09-09T08:49:09Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 2 dispatched: T4 (view-model tests against the Test Contract) and T5 (AGENTS.md + two KB files). Sandbox widened to the two named KB files. Budget at start: five_hour 49%, context 21%."
+    },
+    {
+      "at": "2026-09-09T08:53:34Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 2 done. Leader spot-checked the load-bearing assertion in handlers_test.go: the real-zero wheel asserts Trend \"\" with Delta \"0.0 vs prev. day\", the absent wheel asserts both empty. That is RD14. Leader ran T6: build, vet, ui-guard, i18n-guard, archive-guard, boundary-guard all clean, and re-running templ/css left no diff. Tests are written but NOT run. Status applied, not verified, until the owner reports the suite."
     }
   ]
 }

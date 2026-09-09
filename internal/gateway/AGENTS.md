@@ -204,10 +204,13 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   string list, not a bool pair.
 - **The Vehicle Status card (`vehicle-status`, `pages/dashboard.templ`) is now split
   into named subsections**, not one flat tile row. Left column: the vehicle image plus
-  the two lifetime tiles (Odometer, MaxRangeCharges). Right column: named `<section>`
-  blocks — `travel-progress` (Distance travelled, Battery used) today, then a tier-4
-  placeholder comment for `tire-pressure`, then `interior-exterior` (Interior,
-  Exterior). Added by `RM50-gateway-add-travel-progress-subsection` D1. A future
+  the two lifetime tiles (Odometer, MaxRangeCharges). Right column: three named
+  `<section>` blocks, all built — `travel-progress` (Distance travelled, Battery
+  used), `tire-pressure` (four wheels — FL, FR, RL, RR — each a PSI reading, an
+  up/down trend, and its day-over-day delta), and `interior-exterior` (Interior,
+  Exterior). Added by `RM50-gateway-add-travel-progress-subsection` D1;
+  `tire-pressure` filled in by `RM50-gateway-add-tire-pressure-subsection` D7
+  (the tier-4 placeholder that section used to hold is gone). A future
   subsection follows this same shape: its own `<section id="...">`, its own
   `ui.SectionHeader`, its own `grid-cols-2` tile row.
 - **Semantic tokens only — never hex / raw palette** (`bg-base-100`, `primary`,

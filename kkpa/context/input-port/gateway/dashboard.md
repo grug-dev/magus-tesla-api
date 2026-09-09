@@ -16,12 +16,12 @@
 - **Description:** The signed-in landing page for the **selected** vehicle. A 12-column bento
   grid: an 8-col "Vehicle Status" hero (badge row — stale/locked/sentry — then an inner
   12-col split: a left column with the car image plus two lifetime tiles, Odometer and
-  100% Charges; a right column of named subsections, "Travel Progress" — distance
-  travelled, battery used — and "Interior / Exterior" — interior temp, exterior temp,
-  with a tier-4 placeholder for a future Tire pressure subsection between them — then
-  software version, last-updated line; the locked and sentry states are header badges,
-  there is no "Status" tile) and a 4-col vital-stats column (battery %, range, charge
-  limit) above a self-loading history-charts region.
+  100% Charges; a right column of three named subsections — "Travel Progress" (distance
+  travelled, battery used), "Tire pressure" (four wheels — FL, FR, RL, RR — each a PSI
+  reading, an up/down trend, and its day-over-day delta), and "Interior / Exterior"
+  (interior temp, exterior temp) — then software version, last-updated line; the locked
+  and sentry states are header badges, there is no "Status" tile) and a 4-col vital-stats
+  column (battery %, range, charge limit) above a self-loading history-charts region.
 - **Module:** `gateway`
 
 ## Front-end component map
