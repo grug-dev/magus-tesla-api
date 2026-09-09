@@ -1041,13 +1041,17 @@ func externalChargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle
 		RawChargedOn:        e.ChargedOn.Format("2006-01-02"),
 		RawEnergyKWh:        rawEnergyKWh,
 		RawPrice:            strconv.FormatFloat(e.Price, 'f', 2, 64),
-		RawStartedAt:        rawStartedAt,
-		RawEndedAt:          rawEndedAt,
-		RawStartBatteryPct:  rawStartPct,
-		RawEndBatteryPct:    rawEndPct,
-		RawOdometerKm:       rawOdometerKm,
-		TeslaID:             e.TeslaID,
-		VIN:                 e.VIN,
+		// RawPriceConfirmed shows the checkbox state that would reproduce this
+		// entry's current stored state if re-submitted unchanged — true only
+		// for a confirmed free charge (design.md §D-Echo, RM51).
+		RawPriceConfirmed:  e.Price == 0 && e.PriceSource == charging.PriceSourceUser,
+		RawStartedAt:       rawStartedAt,
+		RawEndedAt:         rawEndedAt,
+		RawStartBatteryPct: rawStartPct,
+		RawEndBatteryPct:   rawEndPct,
+		RawOdometerKm:      rawOdometerKm,
+		TeslaID:            e.TeslaID,
+		VIN:                e.VIN,
 
 		Status:    string(e.Status),
 		RawStatus: string(e.Status),
@@ -1150,6 +1154,7 @@ func externalChargeEntryVMFromRawValues(id string, raw fragments.ExternalChargeF
 		VehicleLabel:          vehicleLabel,
 		RawEnergyKWh:          raw.EnergyAddedKWh,
 		RawPrice:              raw.Price,
+		RawPriceConfirmed:     raw.PriceConfirmed,
 		LocationKind:          raw.LocationKind,
 		RawStartBatteryPct:    raw.StartBatteryPct,
 		RawEndBatteryPct:      raw.EndBatteryPct,
@@ -1215,9 +1220,14 @@ func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicle
 	// design.md §D-Values: build raw from c.PostForm(...) BEFORE any other
 	// parsing, so it is populated on every return path (success and failure).
 	raw := fragments.ExternalChargeFormValues{
-		Status:          c.PostForm("status"),
-		EnergyAddedKWh:  c.PostForm("energy_added_kwh"),
-		Price:           c.PostForm("price"),
+		Status:         c.PostForm("status"),
+		EnergyAddedKWh: c.PostForm("energy_added_kwh"),
+		Price:          c.PostForm("price"),
+		// PriceConfirmed is presence, not value: an unchecked checkbox is not
+		// sent at all, so c.PostForm returns "" for both "unchecked" and
+		// "absent" — there is no third state to distinguish (design.md
+		// §D-Parse, Context fact 4, RM51).
+		PriceConfirmed:  c.PostForm("price_confirmed") != "",
 		LocationKind:    c.PostForm("location_kind"),
 		StartBatteryPct: c.PostForm("start_battery_pct"),
 		EndBatteryPct:   c.PostForm("end_battery_pct"),
@@ -1413,13 +1423,18 @@ func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicle
 	}
 
 	entry := charging.Entry{
-		AccountID:       uid,
-		TeslaID:         teslaID,
-		VIN:             vin,
-		ChargedOn:       chargedOn,
-		Status:          status,
-		EnergyAddedKWh:  energy,
-		Price:           price,
+		AccountID:      uid,
+		TeslaID:        teslaID,
+		VIN:            vin,
+		ChargedOn:      chargedOn,
+		Status:         status,
+		EnergyAddedKWh: energy,
+		Price:          price,
+		// PriceConfirmed is passed through unconditionally — charging already
+		// ignores it whenever Price > 0 (tier 1's resolvePriceSource); the
+		// gateway does not duplicate that precedence rule (design.md §D-Parse,
+		// Context fact 8, RM51).
+		PriceConfirmed:  raw.PriceConfirmed,
 		Currency:        currency,
 		LocationKind:    locationKindPtr,
 		StartBatteryPct: &startPct,

@@ -2262,6 +2262,179 @@ func TestExternalChargeCreate_A8_StartBatteryPctRequired_BothStatuses(t *testing
 	}
 }
 
+// ============================================================================
+// RM51-gateway-add-free-charge-and-month-preset (MAG-58, tier 2) — Test
+// Contract Groups A (checkbox parsing) and B (pass-through / error echo).
+// Added by Group 4 (task 4.1). Named with an RM51 prefix since this file
+// already has its own A1-A8/B1-B4 test-contract IDs from RM33 — the two
+// letter/number pairs are from different design.md documents and are not
+// the same cases.
+// ============================================================================
+
+// TestExternalChargeForm_RM51_A1_CheckboxChecked_ParsesToTrue verifies Test
+// Contract A1: POST includes price_confirmed=on -> the parsed
+// charging.Entry.PriceConfirmed is true (design.md §D-Parse). Read through
+// the fake Writer's captured Create argument — parseExternalChargeForm has
+// no exported seam of its own, and every sibling Group A case in this file
+// already reads parseExternalChargeForm's output the same way.
+func TestExternalChargeForm_RM51_A1_CheckboxChecked_ParsesToTrue(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Set("price_confirmed", "on")
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("A1: want 200, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if !writer.createEntry.PriceConfirmed {
+		t.Error("A1: want Entry.PriceConfirmed=true when price_confirmed=on was submitted")
+	}
+}
+
+// TestExternalChargeForm_RM51_A2_CheckboxAbsent_ParsesToFalse verifies Test
+// Contract A2: POST omits price_confirmed entirely -> the parsed
+// charging.Entry.PriceConfirmed is false — the only other real browser-sent
+// state (design.md §D-Parse, Context fact 4). validCreateForm() never sets
+// price_confirmed, so this is the baseline fixture unmodified.
+func TestExternalChargeForm_RM51_A2_CheckboxAbsent_ParsesToFalse(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", validCreateForm())
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("A2: want 200, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if writer.createEntry.PriceConfirmed {
+		t.Error("A2: want Entry.PriceConfirmed=false when price_confirmed was not submitted")
+	}
+}
+
+// TestExternalChargeCreate_RM51_B1_PriceConfirmedPassesThroughRegardlessOfPrice
+// verifies Test Contract B1: POST price=100.00 AND price_confirmed=on, all
+// other fields valid -> the fake Writer.Create receives
+// Entry.PriceConfirmed==true AND Entry.Price==100.00. The gateway passes the
+// checkbox through UNCONDITIONALLY; it does not special-case price>0 itself
+// (design.md §D-Parse, Context fact 8) — the ignoring is charging's job,
+// already proven in tier 1.
+func TestExternalChargeCreate_RM51_B1_PriceConfirmedPassesThroughRegardlessOfPrice(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Set("price", "100.00")
+	form.Set("price_confirmed", "on")
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("B1: want 200, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if !writer.createEntry.PriceConfirmed {
+		t.Error("B1: want Entry.PriceConfirmed=true even though price>0")
+	}
+	if writer.createEntry.Price != 100.00 {
+		t.Errorf("B1: want Entry.Price=100.00, got %v", writer.createEntry.Price)
+	}
+}
+
+// TestExternalChargeCreate_RM51_B2_ConfirmedFreeCharge verifies Test Contract
+// B2: POST price="" (omitted) AND price_confirmed=on, all other fields valid
+// -> Entry.PriceConfirmed==true, Entry.Price==0 — the confirmed-free-charge
+// path through the real form parse.
+func TestExternalChargeCreate_RM51_B2_ConfirmedFreeCharge(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Del("price") // absent, matching Test Contract B2's "price=\"\"" (empty/omitted are the same wire state)
+	form.Set("price_confirmed", "on")
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("B2: want 200, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if !writer.createEntry.PriceConfirmed {
+		t.Error("B2: want Entry.PriceConfirmed=true")
+	}
+	if writer.createEntry.Price != 0 {
+		t.Errorf("B2: want Entry.Price=0, got %v", writer.createEntry.Price)
+	}
+}
+
+// TestExternalChargeCreate_RM51_B3_ErrorRerender_ChecksTheBox verifies Test
+// Contract B3 — RD6's error-preservation requirement, proven on markup:
+// POST price_confirmed=on AND an invalid location_kind (triggers 422) -> HTTP
+// 422; the re-rendered create form's price_confirmed <input> carries the
+// `checked` attribute. `checked` is a data-binding attribute, explicitly on
+// the required-assertions list (AGENTS.md §"Do not test what the page looks
+// like") — never the surrounding label text or CSS.
+func TestExternalChargeCreate_RM51_B3_ErrorRerender_ChecksTheBox(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Set("price_confirmed", "on")
+	form.Del("location_kind") // triggers the 422
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("B3: want 422, got %d", w.Code)
+	}
+	if writer.createCalls != 0 {
+		t.Errorf("B3: Writer.Create must NOT be called, got %d calls", writer.createCalls)
+	}
+	attrs := tagAttrsFor(w.Body.String(), "price_confirmed")
+	if attrs == "" {
+		t.Fatalf("B3: price_confirmed input not found in the 422 re-render, body=%q", w.Body.String()[:min(1500, w.Body.Len())])
+	}
+	if !strings.Contains(attrs, "checked") {
+		t.Errorf("B3: want price_confirmed to carry checked on the 422 re-render, got %q", attrs)
+	}
+}
+
+// TestExternalChargeRowUpdate_RM51_B4_ErrorRerender_BoxStaysUnchecked is the
+// symmetric edit-row case for Test Contract B4: PUT the edit row with
+// price_confirmed OMITTED AND an invalid location_kind (triggers 422) -> HTTP
+// 422; the re-rendered row's price_confirmed <input> carries NO checked
+// attribute.
+func TestExternalChargeRowUpdate_RM51_B4_ErrorRerender_BoxStaysUnchecked(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
+
+	form := validCreateForm()
+	form.Del("location_kind") // triggers the 422
+	// price_confirmed deliberately omitted.
+
+	w := submitForm(t, h, uid, http.MethodPut, "/ui/external-charges/row/"+id.String(), form)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("B4: want 422, got %d", w.Code)
+	}
+	if writer.updateCalls != 0 {
+		t.Errorf("B4: Writer.Update must NOT be called, got %d calls", writer.updateCalls)
+	}
+	attrs := tagAttrsFor(w.Body.String(), "price_confirmed")
+	if attrs == "" {
+		t.Fatalf("B4: price_confirmed input not found in the 422 re-render, body=%q", w.Body.String()[:min(1500, w.Body.Len())])
+	}
+	if strings.Contains(attrs, "checked") {
+		t.Errorf("B4: want price_confirmed to carry NO checked on the 422 re-render, got %q", attrs)
+	}
+}
+
 // --- Group B — D15 value-preservation (design.md Test Contract B1-B4) ---
 
 // TestExternalChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct

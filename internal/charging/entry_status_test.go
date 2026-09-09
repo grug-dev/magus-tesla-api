@@ -21,6 +21,7 @@ import (
 	"math"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // --- A1/A2: RequiredFieldsFor's two sets, exact and in order ---
@@ -217,5 +218,103 @@ func TestPackCapacityKWh_VinIndependent(t *testing.T) {
 				t.Errorf("packCapacityKWh(%q) = %v, want 62.0", tc.vin, got)
 			}
 		})
+	}
+}
+
+// --- RM51-charging-derive-status-and-price-source (MAG-58): promoteIfComplete ---
+//
+// The A1-A6 labels below refer to RM51's OWN design.md Test Contract, a
+// different document from the RM33 design.md the A1-A9 labels above refer
+// to. Both changes happened to number their first unit-test group "A" —
+// the number after "A" is only unique within one change's own design.md.
+
+// promoteTestEntry returns a base Entry with Status IN_PROGRESS and all four
+// RequiredFieldsFor(StatusDone) fields present (ChargedOn, LocationKind,
+// EndedAt, EndBatteryPct). Each RM51 A2-A5 case below clears exactly one
+// field to prove that field alone blocks promotion.
+func promoteTestEntry() Entry {
+	lk := "HOME"
+	end := time.Date(2026, 9, 9, 18, 0, 0, 0, time.UTC)
+	return Entry{
+		Status:        StatusInProgress,
+		ChargedOn:     time.Date(2026, 9, 9, 0, 0, 0, 0, time.UTC),
+		LocationKind:  &lk,
+		EndedAt:       &end,
+		EndBatteryPct: intPtr(90),
+	}
+}
+
+// TestPromoteIfComplete_A1_AllFourSetPromotesToDone implements RM51 design.md
+// Test Contract A1: the headline rule -- a complete IN_PROGRESS entry is
+// promoted to DONE.
+func TestPromoteIfComplete_A1_AllFourSetPromotesToDone(t *testing.T) {
+	got := promoteIfComplete(promoteTestEntry())
+	if got.Status != StatusDone {
+		t.Errorf("A1: Status = %v, want DONE", got.Status)
+	}
+}
+
+// TestPromoteIfComplete_A2_MissingEndedAtBlocksPromotion implements RM51
+// design.md Test Contract A2: a missing ended_at blocks promotion.
+func TestPromoteIfComplete_A2_MissingEndedAtBlocksPromotion(t *testing.T) {
+	e := promoteTestEntry()
+	e.EndedAt = nil
+	got := promoteIfComplete(e)
+	if got.Status != StatusInProgress {
+		t.Errorf("A2: Status = %v, want IN_PROGRESS (unchanged)", got.Status)
+	}
+}
+
+// TestPromoteIfComplete_A3_MissingEndBatteryPctBlocksPromotion implements
+// RM51 design.md Test Contract A3: a missing end_battery_pct blocks
+// promotion -- the symmetric case to A2.
+func TestPromoteIfComplete_A3_MissingEndBatteryPctBlocksPromotion(t *testing.T) {
+	e := promoteTestEntry()
+	e.EndBatteryPct = nil
+	got := promoteIfComplete(e)
+	if got.Status != StatusInProgress {
+		t.Errorf("A3: Status = %v, want IN_PROGRESS (unchanged)", got.Status)
+	}
+}
+
+// TestPromoteIfComplete_A4_MissingChargedOnBlocksPromotion implements RM51
+// design.md Test Contract A4: proves the helper reuses the FULL
+// RequiredFieldsFor(StatusDone) set, not a hardcoded {ended_at,
+// end_battery_pct} list -- a field required at every status still gates
+// promotion.
+func TestPromoteIfComplete_A4_MissingChargedOnBlocksPromotion(t *testing.T) {
+	e := promoteTestEntry()
+	e.ChargedOn = time.Time{}
+	got := promoteIfComplete(e)
+	if got.Status != StatusInProgress {
+		t.Errorf("A4: Status = %v, want IN_PROGRESS (unchanged)", got.Status)
+	}
+}
+
+// TestPromoteIfComplete_A5_MissingLocationKindBlocksPromotion implements
+// RM51 design.md Test Contract A5: symmetric to A4, for location_kind.
+func TestPromoteIfComplete_A5_MissingLocationKindBlocksPromotion(t *testing.T) {
+	e := promoteTestEntry()
+	e.LocationKind = nil
+	got := promoteIfComplete(e)
+	if got.Status != StatusInProgress {
+		t.Errorf("A5: Status = %v, want IN_PROGRESS (unchanged)", got.Status)
+	}
+}
+
+// TestPromoteIfComplete_A6_DoneStatusNeverDemoted implements RM51 design.md
+// Test Contract A6: promoteIfComplete never demotes. Its first line returns
+// immediately for any status other than IN_PROGRESS, so it cannot be talked
+// into assigning IN_PROGRESS under any input -- proven here with a DONE
+// entry missing both DONE-only fields, an inconsistent state constructed
+// only to probe the guard.
+func TestPromoteIfComplete_A6_DoneStatusNeverDemoted(t *testing.T) {
+	e := promoteTestEntry()
+	e.Status = StatusDone
+	e.EndedAt = nil
+	e.EndBatteryPct = nil
+	got := promoteIfComplete(e)
+	if got.Status != StatusDone {
+		t.Errorf("A6: Status = %v, want DONE (unchanged)", got.Status)
 	}
 }

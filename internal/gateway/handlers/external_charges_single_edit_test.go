@@ -128,3 +128,93 @@ func max0(i int) int {
 	}
 	return i
 }
+
+// ============================================================================
+// RM51-gateway-add-free-charge-and-month-preset (MAG-58, tier 2) — Test
+// Contract Group B, cases B5-B7 (design.md §D-Echo). Added by Group 4 (task
+// 4.3). These open the inline editor via the SAME getEditFragment helper the
+// no-error-path tests above already use — a normal (non-error) row open, not
+// a validation failure, so RawPriceConfirmed is derived from the persisted
+// entry (externalChargeEntryVMFromEntry), not from a raw form echo.
+// ============================================================================
+
+// TestExternalChargeRowEditFragment_RM51_B5_ConfirmedFreeCharge_BoxChecked
+// verifies Test Contract B5: an existing entry stored with Price==0,
+// PriceSource==PriceSourceUser (the tier 1 "confirmed free charge" shape) ->
+// opening its edit fragment renders price_confirmed with the checked
+// attribute (design.md §D-Echo — the edit row shows the TRUE current state).
+func TestExternalChargeRowEditFragment_RM51_B5_ConfirmedFreeCharge_BoxChecked(t *testing.T) {
+	uid, id := uuid.New(), uuid.New()
+	entry := charging.Entry{
+		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001",
+		ChargedOn: time.Now(), Status: charging.StatusDone,
+		Price: 0, PriceSource: charging.PriceSourceUser, Currency: "COP",
+	}
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
+
+	w := getEditFragment(h, uid, id)
+	if w.Code != http.StatusOK {
+		t.Fatalf("B5: want 200 opening the editor, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	attrs := tagAttrsFor(w.Body.String(), "price_confirmed")
+	if attrs == "" {
+		t.Fatalf("B5: price_confirmed input not found, body=%q", w.Body.String()[:min(1500, w.Body.Len())])
+	}
+	if !strings.Contains(attrs, "checked") {
+		t.Errorf("B5: want price_confirmed checked for a confirmed free charge (Price==0, PriceSource==USER), got %q", attrs)
+	}
+}
+
+// TestExternalChargeRowEditFragment_RM51_B6_UnconfirmedZeroPrice_BoxUnchecked
+// verifies Test Contract B6: an existing entry stored with Price==0,
+// PriceSource==PriceSourceUnconfirmed -> opening its edit fragment renders
+// price_confirmed with NO checked attribute (design.md §D-Echo — never
+// fabricate a confirmation nobody gave).
+func TestExternalChargeRowEditFragment_RM51_B6_UnconfirmedZeroPrice_BoxUnchecked(t *testing.T) {
+	uid, id := uuid.New(), uuid.New()
+	entry := charging.Entry{
+		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001",
+		ChargedOn: time.Now(), Status: charging.StatusDone,
+		Price: 0, PriceSource: charging.PriceSourceUnconfirmed, Currency: "COP",
+	}
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
+
+	w := getEditFragment(h, uid, id)
+	if w.Code != http.StatusOK {
+		t.Fatalf("B6: want 200 opening the editor, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	attrs := tagAttrsFor(w.Body.String(), "price_confirmed")
+	if attrs == "" {
+		t.Fatalf("B6: price_confirmed input not found, body=%q", w.Body.String()[:min(1500, w.Body.Len())])
+	}
+	if strings.Contains(attrs, "checked") {
+		t.Errorf("B6: want price_confirmed NOT checked for an unconfirmed zero price, got %q", attrs)
+	}
+}
+
+// TestExternalChargeRowEditFragment_RM51_B7_PositivePrice_BoxUnchecked
+// verifies Test Contract B7: an existing entry stored with Price==8000.00
+// (any PriceSource) -> opening its edit fragment renders price_confirmed
+// with NO checked attribute (design.md §D-Echo — a positive-price entry
+// never shows a stale/misleading "confirmed free" state).
+func TestExternalChargeRowEditFragment_RM51_B7_PositivePrice_BoxUnchecked(t *testing.T) {
+	uid, id := uuid.New(), uuid.New()
+	entry := charging.Entry{
+		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001",
+		ChargedOn: time.Now(), Status: charging.StatusDone,
+		Price: 8000.00, PriceSource: charging.PriceSourceUser, Currency: "COP",
+	}
+	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
+
+	w := getEditFragment(h, uid, id)
+	if w.Code != http.StatusOK {
+		t.Fatalf("B7: want 200 opening the editor, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	attrs := tagAttrsFor(w.Body.String(), "price_confirmed")
+	if attrs == "" {
+		t.Fatalf("B7: price_confirmed input not found, body=%q", w.Body.String()[:min(1500, w.Body.Len())])
+	}
+	if strings.Contains(attrs, "checked") {
+		t.Errorf("B7: want price_confirmed NOT checked for a positive-price entry, got %q", attrs)
+	}
+}

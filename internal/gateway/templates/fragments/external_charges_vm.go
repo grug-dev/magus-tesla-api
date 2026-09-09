@@ -30,9 +30,16 @@ type ExternalChargeEntryVM struct {
 	LocationLabel       string // free text or ""
 	Notes               string // free text or ""
 	// Raw values for the inline edit form (pre-populated inputs).
-	RawChargedOn       string // "2006-01-02" (HTML date input format)
-	RawEnergyKWh       string // "12.50"
-	RawPrice           string // "15000.00"
+	RawChargedOn string // "2006-01-02" (HTML date input format)
+	RawEnergyKWh string // "12.50"
+	RawPrice     string // "15000.00"
+	// RawPriceConfirmed drives the "this charge was free" checkbox's `checked`
+	// attribute on the inline edit row's normal open. It is a DERIVED read, not
+	// a straight field copy: PriceConfirmed is never persisted, so this shows
+	// the consequence that would reproduce the current stored state if
+	// re-submitted unchanged — true only when Price == 0 && PriceSource ==
+	// charging.PriceSourceUser (design.md §D-Echo, RM51).
+	RawPriceConfirmed  bool
 	RawStartedAt       string // "2006-01-02T15:04" (datetime-local) or ""
 	RawEndedAt         string // "2006-01-02T15:04" or ""
 	RawStartBatteryPct string // "80" or ""
@@ -74,10 +81,14 @@ type ExternalChargeEntryVM struct {
 // failed validation — rather than a blank or default field (roadmap D15).
 // Every field is the literal c.PostForm(name) string; no parsing, no trimming
 // beyond what parseExternalChargeForm already applies for its own validation.
+// One exception: PriceConfirmed is a parsed bool, not a string — a checkbox's
+// wire format is presence, not value, so there is no raw string to echo
+// (design.md §D-Parse, Context fact 4, RM51).
 type ExternalChargeFormValues struct {
 	Status          string // "IN_PROGRESS" | "DONE" | "" (fresh page load)
 	EnergyAddedKWh  string
 	Price           string
+	PriceConfirmed  bool // "this charge was free" checkbox — presence, not string (design.md §D-Parse, RM51)
 	LocationKind    string
 	StartBatteryPct string
 	EndBatteryPct   string

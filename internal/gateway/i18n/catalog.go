@@ -171,6 +171,8 @@ const (
 	KeyChargesFormStatusInProgress Key = "charges_form.status_in_progress"
 	KeyChargesFormStatusDone       Key = "charges_form.status_done"
 	KeyChargesFormOdometer         Key = "charges_form.odometer"
+	// --- "this charge was free" checkbox, added by RM51-gateway-add-free-charge-and-month-preset (design.md §D-Checkbox) ---
+	KeyChargesFormPriceConfirmed Key = "charges_form.price_confirmed"
 
 	// --- charge row (templates/fragments/external_charge_row.templ) ---
 	KeyChargesRowEdit           Key = "charges_row.edit"
@@ -395,6 +397,8 @@ const (
 	// --- charges date-filter presets (fragments/external_charges_list.templ), design.md §D-Presets ---
 	KeyChargesRangeLast7Days Key = "charges_range.last_7_days"
 	KeyChargesRangeThisMonth Key = "charges_range.this_month"
+	// --- "last month" preset, added by RM51-gateway-add-free-charge-and-month-preset (design.md §D-Order) ---
+	KeyChargesRangeLastMonth Key = "charges_range.last_month"
 
 	// --- charges aggregation tiles (fragments/external_charges_list.templ), design.md §D-Tiles ---
 	// Summary-card heading for the charges tiles (AGENTS.md §"Every section is
@@ -573,6 +577,7 @@ var catalog = map[Key]entry{
 	KeyChargesFormStatusInProgress: {ES: "En progreso", EN: "In progress"},
 	KeyChargesFormStatusDone:       {ES: "Finalizada", EN: "Done"},
 	KeyChargesFormOdometer:         {ES: "Odómetro (km)", EN: "Odometer (km)"},
+	KeyChargesFormPriceConfirmed:   {ES: "Esta carga fue gratis", EN: "This charge was free"},
 
 	KeyChargesRowEdit:           {ES: "Editar", EN: "Edit"},
 	KeyChargesRowDelete:         {ES: "Eliminar", EN: "Delete"},
@@ -745,6 +750,7 @@ var catalog = map[Key]entry{
 
 	KeyChargesRangeLast7Days: {ES: "Últimos 7 días", EN: "Last 7 days"},
 	KeyChargesRangeThisMonth: {ES: "Este mes", EN: "This month"},
+	KeyChargesRangeLastMonth: {ES: "Mes pasado", EN: "Last month"},
 
 	KeyChargesSummaryTitle: {ES: "Resumen", EN: "Summary"},
 	KeyChargesSummaryDesc:  {ES: "Totales de las cargas que registraste en el periodo seleccionado.", EN: "Totals for the charges you logged in the selected period."},

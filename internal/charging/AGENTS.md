@@ -151,6 +151,25 @@ func RequiredFieldsFor(s Status) []Field
 | `IN_PROGRESS` | `charged_on`, `location_kind` |
 | `DONE` | `charged_on`, `location_kind`, `ended_at`, `end_battery_pct` |
 
+### Auto-promotion to `DONE` (RM51 tier 1, MAG-58, RM51-charging-derive-status-and-price-source)
+
+`Writer.Create` and `Writer.Update` both call `promoteIfComplete(e Entry) Entry`
+(`validation.go`) right after `normalizeStatus` and right before `missingFields`. It
+promotes an entry submitted as `IN_PROGRESS` to `DONE` when every field
+`RequiredFieldsFor(StatusDone)` demands is already present. It reuses
+`missingFields`/`RequiredFieldsFor` — no hardcoded field list — so a future change to
+the `DONE` set tightens promotion automatically. It never demotes: an entry already
+`DONE` is returned unchanged.
+
+This does **not** change `RequiredFieldsFor`'s own rule. It changes only when an entry
+gets stored as `DONE` without the caller moving the status control by hand. An explicit
+`DONE` submission missing a required field is still rejected exactly as before.
+
+**Known cost:** because promotion also runs on `Update`, and `DONE → IN_PROGRESS` has no
+transition rule (still true — see above), "reopening" a `DONE` entry without also
+clearing `ended_at` or `end_battery_pct` gets immediately re-promoted back to `DONE`.
+To really reopen an entry, the caller must clear at least one of those two fields.
+
 **`Entry.EnergyAddedKWh` is `*float64`, not `float64`** (was `float64` before this
 change). `nil` means not supplied and not derivable -- an `IN_PROGRESS` entry
 legitimately has no end-of-session facts, so no honest value exists yet. When
@@ -174,6 +193,35 @@ points at `0`.
 - **`OdometerKm *int`** -- the odometer reading, in kilometres, observed **at**
   this charge event (an observation belonging to the event, not current vehicle
   state). `nil` means not recorded.
+
+### Price provenance (RM51 tier 1, MAG-58, RM51-charging-derive-status-and-price-source)
+
+```go
+// PriceSource is the provenance of Entry.Price: PriceSourceUser when the amount
+// is known to be real (a positive price, or a caller-confirmed zero),
+// PriceSourceUnconfirmed when a zero price has not been confirmed as a real
+// free charge. ALWAYS COMPUTED BY internal/charging on Create/Update -- a value
+// set on the Entry passed to Writer is ignored and overwritten, the same shape
+// EnergySource already uses.
+type PriceSource string
+
+const (
+    PriceSourceUser        PriceSource = "USER"
+    PriceSourceUnconfirmed PriceSource = "UNCONFIRMED"
+)
+```
+
+`Entry` gained two more fields in the same change:
+
+- **`PriceSource PriceSource`** -- module-computed output. A value set here on the
+  `Entry` passed to `Writer` is never read; the module always overwrites it. The rule:
+  a positive `Price` is always `USER`; a zero `Price` is `USER` only when
+  `PriceConfirmed` is `true`, else `UNCONFIRMED`. A positive price always wins over
+  `PriceConfirmed` — the flag is only consulted when `Price == 0`.
+- **`PriceConfirmed bool`** -- caller-supplied intent, read **only** when `Price == 0`;
+  ignored when `Price > 0`. **Not persisted directly** -- it drives `PriceSource`,
+  which is what gets written and read back. A round-trip through `Reader` always
+  returns `PriceConfirmed: false` on every entry.
 
 ### The Supercharger mirror port (RM29 tier 6)
 
@@ -704,6 +752,21 @@ owned by this module may have a name beginning `charge_sessions`. Verify with
     that lookup **must filter `WHERE energy_source = 'USER'`** when averaging
     inferred capacities, or it averages this constant back into itself
     (design.md D4/D7).
+- **`price_source`** (RM51 tier 1, MAG-58, RM51-charging-derive-status-and-price-source,
+  `internal/charging/db/migrations/20260909000001_add_price_source.sql`):
+  - `price_source TEXT NOT NULL DEFAULT 'UNCONFIRMED' CHECK (price_source IN ('USER','UNCONFIRMED'))`
+    — always computed by this module (`resolvePriceSource` in `service.go`), never
+    accepted from a caller.
+  - **Not indexed.** Nothing filters, orders, joins, or groups by this column, in this
+    tier or any planned one (design.md D4/§Index Plan). If a future change needs to
+    filter by `price_source`, the revisit trigger is a **partial**, `account_id`-leading
+    index — not a standalone `(price_source)` index.
+  - **The `DEFAULT` alone does not implement the price-based rule.** A raw `INSERT` at
+    the SQL level that omits `price_source` always lands on `'UNCONFIRMED'`, even for a
+    positive `price` — a column `DEFAULT` cannot see another column's value. The
+    `price > 0 ⇒ USER` half of the rule is enforced in exactly two places: the
+    migration's own one-time backfill `UPDATE` (for rows that existed before this
+    change) and `resolvePriceSource` in Go (on every future write, via `Writer`).
 
 ### `supercharger_sessions` (renamed from `charge_sessions` in RM39 tier 3, D5b; RM29 tier 6,
 RM29-charging-add-charge-sessions)
@@ -903,3 +966,17 @@ RM29-charging-add-charge-sessions)
   `db_session_reader_integration_test.go` — no `pgtype` anywhere in either file.
   `db_session_reader_by_vehicle_integration_test.go`'s T-Order2 case reads `EXPLAIN`
   plan text via plain `string` scanning, not any generated type.
+  Since RM51 tier 1 (MAG-58, RM51-charging-derive-status-and-price-source):
+  `entry_status_test.go` gained `promoteIfComplete`'s offline unit tests (design.md Test
+  Contract A1-A6) — its promotion case, its two single-missing-field blocking cases, its
+  two full-`DONE`-set blocking cases (proving the helper reuses the full
+  `RequiredFieldsFor(StatusDone)` set), and its never-demote guard. `price_source_test.go`
+  (new, package `charging` — `resolvePriceSource` is unexported) covers `resolvePriceSource`
+  offline against Test Contract A7-A10: the three price/confirmation branches plus the
+  precedence case. `db_promotion_price_source_integration_test.go` (new, package
+  `charging_test`, mirrors `db_entry_status_integration_test.go`'s style and reuses its
+  Group B helpers) covers Test Contract B1-B3 (the `price_source` `DEFAULT` mechanism, its
+  `CHECK`, and that the `DEFAULT` is price-blind — asserted via the shared
+  `assertPgErrorCode` helper, SQLSTATE `23514` not message text) and C1-C11 (the
+  `price_source` write-path rule and the auto-promotion rule, both through
+  `Writer`/`Reader`, including the re-promotion-on-reopen interaction).

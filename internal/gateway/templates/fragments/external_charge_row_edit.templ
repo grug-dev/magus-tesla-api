@@ -91,6 +91,7 @@ templ ExternalChargeRowEdit(vm ExternalChargeEntryVM, csrfToken string, validati
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormPrice), Error: validationErrors["price"], Optional: true}) {
 						// i18n:allow: ISO currency code
 						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: vm.RawPrice, Suffix: "COP", Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
+						@ui.Checkbox(ui.CheckboxProps{Name: "price_confirmed", Label: i18n.T(ctx, i18n.KeyChargesFormPriceConfirmed), Checked: vm.RawPriceConfirmed, Class: "mt-1"})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartedAt), Error: validationErrors["started_at"], Optional: true}) {
 						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: vm.RawStartedAt})

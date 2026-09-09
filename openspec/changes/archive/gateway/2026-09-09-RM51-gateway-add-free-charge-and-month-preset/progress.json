@@ -1,0 +1,380 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM51-gateway-add-free-charge-and-month-preset",
+  "module": "gateway",
+  "roadmap": "RM51-external-charges-completion",
+  "tier": 2,
+  "intention": "The /external-charges page gets an always-visible 'this charge was free' checkbox beside the price input on both forms, feeding tier 1's charging.Entry.PriceConfirmed, and a third date preset 'last month' = the previous calendar month. No database change, no new JavaScript.",
+  "status": "archived",
+  "created_at": "2026-09-09T14:57:00Z",
+  "updated_at": "2026-09-09T20:08:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM51-MAG-58-external-charges-completion",
+    "base": "main",
+    "created_at": "2026-09-09T12:26:27Z",
+    "ticket": "MAG-58",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-58/chargin-external-charges-v2-done-status"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1"
+    ],
+    "awaiting-user-verification": []
+  },
+  "decisions": [
+    {
+      "id": "D1-fix",
+      "at": "2026-09-09T15:24:00Z",
+      "scope": "test-contract",
+      "made_by": "leader",
+      "decision": "design.md Test Contract D1 said buildSuperchargerPresets returns 2 entries. It returns 3. The worker asserted 3 and flagged it; the leader corrected the D1 row in design.md.",
+      "why": "The count is a fact about untouched, already-shipped code, not an expectation this tier authored. Pinning 2 would fail against the code and an existing sibling test."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Create the ui.Checkbox component in templates/ui/checkbox.templ",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T14:53:00Z",
+      "completed_at": "2026-09-09T14:57:00Z",
+      "duration_seconds": 240,
+      "budget": {
+        "five_hour_pct_start": 76,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.37,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-3.2 jointly; the same delta is copied onto all seven tasks"
+      },
+      "notes": "Created templates/ui/checkbox.templ with CheckboxProps and the Checkbox component, matching design.md D-Checkbox. make templ regenerated checkbox_templ.go."
+    },
+    {
+      "id": "2.1",
+      "title": "Add PriceConfirmed and RawPriceConfirmed to the external-charges view models",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T14:53:00Z",
+      "completed_at": "2026-09-09T14:57:00Z",
+      "duration_seconds": 240,
+      "budget": {
+        "five_hour_pct_start": 76,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.37,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-3.2 jointly; the same delta is copied onto all seven tasks"
+      },
+      "notes": "Added PriceConfirmed to ExternalChargeFormValues and RawPriceConfirmed to ExternalChargeEntryVM, both with doc comments naming the bool exception."
+    },
+    {
+      "id": "2.2",
+      "title": "Parse price_confirmed, pass it as Entry.PriceConfirmed, and set the edit-row echo",
+      "depends_on": [
+        "2.1"
+      ],
+      "wave": 1,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T14:53:00Z",
+      "completed_at": "2026-09-09T14:57:00Z",
+      "duration_seconds": 240,
+      "budget": {
+        "five_hour_pct_start": 76,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.37,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-3.2 jointly; the same delta is copied onto all seven tasks"
+      },
+      "notes": "parseExternalChargeForm parses price_confirmed by presence and passes entry.PriceConfirmed through with no price>0 branch. Both VM mappers updated."
+    },
+    {
+      "id": "2.3",
+      "title": "Add the charges_form.price_confirmed i18n key in ES and EN",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T14:53:00Z",
+      "completed_at": "2026-09-09T14:57:00Z",
+      "duration_seconds": 240,
+      "budget": {
+        "five_hour_pct_start": 76,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.37,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-3.2 jointly; the same delta is copied onto all seven tasks"
+      },
+      "notes": "Added KeyChargesFormPriceConfirmed with ES 'Esta carga fue gratis' and EN 'This charge was free'."
+    },
+    {
+      "id": "2.4",
+      "title": "Render the checkbox inside the price Field on both forms",
+      "depends_on": [
+        "1.1",
+        "2.1",
+        "2.3"
+      ],
+      "wave": 1,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T14:53:00Z",
+      "completed_at": "2026-09-09T14:57:00Z",
+      "duration_seconds": 240,
+      "budget": {
+        "five_hour_pct_start": 76,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.37,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-3.2 jointly; the same delta is copied onto all seven tasks"
+      },
+      "notes": "Added ui.Checkbox inside the existing price ui.Field on both the create form and the edit row. make templ and make css ran clean."
+    },
+    {
+      "id": "3.1",
+      "title": "Add the charges_range.last_month i18n key in ES and EN",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T14:53:00Z",
+      "completed_at": "2026-09-09T14:57:00Z",
+      "duration_seconds": 240,
+      "budget": {
+        "five_hour_pct_start": 76,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.37,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-3.2 jointly; the same delta is copied onto all seven tasks"
+      },
+      "notes": "Added KeyChargesRangeLastMonth with ES 'Mes pasado' and EN 'Last month'."
+    },
+    {
+      "id": "3.2",
+      "title": "Append the last-month preset to buildExternalChargesPresets",
+      "depends_on": [
+        "3.1"
+      ],
+      "wave": 1,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T14:53:00Z",
+      "completed_at": "2026-09-09T14:57:00Z",
+      "duration_seconds": 240,
+      "budget": {
+        "five_hour_pct_start": 76,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.37,
+        "approx": true,
+        "note": "one serial worker dispatch covering 1.1-3.2 jointly; the same delta is copied onto all seven tasks"
+      },
+      "notes": "buildExternalChargesPresets appends the last-month preset after the existing two. buildSuperchargerPresets untouched."
+    },
+    {
+      "id": "4.1",
+      "title": "Tests A1-A2 and B1-B4: checkbox parsing and the 422 checked echo",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.4"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T15:12:00Z",
+      "completed_at": "2026-09-09T15:40:00Z",
+      "duration_seconds": 1680,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 99,
+        "cost_usd_delta": 5.38,
+        "approx": true,
+        "note": "one serial worker dispatch covering 4.1-5.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Added A1-A2 (checkbox parse) and B1-B4 (pass-through, 422 checked and unchecked echo) to external_charges_test.go."
+    },
+    {
+      "id": "4.2",
+      "title": "Tests C1-C5 and D1: the last-month window, Active matching, and the supercharger guard",
+      "depends_on": [
+        "3.2"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T15:12:00Z",
+      "completed_at": "2026-09-09T15:40:00Z",
+      "duration_seconds": 1680,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 99,
+        "cost_usd_delta": 5.38,
+        "approx": true,
+        "note": "one serial worker dispatch covering 4.1-5.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Added C1-C5 and D1 to external_charges_range_test.go. Also corrected two pre-existing cases, A7 and A8, whose len(presets)==2 assertion went stale when 3.2 shipped the third preset."
+    },
+    {
+      "id": "4.3",
+      "title": "Tests B5-B7: the edit-row checked state on a normal open",
+      "depends_on": [
+        "4.1"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T15:12:00Z",
+      "completed_at": "2026-09-09T15:40:00Z",
+      "duration_seconds": 1680,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 99,
+        "cost_usd_delta": 5.38,
+        "approx": true,
+        "note": "one serial worker dispatch covering 4.1-5.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Added B5-B7 to external_charges_single_edit_test.go, reusing the existing getEditFragment helper."
+    },
+    {
+      "id": "5.1",
+      "title": "Refresh the KB guide kkpa/context/input-port/charging/external-charges.md",
+      "depends_on": [
+        "2.4",
+        "3.2"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T15:12:00Z",
+      "completed_at": "2026-09-09T15:40:00Z",
+      "duration_seconds": 1680,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 99,
+        "cost_usd_delta": 5.38,
+        "approx": true,
+        "note": "one serial worker dispatch covering 4.1-5.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Updated kkpa/context/input-port/charging/external-charges.md: the free-charge checkbox on both forms, and three date presets instead of two."
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM51 tier 2 (gateway) against design.md D-Checkbox, D-Parse, D-Echo, D-Order and the Test Contract. Check: (1) every change stays inside internal/gateway plus the one granted KB path; (2) no new client-side JavaScript, the RD6 constraint; (3) both new i18n keys have non-empty ES and EN; (4) the tests assert the expectations design.md authored up front, not what the code happens to do; (5) tests assert behaviour, never markup order, CSS classes or copy text (AGENTS.md lines 919-966); (6) the D1 correction and the A7/A8 count fix are honest fixes, not weakened criteria; (7) no acceptance criterion was edited or deleted to pass. No database object in this tier, so there is no schema-versus-design check. Signals: go build, go vet and seven guards were assistant-run. make check and make test were run and reported by the OWNER; do not re-run the suite.",
+    "rounds": [
+      {
+        "at": "2026-09-09T20:00:05Z",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-09T14:57:00Z",
+      "type": "artifacts-created",
+      "by": "leader",
+      "detail": "gateway worker (Sonnet) wrote proposal, design, the gateway delta spec and tasks. openspec validate --strict passes. No database object, so the design gate did not fire. Committed at 494d3e8. The worker corrected the leader's dispatch: the zero-JS sanctioned-exception list is six (RD9/RD10/RD12/RD13/RD14/RD15) per internal/gateway/AGENTS.md, not three."
+    },
+    {
+      "at": "2026-09-09T14:58:00Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 1 dispatched: one serial gateway worker on Sonnet for tasks 1.1-3.2 (Groups 1-3). Serial, not parallel, because 2.3 and 3.1 both edit i18n/catalog.go; one worker removes the overlap at no extra cost. Budget at dispatch: five_hour 76%, context 15%."
+    },
+    {
+      "at": "2026-09-09T14:57:00Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 1 done: all seven tasks implemented. Leader verified go build, go vet, i18n-guard, ui-guard, boundary-guard and archive-guard, all green. Diff matches design.md D-Checkbox/D-Parse/D-Echo/D-Order. Tasks are awaiting-user-verification: their tests are wave 2's job and the suite is the owner's to run. Budget: five_hour 76 to 83 percent."
+    },
+    {
+      "at": "2026-09-09T14:57:00Z",
+      "type": "note",
+      "by": "leader",
+      "detail": "The worker reported internal/gateway/AGENTS.md truncated at line 843, so it did not read the JS-exception and testing sections in full. No harm here: the wave added no JavaScript and no tests. Wave 2 writes tests, so its dispatch must name the testing rules directly."
+    },
+    {
+      "at": "2026-09-09T14:59:00Z",
+      "type": "checkpoint",
+      "by": "leader",
+      "detail": "Budget checkpoint at the wave 1 boundary, chosen by the user. five_hour 83 percent, context 17 percent, bucket resets 2026-09-09T17:10Z. Wave 1 cost 7 points, so wave 2 was projected to cross the 90 percent threshold mid-wave. Resume with /kkpa-dev-harness-pipeline resume RM51-external-charges-completion. Next step is wave 2: tasks 4.1, 4.2, 4.3 and 5.1. The owner still owes a suite run for the wave 1 tasks, which stay awaiting-user-verification."
+    },
+    {
+      "at": "2026-09-09T15:12:00Z",
+      "type": "resumed",
+      "by": "leader",
+      "detail": "Fresh session resumed tier 2 at the wave 2 boundary. Budget at resume: five_hour 87 percent (bucket not yet reset, resets 17:10Z), context 10 percent. The user was shown the 87 percent reading and chose to run wave 2 now rather than wait for the reset."
+    },
+    {
+      "at": "2026-09-09T15:12:00Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 2 dispatched: one serial gateway worker on Sonnet for tasks 4.1, 4.2, 4.3 and 5.1. Serial because 4.3 depends on 4.1 and shares its fixtures. Sandbox internal/gateway/ plus the granted KB path kkpa/context/input-port/charging/external-charges.md. The dispatch inlines AGENTS.md lines 919-966 because a previous worker reported the file truncated at line 843."
+    },
+    {
+      "at": "2026-09-09T15:26:00Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 2 done: 4.1, 4.2, 4.3 and 5.1. Leader verified go build, go vet and all seven guards, green. gofmt -l flags three files that RM51 never touched, so they are pre-existing. The worker found design.md D1 wrong about buildSuperchargerPresets and flagged it instead of writing a failing test; the leader corrected design.md (decision D1-fix). Tests are awaiting-user-verification. Budget: five_hour 87 to 99 percent."
+    },
+    {
+      "at": "2026-09-09T19:33:00Z",
+      "type": "awaiting-user-verification",
+      "by": "leader",
+      "detail": "Step 6 verify gate. openspec validate --strict passes. All 15 Test Contract cases exist as test functions: A1-A2, B1-B7, C1-C5, D1. Leader-run signals green: go build, go vet, seven guards. The suite is the owner's to run, so the change stops here and does not reach the reviewer until the owner reports a pass. Budget clear: the 5-hour bucket reset at 17:10Z."
+    },
+    {
+      "at": "2026-09-09T19:40:00Z",
+      "type": "user-verified",
+      "by": "user",
+      "detail": "The owner ran make check and make test and reported both passing. All eleven tasks move from awaiting-user-verification to done and the change reaches verified. This pass is the owner's report, not an assistant-run result."
+    },
+    {
+      "at": "2026-09-09T20:05:00Z",
+      "type": "reviewer-approved",
+      "by": "leader",
+      "detail": "gateway-reviewer approved round 1 with no findings and wrote review.status=approved. The leader only transcribed that verdict into the change status; the judgment is the reviewer's. The reviewer independently confirmed the A7/A8 count fix and the design.md D1 correction are honest fixes, not weakened criteria."
+    },
+    {
+      "at": "2026-09-09T20:08:00Z",
+      "type": "archived",
+      "by": "leader",
+      "detail": "Tier 2 archived to openspec/changes/archive/gateway/2026-09-09-RM51-gateway-add-free-charge-and-month-preset. The delta spec synced into openspec/specs/gateway/spec.md: 3 requirements modified, nothing appended at EOF. The CLI drops archives at the archive root, so the folder was git mv'd under gateway/ to match this repo's module grouping."
+    }
+  ]
+}

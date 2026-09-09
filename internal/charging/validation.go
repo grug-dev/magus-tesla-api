@@ -1,7 +1,8 @@
 // validation.go — status normalization and required-field enforcement for manual
-// charge entries (MAG-18/RM33 design.md D5/D8). Both normalizeStatus and
-// missingFields are called from Writer.Create/Writer.Update in service.go, in that
-// order, before any database call or the capacity-derivation seam (design.md D3).
+// charge entries (MAG-18/RM33 design.md D5/D8). normalizeStatus, promoteIfComplete,
+// and missingFields are called from Writer.Create/Writer.Update in service.go, in
+// that order (RM51 design.md D1), before any database call or the
+// capacity-derivation seam (design.md D3).
 package charging
 
 import (
@@ -77,4 +78,26 @@ func missingFields(e Entry) []Field {
 		}
 	}
 	return missing
+}
+
+// promoteIfComplete promotes e to StatusDone when its submitted status is
+// StatusInProgress and every field RequiredFieldsFor(StatusDone) demands is
+// already present -- reusing missingFields/RequiredFieldsFor rather than a
+// hardcoded {ended_at, end_battery_pct} list, so a future change to the DONE
+// set tightens promotion automatically (roadmap RD1). Promotion only: an entry
+// already StatusDone is returned unchanged -- this function never assigns
+// StatusInProgress to anything. Called from both Writer.Create and
+// Writer.Update, immediately after normalizeStatus and before missingFields,
+// so the entry is validated against the status it will actually be stored
+// with (design.md Context fact 3).
+func promoteIfComplete(e Entry) Entry {
+	if e.Status != StatusInProgress {
+		return e
+	}
+	check := e
+	check.Status = StatusDone
+	if len(missingFields(check)) == 0 {
+		e.Status = StatusDone
+	}
+	return e
 }
