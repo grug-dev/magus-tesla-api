@@ -40,6 +40,9 @@
 | `charge status` | synonym of `entry status` | entity | `workflows/manual-charge-crud.md` |
 | `energy source` | `charging.EnergySource` (`USER` / `ESTIMATED`) / `manual_charge_entries.energy_source` — module-computed, never caller-supplied | entity | `workflows/manual-charge-crud.md` |
 | `energy provenance` | synonym of `energy source` | entity | `workflows/manual-charge-crud.md` |
+| `price source` | `charging.PriceSource` (`USER` / `UNCONFIRMED`) / `manual_charge_entries.price_source` — module-computed, never caller-supplied | entity | `workflows/manual-charge-crud.md` |
+| `price provenance` | synonym of `price source` | entity | `workflows/manual-charge-crud.md` |
+| `zero price confirmation` | synonym of `price source` | entity | `workflows/manual-charge-crud.md` |
 | `battery level by day` | `analytics.Reader.BatteryLevelByDay` / `analytics.DayBattery` (`vehicle_metrics.battery_level_pct`, `battery_range_km`) | entity | `entities/vehicle-metrics/guide.md` |
 | `per-day battery level` | synonym of `battery level by day` | entity | `entities/vehicle-metrics/guide.md` |
 | `battery history` | synonym of `battery level by day` | entity | `entities/vehicle-metrics/guide.md` |

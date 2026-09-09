@@ -139,7 +139,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any assertion or helper
 (`internal/charging/AGENTS.md` §Testing Notes).
 
-- [ ] **3.1** **[module: charging worker]** Extend `internal/charging/entry_status_test.go` —
+- [x] **3.1** **[module: charging worker]** Extend `internal/charging/entry_status_test.go` —
   offline, no DB. Cover design.md Test Contract **A1–A6**: `promoteIfComplete`'s promotion case,
   its two single-missing-field blocking cases (`ended_at`, `end_battery_pct`), its two
   full-DONE-set blocking cases (`charged_on`, `location_kind` — proving the helper reuses the
@@ -147,14 +147,14 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
   never-demote guard on a `DONE`-status input.
   `depends_on`: 2.2 · `parallel_ok`: with 3.2, 3.3
 
-- [ ] **3.2** **[module: charging worker]** Create `internal/charging/price_source_test.go` —
+- [x] **3.2** **[module: charging worker]** Create `internal/charging/price_source_test.go` —
   offline, no DB, package `charging` (mirrors `entry_status_test.go`'s package choice, since
   `resolvePriceSource` is unexported). Cover design.md Test Contract **A7–A10**: the three RD3
   rule-table branches plus the precedence case (a positive price wins regardless of
   `PriceConfirmed`).
   `depends_on`: 2.3 · `parallel_ok`: with 3.1, 3.3
 
-- [ ] **3.3** **[module: charging worker]** Create
+- [x] **3.3** **[module: charging worker]** Create
   `internal/charging/db_promotion_price_source_integration_test.go` — `DATABASE_URL`-gated,
   mirroring `db_entry_status_integration_test.go`'s style and using the package's existing
   `testdb_test.go` pool. Cover design.md Test Contract **B1–B3** (direct SQL: the `DEFAULT`-path
@@ -172,7 +172,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 
 ## Wave 4 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)
 
-- [ ] **4.1** **[module: charging worker]** `internal/charging/AGENTS.md`:
+- [x] **4.1** **[module: charging worker]** `internal/charging/AGENTS.md`:
   - §Public Interface — the `PriceSource` type and its two constants, the two new `Entry` fields
     (`PriceSource`, `PriceConfirmed`), and that `PriceSource` is module-computed and ignored when
     supplied. Note the promotion rule (`Writer.Create`/`Update` auto-promote a complete
@@ -184,7 +184,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
   - §Testing Notes — the three new/extended test files and what each covers.
   `depends_on`: 2.3 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** **[leader — outside the charging sandbox; grant the path or do it]**
+- [x] **4.2** **[leader — outside the charging sandbox; grant the path or do it]**
   - `kkpa/context/workflows/manual-charge-crud.md` — add a note for the promotion rule (a complete
     `IN_PROGRESS` entry is auto-promoted to `DONE` on both write paths, per design.md D1) beside
     the existing "Required fields depend on the entry's status" note, and a note for the
@@ -204,7 +204,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 
 ## Wave 5 — signals
 
-- [ ] **5.1** **[module: charging worker]** Run the cheap deterministic signals the
+- [x] **5.1** **[module: charging worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/charging`, `go build ./...`,
   `go vet ./...`. **Unlike RM33, `go build ./...` and `go vet ./...` should be clean repo-wide**
   after this tier (proposal.md §Breaking — every change is additive). If either fails outside
@@ -239,11 +239,11 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 
 ## Cross-module tasks the leader owns
 
-- [ ] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green **outside**
+- [x] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green **outside**
   `internal/charging` once Wave 5 lands. Proposal.md §Breaking states no cross-module compile fix
   should be needed — verify rather than assume, the same way RM33's leader was asked to verify the
   `analytics` module rather than trust a grep.
-- [ ] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change alters a
+- [x] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change alters a
   module's public surface but adds, removes, or renames no module and no runnable, so the
   "Project Structure" tree and the "Architecture" table should already be correct.
   `depends_on`: 4.1 · `parallel_ok`: yes

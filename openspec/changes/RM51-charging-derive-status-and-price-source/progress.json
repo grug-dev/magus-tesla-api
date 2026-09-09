@@ -6,9 +6,9 @@
   "roadmap": "RM51-external-charges-completion",
   "tier": 1,
   "intention": "charging derives two fields on write. It promotes an entry to StatusDone when the submitted status is StatusInProgress and every DONE-required field is present, reusing missingFields against RequiredFieldsFor(StatusDone) and never demoting (RD1), on both Create and Update (RD2). It adds a price_source column (USER / UNCONFIRMED) that records whether a zero price is a real free charge or forgotten data, computed by the module from a caller-supplied PriceConfirmed boolean (RD3, RD4). No index (RD5).",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-09-09T12:40:00Z",
-  "updated_at": "2026-09-09T13:45:04Z",
+  "updated_at": "2026-09-09T13:52:31Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,14 +24,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "3.2",
-      "3.3",
-      "4.1",
-      "4.2",
-      "5.1",
-      "L1",
-      "L2",
       "O1",
       "O2"
     ],
@@ -42,7 +34,17 @@
       "1.3",
       "2.1",
       "2.2",
-      "2.3"
+      "2.3",
+      "4.1",
+      "4.2",
+      "5.1",
+      "L1",
+      "L2"
+    ],
+    "awaiting_user_verification": [
+      "3.1",
+      "3.2",
+      "3.3"
     ]
   },
   "decisions": [
@@ -217,14 +219,20 @@
         "2.3"
       ],
       "wave": 3,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:45:56Z",
+      "completed_at": "2026-09-09T13:52:31Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 48,
+        "cost_usd_delta": 4.47,
+        "approx": true,
+        "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "Six offline tests added to entry_status_test.go for promoteIfComplete, asserting design.md A1-A6. Written, not run."
     },
     {
       "id": "3.2",
@@ -233,14 +241,20 @@
         "2.3"
       ],
       "wave": 3,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:45:56Z",
+      "completed_at": "2026-09-09T13:52:31Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 48,
+        "cost_usd_delta": 4.47,
+        "approx": true,
+        "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "price_source_test.go created, package charging. One table test covering A7-A10, including the precedence case. Written, not run."
     },
     {
       "id": "3.3",
@@ -249,14 +263,20 @@
         "2.3"
       ],
       "wave": 3,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:45:56Z",
+      "completed_at": "2026-09-09T13:52:31Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 48,
+        "cost_usd_delta": 4.47,
+        "approx": true,
+        "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "db_promotion_price_source_integration_test.go created, 14 DATABASE_URL-gated tests for B1-B3 and C1-C11. Table references are schema-qualified. CHECK asserted by SQLSTATE 23514. Written, not run."
     },
     {
       "id": "4.1",
@@ -265,14 +285,20 @@
         "2.3"
       ],
       "wave": 4,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-09T13:45:56Z",
+      "completed_at": "2026-09-09T13:52:31Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 48,
+        "cost_usd_delta": 4.47,
+        "approx": true,
+        "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
+      },
+      "notes": "AGENTS.md updated: the auto-promotion rule, PriceSource/PriceConfirmed in Public Interface, the price_source column in Data Ownership, the three test files in Testing Notes."
     },
     {
       "id": "4.2",
@@ -281,14 +307,14 @@
         "2.3"
       ],
       "wave": 4,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T13:52:31Z",
+      "completed_at": "2026-09-09T13:52:31Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "Leader-owned or needs an explicit path grant \u2014 kkpa/context/ is outside the module sandbox."
+      "notes": "KB refreshed. Added the price source glossary rows and two rule notes. Also fixed three stale facts the change invalidated: the db/queries.sql filename twice, and the claim that the status control is the ONLY way to complete an entry."
     },
     {
       "id": "5.1",
@@ -301,14 +327,14 @@
         "4.2"
       ],
       "wave": 5,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T13:52:31Z",
+      "completed_at": "2026-09-09T13:52:31Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Leader ran the cheap signals: go build ./..., go vet ./..., gofmt -l internal/charging, plus migration-guard, boundary-guard, money-guard and tz-guard. All clean."
     },
     {
       "id": "L1",
@@ -317,14 +343,14 @@
         "2.3"
       ],
       "wave": 5,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T13:52:31Z",
+      "completed_at": "2026-09-09T13:52:31Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "go build ./... and go vet ./... are green repo-wide. No cross-module fix needed, as proposal.md predicted."
     },
     {
       "id": "L2",
@@ -333,14 +359,14 @@
         "2.3"
       ],
       "wave": 5,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-09T13:52:31Z",
+      "completed_at": "2026-09-09T13:52:31Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "README.md needs no edit. No module, runnable or port was added, removed or renamed; only fields on an existing struct."
     },
     {
       "id": "O1",
@@ -430,6 +456,31 @@
         "cost_usd_delta": 5.0,
         "approx": true,
         "note": "one serial worker dispatch covering 1.1-2.3 jointly; the same delta is copied onto all six tasks"
+      }
+    },
+    {
+      "at": "2026-09-09T13:45:56Z",
+      "type": "regression-check",
+      "by": "leader",
+      "detail": "Leader checked whether the RD1 promotion breaks any existing test before writing new ones. It does not: every existing test that asserts an entry stays IN_PROGRESS clears EndedAt and EndBatteryPct, and minEntry sets neither, so promoteIfComplete never fires there. No test compares a whole Entry struct, so the new PriceSource field breaks no equality assertion."
+    },
+    {
+      "at": "2026-09-09T13:45:56Z",
+      "type": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave B (3.1, 3.2, 3.3, 4.1) dispatched to the charging worker on claude-sonnet-5: the offline promotion tests, the offline price-source tests, the DATABASE_URL-gated integration tests, and the module AGENTS.md. Budget at dispatch: five_hour 35%, context 14%."
+    },
+    {
+      "at": "2026-09-09T13:52:31Z",
+      "type": "wave-completed",
+      "by": "leader",
+      "detail": "Wave B (3.1-3.3, 4.1) done. Leader verified independently: go vet ./... and gofmt clean, the integration test qualifies charging.manual_charge_entries and asserts SQLSTATE 23514, and the unit tests assert design.md's contract tables. Leader also finished 4.2, 5.1, L1 and L2. Tests are written but NOT run: they are awaiting the owner's verification.",
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 48,
+        "cost_usd_delta": 4.47,
+        "approx": true,
+        "note": "one serial worker dispatch covering 3.1-3.3 and 4.1 jointly; the same delta is copied onto all four tasks"
       }
     }
   ]
