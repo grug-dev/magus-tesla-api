@@ -77,11 +77,11 @@ T4 and T5 are sequential after T3.
 
 ## T6. Verification (do not run the suite — see Test-Execution-Policy) — depends on T4, T5
 
-- [ ] 6.1 `go build ./...`
-- [ ] 6.2 `go vet ./...` (compiles the extended `_test.go` file too)
-- [ ] 6.3 `gofmt -l internal/gateway` (expect no output)
-- [ ] 6.4 `make ui-guard`
-- [ ] 6.5 `make i18n-guard`
-- [ ] 6.6 `make templ && make css`, confirm no uncommitted diff remains afterward
-- [ ] 6.7 Hand back to the owner: `go test ./internal/gateway/...` (the two extended
+- [x] 6.1 `go build ./...`
+- [x] 6.2 `go vet ./...` (compiles the extended `_test.go` file too)
+- [x] 6.3 `gofmt -l internal/gateway` (expect no output)
+- [x] 6.4 `make ui-guard`
+- [x] 6.5 `make i18n-guard`
+- [x] 6.6 `make templ && make css`, confirm no uncommitted diff remains afterward
+- [x] 6.7 Hand back to the owner: `go test ./internal/gateway/...` (the two extended
       fixture tests) and `make check` — Claude does not run either.
