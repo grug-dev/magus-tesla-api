@@ -68,11 +68,14 @@
    rule for the two new fields.
 
    **Eleven is what this mapper reads, not what the type holds.** `VehicleStatus` has
-   more pointer fields than that. `RM50-analytics-add-tire-pressure-columns` added four
-   the gateway still does not read — `TpmsPressureFLPSI`, `TpmsPressureFRPSI`,
-   `TpmsPressureRLPSI`, `TpmsPressureRRPSI`. RM50 tier 4 is the change that wires them
-   into this mapper. Read `internal/analytics/analytics.go` for the current field list;
-   do not count from here.
+   more pointer fields than that. Eight of them the gateway still does not read:
+   `RM50-analytics-add-tire-pressure-columns` added the four raw readings
+   (`TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`, `TpmsPressureRRPSI`),
+   and `RM50-analytics-add-tire-pressure-variance` added the four day-over-day deltas
+   (`TpmsPressureFLPSICalc`, `TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc`,
+   `TpmsPressureRRPSICalc`). RM50 tier 4 is the change that wires all eight into this
+   mapper. Read `internal/analytics/analytics.go` for the current field list; do not
+   count from here.
 8. `Handler.vehicleImage` — `internal/gateway/vehicle_image.go` — maps
    (`CarType`, `ExteriorColor`) to a `/static/img/*.png` URL, falling back to `defaultCar.png`.
 

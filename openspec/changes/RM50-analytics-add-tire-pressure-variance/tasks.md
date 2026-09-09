@@ -79,17 +79,17 @@ module's existing DB-integration tests. See design.md "Test scope".
 Depends on: A.1–A.3 and B.1–B.7 being decided (the exact column/field names), so do
 this last.
 
-- [ ] C.1 Update `internal/analytics/AGENTS.md`: add the four `_calc` delta columns to
+- [x] C.1 Update `internal/analytics/AGENTS.md`: add the four `_calc` delta columns to
       "Data ownership"'s `vehicle_metrics` description (mirroring the existing tier-1
       TPMS-columns entry's shape — note this is the opposite NULL rule from the raw
       TPMS columns), and add the four new `VehicleStatus` fields to "Public interface
       (the port)"'s `LatestMetricsByAccount` entry.
-- [ ] C.2 Update `kkpa/context/entities/vehicle-metrics/guide.md`: add the four `_calc`
+- [x] C.2 Update `kkpa/context/entities/vehicle-metrics/guide.md`: add the four `_calc`
       delta columns to the column list and the "Conventions & gotchas" section
       (mirroring the tier-1 TPMS bullets, but noting this set follows the `_calc` NULL
       rule, not the raw-observation rule), and add the four new fields to
       `VehicleStatus`'s field list. **Do not touch `openspec/changes/archive/`.**
-- [ ] C.3 Confirm no other `kkpa/context/` guide references `VehicleStatus`'s field
+- [x] C.3 Confirm no other `kkpa/context/` guide references `VehicleStatus`'s field
       list or `vehicle_metrics`' column list in a way this change invalidates (grep
       `kkpa/context/` for `VehicleStatus` and `vehicle_metrics`). A hit under
       `openspec/changes/archive/` is not this task's to fix.

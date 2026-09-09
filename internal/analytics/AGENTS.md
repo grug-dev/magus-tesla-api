@@ -113,9 +113,10 @@ interface-first):
   three pre-existing raw observations) plus `InsideTempC`, `OutsideTempC`, `Locked`,
   `SentryMode`, `CarVersion`, `ChargingState`, `ChargeLimitSocPct`, `CapturedAt` and
   `MaxRangeChargeCounter`, `TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`,
-  `TpmsPressureRRPSI`, `DistanceTraveledKmCalc` and `ConsumedPct` (all pointer-typed —
-  nil means "no value", never a fabricated default; see "Data ownership" below for what
-  nil means on each).
+  `TpmsPressureRRPSI`, `DistanceTraveledKmCalc`, `ConsumedPct`, `TpmsPressureFLPSICalc`,
+  `TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc` and `TpmsPressureRRPSICalc` (all
+  pointer-typed — nil means "no value", never a fabricated default; see "Data ownership"
+  below for what nil means on each).
   `MaxRangeChargeCounter` is the vehicle's LIFETIME count of charges to its true 100%
   Maximum-Battery-Range limit — monotonic across rows, never a per-day delta — added to
   the projection for the dashboard's "100% Charges" tile (MAG-47). A reported `0` is a
@@ -131,6 +132,16 @@ interface-first):
   second consumer on this projection (same table, same query, no new read). Full
   rationale: `openspec/changes/RM50-analytics-add-tire-pressure-columns/design.md`
   D1–D3.
+  `TpmsPressureFLPSICalc`/`FR`/`RL`/`RR` are the four tyre-pressure day-over-day
+  deltas, one per wheel, in PSI: this day's raw reading minus the previous day's, added
+  by `RM50-analytics-add-tire-pressure-variance`. Nil for two independent reasons — the
+  day has no predecessor at all, OR either day's own raw wheel reading is itself nil —
+  the same nil rule `DistanceTraveledKmCalc`/`ConsumedPct` follow, **not** the
+  always-populated rule the four raw `TpmsPressure*PSI` fields above follow. The delta
+  partly reflects ambient air temperature change (about 1 PSI per 5.5°C), not only a
+  real pressure change — accepted, not a defect (roadmap RD3); never add a threshold or
+  a target-pressure comparison to "fix" it. Full rationale:
+  `openspec/changes/RM50-analytics-add-tire-pressure-variance/design.md` D1/D2.
 - `Recalculator` — `Recalculate(ctx, accountID, teslaID, start, end) error`: recomputes
   and UPSERTs the `vehicle_metrics` rows for `[start, end]` from the three source ports.
   Idempotent by design — re-running over the same unchanged sources produces the same
@@ -326,6 +337,26 @@ here was "None"; it is no longer.
     snapshot to backfill from — but no consumer needs to disambiguate them (unlike
     `sentry_mode`/`max_range_charge_counter`, this NULL is not otherwise ambiguous:
     `telemetry.Snapshot`'s own TPMS fields never had a fabricated non-nil default).
+  - **`tpms_pressure_fl_psi_calc`/`fr`/`rl`/`rr`** (migration `20260908000003`,
+    `RM50-analytics-add-tire-pressure-variance`) are four **derived delta** columns, one
+    per wheel: this row's raw reading minus the previous day's row, in PSI. **This is
+    the opposite NULL rule from the raw `tpms_pressure_*_psi` columns just above.** A raw
+    column is always populated regardless of a predecessor; a delta column is NULL when
+    EITHER of two things is true — the day has no predecessor row at all, OR either
+    day's own raw wheel reading is itself NULL (`design.md` D2) — the same rule
+    `distance_traveled_km_calc` already follows. Computed in `consumption.go`'s
+    `deriveConsumption` via the `tpmsDeltaPSI` helper, populated only in the
+    "has a predecessor" branch of `deriveVehicleMetrics`
+    (`consumed.go`), same as `DistanceTraveledKmCalc`. This delta partly reflects
+    ambient air temperature change (about 1 PSI per 5.5°C), not only a genuine
+    pressure change — accepted, not a defect (roadmap RD3); never add a threshold or a
+    target-pressure comparison to "fix" it. **This migration DID backfill** every
+    pre-existing row, but unlike tier 1's raw-column backfill, this one reads only
+    `analytics.vehicle_metrics` joined against itself (a self-join on
+    `metric_date - 1`) — not a cross-module read, so it needs no
+    `// boundary:allow:` comment. A row whose previous day is missing keeps all four
+    columns NULL after the backfill, never a fabricated `0`. Full rationale:
+    `openspec/changes/RM50-analytics-add-tire-pressure-variance/design.md` D1–D3.
 - `vehicle_metric_watermarks` — one recompute cursor per `(account_id, tesla_id,
   source)`, three sources. Drives `Reconcile`'s incremental pass; no row means "epoch",
   i.e. backfill the vehicle's full history (`design.md` D7).
