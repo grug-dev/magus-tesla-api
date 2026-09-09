@@ -8,7 +8,7 @@
   "intention": "The /external-charges page gets an always-visible 'this charge was free' checkbox beside the price input on both forms, feeding tier 1's charging.Entry.PriceConfirmed, and a third date preset 'last month' = the previous calendar month. No database change, no new JavaScript.",
   "status": "in-progress",
   "created_at": "2026-09-09T14:57:00Z",
-  "updated_at": "2026-09-09T14:57:00Z",
+  "updated_at": "2026-09-09T14:59:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -289,6 +289,12 @@
       "type": "note",
       "by": "leader",
       "detail": "The worker reported internal/gateway/AGENTS.md truncated at line 843, so it did not read the JS-exception and testing sections in full. No harm here: the wave added no JavaScript and no tests. Wave 2 writes tests, so its dispatch must name the testing rules directly."
+    },
+    {
+      "at": "2026-09-09T14:59:00Z",
+      "type": "checkpoint",
+      "by": "leader",
+      "detail": "Budget checkpoint at the wave 1 boundary, chosen by the user. five_hour 83 percent, context 17 percent, bucket resets 2026-09-09T17:10Z. Wave 1 cost 7 points, so wave 2 was projected to cross the 90 percent threshold mid-wave. Resume with /kkpa-dev-harness-pipeline resume RM51-external-charges-completion. Next step is wave 2: tasks 4.1, 4.2, 4.3 and 5.1. The owner still owes a suite run for the wave 1 tasks, which stay awaiting-user-verification."
     }
   ]
 }
