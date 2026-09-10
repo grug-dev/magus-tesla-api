@@ -311,11 +311,11 @@ Status legend: `[ ]` pending (change not created) · `[~]` in progress (change c
 
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
-| `[~]` | 1 | `RM52-charging-add-monthly-effective-capacity` | `charging` | The table, the estimator, the job, and the seam reading it | — |
+| `[x]` | 1 | `RM52-charging-add-monthly-effective-capacity` | `charging` | The table, the estimator, the job, and the seam reading it | — |
 | `[ ]` | 2 | `RM52-app-add-monthly-capacity-step` | `app` | Nightly processor step 4, first day of month only | 1 |
 | `[ ]` | 3 | `RM52-platform-add-monthly-capacity-cli` | `platform` | `cmd/monthly-capacity`, the make target, docs and the KB | 1, 2 |
 
-### Tier 1 — `[~]` `RM52-charging-add-monthly-effective-capacity` (module: `charging`)
+### Tier 1 — `[x]` `RM52-charging-add-monthly-effective-capacity` (module: `charging`)
 
 Self-contained. No other module is touched, and no new cross-module port exists.
 
