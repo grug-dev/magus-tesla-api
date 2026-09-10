@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM52-app-add-monthly-capacity-step",
+  "module": "app",
+  "roadmap": "RM52-vehicle-monthly-metrics",
+  "tier": 2,
+  "intention": "Add step 4 to ProcessVehicleData. It calls tier 1's charging.MonthlyCapacityCalculator.Calculate for the PREVIOUS month, only when today is the first day of the month in the platform zone (RD6, RD7). The gate is a pure function so it can be tested without a clock. app calls the port only and never imports internal/charging/db (RD1). No database object changes.",
+  "status": "proposed",
+  "created_at": "2026-09-10T19:00:56Z",
+  "updated_at": "2026-09-10T19:00:56Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM52-MAG-32-vehicle-monthly-metrics",
+    "base": "main",
+    "created_at": "2026-09-10T01:50:10Z",
+    "ticket": "MAG-32",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table"
+  },
+  "rollup": { "current": [], "pending": ["1.1","2.1","2.2","2.3","3.1","3.2","4.1","5.1"], "blocked": [], "done": [], "awaiting_user_verification": [] },
+  "decisions": [],
+  "tasks": [
+    { "id": "1.1", "title": "monthlyCapacityPeriod pure gate function", "depends_on": [], "wave": 1, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "budget": null, "notes": null },
+    { "id": "2.1", "title": "app.go — take the MonthlyCapacityCalculator port via NewProcessor", "depends_on": ["1.1"], "wave": 2, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "budget": null, "notes": null },
+    { "id": "2.2", "title": "processor.go — step 4 after step 3, inside the err == nil short-circuit", "depends_on": ["1.1","2.1"], "wave": 2, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "budget": null, "notes": null },
+    { "id": "2.3", "title": "cmd/poller/main.go — one new NewProcessor argument (granted path)", "depends_on": ["2.1"], "wave": 2, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "budget": null, "notes": null },
+    { "id": "3.1", "title": "monthly_capacity_step_test.go — Group A, the month-boundary contract", "depends_on": ["1.1"], "wave": 3, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "budget": null, "notes": null },
+    { "id": "3.2", "title": "processor_test.go — the step-4 wiring cases", "depends_on": ["2.2"], "wave": 3, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "budget": null, "notes": null },
+    { "id": "4.1", "title": "internal/app/AGENTS.md — the new step and the accepted test gap", "depends_on": ["2.2","3.2"], "wave": 4, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "budget": null, "notes": null },
+    { "id": "5.1", "title": "Cheap signals: go build, go vet, gofmt, tz-guard, boundary-guard", "depends_on": ["3.1","3.2","4.1"], "wave": 5, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "budget": null, "notes": null }
+  ],
+  "review": { "status": "not-started", "agent": null, "brief": null, "rounds": [] },
+  "events": [
+    { "at": "2026-09-10T19:00:56Z", "event": "artifacts-created", "by": "leader", "detail": "app worker (claude-sonnet-5) wrote proposal, design, specs/process-vehicle-data delta (2 MODIFIED, 1 ADDED) and tasks.md. openspec validate --strict passes. Leader verified independently: NO database object is proposed, so the database design gate does not apply and Wave 1 is not blocked. The 3 gofmt hits the worker reported are pre-existing and untouched by this branch, confirmed against the merge-base diff. Test contract authored up front, Groups A/B/C; A4/A5 pin the zone-aware month boundary." }
+  ]
+}
