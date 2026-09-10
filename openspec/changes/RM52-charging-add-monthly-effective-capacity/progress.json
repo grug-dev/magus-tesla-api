@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "in-progress",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T12:45:59Z",
+  "updated_at": "2026-09-10T14:47:21Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -316,7 +316,8 @@
       "id": "3.1",
       "title": "monthly_capacity_estimator_test.go — the pure-function fixtures A1-A4",
       "depends_on": [
-        "2.5"
+        "2.5",
+        "2.1"
       ],
       "wave": 3,
       "status": "pending",
@@ -334,7 +335,8 @@
       "depends_on": [
         "2.3",
         "2.4",
-        "2.5"
+        "2.5",
+        "2.6"
       ],
       "wave": 3,
       "status": "pending",
@@ -350,7 +352,8 @@
       "id": "4.1",
       "title": "AGENTS.md — data ownership, the new table, the changed seam",
       "depends_on": [
-        "2.5"
+        "2.6",
+        "3.2"
       ],
       "wave": 4,
       "status": "pending",
@@ -475,6 +478,12 @@
       "event": "checkpoint",
       "by": "leader",
       "detail": "Stopped at the wave-2 boundary. 5h at 85% against a gate of 90, and wave 3 is the heaviest wave (two test files, A1-A9 plus B1-B2 and C1-C13), so it is projected to cross 90 mid-wave. Bucket resets 2026-09-10T14:50:00Z. Context 14%. Waves 3-5 pending, 3.3 newly appended. Wave 2 committed as 481308b, task 3.3 as dd797db. go vet is red only on the stale test 3.3 deletes, so the owner's suite cannot pass before wave 3 lands; no test ask was made this boundary. Resume with /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity"
+    },
+    {
+      "at": "2026-09-10T14:47:21Z",
+      "event": "resume-dependency-correction",
+      "by": "leader",
+      "detail": "Resumed at the wave-2 boundary. progress.json depends_on for 3.1, 3.2 and 4.1 disagreed with tasks.md; tasks.md wins and the entries are now copied from it verbatim. The material one: 4.1 depends on 3.2, not 2.5, because its Testing Notes bullet documents the two test files 3.1/3.2 create. 4.1 is therefore NOT dispatchable before wave 3. No task status, title or criterion was touched - only the derived dependency fields."
     }
   ]
 }
