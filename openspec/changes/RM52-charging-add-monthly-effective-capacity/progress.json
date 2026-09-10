@@ -473,10 +473,18 @@
     }
   ],
   "review": {
-    "status": "in-review",
+    "status": "reviewer-approved",
     "agent": "charging-reviewer",
     "brief": "Review RM52 tier 1 in internal/charging. Validate, against the diff on ft/RM52-MAG-32-vehicle-monthly-metrics from its merge-base with main: (1) module-boundary compliance - no other module reads or writes charging.monthly_effective_capacity, chargingdb stays module-private, and NO _test.go file imports chargingdb (AGENTS.md Allowed Imports); (2) every DB object matches the user-confirmed design - the DDL verbatim, no account_id, no FK on tesla_id, no raw_data, the CHECK, and UNIQUE (tesla_id, effective_period) as the whole index plan with no separate CREATE INDEX. A mismatch is a BLOCKER finding; (3) the integration and unit tests assert the expected values design.md authored UP FRONT in its Test Contract (A1-A9, B1-B2, C1-C13), not whatever the implementation happens to produce - this is the test-contract rule and it is the highest-value check in this brief; (4) D1 is honoured - candidate_count counted BEFORE the delta gate, sample_count AFTER, never collapsed; D2 - a tesla_id with zero valid rows gets no row at all; (5) RD2 - only USER manual entries and DONE supercharger sessions feed the estimator, so a derived value is never averaged back into itself; (6) D9 - the gate/method split is intact and median keeps the func(gated []capacitySample) float64 signature; (7) the declared read-heavy Performance-Profile; (8) doc-pack conventions, the km/degC/PSI unit rule and the internal/clock time-zone rule; (9) anti-gaming - no task title or acceptance criterion was weakened or deleted, and no status was self-approved. NOTE two leader corrections to design.md made at the wave-3 boundary, recorded as D-lead-7 and D-lead-8: the Group C seeding paragraph (chargingdb replaced by public ports, to obey AGENTS.md) and the C12 cross-reference (C4 corrected to C5). Judge whether both were right. NO Test Contract expected value was changed. SIGNAL PROVENANCE, which you must respect: gofmt, go build, go vet and the guards migration/tz/boundary/archive were ASSISTANT-run and are green. The SUITE was USER-run and reported passing - make test-with-db against a scratch Postgres, no Docker. You must NOT run the suite. Judge test quality by READING the tests.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-10T18:09:53Z",
+        "agent": "charging-reviewer",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
   },
   "events": [
     {
