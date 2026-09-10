@@ -30,7 +30,7 @@ each group.
 
 ## Wave 1 — pure logic
 
-- [ ] **1.1** **[module: platform worker]** Create `cmd/monthly-capacity/period.go`,
+- [x] **1.1** **[module: platform worker]** Create `cmd/monthly-capacity/period.go`,
   `package main`. Add, verbatim from `design.md` D1–D3, including their doc comments:
   - `parsePeriod(raw string) (time.Time, error)`
   - `previousMonth(now time.Time, loc *time.Location) time.Time`
@@ -44,7 +44,7 @@ each group.
 
 ## Wave 2 — the runnable and the config loader
 
-- [ ] **2.1** **[module: platform worker]** Create `cmd/monthly-capacity/main.go`,
+- [x] **2.1** **[module: platform worker]** Create `cmd/monthly-capacity/main.go`,
   `package main`. Following `cmd/poller/main.go`'s style (flag parsing, then a linear
   `main` body):
   - `flag.String("period", "", ...)` and `flag.Int64("tesla-id", 0, ...)`.
@@ -62,7 +62,7 @@ each group.
     any change or decision ID (`CLAUDE.md`'s B2/comment rule); state the reason itself.
   `depends_on`: 1.1 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: platform worker]** `internal/config/config.go`: add
+- [x] **2.2** **[module: platform worker]** `internal/config/config.go`: add
   `LoadDatabase() (string, error)`, verbatim from `design.md` D7, including its doc
   comment. Placed near `LoadMigration` (both are "smaller loader" functions).
   `depends_on`: — · `parallel_ok`: with 2.1
@@ -73,14 +73,14 @@ each group.
 
 Every expected value is fixed in `design.md` §Test Contract. **Assert that contract.**
 
-- [ ] **3.1** **[module: platform worker]** Create `cmd/monthly-capacity/period_test.go`,
+- [x] **3.1** **[module: platform worker]** Create `cmd/monthly-capacity/period_test.go`,
   `package main`. Cover Test Contract **Group A** (`previousMonth` A1–A4, `resolvePeriod`
   A5–A6) and **Group B** (`parsePeriod` B1–B4, `teslaIDPointer` B5–B7). Offline, no DB, no
   network — table-driven, mirroring `internal/app/monthly_capacity_step_test.go`'s style
   for the date-math cases.
   `depends_on`: 1.1 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: platform worker]** `internal/config/config_test.go`: add
+- [x] **3.2** **[module: platform worker]** `internal/config/config_test.go`: add
   `unsetDatabaseEnv` (mirrors `unsetMigrationEnv`'s exact shape — clears/restores
   `DATABASE_URL`) and `TestLoadDatabase_*` covering Test Contract **Group C** (C1–C4).
   Reuse the existing `withTempDir`/`writeEnvFile` helpers already in this file.
@@ -90,7 +90,7 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
 
 ## Wave 4 — verification (F13: tier 2 already did the wiring)
 
-- [ ] **4.1** **[module: platform worker]** Read `cmd/poller/main.go` and confirm the
+- [x] **4.1** **[module: platform worker]** Read `cmd/poller/main.go` and confirm the
   `app.NewProcessor(...)` call already passes `charging.NewMonthlyCapacityCalculator(pool)`
   (it does, since tier 2 — see design.md's Verification tasks table). Read
   `cmd/web/main.go` and confirm it builds only the gateway and needs no change (RD8 keeps

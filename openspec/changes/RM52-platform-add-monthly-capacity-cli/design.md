@@ -384,11 +384,11 @@ New file `cmd/monthly-capacity/period_test.go`, package `main`.
 | **A1** | `time.Date(2026,9,15,10,0,0,0,bogota)` | `America/Bogota` | `2026-08-01 00:00:00 UTC` | The plain case: September's previous month is August. |
 | **A2** | `time.Date(2027,1,10,8,0,0,0,bogota)` | `America/Bogota` | `2026-12-01 00:00:00 UTC` | Year boundary: January's previous month is December of the **prior** year. |
 | **A3** | `time.Date(2026,9,1,3,0,0,0,time.UTC)` — this UTC instant is `2026-08-31 22:00` in Bogota (UTC-5) | `America/Bogota` | `2026-07-01 00:00:00 UTC` | **Zone-aware, load-bearing case.** In UTC this instant is already September; in Bogota it is still August. The previous month must be computed from the **Bogota** calendar day (July), not the UTC one (August) — the direct reuse of tier 2's own A4/A5 proof, applied to this tool's default path. |
-| **A4** | same instant as A3 | `time.UTC` | `2026-07-01 00:00:00 UTC` | `loc` is a real parameter, not hardcoded to Bogota inside the function — passing `time.UTC` changes the result for the same instant, proving the zone is actually used, not just accepted. |
+| **A4** | same instant as A3 | `time.UTC` | `2026-08-01 00:00:00 UTC` | `loc` is a real parameter, not hardcoded to Bogota inside the function — passing `time.UTC` changes the result for the same instant, proving the zone is actually used, not just accepted. **Leader correction (2026-09-10, after wave 1):** this cell first read `2026-07-01`, which contradicted the case's own purpose — the same value as A3 proves nothing changed. In UTC the instant is 1 September, so the month start is September and the previous month is August. The prose was right; the value was wrong. |
 
 | ID | `raw` | Expected `resolvePeriod(raw, now, loc)` | What it proves |
 |---|---|---|---|
-| **A5** | `""` | same as A1, for the same `now`/`loc` | Empty `-period` delegates to `previousMonth`. |
+| **A5** | `""` | `2026-08-01 00:00:00 UTC`, for A1's `now`/`loc` | Empty `-period` delegates to `previousMonth`. The expected value is written out, never obtained by calling `previousMonth` in the test — a test whose oracle is the function under test still passes when that function breaks. |
 | **A6** | `"2026-08"` | `(2026-08-01 00:00:00 UTC, nil)` — `now`/`loc` irrelevant here | A given period is parsed directly, ignoring `now`/`loc` entirely (D2). |
 
 ### Group B — `parsePeriod` and `teslaIDPointer` (pure, no I/O)

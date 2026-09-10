@@ -207,6 +207,21 @@ func LoadMigration() (*MigrationConfig, error) {
 	}, nil
 }
 
+// LoadDatabase reads config for a database-only tool (cmd/monthly-capacity). Unlike Load,
+// it does not require any Tesla credential -- a tool that never calls the Fleet API has no
+// reason to fail over one. It loads .env the same way Load and LoadMigration do (a missing
+// .env is not an error), then reads DATABASE_URL, erroring when it is empty. Nothing else.
+func LoadDatabase() (string, error) {
+	if err := loadDotEnv(); err != nil {
+		return "", err
+	}
+	dbURL := envStripped("DATABASE_URL")
+	if dbURL == "" {
+		return "", fmt.Errorf("DATABASE_URL must be set")
+	}
+	return dbURL, nil
+}
+
 // splitMigrationsDirs splits a space-separated MIGRATIONS_DIRS value into an
 // ordered slice, dropping empty entries so extra whitespace (including a
 // trailing space) never produces an empty directory path. Returns nil for an

@@ -5,16 +5,13 @@
   "module": "platform",
   "roadmap": "openspec/roadmaps/RM52-vehicle-monthly-metrics.md",
   "request": "RM52 tier 3 \u2014 cmd/monthly-capacity (RD8) + make cmd-monthly-capacity (RD9) + wiring verification + structure docs + the vehicle-monthly-metrics KB guide (ticket item 4). From Linear MAG-32.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": [
-      "1.1",
-      "2.1",
-      "2.2",
+    "current": [
       "3.1",
-      "3.2",
-      "4.1",
+      "3.2"
+    ],
+    "pending": [
       "5.1",
       "5.2",
       "5.3",
@@ -29,10 +26,15 @@
       "L4"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "4.1"
+    ]
   },
   "created_at": "2026-09-10T22:12:00Z",
-  "updated_at": "2026-09-10T22:12:00Z",
+  "updated_at": "2026-09-10T22:08:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -52,14 +54,23 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:03:00Z",
+      "completed_at": "2026-09-10T22:08:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "period.go with the four pure functions. Leader fixed previousMonth after: it kept tier 2's math but dropped the gate that made it correct, so it returned the 15th of last month when run on a 15th.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 34,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.84,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta, plus the leader's own bug fix"
+      }
     },
     {
       "id": "2.1",
@@ -69,14 +80,23 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:03:00Z",
+      "completed_at": "2026-09-10T22:08:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "main.go: flags, flag.Visit for explicit -tesla-id 0, resolvePeriod before any DB touch, one report line. Zero business logic.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 34,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.84,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta, plus the leader's own bug fix"
+      }
     },
     {
       "id": "2.2",
@@ -84,14 +104,23 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:03:00Z",
+      "completed_at": "2026-09-10T22:08:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "config.LoadDatabase added next to LoadMigration. Returns a bare DSN string.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 34,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.84,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta, plus the leader's own bug fix"
+      }
     },
     {
       "id": "3.1",
@@ -101,14 +130,23 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:03:00Z",
+      "completed_at": "2026-09-10T22:08:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Groups A and B asserted. Leader corrected A4's expected value and replaced A5's oracle, which called the function under test.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 34,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.84,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta, plus the leader's own bug fix"
+      }
     },
     {
       "id": "3.2",
@@ -118,14 +156,23 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:03:00Z",
+      "completed_at": "2026-09-10T22:08:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Group C: four TestLoadDatabase_* cases, reusing withTempDir/writeEnvFile.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 34,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.84,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta, plus the leader's own bug fix"
+      }
     },
     {
       "id": "4.1",
@@ -133,14 +180,23 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:03:00Z",
+      "completed_at": "2026-09-10T22:08:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Verified, no edits. cmd/poller/main.go:146 already passes the calculator. cmd/web/main.go never wires it, matching RD8.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 34,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.84,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta, plus the leader's own bug fix"
+      }
     },
     {
       "id": "5.1",
@@ -384,6 +440,14 @@
       "decision": "Add exported config.LoadDatabase() returning a bare DSN string.",
       "why": "config.Load fails without Tesla credentials the tool never uses. LoadMigration set the precedent.",
       "covered_by": "roadmap RD17"
+    },
+    {
+      "id": "D-L1",
+      "at": "2026-09-10T22:07:00Z",
+      "scope": "task:3.1",
+      "made_by": "autopilot",
+      "decision": "Corrected Test Contract case A4's expected value from 2026-07-01 to 2026-08-01, and replaced case A5's oracle with a written-out value.",
+      "why": "A4's value equalled A3's, which contradicts its own stated purpose. A5 called the function it tested, so it passed even when that function was broken."
     }
   ],
   "events": [
@@ -391,6 +455,16 @@
       "at": "2026-09-10T22:12:00Z",
       "agent": "leader",
       "event": "artifacts created and validated; openspec validate --strict passed; progress.json seeded with 18 tasks"
+    },
+    {
+      "at": "2026-09-10T22:03:00Z",
+      "agent": "leader",
+      "event": "dispatched ONE serial worker for wave 1 (1.1, 2.2, 2.1, 3.1, 3.2, 4.1) on claude-sonnet-5 \u2014 all Go code, its offline tests, and the read-only wiring check. Budget start: 5h 26%, context 17%."
+    },
+    {
+      "at": "2026-09-10T22:08:00Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled. Leader found a correctness bug the worker missed: previousMonth reused tier 2's day-math without tier 2's day==1 gate, so it returned the wrong day on any day but the 1st. Fixed by going to the month start first. Test contract case A4 was self-contradictory and is corrected; A5's self-referencing oracle replaced. gofmt clean on touched files, go build and go vet clean repo-wide. Three pre-existing unformatted test files are untouched and not ours."
     }
   ]
 }
