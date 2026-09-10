@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "in-progress",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T12:30:55Z",
+  "updated_at": "2026-09-10T12:38:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,12 +24,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "2.1",
-      "2.2",
-      "2.3",
-      "2.4",
-      "2.5",
-      "2.6",
       "3.1",
       "3.2",
       "4.1",
@@ -40,7 +34,15 @@
       "1.1",
       "1.2",
       "1.3",
-      "1.4"
+      "1.4",
+      "2.6"
+    ],
+    "awaiting_user_verification": [
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5"
     ]
   },
   "decisions": [
@@ -75,6 +77,14 @@
       "made_by": "user",
       "decision": "Added design.md D9 as a standing rule: the monthly capacity estimator stays split into a gate (estimateEffectiveCapacity) and a method (median). A future estimation method is a new sibling function with median's exact signature, func(gated []capacitySample) float64 -- never an edit to median, never inlined into the gate. The seam widened from []float64 to []capacitySample and the sort moved inside median. No strategy type and no method column: the rule is a doc rule plus a signature. D9 also prices the future second-column path so a later agent does not re-derive it. New test A9 pins the seam.",
       "why": "The owner expects to try another calculation over the same input data later -- for testing, or stored in a new column alongside the median. A []float64 seam drops BatteryDeltaPct, so a delta-weighted or trimmed method would have to reshape estimateEffectiveCapacity's body, the exact code tests A1-A5 pin. No code exists yet (status: proposed), so the fix cost nothing."
+    },
+    {
+      "id": "D-lead-5",
+      "at": "2026-09-10T12:38:11Z",
+      "scope": "implementation",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's CandidateCount fix. design.md's D7 code block omits the field, but its own Expected sqlc diff lists CandidateCount int32 in the params struct. Go would have zero-valued it silently, writing candidate_count = 0 and breaking D1 and fixtures C4/C5/C6/C13.",
+      "why": "A missing struct field compiles in Go, so no signal would have caught it before an integration test. len(samples) is the pre-gate per-vehicle count, which is D1's definition exactly."
     }
   ],
   "tasks": [
@@ -100,7 +110,7 @@
     },
     {
       "id": "1.2",
-      "title": "query.sql \u2014 the upsert and the newest-measured read, plus the two batch reads",
+      "title": "query.sql — the upsert and the newest-measured read, plus the two batch reads",
       "depends_on": [],
       "wave": 1,
       "status": "done",
@@ -164,102 +174,138 @@
     },
     {
       "id": "2.1",
-      "title": "capacity.go \u2014 new packCapacityKWh(ctx, teslaID int64) body over the lookup",
+      "title": "capacity.go — new packCapacityKWh(ctx, teslaID int64) body over the lookup",
       "depends_on": [
         "1.4"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Must still return 62.0 when no measured row exists, so behaviour is unchanged until the first month is computed."
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "capacity.go: added defaultPackCapacityKWh, the packCapacityLookup interface and the new packCapacityKWh body, verbatim from D4. TODO(MAG-18) removed. derivedEnergyKWh and derivedStartBatteryPct untouched. Only new import is fmt."
     },
     {
       "id": "2.2",
-      "title": "charging.go \u2014 domain types and the MonthlyCapacityCalculator port",
+      "title": "charging.go — domain types and the MonthlyCapacityCalculator port",
       "depends_on": [
         "1.4"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "charging.go: added MonthlyCapacityReport, MonthlyCapacityCalculator and the NewMonthlyCapacityCalculator forward declaration, verbatim from D7. No existing type, interface or constructor changed."
     },
     {
       "id": "2.3",
-      "title": "service.go \u2014 resolveEnergy passes e.TeslaID to the seam",
+      "title": "service.go — resolveEnergy passes e.TeslaID to the seam",
       "depends_on": [
         "2.1"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Entry.TeslaID is int64, never nil."
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "service.go: latestMeasuredCapacity added to store and dbStore, resolveEnergy now takes store and passes e.TeslaID, both Create and Update call sites updated. Added errors and pgx imports."
     },
     {
       "id": "2.4",
-      "title": "session_verifier.go \u2014 VerifySession passes row.TeslaID, nil falls back to 62.0",
+      "title": "session_verifier.go — VerifySession passes row.TeslaID, nil falls back to 62.0",
       "depends_on": [
         "2.1"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "charge_sessions.tesla_id is nullable; making it NOT NULL is backlog #30, out of scope here."
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "session_verifier.go: VerifySession now derives teslaID from row.TeslaID; nil short-circuits to defaultPackCapacityKWh without calling the seam (D5). Added latestMeasuredCapacity on sessionVerifier and the errors import."
     },
     {
       "id": "2.5",
-      "title": "monthly_capacity.go \u2014 the pure estimator, the RD2 filter, RD5 grouping, the job",
+      "title": "monthly_capacity.go — the pure estimator, the RD2 filter, RD5 grouping, the job",
       "depends_on": [
         "1.4",
         "2.2"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "The job writes candidate_count = len(rows) and sample_count = the estimator's returned count. Estimator signature unchanged."
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "monthly_capacity.go created verbatim from D7. D9 respected: gate and median stay separate, median takes []capacitySample and sorts its own copy. Worker added the CandidateCount field D7's code block omitted; leader verified len(samples) is the pre-gate count."
     },
     {
       "id": "2.6",
       "title": "AGENTS.md Allowed Imports entry",
       "depends_on": [],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "AGENTS.md Allowed Imports: monthly_capacity.go added to both the chargingdb list (now six files) and the pgtype list (now five), with the RM52 history line the file's own convention asks for."
     },
     {
       "id": "3.1",
-      "title": "monthly_capacity_estimator_test.go \u2014 the pure-function fixtures A1-A4",
+      "title": "monthly_capacity_estimator_test.go — the pure-function fixtures A1-A4",
       "depends_on": [
         "2.5"
       ],
@@ -275,7 +321,7 @@
     },
     {
       "id": "3.2",
-      "title": "db_monthly_capacity_integration_test.go \u2014 fixtures B and C1-C13",
+      "title": "db_monthly_capacity_integration_test.go — fixtures B and C1-C13",
       "depends_on": [
         "2.3",
         "2.4",
@@ -293,7 +339,7 @@
     },
     {
       "id": "4.1",
-      "title": "AGENTS.md \u2014 data ownership, the new table, the changed seam",
+      "title": "AGENTS.md — data ownership, the new table, the changed seam",
       "depends_on": [
         "2.5"
       ],
@@ -380,6 +426,18 @@
       "event": "checkpoint",
       "by": "leader",
       "detail": "Clean stop at the wave-1 boundary, user's choice. Not a threshold trip: 5h 70% (gate 90), context 14% (gate 40). Recommended because tier 1 has 5 waves. Wave 1 done and committed; waves 2-5 pending. Resume with /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity. Linear MAG-32 moved Todo -> In Progress at this wave's dispatch."
+    },
+    {
+      "at": "2026-09-10T12:32:39Z",
+      "event": "wave-2-dispatched",
+      "by": "leader",
+      "detail": "One charging worker (claude-sonnet-5) batched serially over 2.1-2.6: capacity.go seam, charging.go ports, service.go, session_verifier.go, monthly_capacity.go job, AGENTS.md imports. Budget at dispatch: 5h 73%, context 10%, cost $0.65."
+    },
+    {
+      "at": "2026-09-10T12:38:11Z",
+      "event": "wave-2-completed",
+      "by": "leader",
+      "detail": "All six wave-2 tasks implemented. Leader verified: gofmt clean, go build ./... clean repo-wide. go vet ./... RED on one pre-existing test, entry_status_test.go:213 TestPackCapacityKWh_VinIndependent, which still calls the old (ctx, vin string) seam. No task in tasks.md owns that test. Budget: 5h 73%->83%, context 13%."
     }
   ]
 }

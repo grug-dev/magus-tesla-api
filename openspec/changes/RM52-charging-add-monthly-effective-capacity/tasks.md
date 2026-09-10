@@ -105,7 +105,7 @@ rationale behind each group.
 
 ## Wave 2 — domain surface, the two updated seams, the job
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/capacity.go`:
+- [x] **2.1** **[module: charging worker]** `internal/charging/capacity.go`:
   - Add `const defaultPackCapacityKWh = 62.0` (design.md D4).
   - Add the `packCapacityLookup` interface (design.md D3), verbatim including its doc comment.
   - Replace `packCapacityKWh`'s body and signature with design.md D4's version:
@@ -119,7 +119,7 @@ rationale behind each group.
     `defaultPackCapacityKWh`/`packCapacityLookup`. No `chargingdb`, no `pgtype`.
   `depends_on`: 1.4 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/charging.go`:
+- [x] **2.2** **[module: charging worker]** `internal/charging/charging.go`:
   - Add `MonthlyCapacityReport` and the `MonthlyCapacityCalculator` interface, verbatim from
     design.md D7, with their doc comments.
   - Add `NewMonthlyCapacityCalculator(pool *pgxpool.Pool) MonthlyCapacityCalculator` as a forward
@@ -131,7 +131,7 @@ rationale behind each group.
     `SessionMirror` are all untouched.
   `depends_on`: 1.4 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: charging worker]** `internal/charging/service.go`:
+- [x] **2.3** **[module: charging worker]** `internal/charging/service.go`:
   - Add `latestMeasuredCapacity(ctx context.Context, teslaID int64) (*float64, error)` to the
     `store` interface, with its doc comment (design.md D5).
   - Implement it on `dbStore`, verbatim from design.md D5, including the `pgx.ErrNoRows`
@@ -147,7 +147,7 @@ rationale behind each group.
     are **untouched**.
   `depends_on`: 2.1 · `parallel_ok`: with 2.4, 2.5
 
-- [ ] **2.4** **[module: charging worker]** `internal/charging/session_verifier.go`:
+- [x] **2.4** **[module: charging worker]** `internal/charging/session_verifier.go`:
   - Inside `VerifySession`, after the `LockSessionForVerification` call succeeds, replace the
     unconditional `packCapacityKWh(ctx, row.Vin)` call with the nil-check shown in design.md D5:
     derive `teslaID := pgInt8ToInt64Ptr(row.TeslaID)`; when non-nil, call `packCapacityKWh(ctx, v,
@@ -159,7 +159,7 @@ rationale behind each group.
   - Every other line of `VerifySession`, and every other function in this file, is **untouched**.
   `depends_on`: 2.1 · `parallel_ok`: with 2.3, 2.5
 
-- [ ] **2.5** **[module: charging worker]** Create `internal/charging/monthly_capacity.go` with, in
+- [x] **2.5** **[module: charging worker]** Create `internal/charging/monthly_capacity.go` with, in
   this order: the `capacitySample` type, the `minSamples`/`minDeltaPct` constants,
   `estimateEffectiveCapacity`, `median`, the `monthlyCapacityCalculator` struct,
   `newMonthlyCapacityCalculator`, the `var _ MonthlyCapacityCalculator = (*monthlyCapacityCalculator)(nil)`
@@ -171,7 +171,7 @@ rationale behind each group.
   them into one, and do not narrow `median` back to `[]float64`.
   `depends_on`: 2.2 · `parallel_ok`: with 2.3, 2.4
 
-- [ ] **2.6** **[module: charging worker]** `internal/charging/AGENTS.md` §Allowed Imports: add
+- [x] **2.6** **[module: charging worker]** `internal/charging/AGENTS.md` §Allowed Imports: add
   `monthly_capacity.go` to **both** the `chargingdb`-import file list and the `pgtype`-import file
   list (six files and five files respectively, after this change). This is the same rule the file
   itself already states: "When you add a file that owns a query, add it to both lists in the SAME

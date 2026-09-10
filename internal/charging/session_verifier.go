@@ -2,6 +2,7 @@ package charging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -163,9 +164,14 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 			return Session{}, fmt.Errorf("charging: verify session: %w", err)
 		}
 
-		capacityKWh, err := packCapacityKWh(ctx, row.Vin)
-		if err != nil {
-			return Session{}, fmt.Errorf("charging: resolving pack capacity: %w", err)
+		var capacityKWh float64
+		if teslaID := pgInt8ToInt64Ptr(row.TeslaID); teslaID != nil {
+			capacityKWh, err = packCapacityKWh(ctx, v, *teslaID)
+			if err != nil {
+				return Session{}, fmt.Errorf("charging: resolving pack capacity: %w", err)
+			}
+		} else {
+			capacityKWh = defaultPackCapacityKWh
 		}
 
 		startToStore = derivedStartBatteryPct(capacityKWh, pgFloat8ToFloat64Ptr(row.EnergyKwh), endBatteryPct)
@@ -199,4 +205,19 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 	}
 
 	return rowToSession(row), nil
+}
+
+// latestMeasuredCapacity satisfies packCapacityLookup (design.md D3) using this
+// port's own *chargingdb.Queries -- mirrors dbStore's identical method in
+// service.go; not shared, because sessionVerifier is deliberately outside the
+// store interface (this file's own existing doc comment).
+func (v *sessionVerifier) latestMeasuredCapacity(ctx context.Context, teslaID int64) (*float64, error) {
+	val, err := v.q.LatestMeasuredCapacity(ctx, teslaID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("charging: reading latest measured capacity for tesla_id %d: %w", teslaID, err)
+	}
+	return pgFloat8ToFloat64Ptr(val), nil
 }

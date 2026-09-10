@@ -620,25 +620,28 @@ This module may import:
 - `context`, `time`, `math`, `errors`, and other Go standard library packages.
 - `github.com/google/uuid` — for `uuid.UUID` primary and tenant keys.
 - `github.com/jackc/pgx/v5` and `github.com/jackc/pgx/v5/pgxpool` — for DB connectivity.
-- `github.com/jackc/pgx/v5/pgtype` — ONLY inside the four files that talk to the database
-  directly: `service.go`, `session_writer.go`, `session_reader.go`, and
-  `mirror_watermark.go`. Never in public types, interfaces, `charging.go`, or any
-  `_test.go` file. The rule is "only the files that own a query", not "only these names":
-  each of them translates plain Go `*T` fields into a generated params struct's nullable
-  pgtype fields, and translates them back on the way out.
-- `internal/charging/db` (package `chargingdb`) — ONLY inside the five files that talk to
+- `github.com/jackc/pgx/v5/pgtype` — ONLY inside the five files that talk to the database
+  directly: `service.go`, `session_writer.go`, `session_reader.go`,
+  `mirror_watermark.go`, and `monthly_capacity.go`. Never in public types, interfaces,
+  `charging.go`, or any `_test.go` file. The rule is "only the files that own a query",
+  not "only these names": each of them translates plain Go `*T` fields into a generated
+  params struct's nullable pgtype fields, and translates them back on the way out.
+- `internal/charging/db` (package `chargingdb`) — ONLY inside the six files that talk to
   the database directly: `service.go`, `session_writer.go`, `session_reader.go`,
-  `session_verifier.go`, and `mirror_watermark.go`. The generated package is module-private
-  by convention; no other module imports it, and no `_test.go` file does either.
+  `session_verifier.go`, `mirror_watermark.go`, and `monthly_capacity.go`. The generated
+  package is module-private by convention; no other module imports it, and no `_test.go`
+  file does either.
 
   Both lists above have gone stale before. MAG-36 corrected the `chargingdb` list, which had
   named only `service.go` and `session_writer.go` while `session_reader.go` and
   `session_verifier.go` had imported it since RM31. RM44
   (`RM44-platform-add-mirror-watermark`) corrected both lists again: it added
   `mirror_watermark.go` to each, and added `session_reader.go` to the `pgtype` list, which
-  had been missing it. In every case the access was correct and only the doc was wrong.
-  When you add a file that owns a query, add it to both lists in the SAME change — a stale
-  list here reads as a boundary rule and gets trusted like one.
+  had been missing it. RM52 tier 1 (`RM52-charging-add-monthly-effective-capacity`) added
+  `monthly_capacity.go` to both lists in this same change. In every case the access was
+  correct and only the doc was wrong. When you add a file that owns a query, add it to
+  both lists in the SAME change — a stale list here reads as a boundary rule and gets
+  trusted like one.
 
 This module MUST NOT import:
 
