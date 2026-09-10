@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "in-progress",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T12:28:11Z",
+  "updated_at": "2026-09-10T12:30:55Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -373,7 +373,13 @@
       "at": "2026-09-10T12:28:11Z",
       "event": "wave-1-completed",
       "by": "leader",
-      "detail": "All four wave-1 tasks done. Leader cross-checked: migration DDL matches design.md, sqlc diff shape matches (5 hunks, one new struct, four queries, one new Row field), make migration-guard passes. Worker also reported go build / go vet / gofmt clean. Worker reported 00:00:00Z timestamps; the leader replaced them with its own dispatch bracket. Budget: 5h 57%->70%, context 14%. Commit 178145c."
+      "detail": "All four wave-1 tasks done. Leader cross-checked: migration DDL matches design.md, sqlc diff shape matches (5 hunks, one new struct, four queries, one new Row field), make migration-guard passes. Worker also reported go build / go vet / gofmt clean. Worker reported 00:00:00Z timestamps; the leader replaced them with its own dispatch bracket. Budget: 5h 57%->70%, context 14%. Commit a3943d3."
+    },
+    {
+      "at": "2026-09-10T12:30:55Z",
+      "event": "checkpoint",
+      "by": "leader",
+      "detail": "Clean stop at the wave-1 boundary, user's choice. Not a threshold trip: 5h 70% (gate 90), context 14% (gate 40). Recommended because tier 1 has 5 waves. Wave 1 done and committed; waves 2-5 pending. Resume with /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity. Linear MAG-32 moved Todo -> In Progress at this wave's dispatch."
     }
   ]
 }
