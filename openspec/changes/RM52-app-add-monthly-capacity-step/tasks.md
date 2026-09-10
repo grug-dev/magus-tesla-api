@@ -125,7 +125,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 
 ## Wave 4 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)
 
-- [ ] **4.1** **[module: app worker]** `internal/app/AGENTS.md`:
+- [x] **4.1** **[module: app worker]** `internal/app/AGENTS.md`:
   - §Responsibility — the diagram/description gains the fourth step, one or two sentences noting
     it runs only on the first day of the month, for the previous month (RD6/RD7), and points at
     `charging.MonthlyCapacityCalculator` as the port it calls.
@@ -142,7 +142,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
     `processChargingData`/`recalculateAnalytics`'s own accepted gap).
   `depends_on`: 3.2 · `parallel_ok`: no
 
-- [ ] **4.2** **[module: app worker, granted path]** `kkpa/context/architecture/nightly-cycle.md` —
+- [x] **4.2** **[module: app worker, granted path]** `kkpa/context/architecture/nightly-cycle.md` —
   the KB guide for this exact cycle. **Appended by the leader after the waves 1+2 dispatch.**
   `CLAUDE.md` §Non-negotiables ("docs track structural change") requires the KB to be fixed in the
   **same** change, and this guide calls the cycle a **three**-step orchestration throughout. A
@@ -169,7 +169,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 
 ## Wave 5 — signals
 
-- [ ] **5.1** **[module: app worker]** Run the cheap deterministic signals the
+- [x] **5.1** **[module: app worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/app ./cmd/poller`, `go build ./...`, `go vet
   ./...`. Both should be clean repo-wide — this change's only edits outside `internal/app` are the
   one-argument addition in `cmd/poller/main.go` (proposal.md §Breaking). If either fails anywhere
