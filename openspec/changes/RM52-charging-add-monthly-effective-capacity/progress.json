@@ -6,9 +6,9 @@
   "roadmap": "RM52-vehicle-monthly-metrics",
   "tier": 1,
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
-  "status": "applied",
+  "status": "verified",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T18:04:54Z",
+  "updated_at": "2026-09-10T18:06:14Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -33,9 +33,7 @@
       "2.6",
       "4.1",
       "5.1",
-      "L4"
-    ],
-    "awaiting_user_verification": [
+      "L4",
       "2.1",
       "2.2",
       "2.3",
@@ -44,7 +42,8 @@
       "3.1",
       "3.2",
       "3.3"
-    ]
+    ],
+    "awaiting_user_verification": []
   },
   "decisions": [
     {
@@ -228,7 +227,7 @@
         "1.4"
       ],
       "wave": 2,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T12:32:39Z",
@@ -250,7 +249,7 @@
         "1.4"
       ],
       "wave": 2,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T12:32:39Z",
@@ -272,7 +271,7 @@
         "2.1"
       ],
       "wave": 2,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T12:32:39Z",
@@ -294,7 +293,7 @@
         "2.1"
       ],
       "wave": 2,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T12:32:39Z",
@@ -317,7 +316,7 @@
         "2.2"
       ],
       "wave": 2,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T12:32:39Z",
@@ -360,7 +359,7 @@
         "2.1"
       ],
       "wave": 3,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T14:50:51Z",
@@ -385,7 +384,7 @@
         "2.6"
       ],
       "wave": 3,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T14:54:19Z",
@@ -448,7 +447,7 @@
         "3.1"
       ],
       "wave": 4,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-10T15:32:20Z",
@@ -623,6 +622,12 @@
       "event": "docker-free-verify-path-prepared",
       "by": "leader",
       "detail": "Docker still down, so the leader found a path that does not need it: internal/testdb uses DATABASE_URL as-is when reachable and only falls back to a container. The owner has a local Homebrew Postgres 16 on 5432. Leader created the scratch DB magus_rm52_test and ran make migrate-up against it; all module migrations applied clean, including 20260909000002. The dev magus DB was NOT touched. O2 evidence gathered by the leader (read-only SELECT, not the suite): pg_constraint returns exactly the three expected rows - pkey, period_is_month_start CHECK, and the tesla_id/effective_period UNIQUE - and the column list matches design.md with no account_id, no FK and no raw_data. O2 stays unticked: it is the owner s task. FOOTGUN recorded: the Makefile does include .env then a bare export, so a DATABASE_URL prefix is overridden by .env and only a make command-line argument wins. The prefix form would run the integration tests against the dev DB."
+    },
+    {
+      "at": "2026-09-10T18:06:14Z",
+      "event": "user-verified",
+      "by": "leader",
+      "detail": "THE OWNER ran the suite and reported it PASSING. Command: make test-with-db DATABASE_URL=postgres://localhost:5432/magus_rm52_test?sslmode=disable, against the scratch DB, with no Docker. This is the owner s report, not the assistant s: the assistant never ran the suite. The eight awaiting-user-verification tasks (2.1-2.5, 3.1, 3.2, 3.3) move to done on that report and the change moves to verified. Guards and vet were assistant-run earlier and are green; the suite is user-run. The reviewer brief must state that split."
     }
   ]
 }

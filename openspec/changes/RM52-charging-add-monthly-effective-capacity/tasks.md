@@ -265,7 +265,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
+- [x] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
   say-so; work that is complete but unexecuted is **`awaiting-user-verification`**.
   ```bash
   make migrate-up
@@ -275,7 +275,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
   boundary-guard archive-guard test`. `make test-with-db` if you want the `DATABASE_URL`-gated
   integration tests specifically.)
 
-- [ ] **O2** **[owner]** Confirm the migration applies cleanly and the new table exists, since this
+- [x] **O2** **[owner]** Confirm the migration applies cleanly and the new table exists, since this
   is a brand-new table with no pre-existing rows to backfill (unlike RM33/RM51's column additions,
   there is no "Owner verification" data-shape query needed here — the table starts empty and stays
   empty until the job runs, which is tier 2/3's job):
