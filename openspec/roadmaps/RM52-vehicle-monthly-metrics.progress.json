@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-10T01:50:10Z",
-  "updated_at": "2026-09-10T21:04:00Z",
+  "updated_at": "2026-09-10T22:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -151,6 +151,22 @@
       "made_by": "user",
       "decision": "candidate_count added to the table at the design gate. sample_count keeps its post-gate meaning (tier 1 design D1, confirmed). A row is stored only when candidate_count >= 1.",
       "why": "Without it, a month of 20 small top-ups looks identical to a month with nothing measurable. The migration was still unwritten, so the column cost nothing; later it would be a migration."
+    },
+    {
+      "id": "RD16",
+      "at": "2026-09-10T21:55:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "cmd/monthly-capacity is LOCAL ONLY. It is not added to the Dockerfile and does not ship to the VPS image. No backlog entry either.",
+      "why": "The Dockerfile builds each binary by name, so shipping it is extra scope. Prod backfill is a separate problem the owner chose not to open now."
+    },
+    {
+      "id": "RD17",
+      "at": "2026-09-10T21:57:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "Add a new exported config.LoadDatabase(): loadDotEnv, require DATABASE_URL, nothing else. internal/config/ is granted to tier 3 for that file and its test.",
+      "why": "config.Load fails without Tesla credentials this tool never uses. config.LoadMigration already set the precedent for a smaller loader."
     }
   ],
   "tiers": [
@@ -207,10 +223,10 @@
         2
       ],
       "optional": false,
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (artifact worker)",
+      "started_at": "2026-09-10T21:58:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -259,6 +275,18 @@
       "event": "checkpoint",
       "by": "leader",
       "detail": "Clean stop at the tier 2 / tier 3 boundary. Tier 2 is archived; nothing is half-written and the tree is clean. Budget: 5h 61% against a gate of 90, context 12% against 40 - neither tripped. The 7-DAY bucket is at 96% and has no configured gate, which is why the leader stopped anyway: tier 3 is a whole new tier (cmd/monthly-capacity, the make target, structure docs and the vehicle-monthly-metrics KB guide), and the roadmap runs with autopilot=false, so advancing was never automatic. Resume with /kkpa-dev-harness-pipeline resume RM52-platform-add-monthly-capacity-cli (tier 3 has no change folder yet, so the resume will start it at Step 2)."
+    },
+    {
+      "at": "2026-09-10T21:58:00Z",
+      "event": "tier-3-started",
+      "by": "leader",
+      "detail": "Resumed at the tier 2/3 boundary. Budget fresh: 5h 3%, 7-day 0%, context 8%. Owner chose to run on a dirty tree - four uncommitted gateway/KB files unrelated to RM52 stay in place, so tier 3 stages files explicitly. Step 2 interview found two decisions the roadmap never covered, both settled with the owner: RD16 (local only) and RD17 (config.LoadDatabase). No database gate: tier 3 touches no schema object. Artifact worker dispatched on Sonnet."
+    },
+    {
+      "at": "2026-09-10T22:12:00Z",
+      "event": "tier-3-proposed",
+      "by": "leader",
+      "detail": "Tier 3 artifacts written and validated (openspec validate --strict passed). Seven design decisions D1-D7 plus T1/T2 (= RD16/RD17). No database gate: the change adds no schema object. The leader fixed two internal inconsistencies in design.md before committing: a task-number reference (3.1 -> 4.1) and a Non-Goals line that read as if internal/charging were untouched when AGENTS.md is edited."
     }
   ]
 }

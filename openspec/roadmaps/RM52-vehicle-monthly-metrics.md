@@ -313,7 +313,7 @@ Status legend: `[ ]` pending (change not created) · `[~]` in progress (change c
 |---|---|---|---|---|---|
 | `[x]` | 1 | `RM52-charging-add-monthly-effective-capacity` | `charging` | The table, the estimator, the job, and the seam reading it | — |
 | `[x]` | 2 | `RM52-app-add-monthly-capacity-step` | `app` | Nightly processor step 4, first day of month only | 1 |
-| `[ ]` | 3 | `RM52-platform-add-monthly-capacity-cli` | `platform` | `cmd/monthly-capacity`, the make target, docs and the KB | 1, 2 |
+| `[~]` | 3 | `RM52-platform-add-monthly-capacity-cli` | `platform` | `cmd/monthly-capacity`, the make target, docs and the KB | 1, 2 |
 
 ### Tier 1 — `[x]` `RM52-charging-add-monthly-effective-capacity` (module: `charging`)
 
@@ -345,7 +345,7 @@ existing step-1 short-circuit.
 `internal/app` takes the tier 1 port through its existing constructor pattern, and must not import
 `internal/charging/db`.
 
-### Tier 3 — `[ ]` `RM52-platform-add-monthly-capacity-cli` (module: `platform`, cross-cutting)
+### Tier 3 — `[~]` `RM52-platform-add-monthly-capacity-cli` (module: `platform`, cross-cutting)
 
 Granted paths: `cmd/monthly-capacity/`, `cmd/poller/main.go`, `cmd/web/main.go`, `Makefile`,
 `README.md`, `docs/`, `kkpa/context/`.
