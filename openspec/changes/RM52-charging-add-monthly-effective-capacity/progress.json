@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "applied",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T16:55:50Z",
+  "updated_at": "2026-09-10T16:56:02Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -611,6 +611,12 @@
       "event": "L4-completed",
       "by": "leader",
       "detail": "L1, L2 and L4 all ticked. L1 verified: build and vet green across all 25 packages outside internal/charging. L2 ticked as a check that RAN and FAILED, with L4 appended as the fix rather than editing L2. L4 done by the leader: README schema-ownership table gained the monthly_effective_capacity row and the charging Architecture row now names the table; kkpa/context/workflows/manual-charge-crud.md and kkpa/context/architecture/charge-record-mutation.md corrected on the packCapacityKWh signature, the PLACEHOLDER claim and a TODO(MAG-18) comment that no longer exists. go build and go vet re-run after the doc edits, still green. Only L3 remains, and it fires at archive time."
+    },
+    {
+      "at": "2026-09-10T16:56:02Z",
+      "event": "checkpoint",
+      "by": "leader",
+      "detail": "Tier 1 is fully implemented and parked at the reviewer gate. Not a budget trip: 5h 37% against a gate of 90, context 21% against 40; the 7-day bucket is at 87% and is the real constraint. Every assistant-owned task is complete. Only O1, O2 (owner) and L3 (fires at archive) remain unticked. The gate stays CLOSED because Step 6 requires the owner s reported suite pass and their Docker daemon is down, so go test hangs in internal/analytics before reaching charging. Eight tasks stay awaiting-user-verification. Resume with /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity once make check passes."
     }
   ]
 }
