@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "in-progress",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T16:01:01Z",
+  "updated_at": "2026-09-10T16:46:31Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,7 +24,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "4.1",
       "5.1"
     ],
     "blocked": [],
@@ -33,7 +32,8 @@
       "1.2",
       "1.3",
       "1.4",
-      "2.6"
+      "2.6",
+      "4.1"
     ],
     "awaiting_user_verification": [
       "2.1",
@@ -391,15 +391,21 @@
         "2.6",
         "3.2"
       ],
-      "wave": 4,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "wave": 5,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T16:39:44Z",
+      "completed_at": "2026-09-10T16:45:18Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave-5 bracket; end reading taken at the wave-6 boundary."
+      },
+      "notes": "Six AGENTS.md sections updated: Responsibility, Public Interface, Data Ownership, Coding Rules D9, Testing Notes, plus the two stale packCapacityKWh passages. 140 insertions, 12 deletions, no reflow."
     },
     {
       "id": "5.1",
@@ -544,6 +550,18 @@
       "event": "verification-attempt-blocked",
       "by": "leader",
       "detail": "The owner ran make migrate-up and make check. Every guard passed and go build/go vet passed. go test ./... then HUNG in internal/analytics TestMain and died on SIGQUIT. Cause is environmental, not this change: the Docker daemon is wedged. Docker.app backend processes run and the socket exists, but docker info hangs too, so testcontainers Ping never returns. The run never reached internal/charging, so no test of this change executed. No task status changed. 2.1-2.5, 3.1-3.3 stay awaiting-user-verification. Nothing is marked done and nothing is marked blocked: the work is not blocked, only its verification."
+    },
+    {
+      "at": "2026-09-10T16:39:44Z",
+      "event": "wave-5-dispatched",
+      "by": "leader",
+      "detail": "One charging worker (claude-sonnet-5) on 4.1, the AGENTS.md update. Dispatched to a worker, not done by the leader: 985-line file, six sections, and five MAG-18 mentions to clear. Owner chose to continue while Docker is down; waves 5 and 6 need no Docker. Budget at dispatch: 5h 22%, 7d 86%, context 17%."
+    },
+    {
+      "at": "2026-09-10T16:46:31Z",
+      "event": "wave-5-completed",
+      "by": "leader",
+      "detail": "4.1 done. Leader verified independently: gofmt clean, go build clean, go vet green; diff is 140 insertions / 12 deletions, targeted, no reflow of the 985-line file. All six sections present. Data Ownership subsection checked fact by fact against design.md: no account_id, no FK, the CHECK, UNIQUE as the whole index plan, NULL never means guessed, the two counts distinct with candidate_count >= 1. The rewritten status = DONE claim checked against query.sql line 468 and matches. Of the 5 MAG-18 hits now in the file, 3 are correct RM33 history and 2 are new text recording the closure; none still calls the seam a stub. Marked done, not awaiting-user-verification: this is a docs task whose checks are the guards and vet, not the suite, matching how 2.6 was treated. Worker reported a 16:20:00Z start, before its own dispatch; leader replaced it with the bracket time."
     }
   ]
 }

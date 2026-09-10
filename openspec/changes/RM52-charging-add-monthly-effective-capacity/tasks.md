@@ -227,7 +227,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 
 ## Wave 4 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)
 
-- [ ] **4.1** **[module: charging worker]** `internal/charging/AGENTS.md`:
+- [x] **4.1** **[module: charging worker]** `internal/charging/AGENTS.md`:
   - §Responsibility — one sentence noting the module now also measures and stores each vehicle's
     effective pack capacity monthly (RM52 tier 1), alongside the two existing record types.
   - §Public Interface — add `MonthlyCapacityCalculator`, `MonthlyCapacityReport`, and
