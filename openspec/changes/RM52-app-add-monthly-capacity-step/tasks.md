@@ -27,7 +27,7 @@ granted path]** — `cmd/poller/main.go`, explicitly granted by the leader for t
 
 ## Wave 1 — the pure gate
 
-- [ ] **1.1** **[module: app worker]** Add `monthlyCapacityPeriod(now time.Time, loc
+- [x] **1.1** **[module: app worker]** Add `monthlyCapacityPeriod(now time.Time, loc
   *time.Location) (period time.Time, run bool)` to `internal/app/processor.go` (or a new file,
   worker's choice — `monthly_capacity_step.go` mirrors `scheduler.go`'s one-function-per-concern
   file split, but a single `processor.go` addition is also fine since the function is short),
@@ -39,7 +39,7 @@ granted path]** — `cmd/poller/main.go`, explicitly granted by the leader for t
 
 ## Wave 2 — wire the step into `Processor`
 
-- [ ] **2.1** **[module: app worker]** `internal/app/app.go`:
+- [x] **2.1** **[module: app worker]** `internal/app/app.go`:
   - Add one new parameter to `NewProcessor`, `monthlyCapacityCalculator charging.
     MonthlyCapacityCalculator`, positioned immediately after `mirrorWatermarks charging.
     MirrorWatermarkStore` (design.md D3 — keeps all three `charging` ports contiguous).
@@ -51,7 +51,7 @@ granted path]** — `cmd/poller/main.go`, explicitly granted by the leader for t
   - **No other parameter, field, or line in this file changes.**
   `depends_on`: 1.1 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: app worker]** `internal/app/processor.go`:
+- [x] **2.2** **[module: app worker]** `internal/app/processor.go`:
   - Add field `monthlyCapacityCalculator charging.MonthlyCapacityCalculator` to the `processor`
     struct.
   - Inside `ProcessVehicleData`'s `if err == nil { ... }` block, add `p.runMonthlyCapacityStep(ctx)`
@@ -63,7 +63,7 @@ granted path]** — `cmd/poller/main.go`, explicitly granted by the leader for t
     bodies, same doc comments.
   `depends_on`: 1.1 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: app worker, granted path]** `cmd/poller/main.go`: add one new argument to
+- [x] **2.3** **[module: app worker, granted path]** `cmd/poller/main.go`: add one new argument to
   the existing `app.NewProcessor(...)` call, `charging.NewMonthlyCapacityCalculator(pool)`, in the
   same position `app.go`'s new parameter takes (immediately after `charging.
   NewMirrorWatermarkStore(pool)`). **No other line in this file changes** — this is wiring only,
@@ -72,7 +72,7 @@ granted path]** — `cmd/poller/main.go`, explicitly granted by the leader for t
 
 ---
 
-- [ ] **2.4** **[module: app worker]** `internal/app/processor.go`: warn once when the two zones
+- [x] **2.4** **[module: app worker]** `internal/app/processor.go`: warn once when the two zones
   disagree. **Appended after the artifacts, on the owner's decision at the artifact gate.**
   `NewProcessor` takes an injected `loc` (`POLLER_TIMEZONE`), which decides **when** the nightly
   cycle fires. The monthly gate uses `clock.Zone()` (`America/Bogota`), which RD7 and
@@ -142,6 +142,29 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
     `processChargingData`/`recalculateAnalytics`'s own accepted gap).
   `depends_on`: 3.2 · `parallel_ok`: no
 
+- [ ] **4.2** **[module: app worker, granted path]** `kkpa/context/architecture/nightly-cycle.md` —
+  the KB guide for this exact cycle. **Appended by the leader after the waves 1+2 dispatch.**
+  `CLAUDE.md` §Non-negotiables ("docs track structural change") requires the KB to be fixed in the
+  **same** change, and this guide calls the cycle a **three**-step orchestration throughout. A
+  stale guide is worse than no guide: `kkpa-context-fetch` presents it as authoritative, so an
+  agent trusts it *instead of* reading the code. Update, at minimum:
+  - §Glossary — "the 3-step orchestration" becomes four.
+  - §Component map — `app.go`'s "seven **public ports**" count, and `processor.go`'s "The three
+    steps" row, which must name `runMonthlyCapacityStep` / `callMonthlyCapacityCalculator` /
+    `monthlyCapacityPeriod` as step 4 the same way it names steps 1–3.
+  - A new **§Step 4 — measure monthly capacity (`internal/charging`)** section, in the same table
+    shape as §Step 2 and §Step 3.
+  - §Port map — add the `app` → `charging.MonthlyCapacityCalculator` → `Calculate` row.
+  - §"How do I…" — "bracketing all three steps" becomes four; and note that step 4 is the first
+    step that does **not** run every night.
+  - §Conventions & gotchas — "steps 2 and 3 never run" and "its three steps" become 2, 3 and 4.
+    Add the gotcha that matters most: the gate zone is `clock.Zone()`, **not** the poller's
+    `POLLER_TIMEZONE` (`p.loc`); they are two different knobs, and step 4 logs a warning when they
+    disagree (RD7, task 2.4).
+  - The table-effects table — `charging.monthly_effective_capacity` is written by step 4.
+  **Do not touch any other KB guide**, and do not touch `openspec/changes/archive/`.
+  `depends_on`: 2.2, 2.4, 4.1 · `parallel_ok`: with 4.1 is fine but 4.1 first is simpler
+
 ---
 
 ## Wave 5 — signals
@@ -177,7 +200,13 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 - [ ] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green **outside**
   `internal/app` and `cmd/poller` once Wave 5 lands. Proposal.md §Breaking states no other
   cross-module compile fix should be needed — verify rather than assume.
-- [ ] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change adds no module
+- [x] **L2** **[leader]** Confirm the root `README.md` needs no edit.
+  **DONE — and the assumption was wrong, again.** `README.md`'s `internal/app` Architecture row
+  described the cycle as "three named steps". Step 4 makes that false. The leader edited that one
+  row: four steps, plus one sentence on the first-day-of-month gate and the port it calls. The
+  dependency graph needed **no** edit — it already shows `app ► charging`, and this change adds no
+  new import path. No other `README.md` line changed. Original task text follows.
+   This change adds no module
   and no runnable (tier 3 adds `cmd/monthly-capacity`, not this tier) — the "Project Structure"
   tree and the "Architecture" table should already be correct. (L2 on tier 1 turned out wrong once
   already — actually check, do not assume.)

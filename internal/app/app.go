@@ -5,13 +5,17 @@
 // because there was nowhere else to put it.
 //
 // The package exposes exactly one public port, Processor, whose single method
-// ProcessVehicleData runs one full vehicle-data cycle as three named steps, in this
+// ProcessVehicleData runs one full vehicle-data cycle as four named steps, in this
 // fixed order:
 //
 //	Scheduler ──┐
-//	            ├──> ProcessVehicleData ──┬── Sync Fleet data       (telemetry)
-//	API ────────┘                         ├── Process Charging data (the T6 mirror)
-//	                                      └── Recalculate Analytics (analytics)
+//	            ├──> ProcessVehicleData ──┬── Sync Fleet data              (telemetry)
+//	API ────────┘                         ├── Process Charging data       (the T6 mirror)
+//	                                      ├── Recalculate Analytics       (analytics)
+//	                                      └── Measure Monthly Capacity    (the T2 gate, RM52)
+//
+// The fourth step runs only on the first calendar day of the month, in the
+// platform's default zone, and measures the previous month (RM52 tier 2, RD6/RD7).
 //
 // Scheduler and the manual-rerun API (cmd/poller's HTTP listener,
 // platform-add-manual-rerun-api) are peer driving adapters that CALL this port —
@@ -42,7 +46,7 @@ import (
 )
 
 // Processor is the platform's application-layer port — see the package doc comment
-// for the three-step diagram (design.md D3). Scheduler and the manual-rerun API
+// for the four-step diagram (design.md D3). Scheduler and the manual-rerun API
 // are peer driving adapters that CALL Processor from the outside; neither is
 // part of it.
 type Processor interface {
@@ -50,23 +54,29 @@ type Processor interface {
 	// RunID (uuid.New()) once per invocation and builds a telemetry.RunContext,
 	// passed to telemetry.Collector.CollectAll as step 1 (design.md D5, D8). A
 	// non-nil error from step 1 is returned immediately as (report, err) — steps 2
-	// (process charging data) and 3 (recalculate analytics) do not run for that
-	// invocation. Every per-account/per-vehicle failure inside any step is logged
-	// and isolated, never fatal to the cycle. Returns telemetry.CycleReport
-	// unchanged: this module introduces no new report/result type of its own
-	// (design.md D7).
+	// (process charging data), 3 (recalculate analytics) and 4 (measure monthly
+	// vehicle capacity, RM52 tier 2) do not run for that invocation. Every
+	// per-account/per-vehicle failure inside any step is logged and isolated,
+	// never fatal to the cycle. Returns telemetry.CycleReport unchanged: this
+	// module introduces no new report/result type of its own (design.md D7).
 	ProcessVehicleData(ctx context.Context, triggeredBy telemetry.TriggeredBy) (telemetry.CycleReport, error)
 }
 
 // NewProcessor builds a Processor from its collaborators' PUBLIC PORTS only — every
 // argument is an interface, not a *pgxpool.Pool or a concrete DB-backed type.
 // internal/app owns no table and no pool (design.md D1/D2): every read and write
-// this use case performs happens through one of these nine arguments.
+// this use case performs happens through one of these ten arguments.
 //
 // mirrorWatermarks is charging's second port here. It holds, per account, the
 // highest telemetry updated_at the Supercharger mirror has already copied, so
 // processChargingData reads a bounded window instead of the whole history
 // (RM44-platform-add-mirror-watermark).
+//
+// monthlyCapacityCalculator is charging's third port here (RM52 tier 2,
+// RD1/RD3/RD5). ProcessVehicleData calls it once a month, on the first calendar
+// day of the month, for the previous month — never per vehicle, never on any
+// other day (see runMonthlyCapacityStep and monthlyCapacityPeriod in
+// processor.go, design.md D1/D2).
 //
 // runWriter is telemetry's third port here (grouped with collector and
 // superchargerHistoryReader — RM36-app-record-poll-run design D1): ProcessVehicleData
@@ -78,13 +88,16 @@ type Processor interface {
 // "yesterday" is resolved in the poller's own configured zone, not UTC
 // (roadmap D6/D18) — internal/app needs no *time.Location of its own beyond this
 // passthrough, mirroring internal/analytics's existing zone-free design (design.md
-// D10).
+// D10). The monthly-capacity gate (above) deliberately does NOT use loc — it reads
+// the platform's fixed default zone via internal/clock instead (RM52 tier 2 design.md
+// D1, RD7).
 func NewProcessor(
 	collector telemetry.Collector,
 	superchargerHistoryReader telemetry.SuperchargerHistoryReader,
 	runWriter telemetry.RunWriter,
 	sessionWriter charging.SessionWriter,
 	mirrorWatermarks charging.MirrorWatermarkStore,
+	monthlyCapacityCalculator charging.MonthlyCapacityCalculator,
 	acct account.Service,
 	recalculator analytics.Recalculator,
 	analyticsReader analytics.Reader,
@@ -97,6 +110,7 @@ func NewProcessor(
 		runWriter:                 runWriter,
 		sessionWriter:             sessionWriter,
 		mirrorWatermarks:          mirrorWatermarks,
+		monthlyCapacityCalculator: monthlyCapacityCalculator,
 		acct:                      acct,
 		recalculator:              recalculator,
 		analyticsReader:           analyticsReader,

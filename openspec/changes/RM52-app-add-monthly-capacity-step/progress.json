@@ -6,9 +6,9 @@
   "roadmap": "RM52-vehicle-monthly-metrics",
   "tier": 2,
   "intention": "Add step 4 to ProcessVehicleData. It calls tier 1's charging.MonthlyCapacityCalculator.Calculate for the PREVIOUS month, only when today is the first day of the month in the platform zone (RD6, RD7). The gate is a pure function so it can be tested without a clock. app calls the port only and never imports internal/charging/db (RD1). No database object changes.",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-09-10T19:00:56Z",
-  "updated_at": "2026-09-10T20:32:44Z",
+  "updated_at": "2026-09-10T20:38:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,19 +24,21 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "2.1",
-      "2.2",
-      "2.3",
-      "2.4",
       "3.1",
       "3.2",
       "4.1",
+      "4.2",
       "5.1"
     ],
     "blocked": [],
     "done": [],
-    "awaiting_user_verification": []
+    "awaiting_user_verification": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4"
+    ]
   },
   "decisions": [
     {
@@ -46,6 +48,38 @@
       "made_by": "user",
       "decision": "Appended task 2.4: log one warning when p.loc and clock.Zone() name different zones. Log only, never fail and never change the gate zone. RD7 stands: clock.Zone() remains the gate zone.",
       "why": "The schedule zone and the gate zone are two different knobs. If they diverge the cycle can fire on the 1st in one and the 31st in the other, silently skipping a month."
+    },
+    {
+      "id": "D-lead-2",
+      "at": "2026-09-10T20:34:13Z",
+      "scope": "dispatch",
+      "made_by": "autopilot",
+      "decision": "Merged waves 1 and 2 into ONE serial worker dispatch (1.1, 2.1, 2.2, 2.3, 2.4). Wave 3 (tests) stays a separate dispatch.",
+      "why": "Both waves edit the same two files in dependency order, so one worker reads the doc pack once. Tests stay separate so the author writes the design contract, not the code it just wrote."
+    },
+    {
+      "id": "D-lead-3",
+      "at": "2026-09-10T20:38:30Z",
+      "scope": "tasks",
+      "made_by": "leader",
+      "decision": "Appended task 4.2: update kkpa/context/architecture/nightly-cycle.md. Granted path for the app worker in wave 4.",
+      "why": "CLAUDE.md requires the KB fixed in the same change. That guide calls the cycle three steps throughout. kkpa-context-fetch presents it as authoritative, so a stale guide beats the code."
+    },
+    {
+      "id": "D-lead-4",
+      "at": "2026-09-10T20:38:30Z",
+      "scope": "verification",
+      "made_by": "autopilot",
+      "decision": "Waves 1+2 set to awaiting-user-verification, but the Step 5.7 ask to the owner is DEFERRED to the end of wave 3.",
+      "why": "go vet already fails: processor_test.go does not pass the new argument yet. The suite cannot compile until task 3.2 lands, so asking now spends a round-trip on a build that must fail."
+    },
+    {
+      "id": "D-lead-5",
+      "at": "2026-09-10T20:38:30Z",
+      "scope": "tasks",
+      "made_by": "leader",
+      "decision": "L2 resolved with a finding, not a confirmation: README.md's internal/app row said three named steps. Leader edited that one row. The dependency graph needed no edit.",
+      "why": "The task warned that L2 was wrong once already on tier 1. It was wrong again. Structure docs must match the code in the same change."
     }
   ],
   "tasks": [
@@ -54,63 +88,91 @@
       "title": "monthlyCapacityPeriod pure gate function",
       "depends_on": [],
       "wave": 1,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T20:34:13Z",
+      "completed_at": "2026-09-10T20:37:07Z",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "cost_usd_delta": 2.3,
+        "approx": true,
+        "note": "one serial worker for merged waves 1+2; wave delta copied onto all five tasks"
+      },
+      "notes": "Added monthlyCapacityPeriod to processor.go, verbatim from design.md D2. Pure, no clock read of its own.",
+      "duration_seconds": 174
     },
     {
       "id": "2.1",
-      "title": "app.go — take the MonthlyCapacityCalculator port via NewProcessor",
+      "title": "app.go \u2014 take the MonthlyCapacityCalculator port via NewProcessor",
       "depends_on": [
         "1.1"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T20:34:13Z",
+      "completed_at": "2026-09-10T20:37:07Z",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "cost_usd_delta": 2.3,
+        "approx": true,
+        "note": "one serial worker for merged waves 1+2; wave delta copied onto all five tasks"
+      },
+      "notes": "app.go: new NewProcessor parameter after mirrorWatermarks (D3), struct assignment, doc comments now say four steps and ten arguments.",
+      "duration_seconds": 174
     },
     {
       "id": "2.2",
-      "title": "processor.go — step 4 after step 3, inside the err == nil short-circuit",
+      "title": "processor.go \u2014 step 4 after step 3, inside the err == nil short-circuit",
       "depends_on": [
         "1.1",
         "2.1"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T20:34:13Z",
+      "completed_at": "2026-09-10T20:37:07Z",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "cost_usd_delta": 2.3,
+        "approx": true,
+        "note": "one serial worker for merged waves 1+2; wave delta copied onto all five tasks"
+      },
+      "notes": "processor.go: struct field, runMonthlyCapacityStep called last inside the err == nil block, both step functions verbatim from D2.",
+      "duration_seconds": 174
     },
     {
       "id": "2.3",
-      "title": "cmd/poller/main.go — one new NewProcessor argument (granted path)",
+      "title": "cmd/poller/main.go \u2014 one new NewProcessor argument (granted path)",
       "depends_on": [
         "2.1"
       ],
       "wave": 2,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T20:34:13Z",
+      "completed_at": "2026-09-10T20:37:07Z",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "cost_usd_delta": 2.3,
+        "approx": true,
+        "note": "one serial worker for merged waves 1+2; wave delta copied onto all five tasks"
+      },
+      "notes": "cmd/poller/main.go: added charging.NewMonthlyCapacityCalculator(pool) after NewMirrorWatermarkStore(pool). No other line changed.",
+      "duration_seconds": 174
     },
     {
       "id": "3.1",
-      "title": "monthly_capacity_step_test.go — Group A, the month-boundary contract",
+      "title": "monthly_capacity_step_test.go \u2014 Group A, the month-boundary contract",
       "depends_on": [
         "1.1"
       ],
@@ -125,7 +187,7 @@
     },
     {
       "id": "3.2",
-      "title": "processor_test.go — the step-4 wiring cases",
+      "title": "processor_test.go \u2014 the step-4 wiring cases",
       "depends_on": [
         "2.2"
       ],
@@ -140,7 +202,7 @@
     },
     {
       "id": "4.1",
-      "title": "internal/app/AGENTS.md — the new step and the accepted test gap",
+      "title": "internal/app/AGENTS.md \u2014 the new step and the accepted test gap",
       "depends_on": [
         "2.2",
         "3.2"
@@ -173,11 +235,35 @@
     },
     {
       "id": "2.4",
-      "title": "processor.go — warn once when p.loc and clock.Zone() disagree",
+      "title": "processor.go \u2014 warn once when p.loc and clock.Zone() disagree",
       "depends_on": [
         "2.2"
       ],
       "wave": 2,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T20:34:13Z",
+      "completed_at": "2026-09-10T20:37:07Z",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "cost_usd_delta": 2.3,
+        "approx": true,
+        "note": "one serial worker for merged waves 1+2; wave delta copied onto all five tasks"
+      },
+      "notes": "Zone warning inside runMonthlyCapacityStep, compared before the gate so it fires on every step-4 call, not only the 1st. Log only; clock.Zone() stays the gate zone.",
+      "duration_seconds": 174
+    },
+    {
+      "id": "4.2",
+      "title": "kkpa/context/architecture/nightly-cycle.md - the KB guide still says three steps",
+      "depends_on": [
+        "2.2",
+        "2.4",
+        "4.1"
+      ],
+      "wave": 4,
       "status": "pending",
       "agent": null,
       "model": null,
@@ -211,6 +297,18 @@
       "event": "checkpoint",
       "by": "leader",
       "detail": "Clean stop at the tier 2 artifact boundary. Not a 5-hour trip: 5h 67% against a gate of 90, context 31% against 40. The 7-DAY bucket is at 90% and has no configured gate, which is why the leader stopped anyway - it does not reset today, and tier 2 still has 5 implementation waves plus a review round and an archive, with tier 3 untouched. Tier 2 status is proposed, all 9 tasks pending, artifacts validated and committed. Nothing is half-written. Resume with /kkpa-dev-harness-pipeline resume RM52-app-add-monthly-capacity-step"
+    },
+    {
+      "at": "2026-09-10T20:34:13Z",
+      "event": "wave-dispatched",
+      "by": "leader",
+      "detail": "Resumed after the tier 2 artifact checkpoint. Budget at resume: 5h 12%, context 9%, 7-day 91% (no gate). Dispatching the app worker (claude-sonnet-5) for merged waves 1+2: tasks 1.1, 2.1, 2.2, 2.3, 2.4. Granted path cmd/poller/main.go for 2.3."
+    },
+    {
+      "at": "2026-09-10T20:38:30Z",
+      "event": "wave-completed",
+      "by": "leader",
+      "detail": "Merged waves 1+2 done: 1.1, 2.1, 2.2, 2.3, 2.4. Leader verified the diff against design.md D2/D3 by hand - monthlyCapacityPeriod, runMonthlyCapacityStep and callMonthlyCapacityCalculator are verbatim, the only addition being task 2.4's zone warning. Port signature Calculate(ctx, period, *int64) and MonthlyCapacityReport fields checked against internal/charging/charging.go. go build ./... passes; go vet ./... fails ONLY at processor_test.go:301 (not enough arguments in call to NewProcessor), which is task 3.2's job. The three repo-wide gofmt hits are pre-existing. The worker reported placeholder timestamps; the leader recorded the real dispatch bracket instead. Leader also did L2 (README) and appended task 4.2 (KB guide)."
     }
   ]
 }
