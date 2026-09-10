@@ -17,7 +17,6 @@
 package charging
 
 import (
-	"context"
 	"math"
 	"reflect"
 	"testing"
@@ -189,37 +188,6 @@ func TestDerivedEnergyKWh_RoundingHalfAwayFromZeroAtScale2(t *testing.T) {
 }
 
 func ptrF64(v float64) *float64 { return &v }
-
-// --- A9: the capacity seam ---
-
-// TestPackCapacityKWh_VinIndependent implements design.md A9: packCapacityKWh
-// returns exactly 62.0 and a nil error for a real VIN, for "", and for an
-// unknown VIN — documenting that the constant is VIN-independent today, so a
-// reviewer of backlog #18 sees exactly what changed (D7).
-func TestPackCapacityKWh_VinIndependent(t *testing.T) {
-	ctx := context.Background()
-
-	cases := []struct {
-		name string
-		vin  string
-	}{
-		{"real VIN", "5YJ3E1EA0NF000001"},
-		{"empty VIN", ""},
-		{"unknown VIN", "UNKNOWNVIN00000000"},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := packCapacityKWh(ctx, tc.vin)
-			if err != nil {
-				t.Fatalf("packCapacityKWh(%q): unexpected error: %v", tc.vin, err)
-			}
-			if got != 62.0 {
-				t.Errorf("packCapacityKWh(%q) = %v, want 62.0", tc.vin, got)
-			}
-		})
-	}
-}
 
 // --- RM51-charging-derive-status-and-price-source (MAG-58): promoteIfComplete ---
 //

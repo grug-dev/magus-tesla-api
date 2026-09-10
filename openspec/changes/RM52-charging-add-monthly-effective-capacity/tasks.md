@@ -205,7 +205,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
   read, RD11's caller-side nil short-circuit, and RD9's idempotent re-run).
   `depends_on`: 2.3, 2.4, 2.5, 2.6 · `parallel_ok`: with 3.1
 
-- [ ] **3.3** **[module: charging worker]** Delete `TestPackCapacityKWh_VinIndependent` from
+- [x] **3.3** **[module: charging worker]** Delete `TestPackCapacityKWh_VinIndependent` from
   `internal/charging/entry_status_test.go` (the test function and its `// --- ... ---` section
   header, if that header covers only this test). It calls the old
   `packCapacityKWh(ctx, vin string)` seam and asserts "always returns 62.0, whatever the VIN" —
