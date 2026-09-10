@@ -166,6 +166,9 @@ rationale behind each group.
   assertion, and `Calculate` — all verbatim from design.md D7. This file imports `chargingdb` and
   `pgtype` directly (it owns three new queries) — see task **2.6** for the required `AGENTS.md`
   update this creates.
+  **design.md D9 is binding here**: `estimateEffectiveCapacity` holds only the gate, `median` takes
+  `[]capacitySample` and sorts its own copy, and the two stay separate functions. Do not "simplify"
+  them into one, and do not narrow `median` back to `[]float64`.
   `depends_on`: 2.2 · `parallel_ok`: with 2.3, 2.4
 
 - [ ] **2.6** **[module: charging worker]** `internal/charging/AGENTS.md` §Allowed Imports: add
@@ -184,11 +187,13 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 (`internal/charging/AGENTS.md` §Testing Notes).
 
 - [ ] **3.1** **[module: charging worker]** Create `internal/charging/monthly_capacity_estimator_test.go`
-  — offline, no DB, package `charging`. Cover design.md Test Contract **A1–A8**:
+  — offline, no DB, package `charging`. Cover design.md Test Contract **A1–A9**:
   `estimateEffectiveCapacity`'s five cases (the `minSamples` boundary, the odd/even median, the
-  delta-gate dropping both a row and its outlier value, the gate's `>=` boundary) and
+  delta-gate dropping both a row and its outlier value, the gate's `>=` boundary),
   `packCapacityKWh`'s three cases against an in-package fake `packCapacityLookup` (no measured row,
-  a measured value, a lookup error).
+  a measured value, a lookup error), and **A9** — `median` called directly with an unsorted
+  `[]capacitySample`, which pins D9's method seam (the signature a future second method plugs into,
+  and `median`'s own responsibility to sort).
   `depends_on`: 2.5, 2.1 · `parallel_ok`: with 3.2
 
 - [ ] **3.2** **[module: charging worker]** Create `internal/charging/db_monthly_capacity_integration_test.go`
@@ -216,6 +221,12 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
     of the old hardcoded-`62.0`/backlog-#18 language elsewhere in this file (search for
     `MAG-18`/`backlog #18` across the whole file, not just §Data Ownership) so nothing here still
     calls the seam a stub.
+  - §Coding Rules — add the D9 rule, in two or three lines: the monthly capacity estimator is
+    split into a **gate** (`estimateEffectiveCapacity`) and a **method** (`median`); a new
+    estimation method is a new function with `median`'s exact signature
+    (`func(gated []capacitySample) float64`), never an edit to `median` and never inlined into the
+    gate; the gate is never duplicated, so every method sees the same evidence and the same
+    `sample_count`. Point at design.md D9 for the full reasoning and the priced second-column path.
   - §Testing Notes — the two new test files and what each covers.
   - §Allowed Imports — confirm task 2.6's edit is present (do not duplicate it if 2.6 already
     landed it).

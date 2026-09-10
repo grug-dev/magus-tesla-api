@@ -767,34 +767,53 @@ const (
 // sample the gate drops was never valid evidence, so it does not count as
 // "found" either.
 //
+// The two halves are deliberately separate (design.md D9): everything in this
+// function is the GATE -- which samples count as evidence, shared by every
+// possible estimation method -- and the single median() call is the METHOD --
+// how the surviving samples are reduced to one number. A future second method
+// is a new sibling function with median()'s exact signature; it never edits
+// median(), and never moves the math into this function's body.
+//
 // No ctx, no I/O -- pure over its input slice, unit-testable with no container
 // (roadmap Tier 1 scope statement).
 func estimateEffectiveCapacity(samples []capacitySample) (capacityKWh *float64, sampleCount int) {
-    gated := make([]float64, 0, len(samples))
+    gated := make([]capacitySample, 0, len(samples))
     for _, s := range samples {
         if s.BatteryDeltaPct >= minDeltaPct {
-            gated = append(gated, s.CapacityKWh)
+            gated = append(gated, s)
         }
     }
     sampleCount = len(gated)
     if sampleCount < minSamples {
         return nil, sampleCount
     }
-    sort.Float64s(gated)
     capacity := median(gated)
     return &capacity, sampleCount
 }
 
-// median returns the median of a non-empty, ALREADY SORTED slice: the middle
+// median reduces one month's gated samples to a single capacity: the middle
 // value on an odd count, the average of the two middle values on an even count
-// (roadmap RD3).
-func median(sorted []float64) float64 {
-    n := len(sorted)
+// (roadmap RD3). gated must be non-empty; estimateEffectiveCapacity's
+// minSamples check guarantees that.
+//
+// It takes the whole []capacitySample, not just the capacities, and sorts its
+// own copy -- see design.md D9. median() itself ignores BatteryDeltaPct, but
+// the signature is the seam a second method plugs into, and a delta-weighted or
+// delta-trimmed method needs that field. Passing the whole sample keeps "add a
+// method" down to one new function, with no call-site reshape.
+func median(gated []capacitySample) float64 {
+    values := make([]float64, len(gated))
+    for i, s := range gated {
+        values[i] = s.CapacityKWh
+    }
+    sort.Float64s(values)
+
+    n := len(values)
     mid := n / 2
     if n%2 == 1 {
-        return sorted[mid]
+        return values[mid]
     }
-    return (sorted[mid-1] + sorted[mid]) / 2
+    return (values[mid-1] + values[mid]) / 2
 }
 ```
 
@@ -902,7 +921,7 @@ func (c *monthlyCapacityCalculator) Calculate(ctx context.Context, period time.T
 | Alternative | Why rejected |
 |---|---|
 | A second pair of SQL queries, filtered by `tesla_id = @tesla_id` when scoping to one vehicle | Rejected: doubles the SQL surface for a debug/backfill path this job is not on the hot read path for (§Index Plan), and this repo has no precedent for the nullable-filter idiom that would avoid the duplication. |
-| Aggregate (median) in SQL via `percentile_cont` | Rejected: the dispatch and roadmap both require the estimator to be a **pure Go function over a slice**, unit-testable with no container — moving the math into SQL would remove that property entirely. |
+| Aggregate (median) in SQL via `percentile_cont` | Rejected: the dispatch and roadmap both require the estimator to be a **pure Go function over a slice**, unit-testable with no container — moving the math into SQL would remove that property entirely. D9 makes this doubly true: a second estimation method must be addable as one Go function, not a rewritten query. |
 
 ### D8 — `packCapacityKWh` never recomputes a historical row; this change writes no `UPDATE` to
 either existing table
@@ -915,6 +934,58 @@ change names `manual_charge_entries` or `supercharger_sessions` on the write sid
 `ESTIMATED` entry and every `DONE_CALCULATED` session keeps its stored, `62.0`-derived value
 forever — recomputing them was explicitly rejected at the roadmap level ("Future work": "would
 rewrite stored history and needs its own ticket").
+
+### D9 — RULE: the gate and the estimation method stay separate functions
+
+**Not a roadmap decision — a standing rule this change introduces, at the owner's request, so a
+second estimation method can be added later over the same input data without touching the code that
+decides which data counts.**
+
+The estimator has two halves, and they change for different reasons:
+
+| Half | Where it lives | What it answers | How often it changes |
+|---|---|---|---|
+| **The gate** | `estimateEffectiveCapacity`'s body: the `minDeltaPct` filter, the `minSamples` check, `sampleCount` | *Which samples are valid evidence?* | Rarely — it is RD2/RD3/RD4 policy, and `candidate_count`/`sample_count` are defined against it (D1) |
+| **The method** | `median` | *How do the surviving samples become one number?* | This is the part the owner expects to replace or duplicate |
+
+**The rule, binding on every future change to this file:**
+
+1. A new estimation method is a **new function** next to `median`, with **`median`'s exact
+   signature** — `func(gated []capacitySample) float64`. It is never an edit to `median`'s body, and
+   never inlined into `estimateEffectiveCapacity` or `Calculate`.
+2. The gate is **never duplicated**. Every method receives the same already-gated slice, so two
+   methods over the same month are guaranteed to see the same evidence — which is the whole point of
+   comparing them.
+3. `sampleCount` belongs to the gate, not to the method. A second method never changes it.
+
+**Why the seam is `[]capacitySample` and not `[]float64`.** The obvious signature —
+`median(sorted []float64)` — throws `BatteryDeltaPct` away before the method sees it. `median` does
+not need it, but the plausible next methods do: a delta-weighted mean (trust a 60-point charge more
+than a 16-point one), or a trimmed mean that drops the least reliable tail. With a `[]float64` seam,
+adding one of those means reshaping `estimateEffectiveCapacity`'s body — the exact code that tests
+A1–A5 pin. With a `[]capacitySample` seam, it means adding one function and changing one call. The
+sort moves inside `median` for the same reason: sorting is that method's own business, not a
+precondition every future method must inherit.
+
+**Deliberately NOT done here** (`CLAUDE.md` §Non-negotiables, "do not over-abstract"): no
+`capacityMethod` function type, no strategy field on `monthlyCapacityCalculator`, no `method` column
+in the table. There is exactly one method today; a named type whose only value is `median` is
+indirection an agent must resolve, and it buys nothing until a second method exists. The rule above
+is a doc rule plus a signature — it costs zero runtime indirection.
+
+**The future second-method change, priced.** Recorded so a later agent does not re-derive it. To
+store a second method's result **alongside** the median rather than replacing it:
+
+1. One migration: `ALTER TABLE charging.monthly_effective_capacity ADD COLUMN
+   effective_capacity_kwh_<method> double precision` (nullable, no `CHECK` change). `sample_count`
+   is **not** duplicated — rule 3 above: both methods share one gate, so they share one count.
+2. One new function in `monthly_capacity.go`, `median`'s signature.
+3. `estimateEffectiveCapacity` returns the second value too; `Calculate` passes it to a widened
+   `UpsertMonthlyEffectiveCapacity`; `sqlc generate` re-runs.
+4. `packCapacityKWh` (D4) keeps reading `effective_capacity_kwh`. Which column is authoritative is a
+   separate decision, and one this change does not pre-empt.
+
+Nothing in this change blocks that path, and nothing in this change builds it.
 
 ### Roadmap-decision mapping
 
@@ -930,6 +1001,7 @@ rewrite stored history and needs its own ticket").
 | D6 | — | accepted small duplication over a new shared abstraction (forced by D3) |
 | D7 | Tier 1 scope statement, **RD5, RD8** | the job's file, its report type, in-Go vehicle filtering |
 | D8 | roadmap "Future work" | no historical row is ever recomputed by this change |
+| D9 | — | RULE: the gate and the estimation method stay separate functions; the method seam is `[]capacitySample` (owner request, 2026-09-10) |
 
 Roadmap **RD6, RD7 (the trigger), RD8, RD9** are tier 2/tier 3 and are not implemented here, except
 RD7's constraint that this module never computes "now" or "the previous month" itself (reflected in
@@ -964,6 +1036,12 @@ New file: `monthly_capacity_estimator_test.go` (package `charging`, since `estim
 | **A3** | Four samples, deltas all `≥15`, capacities `58.0`, `60.0`, `64.0`, `70.0` | `(ptr(62.0), 4)` | Even count: average of the two middle values (`(60.0+64.0)/2`), matching RD3's stated rule. |
 | **A4** | Four samples: three with delta `≥15` (capacities `60.0`, `62.0`, `64.0`), one with delta `10` (capacity `120.0`, an outlier that would skew the result if counted) | `(ptr(62.0), 3)` | **A small-delta row is dropped by the gate** (RD3) — it is excluded from both the median and `sample_count` (design.md D1), and its outlier value never reaches the median. |
 | **A5** | Two samples with delta `≥15`, plus one with delta `14` (just under the gate) | `(nil, 2)` | The gate's boundary is `>= minDeltaPct`, not `>`; `14` is dropped, leaving 2 — below `minSamples`. |
+
+**A9 — `median` called directly, pinning D9's method seam.**
+
+| ID | Input `gated []capacitySample` (`CapacityKWh`, `BatteryDeltaPct`) | Expected | What it proves |
+|---|---|---|---|
+| **A9** | Three samples in **unsorted** capacity order — `(64.0, 20)`, `(60.0, 50)`, `(62.0, 16)` | `62.0` | **`median` takes `[]capacitySample` and sorts its own copy** (D9). Passing unsorted input on purpose fails loudly if a future edit reintroduces the "already sorted `[]float64`" precondition. The differing deltas are ignored by `median` itself but keep the seam's shape honest — a delta-weighted sibling method would read them. |
 
 **A6–A8 — `packCapacityKWh`**, using an in-package fake `packCapacityLookup`.
 

@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "proposed",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T09:52:17Z",
+  "updated_at": "2026-09-10T10:40:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -51,6 +51,14 @@
       "made_by": "autopilot",
       "decision": "Accepted the worker's own design calls unchanged: D1's post-gate sample_count reasoning, D2 (no row when a tesla_id has zero valid rows), D3 (the packCapacityLookup narrow interface), the no-new-index decision with a recorded revisit trigger, and teslaID filtering in Go rather than a second SQL path.",
       "why": "Each was argued from the code and none contradicted a roadmap decision. The worker also escalated the one genuinely open question instead of guessing, which is what caught the candidate_count gap."
+    },
+    {
+      "id": "D-lead-4",
+      "at": "2026-09-10T10:40:00Z",
+      "scope": "design",
+      "made_by": "user",
+      "decision": "Added design.md D9 as a standing rule: the monthly capacity estimator stays split into a gate (estimateEffectiveCapacity) and a method (median). A future estimation method is a new sibling function with median's exact signature, func(gated []capacitySample) float64 -- never an edit to median, never inlined into the gate. The seam widened from []float64 to []capacitySample and the sort moved inside median. No strategy type and no method column: the rule is a doc rule plus a signature. D9 also prices the future second-column path so a later agent does not re-derive it. New test A9 pins the seam.",
+      "why": "The owner expects to try another calculation over the same input data later -- for testing, or stored in a new column alongside the median. A []float64 seam drops BatteryDeltaPct, so a delta-weighted or trimmed method would have to reshape estimateEffectiveCapacity's body, the exact code tests A1-A5 pin. No code exists yet (status: proposed), so the fix cost nothing."
     }
   ],
   "tasks": [
