@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "applied",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T16:56:02Z",
+  "updated_at": "2026-09-10T18:04:54Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -617,6 +617,12 @@
       "event": "checkpoint",
       "by": "leader",
       "detail": "Tier 1 is fully implemented and parked at the reviewer gate. Not a budget trip: 5h 37% against a gate of 90, context 21% against 40; the 7-day bucket is at 87% and is the real constraint. Every assistant-owned task is complete. Only O1, O2 (owner) and L3 (fires at archive) remain unticked. The gate stays CLOSED because Step 6 requires the owner s reported suite pass and their Docker daemon is down, so go test hangs in internal/analytics before reaching charging. Eight tasks stay awaiting-user-verification. Resume with /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity once make check passes."
+    },
+    {
+      "at": "2026-09-10T18:04:54Z",
+      "event": "docker-free-verify-path-prepared",
+      "by": "leader",
+      "detail": "Docker still down, so the leader found a path that does not need it: internal/testdb uses DATABASE_URL as-is when reachable and only falls back to a container. The owner has a local Homebrew Postgres 16 on 5432. Leader created the scratch DB magus_rm52_test and ran make migrate-up against it; all module migrations applied clean, including 20260909000002. The dev magus DB was NOT touched. O2 evidence gathered by the leader (read-only SELECT, not the suite): pg_constraint returns exactly the three expected rows - pkey, period_is_month_start CHECK, and the tesla_id/effective_period UNIQUE - and the column list matches design.md with no account_id, no FK and no raw_data. O2 stays unticked: it is the owner s task. FOOTGUN recorded: the Makefile does include .env then a bare export, so a DATABASE_URL prefix is overridden by .env and only a make command-line argument wins. The prefix form would run the integration tests against the dev DB."
     }
   ]
 }
