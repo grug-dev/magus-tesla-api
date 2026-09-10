@@ -210,5 +210,15 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
   and no runnable (tier 3 adds `cmd/monthly-capacity`, not this tier) — the "Project Structure"
   tree and the "Architecture" table should already be correct. (L2 on tier 1 turned out wrong once
   already — actually check, do not assume.)
+- [x] **L4** **[leader]** `internal/app/AGENTS.md` §Public interface — bring the documented
+  `NewProcessor` signature back in sync with `app.go`. **Appended after wave 4, on the owner's
+  decision.** The worker found this doc already wrong BEFORE this change, and correctly did not
+  fix it inside its assigned scope. Two errors: `mirrorWatermarks charging.MirrorWatermarkStore`
+  was missing entirely (added by `RM44-platform-add-mirror-watermark`), and the telemetry port was
+  named `superchargerReader telemetry.SuperchargerReader` when the real name has been
+  `superchargerHistoryReader telemetry.SuperchargerHistoryReader` since RM39 tier 5. **DONE** —
+  the list now matches `app.go` parameter for parameter, ten public ports plus one
+  `*time.Location`. Doc text only; no code changed.
+
 - [ ] **L3** **[leader]** When tier 2 archives, update
   `openspec/roadmaps/RM52-vehicle-monthly-metrics.md`'s tier 2 status to `[x]`.

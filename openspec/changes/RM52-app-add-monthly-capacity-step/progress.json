@@ -8,7 +8,7 @@
   "intention": "Add step 4 to ProcessVehicleData. It calls tier 1's charging.MonthlyCapacityCalculator.Calculate for the PREVIOUS month, only when today is the first day of the month in the platform zone (RD6, RD7). The gate is a pure function so it can be tested without a clock. app calls the port only and never imports internal/charging/db (RD1). No database object changes.",
   "status": "applied",
   "created_at": "2026-09-10T19:00:56Z",
-  "updated_at": "2026-09-10T20:50:00Z",
+  "updated_at": "2026-09-10T20:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -35,7 +35,8 @@
       "3.2",
       "4.1",
       "4.2",
-      "5.1"
+      "5.1",
+      "L4"
     ],
     "awaiting_user_verification": []
   },
@@ -87,6 +88,14 @@
       "made_by": "autopilot",
       "decision": "Merged waves 4 and 5 into ONE serial worker dispatch (4.1, 4.2, 5.1).",
       "why": "5.1 only runs the cheap signals, which must run after the doc edits anyway. A separate dispatch would re-read the whole doc pack to run three commands."
+    },
+    {
+      "id": "D-lead-7",
+      "at": "2026-09-10T20:52:00Z",
+      "scope": "tasks",
+      "made_by": "user",
+      "decision": "Fix the pre-existing stale NewProcessor signature in internal/app/AGENTS.md inside this change, rather than backlog it.",
+      "why": "Two lines in the exact section wave 4 already edited. Leaving it wrong next to a correct addition would cost the next agent a wasted round-trip."
     }
   ],
   "tasks": [
@@ -313,6 +322,22 @@
       },
       "notes": "nightly-cycle.md: glossary, component map, a new Step 4 section, port map, table effects, and the clock.Zone() vs POLLER_TIMEZONE gotcha. No other KB file touched.",
       "duration_seconds": 237
+    },
+    {
+      "id": "L4",
+      "title": "AGENTS.md - resync the documented NewProcessor signature with app.go",
+      "depends_on": [
+        "4.1"
+      ],
+      "wave": 4,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-10T20:52:00Z",
+      "completed_at": "2026-09-10T20:52:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Pre-existing staleness, fixed on the owner's explicit decision. Added the missing mirrorWatermarks port and corrected superchargerReader to superchargerHistoryReader. Doc text only."
     }
   ],
   "review": {

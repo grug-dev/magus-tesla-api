@@ -92,12 +92,13 @@ interface-first):
   module introduces no new report/result type of its own
   (`RM29-app-add-process-vehicle-data` design D7: reuse over a wrapper, since nothing new
   needs structured surfacing beyond what `CollectAll` already reports).
-- `NewProcessor(collector telemetry.Collector, superchargerReader
-  telemetry.SuperchargerReader, runWriter telemetry.RunWriter, sessionWriter
-  charging.SessionWriter, monthlyCapacityCalculator charging.MonthlyCapacityCalculator,
-  acct account.Service, recalculator analytics.Recalculator, analyticsReader
-  analytics.Reader, gapWriter analytics.GapWriter, loc *time.Location) Processor` is
-  the constructor. Every argument is another module's **public port** — there is no
+- `NewProcessor(collector telemetry.Collector, superchargerHistoryReader
+  telemetry.SuperchargerHistoryReader, runWriter telemetry.RunWriter, sessionWriter
+  charging.SessionWriter, mirrorWatermarks charging.MirrorWatermarkStore,
+  monthlyCapacityCalculator charging.MonthlyCapacityCalculator, acct account.Service,
+  recalculator analytics.Recalculator, analyticsReader analytics.Reader, gapWriter
+  analytics.GapWriter, loc *time.Location) Processor` is
+  the constructor — ten public ports plus one `*time.Location`. Every argument is another module's **public port** — there is no
   `*pgxpool.Pool` parameter, and there must never be one added (see Data Ownership
   below). `runWriter` is the port `ProcessVehicleData` calls, exactly once per
   invocation after measuring the run's start-to-finish span, to record a `poll_runs`
