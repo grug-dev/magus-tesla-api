@@ -1,0 +1,286 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM52-analytics-add-monthly-metrics",
+  "module": "analytics",
+  "roadmap": "RM52-vehicle-monthly-metrics",
+  "tier": 1,
+  "intention": "Give analytics a monthly derived-metrics table and the job that fills it. The job pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops small-delta rows, and stores the median as effective_capacity_kwh keyed on (tesla_id, effective_period). Two new ports: MonthlyMetricsCalculator writes, PackCapacityReader reads with a newest-earlier fallback. PackCapacityReader satisfies charging.PackCapacityReader structurally, so tier 3 can drop the hardcoded 62.0 without a Go import cycle.",
+  "status": "proposed",
+  "created_at": "2026-09-10T02:05:00Z",
+  "updated_at": "2026-09-10T02:05:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM52-MAG-32-vehicle-monthly-metrics",
+    "base": "main",
+    "created_at": "2026-09-10T01:50:10Z",
+    "ticket": "MAG-32",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table"
+  },
+  "rollup": {
+    "current": [],
+    "pending": ["A.1", "A.2", "B.1", "B.2", "B.3", "B.4", "C.1", "C.2", "C.3", "C.4", "C.5", "D.1", "E.1", "E.2", "F"],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D-lead-1",
+      "at": "2026-09-10T02:00:00Z",
+      "scope": "review:artifacts",
+      "made_by": "autopilot",
+      "decision": "Rejected the worker's first D7, which added PackCapacityKWh to the existing analytics.Reader interface. Required two NEW interfaces instead, with analytics.Reader untouched, and a NewPackCapacityReader constructor.",
+      "why": "go vet compiles _test.go, so widening Reader breaks the fakes at app/processor_test.go:275 and gateway/handlers_test.go:219,:1162. Tier 1 cannot touch them and gateway has no RM52 tier."
+    },
+    {
+      "id": "D-lead-2",
+      "at": "2026-09-10T02:00:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's own rule for an even sample count: average the two middle values. Recorded in design.md and pinned by a test fixture.",
+      "why": "RD3 chose the median but never pinned even counts. An unstated rule would be settled later by whatever the code happened to do."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "A.1",
+      "title": "monthly_capacity.go — minSamples/minDeltaPct constants and the pure estimator",
+      "depends_on": [],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Pure function over a slice: no ctx, no I/O. RD3's min-delta gate then the median."
+    },
+    {
+      "id": "A.2",
+      "title": "monthly_capacity_test.go — estimator fixtures 1-6 from design.md's Test Contract",
+      "depends_on": ["A.1"],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Offline, no container. Includes the even-sample-count fixture pinning D-lead-2."
+    },
+    {
+      "id": "B.1",
+      "title": "Migration 20260909000002_add_vehicle_monthly_metrics.sql",
+      "depends_on": [],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "RD11's DDL verbatim. Leader verified the version collides with no other module. Header comment plus COMMENT ON TABLE/COLUMN, mirroring 20260821000001."
+    },
+    {
+      "id": "B.2",
+      "title": "sqlc queries — UpsertVehicleMonthlyMetric and LatestMeasuredPackCapacityKWh",
+      "depends_on": ["B.1"],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Upsert on (tesla_id, effective_period). The read carries RD4's IS NOT NULL and the newest-earlier ordering."
+    },
+    {
+      "id": "B.3",
+      "title": "sqlc.yaml rename entry for the new table",
+      "depends_on": [],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "B.4",
+      "title": "Run make sqlc and confirm the generated model",
+      "depends_on": ["B.2", "B.3"],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Codegen only. Allowed by the Test-Execution-Policy."
+    },
+    {
+      "id": "C.1",
+      "title": "Fix analytics.go's stale package comment",
+      "depends_on": [],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "It still claims the module owns no database. False since RM29 tier 3."
+    },
+    {
+      "id": "C.2",
+      "title": "monthly_metrics.go — domain types and the vehicleLookupAll port",
+      "depends_on": [],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "C.3",
+      "title": "Calculate — RD5 pooling, RD2 filter, estimator, upsert",
+      "depends_on": ["A.1", "B.4", "C.2"],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Reads source rows only through charging's existing public ports. F1 confirms the fields are already exposed."
+    },
+    {
+      "id": "C.4",
+      "title": "capacity_reader.go — PackCapacityReader and NewPackCapacityReader",
+      "depends_on": ["B.4"],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "New file, new interface. D-lead-1: analytics.Reader must NOT be modified and reader.go must NOT be edited."
+    },
+    {
+      "id": "C.5",
+      "title": "monthly_metrics_test.go — calculator fixtures A-E",
+      "depends_on": ["C.3"],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Poisoned-row exclusion, in-progress exclusion, cross-account pooling, teslaID filter, thin-month sample count."
+    },
+    {
+      "id": "D.1",
+      "title": "db_monthly_metrics_integration_test.go — the four DB fixtures",
+      "depends_on": ["B.4", "C.3", "C.4"],
+      "wave": 3,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "FINAL wave: cannot compile before the migration and the sqlc types exist. Asserts design.md's authored expectations, never what the code does."
+    },
+    {
+      "id": "E.1",
+      "title": "internal/analytics/AGENTS.md — add the table to Data ownership",
+      "depends_on": ["C.4"],
+      "wave": 4,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "E.2",
+      "title": "Grep kkpa/context/ for analytics guides this change invalidates",
+      "depends_on": [],
+      "wave": 4,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The KB is the easiest doc to forget and the most expensive to leave wrong."
+    },
+    {
+      "id": "F",
+      "title": "Verification F.1-F.7 — build, vet, gofmt, migration-guard, boundary-guard, the analytics.Reader guard, and report suite commands to the owner",
+      "depends_on": ["D.1", "E.1"],
+      "wave": 4,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "F.6 is D-lead-1's regression guard: the three analytics.Reader fakes must still compile unchanged. The suite itself is the owner's to run."
+    }
+  ],
+  "review": {
+    "status": "not-started",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-09-10T01:52:42Z",
+      "event": "artifacts-dispatched",
+      "by": "leader",
+      "detail": "One kkpa-module-worker (analytics, claude-sonnet-5) dispatched to write the OpenSpec artifacts. Design was already settled as RD1-RD11 in the roadmap, so this dispatch transcribed rather than designed."
+    },
+    {
+      "at": "2026-09-10T02:00:00Z",
+      "event": "artifacts-reviewed",
+      "by": "leader",
+      "detail": "Leader validated the returned artifacts. RD11's DDL diffed against the roadmap: verbatim match, so the database design gate holds. Migration version 20260909000002 verified free across every module. openspec validate --strict passes. One finding rejected and corrected by the same worker: D-lead-1."
+    },
+    {
+      "at": "2026-09-10T02:05:00Z",
+      "event": "halted-by-scope",
+      "by": "leader",
+      "detail": "Run scope from kkpa-pickup-linear-ticket was HALT AFTER STEP 4. Artifacts and progress.json exist; no implementation worker was dispatched, no reviewer ran, nothing archived. Resume with: /kkpa-dev-harness-pipeline resume RM52-analytics-add-monthly-metrics"
+    }
+  ]
+}

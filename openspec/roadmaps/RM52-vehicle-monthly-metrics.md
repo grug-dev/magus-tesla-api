@@ -280,12 +280,12 @@ Status legend: `[ ]` pending (change not created) · `[~]` in progress (change c
 
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
-| `[ ]` | 1 | `RM52-analytics-add-monthly-metrics` | `analytics` | The table, the estimator, the calculator, and the read port | — |
+| `[~]` | 1 | `RM52-analytics-add-monthly-metrics` | `analytics` | The table, the estimator, the calculator, and the read port | — |
 | `[ ]` | 2 | `RM52-app-add-monthly-metrics-step` | `app` | Nightly processor step 4, first-day-of-month only | 1 |
 | `[ ]` | 3 | `RM52-charging-add-capacity-port` | `charging` | Inverted `PackCapacityReader` port replacing the `62.0` constant | 1 |
 | `[ ]` | 4 | `RM52-platform-add-monthly-metrics-cli` | `platform` | `cmd/monthly-metrics`, the make target, the `cmd/` wiring, docs and the KB | 1, 2, 3 |
 
-### Tier 1 — `[ ]` `RM52-analytics-add-monthly-metrics` (module: `analytics`)
+### Tier 1 — `[~]` `RM52-analytics-add-monthly-metrics` (module: `analytics`)
 
 The core. Everything else reads what this writes.
 

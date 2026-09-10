@@ -3,11 +3,11 @@
   "kind": "roadmap",
   "roadmap": "RM52-vehicle-monthly-metrics",
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value per vehicle. A monthly job pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only), drops small-delta rows, and stores the median as effective_capacity_kwh in a new analytics.vehicle_monthly_metrics table keyed on tesla_id + effective_period. charging reads it back through a port it declares itself, so no Go import cycle. The table is wide, built to hold future monthly metrics as new columns (Linear MAG-32).",
-  "request": "/kkpa-pickup-linear-ticket MAG-32 — Vehicle Monthly Metrics - New table. Estimate effective capacity per vehicle from MAG-25's inferred_capacity_calc. On the first day of every month, after the nightly job, a named process reads all NOT NULL inferred_capacity_calc values from manual_charge_entries and charge_sessions for the previous month, for every active vehicle, and computes a robust weighted/filtered estimate rather than a simple average. The process may also run for one specific period and one specific tesla id, exposed as an API. effective_capacity will be read by the charging module. Future monthly metrics expected: full_charge_count, average consumption per 100 km, energy consumed per date. Create a KB named vehicle-monthly-metrics.",
+  "request": "/kkpa-pickup-linear-ticket MAG-32 \u2014 Vehicle Monthly Metrics - New table. Estimate effective capacity per vehicle from MAG-25's inferred_capacity_calc. On the first day of every month, after the nightly job, a named process reads all NOT NULL inferred_capacity_calc values from manual_charge_entries and charge_sessions for the previous month, for every active vehicle, and computes a robust weighted/filtered estimate rather than a simple average. The process may also run for one specific period and one specific tesla id, exposed as an API. effective_capacity will be read by the charging module. Future monthly metrics expected: full_charge_count, average consumption per 100 km, energy consumed per date. Create a KB named vehicle-monthly-metrics.",
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-10T01:50:10Z",
-  "updated_at": "2026-09-10T01:50:10Z",
+  "updated_at": "2026-09-10T02:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,8 +21,14 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2, 3, 4],
+    "current": [
+      1
+    ],
+    "pending": [
+      2,
+      3,
+      4
+    ],
     "blocked": [],
     "done": []
   },
@@ -123,10 +129,10 @@
       "module": "analytics",
       "depends_on": [],
       "optional": false,
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (artifact worker)",
+      "started_at": "2026-09-10T01:52:42Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -136,7 +142,9 @@
       "id": 2,
       "change": "RM52-app-add-monthly-metrics-step",
       "module": "app",
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "optional": false,
       "status": "not-started",
       "assistant": "Claude Code",
@@ -151,7 +159,9 @@
       "id": 3,
       "change": "RM52-charging-add-capacity-port",
       "module": "charging",
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "optional": false,
       "status": "not-started",
       "assistant": "Claude Code",
@@ -166,7 +176,11 @@
       "id": 4,
       "change": "RM52-platform-add-monthly-metrics-cli",
       "module": "platform",
-      "depends_on": [1, 2, 3],
+      "depends_on": [
+        1,
+        2,
+        3
+      ],
       "optional": false,
       "status": "not-started",
       "assistant": "Claude Code",
@@ -183,7 +197,13 @@
       "at": "2026-09-10T01:50:10Z",
       "event": "roadmap-created",
       "by": "leader",
-      "detail": "RM52 created from Linear MAG-32 via kkpa-pickup-linear-ticket. Four tiers across analytics, app, charging and a cross-cutting platform tier. Eleven decisions settled with the user in a grill-me interview before any artifact was written; the database design gate passed as RD11. Run scope: HALT AFTER STEP 4 — tier 1 artifacts only, no implementation workers."
+      "detail": "RM52 created from Linear MAG-32 via kkpa-pickup-linear-ticket. Four tiers across analytics, app, charging and a cross-cutting platform tier. Eleven decisions settled with the user in a grill-me interview before any artifact was written; the database design gate passed as RD11. Run scope: HALT AFTER STEP 4 \u2014 tier 1 artifacts only, no implementation workers."
+    },
+    {
+      "at": "2026-09-10T02:05:00Z",
+      "event": "tier-1-proposed",
+      "by": "leader",
+      "detail": "Tier 1 artifacts written and validated; progress.json created. Run halted here by scope (HALT AFTER STEP 4). No implementation worker ran."
     }
   ]
 }
