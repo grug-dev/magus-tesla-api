@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "in-progress",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T15:32:20Z",
+  "updated_at": "2026-09-10T16:01:01Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -538,6 +538,12 @@
       "event": "wave-4-completed",
       "by": "leader",
       "detail": "Task 3.3 done by the leader, on the owner s explicit choice at the wave-3 gate. Deleted TestPackCapacityKWh_VinIndependent, its A9 section header and the now-unused context import: 32 deletions, zero additions. Leader verified: gofmt clean, go build ./... clean, go vet ./... GREEN repo-wide for the first time since wave 2. Diff confirmed to touch no other test group. 4.1 is now unblocked. Budget: 5h 16%, 7d 85%, context 12%."
+    },
+    {
+      "at": "2026-09-10T16:01:01Z",
+      "event": "verification-attempt-blocked",
+      "by": "leader",
+      "detail": "The owner ran make migrate-up and make check. Every guard passed and go build/go vet passed. go test ./... then HUNG in internal/analytics TestMain and died on SIGQUIT. Cause is environmental, not this change: the Docker daemon is wedged. Docker.app backend processes run and the socket exists, but docker info hangs too, so testcontainers Ping never returns. The run never reached internal/charging, so no test of this change executed. No task status changed. 2.1-2.5, 3.1-3.3 stay awaiting-user-verification. Nothing is marked done and nothing is marked blocked: the work is not blocked, only its verification."
     }
   ]
 }
