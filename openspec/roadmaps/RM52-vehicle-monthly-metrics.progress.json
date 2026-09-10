@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM52-vehicle-monthly-metrics",
+  "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value per vehicle. A monthly job pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only), drops small-delta rows, and stores the median as effective_capacity_kwh in a new analytics.vehicle_monthly_metrics table keyed on tesla_id + effective_period. charging reads it back through a port it declares itself, so no Go import cycle. The table is wide, built to hold future monthly metrics as new columns (Linear MAG-32).",
+  "request": "/kkpa-pickup-linear-ticket MAG-32 — Vehicle Monthly Metrics - New table. Estimate effective capacity per vehicle from MAG-25's inferred_capacity_calc. On the first day of every month, after the nightly job, a named process reads all NOT NULL inferred_capacity_calc values from manual_charge_entries and charge_sessions for the previous month, for every active vehicle, and computes a robust weighted/filtered estimate rather than a simple average. The process may also run for one specific period and one specific tesla id, exposed as an API. effective_capacity will be read by the charging module. Future monthly metrics expected: full_charge_count, average consumption per 100 km, energy consumed per date. Create a KB named vehicle-monthly-metrics.",
+  "autopilot": false,
+  "status": "in-progress",
+  "created_at": "2026-09-10T01:50:10Z",
+  "updated_at": "2026-09-10T01:50:10Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM52-MAG-32-vehicle-monthly-metrics",
+    "base": "main",
+    "created_at": "2026-09-10T01:50:10Z",
+    "ticket": "MAG-32",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2, 3, 4],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-10T01:20:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "charging consumes effective_capacity in this roadmap, through a PackCapacityReader interface charging declares itself; analytics satisfies it structurally and cmd/ wires it. internal/charging imports nothing from internal/analytics. Supersedes backlog #18.",
+      "why": "analytics already imports charging, so importing back is a Go compile error. Inverting the dependency is the only wiring that compiles and it keeps module ownership intact."
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-10T01:25:00Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "Valid input is manual entries with energy_source = 'USER' and supercharger sessions with status = 'DONE'. ESTIMATED entries and DONE_CALCULATED / IN_PROGRESS sessions are excluded.",
+      "why": "Those rows had their energy or start percentage derived from the 62.0 constant, so their inferred capacity is exactly 62.0. Including them averages the constant back into itself."
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-10T01:30:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The estimate is the median of valid rows, after dropping any row whose battery delta is under minDeltaPct. minSamples = 3 and minDeltaPct = 15 are Go constants, never database values.",
+      "why": "Capacity error scales as 1/delta, so small charges are noise and are dropped rather than corrected. Median ignores an outlier with no outlier maths. Constants keep tuning migration-free."
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-10T01:33:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Under minSamples valid rows, effective_capacity_kwh stays NULL. The reader takes the newest measured row at or before the requested period; with no row at all, charging keeps its 62.0.",
+      "why": "A stored number then always means measured, never guessed. Pack capacity changes slowly, so last month's measurement is a good answer for a thin month."
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-10T01:38:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The table has no account_id and is keyed on (tesla_id, effective_period). The job groups vehicles by tesla_id first and pools every owning account's rows into one sample set.",
+      "why": "Capacity belongs to the battery pack, not the account. vehicles is UNIQUE (account_id, tesla_id), so a shared car would otherwise make the stored value depend on processing order."
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-10T01:41:00Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "The trigger is step 4 of app's ProcessVehicleData, after step 3 analytics, running only on the first day of the month and computing the previous month. It follows the existing step-1 short-circuit.",
+      "why": "Makes the ticket's 'must run after the nightly job' true by construction rather than by timing. No second scheduler is introduced."
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-10T01:41:00Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "The month boundary is read through internal/clock in America/Bogota. effective_period is a DATE holding the first day of the month.",
+      "why": "The project rule allows no raw time.Now(), no hardcoded zone and no hand-rolled UTC midnight. make tz-guard enforces it."
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-10T01:44:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The manual re-run surface is cmd/monthly-metrics with -tesla-id and -period flags. internal/gateway is not touched by this roadmap.",
+      "why": "The job is run while debugging or backfilling, not from a screen. An HTTP endpoint would add auth and a JSON error shape for a caller that is only the owner."
+    },
+    {
+      "id": "RD9",
+      "at": "2026-09-10T01:47:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "No automatic and no SQL backfill. Past periods are computed by running the tool, wrapped in a make cmd-monthly-metrics target following the Makefile's existing cmd-* convention.",
+      "why": "Reuses the tool tier 4 already builds, so backfill costs no extra code. A SQL backfill would write the estimator a second time where it cannot be unit-tested."
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-10T01:49:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "One name everywhere: table analytics.vehicle_monthly_metrics, port MonthlyMetricsCalculator, runnable cmd/monthly-metrics, target make cmd-monthly-metrics, KB vehicle-monthly-metrics. No synonyms.",
+      "why": "An agent that reads any one of the five names can guess the other four. The name still fits when future monthly metrics arrive."
+    },
+    {
+      "id": "RD11",
+      "at": "2026-09-10T01:38:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Database design gate PASSED. Wide table, one row per vehicle-month, one nullable column per metric plus its sample count. UNIQUE (tesla_id, effective_period) serves the single read path; no separate CREATE INDEX. No FK, no raw_data.",
+      "why": "sqlc gives typed fields, reads need no pivot, units keep their _kwh suffix, and the DDL lists the whole vocabulary. Mirrors vehicle_metrics' own index reasoning."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM52-analytics-add-monthly-metrics",
+      "module": "analytics",
+      "depends_on": [],
+      "optional": false,
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The table (RD11), the RD3 estimator as a pure function, the calculator applying the RD2 filter and RD5 pooling, and two ports: MonthlyMetricsCalculator and PackCapacityKWh (satisfies charging's RD1 interface structurally). Also fixes analytics.go's stale 'owns no database' package comment."
+    },
+    {
+      "id": 2,
+      "change": "RM52-app-add-monthly-metrics-step",
+      "module": "app",
+      "depends_on": [1],
+      "optional": false,
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Step 4 of ProcessVehicleData (RD6), first day of month in America/Bogota via internal/clock (RD7), passing the previous month. Follows the existing step-1 short-circuit."
+    },
+    {
+      "id": 3,
+      "change": "RM52-charging-add-capacity-port",
+      "module": "charging",
+      "depends_on": [1],
+      "optional": false,
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Declare PackCapacityReader (RD1). packCapacityKWh keeps its signature and falls back to 62.0 on nil reader, ok=false or error. Both callers untouched. No historical recompute. Verify charging imports no analytics."
+    },
+    {
+      "id": 4,
+      "change": "RM52-platform-add-monthly-metrics-cli",
+      "module": "platform",
+      "depends_on": [1, 2, 3],
+      "optional": false,
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "cmd/monthly-metrics (RD8) + make cmd-monthly-metrics (RD9) + wiring the reader into charging in BOTH cmd/poller and cmd/web + structure docs + the vehicle-monthly-metrics KB guide (ticket item 4)."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-10T01:50:10Z",
+      "event": "roadmap-created",
+      "by": "leader",
+      "detail": "RM52 created from Linear MAG-32 via kkpa-pickup-linear-ticket. Four tiers across analytics, app, charging and a cross-cutting platform tier. Eleven decisions settled with the user in a grill-me interview before any artifact was written; the database design gate passed as RD11. Run scope: HALT AFTER STEP 4 — tier 1 artifacts only, no implementation workers."
+    }
+  ]
+}
