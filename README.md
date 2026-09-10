@@ -106,7 +106,8 @@ magus-tesla-api/
 │   ├── web/            # Multi-tenant HTTP gateway (vehicle dashboard)
 │   ├── poller/         # Nightly telemetry collection (run once or scheduled)
 │   ├── migrate/        # One-shot goose migration runner — the "migrate" service's ENTRYPOINT
-│   └── explore-tesla-api/  # On-demand raw Tesla Fleet API JSON inspector
+│   ├── explore-tesla-api/  # On-demand raw Tesla Fleet API JSON inspector
+│   └── monthly-capacity/  # On-demand monthly pack-capacity measurement, run by hand (not in the deploy image)
 │
 ├── internal/
 │   ├── account/        # Per-user Tesla tokens (persisted, refreshed) in Postgres
@@ -233,6 +234,7 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │                        tesla, config      (wiring only — no logic)       │
 │  cmd/setup ──────────► auth, config                                      │
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
+│  cmd/monthly-capacity ─► charging, config                                │
 │  cmd/migrate ────────► config          (the "migrate" Docker service)    │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
 │  gateway ────────────► account, charging, analytics,                     │

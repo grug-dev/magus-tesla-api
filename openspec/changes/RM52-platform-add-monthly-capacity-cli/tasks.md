@@ -102,20 +102,20 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
 
 ## Wave 5 — documentation (`CLAUDE.md` §Non-negotiables: docs track structural change)
 
-- [ ] **5.1** **[module: platform worker]** `cmd/monthly-capacity/README.md`: usage,
+- [x] **5.1** **[module: platform worker]** `cmd/monthly-capacity/README.md`: usage,
   both flags and their defaults, at least the four example invocations from design.md D1,
   and one clear line that this tool is local only — it is not part of the deployed
   production image (T1). Mirror `cmd/explore-tesla-api/README.md`'s shape and length.
   `depends_on`: 2.1 · `parallel_ok`: with 5.2, 5.3, 5.4
 
-- [ ] **5.2** **[module: platform worker]** `Makefile`:
+- [x] **5.2** **[module: platform worker]** `Makefile`:
   - Add `cmd-monthly-capacity` to the `.PHONY` list (`Makefile:74`, next to
     `cmd-poller-once`).
   - Add the target itself, verbatim from `design.md` D6, near the other `cmd-*` targets
     (`Makefile:730-761`).
   `depends_on`: 2.1 · `parallel_ok`: with 5.1, 5.3, 5.4
 
-- [ ] **5.3** **[module: platform worker]** Root `README.md`:
+- [x] **5.3** **[module: platform worker]** Root `README.md`:
   - "Project Structure" tree: add a `cmd/monthly-capacity/` line, one sentence, next to the
     other `cmd/` entries.
   - "Architecture" → dependency graph: add one composition-root line,
@@ -125,27 +125,27 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
     `monthly_effective_capacity` from tier 1/2; verified current, not stale.
   `depends_on`: 2.1 · `parallel_ok`: with 5.1, 5.2, 5.4
 
-- [ ] **5.4** **[module: platform worker]** `cmd/README.md`: add a row to the binaries
+- [x] **5.4** **[module: platform worker]** `cmd/README.md`: add a row to the binaries
   table for `cmd/monthly-capacity`, matching the existing rows' column shape (Binary /
   Command / Purpose / Lifetime). Note in the Purpose column that it is local-only, run by
   hand (T1, RD9) — not part of the two containerized binaries the table already calls out.
   `depends_on`: 2.1 · `parallel_ok`: with 5.1, 5.2, 5.3
 
-- [ ] **5.5** **[module: platform worker]** `internal/charging/AGENTS.md`: in the
+- [x] **5.5** **[module: platform worker]** `internal/charging/AGENTS.md`: in the
   "Monthly effective pack capacity" subsection (§Public Interface), add one sentence
   noting `MonthlyCapacityCalculator` now has two callers — the nightly step
   (`internal/app`) and the manual `cmd/monthly-capacity` tool — both calling the same
   port, so neither can drift from the other's contract.
   `depends_on`: 2.1 · `parallel_ok`: with 5.1-5.4, 5.6
 
-- [ ] **5.6** **[module: platform worker]** `internal/config/AGENTS.md`:
+- [x] **5.6** **[module: platform worker]** `internal/config/AGENTS.md`:
   - §Public interface: add `LoadDatabase() (string, error)` — one paragraph, the same
     style as the existing `LoadMigration` entry: what it requires, what it skips, and why
     (mirrors `LoadMigration`, see design.md D7).
   - §Testing: one sentence noting `config_test.go` also covers `LoadDatabase` (Group C).
   `depends_on`: 2.2, 3.2 · `parallel_ok`: with 5.1-5.5
 
-- [ ] **5.7** **[module: platform worker]** `kkpa/context/architecture/nightly-cycle.md`:
+- [x] **5.7** **[module: platform worker]** `kkpa/context/architecture/nightly-cycle.md`:
   in the "Port map" table, the row `app | charging.MonthlyCapacityCalculator | charging |
   Calculate — step 4 only, once a month` gains a note that `cmd/monthly-capacity` calls
   the same port directly, on demand, bypassing `internal/app` entirely. Do **not** touch
@@ -157,7 +157,7 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
 
 ## Wave 6 — signals
 
-- [ ] **6.1** **[module: platform worker]** Run the cheap deterministic signals the
+- [x] **6.1** **[module: platform worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./cmd/monthly-capacity ./internal/config`,
   `go build ./...`, `go vet ./...`. All three should be clean repo-wide — this change adds
   one new package and one new function to an existing one; nothing else compiles

@@ -661,6 +661,10 @@ two callers are unchanged: `resolveEnergy` (`service.go`) and `VerifySession`
 The gateway and any other future caller never import `chargingdb` directly, exactly as for
 every other port in this module.
 
+`MonthlyCapacityCalculator` now has two callers: the nightly step (`internal/app`) and
+the manual `cmd/monthly-capacity` tool. Both call the same port, so neither can drift
+from the other's contract.
+
 ---
 
 ## Allowed Imports

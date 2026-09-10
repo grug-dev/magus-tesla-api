@@ -57,6 +57,11 @@ Consumers call these — never `os.Getenv` directly (see `internal/config/config
     unchanged. `compose.yaml` and the `Dockerfile` need no change for this.
 - `SaveTokens(accessToken, refreshToken string) error` — persists Tesla OAuth tokens
   back into `.env` (used by `cmd/setup`'s one-time OAuth bootstrap).
+- `LoadDatabase() (string, error)` — config for a database-only tool (`cmd/monthly-capacity`).
+  Same `.env`-optional loading as `Load`, but requires only `DATABASE_URL` — no Tesla
+  credential check, since a tool that never calls the Fleet API has no reason to fail
+  over one it never uses. Returns the bare DSN string, not a wrapping struct: it has
+  exactly one fact to return, so a struct here would be pure indirection.
 - `(*Config) GoogleRedirectURL() string` / `(*Config) TeslaConnectRedirectURL() string` —
   derived OAuth redirect URIs built from `Config.BaseURL`.
 - `Config.PollerTimezone` — an unset `POLLER_TIMEZONE` env var defaults to the platform's
@@ -113,3 +118,6 @@ None. No table, no migration, no `db/` package. `.env` is a local file, not a da
   an ordered list, `MIGRATIONS_DIRS` unset falling back to the four
   `<root>/<module>` default paths in order, and extra whitespace between
   entries producing no empty directory.
+- `config_test.go` also covers `LoadDatabase`: `.env` present, `.env` absent with a
+  real `DATABASE_URL`, `DATABASE_URL` missing everywhere, and a real environment
+  variable beating a `.env` value.

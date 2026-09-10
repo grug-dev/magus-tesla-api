@@ -12,14 +12,6 @@
       "3.2"
     ],
     "pending": [
-      "5.1",
-      "5.2",
-      "5.3",
-      "5.4",
-      "5.5",
-      "5.6",
-      "5.7",
-      "6.1",
       "L1",
       "L2",
       "L3",
@@ -30,11 +22,19 @@
       "1.1",
       "2.1",
       "2.2",
-      "4.1"
+      "4.1",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "5.6",
+      "5.7",
+      "6.1"
     ]
   },
   "created_at": "2026-09-10T22:12:00Z",
-  "updated_at": "2026-09-10T22:08:00Z",
+  "updated_at": "2026-09-10T22:11:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -206,14 +206,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:10:00Z",
+      "completed_at": "2026-09-10T22:11:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "cmd/monthly-capacity/README.md: usage, flags table, output meaning, and a local-only section.",
+      "budget": {
+        "five_hour_pct_start": 34,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.14,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across the eight doc tasks"
+      }
     },
     {
       "id": "5.2",
@@ -223,14 +232,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:10:00Z",
+      "completed_at": "2026-09-10T22:11:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Makefile: .PHONY entry plus the target. Leader verified both forms with make -n and the help line renders.",
+      "budget": {
+        "five_hour_pct_start": 34,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.14,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across the eight doc tasks"
+      }
     },
     {
       "id": "5.3",
@@ -240,14 +258,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:10:00Z",
+      "completed_at": "2026-09-10T22:11:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Root README: structure tree entry and one composition-root line in the dependency graph.",
+      "budget": {
+        "five_hour_pct_start": 34,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.14,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across the eight doc tasks"
+      }
     },
     {
       "id": "5.4",
@@ -257,14 +284,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:10:00Z",
+      "completed_at": "2026-09-10T22:11:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "cmd/README.md: one binaries-table row, marked local only and run by hand.",
+      "budget": {
+        "five_hour_pct_start": 34,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.14,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across the eight doc tasks"
+      }
     },
     {
       "id": "5.5",
@@ -274,14 +310,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:10:00Z",
+      "completed_at": "2026-09-10T22:11:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "internal/charging/AGENTS.md: three lines noting the port now has two callers.",
+      "budget": {
+        "five_hour_pct_start": 34,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.14,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across the eight doc tasks"
+      }
     },
     {
       "id": "5.6",
@@ -292,14 +337,23 @@
         "3.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:10:00Z",
+      "completed_at": "2026-09-10T22:11:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "internal/config/AGENTS.md: LoadDatabase in the public interface list plus its test cases.",
+      "budget": {
+        "five_hour_pct_start": 34,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.14,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across the eight doc tasks"
+      }
     },
     {
       "id": "5.7",
@@ -309,14 +363,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:10:00Z",
+      "completed_at": "2026-09-10T22:11:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "kkpa/context/architecture/nightly-cycle.md: exactly one port-map row, as scoped.",
+      "budget": {
+        "five_hour_pct_start": 34,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.14,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across the eight doc tasks"
+      }
     },
     {
       "id": "6.1",
@@ -334,14 +397,23 @@
         "5.7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T22:10:00Z",
+      "completed_at": "2026-09-10T22:11:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "gofmt clean on touched files; three unformatted files are pre-existing and untouched. go build and go vet clean repo-wide.",
+      "budget": {
+        "five_hour_pct_start": 34,
+        "five_hour_pct_end": 40,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.14,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across the eight doc tasks"
+      }
     },
     {
       "id": "L1",
@@ -465,6 +537,16 @@
       "at": "2026-09-10T22:08:00Z",
       "agent": "leader",
       "event": "wave 1 reconciled. Leader found a correctness bug the worker missed: previousMonth reused tier 2's day-math without tier 2's day==1 gate, so it returned the wrong day on any day but the 1st. Fixed by going to the month start first. Test contract case A4 was self-contradictory and is corrected; A5's self-referencing oracle replaced. gofmt clean on touched files, go build and go vet clean repo-wide. Three pre-existing unformatted test files are untouched and not ours."
+    },
+    {
+      "at": "2026-09-10T22:10:00Z",
+      "agent": "leader",
+      "event": "dispatched ONE serial worker for wave 2 (5.1-5.7, 6.1) on claude-sonnet-5 \u2014 Makefile target and every doc the new runnable makes stale. No Go code, so it runs while the owner verifies wave 1's tests. Budget start: 5h 34%, context 19%."
+    },
+    {
+      "at": "2026-09-10T22:11:00Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled. Every doc the new runnable makes stale is updated. Leader verified the make target with make -n in both forms (no args, and PERIOD+TESLA_ID) and confirmed the help line renders. No stale doc found outside the tasks' scope. Only 3.1 and 3.2 remain open, both awaiting the owner's suite run."
     }
   ]
 }

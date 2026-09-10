@@ -73,7 +73,7 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 | `app` | `analytics.Recalculator` | `analytics` | `Reconcile` |
 | `app` | `analytics.Reader` | `analytics` | `ConsumedByDay` |
 | `app` | `analytics.GapWriter` | `analytics` | `ReconcileWindow` |
-| `app` | `charging.MonthlyCapacityCalculator` | `charging` | `Calculate` — step 4 only, once a month |
+| `app` | `charging.MonthlyCapacityCalculator` | `charging` | `Calculate` — step 4 only, once a month. Also called directly by `cmd/monthly-capacity`, on demand, bypassing `internal/app` entirely. |
 | `app` | `account.Service` | `account` | `AllRegisteredVehicles` (×3 — once per step) |
 | `telemetry` | `account.Service` | `account` | `AllRegisteredVehicles`, `AccessTokenFor`, `SetVehicleConfigIfEmpty` |
 | `telemetry` | `tesla.VehicleService` | `tesla` | `ListVehicles`, `WakeUp`, `VehicleData`, `ChargingHistory` |
