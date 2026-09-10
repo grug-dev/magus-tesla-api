@@ -297,7 +297,11 @@ ORDER BY charge_stop_date_time ASC;
 -- WHERE id = @id AND account_id = @account_id mirrors VerifySuperchargerSession's own scoping
 -- exactly; zero rows matched surfaces as pgx.ErrNoRows, wrapped by the caller identically to
 -- VerifySuperchargerSession's own not-found case (design.md D10).
-SELECT vin, energy_kwh FROM charging.supercharger_sessions
+--
+-- (existing comment unchanged, plus:) tesla_id is now also selected: RD11's
+-- second caller row needs it to decide, before calling packCapacityKWh at all,
+-- whether this session is even attributable to a registered vehicle.
+SELECT vin, tesla_id, energy_kwh FROM charging.supercharger_sessions
 WHERE id = @id
   AND account_id = @account_id
 FOR UPDATE;
@@ -438,3 +442,79 @@ INSERT INTO charging.mirror_watermarks (
 ON CONFLICT (account_id) DO UPDATE SET
     source_updated_at = EXCLUDED.source_updated_at,
     updated_at         = now();
+
+-- name: ListValidManualEntryCapacitiesForPeriod :many
+-- RD2's manual_charge_entries branch: only energy_source = 'USER' rows are
+-- honest capacity evidence -- an 'ESTIMATED' row's energy was itself derived by
+-- dividing by packCapacityKWh, so averaging it feeds the constant back into
+-- itself (roadmap RD2, internal/charging/AGENTS.md §Data Ownership).
+-- inferred_capacity_kwh_calc IS NOT NULL is the existing GENERATED-column guard
+-- (20260829000001): it is non-NULL only when both battery percentages are
+-- present AND end_battery_pct > start_battery_pct, so this query never returns
+-- a NULL capacity or a NULL percentage -- the caller (monthly_capacity.go) does
+-- not need to re-check that. tesla_id is BIGINT NOT NULL on this table (roadmap
+-- F5) -- no NULL-skip needed here, unlike the session query below.
+SELECT tesla_id,
+       inferred_capacity_kwh_calc,
+       start_battery_pct,
+       end_battery_pct
+  FROM charging.manual_charge_entries
+ WHERE energy_source = 'USER'
+   AND inferred_capacity_kwh_calc IS NOT NULL
+   AND charged_on >= @period_start
+   AND charged_on <  @period_end;
+
+-- name: ListValidSessionCapacitiesForPeriod :many
+-- RD2's supercharger_sessions branch: only status = 'DONE' rows are honest
+-- capacity evidence -- 'DONE_CALCULATED' means derivedStartBatteryPct computed
+-- start_battery_pct as endPct - energyKWh/62.0*100, which cancels back to
+-- exactly 62.0 in this formula (roadmap RD2); 'IN_PROGRESS' has no complete
+-- percentage pair at all, so its inferred_capacity_kwh_calc is already NULL.
+-- tesla_id IS NOT NULL enforces RD5: a session whose VIN is not a
+-- currently-registered vehicle cannot be attributed to a car. Supercharger
+-- energy is metered by Tesla, so (unlike the manual_charge_entries branch)
+-- there is no energy_source-equivalent column to check here.
+SELECT tesla_id,
+       inferred_capacity_kwh_calc,
+       start_battery_pct,
+       end_battery_pct
+  FROM charging.supercharger_sessions
+ WHERE status = 'DONE'
+   AND tesla_id IS NOT NULL
+   AND inferred_capacity_kwh_calc IS NOT NULL
+   AND charge_stop_date_time >= @period_start
+   AND charge_stop_date_time <  @period_end;
+
+-- name: UpsertMonthlyEffectiveCapacity :exec
+-- Store one vehicle's monthly estimate (roadmap RD11's write seam, RD9's
+-- backfill/re-run path). ON CONFLICT so a re-run of the same period -- a manual
+-- backfill, or a corrected earlier run -- updates the existing row instead of
+-- erroring or duplicating it. effective_capacity_kwh is bound as a nullable
+-- Float8: NULL when the caller's estimate was NULL (RD4's thin-month case),
+-- never coerced to a fabricated number. candidate_count and sample_count are
+-- both plain, non-nullable integers -- the two-stage count the owner approved
+-- at the design gate (design.md D1): candidate_count before the delta gate,
+-- sample_count after it.
+INSERT INTO charging.monthly_effective_capacity (
+    tesla_id, effective_period, effective_capacity_kwh, candidate_count, sample_count
+) VALUES (
+    @tesla_id, @effective_period, @effective_capacity_kwh, @candidate_count, @sample_count
+)
+ON CONFLICT (tesla_id, effective_period) DO UPDATE SET
+    effective_capacity_kwh = EXCLUDED.effective_capacity_kwh,
+    candidate_count        = EXCLUDED.candidate_count,
+    sample_count           = EXCLUDED.sample_count,
+    updated_at             = now();
+
+-- name: LatestMeasuredCapacity :one
+-- packCapacityKWh's own read (roadmap RD11, RD4). Returns the newest row for
+-- this vehicle whose effective_capacity_kwh IS NOT NULL -- so a current thin
+-- month (NULL) never hides an earlier real measurement; the caller in Go
+-- translates pgx.ErrNoRows (no measured row exists at all yet) to the
+-- defaultPackCapacityKWh fallback, never an error.
+SELECT effective_capacity_kwh
+  FROM charging.monthly_effective_capacity
+ WHERE tesla_id = @tesla_id
+   AND effective_capacity_kwh IS NOT NULL
+ ORDER BY effective_period DESC
+ LIMIT 1;

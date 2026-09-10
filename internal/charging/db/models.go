@@ -51,6 +51,21 @@ type MirrorWatermark struct {
 	UpdatedAt       pgtype.Timestamptz
 }
 
+// One measured pack-capacity estimate per vehicle per month (RM52-charging-add-monthly-effective-capacity, MAG-32). Computed monthly from this module's own valid charge records (manual_charge_entries where energy_source = USER, supercharger_sessions where status = DONE) -- never from ESTIMATED or DONE_CALCULATED rows, whose numbers were themselves derived by dividing by this module's hardcoded 62.0 constant (roadmap RD2). No account_id: this describes a battery pack, not user data, and one tesla_id pools every account's rows. Owned exclusively by internal/charging; no other module reads this table directly.
+type MonthlyEffectiveCapacity struct {
+	ID              uuid.UUID
+	TeslaID         int64
+	EffectivePeriod pgtype.Date
+	// The measured pack capacity in kWh for this vehicle and month, or NULL when fewer than minSamples (a Go constant, currently 3) valid records survived the minimum-delta gate this period (roadmap RD3/RD4). NULL never means "guessed" -- packCapacityKWh's read skips NULL rows and reads the newest non-NULL one instead, falling back to a hardcoded 62.0 only when no measured row exists at all for this vehicle.
+	EffectiveCapacityKwh pgtype.Float8
+	// How many records passed the RD2 filter this period, counted BEFORE the RD3 minimum-delta gate (roadmap RD11, added at the design gate on 2026-09-10 -- design.md D1). Always >= 1 when a row exists -- a vehicle with zero valid records gets no row at all (design.md D2). Compare against sample_count: when the two differ, every record that did not make sample_count was dropped by the delta gate, not missing entirely.
+	CandidateCount int32
+	// How many candidate_count records also survived the minDeltaPct gate this period -- the exact slice the median was computed over -- whether or not that count reached minSamples. Written on every run, including a thin one, so a thin month is visible instead of silent (roadmap RD4).
+	SampleCount int32
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
 // Tesla Supercharger charge sessions as owned by internal/charging: identity, the session time window, the session facts (site, energy, cost, currency, paid state), and the human-owned battery-percentage verification/estimate columns. Dense — one row per session, verified or not (design D2). Deliberately carries NO country_code, unlatch_date_time, billing_type, vehicle_make_type or raw_data (closed list, design D1). Mirrored from telemetry.supercharger_sessions by the nightly orchestrator through public ports only, in the same cycle that refreshes the source; each mirrored column has exactly its source column's write semantics, so energy_kwh / total_cost / currency / is_paid / tesla_id are refreshed on every pass and everything else mirrored is write-once. The sync path can never write the five percentage columns (design D6). No other module reads this table directly.
 type SuperchargerSession struct {
 	ID        uuid.UUID

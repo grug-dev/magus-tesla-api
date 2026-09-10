@@ -6,9 +6,9 @@
   "roadmap": "RM52-vehicle-monthly-metrics",
   "tier": 1,
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T10:40:00Z",
+  "updated_at": "2026-09-10T12:28:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,9 +23,25 @@
   },
   "rollup": {
     "current": [],
-    "pending": ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "3.1", "3.2", "4.1", "5.1"],
+    "pending": [
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "2.6",
+      "3.1",
+      "3.2",
+      "4.1",
+      "5.1"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4"
+    ]
   },
   "decisions": [
     {
@@ -67,61 +83,91 @@
       "title": "Migration 20260909000002_add_monthly_effective_capacity.sql, DDL verbatim from design.md",
       "depends_on": [],
       "wave": 1,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Leader verified the version collides with no other module. Includes both COMMENT ON statements and the full header."
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:23:44Z",
+      "completed_at": "2026-09-10T12:28:11Z",
+      "duration_seconds": 249,
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "one wave-1 bracket shared by 1.1-1.4 (one serial worker). cost_usd_delta unavailable: the start reading came from a stale statusline cache of another session."
+      },
+      "notes": "Migration created verbatim from design.md: header, both COMMENT ON, Index Plan comment, schema-qualified table, no account_id/FK/raw_data. Version 20260909000002 re-checked free repo-wide. Leader confirmed with make migration-guard."
     },
     {
       "id": "1.2",
-      "title": "query.sql — the upsert and the newest-measured read, plus the two batch reads",
+      "title": "query.sql \u2014 the upsert and the newest-measured read, plus the two batch reads",
       "depends_on": [],
       "wave": 1,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "The upsert writes both candidate_count and sample_count."
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:23:44Z",
+      "completed_at": "2026-09-10T12:28:11Z",
+      "duration_seconds": 249,
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "one wave-1 bracket shared by 1.1-1.4 (one serial worker). cost_usd_delta unavailable: the start reading came from a stale statusline cache of another session."
+      },
+      "notes": "Four new queries appended verbatim. LockSessionForVerification gained tesla_id between vin and energy_kwh. No other query touched, confirmed by diff."
     },
     {
       "id": "1.3",
       "title": "sqlc.yaml rename entry for the new table",
       "depends_on": [],
       "wave": 1,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Disjoint from 1.1 and 1.2; the three may run in parallel."
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:23:44Z",
+      "completed_at": "2026-09-10T12:28:11Z",
+      "duration_seconds": 249,
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "one wave-1 bracket shared by 1.1-1.4 (one serial worker). cost_usd_delta unavailable: the start reading came from a stale statusline cache of another session."
+      },
+      "notes": "Added charging_monthly_effective_capacity: MonthlyEffectiveCapacity to the charging rename block. Existing three lines left byte-identical, no whitespace realign."
     },
     {
       "id": "1.4",
       "title": "Run make sqlc and confirm the generated model",
-      "depends_on": ["1.1", "1.2", "1.3"],
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
       "wave": 1,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Codegen only, allowed by the Test-Execution-Policy. Wave 1 is a serialization point: nothing in wave 2 compiles before this."
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:23:44Z",
+      "completed_at": "2026-09-10T12:28:11Z",
+      "duration_seconds": 249,
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "one wave-1 bracket shared by 1.1-1.4 (one serial worker). cost_usd_delta unavailable: the start reading came from a stale statusline cache of another session."
+      },
+      "notes": "make sqlc clean. Diff matches design.md: one new model struct, four query methods plus their Params/Row, and one new field TeslaID pgtype.Int8 on LockSessionForVerificationRow. Nothing else changed."
     },
     {
       "id": "2.1",
-      "title": "capacity.go — new packCapacityKWh(ctx, teslaID int64) body over the lookup",
-      "depends_on": ["1.4"],
+      "title": "capacity.go \u2014 new packCapacityKWh(ctx, teslaID int64) body over the lookup",
+      "depends_on": [
+        "1.4"
+      ],
       "wave": 2,
       "status": "pending",
       "agent": null,
@@ -134,8 +180,10 @@
     },
     {
       "id": "2.2",
-      "title": "charging.go — domain types and the MonthlyCapacityCalculator port",
-      "depends_on": ["1.4"],
+      "title": "charging.go \u2014 domain types and the MonthlyCapacityCalculator port",
+      "depends_on": [
+        "1.4"
+      ],
       "wave": 2,
       "status": "pending",
       "agent": null,
@@ -148,8 +196,10 @@
     },
     {
       "id": "2.3",
-      "title": "service.go — resolveEnergy passes e.TeslaID to the seam",
-      "depends_on": ["2.1"],
+      "title": "service.go \u2014 resolveEnergy passes e.TeslaID to the seam",
+      "depends_on": [
+        "2.1"
+      ],
       "wave": 2,
       "status": "pending",
       "agent": null,
@@ -162,8 +212,10 @@
     },
     {
       "id": "2.4",
-      "title": "session_verifier.go — VerifySession passes row.TeslaID, nil falls back to 62.0",
-      "depends_on": ["2.1"],
+      "title": "session_verifier.go \u2014 VerifySession passes row.TeslaID, nil falls back to 62.0",
+      "depends_on": [
+        "2.1"
+      ],
       "wave": 2,
       "status": "pending",
       "agent": null,
@@ -176,8 +228,11 @@
     },
     {
       "id": "2.5",
-      "title": "monthly_capacity.go — the pure estimator, the RD2 filter, RD5 grouping, the job",
-      "depends_on": ["1.4", "2.2"],
+      "title": "monthly_capacity.go \u2014 the pure estimator, the RD2 filter, RD5 grouping, the job",
+      "depends_on": [
+        "1.4",
+        "2.2"
+      ],
       "wave": 2,
       "status": "pending",
       "agent": null,
@@ -204,8 +259,10 @@
     },
     {
       "id": "3.1",
-      "title": "monthly_capacity_estimator_test.go — the pure-function fixtures A1-A4",
-      "depends_on": ["2.5"],
+      "title": "monthly_capacity_estimator_test.go \u2014 the pure-function fixtures A1-A4",
+      "depends_on": [
+        "2.5"
+      ],
       "wave": 3,
       "status": "pending",
       "agent": null,
@@ -218,8 +275,12 @@
     },
     {
       "id": "3.2",
-      "title": "db_monthly_capacity_integration_test.go — fixtures B and C1-C13",
-      "depends_on": ["2.3", "2.4", "2.5"],
+      "title": "db_monthly_capacity_integration_test.go \u2014 fixtures B and C1-C13",
+      "depends_on": [
+        "2.3",
+        "2.4",
+        "2.5"
+      ],
       "wave": 3,
       "status": "pending",
       "agent": null,
@@ -232,8 +293,10 @@
     },
     {
       "id": "4.1",
-      "title": "AGENTS.md — data ownership, the new table, the changed seam",
-      "depends_on": ["2.5"],
+      "title": "AGENTS.md \u2014 data ownership, the new table, the changed seam",
+      "depends_on": [
+        "2.5"
+      ],
       "wave": 4,
       "status": "pending",
       "agent": null,
@@ -247,7 +310,11 @@
     {
       "id": "5.1",
       "title": "Cheap signals: go build, go vet, gofmt, migration-guard, tz-guard, boundary-guard",
-      "depends_on": ["3.1", "3.2", "4.1"],
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "4.1"
+      ],
       "wave": 5,
       "status": "pending",
       "agent": null,
@@ -295,6 +362,18 @@
       "event": "halted-by-scope",
       "by": "leader",
       "detail": "Run scope from kkpa-pickup-linear-ticket was HALT AFTER STEP 4. Artifacts and progress.json exist; no implementation worker was dispatched, no reviewer ran, nothing archived. Resume with: /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity"
+    },
+    {
+      "at": "2026-09-10T12:23:44Z",
+      "event": "wave-1-dispatched",
+      "by": "leader",
+      "detail": "Resumed after the scope halt. One charging worker (claude-sonnet-5) batched serially over 1.1-1.4: migration, query.sql, sqlc.yaml, make sqlc. Budget at dispatch: 5h 57%, context 16%, cost $4.29."
+    },
+    {
+      "at": "2026-09-10T12:28:11Z",
+      "event": "wave-1-completed",
+      "by": "leader",
+      "detail": "All four wave-1 tasks done. Leader cross-checked: migration DDL matches design.md, sqlc diff shape matches (5 hunks, one new struct, four queries, one new Row field), make migration-guard passes. Worker also reported go build / go vet / gofmt clean. Worker reported 00:00:00Z timestamps; the leader replaced them with its own dispatch bracket. Budget: 5h 57%->70%, context 14%. Commit 178145c."
     }
   ]
 }

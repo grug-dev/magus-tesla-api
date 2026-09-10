@@ -50,7 +50,7 @@ rationale behind each group.
 
 ## Wave 1 — schema + codegen (serialization point)
 
-- [ ] **1.1** **[module: charging worker]** Create
+- [x] **1.1** **[module: charging worker]** Create
   `internal/charging/db/migrations/20260909000002_add_monthly_effective_capacity.sql` with the DDL
   in design.md §"Database Changes" → "The migration", **verbatim, including its full header
   comment, both `COMMENT ON` statements, and the Index Plan comment.** Points that must not be
@@ -71,7 +71,7 @@ rationale behind each group.
     other branches merge).
   `depends_on`: the owner's design-gate confirmation · `parallel_ok`: with 1.2, 1.3
 
-- [ ] **1.2** **[module: charging worker]** Edit `internal/charging/db/query.sql`: append the four
+- [x] **1.2** **[module: charging worker]** Edit `internal/charging/db/query.sql`: append the four
   new queries from design.md §"Query changes" **verbatim** —
   `ListValidManualEntryCapacitiesForPeriod`, `ListValidSessionCapacitiesForPeriod`,
   `UpsertMonthlyEffectiveCapacity`, `LatestMeasuredCapacity` — each with its full comment. Then
@@ -81,13 +81,13 @@ rationale behind each group.
   existing table.
   `depends_on`: — · `parallel_ok`: with 1.1, 1.3
 
-- [ ] **1.3** **[module: charging worker]** Edit `sqlc.yaml`: add
+- [x] **1.3** **[module: charging worker]** Edit `sqlc.yaml`: add
   `charging_monthly_effective_capacity: "MonthlyEffectiveCapacity"` to the existing `charging`
   module's `rename:` block (design.md §"sqlc.yaml"), in the same block as the other three
   `charging_*` entries. **Change no other line, no other module's block.**
   `depends_on`: — · `parallel_ok`: with 1.1, 1.2
 
-- [ ] **1.4** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md` §"Builds &
+- [x] **1.4** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md` §"Builds &
   local checks") and **review the diff against design.md §"Expected sqlc diff"**, which is this
   task's acceptance criterion — not "it ran":
   - `db/models.go` gains exactly one new struct, `MonthlyEffectiveCapacity`. `ManualChargeEntry`,
