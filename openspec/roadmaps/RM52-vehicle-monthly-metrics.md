@@ -5,7 +5,7 @@
 > **Originating user prompt:** *"/kkpa-pickup-linear-ticket MAG-32"* — Linear issue
 > [MAG-32 — Vehicle Monthly Metrics - New table](https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table).
 > **Source ticket:** MAG-32 — https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table
-> **Date:** 2026-09-10
+> **Date:** 2026-09-10 (revised the same day — see "Revision" below)
 
 ## Intention
 
@@ -15,63 +15,62 @@ same number, and it is wrong for all of them.
 MAG-25 already stores `inferred_capacity_kwh_calc` on each charge record — the capacity that one
 charge implies. One record is noisy. Many records are not.
 
-This roadmap adds a monthly job that pools a vehicle's valid records, takes a robust estimate, and
-stores one number per vehicle per month. `charging` then reads that number instead of `62.0`.
+This roadmap adds a monthly job **inside `charging`** that pools a vehicle's valid records, takes
+a robust estimate, and stores one number per vehicle per month. `charging` then reads its own
+table instead of `62.0`.
 
-The new table is built for more than one metric. `full_charge_count` and consumption per 100 km
-are expected to become columns on the same row later.
+## Revision — why this roadmap was rewritten before any code was written
+
+The first version put the new table in `internal/analytics`. That was the assistant's call, not
+the owner's, and it was wrong twice over.
+
+1. **It created an import cycle for no reason.** `analytics` already imports `charging`, so
+   `charging` could not import it back. The plan worked around this with a consumer-side
+   interface.
+2. **It leaked `charging`'s internals.** The reason `ESTIMATED` entries and `DONE_CALCULATED`
+   sessions are unusable inputs (RD2) is that *`charging`* derived them from its own `62.0`
+   constant. Placing the job in `analytics` forced `analytics` to encode that rule.
+
+The owner proposed the correct shape: every input row belongs to `charging`, so the derivation
+belongs there too. The cycle then does not exist, and no interface is needed to break it.
+
+That principle is now a documented rule — `ai/architecture.md` §2, "First ask where the fact
+belongs, not how to break the cycle", with its microservice test (RD14).
 
 ## Scope note — why this is a roadmap, not one change
 
-The feature spans **three modules** plus the composition root.
+The feature spans **two modules** plus the composition root.
 
-- `analytics` owns the new table, the estimator, and the calculator.
+- `charging` owns every input row, so it owns the table, the estimator and the job.
 - `app` owns the nightly cycle, so it owns the trigger.
-- `charging` owns the capacity seam that consumes the result.
 - `cmd/` + `Makefile` + docs are cross-cutting, so they form a `platform` tier.
 
-Per the proposal rule (multi-module ⇒ roadmap) each module gets its own module-prefixed tier.
+Tier 1 must go first: the other two drive what it builds.
 
-Tier 1 must go first: every other tier reads what it writes. Tiers 2 and 3 are independent of each
-other. Tier 4 wires everything together and cannot start before them.
+## Decisions (binding — settled with the owner on 2026-09-10, before any artifact was written)
 
-## Decisions (binding — settled with the user on 2026-09-10, before any artifact was written)
+Confirmed in a `grill-me` interview. Authoritative for every tier. A tier worker must not
+re-open them.
 
-These were confirmed in a `grill-me` interview and are authoritative for every tier's design, spec
-and tasks. A tier worker must not re-open them.
+### RD1 — `charging` owns the derivation. There is no cycle and no cross-module port.
 
-### RD1 — `charging` reads the result in this roadmap, through a port it owns itself
+`charging` computes effective capacity from its own two tables and stores it in its own schema.
+`packCapacityKWh` reads that table. No other module is involved.
 
-`charging` gets the real capacity now, not in a later ticket.
+The earlier plan — a `PackCapacityReader` interface declared in `charging` and satisfied by
+`analytics` — is **withdrawn**. It solved a problem that only existed because the job was in the
+wrong module.
 
-The obvious wiring does not compile. `analytics` already imports `charging`, so `charging` cannot
-import `analytics` back — Go refuses the cycle.
-
-So the dependency is **inverted**. `charging` declares its own small interface. `analytics`
-satisfies it structurally, because Go interfaces are implicit. `cmd/` passes one into the other.
-
-```go
-// internal/charging — charging declares what IT needs.
-type PackCapacityReader interface {
-    PackCapacityKWh(ctx context.Context, teslaID int64, at time.Time) (float64, bool, error)
-}
-```
-
-`internal/charging` imports **nothing** from `internal/analytics`. Verify this with a grep before
-closing tier 3.
-
-This supersedes backlog item **#18**, which proposed the same replacement. Close #18 when tier 3
-archives.
+This supersedes backlog item **#18**, which proposed exactly this: *"or from the average of
+`inferred_capacity_kwh_calc` over that vehicle's own rows."* Close #18 when tier 1 archives.
 
 ### RD2 — Valid input is `USER` entries and `DONE` sessions only
 
-This one is forced by correctness, not by taste.
+Forced by correctness, not taste.
 
 `charging` derives energy by dividing by `62.0`. Any record whose numbers came from that
 derivation has an `inferred_capacity_kwh_calc` of exactly `62.0`. Averaging those records feeds
 the constant back into itself, and the job would "measure" `62.0` forever.
-
-Two row kinds are poisoned, for that one reason:
 
 | Source table | Keep | Drop | Why the dropped rows are poisoned |
 |---|---|---|---|
@@ -86,12 +85,16 @@ cancels to exactly `62.0`. `charging`'s own migration comments already state thi
 Supercharger `DONE` rows need no energy check: their `EnergyKWh` is metered by Tesla, and
 `charging.Session` has no `EnergySource` field at all.
 
+**The filter stays future-proof.** Once tier 1 lands, newly `ESTIMATED` rows carry the *measured*
+capacity rather than `62.0`. They are still excluded by the same `energy_source = 'USER'` rule, so
+the job never eats its own output.
+
 ### RD3 — The estimate is a median, after a minimum-delta gate
 
 ```
 rows  = valid rows for the period          (RD2)
 rows  = filter(rows, batteryDelta >= minDeltaPct)
-if len(rows) < minSamples { write no capacity }   (RD4)
+if len(rows) < minSamples { store no capacity }   (RD4)
 capacity = median(rows)
 ```
 
@@ -103,6 +106,8 @@ charge it is 2.5%. Small charges are noise, so they are dropped, not corrected.
 trimmed mean were both considered and rejected: the weighted mean never drops a bad row, and the
 trimmed mean behaves badly on the small samples this data actually produces.
 
+**Even sample count:** average the two middle values.
+
 **Both thresholds are Go constants, never database values:**
 
 ```go
@@ -112,166 +117,169 @@ const minDeltaPct = 15
 
 Tuning them is then a code change plus a re-run. It must never need a migration.
 
-### RD4 — A thin month writes no capacity; the reader falls back to the newest earlier one
+### RD4 — A thin month stores no capacity; the read falls back
 
-Under `minSamples` valid rows, `effective_capacity_kwh` stays `NULL`.
+Under `minSamples` valid rows, `effective_capacity_kwh` stays `NULL`. `sample_count` still records
+what was found, so a thin month is visible rather than silent.
 
-The reader asks for the newest **measured** row at or before the period it wants. If there is
-none at all, `charging` keeps its existing `62.0`.
+`packCapacityKWh` takes the newest **measured** row for that vehicle. With no measured row at all,
+it returns today's `62.0`.
 
 A stored number therefore always means "we measured this". It never means "we guessed".
 
-This is also correct physically: pack capacity changes slowly, so last month's measurement is a
-good answer for a month with too little data.
+### RD5 — Keyed on `(tesla_id, effective_period)`, `tesla_id NOT NULL`
 
-### RD5 — The table is keyed on `tesla_id` only, and samples are pooled across accounts
+`manual_charge_entries.tesla_id` is already `NOT NULL`. `charge_sessions.tesla_id` is nullable
+("NULL when the VIN is not a currently-registered vehicle") — the job **skips** those rows. A
+capacity cannot be attributed to a car nobody has registered.
 
-No `account_id` column. Effective capacity is a property of the battery pack, not of the account
-looking at it.
+Cross-account pooling is automatic: one `tesla_id` is one car, whoever registered it, so
+`GROUP BY tesla_id` pools every account's rows with no extra code.
 
-`internal/account`'s `vehicles` table is `UNIQUE (account_id, tesla_id)`, so two accounts **can**
-register the same car. The job therefore groups by `tesla_id` **first**, reads every owning
-account's rows, and pools them into one sample set.
-
-```
-AllRegisteredVehicles()          group by tesla_id
-  (acctA, 123)                     123 → acctA rows + acctB rows → pool → median → ONE row
-  (acctB, 123)   same car          456 → acctA rows              → median → ONE row
-  (acctA, 456)
-```
-
-Pooling is what makes the result deterministic. Without it, the stored value would depend on which
-account the job happened to process last, and it would flip between runs.
-
-Today one account owns one car, so this costs about ten lines and changes nothing observable. It
-stops a silent bug later.
+No `account_id`. This is the only table in `charging`'s schema without account scoping, and that
+is deliberate — it is a derived aggregate about a battery pack, not user data.
 
 ### RD6 — The trigger is step 4 of the nightly processor
 
 `internal/app/processor.go` already runs step 1 collect → step 2 charging → step 3 analytics. The
-monthly job becomes **step 4**, inside the same function.
+monthly job becomes **step 4**.
 
-That is what makes the ticket's "MUST run after the nightly job finishes" true by construction. It
-is not a matter of timing or of a second scheduler.
-
-Step 4 runs only when today is the first day of the month, and it computes the **previous** month.
-It follows the existing short-circuit: if step 1 failed, step 4 does not run.
+That makes the ticket's "MUST run after the nightly job finishes" true by construction, not by
+timing. Step 4 runs only on the first day of the month, computes the **previous** month, and
+follows the existing short-circuit: if step 1 failed, step 4 does not run.
 
 ### RD7 — "First day of the month" is read through `internal/clock`, in `America/Bogota`
 
 No `time.Now()`. No hardcoded zone name. No hand-rolled UTC midnight. `make tz-guard` enforces
-this and the project rule allows nothing else.
-
-The period is stored as a `DATE` holding the first day of the month, e.g. `2026-08-01`.
+this. `effective_period` stores the first day of the month, e.g. `2026-08-01`.
 
 ### RD8 — The manual re-run surface is a `cmd/` runnable, not an HTTP endpoint
 
 ```
-go run ./cmd/monthly-metrics -tesla-id 123 -period 2026-08
+go run ./cmd/monthly-capacity -tesla-id 123 -period 2026-08
 ```
 
-No `-period` ⇒ the previous month. No `-tesla-id` ⇒ every active vehicle.
+No `-period` ⇒ the previous month. No `-tesla-id` ⇒ every vehicle with rows in that period.
 
 `internal/gateway` is **not** touched by this roadmap. This job is run while debugging or
-backfilling, not from a screen, so an HTTP endpoint would add auth and a JSON error shape for a
-caller that is only ever the owner. If a screen needs it later, it reuses the same Go port.
+backfilling, not from a screen.
 
 ### RD9 — Backfill is manual, with the same tool, plus a `make` target
 
 No automatic backfill. No SQL backfill inside the migration — that would write the estimator a
 second time, in a language where it cannot be unit-tested.
 
-A `make` target wraps the tool, following the Makefile's existing `cmd-*` convention
-(`cmd-poller-once`, `cmd-explore-tesla`, `cmd-setup`): a `##` help line, and an entry in `.PHONY`.
+The `make` target follows the Makefile's existing `cmd-*` convention (`cmd-poller-once`,
+`cmd-explore-tesla`, `cmd-setup`): a `##` help line and a `.PHONY` entry.
 
 ```
-make cmd-monthly-metrics                              # previous month, all vehicles
-make cmd-monthly-metrics PERIOD=2026-08 TESLA_ID=123  # one month, one car
+make cmd-monthly-capacity                              # previous month, all vehicles
+make cmd-monthly-capacity PERIOD=2026-08 TESLA_ID=123  # one month, one car
 ```
 
-Backfilling is then a shell loop the owner runs, seeing each month's sample count before trusting
-it.
-
-### RD10 — One name, `monthly-metrics`, in every place
+### RD10 — Names
 
 | Thing | Name |
 |---|---|
-| table | `analytics.vehicle_monthly_metrics` |
-| Go port | `analytics.MonthlyMetricsCalculator` |
-| runnable | `cmd/monthly-metrics/` |
-| make target | `make cmd-monthly-metrics` |
-| KB guide | `kkpa/context/…/vehicle-monthly-metrics.md` |
+| table | `charging.monthly_effective_capacity` |
+| runnable | `cmd/monthly-capacity/` |
+| make target | `make cmd-monthly-capacity` |
+| KB guide | `vehicle-monthly-metrics` (ticket item 4 — it documents the whole monthly story, including where a future metric goes) |
 
-An agent that reads any one of these can guess the other four. Do not introduce a synonym.
-
-### RD11 — The table is wide: one row per vehicle-month, one column per metric
-
-Confirmed at the database design gate. Full DDL, exactly as approved:
+### RD11 — The table (database design gate PASSED, re-run after the module change)
 
 ```sql
-CREATE TABLE analytics.vehicle_monthly_metrics (
-    id                              UUID   PRIMARY KEY DEFAULT gen_random_uuid(),
-    tesla_id                        BIGINT NOT NULL,   -- RD5: no account_id, on purpose
-    effective_period                DATE   NOT NULL,   -- always the 1st of the month (RD7)
+CREATE TABLE charging.monthly_effective_capacity (
+    id                     UUID   PRIMARY KEY DEFAULT gen_random_uuid(),
+    tesla_id               BIGINT NOT NULL,   -- RD5
+    effective_period       DATE   NOT NULL,   -- always the 1st of the month (RD7)
 
-    -- Metric 1: effective pack capacity (MAG-32).
-    -- NULL = too few valid samples this period (RD4). Never a guessed number.
-    effective_capacity_kwh          DOUBLE PRECISION,
-    effective_capacity_sample_count INTEGER NOT NULL DEFAULT 0,
+    -- NULL = under minSamples valid rows this period (RD4). Never a guessed number.
+    effective_capacity_kwh DOUBLE PRECISION,
+    sample_count           INTEGER NOT NULL DEFAULT 0,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    CONSTRAINT vehicle_monthly_metrics_period_is_month_start
+    CONSTRAINT monthly_effective_capacity_period_is_month_start
         CHECK (EXTRACT(DAY FROM effective_period) = 1),
     UNIQUE (tesla_id, effective_period)
 );
 ```
 
-**Index plan — no separate `CREATE INDEX`.** There is one read path, and the `UNIQUE` constraint's
-own btree serves it completely:
+**Index plan — no separate `CREATE INDEX`.** The `UNIQUE` constraint's own btree serves both
+operations completely:
 
 ```sql
--- charging asks: newest measured capacity at or before this period
+-- read (the seam): newest measured capacity for this car
 SELECT effective_capacity_kwh
-  FROM analytics.vehicle_monthly_metrics
- WHERE tesla_id = $1
-   AND effective_period <= $2
-   AND effective_capacity_kwh IS NOT NULL
+  FROM charging.monthly_effective_capacity
+ WHERE tesla_id = $1 AND effective_capacity_kwh IS NOT NULL
  ORDER BY effective_period DESC
  LIMIT 1;
+
+-- write
+INSERT INTO charging.monthly_effective_capacity (...) VALUES (...)
+ON CONFLICT (tesla_id, effective_period) DO UPDATE SET ...;
 ```
 
-Equality on the leading column, then a backwards range scan on the second. That is exactly what a
-`(tesla_id, effective_period)` btree does. This mirrors `vehicle_metrics` and `charge_gaps`, which
-both reason the same way about their own UNIQUE constraint.
+Equality on the leading column, then a backwards range scan on the second. Mirrors how
+`vehicle_metrics` and `charge_gaps` each reason about their own UNIQUE constraint.
 
-**Why wide, not key/value.** `sqlc` gives typed Go fields, reads need no pivot, units keep their
-`_kwh` suffix, and the DDL lists the whole vocabulary. A future metric is a new column. A
-key/value table would hide the vocabulary inside the data and give every reader a pivot to
-re-implement.
+**No FK on `tesla_id`** and **no `raw_data` JSONB** — the same reasons the sibling tables already
+document: a cross-module FK would couple `charging` migrations to the `account` schema, and this
+table stores a computed conclusion, not a vendor payload.
 
-**Why the metric column is nullable.** A row means "this vehicle-month was processed". Each metric
-column says on its own whether it was measurable. That is what keeps RD4's promise while still
-allowing a future metric to be present on a row where capacity is not.
+**The seam changes shape.** `packCapacityKWh(ctx, vin string)` becomes
+`packCapacityKWh(ctx, teslaID int64)`. Two callers change:
 
-**No FK on `tesla_id`**, and **no `raw_data` JSONB** — the same reasons the module already
-documents on `vehicle_metrics`: a cross-module FK would couple `analytics` migrations to the
-`account` schema, and this table stores a computed conclusion, not a vendor payload.
+| Caller | Passes | Note |
+|---|---|---|
+| `service.go` `resolveEnergy` | `e.TeslaID` | `Entry.TeslaID` is `int64`, never nil |
+| `session_verifier.go` `VerifySession` | `row.TeslaID` | nullable — nil goes straight to the `62.0` fallback |
+
+### RD12 — The `analytics` monthly-metrics table is deferred until a second metric exists
+
+MAG-32 ships capacity end-to-end. `analytics.vehicle_monthly_metrics` — the wide, multi-metric,
+`tesla_id`-keyed table the ticket sketches — arrives with `full_charge_count`, consumption per
+100 km, or the fleet comparisons.
+
+**Why.** Today it would hold one column, copied from `charging`, that nothing reads. It earns its
+place when a metric genuinely spans modules, which is what `analytics` is for. When it comes, it
+may duplicate the capacity value into itself — `vehicle_metrics` already duplicates other
+modules' observations deliberately, and the read-heavy profile allows it.
+
+### RD13 — Making `charge_sessions.tesla_id` NOT NULL is its own ticket
+
+Not in MAG-32. The column is deliberately set to NULL by the nightly mirror when a VIN stops being
+registered, so making it `NOT NULL` is a behaviour change, not a schema tidy-up. It must first
+answer: how many rows are NULL today, what the mirror writes instead, and what happens to every
+reader of `Session.TeslaID *int64`. Recorded in `openspec/roadmaps/backlog.md`.
+
+### RD14 — The principle behind RD1 is now a documented rule
+
+Added to `ai/architecture.md` §2, above the consumer-side-interface fix: **"First ask where the
+fact belongs, not how to break the cycle"**, with the microservice test and this roadmap as the
+worked precedent.
+
+**Why it matters here:** the owner's stated goal is modules that could become separate services.
+A module that can become a service owns its data *and the facts derived from it*. The rejected
+design would have made `analytics` carry a rule about `charging`'s internals — knowledge that
+would have to cross the wire as a shared secret the day they split.
 
 ## Verified codebase findings (checked before the roadmap; tiers do not re-derive these)
 
 | # | Finding | Where |
 |---|---|---|
-| F1 | `Session.InferredCapacityKWhCalc` and `Entry.InferredCapacityKWhCalc` are **already** on the public ports. Reading the source values needs no new port in `charging`. | `internal/charging/charging.go:172`, `:406` |
-| F2 | `Entry.EnergySource` is public (`USER` / `ESTIMATED`). `Session` has **no** `EnergySource` field. | `internal/charging/charging.go:150` |
+| F1 | `Session.InferredCapacityKWhCalc` and `Entry.InferredCapacityKWhCalc` already exist as `*float64`, computed by the database as GENERATED columns. | `internal/charging/charging.go:172`, `:406` |
+| F2 | `Entry.EnergySource` is `USER` / `ESTIMATED`. `Session` has **no** `EnergySource` field. | `internal/charging/charging.go:150` |
 | F3 | `SessionStatus` is `IN_PROGRESS` / `DONE_CALCULATED` / `DONE`. `DONE_CALCULATED` means the start % was derived. | `internal/charging/charging.go:331-341` |
-| F4 | `packCapacityKWh(ctx, vin) (float64, error)` is unexported and already shaped as a seam. Its `ctx`/`error` exist precisely for this swap. Two callers: `resolveEnergy` and `VerifySession`. | `internal/charging/capacity.go:32` |
-| F5 | `analytics` imports `charging`. `charging` imports `analytics` nowhere — only in comments. Hence RD1. | verified by grep |
-| F6 | `processor.ProcessVehicleData` runs step 1 → 2 → 3, with a short-circuit if step 1 fails. | `internal/app/processor.go:76` |
-| F7 | `analytics` owns schema `analytics` and its own goose migrations + sqlc. | `internal/analytics/db/migrations/20260902000002_*.sql` |
-| F8 | `vehicles` is `UNIQUE (account_id, tesla_id)` — a car is **not** globally unique. Hence RD5's pooling. | `internal/account/db/migrations/20260710000001_vehicles.sql:24` |
-| F9 | `AllRegisteredVehicles(ctx) ([]OwnedVehicle, error)` returns every vehicle across all accounts, each tagged with its account. This is the job's input. | `internal/account/account.go:212` |
+| F4 | `packCapacityKWh(ctx, vin) (float64, error)` is unexported, returns `62.0`, and is called from exactly two places. | `internal/charging/capacity.go:32`, `service.go:274`, `session_verifier.go:166` |
+| F5 | `Entry.TeslaID` is `int64` (never nil); `manual_charge_entries.tesla_id` is `BIGINT NOT NULL`. | `internal/charging/charging.go`, `20260718000001_add_manual_charge_entries.sql:23` |
+| F6 | `Session.TeslaID` is `*int64`; `charge_sessions.tesla_id` is nullable and refreshed every sync. | `20260823000001_add_charge_sessions.sql:61` |
+| F7 | `processor.ProcessVehicleData` runs step 1 → 2 → 3, with a short-circuit if step 1 fails. | `internal/app/processor.go:76` |
+| F8 | `charging` owns schema `charging` and its own goose migrations + sqlc. Highest migration version in the repo is `20260909000001`. | `internal/charging/db/migrations/` |
+| F9 | `charging` imports no other domain module. Tier 1 does not change that. | verified by grep |
 | F10 | Makefile runnable targets use a `cmd-*` prefix, a `##` help line, and a `.PHONY` entry. | `Makefile:730,755,760` |
 
 ## Tiers
@@ -280,85 +288,62 @@ Status legend: `[ ]` pending (change not created) · `[~]` in progress (change c
 
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
-| `[~]` | 1 | `RM52-analytics-add-monthly-metrics` | `analytics` | The table, the estimator, the calculator, and the read port | — |
-| `[ ]` | 2 | `RM52-app-add-monthly-metrics-step` | `app` | Nightly processor step 4, first-day-of-month only | 1 |
-| `[ ]` | 3 | `RM52-charging-add-capacity-port` | `charging` | Inverted `PackCapacityReader` port replacing the `62.0` constant | 1 |
-| `[ ]` | 4 | `RM52-platform-add-monthly-metrics-cli` | `platform` | `cmd/monthly-metrics`, the make target, the `cmd/` wiring, docs and the KB | 1, 2, 3 |
+| `[ ]` | 1 | `RM52-charging-add-monthly-effective-capacity` | `charging` | The table, the estimator, the job, and the seam reading it | — |
+| `[ ]` | 2 | `RM52-app-add-monthly-capacity-step` | `app` | Nightly processor step 4, first day of month only | 1 |
+| `[ ]` | 3 | `RM52-platform-add-monthly-capacity-cli` | `platform` | `cmd/monthly-capacity`, the make target, docs and the KB | 1, 2 |
 
-### Tier 1 — `[~]` `RM52-analytics-add-monthly-metrics` (module: `analytics`)
+### Tier 1 — `[ ]` `RM52-charging-add-monthly-effective-capacity` (module: `charging`)
 
-The core. Everything else reads what this writes.
+Self-contained. No other module is touched, and no new cross-module port exists.
 
-Delivers the migration for RD11's table, the sqlc query for RD11's read path, the RD3 estimator as
-a pure function, and the calculator that pools rows per RD5 and applies the RD2 filter.
-
-Two public ports:
+Delivers RD11's migration, the sqlc upsert and read, the RD3 estimator as a pure function, the
+job that applies RD2 and groups by `tesla_id` (RD5), and the new `packCapacityKWh` body plus its
+two updated callers.
 
 ```go
-// Writes one period for one vehicle, or for every active vehicle.
-type MonthlyMetricsCalculator interface {
-    Calculate(ctx context.Context, period time.Time, teslaID *int64) (MonthlyMetricsReport, error)
+// The job. Period is the month to compute; teslaID nil means every vehicle with rows.
+type MonthlyCapacityCalculator interface {
+    Calculate(ctx context.Context, period time.Time, teslaID *int64) (MonthlyCapacityReport, error)
 }
-
-// Satisfies charging.PackCapacityReader structurally (RD1). Same method shape.
-PackCapacityKWh(ctx context.Context, teslaID int64, at time.Time) (float64, bool, error)
 ```
 
 The estimator is a pure function over a slice — no `ctx`, no I/O — so it is unit-testable with no
-container. The filter (RD2) and the pooling (RD5) live in the calculator, above it.
+container. The RD2 filter and the RD5 grouping live above it, in the job.
 
-Note for the worker: `internal/analytics/analytics.go`'s package comment still says this module
-"owns no database and no store". That has been false since RM29 tier 3. Fix it in this tier.
+`packCapacityKWh` keeps returning `62.0` whenever the table has no measured row, so behaviour is
+unchanged until the first month is computed.
 
-### Tier 2 — `[ ]` `RM52-app-add-monthly-metrics-step` (module: `app`)
+### Tier 2 — `[ ]` `RM52-app-add-monthly-capacity-step` (module: `app`)
 
-One new step in `ProcessVehicleData`, after step 3.
+One new step in `ProcessVehicleData`, after step 3. It runs only when `clock.Now()` is the first
+day of the month in `America/Bogota` (RD7) and passes the **previous** month. It follows the
+existing step-1 short-circuit.
 
-It runs only when `clock.Now()` is the first day of the month in `America/Bogota` (RD7), and it
-passes the **previous** month. It follows the existing short-circuit: skipped when step 1 failed.
+`internal/app` takes the tier 1 port through its existing constructor pattern, and must not import
+`internal/charging/db`.
 
-The module gets the tier 1 port through its existing constructor pattern. `internal/app` must not
-import `internal/analytics/db`.
+### Tier 3 — `[ ]` `RM52-platform-add-monthly-capacity-cli` (module: `platform`, cross-cutting)
 
-### Tier 3 — `[ ]` `RM52-charging-add-capacity-port` (module: `charging`)
-
-Declare `PackCapacityReader` (RD1) inside `internal/charging`. Give the service an optional field
-holding one.
-
-`packCapacityKWh` keeps its exact signature (F4) and gains a body: ask the reader; on `ok=false`,
-on a nil reader, or on error, return `62.0` as it does today. Both existing callers are untouched.
-
-**Do not change either caller, and do not recompute historical rows.** Existing `ESTIMATED` and
-`DONE_CALCULATED` records keep their stored values. Rewriting stored history is out of scope, and
-the dev database holds hand-entered charges that cannot be recovered.
-
-Before closing: `grep -rn "internal/analytics" internal/charging/` must return nothing.
-
-### Tier 4 — `[ ]` `RM52-platform-add-monthly-metrics-cli` (module: `platform`, cross-cutting)
-
-Granted paths: `cmd/monthly-metrics/`, `cmd/poller/main.go`, `cmd/web/main.go`, `Makefile`,
+Granted paths: `cmd/monthly-capacity/`, `cmd/poller/main.go`, `cmd/web/main.go`, `Makefile`,
 `README.md`, `docs/`, `kkpa/context/`.
 
-1. `cmd/monthly-metrics/` with its flags (RD8) and a `README.md`.
-2. The `make cmd-monthly-metrics` target, matching F10's convention exactly.
-3. Wire the tier 1 reader into `charging` in **both** `cmd/poller/main.go` and `cmd/web/main.go`.
-   Missing one leaves that binary silently on `62.0`.
-4. Docs: the root `README.md` structure tree and architecture table, `cmd/README.md`, and the
-   affected `AGENTS.md` files.
+1. `cmd/monthly-capacity/` with its flags (RD8) and a `README.md`.
+2. The `make cmd-monthly-capacity` target, matching F10's convention exactly.
+3. Wire the tier 1 calculator wherever `charging`'s service is constructed.
+4. Docs: the root `README.md` structure tree and architecture table, `cmd/README.md`, and
+   `internal/charging/AGENTS.md`.
 5. The KB guide `vehicle-monthly-metrics` via `kkpa-context-curate` (ticket item 4). Also grep
-   `kkpa/context/` for `analytics` and `charging` and fix any guide this roadmap invalidated.
+   `kkpa/context/` for `charging` and fix any guide this roadmap invalidated.
 
 ## Future work
 
-Not in this roadmap. Record anything picked up here in `openspec/roadmaps/backlog.md`, following
-that file's own template — the backlog is the durable record, this section only points at it.
+Recorded in `openspec/roadmaps/backlog.md` per that file's own template — the backlog is the
+durable record, this section only points at it.
 
-- **Backlog #18** is superseded by RD1 and closes when tier 3 archives.
-- **Backlog #7** (trim-exact pack capacity) becomes much less important once this measures the real
-  capacity per car. Re-read it after tier 4 and decide whether it still earns its place.
-- The next metrics named in the ticket — `full_charge_count`, consumption per 100 km, energy
-  consumed per date — are new columns on this table plus new estimator functions. They need no
-  new table and no new trigger.
+- **Backlog #18** is superseded by tier 1 and closes when tier 1 archives.
+- **RD12** — `analytics.vehicle_monthly_metrics`, when a second monthly metric exists.
+- **RD13** — make `charge_sessions.tesla_id` NOT NULL.
+- **Backlog #7** (trim-exact pack capacity from `trim_badging`) gets much weaker once this
+  measures the real pack. Re-read it after tier 3 and decide whether it still earns its place.
 - Recomputing historical `ESTIMATED` energy values with the measured capacity was explicitly
-  rejected here (tier 3). It would rewrite stored history and needs its own ticket and its own
-  decision.
+  rejected here. It would rewrite stored history and needs its own ticket.

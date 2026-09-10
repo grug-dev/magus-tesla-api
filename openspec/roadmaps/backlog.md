@@ -1010,6 +1010,64 @@ RM49 tier 1 design.md D9. The worker was told to verify the roadmap's suggested 
 command and found it did not exist. Fixing the gap was out of scope for that tier.
 
 
+## 29. analytics — Monthly metrics table, once a second metric exists
+
+### PROPOSAL
+
+MAG-32 / RM52 measures effective pack capacity monthly, and that table lives in `charging`,
+because `charging` owns every input row. The ticket also sketched a wider table —
+`analytics.vehicle_monthly_metrics`, keyed on `(tesla_id, effective_period)`, one column per
+metric — to hold future monthly numbers: `full_charge_count`, average consumption per 100 km,
+energy consumed per date, and comparison results across vehicles.
+
+That table was deliberately NOT built in RM52 (roadmap decision RD12). Today it would hold one
+column, copied from `charging`, that nothing reads.
+
+**Trigger:** the first monthly metric that is NOT owned by a single module — a fleet comparison,
+or a number derived from `telemetry` plus `charging` together. That is the point at which
+`analytics` is the right owner rather than an extra hop.
+
+When it is built it may duplicate `charging`'s capacity value into itself. That is allowed:
+`analytics.vehicle_metrics` already duplicates other modules' observations on purpose, and the
+read-heavy Performance-Profile accepts denormalization on the write path. It needs a refresh rule,
+which `analytics`'s existing watermark/reconcile machinery already provides.
+
+### ORIGIN
+
+RM52 decision RD12, settled with the owner on 2026-09-10 during the MAG-32 design interview.
+
+
+## 30. charging — Make `charge_sessions.tesla_id` NOT NULL
+
+### PROPOSAL
+
+`charge_sessions.tesla_id` is nullable today — "NULL when the VIN is not a currently-registered
+vehicle" — and the nightly mirror refreshes it on every pass. `manual_charge_entries.tesla_id` is
+already `NOT NULL`, so the two sibling tables disagree, and `Session.TeslaID` is a `*int64` while
+`Entry.TeslaID` is a plain `int64`.
+
+The owner's position is that on this platform `tesla_id` is always present and the column should
+be `NOT NULL`.
+
+This is a behaviour change, not a schema tidy-up, so it must first answer three questions:
+
+1. How many rows have `tesla_id IS NULL` today? (Count before writing the migration.)
+2. What does the nightly mirror write when a VIN stops being registered, if not NULL? Skipping the
+   row, keeping the last known id, or refusing the sync are all different products.
+3. `Session.TeslaID *int64` becomes `int64`, which touches every reader of that field.
+
+**Trigger:** picked up on its own. RM52 does not need it — its new table declares its own
+`tesla_id BIGINT NOT NULL` and simply skips session rows where the column is NULL.
+
+**Care required:** the dev database holds hand-entered charge history that Tesla cannot backfill.
+Count the affected rows and agree what happens to them before any `ALTER`.
+
+### ORIGIN
+
+RM52 decision RD13, raised at the MAG-32 database design gate on 2026-09-10 when the owner asked
+for `tesla_id` instead of `vin` as the new table's key.
+
+
 
 # BRAINSTORMING
 
