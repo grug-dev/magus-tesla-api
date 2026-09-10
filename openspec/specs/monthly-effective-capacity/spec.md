@@ -1,7 +1,20 @@
 # monthly-effective-capacity Specification
 
 ## Purpose
-TBD - created by archiving change RM52-charging-add-monthly-effective-capacity. Update Purpose after archive.
+
+Measure each vehicle's real usable pack capacity, once per calendar month, from that vehicle's own
+charge records — instead of assuming one fixed number for every car.
+
+The `charging` capability needs a pack capacity whenever it derives energy from a battery-percentage
+change. It used a single hardcoded value for every vehicle. That value was wrong for any car whose
+pack differs, and it also fed itself: a record whose energy was derived from the assumed capacity
+implies exactly that capacity back again.
+
+This capability fixes both. It pools only the records whose figures were **not** derived from an
+assumed capacity, discards the ones whose battery change is too small to measure reliably, and
+stores the median of what remains. When a month has too little evidence it records the count and
+leaves the capacity absent, so a stored number always means "measured", never "guessed". Reads take
+the newest measured month and fall back to the fixed default only while no measurement exists.
 ## Requirements
 ### Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month
 
