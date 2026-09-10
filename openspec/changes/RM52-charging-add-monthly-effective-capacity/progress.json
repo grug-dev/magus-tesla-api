@@ -1,0 +1,292 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM52-charging-add-monthly-effective-capacity",
+  "module": "charging",
+  "roadmap": "RM52-vehicle-monthly-metrics",
+  "tier": 1,
+  "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
+  "status": "proposed",
+  "created_at": "2026-09-10T09:52:17Z",
+  "updated_at": "2026-09-10T09:52:17Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM52-MAG-32-vehicle-monthly-metrics",
+    "base": "main",
+    "created_at": "2026-09-10T01:50:10Z",
+    "ticket": "MAG-32",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table"
+  },
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "3.1", "3.2", "4.1", "5.1"],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D-lead-1",
+      "at": "2026-09-10T03:05:00Z",
+      "scope": "design-gate",
+      "made_by": "user",
+      "decision": "Added candidate_count to the approved DDL. sample_count keeps its post-gate meaning (design D1). A stored row always has candidate_count >= 1.",
+      "why": "sample_count alone cannot tell 'no measurable charges' from '20 charges, all too small'. The migration was unwritten, so the column cost nothing; later it would need a migration."
+    },
+    {
+      "id": "D-lead-2",
+      "at": "2026-09-10T09:50:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "The leader finished the candidate_count edit itself after the charging worker died on a session rate limit mid-task. Worker had completed the DDL, the COMMENT ON, and the upsert; the leader wrote D1, Risk 1, the decision mapping, fixtures C4/C5/C6/C12/C13 and the tasks.md gate note.",
+      "why": "A fresh worker would re-read the whole doc pack for a doc edit the leader already had full context for. Leaving artifacts half-edited was the worse option."
+    },
+    {
+      "id": "D-lead-3",
+      "at": "2026-09-10T09:50:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's own design calls unchanged: D1's post-gate sample_count reasoning, D2 (no row when a tesla_id has zero valid rows), D3 (the packCapacityLookup narrow interface), the no-new-index decision with a recorded revisit trigger, and teslaID filtering in Go rather than a second SQL path.",
+      "why": "Each was argued from the code and none contradicted a roadmap decision. The worker also escalated the one genuinely open question instead of guessing, which is what caught the candidate_count gap."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Migration 20260909000002_add_monthly_effective_capacity.sql, DDL verbatim from design.md",
+      "depends_on": [],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Leader verified the version collides with no other module. Includes both COMMENT ON statements and the full header."
+    },
+    {
+      "id": "1.2",
+      "title": "query.sql — the upsert and the newest-measured read, plus the two batch reads",
+      "depends_on": [],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The upsert writes both candidate_count and sample_count."
+    },
+    {
+      "id": "1.3",
+      "title": "sqlc.yaml rename entry for the new table",
+      "depends_on": [],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Disjoint from 1.1 and 1.2; the three may run in parallel."
+    },
+    {
+      "id": "1.4",
+      "title": "Run make sqlc and confirm the generated model",
+      "depends_on": ["1.1", "1.2", "1.3"],
+      "wave": 1,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Codegen only, allowed by the Test-Execution-Policy. Wave 1 is a serialization point: nothing in wave 2 compiles before this."
+    },
+    {
+      "id": "2.1",
+      "title": "capacity.go — new packCapacityKWh(ctx, teslaID int64) body over the lookup",
+      "depends_on": ["1.4"],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Must still return 62.0 when no measured row exists, so behaviour is unchanged until the first month is computed."
+    },
+    {
+      "id": "2.2",
+      "title": "charging.go — domain types and the MonthlyCapacityCalculator port",
+      "depends_on": ["1.4"],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "2.3",
+      "title": "service.go — resolveEnergy passes e.TeslaID to the seam",
+      "depends_on": ["2.1"],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Entry.TeslaID is int64, never nil."
+    },
+    {
+      "id": "2.4",
+      "title": "session_verifier.go — VerifySession passes row.TeslaID, nil falls back to 62.0",
+      "depends_on": ["2.1"],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "charge_sessions.tesla_id is nullable; making it NOT NULL is backlog #30, out of scope here."
+    },
+    {
+      "id": "2.5",
+      "title": "monthly_capacity.go — the pure estimator, the RD2 filter, RD5 grouping, the job",
+      "depends_on": ["1.4", "2.2"],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The job writes candidate_count = len(rows) and sample_count = the estimator's returned count. Estimator signature unchanged."
+    },
+    {
+      "id": "2.6",
+      "title": "AGENTS.md Allowed Imports entry",
+      "depends_on": [],
+      "wave": 2,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "3.1",
+      "title": "monthly_capacity_estimator_test.go — the pure-function fixtures A1-A4",
+      "depends_on": ["2.5"],
+      "wave": 3,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Offline, no container. Asserts design.md's authored expectations, never what the code does."
+    },
+    {
+      "id": "3.2",
+      "title": "db_monthly_capacity_integration_test.go — fixtures B and C1-C13",
+      "depends_on": ["2.3", "2.4", "2.5"],
+      "wave": 3,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "FINAL test wave: cannot compile before the migration and sqlc types exist. C13 is the candidate_count case added at the design gate."
+    },
+    {
+      "id": "4.1",
+      "title": "AGENTS.md — data ownership, the new table, the changed seam",
+      "depends_on": ["2.5"],
+      "wave": 4,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "5.1",
+      "title": "Cheap signals: go build, go vet, gofmt, migration-guard, tz-guard, boundary-guard",
+      "depends_on": ["3.1", "3.2", "4.1"],
+      "wave": 5,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The suite itself is the owner's to run: make migrate-up then make check."
+    }
+  ],
+  "review": {
+    "status": "not-started",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-09-10T02:45:21Z",
+      "event": "artifacts-dispatched",
+      "by": "leader",
+      "detail": "One kkpa-module-worker (charging, claude-sonnet-5) dispatched to write the OpenSpec artifacts for the rewritten, charging-owned design."
+    },
+    {
+      "at": "2026-09-10T03:00:00Z",
+      "event": "artifacts-reviewed",
+      "by": "leader",
+      "detail": "Leader validated the returned artifacts. Migration version 20260909000002 verified free across every module. Capability folder name matches the module's convention. openspec validate --strict passes. The worker escalated one open question (sample_count pre- or post-gate) instead of guessing; the leader took it to the owner, who confirmed post-gate and added candidate_count."
+    },
+    {
+      "at": "2026-09-10T09:45:00Z",
+      "event": "worker-rate-limited",
+      "by": "leader",
+      "detail": "The charging worker hit a session rate limit part-way through applying the candidate_count change. It had completed the DDL, the COMMENT ON COLUMN and the upsert, and died at 'rewrite D1'. Artifacts were left half-edited."
+    },
+    {
+      "at": "2026-09-10T09:52:17Z",
+      "event": "artifacts-completed-by-leader",
+      "by": "leader",
+      "detail": "Leader finished the remaining edits: D1 rewritten to cover both counts, Risk 1 marked resolved, the decision mapping updated, fixtures C4/C5/C6/C12 amended and C13 added, and the tasks.md design-gate note corrected. Re-verified: DDL matches roadmap RD11 on substance (comments ignored) and openspec validate --strict passes."
+    },
+    {
+      "at": "2026-09-10T09:52:17Z",
+      "event": "halted-by-scope",
+      "by": "leader",
+      "detail": "Run scope from kkpa-pickup-linear-ticket was HALT AFTER STEP 4. Artifacts and progress.json exist; no implementation worker was dispatched, no reviewer ran, nothing archived. Resume with: /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity"
+    }
+  ]
+}

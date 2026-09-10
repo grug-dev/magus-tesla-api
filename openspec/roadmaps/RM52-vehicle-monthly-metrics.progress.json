@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-10T01:50:10Z",
-  "updated_at": "2026-09-10T02:40:00Z",
+  "updated_at": "2026-09-10T09:52:17Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -114,11 +114,11 @@
     },
     {
       "id": "RD11",
-      "at": "2026-09-10T02:38:00Z",
+      "at": "2026-09-10T03:05:00Z",
       "scope": "roadmap",
       "made_by": "user",
-      "decision": "Database design gate PASSED on re-run after the module change. charging schema, tesla_id BIGINT NOT NULL, nullable capacity plus sample_count. UNIQUE (tesla_id, effective_period) serves both read and upsert; no separate CREATE INDEX. The seam becomes packCapacityKWh(ctx, teslaID int64), changing two callers.",
-      "why": "One read path and one write path, both served by the UNIQUE btree. Mirrors how vehicle_metrics and charge_gaps reason about their own constraint."
+      "decision": "Database design gate PASSED on re-run after the module change. charging schema, tesla_id BIGINT NOT NULL, nullable capacity plus TWO counts: candidate_count (RD2-valid rows, before the delta gate) and sample_count (after the gate, the slice the median used). UNIQUE (tesla_id, effective_period) serves both read and upsert; no separate CREATE INDEX. The seam becomes packCapacityKWh(ctx, teslaID int64), changing two callers.",
+      "why": "One read path and one write path, both served by the UNIQUE btree. Two counts separate 'no valid charges' from 'charged often but always too small' \u2014 otherwise a NULL month needs a hand query to explain."
     },
     {
       "id": "RD12",
@@ -143,6 +143,14 @@
       "made_by": "user",
       "decision": "Added a rule to ai/architecture.md section 2: 'First ask where the fact belongs, not how to break the cycle', with a microservice test and RM52 as the worked precedent.",
       "why": "The owner wants modules that could become services. A module that can become a service owns its data and the facts derived from it."
+    },
+    {
+      "id": "RD15",
+      "at": "2026-09-10T03:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "candidate_count added to the table at the design gate. sample_count keeps its post-gate meaning (tier 1 design D1, confirmed). A row is stored only when candidate_count >= 1.",
+      "why": "Without it, a month of 20 small top-ups looks identical to a month with nothing measurable. The migration was still unwritten, so the column cost nothing; later it would be a migration."
     }
   ],
   "tiers": [
@@ -152,18 +160,18 @@
       "module": "charging",
       "depends_on": [],
       "optional": false,
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (artifact worker)",
+      "started_at": "2026-09-10T02:45:21Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": {
         "five_hour_pct_start": 24,
         "five_hour_pct_end": 47,
-        "cost_usd_delta": 6.9,
+        "cost_usd_delta": 13.8,
         "approx": true,
-        "note": "carried over: the withdrawn analytics-first artifacts plus the design rework that replaced them"
+        "note": "artifacts phase only: the withdrawn analytics attempt, the design rework, and the charging worker plus its rate-limited correction round"
       },
       "notes": "Self-contained in charging. RD11's table, the RD3 estimator as a pure function, the job applying RD2 and grouping by tesla_id (RD5), and the new packCapacityKWh body with its two updated callers. No cross-module port."
     },
@@ -221,6 +229,12 @@
       "event": "roadmap-revised",
       "by": "leader",
       "detail": "Owner rejected the analytics-first design. Rewritten: charging owns the table, the job and the read, so the import cycle and the inverted port both disappear. Tiers 4 -> 3; the withdrawn RM52-analytics-add-monthly-metrics change folder was deleted (never implemented). Database design gate re-run and passed as RD11 with tesla_id NOT NULL. Three new decisions recorded: RD12, RD13, RD14. Backlog gains #29 and #30. The principle is now a rule in ai/architecture.md section 2."
+    },
+    {
+      "at": "2026-09-10T09:52:17Z",
+      "event": "tier-1-proposed",
+      "by": "leader",
+      "detail": "Tier 1 artifacts complete and validated; progress.json created. Run halted here by scope (HALT AFTER STEP 4). No implementation worker ran."
     }
   ]
 }

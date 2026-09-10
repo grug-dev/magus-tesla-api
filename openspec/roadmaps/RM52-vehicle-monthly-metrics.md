@@ -119,8 +119,9 @@ Tuning them is then a code change plus a re-run. It must never need a migration.
 
 ### RD4 — A thin month stores no capacity; the read falls back
 
-Under `minSamples` valid rows, `effective_capacity_kwh` stays `NULL`. `sample_count` still records
-what was found, so a thin month is visible rather than silent.
+Under `minSamples` valid rows, `effective_capacity_kwh` stays `NULL`. Both counts still record what
+was found, so a thin month is visible rather than silent — and RD15's `candidate_count` says *why*
+it was thin. See RD11 for the two counts and the three readable states.
 
 `packCapacityKWh` takes the newest **measured** row for that vehicle. With no measured row at all,
 it returns today's `62.0`.
@@ -196,7 +197,8 @@ CREATE TABLE charging.monthly_effective_capacity (
 
     -- NULL = under minSamples valid rows this period (RD4). Never a guessed number.
     effective_capacity_kwh DOUBLE PRECISION,
-    sample_count           INTEGER NOT NULL DEFAULT 0,
+    candidate_count        INTEGER NOT NULL DEFAULT 0,  -- RD2-valid rows, BEFORE the delta gate
+    sample_count           INTEGER NOT NULL DEFAULT 0,  -- rows that passed the gate and made the median
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -229,6 +231,27 @@ Equality on the leading column, then a backwards range scan on the second. Mirro
 **No FK on `tesla_id`** and **no `raw_data` JSONB** — the same reasons the sibling tables already
 document: a cross-module FK would couple `charging` migrations to the `account` schema, and this
 table stores a computed conclusion, not a vendor payload.
+
+**The two counts answer "why is this month NULL?" — added at the design gate on the owner's
+call.** They are counted at different stages on purpose:
+
+| Column | Counted | Meaning |
+|---|---|---|
+| `candidate_count` | after the RD2 filter, **before** the RD3 delta gate | valid charge records this month |
+| `sample_count` | **after** the delta gate | records that actually produced the median |
+
+A row exists only when `candidate_count >= 1` — the job iterates the `tesla_id`s present in the
+charge tables, so a car with no valid records that month simply has no row. That makes the three
+states readable without opening the source tables:
+
+| What you see | What it means |
+|---|---|
+| no row | no valid charge records at all |
+| `candidate_count 20`, `sample_count 0`, capacity `NULL` | charged 20 times, every one below the delta gate |
+| `candidate_count 14`, `sample_count 11`, capacity set | 11 of 14 were big enough; the median used those 11 |
+
+Without `candidate_count` the middle row is indistinguishable from the top one, and diagnosing a
+`NULL` month means querying `charge_sessions` and `manual_charge_entries` by hand.
 
 **The seam changes shape.** `packCapacityKWh(ctx, vin string)` becomes
 `packCapacityKWh(ctx, teslaID int64)`. Two callers change:
@@ -288,11 +311,11 @@ Status legend: `[ ]` pending (change not created) · `[~]` in progress (change c
 
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
-| `[ ]` | 1 | `RM52-charging-add-monthly-effective-capacity` | `charging` | The table, the estimator, the job, and the seam reading it | — |
+| `[~]` | 1 | `RM52-charging-add-monthly-effective-capacity` | `charging` | The table, the estimator, the job, and the seam reading it | — |
 | `[ ]` | 2 | `RM52-app-add-monthly-capacity-step` | `app` | Nightly processor step 4, first day of month only | 1 |
 | `[ ]` | 3 | `RM52-platform-add-monthly-capacity-cli` | `platform` | `cmd/monthly-capacity`, the make target, docs and the KB | 1, 2 |
 
-### Tier 1 — `[ ]` `RM52-charging-add-monthly-effective-capacity` (module: `charging`)
+### Tier 1 — `[~]` `RM52-charging-add-monthly-effective-capacity` (module: `charging`)
 
 Self-contained. No other module is touched, and no new cross-module port exists.
 
