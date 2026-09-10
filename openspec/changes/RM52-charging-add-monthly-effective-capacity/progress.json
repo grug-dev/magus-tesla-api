@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "in-progress",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T14:47:21Z",
+  "updated_at": "2026-09-10T15:04:02Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,8 +24,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "3.2",
       "4.1",
       "5.1",
       "3.3"
@@ -43,7 +41,9 @@
       "2.2",
       "2.3",
       "2.4",
-      "2.5"
+      "2.5",
+      "3.1",
+      "3.2"
     ]
   },
   "decisions": [
@@ -94,6 +94,22 @@
       "made_by": "user",
       "decision": "Delete TestPackCapacityKWh_VinIndependent rather than rewrite it. Appended as task 3.3, ordered after 3.1 so A6-A8 exist before the original goes. Wave 2 left go vet red on this test alone; no task owned the file.",
       "why": "The test varies a VIN argument D4 removes, so it cannot be ported. Rewritten, it would only duplicate A6 in a second file."
+    },
+    {
+      "id": "D-lead-7",
+      "at": "2026-09-10T15:04:02Z",
+      "scope": "review:design-vs-agents",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker following AGENTS.md over design.md. design.md Group C told tests to seed with chargingdb.New(pool); AGENTS.md forbids any _test.go importing chargingdb. Corrected design.md, which was the wrong half. No expected value changed.",
+      "why": "AGENTS.md is a module boundary rule and all 16 existing integration tests honour it. A per-change artifact does not override a boundary rule."
+    },
+    {
+      "id": "D-lead-8",
+      "at": "2026-09-10T15:04:02Z",
+      "scope": "review:C12",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker reading C12 as starting from C5 (four entries), not C4 (two). Corrected the C12 cell to say C5.",
+      "why": "C12 adds a fifth entry and expects both counts to reach 5. Only a four-row start reaches five. The C4 reference was a typo."
     }
   ],
   "tasks": [
@@ -320,14 +336,20 @@
         "2.1"
       ],
       "wave": 3,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Offline, no container. Asserts design.md's authored expectations, never what the code does."
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T14:50:51Z",
+      "completed_at": "2026-09-10T14:54:19Z",
+      "duration_seconds": 208,
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 16,
+        "cost_usd_delta": 3.82,
+        "approx": true,
+        "note": "one wave-3 bracket shared by 3.1 and 3.2 (one serial worker). 5h bucket reset to null at dispatch, read as 0."
+      },
+      "notes": "Created monthly_capacity_estimator_test.go, package charging, offline. Covers A1-A9: the five estimateEffectiveCapacity cases, median unsorted-input seam pin (D9), packCapacityKWh three cases via an in-package fake."
     },
     {
       "id": "3.2",
@@ -339,14 +361,20 @@
         "2.6"
       ],
       "wave": 3,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "FINAL test wave: cannot compile before the migration and sqlc types exist. C13 is the candidate_count case added at the design gate."
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T14:54:19Z",
+      "completed_at": "2026-09-10T15:01:53Z",
+      "duration_seconds": 454,
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 16,
+        "cost_usd_delta": 3.82,
+        "approx": true,
+        "note": "shared wave-3 bracket, see 3.1."
+      },
+      "notes": "Created db_monthly_capacity_integration_test.go, package charging_test, DB-gated via testdb_test.go. Covers B1-B2 and C1-C13 through the real ports. Seeds via public ports, never chargingdb."
     },
     {
       "id": "4.1",
@@ -484,6 +512,18 @@
       "event": "resume-dependency-correction",
       "by": "leader",
       "detail": "Resumed at the wave-2 boundary. progress.json depends_on for 3.1, 3.2 and 4.1 disagreed with tasks.md; tasks.md wins and the entries are now copied from it verbatim. The material one: 4.1 depends on 3.2, not 2.5, because its Testing Notes bullet documents the two test files 3.1/3.2 create. 4.1 is therefore NOT dispatchable before wave 3. No task status, title or criterion was touched - only the derived dependency fields."
+    },
+    {
+      "at": "2026-09-10T14:50:51Z",
+      "event": "wave-3-dispatched",
+      "by": "leader",
+      "detail": "One charging worker (claude-sonnet-5) batched serially over 3.1 and 3.2. They are parallel_ok with each other; batched into one worker so the doc pack is read once, because the 7-day bucket is at 83%. Budget at dispatch: 5h bucket just reset (five_hour_pct null), 7d 83%, context 11%, cost $2.53. Worker told go vet is already red on entry_status_test.go (task 3.3 owns it) and must not touch that file."
+    },
+    {
+      "at": "2026-09-10T15:04:02Z",
+      "event": "wave-3-completed",
+      "by": "leader",
+      "detail": "3.1 and 3.2 implemented. Leader verified independently: gofmt clean, go build ./... clean, go vet ./... red on exactly one error, the known entry_status_test.go:213 that task 3.3 deletes. Both files reference all 24 contract IDs A1-A9/B1-B2/C1-C13. Neither imports chargingdb; 3.2 uses package charging_test, matching all 16 existing integration tests. Worker raised two design.md contradictions; leader verified both against AGENTS.md and the C4/C5 fixture shapes, accepted both, and corrected design.md. Worker reported a 3.1 start of 14:40:00Z, before its own dispatch; leader replaced it with the bracket time. Budget: 5h 0%->16%, 7d 83%->85%, context 12%."
     }
   ]
 }

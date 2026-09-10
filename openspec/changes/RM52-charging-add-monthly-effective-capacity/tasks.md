@@ -186,7 +186,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any assertion or helper
 (`internal/charging/AGENTS.md` §Testing Notes).
 
-- [ ] **3.1** **[module: charging worker]** Create `internal/charging/monthly_capacity_estimator_test.go`
+- [x] **3.1** **[module: charging worker]** Create `internal/charging/monthly_capacity_estimator_test.go`
   — offline, no DB, package `charging`. Cover design.md Test Contract **A1–A9**:
   `estimateEffectiveCapacity`'s five cases (the `minSamples` boundary, the odd/even median, the
   delta-gate dropping both a row and its outlier value, the gate's `>=` boundary),
@@ -196,7 +196,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
   and `median`'s own responsibility to sort).
   `depends_on`: 2.5, 2.1 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: charging worker]** Create `internal/charging/db_monthly_capacity_integration_test.go`
+- [x] **3.2** **[module: charging worker]** Create `internal/charging/db_monthly_capacity_integration_test.go`
   — `DATABASE_URL`-gated, using the package's existing `testdb_test.go` pool. Cover design.md Test
   Contract **B1–B2** (the `CHECK` and the `UNIQUE` constraint, direct SQL, SQLSTATE not message
   text) and **C1–C12** (the RD2 exclusions with their one-line reasons, RD4's thin-month case, the

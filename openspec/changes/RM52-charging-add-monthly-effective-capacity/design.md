@@ -1063,11 +1063,17 @@ behaviour, not the port's.
 
 ### Group C — the job and both updated seams (integration, through the real ports)
 
-Same file. `q := chargingdb.New(pool)` for direct seeding where a public writer does not cover the
-fixture shape (mirrors `internal/charging/AGENTS.md` §Testing Notes' existing "seed via direct
-`INSERT`" convention for another module's tables — here it is this module's own tables, seeded
-below the public port to set up percentages/status/energy_source combinations the port's own
-validation would otherwise reject or normalize).
+Same file. Seed through the **public ports** (`Writer`, `SessionWriter`, `SessionVerifier`), and
+through plain SQL where a public writer does not cover the fixture shape — percentages, status or
+`energy_source` combinations the port's own validation would reject or normalize.
+
+**Corrected at the Wave 3 boundary (leader).** This paragraph first said to seed with
+`q := chargingdb.New(pool)`. That contradicts `internal/charging/AGENTS.md` §Allowed Imports,
+which states that `chargingdb` "is module-private by convention; no other module imports it, and
+no `_test.go` file does either". All 16 existing integration tests in this module honour that
+rule. The boundary rule wins over this artifact, so the sentence is corrected here rather than
+left to mislead the next reader. **No expected value in any fixture below changed** — only how
+the fixture is built.
 
 | ID | Setup | Action | Expected | What it proves |
 |---|---|---|---|---|
@@ -1082,7 +1088,7 @@ validation would otherwise reject or normalize).
 | **C9** | Current-month row exists with `effective_capacity_kwh IS NULL` (a thin month); an earlier month's row exists with `effective_capacity_kwh = 70.0` | Call `packCapacityKWh` (real seam) for that `tesla_id` | Returns `70.0`, not `62.0` and not an error | **`packCapacityKWh` with a `NULL` current month and a measured earlier month ⇒ returns the earlier one** (RD4) — `LatestMeasuredCapacity`'s own `WHERE ... IS NOT NULL` skips the thin row unconditionally. |
 | **C10** | No `monthly_effective_capacity` row exists anywhere | `Writer.Create` with `EnergyAddedKWh: nil` and a valid percentage delta, **and** `SessionVerifier.VerifySession` deriving a start percentage on a session with a non-nil `tesla_id` | Both derive using `62.0`, matching pre-change behaviour bit-for-bit | **Behaviour is unchanged until the first month is computed** (proposal.md §Breaking) — both callers, in one test. |
 | **C11** | A `supercharger_sessions` row with `tesla_id = NULL`, needing a derived start percentage | `SessionVerifier.VerifySession` | Derivation succeeds using `defaultPackCapacityKWh` directly; **no call reaches `LatestMeasuredCapacity`** for this row (asserted by seeding no measured row and confirming no error path was taken, or by a call-count fake substituted only for this one case) | **RD11's caller-side nil short-circuit**: a session whose `tesla_id` is `NULL` never reaches `packCapacityKWh`'s DB read at all. |
-| **C12** | `Calculate(ctx, period, nil)` run once (state as in C4), then a fifth valid `USER` entry added for the same vehicle and period, then `Calculate` run again | The row updates in place (`candidate_count` and `sample_count` both become `5`); no second row is created | **The upsert is idempotent** (RD9's re-run path) — `ON CONFLICT (tesla_id, effective_period) DO UPDATE` is exercised, not just declared. |
+| **C12** | `Calculate(ctx, period, nil)` run once (state as in **C5** — four entries), then a fifth valid `USER` entry added for the same vehicle and period, then `Calculate` run again | The row updates in place (`candidate_count` and `sample_count` both become `5`); no second row is created | **The upsert is idempotent** (RD9's re-run path) — `ON CONFLICT (tesla_id, effective_period) DO UPDATE` is exercised, not just declared. |
 | **C13** | Five `USER` manual entries, same `tesla_id`, every delta `5` points (all below `minDeltaPct = 15`) | `Calculate(ctx, period, nil)` | Row exists: `effective_capacity_kwh IS NULL`, `candidate_count = 5`, `sample_count = 0` | **The case `candidate_count` exists for** (D1, roadmap RD15). Five valid records were found and none survived the gate. Without `candidate_count` this row is indistinguishable from a month with nothing measurable. |
 
 ---
