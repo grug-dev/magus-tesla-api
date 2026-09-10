@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-10T01:50:10Z",
-  "updated_at": "2026-09-10T20:58:00Z",
+  "updated_at": "2026-09-10T21:04:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -253,6 +253,12 @@
       "event": "tier-2-archived",
       "by": "leader",
       "detail": "Tier 2 archived to openspec/changes/archive/app/2026-09-10-RM52-app-add-monthly-capacity-step. Reviewer approved round 1, zero findings, after the OWNER reported make check passed. Ten tasks plus leader tasks L1/L2/L4. Two docs were found stale and fixed in-change: README.md's internal/app row and the nightly-cycle KB guide, neither of which tasks.md had covered. The owner also chose to fix a pre-existing wrong NewProcessor signature in internal/app/AGENTS.md. Tier 3 (platform, cmd/monthly-capacity) is now unblocked and is the last tier of RM52."
+    },
+    {
+      "at": "2026-09-10T21:04:00Z",
+      "event": "checkpoint",
+      "by": "leader",
+      "detail": "Clean stop at the tier 2 / tier 3 boundary. Tier 2 is archived; nothing is half-written and the tree is clean. Budget: 5h 61% against a gate of 90, context 12% against 40 - neither tripped. The 7-DAY bucket is at 96% and has no configured gate, which is why the leader stopped anyway: tier 3 is a whole new tier (cmd/monthly-capacity, the make target, structure docs and the vehicle-monthly-metrics KB guide), and the roadmap runs with autopilot=false, so advancing was never automatic. Resume with /kkpa-dev-harness-pipeline resume RM52-platform-add-monthly-capacity-cli (tier 3 has no change folder yet, so the resume will start it at Step 2)."
     }
   ]
 }
