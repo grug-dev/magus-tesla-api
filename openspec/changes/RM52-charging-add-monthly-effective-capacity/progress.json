@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "in-progress",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T12:38:11Z",
+  "updated_at": "2026-09-10T12:45:40Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -27,7 +27,8 @@
       "3.1",
       "3.2",
       "4.1",
-      "5.1"
+      "5.1",
+      "3.3"
     ],
     "blocked": [],
     "done": [
@@ -85,6 +86,14 @@
       "made_by": "autopilot",
       "decision": "Accepted the worker's CandidateCount fix. design.md's D7 code block omits the field, but its own Expected sqlc diff lists CandidateCount int32 in the params struct. Go would have zero-valued it silently, writing candidate_count = 0 and breaking D1 and fixtures C4/C5/C6/C13.",
       "why": "A missing struct field compiles in Go, so no signal would have caught it before an integration test. len(samples) is the pre-gate per-vehicle count, which is D1's definition exactly."
+    },
+    {
+      "id": "D-lead-6",
+      "at": "2026-09-10T12:45:40Z",
+      "scope": "tasks",
+      "made_by": "user",
+      "decision": "Delete TestPackCapacityKWh_VinIndependent rather than rewrite it. Appended as task 3.3, ordered after 3.1 so A6-A8 exist before the original goes. Wave 2 left go vet red on this test alone; no task owned the file.",
+      "why": "The test varies a VIN argument D4 removes, so it cannot be ported. Rewritten, it would only duplicate A6 in a second file."
     }
   ],
   "tasks": [
@@ -370,6 +379,22 @@
       "duration_seconds": null,
       "budget": null,
       "notes": "The suite itself is the owner's to run: make migrate-up then make check."
+    },
+    {
+      "id": "3.3",
+      "title": "Delete TestPackCapacityKWh_VinIndependent, superseded by Test Contract A6-A8",
+      "depends_on": [
+        "3.1"
+      ],
+      "wave": 3,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Appended at the wave-2 boundary. Its three VIN cases all asserted the 62.0 fallback; A6 asserts the same over the new seam."
     }
   ],
   "review": {
@@ -438,6 +463,12 @@
       "event": "wave-2-completed",
       "by": "leader",
       "detail": "All six wave-2 tasks implemented. Leader verified: gofmt clean, go build ./... clean repo-wide. go vet ./... RED on one pre-existing test, entry_status_test.go:213 TestPackCapacityKWh_VinIndependent, which still calls the old (ctx, vin string) seam. No task in tasks.md owns that test. Budget: 5h 73%->83%, context 13%."
+    },
+    {
+      "at": "2026-09-10T12:45:40Z",
+      "event": "task-appended",
+      "by": "leader",
+      "detail": "Task 3.3 appended to tasks.md and progress.json after the owner's decision on the stale test. Tasks stay append-only: nothing existing was edited or weakened."
     }
   ]
 }

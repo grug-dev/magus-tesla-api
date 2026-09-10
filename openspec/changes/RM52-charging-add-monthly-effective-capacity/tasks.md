@@ -205,6 +205,24 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
   read, RD11's caller-side nil short-circuit, and RD9's idempotent re-run).
   `depends_on`: 2.3, 2.4, 2.5, 2.6 · `parallel_ok`: with 3.1
 
+- [ ] **3.3** **[module: charging worker]** Delete `TestPackCapacityKWh_VinIndependent` from
+  `internal/charging/entry_status_test.go` (the test function and its `// --- ... ---` section
+  header, if that header covers only this test). It calls the old
+  `packCapacityKWh(ctx, vin string)` seam and asserts "always returns 62.0, whatever the VIN" —
+  the exact rule design.md D4 removes. The test cannot be ported: the VIN argument it varies no
+  longer exists.
+  **Lost coverage, and where it went:** its three cases (real VIN, empty VIN, unknown VIN) all
+  asserted the 62.0 fallback. Task **3.1**'s Test Contract **A6** asserts that same fallback
+  against the new seam, with a fake `packCapacityLookup` returning no measured row. A7 and A8
+  then cover the two cases the old test could not reach. Net coverage goes up, not down.
+  **Touch nothing else in this file** — `entry_status_test.go` holds RM33's and RM51's own test
+  groups, and both stay exactly as they are.
+  This task exists because no other task owned this file, and it is the only thing keeping
+  `go vet ./...` red after Wave 2. Appended by the leader at the Wave 2 boundary, on the owner's
+  decision (recorded in progress.json as `D-lead-6`).
+  `depends_on`: 3.1 · `parallel_ok`: no (do it after 3.1 lands A6-A8, so the replacement exists
+  before the original is removed)
+
 ---
 
 ## Wave 4 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)
