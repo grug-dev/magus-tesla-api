@@ -180,7 +180,8 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
+- [x] **O1** **[owner]** Run the suite. **DONE — the owner reported `make check` PASSED.**
+  Recorded as the owner's report, never claimed by the assistant. Nothing above may be reported as `done` on the assistant's
   say-so; work that is complete but unexecuted is **`awaiting-user-verification`**.
   ```bash
   make check
@@ -197,7 +198,10 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 
 ## Cross-module tasks the leader owns
 
-- [ ] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green **outside**
+- [x] **L1** **[leader]** **DONE — both are green repo-wide**, re-run by the leader after the
+  final doc commit, together with `make tz-guard`, `make boundary-guard` and `make archive-guard`.
+  No cross-module compile fix beyond task 2.3 was needed, as proposal.md §Breaking predicted.
+  Original task text: Confirm `go build ./...`/`go vet ./...` are green **outside**
   `internal/app` and `cmd/poller` once Wave 5 lands. Proposal.md §Breaking states no other
   cross-module compile fix should be needed — verify rather than assume.
 - [x] **L2** **[leader]** Confirm the root `README.md` needs no edit.

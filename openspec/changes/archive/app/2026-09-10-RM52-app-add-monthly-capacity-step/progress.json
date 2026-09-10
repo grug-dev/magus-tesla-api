@@ -6,9 +6,9 @@
   "roadmap": "RM52-vehicle-monthly-metrics",
   "tier": 2,
   "intention": "Add step 4 to ProcessVehicleData. It calls tier 1's charging.MonthlyCapacityCalculator.Calculate for the PREVIOUS month, only when today is the first day of the month in the platform zone (RD6, RD7). The gate is a pure function so it can be tested without a clock. app calls the port only and never imports internal/charging/db (RD1). No database object changes.",
-  "status": "applied",
+  "status": "archived",
   "created_at": "2026-09-10T19:00:56Z",
-  "updated_at": "2026-09-10T20:52:00Z",
+  "updated_at": "2026-09-10T20:58:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -96,6 +96,14 @@
       "made_by": "user",
       "decision": "Fix the pre-existing stale NewProcessor signature in internal/app/AGENTS.md inside this change, rather than backlog it.",
       "why": "Two lines in the exact section wave 4 already edited. Leaving it wrong next to a correct addition would cost the next agent a wasted round-trip."
+    },
+    {
+      "id": "D-lead-8",
+      "at": "2026-09-10T20:53:00Z",
+      "scope": "verification",
+      "made_by": "autopilot",
+      "decision": "Did NOT ask the owner to re-run the suite before the reviewer gate. Reused the pass already reported at 30f8b51.",
+      "why": "Everything committed since is documentation text plus one doc-comment fix. No Go file changed. The leader re-ran build, vet, gofmt and all three guards clean."
     }
   ],
   "tasks": [
@@ -341,10 +349,18 @@
     }
   ],
   "review": {
-    "status": "not-started",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "app-reviewer",
+    "brief": "Review RM52 tier 2 (change RM52-app-add-monthly-capacity-step, module app). Read the DIFF against the merge-base with main, not the whole module. Commits: 0ddb998 (code), 30f8b51 (tests), e5f414e and 99d664b (docs).\n\nVALIDATE:\n1. Module boundary: internal/app calls charging.MonthlyCapacityCalculator as a PUBLIC PORT only. It must not import internal/charging/db, and must take no *pgxpool.Pool. cmd/poller/main.go is wiring only (RD1).\n2. Design compliance, verbatim: monthlyCapacityPeriod, runMonthlyCapacityStep and callMonthlyCapacityCalculator against design.md D2's code blocks. The ONLY authorized addition is task 2.4's zone warning. D3: the new NewProcessor parameter sits immediately after mirrorWatermarks.\n3. THE TEST-CONTRACT RULE, the hardest check: the tests must assert design.md's Test Contract (A1-A6, B1-B2, C1-C2) as authored BEFORE implementation - not whatever the code does. Verify each expected value in monthly_capacity_step_test.go against design.md's own table. A4/A5 are load-bearing: A4 (UTC day is the 1st, Bogota day is the 31st) must be run=false; A5 must be true. C2 must assert NOTHING about the call count - an assertion there makes the suite fail one day a month.\n4. Time zone: the gate uses clock.Zone(), never p.loc and never a hardcoded zone name (RD7, CLAUDE.md time-zone rule). Task 2.4's warning is LOG ONLY - confirm it cannot skip or fail the step.\n5. Short-circuit: step 4 is inside the same `if err == nil` block as steps 2 and 3 (RD6). C1 proves it.\n6. Docs track change (CLAUDE.md non-negotiable): internal/app/AGENTS.md and kkpa/context/architecture/nightly-cycle.md both describe FOUR steps, with no leftover 'three'. README.md's internal/app row too. Nothing under openspec/changes/archive/ was edited.\n7. Anti-gaming: no task or acceptance criterion was edited, weakened or deleted. Tasks 2.4, 4.2 and L4 were APPENDED (owner/leader decisions), which is allowed. No status was self-approved.\n8. Performance-Profile compliance: read-heavy. This change adds one write path that runs once a month; confirm it adds no per-request or per-vehicle cost to the nightly cycle.\n9. NO database object is added by this tier. Any schema/table/index/migration change would be a blocker finding - the tier-1 migration already exists and is not yours to re-review.\n\nWHICH SIGNALS ARE WHOSE: The OWNER ran `make check` and reported it PASSED (tree 30f8b51, all Go code and tests). The assistant never ran the suite. The assistant DID run, clean: gofmt, go build, go vet, make tz-guard, make boundary-guard, make archive-guard. Judge test QUALITY by READING the tests - do not run them.\n\nKnown and accepted, not findings: runMonthlyCapacityStep's own three-line body is deliberately untested (design.md D2's covered/uncovered table, same gap already accepted for recalculateAnalytics). Three repo-wide gofmt hits are pre-existing and outside this change.\n\nEscalate on doubt: return changes-requested rather than approving anything you are unsure about.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-10T21:10:00Z",
+        "verdict": "approved",
+        "findings": [],
+        "note": "No blockers, no majors, no minors. Design D1-D3 matched verbatim. Test Contract A1-A6/B1-B2/C1-C2 matched design.md value by value. Boundary, docs, anti-gaming all clean."
+      }
+    ]
   },
   "events": [
     {
@@ -412,6 +428,18 @@
       "event": "pre-existing-staleness-found",
       "by": "leader",
       "detail": "The worker found internal/app/AGENTS.md's documented NewProcessor signature already stale BEFORE this change, and did not fix it (outside its assigned scope). Two errors: mirrorWatermarks charging.MirrorWatermarkStore is missing entirely (added by RM44), and the telemetry port is named superchargerReader telemetry.SuperchargerReader when the real name is superchargerHistoryReader telemetry.SuperchargerHistoryReader (renamed by RM39 tier 5). Leader verified both against internal/app/app.go. Escalated to the owner for a scope decision before the reviewer gate."
+    },
+    {
+      "at": "2026-09-10T20:53:00Z",
+      "event": "verified",
+      "by": "leader",
+      "detail": "Change status -> verified, resting on the OWNER's reported make check pass. Leader re-ran the cheap signals after the two doc commits: go build, go vet, gofmt, tz-guard, boundary-guard, archive-guard, all clean. Review brief written. Dispatching app-reviewer (claude-sonnet-5)."
+    },
+    {
+      "at": "2026-09-10T20:58:00Z",
+      "event": "archived",
+      "by": "leader",
+      "detail": "Reviewer app-reviewer approved round 1 with ZERO findings, after the owner's reported make check pass. Archive needed two leader fixes the artifacts got wrong. (1) The delta renamed a requirement header inside a MODIFIED block, so the CLI aborted with 'not found' and changed nothing; the leader added the ## RENAMED FROM/TO block the RM29 precedent uses, and it applied. (2) The CLI then re-appended the renamed requirement at the END of the main spec, a known quirk; the leader moved it back to first, where it was. Also fixed two now-stale 'three steps' phrases the delta had not covered, inside the poll-run summary requirement of the same live spec. The CLI dropped the archive at the archive root; the leader moved it under archive/app/ to match this repo's module grouping. openspec validate --specs --strict: 18 passed, 0 failed."
     }
   ]
 }

@@ -1,3 +1,8 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: Processing A Vehicle-Data Cycle Runs Three Steps In Order`
+- TO: `### Requirement: Processing A Vehicle-Data Cycle Runs Four Steps In Order`
+
 ## MODIFIED Requirements
 
 ### Requirement: Processing A Vehicle-Data Cycle Runs Four Steps In Order

@@ -312,7 +312,7 @@ Status legend: `[ ]` pending (change not created) · `[~]` in progress (change c
 | Status | Tier | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
 | `[x]` | 1 | `RM52-charging-add-monthly-effective-capacity` | `charging` | The table, the estimator, the job, and the seam reading it | — |
-| `[~]` | 2 | `RM52-app-add-monthly-capacity-step` | `app` | Nightly processor step 4, first day of month only | 1 |
+| `[x]` | 2 | `RM52-app-add-monthly-capacity-step` | `app` | Nightly processor step 4, first day of month only | 1 |
 | `[ ]` | 3 | `RM52-platform-add-monthly-capacity-cli` | `platform` | `cmd/monthly-capacity`, the make target, docs and the KB | 1, 2 |
 
 ### Tier 1 — `[x]` `RM52-charging-add-monthly-effective-capacity` (module: `charging`)
@@ -336,7 +336,7 @@ container. The RD2 filter and the RD5 grouping live above it, in the job.
 `packCapacityKWh` keeps returning `62.0` whenever the table has no measured row, so behaviour is
 unchanged until the first month is computed.
 
-### Tier 2 — `[~]` `RM52-app-add-monthly-capacity-step` (module: `app`)
+### Tier 2 — `[x]` `RM52-app-add-monthly-capacity-step` (module: `app`)
 
 One new step in `ProcessVehicleData`, after step 3. It runs only when `clock.Now()` is the first
 day of the month in `America/Bogota` (RD7) and passes the **previous** month. It follows the
