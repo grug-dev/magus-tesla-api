@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "verified",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T18:06:14Z",
+  "updated_at": "2026-09-10T18:08:54Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -473,9 +473,9 @@
     }
   ],
   "review": {
-    "status": "not-started",
-    "agent": null,
-    "brief": null,
+    "status": "in-review",
+    "agent": "charging-reviewer",
+    "brief": "Review RM52 tier 1 in internal/charging. Validate, against the diff on ft/RM52-MAG-32-vehicle-monthly-metrics from its merge-base with main: (1) module-boundary compliance - no other module reads or writes charging.monthly_effective_capacity, chargingdb stays module-private, and NO _test.go file imports chargingdb (AGENTS.md Allowed Imports); (2) every DB object matches the user-confirmed design - the DDL verbatim, no account_id, no FK on tesla_id, no raw_data, the CHECK, and UNIQUE (tesla_id, effective_period) as the whole index plan with no separate CREATE INDEX. A mismatch is a BLOCKER finding; (3) the integration and unit tests assert the expected values design.md authored UP FRONT in its Test Contract (A1-A9, B1-B2, C1-C13), not whatever the implementation happens to produce - this is the test-contract rule and it is the highest-value check in this brief; (4) D1 is honoured - candidate_count counted BEFORE the delta gate, sample_count AFTER, never collapsed; D2 - a tesla_id with zero valid rows gets no row at all; (5) RD2 - only USER manual entries and DONE supercharger sessions feed the estimator, so a derived value is never averaged back into itself; (6) D9 - the gate/method split is intact and median keeps the func(gated []capacitySample) float64 signature; (7) the declared read-heavy Performance-Profile; (8) doc-pack conventions, the km/degC/PSI unit rule and the internal/clock time-zone rule; (9) anti-gaming - no task title or acceptance criterion was weakened or deleted, and no status was self-approved. NOTE two leader corrections to design.md made at the wave-3 boundary, recorded as D-lead-7 and D-lead-8: the Group C seeding paragraph (chargingdb replaced by public ports, to obey AGENTS.md) and the C12 cross-reference (C4 corrected to C5). Judge whether both were right. NO Test Contract expected value was changed. SIGNAL PROVENANCE, which you must respect: gofmt, go build, go vet and the guards migration/tz/boundary/archive were ASSISTANT-run and are green. The SUITE was USER-run and reported passing - make test-with-db against a scratch Postgres, no Docker. You must NOT run the suite. Judge test quality by READING the tests.",
     "rounds": []
   },
   "events": [
@@ -628,6 +628,18 @@
       "event": "user-verified",
       "by": "leader",
       "detail": "THE OWNER ran the suite and reported it PASSING. Command: make test-with-db DATABASE_URL=postgres://localhost:5432/magus_rm52_test?sslmode=disable, against the scratch DB, with no Docker. This is the owner s report, not the assistant s: the assistant never ran the suite. The eight awaiting-user-verification tasks (2.1-2.5, 3.1, 3.2, 3.3) move to done on that report and the change moves to verified. Guards and vet were assistant-run earlier and are green; the suite is user-run. The reviewer brief must state that split."
+    },
+    {
+      "at": "2026-09-10T18:06:45Z",
+      "event": "reviewer-dispatched",
+      "by": "leader",
+      "detail": "charging-reviewer dispatched on claude-sonnet-5, the cheaper tier, instructed to escalate on doubt rather than approve anything uncertain. Gate opened only after the owner s reported suite pass. Budget at dispatch: 5h 41%, 7d 87%, context 23%."
+    },
+    {
+      "at": "2026-09-10T18:08:54Z",
+      "event": "scratch-db-consolidated",
+      "by": "leader",
+      "detail": "IMPORTANT for any later session: magus_rm52_test NO LONGER EXISTS. On the owner s decision all 13 magus_* scratch databases were dropped, including the one this run used. The dev DB magus was not touched and is unchanged at 10207 kB. One fixed scratch DB magus_test replaces them: created, 46 migrations applied, charging.monthly_effective_capacity has its 3 constraints. Use magus_test from now on and do not invent a new per-run name; the sprawl happened because each session made up its own. The owner s passing suite result stands - it ran before the drop, against the identical schema. Two follow-ups proposed and not yet actioned: a make target for the fixed scratch DB, and the missing timeout on internal/testdb s Docker probe."
     }
   ]
 }
