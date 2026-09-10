@@ -288,12 +288,27 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 
 ## Cross-module tasks the leader owns
 
-- [ ] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green **outside**
+- [x] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green **outside**
   `internal/charging` once Wave 5 lands. Proposal.md §Breaking states no cross-module compile fix
   should be needed — verify rather than assume.
-- [ ] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change adds no module
+- [x] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change adds no module
   and no runnable (tier 3 adds `cmd/monthly-capacity/`, not this tier) — the "Project Structure"
   tree and the "Architecture" table should already be correct.
 - [ ] **L3** **[leader]** When tier 1 archives, close roadmap backlog item **#18** in
   `openspec/roadmaps/backlog.md` (superseded by this change, per roadmap RD1) and update
   `openspec/roadmaps/RM52-vehicle-monthly-metrics.md`'s tier 1 status to `[x]`.
+- [x] **L4** **[leader]** Update the root `README.md` and the two stale KB guides. **Appended at
+  the Wave 6 boundary, on the owner's decision.** L2 assumed the `README.md` needed no edit. That
+  assumption is wrong: the "Database schema ownership" table lists every table each module owns,
+  and this change adds a third `internal/charging` table that is missing from it. Two KB guides
+  are stale for the same reason. `CLAUDE.md` §Non-negotiables requires all of it in the SAME
+  change. **L2 itself is not edited** — it stands as the check that was run and failed.
+  - `README.md` — add the `charging.monthly_effective_capacity` row to the schema ownership
+    table, and add the table to the `internal/charging` row of the "Architecture" table.
+  - `kkpa/context/workflows/manual-charge-crud.md` — the file map still says
+    `packCapacityKWh(ctx, vin)`, and one bullet still calls the 62 kWh capacity a PLACEHOLDER.
+  - `kkpa/context/architecture/charge-record-mutation.md` — the file map and the "Two pack
+    capacities" bullet still say `charging/capacity.go` returns a hardcoded `62.0`.
+  These are root and KB docs, outside `internal/charging`, so the leader owns them, not a module
+  worker.
+  `depends_on`: 4.1 · `parallel_ok`: no

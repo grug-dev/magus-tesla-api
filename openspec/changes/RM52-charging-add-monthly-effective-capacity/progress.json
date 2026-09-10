@@ -8,7 +8,7 @@
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
   "status": "applied",
   "created_at": "2026-09-10T09:52:17Z",
-  "updated_at": "2026-09-10T16:47:13Z",
+  "updated_at": "2026-09-10T16:55:50Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -32,7 +32,8 @@
       "1.4",
       "2.6",
       "4.1",
-      "5.1"
+      "5.1",
+      "L4"
     ],
     "awaiting_user_verification": [
       "2.1",
@@ -125,6 +126,14 @@
       "made_by": "autopilot",
       "decision": "The leader ran 5.1 itself instead of dispatching a worker. tasks.md marks 5.1 [module: charging worker], but its whole content is running six commands the Test-Execution-Policy already allows the leader to run.",
       "why": "A worker would re-read the doc pack to run six make targets. No code is written. The 7-day bucket is at 86 percent."
+    },
+    {
+      "id": "D-lead-11",
+      "at": "2026-09-10T16:55:50Z",
+      "scope": "tasks",
+      "made_by": "user",
+      "decision": "Appended task L4 and fixed the root README plus both stale KB guides. The owner chose the full scope at the wave-6 gate. L2 was left as written and ticked: it records a check that ran and failed.",
+      "why": "CLAUDE.md requires structure docs and the KB to track a change in the same change. A stale KB guide is read as authoritative by kkpa-context-fetch."
     }
   ],
   "tasks": [
@@ -447,6 +456,21 @@
       "duration_seconds": null,
       "budget": null,
       "notes": "Leader deleted the test and its A9 section header, 32 lines. The context import became unused and was removed too. go vet ./... is now green repo-wide. RM33 A1-A8 and RM51 groups untouched."
+    },
+    {
+      "id": "L4",
+      "title": "README schema-ownership row + two stale KB guides",
+      "depends_on": [
+        "4.1"
+      ],
+      "wave": 6,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-10T16:55:50Z",
+      "completed_at": "2026-09-10T16:55:50Z",
+      "budget": null,
+      "notes": "Added the monthly_effective_capacity row to README schema ownership and the table to the charging Architecture row. Fixed both KB guides: the packCapacityKWh signature, the PLACEHOLDER claim, and the dead TODO(MAG-18) reference."
     }
   ],
   "review": {
@@ -575,6 +599,18 @@
       "event": "wave-6-completed",
       "by": "leader",
       "detail": "5.1 done, run by the leader. gofmt clean, go build clean, go vet GREEN repo-wide, and migration-guard / tz-guard / boundary-guard / archive-guard all pass. Every task in tier 1 is now implemented. Change status moved to applied. It does NOT move to verified: the owner s suite has not run, because their Docker daemon is down. The reviewer gate stays closed until that pass arrives. Eight tasks remain awaiting-user-verification. Budget: 5h 24%, 7d 86%, context 18%."
+    },
+    {
+      "at": "2026-09-10T16:48:30Z",
+      "event": "leader-check-L1-L2",
+      "by": "leader",
+      "detail": "L1 PASSES: go build and go vet are green across all 25 packages outside internal/charging, so proposal.md Breaking holds and no cross-module fix is needed. L2 FAILS its own assumption: the root README.md Database schema ownership table lists every table each module owns, internal/charging has two rows, and this change adds a third (charging.monthly_effective_capacity) that is missing. Two KB guides are also stale on the changed seam: kkpa/context/workflows/manual-charge-crud.md (packCapacityKWh(ctx, vin), 62 kWh called a PLACEHOLDER) and kkpa/context/architecture/charge-record-mutation.md (hardcoded 62.0, three places). CLAUDE.md requires both in the SAME change. No task in tasks.md covers either. Awaiting the owner s scope decision before appending a task."
+    },
+    {
+      "at": "2026-09-10T16:55:50Z",
+      "event": "L4-completed",
+      "by": "leader",
+      "detail": "L1, L2 and L4 all ticked. L1 verified: build and vet green across all 25 packages outside internal/charging. L2 ticked as a check that RAN and FAILED, with L4 appended as the fix rather than editing L2. L4 done by the leader: README schema-ownership table gained the monthly_effective_capacity row and the charging Architecture row now names the table; kkpa/context/workflows/manual-charge-crud.md and kkpa/context/architecture/charge-record-mutation.md corrected on the packCapacityKWh signature, the PLACEHOLDER claim and a TODO(MAG-18) comment that no longer exists. go build and go vet re-run after the doc edits, still green. Only L3 remains, and it fires at archive time."
     }
   ]
 }
