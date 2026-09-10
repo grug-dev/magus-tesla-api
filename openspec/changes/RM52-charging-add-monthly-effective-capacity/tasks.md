@@ -254,7 +254,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 
 ## Wave 5 — signals
 
-- [ ] **5.1** **[module: charging worker]** Run the cheap deterministic signals the
+- [x] **5.1** **[module: charging worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/charging`, `go build ./...`, `go vet
   ./...`. `go build ./...` and `go vet ./...` should be clean repo-wide (proposal.md §Breaking —
   every change is additive or confined to unexported functions). If either fails outside
