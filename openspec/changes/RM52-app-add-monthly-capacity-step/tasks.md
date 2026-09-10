@@ -92,7 +92,7 @@ granted path]** — `cmd/poller/main.go`, explicitly granted by the leader for t
 
 Every expected value is fixed in design.md §Test Contract. **Assert that contract.**
 
-- [ ] **3.1** **[module: app worker]** Create `internal/app/monthly_capacity_step_test.go` —
+- [x] **3.1** **[module: app worker]** Create `internal/app/monthly_capacity_step_test.go` —
   offline, no DB, package `app`. Cover design.md Test Contract **A1–A6**
   (`monthlyCapacityPeriod`'s six cases, including the zone-crossing pair A4/A5 that is the
   load-bearing proof of correctness) and **B1–B2** (`callMonthlyCapacityCalculator` against a new
@@ -101,7 +101,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
   `(charging.MonthlyCapacityReport, error)`).
   `depends_on`: 2.2 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: app worker]** `internal/app/processor_test.go`:
+- [x] **3.2** **[module: app worker]** `internal/app/processor_test.go`:
   - Add `fakeMonthlyCapacityCalculator` (from 3.1, or redeclared here if 3.1 places it in the new
     file — worker's choice, but declare it in exactly one place to avoid a duplicate-symbol
     compile error between the two files).

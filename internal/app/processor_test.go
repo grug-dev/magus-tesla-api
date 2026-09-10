@@ -285,14 +285,17 @@ func (fakeGapWriter) ReconcileWindow(_ context.Context, _ uuid.UUID, _ int64, _,
 var _ analytics.GapWriter = fakeGapWriter{}
 
 // newTestProcessor wires the fake roster above into a Processor, mirroring
-// NewProcessor's real parameter order (design D1).
-func newTestProcessor(collector telemetry.Collector, runWriter telemetry.RunWriter, acct account.Service) Processor {
+// NewProcessor's real parameter order (design D1). monthlyCapacityCalculator
+// sits right before acct, matching NewProcessor's own position for the new
+// charging port (RM52 tier 2 design.md D3).
+func newTestProcessor(collector telemetry.Collector, runWriter telemetry.RunWriter, monthlyCapacityCalculator charging.MonthlyCapacityCalculator, acct account.Service) Processor {
 	return NewProcessor(
 		collector,
 		fakeSuperchargerHistoryReader{},
 		runWriter,
 		fakeSessionWriter{},
 		&fakeMirrorWatermarkStore{},
+		monthlyCapacityCalculator,
 		acct,
 		fakeRecalculator{},
 		fakeAnalyticsReader{},
@@ -316,7 +319,8 @@ func TestProcessVehicleData_SuccessfulRunRecordsOneRow(t *testing.T) {
 	}
 	acct := &fakeAccountEmpty{}
 	runWriter := &fakeRunWriter{}
-	p := newTestProcessor(collector, runWriter, acct)
+	monthlyCapacity := &fakeMonthlyCapacityCalculator{}
+	p := newTestProcessor(collector, runWriter, monthlyCapacity, acct)
 
 	before := time.Now()
 	report, err := p.ProcessVehicleData(context.Background(), telemetry.TriggeredByScheduler)
@@ -365,7 +369,8 @@ func TestProcessVehicleData_WholeCycleFailureStillRecordsRow(t *testing.T) {
 	collector := &fakeCollector{report: telemetry.CycleReport{}, err: errBoom}
 	acct := &fakeAccountEmpty{}
 	runWriter := &fakeRunWriter{}
-	p := newTestProcessor(collector, runWriter, acct)
+	monthlyCapacity := &fakeMonthlyCapacityCalculator{}
+	p := newTestProcessor(collector, runWriter, monthlyCapacity, acct)
 
 	report, err := p.ProcessVehicleData(context.Background(), telemetry.TriggeredByScheduler)
 
@@ -398,6 +403,9 @@ func TestProcessVehicleData_WholeCycleFailureStillRecordsRow(t *testing.T) {
 	if acct.allRegisteredVehiclesCalled {
 		t.Error("AllRegisteredVehicles was called; want steps 2/3 skipped on the step-1 whole-cycle-failure path (short-circuit preserved)")
 	}
+	if monthlyCapacity.calls != 0 {
+		t.Errorf("monthlyCapacityCalculator.calls = %d, want 0 (Test Contract C1: step 4 is skipped by the same short-circuit as steps 2/3)", monthlyCapacity.calls)
+	}
 }
 
 // TestProcessVehicleData_RecordRunFailureDoesNotMaskCycleOutcome is
@@ -414,7 +422,8 @@ func TestProcessVehicleData_RecordRunFailureDoesNotMaskCycleOutcome(t *testing.T
 	acct := &fakeAccountEmpty{}
 	errRunWriterDown := errors.New("run writer down")
 	runWriter := &fakeRunWriter{err: errRunWriterDown}
-	p := newTestProcessor(collector, runWriter, acct)
+	monthlyCapacity := &fakeMonthlyCapacityCalculator{}
+	p := newTestProcessor(collector, runWriter, monthlyCapacity, acct)
 
 	report, err := p.ProcessVehicleData(context.Background(), telemetry.TriggeredByScheduler)
 
@@ -513,6 +522,7 @@ func newMirrorTestProcessor(
 		runWriter:                 nil,
 		sessionWriter:             writer,
 		mirrorWatermarks:          watermarks,
+		monthlyCapacityCalculator: &fakeMonthlyCapacityCalculator{},
 		acct:                      acct,
 		recalculator:              fakeRecalculator{},
 		analyticsReader:           fakeAnalyticsReader{},

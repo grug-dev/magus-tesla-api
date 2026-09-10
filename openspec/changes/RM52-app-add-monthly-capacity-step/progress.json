@@ -8,7 +8,7 @@
   "intention": "Add step 4 to ProcessVehicleData. It calls tier 1's charging.MonthlyCapacityCalculator.Calculate for the PREVIOUS month, only when today is the first day of the month in the platform zone (RD6, RD7). The gate is a pure function so it can be tested without a clock. app calls the port only and never imports internal/charging/db (RD1). No database object changes.",
   "status": "in-progress",
   "created_at": "2026-09-10T19:00:56Z",
-  "updated_at": "2026-09-10T20:38:30Z",
+  "updated_at": "2026-09-10T20:44:10Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,8 +24,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "3.2",
       "4.1",
       "4.2",
       "5.1"
@@ -37,7 +35,9 @@
       "2.1",
       "2.2",
       "2.3",
-      "2.4"
+      "2.4",
+      "3.1",
+      "3.2"
     ]
   },
   "decisions": [
@@ -177,13 +177,20 @@
         "1.1"
       ],
       "wave": 3,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T20:39:20Z",
+      "completed_at": "2026-09-10T20:43:13Z",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 29,
+        "cost_usd_delta": 2.93,
+        "approx": true,
+        "note": "one serial worker for wave 3; wave delta copied onto both tasks"
+      },
+      "notes": "New monthly_capacity_step_test.go: A1-A6 as one table test, B1-B2 as two tests. Declares fakeMonthlyCapacityCalculator. Uses clock.Zone() for the zone, never a hardcoded name.",
+      "duration_seconds": 233
     },
     {
       "id": "3.2",
@@ -192,13 +199,20 @@
         "2.2"
       ],
       "wave": 3,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T20:39:20Z",
+      "completed_at": "2026-09-10T20:43:13Z",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 29,
+        "cost_usd_delta": 2.93,
+        "approx": true,
+        "note": "one serial worker for wave 3; wave delta copied onto both tasks"
+      },
+      "notes": "newTestProcessor takes and passes the fake in D3's position; all 3 call sites updated; C1 asserts calls == 0 on the step-1 failure path; C2 left unasserted on purpose.",
+      "duration_seconds": 233
     },
     {
       "id": "4.1",
@@ -309,6 +323,18 @@
       "event": "wave-completed",
       "by": "leader",
       "detail": "Merged waves 1+2 done: 1.1, 2.1, 2.2, 2.3, 2.4. Leader verified the diff against design.md D2/D3 by hand - monthlyCapacityPeriod, runMonthlyCapacityStep and callMonthlyCapacityCalculator are verbatim, the only addition being task 2.4's zone warning. Port signature Calculate(ctx, period, *int64) and MonthlyCapacityReport fields checked against internal/charging/charging.go. go build ./... passes; go vet ./... fails ONLY at processor_test.go:301 (not enough arguments in call to NewProcessor), which is task 3.2's job. The three repo-wide gofmt hits are pre-existing. The worker reported placeholder timestamps; the leader recorded the real dispatch bracket instead. Leader also did L2 (README) and appended task 4.2 (KB guide)."
+    },
+    {
+      "at": "2026-09-10T20:39:20Z",
+      "event": "wave-dispatched",
+      "by": "leader",
+      "detail": "Wave 3 dispatched to the app worker (claude-sonnet-5): tasks 3.1 and 3.2, the tests. Budget at dispatch: 5h 20%, context 13%, 7-day 92% (no gate). Kept separate from waves 1+2 on purpose so the test author writes design.md's Test Contract, not the code that was just written."
+    },
+    {
+      "at": "2026-09-10T20:44:10Z",
+      "event": "wave-completed",
+      "by": "leader",
+      "detail": "Wave 3 done: 3.1 and 3.2. go vet ./... is now CLEAN repo-wide, so the signature drift from wave 2 is gone. Leader checked every Test Contract value by hand against design.md: A1-A6 are the design's own inputs and outputs verbatim, including the A4/A5 zone-crossing pair (A4 = UTC 1st but Bogota 31st, run=false). C1 asserts calls == 0 on the step-1 failure path; C2 correctly asserts nothing, so the suite does not depend on the real date being the 1st. The worker reported no disagreement between the code and the contract, and the leader found none."
     }
   ]
 }
