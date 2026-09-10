@@ -72,6 +72,22 @@ granted path]** — `cmd/poller/main.go`, explicitly granted by the leader for t
 
 ---
 
+- [ ] **2.4** **[module: app worker]** `internal/app/processor.go`: warn once when the two zones
+  disagree. **Appended after the artifacts, on the owner's decision at the artifact gate.**
+  `NewProcessor` takes an injected `loc` (`POLLER_TIMEZONE`), which decides **when** the nightly
+  cycle fires. The monthly gate uses `clock.Zone()` (`America/Bogota`), which RD7 and
+  `CLAUDE.md`'s time-zone rule both require. They agree in the current deployment but are two
+  different knobs.
+  - If `p.loc` and `clock.Zone()` name different zones, log **one** warning at step 4, saying
+    both zone names and that the monthly gate follows `clock.Zone()`.
+  - **Log only. Never fail, never skip the step, never change which zone the gate uses.** RD7 is
+    not re-opened: `clock.Zone()` stays the gate's zone.
+  - Why: if the two ever diverge, the cycle can fire on a moment that is the 1st in `p.loc` but
+    the 31st in `clock.Zone()`. The month is then skipped and nothing reports it. This turns a
+    silent skip into a visible one.
+  - Follow this module's existing logging shape; add no new dependency.
+  `depends_on`: 2.2 · `parallel_ok`: no
+
 ## Wave 3 — tests
 
 Every expected value is fixed in design.md §Test Contract. **Assert that contract.**
