@@ -176,6 +176,14 @@ replacing or supplementing the model-coarse one.
 then, `internal/analytics` returns a value with a documented model-coarse approximation
 (`Efficiency.Approximate` stays reserved for the separate "capacity fully unknown" case).
 
+**NOTE (2026-09-10, after RM52 tier 3).** RM52 added a *measured* per-vehicle capacity in
+`charging.monthly_effective_capacity`, read by `internal/charging`'s own `packCapacityKWh`.
+That is a different table from this item's `internal/analytics/capacity.go`, which RM52 never
+touched. Before building the trim table, weigh reading the measured value instead: `analytics`
+already imports `charging`, so there is no cycle. The measured value is not always there — a
+month with too few big charges stores no number — so a fallback would still be needed. Both
+routes stay open; this note only says the cheaper one now exists.
+
 ### ORIGIN
 
 `battery-add-efficiency-metric` design.md decision **D1b** (leader ↔ user grill-me pass,
