@@ -156,6 +156,25 @@ decoration, copy). The UI changes often and is checked by hand, so an appearance
 costs a fix on every redesign and buys nothing. The full banned/required split lives in
 `internal/gateway/AGENTS.md` §"Do not test what the page looks like" (MAG-39).
 
+**Do not test migrations. Delete migration tests when you find them.** Never write a test
+that runs a migration — rolls it back, re-applies it, and asserts what its backfill wrote.
+Never add one when asked to "add tests" broadly, and delete any that already exist rather
+than repairing them. **Migrations are verified by the owner, by inspecting the database
+directly.** That is the check that matters, and it is the one being done.
+
+The cost is one-sided. A migration is frozen the moment it is applied, but its test fixture
+is not: the fixture must keep seeding the schema that migration expected. So every later
+change that touches those columns breaks a test of work that already ran, correctly, on every
+database that needed it — and the migration itself can no longer even reach a row written by
+the new code. The test then measures nothing and still has to be fixed. Precedent:
+`TestMigration_TpmsPressureBackfill` seeded `vehicle_snapshots.account_id` so a 2026-09-08
+analytics backfill could join on it; MAG-65 re-keyed that table on `tesla_id` and the test
+broke. It was deleted, not repaired.
+
+What still belongs in a test is the **behaviour after** a migration — the queries, ports and
+derivations that read the new shape. Those are ordinary integration tests against the
+provisioned schema, and they are not migration tests.
+
 **Provisioning the test database — which entry point.** `internal/testdb` provisions a
 throw-away Postgres (a reachable `TEST_DATABASE_URL` if there is one, otherwise a disposable
 `postgres:16-alpine` container) with your migrations applied. It has two entry points, and
