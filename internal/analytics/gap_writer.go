@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
@@ -39,32 +38,31 @@ func newGapWriter(pool *pgxpool.Pool) *gapWriter {
 var _ GapWriter = (*gapWriter)(nil)
 
 // ReconcileWindow implements GapWriter. See the interface doc comment
-// (analytics.go) for the full contract. Implementation shape (design.md's
-// "Go-Level Seam Summary"):
+// (analytics.go) for the full contract. Implementation shape:
 //
-//  1. Validate every element of flagged against (accountID, teslaID, start,
-//     end) BEFORE opening a transaction — a caller bug rejects the whole call
-//     with no partial write, never a tx.Begin followed by a rollback.
-//  2. Load every existing charge_gaps date for (accountID, teslaID) in
-//     [start, end] (ChargeGapDatesByVehicleBetween) and diff it in Go against
-//     the caller's flagged set: any existing date NOT in flagged is deleted.
+//  1. Validate every element of flagged against (teslaID, start, end) BEFORE
+//     opening a transaction — a caller bug rejects the whole call with no
+//     partial write, never a tx.Begin followed by a rollback.
+//  2. Load every existing charge_gaps date for teslaID in [start, end]
+//     (ChargeGapDatesByVehicleBetween) and diff it in Go against the
+//     caller's flagged set: any existing date NOT in flagged is deleted.
 //  3. Upsert every element of flagged (UpsertChargeGap; the UNIQUE constraint
 //     makes this idempotent — a still-flagged day is refreshed in place, not
 //     duplicated).
 //  4. Commit. A failure at any step rolls back the whole transaction, so a
-//     ReconcileWindow call either fully applies or has no effect (design D7b).
+//     ReconcileWindow call either fully applies or has no effect.
 //
 // Deliberately a read-then-diff-then-write loop, not a single array-bound
 // DELETE ... WHERE gap_date <> ALL(@keep::date[]): this codebase has no
 // existing precedent for binding a Postgres array parameter through
 // sqlc/pgx, and the window this loop ever runs over is small by construction
-// (bounded, roadmap-wide, to roughly 90 calendar days) — design.md's Risks
-// section accepts the extra round-trip as negligible under this project's
-// read-heavy/write-light-and-off-hours Performance-Profile.
-func (w *gapWriter) ReconcileWindow(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time, flagged []ChargeGap) error {
+// (bounded, roadmap-wide, to roughly 90 calendar days) — the extra round-trip
+// is negligible under this project's read-heavy/write-light-and-off-hours
+// Performance-Profile.
+func (w *gapWriter) ReconcileWindow(ctx context.Context, teslaID int64, start, end time.Time, flagged []ChargeGap) error {
 	for _, g := range flagged {
-		if g.AccountID != accountID || g.TeslaID != teslaID {
-			return fmt.Errorf("charge gap for account %s vehicle %d does not match call scope (account %s vehicle %d)", g.AccountID, g.TeslaID, accountID, teslaID)
+		if g.TeslaID != teslaID {
+			return fmt.Errorf("charge gap for vehicle %d does not match call scope (vehicle %d)", g.TeslaID, teslaID)
 		}
 		if g.Date.Before(start) || g.Date.After(end) {
 			return fmt.Errorf("charge gap date %s falls outside window [%s, %s]", g.Date, start, end)
@@ -83,10 +81,9 @@ func (w *gapWriter) ReconcileWindow(ctx context.Context, accountID uuid.UUID, te
 	qtx := w.q.WithTx(tx)
 
 	existing, err := qtx.ChargeGapDatesByVehicleBetween(ctx, analyticsdb.ChargeGapDatesByVehicleBetweenParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-		Start:     dateFrom(start),
-		EndDate:   dateFrom(end),
+		TeslaID: teslaID,
+		Start:   dateFrom(start),
+		EndDate: dateFrom(end),
 	})
 	if err != nil {
 		return fmt.Errorf("loading existing charge gaps: %w", err)
@@ -100,9 +97,8 @@ func (w *gapWriter) ReconcileWindow(ctx context.Context, accountID uuid.UUID, te
 	for _, d := range existing {
 		if t := dateFromPg(d); !keep[t] {
 			if err := qtx.DeleteChargeGap(ctx, analyticsdb.DeleteChargeGapParams{
-				AccountID: accountID,
-				TeslaID:   teslaID,
-				GapDate:   d,
+				TeslaID: teslaID,
+				GapDate: d,
 			}); err != nil {
 				return fmt.Errorf("deleting resolved charge gap: %w", err)
 			}
@@ -111,7 +107,6 @@ func (w *gapWriter) ReconcileWindow(ctx context.Context, accountID uuid.UUID, te
 
 	for _, g := range flagged {
 		if err := qtx.UpsertChargeGap(ctx, analyticsdb.UpsertChargeGapParams{
-			AccountID:           accountID,
 			TeslaID:             teslaID,
 			Vin:                 g.VIN,
 			GapDate:             dateFrom(g.Date),

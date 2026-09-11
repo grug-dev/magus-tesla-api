@@ -409,18 +409,15 @@ const (
 // ChargeGap is one flagged vehicle-day whose battery math does not add up --
 // this module's own derivation could not fully account for the day's
 // battery change from stored charge records, meaning a charge record is
-// missing or incomplete (D3/D7/D7a of RM28-telemetry-add-charge-gap-storage).
-// Our own domain model, no vendor suffix (ai/architecture.md §6):
-// internal/analytics both computes it and stores it through the GapWriter
-// port below. AccountID/TeslaID are carried on the type -- even though every
-// element of one ReconcileWindow call's flagged slice belongs to that call's
-// own vehicle -- so this exact shape can also serve, unmodified, as the
-// return type of a future read port for the notification feature (not built
-// in this change).
+// missing or incomplete. Our own domain model, no vendor suffix
+// (ai/architecture.md §6): internal/analytics both computes it and stores
+// it through the GapWriter port below. It carries no AccountID: tesla_id
+// already names one vehicle uniquely, and the table itself stores no
+// account_id, so a field nothing validates, stores, or could read back
+// would only invite a caller to assume it does something.
 type ChargeGap struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-	VIN       string
+	TeslaID int64
+	VIN     string
 	// Date is the flagged calendar day -- a plain calendar DATE (UTC
 	// midnight), never a timestamp; backed by the charge_gaps.gap_date column.
 	// Must be normalized to UTC midnight the same way dateOnly/CapturedDate
@@ -453,23 +450,22 @@ type GapWriter interface {
 	// vehicle-day range [start, end] inclusive (whole calendar days -- see
 	// ChargeGap.Date): every day present in flagged is upserted (inserted, or
 	// updated in place if its MissingChargingType or VIN changed since the
-	// last run); every existing charge_gaps row for (accountID, teslaID)
-	// whose date falls in [start, end] but has NO matching entry in flagged
-	// is deleted (roadmap D7b). Days outside [start, end] are never read or
-	// touched, even if this vehicle has older or newer flagged days stored
-	// elsewhere -- reconciliation is scoped to exactly the window the caller
-	// just recomputed, never the vehicle's whole history.
+	// last run); every existing charge_gaps row for teslaID whose date falls
+	// in [start, end] but has NO matching entry in flagged is deleted. Days
+	// outside [start, end] are never read or touched, even if this vehicle
+	// has older or newer flagged days stored elsewhere -- reconciliation is
+	// scoped to exactly the window the caller just recomputed, never the
+	// vehicle's whole history.
 	//
 	// flagged may be empty: every previously-flagged day in the window has
 	// resolved, and every existing row in the window is deleted, none
 	// re-inserted -- the normal steady state once a user fixes a missing
 	// charge entry.
 	//
-	// Every element of flagged MUST carry the SAME accountID and teslaID as
-	// this call's own arguments; ReconcileWindow returns an error, and writes
-	// nothing, if one does not (defense-in-depth tenant isolation, mirroring
-	// Reader.SnapshotsByVehicleBetween's account_id AND tesla_id filter
-	// convention). Every element's Date MUST fall within [start, end];
+	// Every element of flagged MUST carry the SAME teslaID as this call's own
+	// argument; ReconcileWindow returns an error, and writes nothing, if one
+	// does not (a mis-scoped entry is a caller bug, not data to silently
+	// accept). Every element's Date MUST fall within [start, end];
 	// ReconcileWindow returns an error, and writes nothing, if one does not
 	// (a flagged day outside its own window is a caller bug, not data to
 	// silently accept -- a later call for a different window could otherwise
@@ -481,7 +477,7 @@ type GapWriter interface {
 	// nightly run, since flagged is freshly recomputed by the caller every
 	// time -- ReconcileWindow never reads charge_gaps back as an input to
 	// its own decisions, only as the set to reconcile against.
-	ReconcileWindow(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time, flagged []ChargeGap) error
+	ReconcileWindow(ctx context.Context, teslaID int64, start, end time.Time, flagged []ChargeGap) error
 }
 
 // NewGapWriter constructs a GapWriter backed by a real Postgres pool. Callers

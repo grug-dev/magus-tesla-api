@@ -12,15 +12,15 @@ written in parallel with T5/T6/T7 by a separate agent.
 
 Depends on: nothing.
 
-- [ ] 1.1 Write `internal/analytics/db/migrations/20260911000001_rekey_charge_gaps_on_tesla_id.sql`
+- [x] 1.1 Write `internal/analytics/db/migrations/20260911000001_rekey_charge_gaps_on_tesla_id.sql`
       exactly as specified in `design.md`'s "Migration SQL": the duplicate-collapse
       `DELETE`, `DROP CONSTRAINT charge_gaps_account_tesla_date_unique`,
       `DROP INDEX IF EXISTS analytics.idx_charge_gaps_account`, `DROP COLUMN account_id`, then
       `ADD CONSTRAINT charge_gaps_tesla_date_unique UNIQUE (tesla_id, gap_date)`,
       plus the `-- +goose Down` half.
-- [ ] 1.2 Do not touch `internal/analytics/db/migrations/20260815000002_add_charge_gaps.sql`
+- [x] 1.2 Do not touch `internal/analytics/db/migrations/20260815000002_add_charge_gaps.sql`
       — historic migrations are never edited, per `ai/go-conventions.md`.
-- [ ] 1.3 Run `make migration-guard`. Expect clean (no cross-module schema
+- [x] 1.3 Run `make migration-guard`. Expect clean (no cross-module schema
       reference introduced).
 
 ## T2 — Queries + sqlc
@@ -28,21 +28,21 @@ Depends on: nothing.
 Depends on: T1 (schema must exist before `sqlc generate` can validate the
 queries against it).
 
-- [ ] 2.1 In `internal/analytics/db/query.sql`, remove `account_id` from
+- [x] 2.1 In `internal/analytics/db/query.sql`, remove `account_id` from
       `UpsertChargeGap`'s column list, VALUES list, and change its
       `ON CONFLICT` target from `(account_id, tesla_id, gap_date)` to
       `(tesla_id, gap_date)`.
-- [ ] 2.2 Remove `account_id` from `DeleteChargeGap`'s `WHERE` clause.
-- [ ] 2.3 Remove `account_id` from `ChargeGapDatesByVehicleBetween`'s `WHERE`
+- [x] 2.2 Remove `account_id` from `DeleteChargeGap`'s `WHERE` clause.
+- [x] 2.3 Remove `account_id` from `ChargeGapDatesByVehicleBetween`'s `WHERE`
       clause.
-- [ ] 2.4 Rewrite each of the three queries' doc comments so they no longer
+- [x] 2.4 Rewrite each of the three queries' doc comments so they no longer
       cite `design D-Table2`, `roadmap D7b`, or `design.md Index Plan` (those
       point at the now-archived, frozen `RM28`/`RM29` design docs) — replace
       each citation with the reason itself, following this change's own
       `design.md` D-INDEX and D-MIGRATION sections for the substance. Do not
       cite this change's own name or any decision ID in the new comment text
       (`ai/go-conventions.md`'s code-comment rule).
-- [ ] 2.5 Run `make sqlc` (or `sqlc generate`). Confirm
+- [x] 2.5 Run `make sqlc` (or `sqlc generate`). Confirm
       `UpsertChargeGapParams`, `DeleteChargeGapParams`, and
       `ChargeGapDatesByVehicleBetweenParams` in the regenerated
       `internal/analytics/db/query.sql.go` no longer have an `AccountID`
@@ -52,26 +52,26 @@ queries against it).
 
 Depends on: T2 (needs the regenerated `analyticsdb` types).
 
-- [ ] 3.1 In `internal/analytics/analytics.go`: remove the `AccountID
+- [x] 3.1 In `internal/analytics/analytics.go`: remove the `AccountID
       uuid.UUID` field from the `ChargeGap` struct (design.md
       D-CHARGEGAP-FIELD) and update its doc comment (the two-reasons
       paragraph that currently justifies carrying `AccountID` no longer
       applies — replace it, do not just delete it, so a reader knows why the
       field is gone rather than assuming an oversight).
-- [ ] 3.2 In the same file, change `GapWriter.ReconcileWindow`'s signature to
+- [x] 3.2 In the same file, change `GapWriter.ReconcileWindow`'s signature to
       drop `accountID uuid.UUID`:
       `ReconcileWindow(ctx context.Context, teslaID int64, start, end time.Time, flagged []ChargeGap) error`.
       Update the interface's doc comment: drop the paragraph describing the
       `accountID`/`AccountID` mis-scope check, keep the `teslaID`/`TeslaID`
       and date-window mis-scope checks as described.
-- [ ] 3.3 In `internal/analytics/gap_writer.go`, update
+- [x] 3.3 In `internal/analytics/gap_writer.go`, update
       `(w *gapWriter) ReconcileWindow` to the new signature. Change the
       validation loop to `if g.TeslaID != teslaID { ... }` (drop the
       `g.AccountID != accountID ||` clause and its half of the error
       message). Drop `AccountID` from the `analyticsdb.*Params` literals for
       `ChargeGapDatesByVehicleBetweenParams`, `DeleteChargeGapParams`, and
       `UpsertChargeGapParams`.
-- [ ] 3.4 `go build ./internal/analytics/...` and `go vet
+- [x] 3.4 `go build ./internal/analytics/...` and `go vet
       ./internal/analytics/...` — expect these to fail until T4 also lands
       (the package's own test files still reference the old shapes); that is
       expected at this point in the sequence, not a regression to fix here.
@@ -80,27 +80,27 @@ Depends on: T2 (needs the regenerated `analyticsdb` types).
 
 Depends on: T3.
 
-- [ ] 4.1 In `internal/analytics/db_gap_writer_integration_test.go`: update
+- [x] 4.1 In `internal/analytics/db_gap_writer_integration_test.go`: update
       `cleanupChargeGaps`, `countChargeGaps`, `fetchChargeGap` to drop their
       `accountID uuid.UUID` parameter and the `account_id = $N` predicate
       from their SQL, keyed on `tesla_id` (and `gap_date` where the original
       already filtered on it) alone.
-- [ ] 4.2 Update every `ReconcileWindow(ctx, accountID, teslaID, ...)` call in
+- [x] 4.2 Update every `ReconcileWindow(ctx, accountID, teslaID, ...)` call in
       this file to drop the `accountID` argument, and every
       `ChargeGap{AccountID: ..., ...}` literal to drop the `AccountID:` field.
-- [ ] 4.3 Rename
+- [x] 4.3 Rename
       `TestGapWriter_ReconcileWindow_TenantIsolation_NeverTouchesOtherAccountVehicle`
       to `TestGapWriter_ReconcileWindow_DifferentVehiclesNeverInterfere` and
       update its body per T4.1/T4.2 — the underlying claim (vehicle A's
       reconciliation never touches vehicle B's rows) is unchanged and still
       worth asserting via two different `tesla_id`s.
-- [ ] 4.4 In
+- [x] 4.4 In
       `TestGapWriter_ReconcileWindow_RejectsMisScopedFlaggedEntry_WritesNothing`,
       delete the `"wrong AccountID on second entry"` sub-case (design.md
       D-CHARGEGAP-FIELD: that validation no longer exists). Keep `"wrong
       TeslaID"` and `"date outside window"` unchanged apart from the
       mechanical argument-list update.
-- [ ] 4.5 `go build ./internal/analytics/...` and `go vet
+- [x] 4.5 `go build ./internal/analytics/...` and `go vet
       ./internal/analytics/...` — expect clean now.
 
 ## T5 — Cross-module caller
@@ -147,11 +147,11 @@ Depends on: T3 (so there is a final signature to check against).
 Depends on: T1–T4 (needs the final schema/signature to describe accurately).
 Independent of T5–T7; may run in parallel with them.
 
-- [ ] 8.1 `internal/analytics/AGENTS.md`: grep the file for `account_id` in
+- [x] 8.1 `internal/analytics/AGENTS.md`: grep the file for `account_id` in
       the context of `charge_gaps` and fix any stale mention found. (None is
       currently expected — the module's own file defers column detail to the
       KB guide — but verify rather than skip.)
-- [ ] 8.2 `internal/analytics/README.md`: does not exist in this repo today —
+- [x] 8.2 `internal/analytics/README.md`: does not exist in this repo today —
       no-op. (The ticket named it; this repo's analytics module has no
       README.md, only `AGENTS.md`. Confirmed by directory listing.)
 - [ ] 8.3 This change's `specs/analytics/spec.md` delta (already written as
@@ -172,6 +172,18 @@ Independent of T5–T7; may run in parallel with them.
       alone serves every query (point to design.md's D-INDEX table shape,
       but do not quote design.md verbatim — the guide is a map, written in
       its own words, not a copy).
+
+- [x] 8.5 `docs/battery-consumed-graph.md`: found by the 9.5 grep, not named in
+      the original task list. Its "Table shape" section asserted
+      `UNIQUE (account_id, tesla_id, gap_date)` and
+      `Index idx_charge_gaps_account (account_id, gap_date DESC)`, and its
+      "Nothing consumes charge_gaps yet" section told a future reader that
+      index "already exists for the account-wide read". All three are false
+      after this change. Updated both sections: the new key, no `account_id`
+      column, one index only, and an account-wide read now has to resolve the
+      account's vehicles through `internal/account` first. Added by the leader
+      during T9; the task list is append-only, so it is recorded here rather
+      than folded into 8.1-8.4.
 
 ## T9 — Final verification
 

@@ -11,8 +11,7 @@ import (
 
 // Nightly-detected vehicle-days whose battery math does not add up -- a charge record is missing or incomplete (RM28-telemetry-add-charge-gap-storage, MAG-15). One row per (account_id, tesla_id, gap_date): a day's shortfall is a single aggregate observation, never split across two rows. Written by internal/battery through the GapWriter port (telemetry never calls battery). No resolved_at / soft delete: a day that stops flagging is DELETED by the next nightly reconciliation, not marked resolved -- this table is a live worklist, not an audit trail. Owned by internal/telemetry; no other module reads this table directly.
 type ChargeGap struct {
-	ID        uuid.UUID
-	AccountID uuid.UUID
+	ID uuid.UUID
 	// Always resolved and NOT NULL: a vehicle that cannot be attributed to a currently-registered vehicle is filtered out of internal/battery's derivation before gap detection runs, unlike supercharger_sessions.tesla_id which is nullable for exactly that unattributed case.
 	TeslaID int64
 	Vin     string

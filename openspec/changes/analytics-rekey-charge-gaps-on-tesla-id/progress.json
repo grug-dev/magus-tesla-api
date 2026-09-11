@@ -4,17 +4,57 @@
   "change": "analytics-rekey-charge-gaps-on-tesla-id",
   "module": "analytics",
   "roadmap": null,
-  "request": "Source ticket: MAG-64 — Step 1 of MAG-63, the pilot. Re-key analytics.charge_gaps from (account_id, tesla_id, gap_date) to (tesla_id, gap_date): new migration, drop account_id from the three queries, drop the accountID parameter from GapWriter.ReconcileWindow, update the one caller, sweep the docs. Unit tests excluded. Pipeline halted after Step 4 for user review.",
-  "status": "proposed",
+  "request": "Source ticket: MAG-64 \u2014 Step 1 of MAG-63, the pilot. Re-key analytics.charge_gaps from (account_id, tesla_id, gap_date) to (tesla_id, gap_date): new migration, drop account_id from the three queries, drop the accountID parameter from GapWriter.ReconcileWindow, update the one caller, sweep the docs. Unit tests excluded. Pipeline halted after Step 4 for user review.",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": ["1.1","1.2","1.3","2.1","2.2","2.3","2.4","2.5","3.1","3.2","3.3","3.4","4.1","4.2","4.3","4.4","4.5","5.1","5.2","6.1","6.2","7.1","8.1","8.2","8.3","8.4","9.1","9.2","9.3","9.4","9.5","9.6"],
+    "pending": [
+      "8.3",
+      "9.6"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.5",
+      "5.1",
+      "5.2",
+      "6.2",
+      "7.1",
+      "8.1",
+      "8.2",
+      "8.4",
+      "8.5",
+      "9.1",
+      "9.2",
+      "9.3",
+      "9.4",
+      "9.5"
+    ],
+    "awaiting_user_verification": [
+      "1.1",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "6.1"
+    ]
   },
   "created_at": "2026-09-11T10:02:11Z",
-  "updated_at": "2026-09-11T10:02:11Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-11T10:20:08Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/CH53-MAG-64-analytics-rekey-charge-gaps-on-tesla-id",
@@ -24,54 +64,892 @@
     "created_at": "2026-09-11T10:02:11Z"
   },
   "tasks": [
-    { "id": "1.1", "title": "Write the re-key migration", "module": "analytics", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "1.2", "title": "Leave the original charge_gaps migration untouched", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "1.3", "title": "make migration-guard", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.1", "title": "UpsertChargeGap drops account_id, new conflict target", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.2", "title": "DeleteChargeGap drops account_id", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.3", "title": "ChargeGapDatesByVehicleBetween drops account_id", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.4", "title": "Rewrite the three query comments to drop frozen doc citations", "module": "analytics", "depends_on": ["2.1","2.2","2.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.5", "title": "Run sqlc generate, confirm no AccountID in params", "module": "analytics", "depends_on": ["2.1","2.2","2.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.1", "title": "ChargeGap struct drops AccountID field", "module": "analytics", "depends_on": ["2.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.2", "title": "GapWriter.ReconcileWindow new signature", "module": "analytics", "depends_on": ["2.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.3", "title": "gap_writer.go implementation and validation loop", "module": "analytics", "depends_on": ["3.1","3.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.4", "title": "Build and vet analytics (expected red until 4.x)", "module": "analytics", "depends_on": ["3.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "4.1", "title": "Test helpers drop accountID parameter and predicate", "module": "analytics", "depends_on": ["3.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "4.2", "title": "Update ReconcileWindow calls and ChargeGap literals in the test", "module": "analytics", "depends_on": ["4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "4.3", "title": "Rename the tenant-isolation test to DifferentVehiclesNeverInterfere", "module": "analytics", "depends_on": ["4.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "4.4", "title": "Delete the wrong-AccountID mis-scope sub-case", "module": "analytics", "depends_on": ["4.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "4.5", "title": "Build and vet analytics, expect clean", "module": "analytics", "depends_on": ["4.3","4.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "5.1", "title": "processor.go drops the account argument and field", "module": "app", "depends_on": ["3.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "5.2", "title": "Build app (expected red until 6.1)", "module": "app", "depends_on": ["5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "6.1", "title": "processor_test.go fakeGapWriter new signature", "module": "app", "depends_on": ["3.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "6.2", "title": "Build and vet app, expect clean", "module": "app", "depends_on": ["5.1","6.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "7.1", "title": "Verify charging integration test needs no change", "module": "charging", "depends_on": ["3.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "8.1", "title": "analytics AGENTS.md stale account_id sweep", "module": "analytics", "depends_on": ["4.5"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "8.2", "title": "analytics README.md no-op (file does not exist)", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "8.3", "title": "Confirm spec sync at archive time", "module": "analytics", "depends_on": ["4.5"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "8.4", "title": "KB guide vehicle-metrics charge_gaps column list", "module": "analytics", "depends_on": ["4.5"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "9.1", "title": "go build ./...", "module": "analytics", "depends_on": ["4.5","6.2","7.1","8.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "9.2", "title": "go vet ./...", "module": "analytics", "depends_on": ["9.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "9.3", "title": "make migration-guard", "module": "analytics", "depends_on": ["9.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "9.4", "title": "make boundary-guard", "module": "analytics", "depends_on": ["9.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "9.5", "title": "Repo grep: zero remaining charge_gaps account_id hits", "module": "analytics", "depends_on": ["9.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "9.6", "title": "Hand the suite commands to the owner", "module": "analytics", "depends_on": ["9.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+    {
+      "id": "1.1",
+      "title": "Write the re-key migration",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:09:00Z",
+      "completed_at": "2026-09-11T10:10:00Z",
+      "duration_seconds": null,
+      "notes": "Migration written exactly per design.md Migration SQL. Schema change itself is only proven once the owner runs migrate-up and the integration test.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Leave the original charge_gaps migration untouched",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:09:00Z",
+      "completed_at": "2026-09-11T10:09:00Z",
+      "duration_seconds": null,
+      "notes": "Original 20260815000002_add_charge_gaps.sql read for reference only, never edited.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "make migration-guard",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:10:00Z",
+      "completed_at": "2026-09-11T10:10:30Z",
+      "duration_seconds": null,
+      "notes": "make migration-guard clean: no duplicate version numbers across 4 module dirs.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "UpsertChargeGap drops account_id, new conflict target",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:10:30Z",
+      "completed_at": "2026-09-11T10:11:30Z",
+      "duration_seconds": null,
+      "notes": "UpsertChargeGap drops account_id from columns and VALUES; ON CONFLICT target now (tesla_id, gap_date).",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "DeleteChargeGap drops account_id",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:10:30Z",
+      "completed_at": "2026-09-11T10:11:30Z",
+      "duration_seconds": null,
+      "notes": "DeleteChargeGap WHERE drops account_id.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "ChargeGapDatesByVehicleBetween drops account_id",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:10:30Z",
+      "completed_at": "2026-09-11T10:11:30Z",
+      "duration_seconds": null,
+      "notes": "ChargeGapDatesByVehicleBetween WHERE drops account_id.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "2.4",
+      "title": "Rewrite the three query comments to drop frozen doc citations",
+      "module": "analytics",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:10:30Z",
+      "completed_at": "2026-09-11T10:11:30Z",
+      "duration_seconds": null,
+      "notes": "All three comments rewritten to carry the reason itself. Leader verified no citation of frozen docs, nor of this change.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "2.5",
+      "title": "Run sqlc generate, confirm no AccountID in params",
+      "module": "analytics",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:11:30Z",
+      "completed_at": "2026-09-11T10:12:00Z",
+      "duration_seconds": null,
+      "notes": "make sqlc clean; all three regenerated Params structs have no AccountID field.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "ChargeGap struct drops AccountID field",
+      "module": "analytics",
+      "depends_on": [
+        "2.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:12:00Z",
+      "completed_at": "2026-09-11T10:13:00Z",
+      "duration_seconds": null,
+      "notes": "ChargeGap.AccountID removed; doc comment replaced with why the field is gone, not just deleted.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "GapWriter.ReconcileWindow new signature",
+      "module": "analytics",
+      "depends_on": [
+        "2.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:12:00Z",
+      "completed_at": "2026-09-11T10:13:00Z",
+      "duration_seconds": null,
+      "notes": "ReconcileWindow signature drops accountID; interface comment now describes the single teslaID mis-scope check.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "gap_writer.go implementation and validation loop",
+      "module": "analytics",
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:13:00Z",
+      "completed_at": "2026-09-11T10:14:00Z",
+      "duration_seconds": null,
+      "notes": "gap_writer.go validation loop, all three Params literals, unused uuid import removed. Worker also cleaned this function's own frozen-doc citations.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "Build and vet analytics (expected red until 4.x)",
+      "module": "analytics",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:14:00Z",
+      "completed_at": "2026-09-11T10:14:15Z",
+      "duration_seconds": null,
+      "notes": "Expected-red checkpoint observed as designed: build passed, vet failed on the not-yet-fixed test file. Cleared by 4.5, not by any user signal.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "Test helpers drop accountID parameter and predicate",
+      "module": "analytics",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:14:15Z",
+      "completed_at": "2026-09-11T10:15:00Z",
+      "duration_seconds": null,
+      "notes": "Three helpers re-keyed on teslaID; the unused cleanupChargeGapsByAccount helper removed. Integration test not executed.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "Update ReconcileWindow calls and ChargeGap literals in the test",
+      "module": "analytics",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:14:15Z",
+      "completed_at": "2026-09-11T10:15:30Z",
+      "duration_seconds": null,
+      "notes": "Every ReconcileWindow call and ChargeGap literal across six test functions updated. Not executed.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "4.3",
+      "title": "Rename the tenant-isolation test to DifferentVehiclesNeverInterfere",
+      "module": "analytics",
+      "depends_on": [
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:14:15Z",
+      "completed_at": "2026-09-11T10:15:30Z",
+      "duration_seconds": null,
+      "notes": "Renamed to DifferentVehiclesNeverInterfere, body now uses two bare tesla_ids, assertions preserved. Not executed.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "4.4",
+      "title": "Delete the wrong-AccountID mis-scope sub-case",
+      "module": "analytics",
+      "depends_on": [
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:15:30Z",
+      "completed_at": "2026-09-11T10:15:45Z",
+      "duration_seconds": null,
+      "notes": "wrong-AccountID sub-case deleted; wrong-TeslaID and date-outside-window kept. Not executed.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "4.5",
+      "title": "Build and vet analytics, expect clean",
+      "module": "analytics",
+      "depends_on": [
+        "4.3",
+        "4.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:15:45Z",
+      "completed_at": "2026-09-11T10:16:00Z",
+      "duration_seconds": null,
+      "notes": "go build and go vet on ./internal/analytics/... both exit 0; gofmt -l empty.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "processor.go drops the account argument and field",
+      "module": "app",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:16:30Z",
+      "completed_at": "2026-09-11T10:17:30Z",
+      "duration_seconds": null,
+      "notes": "Leader: processor.go drops v.AccountID from the ReconcileWindow call and AccountID from the ChargeGap literal.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "Build app (expected red until 6.1)",
+      "module": "app",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:17:30Z",
+      "completed_at": "2026-09-11T10:17:40Z",
+      "duration_seconds": null,
+      "notes": "Leader: app built clean immediately; the predicted red never appeared because 6.1 landed in the same pass.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "processor_test.go fakeGapWriter new signature",
+      "module": "app",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:17:30Z",
+      "completed_at": "2026-09-11T10:17:50Z",
+      "duration_seconds": null,
+      "notes": "Leader: fakeGapWriter.ReconcileWindow drops the uuid.UUID parameter. uuid import still used elsewhere in the file. Not executed.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "Build and vet app, expect clean",
+      "module": "app",
+      "depends_on": [
+        "5.1",
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:17:50Z",
+      "completed_at": "2026-09-11T10:18:00Z",
+      "duration_seconds": null,
+      "notes": "Leader: go build and go vet on ./internal/app/... both exit 0.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "7.1",
+      "title": "Verify charging integration test needs no change",
+      "module": "charging",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:18:00Z",
+      "completed_at": "2026-09-11T10:18:20Z",
+      "duration_seconds": null,
+      "notes": "Leader: charging test file confirmed to have no analytics import, no ReconcileWindow call, no ChargeGap literal. Its only matches are two comments. Design was right; no edit.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "8.1",
+      "title": "analytics AGENTS.md stale account_id sweep",
+      "module": "analytics",
+      "depends_on": [
+        "4.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:16:00Z",
+      "completed_at": "2026-09-11T10:16:05Z",
+      "duration_seconds": null,
+      "notes": "Grepped AGENTS.md for account_id: zero hits. No stale charge_gaps key claim. Verified, not skipped.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "8.2",
+      "title": "analytics README.md no-op (file does not exist)",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-11T10:16:00Z",
+      "completed_at": "2026-09-11T10:16:05Z",
+      "duration_seconds": null,
+      "notes": "internal/analytics/README.md confirmed absent. No-op as design.md predicted.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "8.3",
+      "title": "Confirm spec sync at archive time",
+      "module": "analytics",
+      "depends_on": [
+        "4.5"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.4",
+      "title": "KB guide vehicle-metrics charge_gaps column list",
+      "module": "analytics",
+      "depends_on": [
+        "4.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:18:20Z",
+      "completed_at": "2026-09-11T10:19:00Z",
+      "duration_seconds": null,
+      "notes": "Leader: KB guide re-keyed - account_id column removed, UNIQUE and constraint name updated, idx_charge_gaps_account sentence replaced by why no second index exists. Swept rest of KB: clean.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "9.1",
+      "title": "go build ./...",
+      "module": "analytics",
+      "depends_on": [
+        "4.5",
+        "6.2",
+        "7.1",
+        "8.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:19:20Z",
+      "completed_at": "2026-09-11T10:19:25Z",
+      "duration_seconds": null,
+      "notes": "go build ./... exit 0.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "9.2",
+      "title": "go vet ./...",
+      "module": "analytics",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:19:20Z",
+      "completed_at": "2026-09-11T10:19:25Z",
+      "duration_seconds": null,
+      "notes": "go vet ./... exit 0.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "9.3",
+      "title": "make migration-guard",
+      "module": "analytics",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:19:25Z",
+      "completed_at": "2026-09-11T10:19:30Z",
+      "duration_seconds": null,
+      "notes": "make migration-guard clean. Pre-existing unrelated WARNING about 20260720000001 is not from this change.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "9.4",
+      "title": "make boundary-guard",
+      "module": "analytics",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:19:25Z",
+      "completed_at": "2026-09-11T10:19:30Z",
+      "duration_seconds": null,
+      "notes": "make boundary-guard clean. Also ran make archive-guard: no archived file touched.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "9.5",
+      "title": "Repo grep: zero remaining charge_gaps account_id hits",
+      "module": "analytics",
+      "depends_on": [
+        "9.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:19:30Z",
+      "completed_at": "2026-09-11T10:19:40Z",
+      "duration_seconds": null,
+      "notes": "Grep done. Remaining hits are only: the new migration that drops the column, the doc comments explaining the removal, this change's own artifacts, and the immutable archive. One real finding became 8.5.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "one wave measurement covering the analytics worker plus the leader's cross-module, docs and verification tasks jointly"
+      }
+    },
+    {
+      "id": "9.6",
+      "title": "Hand the suite commands to the owner",
+      "module": "analytics",
+      "depends_on": [
+        "9.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.5",
+      "title": "docs/battery-consumed-graph.md stale index and key claims",
+      "module": "docs",
+      "depends_on": [
+        "9.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:19:00Z",
+      "completed_at": "2026-09-11T10:19:20Z",
+      "duration_seconds": 20,
+      "notes": "Leader, task discovered by the 9.5 grep and appended: docs/battery-consumed-graph.md asserted the old UNIQUE key and that idx_charge_gaps_account exists. Both sections corrected.",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 62,
+        "cost_usd_delta": 6.99,
+        "approx": true,
+        "note": "covered by the same joint wave measurement"
+      }
+    }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
   "decisions": [
-    { "id": "D1", "at": "2026-09-11T10:02:11Z", "scope": "change", "made_by": "user", "decision": "No replacement index for the dropped idx_charge_gaps_account", "why": "The UNIQUE (tesla_id, gap_date) index serves all three queries; a DESC twin is read backward at no cost", "covered_by": null },
-    { "id": "D2", "at": "2026-09-11T10:02:11Z", "scope": "change", "made_by": "user", "decision": "ChargeGap drops its AccountID field, beyond the ticket's literal scope", "why": "Nothing would validate, store or read the field back; the ticket's Done-when gate says no account_id in the port", "covered_by": null },
-    { "id": "D3", "at": "2026-09-11T10:02:11Z", "scope": "change", "made_by": "user", "decision": "Accept deleting the wrong-AccountID mis-scope test sub-case", "why": "It checked a field that no longer exists; the TeslaID and date-window checks stay and charge_gaps has no read port", "covered_by": null },
-    { "id": "D4", "at": "2026-09-11T10:02:11Z", "scope": "change", "made_by": "leader", "decision": "Schema-qualify DROP INDEX as analytics.idx_charge_gaps_account with IF EXISTS", "why": "An index name resolves through search_path, which goose does not guarantee; the only post-schema-move migration qualifies it too", "covered_by": null },
-    { "id": "D5", "at": "2026-09-11T10:02:11Z", "scope": "change", "made_by": "leader", "decision": "Standalone CH change, not a roadmap, despite touching internal/app", "why": "The app touches are one call-site line and one fake signature, a mechanical consequence of the port change, owned by the leader", "covered_by": null },
-    { "id": "D6", "at": "2026-09-11T10:02:11Z", "scope": "change", "made_by": "leader", "decision": "Accepted the Step 2 interview as the config's grill-me requirement", "why": "Only one open design question existed and the user settled it; a worker has no interactive path to the user", "covered_by": null }
+    {
+      "id": "D1",
+      "at": "2026-09-11T10:02:11Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "No replacement index for the dropped idx_charge_gaps_account",
+      "why": "The UNIQUE (tesla_id, gap_date) index serves all three queries; a DESC twin is read backward at no cost",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-11T10:02:11Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "ChargeGap drops its AccountID field, beyond the ticket's literal scope",
+      "why": "Nothing would validate, store or read the field back; the ticket's Done-when gate says no account_id in the port",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-11T10:02:11Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Accept deleting the wrong-AccountID mis-scope test sub-case",
+      "why": "It checked a field that no longer exists; the TeslaID and date-window checks stay and charge_gaps has no read port",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-11T10:02:11Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Schema-qualify DROP INDEX as analytics.idx_charge_gaps_account with IF EXISTS",
+      "why": "An index name resolves through search_path, which goose does not guarantee; the only post-schema-move migration qualifies it too",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-11T10:02:11Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Standalone CH change, not a roadmap, despite touching internal/app",
+      "why": "The app touches are one call-site line and one fake signature, a mechanical consequence of the port change, owned by the leader",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-11T10:02:11Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Accepted the Step 2 interview as the config's grill-me requirement",
+      "why": "Only one open design question existed and the user settled it; a worker has no interactive path to the user",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-11T10:20:08Z",
+      "scope": "task:3.4",
+      "made_by": "leader",
+      "decision": "Recorded 3.4 as done, not the worker's reported awaiting-user-verification",
+      "why": "3.4 is the designed expected-red checkpoint. No user signal can clear it; 4.5 did, and ran clean.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-11T10:20:08Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Appended task 8.5 for docs/battery-consumed-graph.md instead of folding it into 8.1-8.4",
+      "why": "The 9.5 grep found two stale index/key claims the task list never named. Tasks are append-only.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-11T10:20:08Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Batched T1-T4 into one serial Sonnet worker, and did T5-T7 myself",
+      "why": "The chain is strictly sequential, so parallel workers would only re-read the doc pack. D5 already made the app touches the leader's.",
+      "covered_by": null
+    }
   ],
   "events": [
-    { "at": "2026-09-11T10:02:11Z", "agent": "leader", "event": "branch ft/CH53-MAG-64-analytics-rekey-charge-gaps-on-tesla-id created off main; work counter 53 -> 54" },
-    { "at": "2026-09-11T10:02:11Z", "agent": "leader", "event": "Step 2 interview: user rejected the ticket's proposed idx_charge_gaps_date index" },
-    { "at": "2026-09-11T10:02:11Z", "agent": "analytics", "event": "artifact worker produced proposal/design/specs/tasks; reported two corrections to the ticket's file list" },
-    { "at": "2026-09-11T10:02:11Z", "agent": "leader", "event": "leader correction: internal/charging/db_session_integration_test.go needs no change (comment-only match); internal/analytics/db_gap_writer_integration_test.go does, and the ticket never named it" },
-    { "at": "2026-09-11T10:02:11Z", "agent": "leader", "event": "database design gate passed: user confirmed migration, index plan, struct field removal and the test sub-case deletion" },
-    { "at": "2026-09-11T10:02:11Z", "agent": "leader", "event": "artifacts committed a11631e; pipeline HALTED after Step 4 per the pickup-ticket scope - no implementation worker dispatched" }
+    {
+      "at": "2026-09-11T10:02:11Z",
+      "agent": "leader",
+      "event": "branch ft/CH53-MAG-64-analytics-rekey-charge-gaps-on-tesla-id created off main; work counter 53 -> 54"
+    },
+    {
+      "at": "2026-09-11T10:02:11Z",
+      "agent": "leader",
+      "event": "Step 2 interview: user rejected the ticket's proposed idx_charge_gaps_date index"
+    },
+    {
+      "at": "2026-09-11T10:02:11Z",
+      "agent": "analytics",
+      "event": "artifact worker produced proposal/design/specs/tasks; reported two corrections to the ticket's file list"
+    },
+    {
+      "at": "2026-09-11T10:02:11Z",
+      "agent": "leader",
+      "event": "leader correction: internal/charging/db_session_integration_test.go needs no change (comment-only match); internal/analytics/db_gap_writer_integration_test.go does, and the ticket never named it"
+    },
+    {
+      "at": "2026-09-11T10:02:11Z",
+      "agent": "leader",
+      "event": "database design gate passed: user confirmed migration, index plan, struct field removal and the test sub-case deletion"
+    },
+    {
+      "at": "2026-09-11T10:02:11Z",
+      "agent": "leader",
+      "event": "artifacts committed a11631e; pipeline HALTED after Step 4 per the pickup-ticket scope - no implementation worker dispatched"
+    },
+    {
+      "at": "2026-09-11T10:08:53Z",
+      "agent": "leader",
+      "event": "wave 1 dispatched: analytics worker (sonnet), T1-T4 sequential chain + 8.1/8.2; budget_start five_hour_pct=43 context_pct=9 cost_usd=0.670"
+    },
+    {
+      "at": "2026-09-11T10:20:08Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled. Worker delivered all 19 analytics tasks; leader did 5.1-7.1, 8.4, 8.5, 9.1-9.5. Verified: go build ./... and go vet ./... exit 0, migration-guard + boundary-guard + archive-guard clean. budget_end five_hour_pct=62 context_pct=17 cost_usd=7.661 (delta 6.99)"
+    },
+    {
+      "at": "2026-09-11T10:20:08Z",
+      "agent": "leader",
+      "event": "Linear MAG-64 moved Todo -> In Progress at first worker dispatch, per the pipeline-linear-status rule"
+    }
   ]
 }

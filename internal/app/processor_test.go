@@ -278,7 +278,7 @@ var _ analytics.Reader = fakeAnalyticsReader{}
 // (design D9).
 type fakeGapWriter struct{}
 
-func (fakeGapWriter) ReconcileWindow(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time, _ []analytics.ChargeGap) error {
+func (fakeGapWriter) ReconcileWindow(_ context.Context, _ int64, _, _ time.Time, _ []analytics.ChargeGap) error {
 	return nil
 }
 

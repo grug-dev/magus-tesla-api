@@ -238,11 +238,12 @@ column-by-column detail.
 - `charge_gaps` — one row per flagged vehicle-day whose battery math does not add up
   (migration `20260815000002`, originally `RM28-telemetry-add-charge-gap-storage`,
   MAG-15; moved into this module, unchanged, by `RM29-analytics-own-charge-gaps`,
-  MAG-26 tier 5). Written through the `GapWriter` port, driven by this module's own
+  MAG-26 tier 5; re-keyed on `tesla_id` alone by migration `20260911000001`,
+  `analytics-rekey-charge-gaps-on-tesla-id`, MAG-64). Written through the `GapWriter` port, driven by this module's own
   `ConsumedByDay`-derived flagging logic (D5/D5a) via `internal/app`'s nightly
   reconciliation — this module both derives the gap AND stores the conclusion; no
   other module writes or reads this table. Columns: `id UUID PRIMARY KEY`,
-  `account_id UUID NOT NULL`, `tesla_id BIGINT NOT NULL` (**always resolved, NOT
+  `tesla_id BIGINT NOT NULL` (**always resolved, NOT
   NULL** — this module filters out any vehicle/session it cannot attribute to a
   currently-registered vehicle before gap detection ever runs), `vin TEXT NOT NULL`,
   `gap_date DATE NOT NULL` (the flagged calendar day, plain `DATE` — no time-of-day
@@ -252,13 +253,12 @@ column-by-column detail.
   `MANUAL` otherwise), `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` (when FIRST
   flagged — preserved across every re-upsert of the same still-flagged day),
   `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` (refreshed to `now()` on every
-  re-confirmation). `UNIQUE (account_id, tesla_id, gap_date)` constraint
-  (`charge_gaps_account_tesla_date_unique`) is both the write-idempotency mechanism
+  re-confirmation). `UNIQUE (tesla_id, gap_date)` constraint
+  (`charge_gaps_tesla_date_unique`) is both the write-idempotency mechanism
   (`ON CONFLICT DO UPDATE`) and the index that serves `GapWriter`'s own
-  read-before-diff query — no separate index needed for that path. A second index,
-  `idx_charge_gaps_account (account_id, gap_date DESC)`, serves the future
-  account-wide notification read pattern (no `tesla_id` predicate) — out of scope
-  today, no read port exists for it yet. **No FK** on `account_id`/`tesla_id` (same
+  read-before-diff query. **This table has no second index**, by design: the UNIQUE
+  index alone serves every query the module runs, and a `gap_date DESC` twin would
+  add nothing because Postgres reads the same index backward at no cost. **No FK** on `tesla_id` (same
   no-cross-module-FK precedent as `vehicle_metrics`/`vehicle_metric_watermarks` —
   referential integrity is upheld by flow, not a DB constraint,
   `ai/architecture.md` §2). **No `raw_data` JSONB** — this table stores a
