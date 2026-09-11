@@ -1,7 +1,10 @@
 # monthly-capacity-cli Specification
 
 ## Purpose
-TBD - created by archiving change RM52-platform-add-monthly-capacity-cli. Update Purpose after archive.
+An operator tool that measures a vehicle's effective pack capacity for one calendar month, on
+demand. The nightly cycle already does this on the first day of each month. This capability
+covers the by-hand path: re-running a month that failed, backfilling a past month, or checking
+one vehicle. It is local only and needs nothing but a database connection.
 ## Requirements
 ### Requirement: A Person Can Run The Monthly Capacity Measurement By Hand
 
