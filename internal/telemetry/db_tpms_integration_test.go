@@ -51,13 +51,13 @@ type tpmsRow struct {
 	TpmsPressureRrPsi pgtype.Float4
 }
 
-func queryTPMS(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]tpmsRow, error) {
+func queryTPMS(ctx context.Context, pool *pgxpool.Pool, teslaID int64) ([]tpmsRow, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi
 		   FROM telemetry.vehicle_snapshots
-		  WHERE account_id = $1 AND tesla_id = $2
+		  WHERE tesla_id = $1
 		  ORDER BY captured_at DESC`,
-		accountID, teslaID,
+		teslaID,
 	)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,6 @@ func TestTPMS_NonNilRoundTrip(t *testing.T) {
 	fl, fr, rl, rr := 36.2594344325, 37.7098118098, 34.8090570552, 36.2594344325
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
 		CapturedDate:      clock.CalendarDay(captured, time.UTC),
@@ -109,9 +108,9 @@ func TestTPMS_NonNilRoundTrip(t *testing.T) {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
 
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -155,7 +154,6 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
 		CapturedDate:      clock.CalendarDay(captured, time.UTC),
@@ -172,7 +170,7 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 	}
 
 	// Verify raw pgtype: all must be Valid=false (SQL NULL).
-	rows, err := queryTPMS(ctx, pool, accountID, teslaID)
+	rows, err := queryTPMS(ctx, pool, teslaID)
 	if err != nil {
 		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
@@ -194,9 +192,9 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 	}
 
 	// Verify domain read path: all must be nil.
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -230,7 +228,6 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 	zero := 0.0
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
 		CapturedDate:      clock.CalendarDay(captured, time.UTC),
@@ -247,7 +244,7 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 	}
 
 	// Verify pgtype: all must be Valid=true (non-NULL), Float32=0.
-	rows, err := queryTPMS(ctx, pool, accountID, teslaID)
+	rows, err := queryTPMS(ctx, pool, teslaID)
 	if err != nil {
 		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
@@ -271,9 +268,9 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 	}
 
 	// Verify domain read path: all must be non-nil *0.0.
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -320,7 +317,6 @@ func TestTPMS_PSIValueRoundTripPrecision(t *testing.T) {
 	fl := inputPSI
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
 		CapturedDate:      clock.CalendarDay(captured, time.UTC),
@@ -333,9 +329,9 @@ func TestTPMS_PSIValueRoundTripPrecision(t *testing.T) {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
 
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))

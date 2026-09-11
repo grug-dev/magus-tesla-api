@@ -175,41 +175,41 @@ logically independent).
 
 Depends on: T5.
 
-- [ ] 6.1 `db_read_integration_test.go`: drop `AccountID:` from every
+- [x] 6.1 `db_read_integration_test.go`: drop `AccountID:` from every
       `Snapshot{...}` literal; drop the `accountID`/`.AccountID` argument
       from every `SnapshotsByVehicleSince`/`Between`/`UpdatedSince`/
       `SnapshotPrecedingDay`/`LatestSnapshotsByAccount` call, renaming the
       last to `LatestSnapshotsByVehicles` with a `[]int64` argument; delete
       or rewrite any assertion reading `.AccountID` off a returned
       `Snapshot`.
-- [ ] 6.2 `db_integration_test.go`: drop `AccountID:` from every
+- [x] 6.2 `db_integration_test.go`: drop `AccountID:` from every
       `Snapshot{...}` literal; update `Attempt{AccountID: ...}` to
       `Attempt{PolledByAccountID: ...}`.
-- [ ] 6.3 `db_preceding_snapshot_integration_test.go`: drop `AccountID:`
+- [x] 6.3 `db_preceding_snapshot_integration_test.go`: drop `AccountID:`
       from every `Snapshot{...}` literal; drop the `accountID` argument from
       every `SnapshotPrecedingDay`/`reader.SnapshotPrecedingDay` call.
-- [ ] 6.4 `db_sourcea_integration_test.go`: drop `AccountID:` from every
+- [x] 6.4 `db_sourcea_integration_test.go`: drop `AccountID:` from every
       `Snapshot{...}` literal.
-- [ ] 6.5 `db_tpms_integration_test.go`: drop `AccountID:` from every
+- [x] 6.5 `db_tpms_integration_test.go`: drop `AccountID:` from every
       `Snapshot{...}` literal.
-- [ ] 6.6 `query_log_test.go`: drop `AccountID:` from every `Snapshot{...}`
+- [x] 6.6 `query_log_test.go`: drop `AccountID:` from every `Snapshot{...}`
       literal; update `Attempt{AccountID: ...}` to
       `Attempt{PolledByAccountID: ...}`; update `fakeQueryLogStore` to
       implement all five renamed/resigned `store` methods; update any
       `LatestSnapshotsByAccount` call to `LatestSnapshotsByVehicles`.
-- [ ] 6.7 `reader_test.go`: drop `AccountID:` from every `Snapshot{...}`
+- [x] 6.7 `reader_test.go`: drop `AccountID:` from every `Snapshot{...}`
       literal; update `fakeReadStore`, `fakeHistoryStore`, `fakeBetweenStore`
       to each implement all five renamed/resigned `store` methods; update
       every call passing an `accountID` argument to the new signatures, and
       every `LatestSnapshotsByAccount` call to `LatestSnapshotsByVehicles`.
-- [ ] 6.8 `service_test.go`: update `fakeStore` to implement all five
+- [x] 6.8 `service_test.go`: update `fakeStore` to implement all five
       renamed/resigned `store` methods; delete the `got.AccountID != acctID`
       assertion (around the existing line ~404) — the field no longer
       exists, and the same check's `got.TeslaID` comparison already covers
       vehicle identity.
-- [ ] 6.9 `snapshot_from_test.go`: drop the leading `uuid.New()` argument
+- [x] 6.9 `snapshot_from_test.go`: drop the leading `uuid.New()` argument
       from all four `snapshotFrom(...)` calls.
-- [ ] 6.10 `go build ./internal/telemetry/...` and `go vet
+- [x] 6.10 `go build ./internal/telemetry/...` and `go vet
       ./internal/telemetry/...` — expect clean now.
 
 ## T7 — Docs sweep
@@ -217,7 +217,7 @@ Depends on: T5.
 Depends on: T5 (needs the final schema/signature shape to describe
 accurately). Independent of T6; may run in parallel with it.
 
-- [ ] 7.1 `internal/telemetry/AGENTS.md`: update the "Data ownership" table's
+- [x] 7.1 `internal/telemetry/AGENTS.md`: update the "Data ownership" table's
       `vehicle_snapshots` row grain from "one row per (account, vehicle,
       `captured_date`)" to "one row per (vehicle, `captured_date`)". Check
       the "Rules that bind across all four" bullet naming
@@ -228,7 +228,7 @@ accurately). Independent of T6; may run in parallel with it.
       is elected to poll each vehicle before `CollectAll` groups by account
       (prefer OWNER, never skip), pointing at `electPollingVehicles`'s own
       doc comment rather than restating the full rule.
-- [ ] 7.2 This change's `specs/telemetry/spec.md` delta (already written as
+- [x] 7.2 This change's `specs/telemetry/spec.md` delta (already written as
       part of this change's artifacts) is synced into
       `openspec/specs/telemetry/spec.md` at archive time via the normal
       OpenSpec sync step — no separate task here, but confirm at archive
@@ -236,7 +236,7 @@ accurately). Independent of T6; may run in parallel with it.
       and rewrote the five modified requirements, and did not touch
       "Module-Scoped Database Schema" or any Supercharger-session
       requirement (design.md explains why those stay as written).
-- [ ] 7.3 `kkpa/context/architecture/telemetry-ingest-only.md`: update the
+- [x] 7.3 `kkpa/context/architecture/telemetry-ingest-only.md`: update the
       "Same-day captures dedupe" bullet in "Conventions & gotchas" from
       `` `UNIQUE (account_id, tesla_id, captured_date)` `` to
       `` `UNIQUE (tesla_id, captured_date)` ``, keeping the rest of the

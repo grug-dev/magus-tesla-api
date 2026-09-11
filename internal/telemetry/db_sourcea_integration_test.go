@@ -22,7 +22,7 @@ import (
 //
 // Design compliance (A5):
 //   - A5.1a: Insert a snapshot with all 6 charge fields non-nil; read back via
-//             LatestSnapshotsByAccount; assert all 6 round-trip faithfully.
+//             LatestSnapshotsByVehicles; assert all 6 round-trip faithfully.
 //   - A5.1b: Insert a snapshot with all 6 charge fields nil (pre-enrichment sim);
 //             assert all 6 come back nil (not zero).
 //   - A5.1c: D12 invariant — a truthful 0 stored as a non-nil pointer comes back
@@ -53,14 +53,14 @@ type sourceAChargeRow struct {
 	UsableBatteryLevelPct pgtype.Int4
 }
 
-func querySourceACharge(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]sourceAChargeRow, error) {
+func querySourceACharge(ctx context.Context, pool *pgxpool.Pool, teslaID int64) ([]sourceAChargeRow, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
 		        charger_actual_current_a, usable_battery_level_pct
 		   FROM telemetry.vehicle_snapshots
-		  WHERE account_id = $1 AND tesla_id = $2
+		  WHERE tesla_id = $1
 		  ORDER BY captured_at DESC`,
-		accountID, teslaID,
+		teslaID,
 	)
 	if err != nil {
 		return nil, err
@@ -84,13 +84,13 @@ type maxRangeChargeCounterRow struct {
 	MaxRangeChargeCounter pgtype.Int4
 }
 
-func queryMaxRangeChargeCounter(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]maxRangeChargeCounterRow, error) {
+func queryMaxRangeChargeCounter(ctx context.Context, pool *pgxpool.Pool, teslaID int64) ([]maxRangeChargeCounterRow, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT max_range_charge_counter
 		   FROM telemetry.vehicle_snapshots
-		  WHERE account_id = $1 AND tesla_id = $2
+		  WHERE tesla_id = $1
 		  ORDER BY captured_at DESC`,
-		accountID, teslaID,
+		teslaID,
 	)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,6 @@ func TestSourceA_ChargeEnrichment_NonNilRoundTrip(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
 		CapturedDate:  clock.CalendarDay(captured, time.UTC),
@@ -136,13 +135,13 @@ func TestSourceA_ChargeEnrichment_NonNilRoundTrip(t *testing.T) {
 		UsableBatteryLevelPct: ptrInt(73),       // %
 	}
 
-	// A helper that reads back via the dbStore read seam (same path as LatestSnapshotsByAccount).
+	// A helper that reads back via the dbStore read seam (same path as LatestSnapshotsByVehicles).
 	if err := st.insertSnapshot(ctx, snap); err != nil {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -196,7 +195,6 @@ func TestSourceA_ChargeEnrichment_NilRoundTrip(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
 		CapturedDate:  clock.CalendarDay(captured, time.UTC),
@@ -215,9 +213,9 @@ func TestSourceA_ChargeEnrichment_NilRoundTrip(t *testing.T) {
 	if err := st.insertSnapshot(ctx, snap); err != nil {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -259,7 +257,6 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 	// power and current are 0 (charge hasn't ramped yet). These are real readings.
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
 		CapturedDate:  clock.CalendarDay(captured, time.UTC),
@@ -282,7 +279,7 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 	}
 
 	// Read back via a direct SQL SELECT to see raw pgtype values too.
-	rows, err := querySourceACharge(ctx, pool, accountID, teslaID)
+	rows, err := querySourceACharge(ctx, pool, teslaID)
 	if err != nil {
 		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
@@ -316,13 +313,13 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 	// fast_charger_type dropped in 20260801000001 — not asserted here.
 	// MaxRangeChargeCounter nil round-trip is tested separately in TestMaxRangeChargeCounter_NilAndNonNilFidelity.
 
-	// Also verify the domain read path (rowToSnapshot / latestSnapshotsByAccount).
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	// Also verify the domain read path (rowToSnapshot / latestSnapshotsByVehicles).
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
-		t.Fatalf("want 1 snapshot from latestSnapshotsByAccount, got %d", len(got))
+		t.Fatalf("want 1 snapshot from latestSnapshotsByVehicles, got %d", len(got))
 	}
 	s := got[0]
 
@@ -372,7 +369,6 @@ func TestMaxRangeChargeCounter_NonNilNonZeroRoundTrip(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
 		CapturedDate:          clock.CalendarDay(captured, time.UTC),
@@ -385,9 +381,9 @@ func TestMaxRangeChargeCounter_NonNilNonZeroRoundTrip(t *testing.T) {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
 
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -415,7 +411,6 @@ func TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
 		CapturedDate:          clock.CalendarDay(captured, time.UTC),
@@ -429,7 +424,7 @@ func TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil(t *testing.T) {
 	}
 
 	// Check the raw pgtype column: it must be Valid=true (non-NULL), Int32=0.
-	rows, err := queryMaxRangeChargeCounter(ctx, pool, accountID, teslaID)
+	rows, err := queryMaxRangeChargeCounter(ctx, pool, teslaID)
 	if err != nil {
 		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
@@ -445,9 +440,9 @@ func TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil(t *testing.T) {
 	}
 
 	// Also verify the domain read path: must come back as non-nil *0.
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -474,7 +469,6 @@ func TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
 		CapturedDate:          clock.CalendarDay(captured, time.UTC),
@@ -488,7 +482,7 @@ func TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil(t *testing.T) {
 	}
 
 	// Raw pgtype: must be Valid=false (SQL NULL).
-	rows, err := queryMaxRangeChargeCounter(ctx, pool, accountID, teslaID)
+	rows, err := queryMaxRangeChargeCounter(ctx, pool, teslaID)
 	if err != nil {
 		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
@@ -500,9 +494,9 @@ func TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil(t *testing.T) {
 	}
 
 	// Domain read path: must come back as nil.
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -532,7 +526,6 @@ func TestMaxRangeChargeCounter_BackfillFromRawData(t *testing.T) {
 	rawWithCounter := []byte(`{"charge_state":{"max_range_charge_counter":5}}`)
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
 		CapturedDate:          clock.CalendarDay(captured, time.UTC),
@@ -551,18 +544,17 @@ func TestMaxRangeChargeCounter_BackfillFromRawData(t *testing.T) {
 		UPDATE telemetry.vehicle_snapshots
 		SET max_range_charge_counter =
 		        (raw_data -> 'charge_state' ->> 'max_range_charge_counter')::INTEGER
-		WHERE account_id = $1
-		  AND tesla_id = $2
+		WHERE tesla_id = $1
 		  AND jsonb_typeof(raw_data -> 'charge_state' -> 'max_range_charge_counter') = 'number'`,
-		accountID, teslaID)
+		teslaID)
 	if err != nil {
 		t.Fatalf("backfill UPDATE: %v", err)
 	}
 
 	// After backfill, the typed column must be non-NULL and equal to the value in raw_data.
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount after backfill: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles after backfill: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -591,7 +583,6 @@ func TestMaxRangeChargeCounter_BackfillSkipsRowsWithoutPath(t *testing.T) {
 	rawWithoutCounter := []byte(`{"charge_state":{"charging_state":"Disconnected"}}`)
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
 		CapturedDate:          clock.CalendarDay(captured, time.UTC),
@@ -609,18 +600,17 @@ func TestMaxRangeChargeCounter_BackfillSkipsRowsWithoutPath(t *testing.T) {
 		UPDATE telemetry.vehicle_snapshots
 		SET max_range_charge_counter =
 		        (raw_data -> 'charge_state' ->> 'max_range_charge_counter')::INTEGER
-		WHERE account_id = $1
-		  AND tesla_id = $2
+		WHERE tesla_id = $1
 		  AND jsonb_typeof(raw_data -> 'charge_state' -> 'max_range_charge_counter') = 'number'`,
-		accountID, teslaID)
+		teslaID)
 	if err != nil {
 		t.Fatalf("backfill UPDATE: %v", err)
 	}
 
 	// The row must still have NULL after the backfill (the UPDATE must be a no-op for it).
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount after backfill: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles after backfill: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))

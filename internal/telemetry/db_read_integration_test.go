@@ -10,13 +10,13 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
 )
 
-// These tests exercise the real dbStore.latestSnapshotsByAccount method against a live
+// These tests exercise the real dbStore.latestSnapshotsByVehicles method against a live
 // Postgres from TEST_DATABASE_URL and self-skip when it is unset, so `go test ./...` stays
 // green without a database (ai/go-conventions.md §persistence). They mirror the pattern
 // established in db_integration_test.go. Requires the goose migration applied
 // (`make migrate-up`).
 
-// TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins inserts two snapshots
+// TestReadStore_LatestSnapshotsByVehicles_MultiVehicleLatestWins inserts two snapshots
 // for vehicle A (different captured_at, on DIFFERENT calendar days) and one for
 // vehicle B, then asserts:
 //   - exactly two rows returned (one per vehicle — the DISTINCT ON batch semantics)
@@ -24,14 +24,12 @@ import (
 //   - vehicle B returns its only snapshot
 //   - all typed fields round-trip faithfully
 //
-// Vehicle A's two snapshots MUST land on different calendar days: since
-// telemetry-dedupe-daily-snapshots, two same-day captures for one vehicle collapse
-// into a single row via the upsert (design D1), which would leave DISTINCT ON with
-// only one row to choose from and silently stop exercising latest-wins at all. The
-// 26h/1h offsets below are >24h apart, so they are always on different dates
-// regardless of what time of day the suite runs — the earlier 2h/1h fixtures made
-// this test's behavior depend on whether it ran side of UTC midnight.
-func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T) {
+// Vehicle A's two snapshots MUST land on different calendar days: two same-day
+// captures for one vehicle collapse into a single row via the upsert, which would
+// leave DISTINCT ON with only one row to choose from and silently stop exercising
+// latest-wins at all. The 26h/1h offsets below are >24h apart, so they are always on
+// different dates regardless of what time of day the suite runs.
+func TestReadStore_LatestSnapshotsByVehicles_MultiVehicleLatestWins(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -45,7 +43,6 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	// coexists with the newer one instead of being replaced by it (see doc comment).
 	olderTime := time.Now().UTC().Add(-26 * time.Hour).Truncate(time.Microsecond)
 	snapAOlder := Snapshot{
-		AccountID:         accountID,
 		TeslaID:           vehicleA,
 		CapturedAt:        olderTime,
 		CapturedDate:      clock.CalendarDay(olderTime, time.UTC),
@@ -70,7 +67,6 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	newerTime := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
 	sentryOn := true
 	snapANewer := Snapshot{
-		AccountID:         accountID,
 		TeslaID:           vehicleA,
 		CapturedAt:        newerTime,
 		CapturedDate:      clock.CalendarDay(newerTime, time.UTC),
@@ -95,7 +91,6 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	snapBTime := time.Now().UTC().Add(-30 * time.Minute).Truncate(time.Microsecond)
 	sentryOff := false
 	snapB := Snapshot{
-		AccountID:         accountID,
 		TeslaID:           vehicleB,
 		CapturedAt:        snapBTime,
 		CapturedDate:      clock.CalendarDay(snapBTime, time.UTC),
@@ -116,9 +111,9 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		t.Fatalf("insertSnapshot (B): %v", err)
 	}
 
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{vehicleA, vehicleB})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 2 {
 		t.Fatalf("want exactly 2 results (one per vehicle), got %d", len(got))
@@ -163,9 +158,6 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	}
 	// latitude/longitude dropped in 20260801000001 — not asserted here;
 	// values remain recoverable from raw_data->'drive_state'.
-	if a.AccountID != accountID {
-		t.Errorf("vehicle A: AccountID wrong: %v", a.AccountID)
-	}
 
 	// Vehicle B must be its only snapshot.
 	b, ok := byVehicle[vehicleB]
@@ -183,10 +175,10 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	}
 }
 
-// TestReadStore_LatestSnapshotsByAccount_SentryNilRoundTrip inserts a snapshot with
+// TestReadStore_LatestSnapshotsByVehicles_SentryNilRoundTrip inserts a snapshot with
 // sentry_mode = NULL (nil *bool) and asserts the returned Snapshot.SentryMode is nil —
 // preserving the absent≠off distinction through the full pgtype→domain mapping path.
-func TestReadStore_LatestSnapshotsByAccount_SentryNilRoundTrip(t *testing.T) {
+func TestReadStore_LatestSnapshotsByVehicles_SentryNilRoundTrip(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -196,7 +188,6 @@ func TestReadStore_LatestSnapshotsByAccount_SentryNilRoundTrip(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
 		CapturedDate:  clock.CalendarDay(captured, time.UTC),
@@ -209,9 +200,9 @@ func TestReadStore_LatestSnapshotsByAccount_SentryNilRoundTrip(t *testing.T) {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
 
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -221,87 +212,22 @@ func TestReadStore_LatestSnapshotsByAccount_SentryNilRoundTrip(t *testing.T) {
 	}
 }
 
-// TestReadStore_LatestSnapshotsByAccount_EmptyAccount asserts that an account with no
-// rows returns an empty non-nil slice and nil error (design D5).
-func TestReadStore_LatestSnapshotsByAccount_EmptyAccount(t *testing.T) {
+// TestReadStore_LatestSnapshotsByVehicles_EmptyResult asserts that a batch of
+// tesla_ids with no rows returns an empty non-nil slice and nil error (design D5).
+func TestReadStore_LatestSnapshotsByVehicles_EmptyResult(t *testing.T) {
 	st, _ := newTestStore(t)
 	ctx := context.Background()
 
-	// Use a brand-new UUID that has no rows in vehicle_snapshots.
-	got, err := st.latestSnapshotsByAccount(ctx, uuid.New())
+	// Use a tesla_id that has no rows in vehicle_snapshots.
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{999999999})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if got == nil {
-		t.Fatal("empty account must return non-nil empty slice, got nil")
+		t.Fatal("no matching rows must return non-nil empty slice, got nil")
 	}
 	if len(got) != 0 {
-		t.Fatalf("empty account must return 0 results, got %d", len(got))
-	}
-}
-
-// TestReadStore_LatestSnapshotsByAccount_DifferentAccountExcluded inserts rows for two
-// accounts and asserts that each account's query returns only its own rows — cross-account
-// data must never appear in the result (multi-tenant isolation).
-func TestReadStore_LatestSnapshotsByAccount_DifferentAccountExcluded(t *testing.T) {
-	st, pool := newTestStore(t)
-	ctx := context.Background()
-
-	acctA := uuid.New()
-	acctB := uuid.New()
-	const vehicleA = int64(800020)
-	const vehicleB = int64(800021)
-	cleanupVehicle(t, pool, acctA, vehicleA)
-	cleanupVehicle(t, pool, acctB, vehicleB)
-
-	capturedA := time.Now().UTC().Truncate(time.Microsecond)
-	snapA := Snapshot{
-		AccountID:     acctA,
-		TeslaID:       vehicleA,
-		CapturedAt:    capturedA,
-		CapturedDate:  clock.CalendarDay(capturedA, time.UTC),
-		ChargingState: "Disconnected",
-		CarVersion:    "v",
-		RawData:       []byte(`{}`),
-	}
-	capturedB := time.Now().UTC().Truncate(time.Microsecond)
-	snapB := Snapshot{
-		AccountID:     acctB,
-		TeslaID:       vehicleB,
-		CapturedAt:    capturedB,
-		CapturedDate:  clock.CalendarDay(capturedB, time.UTC),
-		ChargingState: "Disconnected",
-		CarVersion:    "v",
-		RawData:       []byte(`{}`),
-	}
-	if err := st.insertSnapshot(ctx, snapA); err != nil {
-		t.Fatalf("insertSnapshot (acctA): %v", err)
-	}
-	if err := st.insertSnapshot(ctx, snapB); err != nil {
-		t.Fatalf("insertSnapshot (acctB): %v", err)
-	}
-
-	// acctA query must return only acctA's row.
-	gotA, err := st.latestSnapshotsByAccount(ctx, acctA)
-	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount (acctA): %v", err)
-	}
-	if len(gotA) != 1 || gotA[0].TeslaID != vehicleA {
-		t.Errorf("acctA: want 1 row for vehicle %d, got %+v", vehicleA, gotA)
-	}
-	for _, s := range gotA {
-		if s.AccountID != acctA {
-			t.Errorf("acctA query returned a row belonging to a different account: %v", s.AccountID)
-		}
-	}
-
-	// acctB query must return only acctB's row.
-	gotB, err := st.latestSnapshotsByAccount(ctx, acctB)
-	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount (acctB): %v", err)
-	}
-	if len(gotB) != 1 || gotB[0].TeslaID != vehicleB {
-		t.Errorf("acctB: want 1 row for vehicle %d, got %+v", vehicleB, gotB)
+		t.Fatalf("no matching rows must return 0 results, got %d", len(got))
 	}
 }
 
@@ -326,7 +252,6 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	// Snapshot BEFORE since — must NOT appear in results.
 	before := baseTime.Add(-24 * time.Hour).Truncate(time.Microsecond)
 	snapBefore := Snapshot{
-		AccountID:       accountID,
 		TeslaID:         vehicleA,
 		CapturedAt:      before,
 		CapturedDate:    clock.CalendarDay(before, time.UTC),
@@ -344,7 +269,6 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	// Snapshot AT since — inclusive boundary, must appear first.
 	day0 := baseTime.Truncate(time.Microsecond)
 	snap0 := Snapshot{
-		AccountID:       accountID,
 		TeslaID:         vehicleA,
 		CapturedAt:      day0,
 		CapturedDate:    clock.CalendarDay(day0, time.UTC),
@@ -362,7 +286,6 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	// Snapshot +1 day after since.
 	day1 := baseTime.Add(24 * time.Hour).Truncate(time.Microsecond)
 	snap1 := Snapshot{
-		AccountID:       accountID,
 		TeslaID:         vehicleA,
 		CapturedAt:      day1,
 		CapturedDate:    clock.CalendarDay(day1, time.UTC),
@@ -380,7 +303,6 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	// Snapshot +2 days after since.
 	day2 := baseTime.Add(48 * time.Hour).Truncate(time.Microsecond)
 	snap2 := Snapshot{
-		AccountID:       accountID,
 		TeslaID:         vehicleA,
 		CapturedAt:      day2,
 		CapturedDate:    clock.CalendarDay(day2, time.UTC),
@@ -396,7 +318,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	}
 
 	// Query since = day0 (inclusive boundary).
-	got, err := st.snapshotsByVehicleSince(ctx, accountID, vehicleA, day0)
+	got, err := st.snapshotsByVehicleSince(ctx, vehicleA, day0)
 	if err != nil {
 		t.Fatalf("snapshotsByVehicleSince: %v", err)
 	}
@@ -437,90 +359,15 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	}
 }
 
-// TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded seeds two accounts
-// with snapshots for the same vehicle TeslaID and asserts that only the queried
-// account's rows are returned (defense-in-depth multi-tenant isolation, D2).
-func TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded(t *testing.T) {
-	st, pool := newTestStore(t)
-	ctx := context.Background()
-
-	acctA := uuid.New()
-	acctB := uuid.New()
-	const vehicleID = int64(900002) // same TeslaID used in both accounts
-	cleanupVehicle(t, pool, acctA, vehicleID)
-	cleanupVehicle(t, pool, acctB, vehicleID)
-
-	since := time.Now().UTC().Add(-24 * time.Hour).Truncate(time.Microsecond)
-
-	capturedA := time.Now().UTC().Truncate(time.Microsecond)
-	snapA := Snapshot{
-		AccountID:       acctA,
-		TeslaID:         vehicleID,
-		CapturedAt:      capturedA,
-		CapturedDate:    clock.CalendarDay(capturedA, time.UTC),
-		ChargingState:   "Disconnected",
-		CarVersion:      "v",
-		BatteryLevelPct: 55,
-		RawData:         []byte(`{}`),
-	}
-	capturedB := time.Now().UTC().Truncate(time.Microsecond)
-	snapB := Snapshot{
-		AccountID:       acctB,
-		TeslaID:         vehicleID,
-		CapturedAt:      capturedB,
-		CapturedDate:    clock.CalendarDay(capturedB, time.UTC),
-		ChargingState:   "Disconnected",
-		CarVersion:      "v",
-		BatteryLevelPct: 77,
-		RawData:         []byte(`{}`),
-	}
-	if err := st.insertSnapshot(ctx, snapA); err != nil {
-		t.Fatalf("insertSnapshot (acctA): %v", err)
-	}
-	if err := st.insertSnapshot(ctx, snapB); err != nil {
-		t.Fatalf("insertSnapshot (acctB): %v", err)
-	}
-
-	// Query for acctA only — must not see acctB's row.
-	gotA, err := st.snapshotsByVehicleSince(ctx, acctA, vehicleID, since)
-	if err != nil {
-		t.Fatalf("snapshotsByVehicleSince (acctA): %v", err)
-	}
-	if len(gotA) != 1 {
-		t.Fatalf("acctA: want 1 row, got %d", len(gotA))
-	}
-	if gotA[0].AccountID != acctA {
-		t.Errorf("acctA: returned row belongs to wrong account: %v", gotA[0].AccountID)
-	}
-	if gotA[0].BatteryLevelPct != 55 {
-		t.Errorf("acctA: want BatteryLevelPct=55, got %d", gotA[0].BatteryLevelPct)
-	}
-
-	// Query for acctB only — must not see acctA's row.
-	gotB, err := st.snapshotsByVehicleSince(ctx, acctB, vehicleID, since)
-	if err != nil {
-		t.Fatalf("snapshotsByVehicleSince (acctB): %v", err)
-	}
-	if len(gotB) != 1 {
-		t.Fatalf("acctB: want 1 row, got %d", len(gotB))
-	}
-	if gotB[0].AccountID != acctB {
-		t.Errorf("acctB: returned row belongs to wrong account: %v", gotB[0].AccountID)
-	}
-	if gotB[0].BatteryLevelPct != 77 {
-		t.Errorf("acctB: want BatteryLevelPct=77, got %d", gotB[0].BatteryLevelPct)
-	}
-}
-
 // --- EffectiveDate (telemetry-add-effective-date, task 2.3) ---
 
-// TestReadStore_LatestSnapshotsByAccount_EffectiveDate inserts a real row via
-// insertSnapshot and asserts that latestSnapshotsByAccount — which maps every
+// TestReadStore_LatestSnapshotsByVehicles_EffectiveDate inserts a real row via
+// insertSnapshot and asserts that latestSnapshotsByVehicles — which maps every
 // row through rowToSnapshot (service.go) — returns a Snapshot whose
 // EffectiveDate is non-zero and equals CapturedAt minus one calendar day, end
 // to end against a live Postgres row (not just the pure-function unit test in
 // reader_test.go).
-func TestReadStore_LatestSnapshotsByAccount_EffectiveDate(t *testing.T) {
+func TestReadStore_LatestSnapshotsByVehicles_EffectiveDate(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -530,7 +377,6 @@ func TestReadStore_LatestSnapshotsByAccount_EffectiveDate(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
 		CapturedDate:  clock.CalendarDay(captured, time.UTC),
@@ -542,9 +388,9 @@ func TestReadStore_LatestSnapshotsByAccount_EffectiveDate(t *testing.T) {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
 
-	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	got, err := st.latestSnapshotsByVehicles(ctx, []int64{teslaID})
 	if err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
@@ -575,7 +421,6 @@ func TestReadStore_SnapshotsByVehicleSince_EffectiveDate(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
 		CapturedDate:  clock.CalendarDay(captured, time.UTC),
@@ -588,7 +433,7 @@ func TestReadStore_SnapshotsByVehicleSince_EffectiveDate(t *testing.T) {
 	}
 
 	since := captured.Add(-time.Hour)
-	got, err := st.snapshotsByVehicleSince(ctx, accountID, teslaID, since)
+	got, err := st.snapshotsByVehicleSince(ctx, teslaID, since)
 	if err != nil {
 		t.Fatalf("snapshotsByVehicleSince: %v", err)
 	}
@@ -613,7 +458,7 @@ func TestReadStore_SnapshotsByVehicleSince_EmptyWindow(t *testing.T) {
 
 	// Use a future since that no rows can satisfy.
 	futureSince := time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
-	got, err := st.snapshotsByVehicleSince(ctx, uuid.New(), 900099, futureSince)
+	got, err := st.snapshotsByVehicleSince(ctx, 900099, futureSince)
 	if err != nil {
 		t.Fatalf("snapshotsByVehicleSince: %v", err)
 	}
@@ -634,19 +479,21 @@ func TestReadStore_SnapshotsByVehicleSince_EmptyWindow(t *testing.T) {
 // Together with the offline reader pass-through tests (reader_test.go), these prove
 // the full EffectiveDate ∈ [start, end] inclusive semantics end-to-end.
 
-// seedConsecutiveNights inserts count nightly snapshots for (accountID, teslaID),
-// starting at baseEffectiveDay (the EffectiveDate of the first snapshot), one per
-// calendar day. Each capture is at 08:30 UTC (mirrors the nightly 03:30-local /
-// America/Bogota UTC-5 cadence) so EffectiveDate = captureDay - 1 calendar day lands
-// exactly on baseEffectiveDay for the first row. BatteryLevelPct and OdometerKm are
-// uniquely tagged per night so a test can confirm it got the rows it expected.
+// seedConsecutiveNights inserts count nightly snapshots for teslaID, starting at
+// baseEffectiveDay (the EffectiveDate of the first snapshot), one per calendar day.
+// Each capture is at 08:30 UTC (mirrors the nightly 03:30-local / America/Bogota
+// UTC-5 cadence) so EffectiveDate = captureDay - 1 calendar day lands exactly on
+// baseEffectiveDay for the first row. BatteryLevelPct and OdometerKm are uniquely
+// tagged per night so a test can confirm it got the rows it expected. accountID is
+// kept as a parameter only so callers that seed the same vehicle under different
+// (now meaningless) accounts do not need to change their call shape; it is not used
+// to build the row — vehicle_snapshots is keyed on tesla_id alone.
 func seedConsecutiveNights(t *testing.T, st *dbStore, ctx context.Context, accountID uuid.UUID, teslaID int64, baseEffectiveDay time.Time, count int) {
 	t.Helper()
 	for i := 0; i < count; i++ {
 		effDay := baseEffectiveDay.AddDate(0, 0, i)
 		captured := effDay.AddDate(0, 0, 1).Add(8*time.Hour + 30*time.Minute)
 		snap := Snapshot{
-			AccountID:       accountID,
 			TeslaID:         teslaID,
 			CapturedAt:      captured.Truncate(time.Microsecond),
 			CapturedDate:    clock.CalendarDay(captured, time.UTC),
@@ -687,7 +534,7 @@ func TestReadStore_SnapshotsByVehicleBetween_EffectiveDateInRange(t *testing.T) 
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)
 
-	got, err := st.snapshotsByVehicleBetween(ctx, accountID, vehicleA, start, end)
+	got, err := st.snapshotsByVehicleBetween(ctx, vehicleA, start, end)
 	if err != nil {
 		t.Fatalf("snapshotsByVehicleBetween: %v", err)
 	}
@@ -751,7 +598,7 @@ func TestReadStore_SnapshotsByVehicleBetween_BoundariesInclusive(t *testing.T) {
 	start := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 6, 0, 0, 0, 0, time.UTC)
 
-	got, err := st.snapshotsByVehicleBetween(ctx, accountID, vehicleA, start, end)
+	got, err := st.snapshotsByVehicleBetween(ctx, vehicleA, start, end)
 	if err != nil {
 		t.Fatalf("snapshotsByVehicleBetween: %v", err)
 	}
@@ -789,7 +636,7 @@ func TestReadStore_SnapshotsByVehicleBetween_EmptyNonNil(t *testing.T) {
 	// A far-future window no rows can satisfy (the vehicle has no snapshots at all).
 	start := time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2099, 1, 7, 0, 0, 0, 0, time.UTC)
-	got, err := st.snapshotsByVehicleBetween(ctx, uuid.New(), 910099, start, end)
+	got, err := st.snapshotsByVehicleBetween(ctx, 910099, start, end)
 	if err != nil {
 		t.Fatalf("snapshotsByVehicleBetween: %v", err)
 	}
@@ -801,62 +648,44 @@ func TestReadStore_SnapshotsByVehicleBetween_EmptyNonNil(t *testing.T) {
 	}
 }
 
-// TestReadStore_SnapshotsByVehicleBetween_TenantIsolation asserts per-account and
-// per-vehicle scoping (task 5.4). Seed snapshots for:
-//   - accountA, vehicleV  (in window)
-//   - accountA, vehicleW  (same account, sibling vehicle; must NOT appear)
-//   - accountB, vehicleV  (different account, same TeslaID; must NOT appear)
-//
-// Query (accountA, vehicleV) and assert only accountA+vehicleV rows are returned —
-// defense-in-depth tenant isolation even though the gateway already resolves
-// tesla_id from account.RegisteredVehicles(uid) (parity with Since's D2).
-func TestReadStore_SnapshotsByVehicleBetween_TenantIsolation(t *testing.T) {
+// TestReadStore_SnapshotsByVehicleBetween_SiblingVehicleExcluded seeds two
+// vehicles over the same nights and asserts a query for one never returns the
+// other's rows. The window predicate is tesla_id plus a date range, so a sibling
+// vehicle is the only way a wrong row can reach the result.
+func TestReadStore_SnapshotsByVehicleBetween_SiblingVehicleExcluded(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
-	acctA := uuid.New()
-	acctB := uuid.New()
+	acct := uuid.New()
 	const vehicleV = int64(910010)
 	const vehicleW = int64(910011)
-	cleanupVehicle(t, pool, acctA, vehicleV)
-	cleanupVehicle(t, pool, acctA, vehicleW)
-	cleanupVehicle(t, pool, acctB, vehicleV)
+	cleanupVehicle(t, pool, acct, vehicleV)
+	cleanupVehicle(t, pool, acct, vehicleW)
 
-	// Shared window so all three seeds are in-range.
+	// Shared window so both seeds are in-range.
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC)
-
-	// Seed 2 nights for (acctA, vehicleV) — the requested (account, vehicle).
 	baseEffV := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
-	seedConsecutiveNights(t, st, ctx, acctA, vehicleV, baseEffV, 2)
 
-	// Seed 2 nights for (acctA, vehicleW) — same account, SIBLING vehicle.
-	seedConsecutiveNights(t, st, ctx, acctA, vehicleW, baseEffV, 2)
+	// Two nights for the requested vehicle, two for its sibling.
+	seedConsecutiveNights(t, st, ctx, acct, vehicleV, baseEffV, 2)
+	seedConsecutiveNights(t, st, ctx, acct, vehicleW, baseEffV, 2)
 
-	// Seed 2 nights for (acctB, vehicleV) — DIFFERENT account, same TeslaID.
-	seedConsecutiveNights(t, st, ctx, acctB, vehicleV, baseEffV, 2)
-
-	// Query (acctA, vehicleV) only.
-	got, err := st.snapshotsByVehicleBetween(ctx, acctA, vehicleV, start, end)
+	got, err := st.snapshotsByVehicleBetween(ctx, vehicleV, start, end)
 	if err != nil {
-		t.Fatalf("snapshotsByVehicleBetween (acctA, vehicleV): %v", err)
+		t.Fatalf("snapshotsByVehicleBetween (vehicleV): %v", err)
 	}
 	if len(got) != 2 {
-		t.Fatalf("want exactly 2 snapshots for (acctA, vehicleV), got %d: %+v", len(got), got)
+		t.Fatalf("want exactly 2 snapshots for vehicleV, got %d: %+v", len(got), got)
 	}
-	// Every returned row must belong to acctA AND vehicleV — no sibling, no cross-account.
 	for i, s := range got {
-		if s.AccountID != acctA {
-			t.Errorf("got[%d]: returned row belongs to wrong account: %v (want %v)", i, s.AccountID, acctA)
-		}
 		if s.TeslaID != vehicleV {
 			t.Errorf("got[%d]: returned row belongs to wrong vehicle: %d (want %d)", i, s.TeslaID, vehicleV)
 		}
-		// BatteryLevelPct tag for (acctA, vehicleV) seed: 50, 51 — confirms it is the
-		// right vehicle's rows, not vehicleW's or acctB's (which carry the same tags
-		// but are excluded by the account/vehicle filter).
+		// BatteryLevelPct tag for vehicleV seed: 50, 51 — confirms it is the right
+		// vehicle's rows, not vehicleW's.
 		if s.BatteryLevelPct != 50+i {
-			t.Errorf("got[%d]: want BatteryLevelPct=%d (acctA/vehicleV seed tag), got %d", i, 50+i, s.BatteryLevelPct)
+			t.Errorf("got[%d]: want BatteryLevelPct=%d (vehicleV seed tag), got %d", i, 50+i, s.BatteryLevelPct)
 		}
 	}
 }

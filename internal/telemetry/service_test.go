@@ -280,24 +280,24 @@ func (s *fakeStore) insertPollAttempt(_ context.Context, a Attempt) error {
 	return nil
 }
 
-// latestSnapshotsByAccount satisfies the extended store seam but is never called by the
-// collection service. It is a no-op stub so fakeStore continues to implement the full
-// store interface even after the read method was added in task 3.
-func (s *fakeStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]Snapshot, error) {
+// latestSnapshotsByVehicles satisfies the extended store seam but is never called by
+// the collection service. It is a no-op stub so fakeStore continues to implement the
+// full store interface even after the read method was added in task 3.
+func (s *fakeStore) latestSnapshotsByVehicles(_ context.Context, _ []int64) ([]Snapshot, error) {
 	return []Snapshot{}, nil
 }
 
 // snapshotsByVehicleSince satisfies the store seam added by
 // telemetry-add-snapshot-history-read-port. The collection service never calls it;
 // this stub keeps fakeStore implementing the full store interface.
-func (s *fakeStore) snapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+func (s *fakeStore) snapshotsByVehicleSince(_ context.Context, _ int64, _ time.Time) ([]Snapshot, error) {
 	return []Snapshot{}, nil
 }
 
 // snapshotsByVehicleBetween satisfies the store seam added by
 // RM8-telemetry-between-range-port. The collection service never calls it; this stub
 // keeps fakeStore implementing the full store interface (the read seam widened).
-func (s *fakeStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]Snapshot, error) {
+func (s *fakeStore) snapshotsByVehicleBetween(_ context.Context, _ int64, _, _ time.Time) ([]Snapshot, error) {
 	return []Snapshot{}, nil
 }
 
@@ -305,7 +305,7 @@ func (s *fakeStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ 
 // RM29-analytics-add-vehicle-metrics task 1.2. The collection service never calls
 // it; this stub keeps fakeStore implementing the full store interface (the read
 // seam widened), mirroring snapshotsByVehicleSince/Between's own precedent above.
-func (s *fakeStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+func (s *fakeStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]Snapshot, error) {
 	return []Snapshot{}, nil
 }
 
@@ -330,7 +330,7 @@ func (s *fakeStore) upsertSuperchargerHistory(_ context.Context, session Superch
 // own predecessor lookup was deleted alongside deriveConsumption — tier 4 design
 // D8); this no-op stub (nil, nil) keeps fakeStore implementing the full store
 // interface.
-func (s *fakeStore) snapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+func (s *fakeStore) snapshotPrecedingDay(_ context.Context, _ int64, _ time.Time) (*Snapshot, error) {
 	return nil, nil
 }
 
@@ -401,7 +401,7 @@ func TestCollectAll_OnlineVehicle_NoWakeStraightToFetch(t *testing.T) {
 	if len(fs.snapshots) != 1 {
 		t.Fatalf("want 1 snapshot stored, got %d", len(fs.snapshots))
 	}
-	if got := fs.snapshots[0]; got.TeslaID != 10 || got.BatteryLevelPct != 72 || got.AccountID != acctID {
+	if got := fs.snapshots[0]; got.TeslaID != 10 || got.BatteryLevelPct != 72 {
 		t.Errorf("snapshot mapped wrong: %+v", got)
 	}
 	// R1-01: an already-online vehicle must receive ZERO WakeUp calls (D3/D4) but its

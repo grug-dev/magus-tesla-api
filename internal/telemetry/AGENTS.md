@@ -23,6 +23,13 @@ log, charge-session detection). Tier 3 of `openspec/roadmaps/nightly-vehicle-tel
 It does the work; it does not render it — dashboards read this module's stored data through a port
 later (tier 4), never by importing this module's DB package.
 
+### Poll election
+
+A car can be registered to more than one account. Before `CollectAll` groups vehicles
+by account, `electPollingVehicles` (`service.go`) picks exactly one account to poll
+each `tesla_id` — preferring `OWNER`, never dropping a vehicle. See that function's
+own doc comment for the full rule; it is not repeated here.
+
 ### Why nightly collection exists at all (the Tesla-API constraint)
 
 The nightly poller is not a refresh job — it is the **only** way the platform acquires vehicle
@@ -120,7 +127,7 @@ Owns four tables, all in the dedicated **`telemetry` Postgres schema**: `vehicle
 
 | Table | Grain | Write shape |
 |---|---|---|
-| `vehicle_snapshots` | one row per (account, vehicle, `captured_date`) | UPSERT — a same-day re-capture REPLACES the row |
+| `vehicle_snapshots` | one row per (vehicle, `captured_date`) | UPSERT — a same-day re-capture REPLACES the row |
 | `poll_attempts` | one row per (vehicle, run) | append-only, immutable |
 | `supercharger_history` | one row per Tesla `session_id` | UPSERT — billing state mutates after the session |
 | `poll_runs` | one row per `run_id` (PK) | plain INSERT, exactly once per cycle. A duplicate is a caller bug and fails loudly. |
@@ -133,8 +140,9 @@ Rules that bind across all four:
 - **`captured_date` is Go-computed**, from `captured_at` in the platform zone via
   `clock.CalendarDay` — never a DB expression. A UNIQUE index cannot depend on a runtime env
   var.
-- **`account_id` / `tesla_id` are plain columns. No cross-module FK**, in either direction.
-  The boundary is upheld by the flow, not by a constraint.
+- **`vehicle_snapshots` is keyed on `tesla_id` alone; `supercharger_history` still
+  carries `account_id` too.** Both are plain columns. No cross-module FK, in either
+  direction — the boundary is upheld by the flow, not by a constraint.
 - **`pgtype` never leaves the module.** Convert to and from plain domain types at the
   DB→domain mapping boundary, mirroring `internal/account`.
 - **`charge_gaps` is NOT owned here any more** — it moved to `internal/analytics` with its

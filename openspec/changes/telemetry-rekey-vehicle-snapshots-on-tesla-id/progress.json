@@ -9,19 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "6.1",
-      "6.2",
-      "6.3",
-      "6.4",
-      "6.5",
-      "6.6",
-      "6.7",
-      "6.8",
-      "6.9",
-      "6.10",
-      "7.1",
-      "7.2",
-      "7.3",
       "8.1",
       "8.2",
       "8.3",
@@ -66,7 +53,20 @@
       "5.6",
       "5.7",
       "5.8",
-      "5.9"
+      "5.9",
+      "6.1",
+      "6.10",
+      "6.2",
+      "6.3",
+      "6.4",
+      "6.5",
+      "6.6",
+      "6.7",
+      "6.8",
+      "6.9",
+      "7.1",
+      "7.2",
+      "7.3"
     ],
     "awaiting_user_verification": [
       "1.1",
@@ -77,7 +77,7 @@
     ]
   },
   "created_at": "2026-09-11T19:20:00Z",
-  "updated_at": "2026-09-11T20:24:00Z",
+  "updated_at": "2026-09-11T20:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -786,14 +786,20 @@
         "5.9"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_read_integration_test.go: dropped AccountID from all literals, renamed 5 test funcs, fixed latestSnapshotsByVehicles calls. 3 tests flagged and resolved by the user.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.2",
@@ -803,14 +809,20 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_integration_test.go: fixed cleanupVehicle and 5 raw-SQL helpers, fixed 3 Attempt literals.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.3",
@@ -820,14 +832,20 @@
         "6.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_preceding_snapshot_integration_test.go: dropped AccountID, fixed calls, rewrote the EXPLAIN test for the new index name.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.4",
@@ -837,14 +855,20 @@
         "6.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_sourcea_integration_test.go: dropped AccountID, fixed 2 raw-SQL helpers and call sites.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.5",
@@ -854,14 +878,20 @@
         "6.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_tpms_integration_test.go: same pattern as 6.4.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.6",
@@ -871,14 +901,20 @@
         "6.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "query_log_test.go: fixed both fakes (5 methods each), rewrote every want log-line string to match query_log.go.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.7",
@@ -888,14 +924,20 @@
         "6.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "reader_test.go: fixed 3 fakes (5 methods each), dropped gotAccount fields, removed unused uuid import, renamed 2 tests.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.8",
@@ -905,14 +947,20 @@
         "6.7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "service_test.go: updated fakeStore 5 methods, deleted the got.AccountID assertion as authorized.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.9",
@@ -922,14 +970,20 @@
         "6.8"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "snapshot_from_test.go: dropped leading uuid.New() from all 4 snapshotFrom calls, removed unused import.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "6.10",
@@ -939,14 +993,20 @@
         "6.9"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "go build and go vet ./internal/telemetry/... both clean.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "7.1",
@@ -956,14 +1016,20 @@
         "5.9"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "AGENTS.md: updated the grain row and the account_id/tesla_id rule, added a Poll election note pointing at electPollingVehicles.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "7.2",
@@ -973,14 +1039,20 @@
         "7.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "Confirmed only, no edit. The delta spec already carries the Poll Account Election requirement; sync happens at archive.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "7.3",
@@ -990,14 +1062,20 @@
         "7.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "KB telemetry-ingest-only.md: fixed the dedupe bullet constraint name. Grepped the whole file; no other stale mention found.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "8.1",
@@ -1369,6 +1447,15 @@
       "decision": "Rewrote 7 query doc comments, not the 6 tasks.md names",
       "why": "SnapshotPrecedingDay also named the retired constraint. Leaving it would have left a stale name pointing at a dropped object.",
       "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-11T20:50:00Z",
+      "scope": "task:6.1",
+      "made_by": "user",
+      "decision": "Deleted LatestSnapshotsByVehicles_DifferentAccountExcluded and SnapshotsByVehicleSince_CrossAccountExcluded; kept the third as SnapshotsByVehicleBetween_SiblingVehicleExcluded",
+      "why": "Both deleted tests only proved the account filter this change removes, and the second had a fixture that collides on the new key. The third also proves sibling-vehicle exclusion, which stays valid.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -1446,6 +1533,16 @@
       "at": "2026-09-11T20:24:00Z",
       "agent": "leader",
       "event": "wave 3 complete (T4+T5), 14 tasks done; leader verified go build passes and every remaining AccountID in non-test telemetry code is Supercharger-history only"
+    },
+    {
+      "at": "2026-09-11T20:25:00Z",
+      "agent": "leader",
+      "event": "wave 3 committed as f379fff; wave 4 dispatch (T6 test fixups + T7 docs) to telemetry worker, sonnet; 5h 40% / ctx 16%"
+    },
+    {
+      "at": "2026-09-11T20:52:00Z",
+      "agent": "leader",
+      "event": "wave 4 complete (T6+T7), 13 tasks done; go vet clean. Leader verified the broken fixture claim, then applied the user decision on the three dead tests (D9)"
     }
   ]
 }
