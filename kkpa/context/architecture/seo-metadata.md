@@ -36,7 +36,7 @@ Every SEO tag in the app comes from one component. There is no second place.
 | icons | `internal/gateway/static/img/favicon/` | Linked from the page: `favicon-32x32.png`, `favicon-16x16.png`, `favicon.ico`, `apple-touch-icon.png`. Used by the manifest: the 192 and 512 PNGs. Unused: `favicon-180x180.png`, `favicon-48x48.png`. |
 | routes | `internal/gateway/gateway.go` | `/robots.txt`, `/sitemap.xml`, `/site.webmanifest`, and a 301 from `/favicon.ico`. |
 | tests | `internal/gateway/seo_test.go` | Pins the tags, the absolute URLs, the ES/EN switch, robots, sitemap, and the JSON-LD. |
-| docs | `internal/gateway/AGENTS.md` §"SEO & social-share metadata" | The full rule set and the rejected options. |
+| docs | `internal/gateway/AGENTS.md` §"SEO & social-share metadata" | Two page-author rules only: no page-level `<meta>` tag, and the shell decides indexing. It points here for everything else. **This guide is the full rule set.** |
 
 ## How maintenance works
 
@@ -74,8 +74,11 @@ the file and its `<link>` tag. The test `os.Stat`s every href, so a tag with no 
 
 - **The base URL renders no page.** `Handler.Home` sends an anonymous visitor from `/` to
   `/login` with a 302. Scrapers follow the redirect. So the share card for the domain is
-  `/login`'s card. `pages.Home` still compiles but is never shown.
-  _Source: `internal/gateway/handlers/handlers.go` — `Handler.Home`._
+  `/login`'s card. `pages.Home` still compiles but is never shown. If `/` ever grows a real
+  landing page, `seoHead` needs no change, but `TestSEO_BaseURLRedirectsToLogin` breaks on
+  purpose to say so.
+  _Source: `internal/gateway/handlers/handlers.go` — `Handler.Home`;
+  `internal/gateway/seo_test.go` — `TestSEO_BaseURLRedirectsToLogin`._
 
 - **Every URL tag must be absolute.** A scraper fetches the page outside the browser. It has no
   origin to resolve a relative URL. A relative `og:image` makes the preview blank.
@@ -123,8 +126,9 @@ the file and its `<link>` tag. The test `os.Stat`s every href, so a tag with no 
   `WithType` is required. The default type is `application/json`, which no crawler reads.
   _Source: `internal/gateway/templates/layouts/base.templ` — `seoHead`; templ v0.3 `JSONScript`._
 
-- **The JSON-LD states only what is true.** No `aggregateRating`, no `offers`, no `price`.
-  This project has no rating and no published price. Google penalises invented fields by
+- **The JSON-LD states only what is true.** No `aggregateRating`, no `offers`, no `price`,
+  no `reviewCount` — the four fields every SEO checklist asks for. This project has no
+  rating and no published price. Google penalises invented fields by
   hand. `seo_test.go` asserts they stay absent.
   _Source: `internal/gateway/templates/layouts/jsonld.go`._
 
@@ -136,6 +140,11 @@ the file and its `<link>` tag. The test `os.Stat`s every href, so a tag with no 
   those two exact root paths. A file under `/static` is never found.
   _Source: `internal/gateway/gateway.go`; `internal/gateway/handlers/site.go`._
 
+- **`RobotsTxt` and `SitemapXML` are package-level functions, not methods on `*Handler`.**
+  They read `ui.Site` off the request context and nothing else. Needing `h.Deps` there
+  would be a design smell, not a missing receiver.
+  _Source: `internal/gateway/handlers/site.go`._
+
 - **`robots.txt` is not access control.** The file is public. It names every path it lists.
   Never put a secret URL in it. Everything in `robotsDisallow` is already visible in the
   signed-in navigation.
@@ -145,8 +154,9 @@ the file and its `<link>` tag. The test `os.Stat`s every href, so a tag with no 
   redirecting sitemap entry as "Page with redirect". Only `/login` is listed.
   _Source: `internal/gateway/handlers/site.go` — `sitemapPaths`._
 
-- **The sitemap has no `<lastmod>`, and that is deliberate.** This app does not track when a
-  page changed. A made-up date teaches a crawler a schedule that means nothing.
+- **The sitemap has no `<lastmod>`, `<changefreq>` or `<priority>`, and that is deliberate.**
+  This app does not track when a page changed. A made-up date teaches a crawler a schedule
+  that means nothing, and an invented priority is a claim with no basis.
   _Source: `internal/gateway/handlers/site.go` — `SitemapXML`._
 
 - **Favicons are not gated on `indexable`.** A private page still needs a tab icon. So
@@ -165,7 +175,7 @@ the file and its `<link>` tag. The test `os.Stat`s every href, so a tag with no 
 
 - **`manifestThemeColor` is the one correct raw hex in the gateway.** A manifest is JSON
   read by the operating system. It cannot resolve a CSS token. The value is graphite's
-  `--color-base-100`, because graphite is the default theme. A manifest holds one colour
+  `--color-base-100`, because graphite is `ui.DefaultTheme`. A manifest holds one colour
   and is fetched once at install. If graphite changes, change the constant by hand.
   _Source: `internal/gateway/handlers/site.go` — `manifestThemeColor`._
 
@@ -190,7 +200,7 @@ the file and its `<link>` tag. The test `os.Stat`s every href, so a tag with no 
 - **Not built, and that is a decision:** `hreflang` and a web app manifest. `hreflang` has
   no meaning here. Language is a cookie on the SAME URL. There is no per-language URL to
   point at.
-  _Source: `internal/gateway/AGENTS.md` §"SEO & social-share metadata"._
+  _Source: this guide — decision recorded at MAG-seo, 2026-09-07._
 
 - **`make i18n-guard` does not cover these strings.** It scans text nodes, not attributes. A
   hardcoded `content="..."` would pass the guard. The bilingual rule still binds.
