@@ -33,7 +33,7 @@ It renders what other modules expose; it owns no business data.
   module's last caller of that module's `Reader.SnapshotsByVehicleBetween` — it now reads
   `Deps.AnalyticsReader.BatteryLevelByDay(ctx, uid, teslaID, start, end)` instead, with
   **no lookback** (the port returns exactly `[start, end]`, since `vehicle_metrics.
-  metric_date` is already the effective day it needs). The four `LatestSnapshotsByAccount`
+  metric_date` is already the effective day it needs). The four telemetry latest-state
   call sites (dashboard, vehicle cards, nav header, charges battery suggestion) were
   already repointed onto `Deps.AnalyticsReader.LatestMetricsByAccount` below by the
   earlier `RM38-gateway-read-dashboard-from-metrics`. Do **not** reintroduce a
@@ -92,8 +92,8 @@ It renders what other modules expose; it owns no business data.
   `RM28-gateway-add-consumed-graph` (tier 4), renamed from `battery` by
   `RM29-analytics-rename-from-battery`.
   Since `RM38-gateway-read-dashboard-from-metrics`, also **`LatestMetricsByAccount`** —
-  the account's latest per-vehicle status, replacing the equivalent
-  `telemetry.Reader.LatestSnapshotsByAccount` calls. Four callers: `dashboardFor` (single-
+  the account's latest per-vehicle status, replacing the equivalent telemetry
+  latest-state calls. Four callers: `dashboardFor` (single-
   vehicle bento, via `mapDashboardSnapshot`), `vehiclesFor`/`mapVehicles` (the unrouted
   `/ui/vehicles` card list — see `mapVehicles`'s own doc comment for why it is kept
   working despite having no route), `navHeaderFor` (status dot/battery — a nil

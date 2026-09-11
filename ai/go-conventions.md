@@ -259,9 +259,9 @@ module:
   JSONB on the hot path. Reference: `vehicle_snapshots.battery_level`, `odometer`,
   etc. alongside `raw_data`.
 - **`DISTINCT ON (x) ... ORDER BY x, time DESC` for "latest per X" queries.** One
-  Postgres index scan, no N+1. Reference: `LatestSnapshotsByAccount` in
+  Postgres index scan, no N+1. Reference: `LatestSnapshotsByVehicles` in
   `internal/telemetry/db/query.sql`. Write batch reads at the module interface
-  level (`LatestSnapshotsByAccount` — all vehicles in one query), never per-entity
+  level (`LatestSnapshotsByVehicles` — all vehicles in one query), never per-entity
   helpers (`LatestSnapshotForVehicle`) that the caller must loop over.
 - **Append-only inserts for historical event tables.** No `UPDATE`/`DELETE` on
   snapshot/history tables — they are immutable. Writes are cheap (blind `INSERT`);

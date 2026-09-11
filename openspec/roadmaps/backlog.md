@@ -139,7 +139,7 @@ as future work here. See the change's `tasks.md` T6 and `design.md` §3.4.
 
 The navigation header added by `gateway-add-stitch-design-handoff` (design DD2/DD4) shows the PRIMARY vehicle only — the first entry of `account.RegisteredVehicles`. Accounts with multiple Tesla vehicles have no way to switch which vehicle the nav header surfaces (battery %, "Connected" status). This change adds a vehicle selector to the nav header (or the top bar — the Stitch "Tesla Core" Dashboard design carries a top-bar vehicle-switch affordance), letting the user pick which owned vehicle the header reflects.
 
-Reuses the existing `account.RegisteredVehicles` + `telemetry.Reader.LatestSnapshotsByAccount` read ports — no new read path, no DB object. The selected vehicle id is a session/cookie preference (or query param) read at request time; mirror the `charges` gold-standard slice, `ui/` kit, semantic tokens, zero client JS (CSS-only DaisyUI `dropdown`/`select`).
+Reuses the existing `account.RegisteredVehicles` + `analytics.Reader.LatestMetricsByAccount` read ports — no new read path, no DB object. The nav header reads analytics, not telemetry: the gateway may not import `internal/telemetry` at all. The selected vehicle id is a session/cookie preference (or query param) read at request time; mirror the `charges` gold-standard slice, `ui/` kit, semantic tokens, zero client JS (CSS-only DaisyUI `dropdown`/`select`).
 
 **TRIGGER — pick up when** the user wants multi-vehicle accounts to choose which vehicle the nav header shows (currently it always shows the first registered vehicle).
 

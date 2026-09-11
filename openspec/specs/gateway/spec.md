@@ -751,8 +751,8 @@ free" checkbox's checked state**, not only the fields that already had a today's
   placeholder derived from `73`)
 - **AND** the suggestion is a hint, not a forced value — the user may type any
   integer in 0–100 and the field submits whatever the user typed
-- **AND** the suggestion is built from the telemetry `Reader.LatestSnapshotsByAccount`
-  port (the same port the dashboard uses), picking the snapshot whose `TeslaID`
+- **AND** the suggestion is built from the `analytics.Reader.LatestMetricsByAccount`
+  port (the same port the dashboard uses), picking the status whose `TeslaID`
   matches the session-selected vehicle
 - **AND** the gateway does not add a new `telemetry.Reader` method, does not read
   any telemetry table directly, and does not make a live Tesla API call to populate
@@ -2406,9 +2406,9 @@ entry list's cost-per-kWh column.
 The gateway SHALL access manual charge data exclusively through the `charging.Writer`
 and `charging.Reader` public interfaces. It SHALL NOT import `internal/charging/db`
 (`chargingdb`) or any generated sqlc types. On the charges page, the gateway also reads
-telemetry data (the `start_battery_pct` suggestion label) exclusively through
-`telemetry.Reader.LatestSnapshotsByAccount` and SHALL NOT import `internal/telemetry/db`
-(`telemetrydb`) for that purpose.
+vehicle status data (the `start_battery_pct` suggestion label) exclusively through
+`analytics.Reader.LatestMetricsByAccount` and SHALL NOT import `internal/telemetry` or
+`internal/telemetry/db` (`telemetrydb`) for that purpose.
 
 #### Scenario: Gateway only uses charging public interfaces
 

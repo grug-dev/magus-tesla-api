@@ -220,7 +220,7 @@ the `Reader` interface be shaped purely for dashboard query patterns (batch, lat
 aggregated) without being polluted by collection concerns.
 
 Reference implementation: `internal/telemetry/` — `Collector.CollectAll` (write,
-nightly) vs `Reader.LatestSnapshotsByAccount` (read, per dashboard load).
+nightly) vs `Reader.LatestSnapshotsByVehicles` (read, per dashboard load).
 
 #### Exception: the gateway may not depend on `telemetry` at all
 
@@ -247,7 +247,7 @@ How it was resolved — the answer the rule itself demanded: the gateway reaches
 telemetry through **another module's interface**, and the data crosses the boundary as
 **that module's own type**.
 
-- `RM38` moved the four `LatestSnapshotsByAccount` call sites (dashboard, vehicle
+- `RM38` moved the four telemetry latest-state call sites (dashboard, vehicle
   cards, nav header, charges suggestion) to `analytics.Reader.LatestMetricsByAccount`,
   returning `analytics.VehicleStatus`.
 - `RM40` moved the last one, `SnapshotsByVehicleBetween` (the history page's battery
@@ -298,7 +298,7 @@ months of raw snapshots and aggregating on the fly).
    unless-backfilling. Convention: never force a dashboard to extract from JSONB on
    the hot path. See [`go-conventions.md`](./go-conventions.md) §Persistence.
 
-2. **`DISTINCT ON` for "latest per X"** — `LatestSnapshotsByAccount` uses
+2. **`DISTINCT ON` for "latest per X"** — `LatestSnapshotsByVehicles` uses
    `DISTINCT ON (tesla_id) ... ORDER BY tesla_id, captured_at DESC` to get the latest
    snapshot per vehicle in one index scan. Convention: batch reads like this replace
    N+1 per-vehicle queries at the module interface boundary.
