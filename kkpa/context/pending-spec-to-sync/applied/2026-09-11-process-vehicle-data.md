@@ -9,7 +9,7 @@
 Target guide: `architecture/nightly-cycle.md`
 Source spec:  `openspec/specs/process-vehicle-data/spec.md`
 Generated:    `2026-09-10`
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-11
 
 Derived from change `RM52-app-add-monthly-capacity-step` (ticket MAG-32, roadmap RM52 tier 2,
 archived `openspec/changes/archive/app/2026-09-10-RM52-app-add-monthly-capacity-step`). That

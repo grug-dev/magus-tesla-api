@@ -159,6 +159,18 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
   `make boundary-guard` enforces it.
   _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
 
+- **A failed monthly-capacity measurement never changes the cycle's reported outcome.** Step 4's
+  error is logged and swallowed, exactly like step 2's and step 3's. The cycle still reports what
+  steps 1-3 produced. A missed month is not lost work: the next run of `cmd/monthly-capacity`
+  recomputes that period.
+  _Source: spec process-vehicle-data — Requirement: Monthly Vehicle Capacity Is Measured Only On The First Day Of The Month, For The Previous Month._
+
+- **Step 4 always measures EVERY vehicle in one call, never one vehicle picked by the cycle.** The
+  nightly caller always passes `teslaID = nil`. Scoping to a single vehicle is the manual tool's
+  job (`cmd/monthly-capacity -tesla-id`), never the nightly cycle's. Adding a per-vehicle loop
+  here would re-pool the same rows once per vehicle.
+  _Source: spec process-vehicle-data — Requirement: Monthly Vehicle Capacity Is Measured Only On The First Day Of The Month, For The Previous Month._
+
 ## Rendered view (visual map)
 
 A published Artifact renders this same cycle as a diagram — tier map, per-step call traces, the

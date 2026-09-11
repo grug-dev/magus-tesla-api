@@ -9,7 +9,7 @@
 Target guide: `workflows/vehicle-monthly-metrics.md`
 Source spec:  `openspec/specs/monthly-effective-capacity/spec.md`
 Generated:    2026-09-10
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-11
 
 **Routing note (read before applying).** The concept resolved to **nothing** in `INDEX.md`, so
 this creates a new guide. Two naming choices, both deliberate:

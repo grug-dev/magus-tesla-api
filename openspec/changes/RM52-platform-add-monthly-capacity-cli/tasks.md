@@ -186,7 +186,7 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
 
 ## Cross-module tasks the leader owns
 
-- [ ] **L1** **[leader]** Run the `kkpa-context-curate` skill to create
+- [x] **L1** **[leader]** Run the `kkpa-context-curate` skill to create
   `kkpa/context/entities/vehicle-monthly-metrics/guide.md` (RD10) — the whole
   monthly-metrics story end to end: the table (tier 1), the estimator (tier 1), the
   nightly step (tier 2), this tier's CLI, and where a future second metric would go
@@ -195,7 +195,7 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
   capacity`, `pack capacity`, `effective capacity`, `capacity backfill`).
   `depends_on`: 5.1-5.7 · `parallel_ok`: no
 
-- [ ] **L2** **[leader]** Confirm `go build ./...` / `go vet ./...` are green repo-wide
+- [x] **L2** **[leader]** Confirm `go build ./...` / `go vet ./...` are green repo-wide
   once Wave 6 lands, and re-run `make tz-guard`, `make boundary-guard`,
   `make archive-guard` (this change's `Makefile`/`kkpa/context/` edits are exactly the
   kind of touch those guards watch).
@@ -205,7 +205,7 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
   closes the roadmap. Also update the "Tiers" table's own status legend row if all three
   now read `[x]`.
 
-- [ ] **L4** **[leader]** Re-read `openspec/roadmaps/backlog.md` item 7 (trim-exact pack
+- [x] **L4** **[leader]** Re-read `openspec/roadmaps/backlog.md` item 7 (trim-exact pack
   capacity), per the roadmap's own "Future work" note: *"gets much weaker once this
   measures the real pack. Re-read it after tier 3 and decide whether it still earns its
   place."* `backlog.md` is not a granted path for the platform worker in this tier — this
