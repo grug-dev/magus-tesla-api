@@ -66,25 +66,25 @@ Depends on: nothing.
 Depends on: T2 (schema must exist before `sqlc generate` can validate the
 queries against it).
 
-- [ ] 3.1 In `internal/telemetry/db/query.sql`, remove `account_id` from
+- [x] 3.1 In `internal/telemetry/db/query.sql`, remove `account_id` from
       `InsertVehicleSnapshot`'s column list, `VALUES` list, and change its
       `ON CONFLICT` target to `(tesla_id, captured_date)`.
-- [ ] 3.2 Remove `account_id` from `SnapshotsByVehicleSince`'s `SELECT`
+- [x] 3.2 Remove `account_id` from `SnapshotsByVehicleSince`'s `SELECT`
       column list and `WHERE` clause.
-- [ ] 3.3 Remove `account_id` from `SnapshotsByVehicleBetween`'s `SELECT`
+- [x] 3.3 Remove `account_id` from `SnapshotsByVehicleBetween`'s `SELECT`
       column list and `WHERE` clause.
-- [ ] 3.4 Remove `account_id` from `SnapshotsByVehicleUpdatedSince`'s
+- [x] 3.4 Remove `account_id` from `SnapshotsByVehicleUpdatedSince`'s
       `SELECT` column list and `WHERE` clause.
-- [ ] 3.5 Remove `account_id` from `SnapshotPrecedingDay`'s `SELECT` column
+- [x] 3.5 Remove `account_id` from `SnapshotPrecedingDay`'s `SELECT` column
       list and `WHERE` clause.
-- [ ] 3.6 Rename `InsertPollAttempt`'s bound column/parameter from
+- [x] 3.6 Rename `InsertPollAttempt`'s bound column/parameter from
       `account_id`/`@account_id` to `polled_by_account_id`/`@polled_by_account_id`.
       Do not drop it — this query keeps its account argument, only renamed.
-- [ ] 3.7 Rename `LatestSnapshotsByAccount` to `LatestSnapshotsByVehicles`:
+- [x] 3.7 Rename `LatestSnapshotsByAccount` to `LatestSnapshotsByVehicles`:
       replace `WHERE account_id = @account_id` with
       `WHERE tesla_id = ANY(@tesla_ids::bigint[])`. Keep the `DISTINCT ON
       (tesla_id) ... ORDER BY tesla_id, captured_at DESC` shape unchanged.
-- [ ] 3.8 Rewrite each of the six edited queries' doc comments so none of
+- [x] 3.8 Rewrite each of the six edited queries' doc comments so none of
       them cite `design D1`/`D2`/`D3`/`D4`/`D5` from the now-archived,
       frozen `telemetry-dedupe-daily-snapshots`/`RM8`/`RM29` design docs, and
       none of them name the old constraint/index this migration retired —
@@ -92,7 +92,7 @@ queries against it).
       own `design.md` D-INDEX/D-MIGRATION sections for the substance. Do not
       cite this change's own name or any decision ID in the new comment text
       (`ai/go-conventions.md`'s code-comment rule).
-- [ ] 3.9 Run `make sqlc` (or `sqlc generate`). Confirm
+- [x] 3.9 Run `make sqlc` (or `sqlc generate`). Confirm
       `InsertVehicleSnapshotParams`, `SnapshotsByVehicleSinceParams`,
       `SnapshotsByVehicleBetweenParams`, `SnapshotsByVehicleUpdatedSinceParams`,
       `SnapshotPrecedingDayParams` no longer have an `AccountID` field;

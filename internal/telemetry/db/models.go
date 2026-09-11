@@ -10,12 +10,12 @@ import (
 )
 
 type PollAttempt struct {
-	ID          uuid.UUID
-	AccountID   uuid.UUID
-	TeslaID     int64
-	AttemptedAt pgtype.Timestamptz
-	Outcome     string
-	Reason      string
+	ID                uuid.UUID
+	PolledByAccountID uuid.UUID
+	TeslaID           int64
+	AttemptedAt       pgtype.Timestamptz
+	Outcome           string
+	Reason            string
 	// Correlates every vehicle's attempt row from one app.ProcessVehicleData invocation. Generated once per invocation by internal/app (uuid.New()) and passed down via telemetry.RunContext (design.md D5). NULL on every row written before this migration — that run's identity was never recorded and is not recoverable; never backfilled, never will be.
 	RunID pgtype.UUID
 	// What triggered the run that wrote this attempt: scheduler (the nightly poller, including cmd/poller --once) or api (a future manual re-run, RM29 tier 8, parked). NOT NULL DEFAULT 'scheduler' backfills every pre-migration row correctly, since no non-scheduler entry point existed before this tier. Guarded by the typed Go constant telemetry.TriggeredBy — no DB CHECK (design.md D1/D7).
@@ -78,7 +78,6 @@ type SuperchargerHistory struct {
 
 type VehicleSnapshot struct {
 	ID                    uuid.UUID
-	AccountID             uuid.UUID
 	TeslaID               int64
 	CapturedAt            pgtype.Timestamptz
 	RawData               []byte

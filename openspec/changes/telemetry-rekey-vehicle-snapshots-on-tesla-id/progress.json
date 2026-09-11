@@ -9,15 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4",
-      "3.5",
-      "3.6",
-      "3.7",
-      "3.8",
-      "3.9",
       "4.1",
       "4.2",
       "4.3",
@@ -65,17 +56,28 @@
     ],
     "blocked": [],
     "done": [
+      "1.4",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "3.6",
+      "3.7",
+      "3.8",
+      "3.9"
+    ],
+    "awaiting_user_verification": [
       "1.1",
       "1.2",
       "1.3",
-      "1.4",
       "2.1",
-      "2.2",
-      "2.3"
+      "2.2"
     ]
   },
   "created_at": "2026-09-11T19:20:00Z",
-  "updated_at": "2026-09-11T19:52:00Z",
+  "updated_at": "2026-09-11T20:18:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -95,7 +97,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -118,7 +120,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -141,7 +143,7 @@
         "1.2"
       ],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -185,7 +187,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -208,7 +210,7 @@
         "2.1"
       ],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -254,14 +256,20 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "Dropped account_id from InsertVehicleSnapshot column/VALUES lists; conflict target now (tesla_id, captured_date).",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "3.2",
@@ -271,14 +279,20 @@
         "3.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "SnapshotsByVehicleSince SELECT + WHERE drop account_id.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "3.3",
@@ -288,14 +302,20 @@
         "3.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "SnapshotsByVehicleBetween SELECT + WHERE drop account_id.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "3.4",
@@ -305,14 +325,20 @@
         "3.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "SnapshotsByVehicleUpdatedSince SELECT + WHERE drop account_id.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "3.5",
@@ -322,14 +348,20 @@
         "3.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "SnapshotPrecedingDay SELECT + WHERE drop account_id.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "3.6",
@@ -339,14 +371,20 @@
         "3.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "InsertPollAttempt column/param renamed account_id to polled_by_account_id, kept as a bound arg.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "3.7",
@@ -356,14 +394,20 @@
         "3.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "Renamed LatestSnapshotsByAccount to LatestSnapshotsByVehicles; WHERE tesla_id = ANY(@tesla_ids::bigint[]); DISTINCT ON/ORDER BY unchanged.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "3.8",
@@ -373,14 +417,20 @@
         "3.7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "Rewrote doc comments on all 7 edited queries. design.md said six; SnapshotPrecedingDay also named the retired constraint. No design/decision IDs remain.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "3.9",
@@ -390,14 +440,20 @@
         "3.8"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "sqlc generate clean. LatestSnapshotsByVehicles(ctx, teslaIds []int64) has NO params struct. InsertPollAttemptParams.PolledByAccountID. No AccountID on the five snapshot params.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
     },
     {
       "id": "4.1",
@@ -1211,6 +1267,24 @@
       "decision": "Migration file renumbered 20260911000001 -> 20260911000002; SQL content unchanged",
       "why": "design.md picked a version already used by the analytics pilot migration. make migration-guard failed and named the renumber as its own fix.",
       "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-11T20:12:30Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Do not apply the migration to the dev database at any point in this change",
+      "why": "Tests provision their own Postgres and apply migrations themselves. The Up migration DELETEs duplicate rows, and the dev DB holds snapshot history Tesla cannot backfill.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-11T20:18:00Z",
+      "scope": "task:3.8",
+      "made_by": "autopilot",
+      "decision": "Rewrote 7 query doc comments, not the 6 tasks.md names",
+      "why": "SnapshotPrecedingDay also named the retired constraint. Leaving it would have left a stale name pointing at a dropped object.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -1252,7 +1326,32 @@
     {
       "at": "2026-09-11T19:52:00Z",
       "agent": "leader",
-      "event": "wave 1 complete (T1+T2), all 7 tasks done; leader verified the renumber against the real collision and the election code against design.md"
+      "event": "wave 1 complete (T1+T2), all 7 tasks done; leader verified the renumber against the real collision and the election code against design.md; committed as e55a9af"
+    },
+    {
+      "at": "2026-09-11T19:54:00Z",
+      "agent": "leader",
+      "event": "asked user to run the telemetry suite at this green point; tasks 1.1-1.3, 2.1-2.2 await their report"
+    },
+    {
+      "at": "2026-09-11T20:12:00Z",
+      "agent": "leader",
+      "event": "USER RAN go test ./internal/telemetry/...: ~40 DB-backed tests fail with column account_id does not exist. EXPECTED, not a regression: testdb_test.go embeds and applies db/migrations, so the test container already has wave 1 new schema while the Go code is still old. Cleared by T3-T6."
+    },
+    {
+      "at": "2026-09-11T20:12:30Z",
+      "agent": "leader",
+      "event": "leader correction: wave 1 is NOT a green point for the suite. Writing the migration file alone reddens every DB-backed telemetry test. Only build/vet/guards stay green until T6."
+    },
+    {
+      "at": "2026-09-11T20:13:00Z",
+      "agent": "leader",
+      "event": "wave 2 dispatch (T3 queries + sqlc) to telemetry worker, sonnet"
+    },
+    {
+      "at": "2026-09-11T20:18:00Z",
+      "agent": "leader",
+      "event": "wave 2 complete (T3), 9 tasks done; leader verified the generated signature and that residual AccountID hits are Supercharger-only"
     }
   ]
 }
