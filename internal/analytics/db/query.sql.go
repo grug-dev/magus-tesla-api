@@ -190,7 +190,7 @@ type LatestVehicleMetricsByAccountRow struct {
 
 // Backs analytics.Reader.LatestMetricsByAccount (design D5/D6 of
 // RM38-analytics-add-vehicle-status-columns) -- the analytics-owned
-// equivalent of telemetry.Reader.LatestSnapshotsByAccount, mirroring its
+// equivalent of telemetry.Reader.LatestSnapshotsByVehicles, mirroring its
 // exact DISTINCT ON shape: account_id equality narrows to one tenant's
 // rows, then (tesla_id, metric_date) lets Postgres pick the highest
 // metric_date row per tesla_id in one ordered index scan.

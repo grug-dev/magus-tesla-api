@@ -58,8 +58,8 @@ const tpmsMigrationVersion int64 = 20260908000002
 // TestMigration_TpmsPressureBackfill implements design.md's Test Contract
 // "DB integration: backfill migration round-trip" in full: the backfill
 // fills a vehicle_metrics row whose (account_id, tesla_id, metric_date)
-// matches a vehicle_snapshots row's (account_id, tesla_id,
-// captured_date - 1), leaves a row with no matching snapshot NULL (not an
+// matches a vehicle_snapshots row's (tesla_id, captured_date - 1), leaves a
+// row with no matching snapshot NULL (not an
 // error, not a fabricated zero), and a Down/Up round-trip leaves the table
 // in the same shape. Every pinned value below is copied verbatim from
 // design.md's Test Contract, never derived by running the migration first
@@ -106,7 +106,6 @@ func TestMigration_TpmsPressureBackfill(t *testing.T) {
 	// non-power-of-two fraction would pick up a float32 rounding error
 	// irrelevant to the migration under test.
 	seedSnapshot(t, pool, telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 9, 10, 3, 30, 0, 0, time.UTC),
 		CapturedDate:      snapshotDay,

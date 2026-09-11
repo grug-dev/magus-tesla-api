@@ -25,7 +25,7 @@ import (
 // RecentEfficiency; SnapshotsByVehicleBetween is exercised by ConsumedByDay (RM28 tier 3,
 // design.md D-B13) — both share the snapshots/err fixture fields (safe: no existing
 // RecentEfficiency test calls the Between path, so nothing observes the reuse).
-// LatestSnapshotsByAccount is not called by anything in this module and still panics.
+// LatestSnapshotsByVehicles is not called by anything in this module and still panics.
 type fakeTelemetryReader struct {
 	snapshots []telemetry.Snapshot
 	err       error
@@ -50,12 +50,11 @@ type fakeTelemetryReader struct {
 	gotPrecedingDay time.Time
 }
 
-func (f *fakeTelemetryReader) LatestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]telemetry.Snapshot, error) {
-	panic("fakeTelemetryReader: LatestSnapshotsByAccount must not be called from RecentEfficiency")
+func (f *fakeTelemetryReader) LatestSnapshotsByVehicles(_ context.Context, _ []int64) ([]telemetry.Snapshot, error) {
+	panic("fakeTelemetryReader: LatestSnapshotsByVehicles must not be called from RecentEfficiency")
 }
 
-func (f *fakeTelemetryReader) SnapshotsByVehicleSince(_ context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]telemetry.Snapshot, error) {
-	f.gotAccountID = accountID
+func (f *fakeTelemetryReader) SnapshotsByVehicleSince(_ context.Context, teslaID int64, since time.Time) ([]telemetry.Snapshot, error) {
 	f.gotTeslaID = teslaID
 	f.gotSince = since
 	if f.err != nil {
@@ -67,8 +66,7 @@ func (f *fakeTelemetryReader) SnapshotsByVehicleSince(_ context.Context, account
 // SnapshotsByVehicleBetween implements the bounded-window fetch ConsumedByDay issues
 // (design.md D-B13 — start-1/end+1). Un-panicked by RM28 tier 3 (task T5.1); previously a
 // defensive stub since RecentEfficiency never called it.
-func (f *fakeTelemetryReader) SnapshotsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]telemetry.Snapshot, error) {
-	f.gotAccountID = accountID
+func (f *fakeTelemetryReader) SnapshotsByVehicleBetween(_ context.Context, teslaID int64, start, end time.Time) ([]telemetry.Snapshot, error) {
 	f.gotTeslaID = teslaID
 	f.gotBetweenStart = start
 	f.gotBetweenEnd = end
@@ -84,7 +82,7 @@ func (f *fakeTelemetryReader) SnapshotsByVehicleBetween(_ context.Context, accou
 // ConsumedByDay/RecentEfficiency only -- a call here means a read path reached
 // for the watermark port by mistake. Wave 4 replaces this with recording
 // behaviour when the Reconcile tests need it.
-func (f *fakeTelemetryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
+func (f *fakeTelemetryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
 	panic("fakeTelemetryReader: SnapshotsByVehicleUpdatedSince must not be called from a Reader path")
 }
 
@@ -95,8 +93,7 @@ func (f *fakeTelemetryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, 
 // D7), so panicking would break every Recalculate-driven test rather than
 // catch a mistake. The zero-value fake returns (nil, nil) — the correct answer
 // for a fixture with no capture gap.
-func (f *fakeTelemetryReader) SnapshotPrecedingDay(_ context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*telemetry.Snapshot, error) {
-	f.gotAccountID = accountID
+func (f *fakeTelemetryReader) SnapshotPrecedingDay(_ context.Context, teslaID int64, day time.Time) (*telemetry.Snapshot, error) {
 	f.gotTeslaID = teslaID
 	f.gotPrecedingDay = day
 	if f.precedingErr != nil {

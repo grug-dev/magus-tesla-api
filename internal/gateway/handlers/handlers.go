@@ -305,7 +305,7 @@ func isStale(capturedAt, now time.Time) bool {
 // Renamed from mergeSnapshots (RM38-gateway-read-dashboard-from-metrics): same
 // shape, new source type -- LatestMetricsByAccount already returns at most one
 // row per TeslaID (design.md D6, tier 1), so, exactly as before with
-// LatestSnapshotsByAccount, this function does no de-duplication of its own; it
+// LatestSnapshotsByVehicles, this function does no de-duplication of its own; it
 // only indexes an already-unique slice for lookup by an arbitrary caller-supplied
 // TeslaID (the selected/primary vehicle), which the slice's own uniqueness does
 // not provide by itself.

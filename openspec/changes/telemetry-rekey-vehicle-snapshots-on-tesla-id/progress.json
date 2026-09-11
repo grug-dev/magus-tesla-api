@@ -5,28 +5,10 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Source ticket MAG-65 \u2014 re-key telemetry.vehicle_snapshots on tesla_id and demote poll_attempts.account_id to polled_by_account_id. Step 2 of MAG-63. Elect one polling account per vehicle first, then dedupe, swap the UNIQUE constraint, drop the column. Unit tests excluded.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "8.1",
-      "8.2",
-      "8.3",
-      "8.4",
-      "8.5",
-      "8.6",
-      "8.7",
-      "8.8",
-      "8.9",
-      "8.10",
-      "9.1",
-      "9.2",
-      "9.3",
-      "9.4",
-      "9.5",
-      "9.6",
-      "9.7"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.4",
@@ -66,18 +48,35 @@
       "6.9",
       "7.1",
       "7.2",
-      "7.3"
+      "7.3",
+      "8.1",
+      "8.10",
+      "8.2",
+      "8.3",
+      "8.4",
+      "8.5",
+      "8.6",
+      "8.7",
+      "8.8",
+      "8.9",
+      "9.1",
+      "9.2",
+      "9.3",
+      "9.4",
+      "9.5",
+      "9.6"
     ],
     "awaiting_user_verification": [
       "1.1",
       "1.2",
       "1.3",
       "2.1",
-      "2.2"
+      "2.2",
+      "9.7"
     ]
   },
   "created_at": "2026-09-11T19:20:00Z",
-  "updated_at": "2026-09-11T20:52:00Z",
+  "updated_at": "2026-09-11T21:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -1085,13 +1084,13 @@
         "5.9"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "reader.go:136 drops the accountID argument from SnapshotsByVehicleSince.",
       "budget": null
     },
     {
@@ -1102,13 +1101,13 @@
         "8.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "recalculate.go:104 drops the accountID argument from SnapshotsByVehicleBetween.",
       "budget": null
     },
     {
@@ -1119,13 +1118,13 @@
         "8.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "recalculate.go:123 drops the accountID argument from SnapshotPrecedingDay.",
       "budget": null
     },
     {
@@ -1136,13 +1135,13 @@
         "8.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "recalculate.go:269 drops the accountID argument from SnapshotsByVehicleUpdatedSince.",
       "budget": null
     },
     {
@@ -1153,13 +1152,13 @@
         "8.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "Confirmed unchanged: Recalculate/Reconcile keep their accountID parameter for the charge sources.",
       "budget": null
     },
     {
@@ -1170,13 +1169,13 @@
         "8.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "reader_test.go fixtures fixed for the new signatures.",
       "budget": null
     },
     {
@@ -1187,13 +1186,13 @@
         "8.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "fakeTelemetryReader now has LatestSnapshotsByVehicles(ctx, []int64) plus the four re-signed methods.",
       "budget": null
     },
     {
@@ -1204,13 +1203,13 @@
         "8.7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "recalculate_test.go fallout fixed.",
       "budget": null
     },
     {
@@ -1221,13 +1220,13 @@
         "8.8"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "NOT a no-op as first guessed: consumed_test.go had 17 Snapshot literals carrying AccountID. All removed, plus 7 now-unused accountID vars.",
       "budget": null
     },
     {
@@ -1238,13 +1237,13 @@
         "8.9"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "go build and go vet ./internal/analytics/... clean.",
       "budget": null
     },
     {
@@ -1257,13 +1256,13 @@
         "8.10"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "go build ./... clean.",
       "budget": null
     },
     {
@@ -1274,13 +1273,13 @@
         "9.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "go vet ./... clean.",
       "budget": null
     },
     {
@@ -1291,13 +1290,13 @@
         "9.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "make migration-guard clean (only the known 20260720000001 backlog warning).",
       "budget": null
     },
     {
@@ -1308,13 +1307,13 @@
         "9.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "make boundary-guard clean: gateway does not import telemetry.",
       "budget": null
     },
     {
@@ -1325,13 +1324,13 @@
         "9.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "Greps clean. Found and fixed two stale raw SQL helpers vet cannot see, plus 6 comments naming the renamed method.",
       "budget": null
     },
     {
@@ -1342,13 +1341,13 @@
         "9.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "Confirmed zero internal/telemetry imports in internal/gateway.",
       "budget": null
     },
     {
@@ -1359,13 +1358,13 @@
         "9.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
       "model": null,
       "started_at": null,
       "completed_at": null,
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Suite is the owner to run: go test ./internal/telemetry/... ./internal/analytics/...",
       "budget": null
     }
   ],
@@ -1456,6 +1455,24 @@
       "decision": "Deleted LatestSnapshotsByVehicles_DifferentAccountExcluded and SnapshotsByVehicleSince_CrossAccountExcluded; kept the third as SnapshotsByVehicleBetween_SiblingVehicleExcluded",
       "why": "Both deleted tests only proved the account filter this change removes, and the second had a fixture that collides on the new key. The third also proves sibling-vehicle exclusion, which stays valid.",
       "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-11T21:00:00Z",
+      "scope": "task:8.1",
+      "made_by": "autopilot",
+      "decision": "vehicle_metrics.account_id is now set from the caller accountID in recalculate.go, not from the snapshot",
+      "why": "design.md missed this. The old telemetry query filtered by account, so the snapshot account always equalled the caller. Behaviour identical, no schema change, so no design gate.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-09-11T21:10:00Z",
+      "scope": "task:9.5",
+      "made_by": "autopilot",
+      "decision": "Renamed LatestSnapshotsByAccount in 6 comments across analytics and gateway; left the historic migration file untouched",
+      "why": "A comment naming a deleted method misleads the next reader. Historic migrations are never edited.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -1543,6 +1560,11 @@
       "at": "2026-09-11T20:52:00Z",
       "agent": "leader",
       "event": "wave 4 complete (T6+T7), 13 tasks done; go vet clean. Leader verified the broken fixture claim, then applied the user decision on the three dead tests (D9)"
+    },
+    {
+      "at": "2026-09-11T21:20:00Z",
+      "agent": "leader",
+      "event": "T8 + T9 complete (leader-owned). go build, go vet, gofmt, migration-guard, boundary-guard, archive-guard all clean. Found 2 raw-SQL bugs go vet cannot catch: analytics cleanup helper and seedSnapshot INSERT still used vehicle_snapshots.account_id"
     }
   ]
 }

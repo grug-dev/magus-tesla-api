@@ -688,7 +688,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 	// status matching the resolved teslaIDFilter. Graceful empty: a read error or
 	// no matching status leaves the suggestion "" and the page still renders (no
 	// fabricated value). Log read errors at most; never degrade the page.
-	// Retyped from telemetry.Reader.LatestSnapshotsByAccount by
+	// Retyped from telemetry.Reader.LatestSnapshotsByVehicles by
 	// RM38-gateway-read-dashboard-from-metrics, design.md D9 — BatteryLevelPct is a
 	// plain int on both source types, so no nil handling is introduced here.
 	suggestion := ""

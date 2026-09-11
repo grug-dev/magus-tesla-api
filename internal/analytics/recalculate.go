@@ -101,7 +101,7 @@ func NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, super
 func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error {
 	lookbackStart := start.AddDate(0, 0, -1)
 
-	snapshots, err := r.telemetry.SnapshotsByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end.AddDate(0, 0, 1))
+	snapshots, err := r.telemetry.SnapshotsByVehicleBetween(ctx, teslaID, lookbackStart, end.AddDate(0, 0, 1))
 	if err != nil {
 		return fmt.Errorf("fetching snapshots: %w", err)
 	}
@@ -120,7 +120,7 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 	// comment draws the same distinction).
 	var preceding *telemetry.Snapshot
 	if len(snapshots) > 0 {
-		preceding, err = r.telemetry.SnapshotPrecedingDay(ctx, accountID, teslaID, snapshots[0].CapturedDate)
+		preceding, err = r.telemetry.SnapshotPrecedingDay(ctx, teslaID, snapshots[0].CapturedDate)
 		if err != nil {
 			return fmt.Errorf("fetching preceding snapshot: %w", err)
 		}
@@ -166,6 +166,12 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 	}
 
 	rows := deriveVehicleMetrics(preceding, snapshots, sessions, entries, start, end)
+	// Snapshots no longer carry an account: one elected account polls each
+	// vehicle, so the row says which car it is, not who fetched it. The metric
+	// row is still per account, so the scope comes from this call's own caller.
+	for i := range rows {
+		rows[i].AccountID = accountID
+	}
 
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -266,7 +272,7 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 		return fmt.Errorf("reading %s watermark: %w", sourceManualChargeEntries, err)
 	}
 
-	snapshots, err := r.telemetry.SnapshotsByVehicleUpdatedSince(ctx, accountID, teslaID, snapCursor.Add(-recalcOverlap))
+	snapshots, err := r.telemetry.SnapshotsByVehicleUpdatedSince(ctx, teslaID, snapCursor.Add(-recalcOverlap))
 	if err != nil {
 		return fmt.Errorf("fetching updated snapshots: %w", err)
 	}
