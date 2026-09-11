@@ -5,15 +5,15 @@
   "module": "analytics",
   "roadmap": null,
   "request": "Source ticket: MAG-64 \u2014 Step 1 of MAG-63, the pilot. Re-key analytics.charge_gaps from (account_id, tesla_id, gap_date) to (tesla_id, gap_date): new migration, drop account_id from the three queries, drop the accountID parameter from GapWriter.ReconcileWindow, update the one caller, sweep the docs. Unit tests excluded. Pipeline halted after Step 4 for user review.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [
-      "8.3",
-      "9.6"
+      "8.3"
     ],
     "blocked": [],
     "done": [
+      "1.1",
       "1.2",
       "1.3",
       "2.1",
@@ -25,9 +25,14 @@
       "3.2",
       "3.3",
       "3.4",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
       "4.5",
       "5.1",
       "5.2",
+      "6.1",
       "6.2",
       "7.1",
       "8.1",
@@ -38,19 +43,12 @@
       "9.2",
       "9.3",
       "9.4",
-      "9.5"
-    ],
-    "awaiting_user_verification": [
-      "1.1",
-      "4.1",
-      "4.2",
-      "4.3",
-      "4.4",
-      "6.1"
+      "9.5",
+      "9.6"
     ]
   },
   "created_at": "2026-09-11T10:02:11Z",
-  "updated_at": "2026-09-11T10:20:08Z",
+  "updated_at": "2026-09-11T10:29:41Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -70,13 +68,13 @@
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-11T10:09:00Z",
       "completed_at": "2026-09-11T10:10:00Z",
       "duration_seconds": null,
-      "notes": "Migration written exactly per design.md Migration SQL. Schema change itself is only proven once the owner runs migrate-up and the integration test.",
+      "notes": "Migration written exactly per design.md Migration SQL. Schema change itself is only proven once the owner runs migrate-up and the integration test. Owner reported make check/test passing.",
       "budget": {
         "five_hour_pct_start": 43,
         "five_hour_pct_end": 62,
@@ -349,13 +347,13 @@
         "3.3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-11T10:14:15Z",
       "completed_at": "2026-09-11T10:15:00Z",
       "duration_seconds": null,
-      "notes": "Three helpers re-keyed on teslaID; the unused cleanupChargeGapsByAccount helper removed. Integration test not executed.",
+      "notes": "Three helpers re-keyed on teslaID; the unused cleanupChargeGapsByAccount helper removed. Integration test not executed. Owner reported make check/test passing.",
       "budget": {
         "five_hour_pct_start": 43,
         "five_hour_pct_end": 62,
@@ -372,13 +370,13 @@
         "4.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-11T10:14:15Z",
       "completed_at": "2026-09-11T10:15:30Z",
       "duration_seconds": null,
-      "notes": "Every ReconcileWindow call and ChargeGap literal across six test functions updated. Not executed.",
+      "notes": "Every ReconcileWindow call and ChargeGap literal across six test functions updated. Not executed. Owner reported make check/test passing.",
       "budget": {
         "five_hour_pct_start": 43,
         "five_hour_pct_end": 62,
@@ -395,13 +393,13 @@
         "4.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-11T10:14:15Z",
       "completed_at": "2026-09-11T10:15:30Z",
       "duration_seconds": null,
-      "notes": "Renamed to DifferentVehiclesNeverInterfere, body now uses two bare tesla_ids, assertions preserved. Not executed.",
+      "notes": "Renamed to DifferentVehiclesNeverInterfere, body now uses two bare tesla_ids, assertions preserved. Not executed. Owner reported make check/test passing.",
       "budget": {
         "five_hour_pct_start": 43,
         "five_hour_pct_end": 62,
@@ -418,13 +416,13 @@
         "4.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-11T10:15:30Z",
       "completed_at": "2026-09-11T10:15:45Z",
       "duration_seconds": null,
-      "notes": "wrong-AccountID sub-case deleted; wrong-TeslaID and date-outside-window kept. Not executed.",
+      "notes": "wrong-AccountID sub-case deleted; wrong-TeslaID and date-outside-window kept. Not executed. Owner reported make check/test passing.",
       "budget": {
         "five_hour_pct_start": 43,
         "five_hour_pct_end": 62,
@@ -511,13 +509,13 @@
         "3.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-11T10:17:30Z",
       "completed_at": "2026-09-11T10:17:50Z",
       "duration_seconds": null,
-      "notes": "Leader: fakeGapWriter.ReconcileWindow drops the uuid.UUID parameter. uuid import still used elsewhere in the file. Not executed.",
+      "notes": "Leader: fakeGapWriter.ReconcileWindow drops the uuid.UUID parameter. uuid import still used elsewhere in the file. Not executed. Owner reported make check/test passing.",
       "budget": {
         "five_hour_pct_start": 43,
         "five_hour_pct_end": 62,
@@ -783,13 +781,13 @@
         "9.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T10:24:24Z",
+      "completed_at": "2026-09-11T10:24:24Z",
+      "duration_seconds": 0,
+      "notes": "Suite commands handed to the owner at the Step 5.7/Step 6 gate. Owner ran make check and make test and reported both passing.",
       "budget": null
     },
     {
@@ -817,10 +815,23 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "analytics-reviewer",
+    "brief": "Validate the charge_gaps re-key (commit b8f5d68) before archive. Read the DIFF, not the whole module.\n\n1. Module boundaries: no module reads another's DB or internals; internal/app touches are the leader's two mechanical lines only; no HTML outside gateway. Run make boundary-guard.\n2. Schema matches the user-confirmed design: the migration must equal design.md's \"Migration SQL\" exactly - duplicate-collapse DELETE first, schema-qualified DROP INDEX with IF EXISTS, DROP COLUMN, then ADD CONSTRAINT UNIQUE (tesla_id, gap_date), plus the Down half. Any deviation is a blocker finding. D-INDEX: NO replacement index may exist - the ticket asked for idx_charge_gaps_date and the user rejected it.\n3. The original migration 20260815000002_add_charge_gaps.sql must be byte-identical to main. Historic migrations are never edited.\n4. openspec/changes/archive/ must be untouched. Run make archive-guard.\n5. Code comments: no comment may cite design.md, a decision ID (D1, D7b), or a change/roadmap ID (RM28, RM29, CH53). Task 2.4 and the gap_writer.go rewrite exist precisely to remove such citations - verify none were swapped for a new one, including a citation of THIS change.\n6. Spec/tasks coverage: every tasks.md item is ticked and really done. Task 8.5 was appended by the leader mid-run for docs/battery-consumed-graph.md - confirm that is a genuine addition, not an edited criterion, and that tasks/criteria were never weakened or deleted.\n7. Tests: judge by READING. The change edits an existing integration test; no new behaviour test was required (design.md D-TESTFIX). Check that the 4.3 rename kept the same claim, and that deleting the wrong-AccountID sub-case (D-CHARGEGAP-FIELD) removed only a check for a field that no longer exists - the wrong-TeslaID and date-outside-window sub-cases must survive intact. Assertions must not have been loosened to pass.\n8. Performance-Profile compliance: read-heavy. Confirm the single UNIQUE index really serves all three queries (point delete, forward range scan, ON CONFLICT target).\n9. Docs: the KB guide kkpa/context/entities/vehicle-metrics/guide.md and docs/battery-consumed-graph.md must no longer promise account_id or idx_charge_gaps_account. The stale sqlc table COMMENT in db/models.go is NOT a finding - project rule, and the ticket says leave it.\n10. Anti-gaming: no self-approved status, no criterion weakened. Note the leader recorded task 3.4 as done against the worker's awaiting-user-verification report (decision D7) - check that call was honest.\n\nSignals: assistant-run were go build ./..., go vet ./..., gofmt -l, make migration-guard, make boundary-guard, make archive-guard - all clean. The TEST SUITE was run by the OWNER, who reported make check and make test passing. You do not run the suite.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "changes-requested",
+        "at": "2026-09-11T00:00:00Z",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "major",
+            "note": "openspec/changes/analytics-rekey-charge-gaps-on-tesla-id/tasks.md lines 110-201: tasks 5.1, 5.2, 6.1, 6.2, 7.1, 8.4, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6 are still unchecked ([ ]), but the diff and progress.json both show this work done (internal/app/processor.go and processor_test.go changed for 5.1/6.1, kkpa/context/entities/vehicle-metrics/guide.md changed for 8.4, and the commit message claims build/vet/guards ran clean for 9.1-9.5, with 9.6 handed to and confirmed by the owner). ai/agentic-workflow.md states tasks.md, not progress.json, is the authoritative source for implementation done-ness. A future reader trusting tasks.md alone would see this change as roughly half-finished. Fix: tick these boxes to match the real, verified state before archive. (8.3 is correctly left unchecked - it is genuinely deferred to the archive-time spec sync.)"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -903,6 +914,15 @@
       "decision": "Batched T1-T4 into one serial Sonnet worker, and did T5-T7 myself",
       "why": "The chain is strictly sequential, so parallel workers would only re-read the doc pack. D5 already made the app touches the leader's.",
       "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-11T10:29:41Z",
+      "scope": "review:R1-1",
+      "made_by": "leader",
+      "decision": "Accepted R1-1 in full; ticked the 12 leader-owned tasks.md boxes",
+      "why": "The worker ticked its own 19 but the leader never ticked its own. tasks.md wins on done-ness, so it read as half-finished.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -950,6 +970,21 @@
       "at": "2026-09-11T10:20:08Z",
       "agent": "leader",
       "event": "Linear MAG-64 moved Todo -> In Progress at first worker dispatch, per the pipeline-linear-status rule"
+    },
+    {
+      "at": "2026-09-11T10:24:24Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE OWNER, not the assistant: the owner ran make check and make test and reported both passing. Clears tasks 1.1, 4.1, 4.2, 4.3, 4.4, 6.1 off awaiting-user-verification."
+    },
+    {
+      "at": "2026-09-11T10:24:44Z",
+      "agent": "leader",
+      "event": "review brief written; dispatching analytics-reviewer (sonnet), round 1"
+    },
+    {
+      "at": "2026-09-11T10:29:41Z",
+      "agent": "leader",
+      "event": "review round 1 triage: finding R1-1 ACCEPTED, no finding rejected. Leader had written task statuses to progress.json but never ticked tasks.md for 5.1-7.1, 8.4, 9.1-9.6. Ticked all 12; 8.3 left unchecked as genuinely archive-time. tasks.md is the authority on implementation done-ness, so the reviewer was right."
     }
   ]
 }

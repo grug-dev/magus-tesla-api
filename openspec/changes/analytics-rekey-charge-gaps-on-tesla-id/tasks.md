@@ -107,11 +107,11 @@ Depends on: T3.
 
 Depends on: T3.
 
-- [ ] 5.1 In `internal/app/processor.go`'s `recalculateAnalytics`, drop
+- [x] 5.1 In `internal/app/processor.go`'s `recalculateAnalytics`, drop
       `v.AccountID` from the `ReconcileWindow` call, and stop setting
       `AccountID:` on the `analytics.ChargeGap{...}` literals built in the
       `flagged` loop.
-- [ ] 5.2 `go build ./internal/app/...` — expect this to still fail until T6
+- [x] 5.2 `go build ./internal/app/...` — expect this to still fail until T6
       lands (the package's test file needs the same fixup); expected at this
       point, not a regression.
 
@@ -120,19 +120,19 @@ Depends on: T3.
 Depends on: T3 (same signature both T5 and T6 depend on; T5 and T6 touch
 different files and may be done by two agents in parallel).
 
-- [ ] 6.1 In `internal/app/processor_test.go`, update `fakeGapWriter`'s
+- [x] 6.1 In `internal/app/processor_test.go`, update `fakeGapWriter`'s
       `ReconcileWindow` method to the new signature (drop the `_ uuid.UUID`
       parameter for `accountID`). No `ChargeGap` literal in this file needs a
       change — it only implements the interface, it does not construct the
       type.
-- [ ] 6.2 `go build ./internal/app/...` and `go vet ./internal/app/...` —
+- [x] 6.2 `go build ./internal/app/...` and `go vet ./internal/app/...` —
       expect clean now.
 
 ## T7 — Verify `internal/charging/db_session_integration_test.go` needs no change
 
 Depends on: T3 (so there is a final signature to check against).
 
-- [ ] 7.1 Confirm this file does not import `internal/analytics`, does not
+- [x] 7.1 Confirm this file does not import `internal/analytics`, does not
       call `ReconcileWindow`, and does not construct an `analytics.ChargeGap`
       — design.md's D-TESTFIX section already found this to be the case (the
       file's only charge-gap-related content is one comment naming a
@@ -162,7 +162,7 @@ Independent of T5–T7; may run in parallel with them.
       not also touch the unrelated "Module-Scoped Database Schema"
       requirement's historical scenario (design.md explains why that one
       stays as written).
-- [ ] 8.4 `kkpa/context/entities/vehicle-metrics/guide.md`: update the
+- [x] 8.4 `kkpa/context/entities/vehicle-metrics/guide.md`: update the
       `charge_gaps` column list — remove `account_id UUID NOT NULL`, change
       `UNIQUE (account_id, tesla_id, gap_date)` /
       `charge_gaps_account_tesla_date_unique` to
@@ -189,15 +189,15 @@ Independent of T5–T7; may run in parallel with them.
 
 Depends on: T1–T8.
 
-- [ ] 9.1 `go build ./...`
-- [ ] 9.2 `go vet ./...`
-- [ ] 9.3 `make migration-guard`
-- [ ] 9.4 `make boundary-guard`
-- [ ] 9.5 Grep the whole repo for `account_id` scoped to `charge_gaps` /
+- [x] 9.1 `go build ./...`
+- [x] 9.2 `go vet ./...`
+- [x] 9.3 `make migration-guard`
+- [x] 9.4 `make boundary-guard`
+- [x] 9.5 Grep the whole repo for `account_id` scoped to `charge_gaps` /
       `ChargeGap` / `ReconcileWindow` / `GapWriter` and confirm zero
       remaining hits outside the immutable
       `openspec/changes/archive/` tree and the untouched original migration
       file (`20260815000002_add_charge_gaps.sql`).
-- [ ] 9.6 Suite commands for the owner to run (Claude does not run these):
+- [x] 9.6 Suite commands for the owner to run (Claude does not run these):
       `go test ./internal/analytics/... ./internal/app/... ./internal/charging/...`
       (or `make test` / `make test-with-db` for the full suite).
