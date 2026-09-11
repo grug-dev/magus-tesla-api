@@ -160,6 +160,31 @@
 | `nightly batch` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `monthly capacity step` | synonym of the nightly cycle's step 4 → `architecture/nightly-cycle.md` |
 | `step 4` | the nightly cycle's monthly-capacity step → `architecture/nightly-cycle.md` |
+| `client-side JS` (the gateway's zero-JS rule RD8 and its six sanctioned exceptions) | `architecture/gateway-client-side-js.md` |
+| `zero-JS rule` | synonym of `client-side JS` → `architecture/gateway-client-side-js.md` |
+| `app.js` | `internal/gateway/static/app.js` → `architecture/gateway-client-side-js.md` |
+| `sanctioned exception` | synonym of `client-side JS` → `architecture/gateway-client-side-js.md` |
+| `confirm modal` | RD10 — `ui.ConfirmDialog` / the `htmx:confirm` listener → `architecture/gateway-client-side-js.md` |
+| `confirmation dialog` | synonym of `confirm modal` → `architecture/gateway-client-side-js.md` |
+| `browser_tz cookie` | RD9 — the inline script in `layouts.BaseAuth` → `architecture/gateway-client-side-js.md` |
+| `timezone cookie` | synonym of `browser_tz cookie` → `architecture/gateway-client-side-js.md` |
+| `theme instant apply` | RD15 — the `click` + `htmx:afterRequest` listener pair → `architecture/gateway-client-side-js.md` |
+| `gateway theming` (the palettes, the self-hosted fonts, and the `static/themes/` file layout) | `architecture/gateway-theming.md` |
+| `palette` | synonym of `gateway theming` → `architecture/gateway-theming.md` |
+| `theme file` | synonym of `gateway theming` → `architecture/gateway-theming.md` |
+| `_shared.css` | what every theme inherits — fonts, font tokens, battery scale, divider reset → `architecture/gateway-theming.md` |
+| `apex` / `graphite` | the two palettes → `architecture/gateway-theming.md` |
+| `halloween` | a corrected DaisyUI *builtin*, not a palette (MAG-49) → `architecture/gateway-theming.md` |
+| `data-theme` | resolved per request by `baseShell` from `ui.ThemeFromContext(ctx)` → `architecture/gateway-theming.md` |
+| `adding a theme` | the four steps + `make theme-guard` → `architecture/gateway-theming.md` |
+| `theme-guard` | synonym of `adding a theme` → `architecture/gateway-theming.md` |
+| `ui.Themes` | the closed theme vocabulary — `internal/gateway/templates/ui/theme.go` → `architecture/gateway-theming.md` |
+| `self-hosted fonts` | RD11 — Inter + JetBrains Mono under `internal/gateway/static/fonts/` → `architecture/gateway-theming.md` |
+| `Inter` / `JetBrains Mono` | synonym of `self-hosted fonts` → `architecture/gateway-theming.md` |
+| `font-mono` | the Tailwind utility that resolves to JetBrains Mono → `architecture/gateway-theming.md` |
+| `battery scale` | the red/orange/yellow/green band — `ui.BatteryBandClass`, never per-theme → `architecture/gateway-theming.md` |
+| `battery band` | synonym of `battery scale` → `architecture/gateway-theming.md` |
+| `status colours` | `error`/`warning`/`success` are fixed in every theme; `info` is the sole exception → `architecture/gateway-theming.md` |
 | `the poller run` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `ProcessVehicleData` | `app.Processor.ProcessVehicleData` → `architecture/nightly-cycle.md` |
 | `session mirror` | step 2 of the cycle — `charging.SessionWriter.MirrorSessions` → `architecture/nightly-cycle.md` |

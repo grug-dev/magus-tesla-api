@@ -992,33 +992,6 @@ RM49 tier 1 design.md D9. The worker was told to verify the roadmap's suggested 
 command and found it did not exist. Fixing the gap was out of scope for that tier.
 
 
-## 29. analytics — Monthly metrics table, once a second metric exists
-
-### PROPOSAL
-
-MAG-32 / RM52 measures effective pack capacity monthly, and that table lives in `charging`,
-because `charging` owns every input row. The ticket also sketched a wider table —
-`analytics.vehicle_monthly_metrics`, keyed on `(tesla_id, effective_period)`, one column per
-metric — to hold future monthly numbers: `full_charge_count`, average consumption per 100 km,
-energy consumed per date, and comparison results across vehicles.
-
-That table was deliberately NOT built in RM52 (roadmap decision RD12). Today it would hold one
-column, copied from `charging`, that nothing reads.
-
-**Trigger:** the first monthly metric that is NOT owned by a single module — a fleet comparison,
-or a number derived from `telemetry` plus `charging` together. That is the point at which
-`analytics` is the right owner rather than an extra hop.
-
-When it is built it may duplicate `charging`'s capacity value into itself. That is allowed:
-`analytics.vehicle_metrics` already duplicates other modules' observations on purpose, and the
-read-heavy Performance-Profile accepts denormalization on the write path. It needs a refresh rule,
-which `analytics`'s existing watermark/reconcile machinery already provides.
-
-### ORIGIN
-
-RM52 decision RD12, settled with the owner on 2026-09-10 during the MAG-32 design interview.
-
-
 ## 30. charging — Make `charge_sessions.tesla_id` NOT NULL
 
 ### PROPOSAL

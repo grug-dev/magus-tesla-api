@@ -380,7 +380,7 @@ with the language preference); an anonymous request, or any page loaded right af
 falls back to the `theme` cookie the last signed-in switch wrote.
 
 **Adding a new palette** is four steps plus a restart (`ui.Themes` is the single closed vocabulary — see
-`internal/gateway/AGENTS.md` §"Theme file layout & switching"):
+`kkpa/context/architecture/gateway-theming.md`):
 
 1. New `internal/gateway/static/themes/<name>.css` — one `@plugin` block, mirror `graphite.css`.
 2. One `@import "./themes/<name>.css";` line in `internal/gateway/static/input.css`.

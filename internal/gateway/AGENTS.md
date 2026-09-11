@@ -1012,444 +1012,74 @@ decision reaches, and this split is mandatory:**
 gateway dispatch, so one page's detail parked here is a tax on every other page's work. A
 long entry about a single route is the signal that it belongs in the KB.
 
-## Client-side JS exception: browser_tz cookie script (RD9)
+## Client-side JS — the zero-JS rule and its six exceptions (RD9-RD15)
 
-The gateway's declared **zero-JS** DaisyUI foundation (`ai/htmx-conventions.md`
-§"Styling" — "Do not introduce a component that needs client-side JS init") has
-exactly **SIX** sanctioned exceptions: this one, **RD10** (the confirmation
-modal) below, **RD12**/**RD13**/**RD14** (the charge-form date-sync,
-status-required toggle, and location-label toggle), and **RD15** (the theme-switch
-instant-apply listener pair) further below. This entry covers the first: a single inline `<script>` in
-`layouts.BaseAuth` that sets the `browser_tz` cookie. Added by
-`gateway-browser-tz-cookie` (MAG-7, shipped 2026-08-11; documented here in the
-MAG-7 review fix round, 2026-08-12).
+The gateway's DaisyUI foundation is **zero-JS** (`ai/htmx-conventions.md` §"Styling").
+There are exactly **six** sanctioned exceptions. All but RD9 live in `static/app.js` and
+delegate on `document.body`.
 
-**What:** One `<script>` block, inside `templ BaseAuth` only (never the
-anonymous `Base` shell), wrapped in `try/catch`. It reads
-`Intl.DateTimeFormat().resolvedOptions().timeZone` and sets
-`document.cookie = "browser_tz=" + encodeURIComponent(tz) + ";path=/;max-age=31536000;SameSite=Lax"`.
-No library, no `fetch`, no event listener — a single synchronous read plus one
-cookie write, on every authenticated page load.
+| RD | What it does |
+|---|---|
+| **RD9** | Inline script in `layouts.BaseAuth` only. Sets the `browser_tz` cookie. |
+| **RD10** | Intercepts `htmx:confirm` and drives `ui.ConfirmDialog`. |
+| **RD12/13/14** | The three `/external-charges` form listeners. |
+| **RD15** | Applies a theme to the DOM at once, reverts if the save fails. |
 
-**Why:** The server has no other way to learn the browser's IANA timezone —
-unlike, say, `Accept-Language`, no HTTP header or cookie carries it
-unprompted. Without it, the dashboard's date math (`parseHistoryRange`,
-`defaultHistoryHref`, `buildHistoryPresets`) computed "today"/"yesterday" in
-UTC, which diverges from the user's local calendar day (the MAG-7 bug: a user
-in PST at 10pm local saw the previous UTC day). The **rejected alternative**
-was moving date computation/rendering to the client (JS computes and formats
-the dates the browser displays): a far larger departure that would move date
-math out of Templ/Go entirely, contradicting "no business logic in
-templates, no time math in markup" (`ai/htmx-conventions.md`) for every
-date-touching page, not just this one. A single cookie write is the
-minimal-surface-area way to hand the server the ONE fact it is missing (the
-IANA zone name) while keeping all date arithmetic server-side.
+**Four rules bind you even when you are not working on these**, so they stay here:
 
-**Boundary — this is NOT an opening for general client-side JS.** It is a
-narrow, sanctioned exception (one script, one cookie write, one fact), not a
-precedent. Any future addition of client-side JS to the gateway needs its own
-RD entry here, per RD8, with its own rationale and rejected alternative —
-this entry does not grandfather it in.
+- **Adding any client-side JS needs its own RD entry first**, per RD8 above — the rule,
+  the reason, and the option you rejected. None of the six grandfathers in a seventh.
+- **Never mount a second `ui.ConfirmDialog`.** `app.js` resolves it by `id`, so a
+  duplicate makes the wrong one open.
+- **The dialog stays in the layout, outside every swappable region.** An htmx swap must
+  never be able to replace a dialog while it is open.
+- **Never delete the inline script in `BaseAuth`.** Without the `browser_tz` cookie the
+  dashboard's date math falls back to `clock.Zone()`, not the user's own day.
 
-**Graceful degradation:** the script is wrapped in `try/catch`; on any JS
-failure, or in a `<noscript>` browser, the cookie is simply never set and the
-server falls back to `clock.Zone()`, the platform default `America/Bogota`
-(`browserLocation`'s fallback rule — was `time.UTC` before
-`RM35-gateway-adopt-clock`) — no error surfaces to the user and no page
-render breaks.
+**To add a confirmation to any page: put `hx-confirm` on the control. Nothing else.**
 
-## Client-side JS exception: confirmation modal (RD10)
+Everything else — what each listener does in detail, why it exists, the option each one
+rejected, and how each degrades without JS — lives in the KB:
 
-The **second** sanctioned exception to the zero-JS rule (see **RD12**/**RD13** below for
-the third and fourth): the
-`htmx:confirm` interception in `static/app.js` that drives `ui.ConfirmDialog`. Added by
-`gateway-add-confirm-dialog` (MAG-5, shipped 2026-08-12, PR #24; documented here
-2026-08-13).
-
-**What:** One `htmx:confirm` listener in the shared `static/app.js` (~40 lines, no
-library, no `fetch`), plus `ui.ConfirmDialog` — a native `<dialog>` mounted **once** in
-`layouts.Base` (so `BaseAuth`, which composes `Base`, inherits it on every authenticated
-page). htmx fires a **cancelable** `htmx:confirm` event before every request carrying
-`hx-confirm`, exposing the element's message as `detail.question` and a
-`detail.issueRequest(skip)` callback. The listener calls `preventDefault()`, fills the
-dialog from the element's attributes, and calls `issueRequest(true)` on confirm — htmx
-then resumes the exact same request. Per-use content is a four-attribute vocabulary on
-the triggering control: `hx-confirm` (message), `data-confirm-title`,
-`data-confirm-label`, `data-confirm-variant="danger"`.
-
-**Why:** replacing the browser's unstyleable `window.confirm()` is inherently a
-JS-interception job — htmx offers the decision **only** as an event. The **rejected
-alternative** was a CSS-only DaisyUI pattern (checkbox/anchor `<dialog>` modal), the
-approach this doc mandates everywhere else: it cannot work here at all, because a
-CSS-only modal has no way to *gate an in-flight htmx request* — the request would fire
-before the user answered. The second rejected alternative was a bespoke per-page modal
-with its own script, which reintroduces hand-rolled JS on every page that needs a
-confirmation. Hooking htmx's own documented event instead means **any element on any
-page carrying `hx-confirm` gets the modal automatically — including pages not yet
-written** — so the marginal cost of the next confirmation is one attribute, not a
-component.
-
-**Why it does not erode the `ui/` boundary:** the dialog pre-renders **both** confirm
-buttons (default + danger) and `app.js` only ever toggles the `hidden` property and sets
-`textContent`. No DaisyUI `btn-*` class string ever appears in JavaScript — the component
-vocabulary stays owned by `templates/ui/`, exactly as the anti-corruption-adapter rule
-requires. Native `<dialog>.showModal()` is used so focus-trapping, Esc-to-close, page
-inertness, and top-layer stacking are the browser's job, not ours.
-
-**Boundary — this is NOT an opening for general client-side JS.** Like RD9, it is a
-narrow, sanctioned exception (one listener, one shared dialog, one decision-gating job),
-not a precedent. Any further client-side JS needs its own RD entry per RD8, with its own
-rationale and rejected alternative. Two concrete rules follow from the single-instance
-design: **do not mount a second `ui.ConfirmDialog`** (`app.js` resolves it by `id`; a
-duplicate makes the wrong one open), and it stays in the layout, **outside every
-swappable region**, so an htmx swap can never replace an open dialog.
-
-**Graceful degradation:** if the dialog is absent (a page not built on `layouts.Base`) or
-the browser has no `<dialog>` support, `app.js` returns early and htmx falls back to its
-native `confirm()` — degraded styling, but the guard itself is never lost.
+**Read `kkpa/context/architecture/gateway-client-side-js.md` before changing any of them.**
+RD12/13/14 page detail is in `kkpa/context/input-port/charging/external-charges.md`.
 
 ## SEO & social-share metadata (MAG-seo, 2026-09-07)
 
-Every search-engine and link-preview tag lives in **one** component:
-`layouts.seoHead` in `templates/layouts/base.templ`, called by `baseShell`. No page
-writes a `<meta>` tag of its own — if a page needs different metadata, the fix is a
-new catalog key, not a tag in the page.
+Two rules bind every page author, so they stay here:
 
-**Two audiences, one boolean.** `baseShell(title, indexable bool)`:
+- **No page writes its own `<meta>` tag.** Every search-engine and link-preview tag comes
+  from one component — `layouts.seoHead` in `templates/layouts/base.templ`, called by
+  `baseShell`. A page that needs different metadata gets a new catalog key, never a tag.
+- **The shell you pick decides indexing.** `layouts.Base` is public and indexable.
+  `layouts.BaseAuth` is per-user and emits `robots: noindex, nofollow` and nothing else.
 
-| Shell | `indexable` | What is emitted |
-|---|---|---|
-| `layouts.Base` (public: `/login`, blocked-account) | `true` | description, `robots: index, follow`, the Open Graph set, the Twitter Card set, `<link rel="canonical">` |
-| `layouts.BaseAuth` (per-user pages behind the session) | `false` | `robots: noindex, nofollow` and nothing else |
+Everything else lives in the KB, with its rationale and its rejected options: the
+absolute-URL rule and why `Host` is never used, `BASE_URL`, the bilingual strings, the
+share image, `robots.txt` / `sitemap.xml` / `site.webmanifest`, the favicons, and the
+JSON-LD rules.
 
-A private page gets no description and no `og:image` on purpose: a crawler never
-reaches it, so the tags buy no SEO and only risk leaking a page name into an index
-if a route is ever exposed by mistake.
+**Read `kkpa/context/architecture/seo-metadata.md` before changing any of them.**
 
-**Absolute URLs come from config, never from the `Host` header.** `canonical`,
-`og:url`, `og:image` and `twitter:image` must be absolute — a social scraper fetches
-the page out of band and has no origin to resolve a relative URL against, so it
-renders a blank card. The origin is `config.Config.BaseURL`, wired
-`cmd/web` → `gateway.Deps.BaseURL` → `handlers.SiteMiddleware` → `ui.Site` on the
-request context (`templates/ui/site.go`), read by `seoHead` with
-`ui.SiteFromContext(ctx)`. This mirrors how the active theme and language reach a
-template: one middleware, one context value, zero parameter threading.
+## Theming & self-hosted fonts (RD11) — detail lives in the KB
 
-The `Host` header is deliberately NOT used. It is attacker-controlled on any
-request, and reflecting it into `canonical`/`og:url` is how a site ends up
-advertising someone else's domain as its own.
+The gateway ships **two palettes** (`apex`, `graphite`), one corrected DaisyUI builtin
+(`halloween`), and **self-hosted** Inter + JetBrains Mono. All of it lives under
+`internal/gateway/static/themes/` and `static/fonts/`.
 
-`BASE_URL` therefore has a second job now. It already built the OAuth redirect URIs;
-it also decides what a shared link points at. **Leave it at the localhost default in
-production and every link preview points at `localhost:8080`.** When the base URL is
-empty the `ui.Site` helpers return `""` and `seoHead` omits each URL-bearing tag
-rather than emitting a broken one — a missing canonical is a small SEO loss, a
-malformed one is a bigger one.
+One rule stays here, because it binds you while you are working on something else:
 
-**The metadata is bilingual, Spanish by default — with no special case.** Every
-string resolves through `i18n.T(ctx, …)` (`KeySEODescription`, `KeySEOHomeTitle`,
-`KeySEOImageAlt`, `KeyBrandMagusMonitor`) and `og:locale` through `i18n.OGLocale(ctx)`
-(`es_CO` / `en_US`). A crawler is a cookie-less anonymous request, and
-`i18n.FromContext` falls back to `account.LanguageES`, so "default to Spanish" IS the
-existing default. Nothing in `seoHead` is pinned to one language.
+- **Never add an external CDN link.** No `<link>` to Google Fonts, no `<script src>` to a
+  CDN, for any asset. Every asset — `htmx.min.js`, `app.css`, the fonts — is committed and
+  `//go:embed`-ed. Adding one is a new RD entry per RD8, not a convenience.
 
-**`KeyBrandMagusMonitor` is stored in normal case** ("Magus Monitor"), not caps. It
-feeds `og:site_name`, where `MAGUS MONITOR` reads as shouting; the login `<h1>`
-uppercases it with the `uppercase` CSS class, so the visual treatment stays in the
-markup and one catalog entry serves both.
+Everything else lives in the KB, with its rationale and its rejected options: the
+`_shared.css` / palette-file split, what a theme file may declare, the DaisyUI v5 font-token
+quirk, the battery and status colour vocabularies that never change per theme, the four
+steps to add a theme, per-request `data-theme` resolution, and `make theme-guard`.
 
-**The share image** is `seoImagePath` in `base.templ` —
-`/static/img/magus-logo.png`, embedded by `gateway.go`'s existing `//go:embed static`
-like every other asset (no CDN). Replacing it is a one-line change plus the file.
-Source image: **1200×630 PNG under 300 KB** — the size every scraper crops cleanly.
-`og:image:width`/`height` are deliberately NOT emitted, because they would be a claim
-about a file this repo does not validate.
-
-**The base URL does not render a page.** `Handler.Home` 302-redirects an anonymous
-visitor from `/` to `/login` (`handlers.go`), so the site's own share card and search
-snippet are `/login`'s — every scraper follows the redirect. `pages.Home` still
-compiles but is not surfaced. If `/` ever grows a real landing page, `seoHead` needs
-no change, but `TestSEO_BaseURLRedirectsToLogin` will break on purpose to say so.
-
-### The three crawler files
-
-`robots.txt` and `sitemap.xml` are **routes**, not files under `/static` — a search
-engine fetches those two exact root paths and looks nowhere else. Both live in
-`handlers/site.go` as plain package-level functions, not methods on `*Handler`:
-they read `ui.Site` off the request context and nothing else. Needing `h.Deps`
-there would be a design smell, not a missing receiver.
-
-- **`robots.txt`** blocks `robotsDisallow` — the closed list of authenticated route
-  prefixes. Keep it in step with `gateway.go`'s route table: a new route under an
-  existing prefix needs no edit, a new **top-level** one does. This is
-  belt-and-braces; those routes already redirect anonymous requests and render
-  `noindex`. It only saves crawl budget. And it is **not** access control — the file
-  is public and names every path in it.
-- **`sitemap.xml`** lists `sitemapPaths`. `/` is deliberately **absent**: it
-  302-redirects, and Search Console drops a redirecting sitemap entry as "Page with
-  redirect". No `<lastmod>`, `<changefreq>` or `<priority>` — this app does not track
-  when a page changed, and a made-up timestamp teaches a crawler a schedule that
-  means nothing.
-- **Favicons** are `layouts.faviconLinks`, mounted in `baseShell` OUTSIDE `seoHead`
-  — a private page still needs a tab icon. Four tags over three files in
-  `static/img/favicon/`: `favicon-32x32.png` + `favicon-16x16.png` (every current
-  browser; PNG wins over `.ico` wherever both are understood), `favicon.ico` (48×48,
-  older browsers), and `apple-touch-icon.png` (180×180, iOS home screen).
-  `gateway.go` also 301s the bare `/favicon.ico` to the real asset, because a browser
-  requests that root path before it parses any HTML.
-
-  **Every href must name a file that exists.** There is no `favicon.svg` tag because
-  the project has no SVG icon, and a `<link>` to a missing file is a 404 on every
-  page load for no benefit. `seo_test.go` `os.Stat`s each href — nothing else in the
-  build catches a dead icon link. Still unlinked, and therefore still dead weight in
-  the binary (everything in `static/` is `//go:embed`-ed): `favicon-180x180.png` (a
-  duplicate of `apple-touch-icon.png`) and `favicon-48x48.png` (the `.ico` already
-  covers 48).
-
-- **`site.webmanifest`** is a route too (`handlers.WebManifest`), linked from
-  `faviconLinks`. It is what gives `favicon-192x192.png` and `favicon-512x512.png` a
-  job: Android reads those two sizes to offer "add to home screen". It is generated
-  rather than a static file because `name`, `short_name` and `description` appear on
-  an install prompt, so they follow the request language like every other
-  user-facing string — a static JSON file could only be one language. Serve it as
-  `application/manifest+json`; `application/json` is dropped silently by some
-  browsers.
-
-  `start_url` is `/` even though that path redirects, and that is correct for an
-  installed app: tapping the icon lands the user where they belong (`/dashboard`
-  with a session, `/login` without) instead of pinning the launcher to whichever
-  page was right at install time.
-
-  **`manifestThemeColor` is the one place a raw hex is correct in this module.** A
-  manifest is JSON read by the operating system, which cannot resolve a CSS custom
-  property. It holds graphite's `--color-base-100` because graphite is
-  `ui.DefaultTheme`; a manifest carries exactly one `theme_color` and is fetched
-  once at install, long before any per-user preference exists. If graphite's
-  base-100 changes, change the constant too — nothing links them.
-
-  **No icon claims `purpose: "maskable"`.** A maskable icon needs a safe zone drawn
-  into the artwork so the launcher can crop it to a circle. These were not drawn
-  that way, and claiming it clips the logo on every Android launcher. Same class of
-  mistake as inventing an `aggregateRating`. `seo_test.go` asserts no icon claims it.
-
-### JSON-LD — use `templ.JSONScript`, never a hand-written `<script>`
-
-Structured data is built by `seoJSONLD` (`layouts/jsonld.go`), which returns the
-**struct**, and rendered by
-`@templ.JSONScript("", seoJSONLD(ctx)).WithType("application/ld+json")`.
-
-**templ treats a `<script>` element's contents as literal text.** An
-`@templ.Raw(...)` written inside one is emitted *verbatim* to the browser — it
-compiles, it passes `go vet`, and it ships the source line as page content. This was
-hit and fixed during MAG-seo; do not reintroduce it. `templ.JSONScript` writes the
-element itself and encodes with `encoding/json`, whose encoder HTML-escapes `<`, `>`
-and `&`, so a `</script>` inside a catalog string cannot close the tag early.
-`WithType` is mandatory — the default is `application/json`, which no search engine
-reads as structured data.
-
-**Only claims this repo can stand behind go in the document.** There is no
-`aggregateRating`, `offers`, `price` or `reviewCount`, even though every SEO
-checklist asks for them: those are exactly the fields Google manually penalises when
-invented, and this project has no rating and no published price. A structured-data
-block is a set of assertions, not a wish list. `seo_test.go` asserts their absence.
-
-`inLanguage` is derived from `i18n.OGLocale` by swapping `_` for `-` (schema.org
-wants BCP 47 `es-CO`, Open Graph wants `es_CO`). Deriving it keeps ONE locale
-vocabulary; a second hand-written map is how the two drift apart.
-
-**Still not built (deliberate, not forgotten):** `hreflang` alternates and a web app
-manifest. `hreflang` has no well-defined value here — language is a cookie on the
-SAME URL, so there is no per-language URL to point an alternate at.
-
-## Self-hosted web fonts — Inter + JetBrains Mono (RD11)
-
-The gateway's no-CDN rule (`base.templ`: "never an external CDN") now extends to
-typography: **Inter** (400/700/800) and **JetBrains Mono** (500) are self-hosted as
-woff2 binaries under `internal/gateway/static/fonts/`, `//go:embed`-ed via
-`gateway.go`'s existing `//go:embed static` (no Go change needed). Added alongside
-the Stitch `design.md` port (2026-08-19) so the Apex theme's typography spec is
-live, not just documented.
-
-**What:** four woff2 files (~94 KB total, OFL-licensed, fetched from the Fontsource
-`font-files` repo), four `@font-face` blocks, and a `[data-theme]` override of
-`--default-font-family` / `--default-mono-font-family` — all in
-`internal/gateway/static/themes/_shared.css`, the single source of truth for
-everything every theme shares (see *Theme file layout* below).
-DaisyUI v5's body rule reads `var(--default-font-family, <system stack>)`, so setting
-the token cascades to every component with **no per-template edit** for the body font.
-The `font-mono` utility (Tailwind's `var(--font-mono)`, which resolves to JetBrains
-Mono via the same override) is added only to the `ui/` wrappers `design.md` calls out
-as "technical labels / values / status labels": `input`, `select`, `textarea`,
-`badge`, and `stat_tile`'s `stat-value` — the anti-corruption-adapter boundary keeps
-the class owned in `ui/`, not inlined in pages.
-
-**Why a plain `[data-theme]` rule and not entries in the `@plugin` block:**
-DaisyUI v5 owns `--default-font-family` / `--default-mono-font-family` internally —
-values set for those keys inside a theme's `@plugin` block are silently dropped and
-replaced with `sans-serif` / `monospace`. A plain unlayered CSS rule in `_shared.css`
-wins over DaisyUI's `@layer base` output, so the tokens actually resolve to the real
-fonts. This is a documented DaisyUI v5 quirk, not a Tailwind v4 bug.
-
-The selector is the **attribute-only** `[data-theme]`, not `[data-theme="apex"]`: the
-fonts are shared by every palette, so keying them to one theme name would silently
-drop them the moment `base.templ` switches to another. Same specificity (0,1,0), still
-unlayered, so the reason above holds unchanged.
-
-**Rejected alternative — Google Fonts `<link>`:** would add a runtime CDN dependency
-to a stack that explicitly bans CDNs (`base.templ` comment) and ships every other
-asset (`htmx.min.js`, `app.css`) `//go:embed`-ed. A CDN link also introduces a
-privacy surface (third-party font fetch per page view) and a single point of failure
-for the page's typography. Self-hosting keeps the deploy self-contained, consistent
-with the existing asset-pinning convention, and adds ~94 KB of binary (committed,
-cacheable forever — the `@font-face` URLs are content-addressed by filename).
-
-**Rejected alternative — system stack only (no web fonts):** cheaper, but the Apex
-`design.md` spec pins Inter + JetBrains Mono as part of the brand ("technical
-precision," "engineered aesthetic"). The system fallbacks (San Francisco / Segoe UI /
-Roboto) are visually close to Inter but are not Inter, and there is no system
-equivalent of JetBrains Mono's character for the "technical label" role. The cost
-(~94 KB, loaded once with `font-display: swap` so text paints immediately in the
-fallback and reflows minimally on swap) is acceptable for a dashboard app.
-
-### Theme file layout & switching (2026-09-01)
-
-`internal/gateway/static/themes/` holds one shared file plus one file per palette:
-
-| File | Owns |
-|---|---|
-| `_shared.css` | The four `@font-face` blocks, the `[data-theme]` font tokens, the battery-level scale (`--color-battery-*` + the `.text-battery-*` utilities), the `.divider` reset. Imported **first** by `input.css`. |
-| `apex.css` | The apex palette only — one `@plugin` block. Carries `default: true`. |
-| `graphite.css` | The graphite palette only — one `@plugin` block. No `default`. |
-| `halloween.css` | **Not a palette.** Four status-token overrides (`info`/`success`/`warning`/`error`) for the daisyUI *builtin* `halloween`, as a plain UNLAYERED `[data-theme="halloween"]` rule — not a `@plugin` block, which would fight the builtin's own registration (MAG-49). |
-
-A theme file contributes **only** `--color-*` / radius / size tokens. Anything shared
-belongs in `_shared.css`, so adding a palette never duplicates the fonts or the battery
-colours. Exactly one theme may carry `default: true`.
-
-**The battery scale is deliberately NOT per-theme.** It is a *state* vocabulary — red
-(0–10%), orange (11–20%), yellow (21–40%), green (41%+), consumed by
-`pages.dashBatteryColorClass`. A palette changes what "action" looks like; it must not
-change what "critically low" looks like. The corollary binds every new theme: **keep the
-primary out of the red/orange/yellow/green band**, or one colour will mean two things.
-Apex violates this for its *primary* (red collides with battery-low); `graphite.css` exists
-as the accessible alternative and documents the measured contrast per token.
-
-**The same rule governs the four status colours (MAG-49).** `error`/`warning`/`success` are
-a state vocabulary too — red means error, amber warning, green success, in EVERY theme.
-Re-hueing them per palette would make a failure read as decoration, so do not. **`info` is
-the sole exception**: it warns of nothing, so it carries no convention to protect, and it is
-where a theme shows its identity — apex `#7c8cff` (its accent, lightened), graphite
-`#22d3ee` (its accent), halloween `#c084fc` (its secondary; its accent is green and would
-collide with success). Every status colour is measured in BOTH alert styles and must clear
-WCAG AA (4.5:1); the previously inherited daisy default `#2563eb` failed at 3.94:1.
-
-**Switching:** since `RM42-gateway-add-theme-selector`, `data-theme` is resolved PER REQUEST
-from `ui.ThemeFromContext(ctx)` (design.md D1/D2 of that change), not a literal in source —
-a signed-in user changes their own theme on `/settings`; an anonymous visitor or a
-just-logged-out user gets whatever the `theme` cookie last recorded. There is no longer a
-source-edit step for a user switching between the themes that already exist. Full steps
-live in the root `README.md` §"Switching the theme".
-
-**Adding a theme is four steps (roadmap RM42 D10):**
-
-1. New `internal/gateway/static/themes/<name>.css` — one `@plugin` block, mirror `graphite.css`.
-   (A *builtin* being corrected rather than a new palette is the `halloween.css` shape instead:
-   a plain unlayered `[data-theme="<name>"]` rule.)
-2. One `@import "./themes/<name>.css";` line in `internal/gateway/static/input.css`.
-3. Add `"<name>"` to `ui.Themes` (`internal/gateway/templates/ui/theme.go`).
-4. `make css`.
-
-`make theme-guard` (wired into `make check`) fails if `ui.Themes`, `internal/account`'s own
-`Theme*` constants, and `input.css`'s registered themes ever disagree — reconciling three
-independent copies was chosen over parsing `input.css` at build/run time because `halloween`
-lives in the `@plugin { themes: ... }` block while `apex`/`graphite` live in `@import` lines,
-two shapes a parser would need to special-case; three guarded copies keep the failure mode a
-clear, localized `make check` error instead of a silently wrong dropdown at runtime
-(design.md D5, `RM42-gateway-add-theme-selector`). Escape hatch: a trailing
-`// theme:allow: <reason>` comment on the same line as a Go-side entry being deliberately
-excluded from a comparison.
-
-**Boundary — this is NOT an opening for arbitrary self-hosted fonts.** Like RD9/RD10,
-it is a narrow, sanctioned decision (two families, four weights, pinned to the Apex
-`design.md`), not a precedent. Adding a third family or more weights needs its own
-RD entry per RD8, with its own rationale and rejected alternative. The Latin subset
-only is shipped; add other subsets (cyrillic, etc.) only when a real page needs them —
-do not front-load every subset. Fonts live under `static/fonts/` so the existing
-`//go:embed static` picks them up with no embed directive change; never put a font
-anywhere else.
-
-## Client-side JS exceptions on the charge forms (RD12 / RD13 / RD14)
-
-Three of the six sanctioned exceptions to the zero-JS rule belong to the `/external-charges`
-forms. All three live in `static/app.js` and delegate on `document.body`:
-
-| RD | Listener | What it does |
-|---|---|---|
-| **RD12** | `change` on `input[name="charged_on"]` | Rewrites only the date half of `started_at`/`ended_at`, preserving the time (`value.slice(10)`). Never auto-fills an empty field. |
-| **RD13** | `change` + `htmx:load` on `select[name="status"]` | Toggles `ended_at`/`end_battery_pct`'s `required` to `value === "DONE"`, with no round-trip. |
-| **RD14** | `change` + `htmx:load` on `select[name="location_kind"]` | Toggles `location_label`'s `disabled` to `value !== "OTHER"`; the `change` path also focuses the input, `htmx:load` deliberately does not. |
-
-**Full rationale, rejected alternatives and degradation behaviour for all three:**
-`kkpa/context/input-port/charging/external-charges.md` §"Client-side JS on this page" — moved
-there by MAG-39 as `/external-charges`-specific detail.
-
-**Boundary — these are NOT an opening for general client-side JS.** Like RD9/RD10/RD15,
-each is a narrow, sanctioned exception, not a precedent. Any further client-side JS
-needs its own RD entry per RD8, with its own rationale and rejected alternative. RD13
-and RD14 both deliberately duplicate a server-rendered attribute; where the two
-disagree the JS state wins in the live DOM and the disagreement is inert.
-
-## Client-side JS exception: theme-switch instant apply (RD15)
-
-The **sixth** sanctioned exception to the zero-JS rule: a `click` + `htmx:afterRequest`
-listener pair on `document.body`, matching `button[hx-post="/ui/theme/switch"]`, that
-applies a theme choice to the DOM immediately and reverts it if the background persist
-fails. Added by `RM42-gateway-add-theme-selector` (tier 2 of `RM42-settings-theme-selector`,
-ticket MAG-43, roadmap decision D6/design.md D6).
-
-**What:** A delegated `click` listener reads the clicked option's own `hx-vals` JSON
-(`{"theme":"<t>","csrf_token":"<token>"}`), stashes the DOM's current theme in
-`document.documentElement.dataset.themePrevious`, then writes the clicked theme straight
-into `document.documentElement.dataset.theme` — synchronously, before the `hx-post` (which
-carries `hx-swap="none"`) has even resolved. A companion `htmx:afterRequest` listener,
-matched the same way, clears the stashed previous value on success or restores it on
-failure. Reading the theme out of the button's own `hx-vals` (rather than a duplicate
-`data-theme="apex"` attribute) means the value the server receives and the value the DOM
-applies come from ONE literal per option, authored once in `theme_switcher.templ`.
-
-**Why:** D6 explicitly rejects any reload for a theme change (`HX-Location`, the mechanism
-`LangSwitch` uses, is deliberately NOT used here) — a theme is pure CSS with nothing to
-re-render, unlike the language switch's server-rendered text. The **rejected alternative**
-was a CSS-only DaisyUI pattern: rejected for the same reason RD12 rejects one — this is a
-genuine value write (`document.documentElement.dataset.theme = theme`) that must happen
-synchronously on click, strictly before any network round trip, and no CSS primitive can
-express "write this DOM attribute the instant this element is activated."
-
-**Why the optimistic apply reverts on failure, rather than staying applied.** The server
-remains the source of truth for what renders on the NEXT full page load (via
-`PreferencesMiddleware` → `data-theme` on `base.templ`), so leaving a never-persisted theme
-applied would only have it silently flip back on the user's very next navigation, with no
-explanation. Reverting immediately, in the same interaction, is the client-side mirror of
-`LangSwitch`'s own failure-path rule ("do NOT still send `HX-Location`, so the client does
-not reload into a state the persisted write never actually reached") — made necessary here
-specifically because this apply happens BEFORE the server confirms anything, which
-`LangSwitch`'s server-driven `HX-Location` never did.
-
-**Why it does not erode the `ui/` boundary:** the listener only ever reads `hx-vals` JSON
-and writes one `data-theme` dataset property — no DaisyUI class string, no markup, no
-styling decision is made in JavaScript. Identical shape to RD13/RD14's own boundary
-argument.
-
-**Boundary — this is NOT an opening for general client-side JS.** Like RD9–RD14, it is a
-narrow, sanctioned exception (one delegated listener pair, one dataset-attribute write with
-revert-on-failure, one named target control), not a precedent. Any further client-side JS
-needs its own RD entry per RD8.
-
-**Graceful degradation:** without JS (or in a browser where it errors), the `click` handler
-never fires: the `hx-post` still goes through via `htmx.min.js` alone, `SetTheme` still
-persists the choice server-side, and the user sees their new theme on the NEXT full page
-load once `PreferencesMiddleware` resolves it. The only thing lost is the "instant" half of
-D6 — degraded to "next navigation," never broken.
+**Read `kkpa/context/architecture/gateway-theming.md` before changing a theme, a colour
+token, or a font.**
 
 ---
 
