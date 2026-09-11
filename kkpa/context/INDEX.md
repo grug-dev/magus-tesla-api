@@ -246,6 +246,13 @@
 | `module schema` | synonym of `schema per module` → `architecture/schema-per-module.md` |
 | `account schema` | the `account` schema holding `accounts`, `tesla_tokens`, `vehicles`, `settings` (added RM42 tier 1 — language + theme preferences) → `architecture/schema-per-module.md` |
 | `charging tables` (every column, CHECK, generated column and index decision on the four tables `internal/charging` owns) | `architecture/charging-tables.md` |
+| `telemetry tables` (every column, dropped column, and the units history on the four tables `internal/telemetry` owns) | `architecture/telemetry-tables.md` |
+| `vehicle_snapshots` | the nightly per-vehicle snapshot — one row per (account, vehicle, `captured_date`) → `architecture/telemetry-tables.md` |
+| `poll_attempts` | append-only audit row per (vehicle, run) → `architecture/telemetry-tables.md` |
+| `supercharger_history` | the raw vendor Supercharger upsert + the human-owned battery-% trio → `architecture/telemetry-tables.md` |
+| `captured_date` | Go-computed calendar day, never a DB expression → `architecture/telemetry-tables.md` |
+| `raw_data` | the lossless Fleet API payload — stays in native units (miles, bar) → `architecture/telemetry-tables.md` |
+| `battery_pct_source` | why a human-verified percentage trio exists; never stores `"estimated"` → `architecture/telemetry-tables.md` |
 | `manual_charge_entries` | the user-asserted charge table — columns, CHECKs, the Go-side required-field set → `architecture/charging-tables.md` |
 | `supercharger_sessions` | the Supercharger mirror + the human-owned percentage columns → `architecture/charging-tables.md` |
 | `monthly_effective_capacity` | the measured per-vehicle pack capacity, one row per month → `architecture/charging-tables.md` |
