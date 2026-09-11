@@ -353,34 +353,25 @@ func TestRecalculate_ManualError_Propagates(t *testing.T) {
 // tesla_id, so the account is not part of a row's identity any more.
 func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 	t.Helper()
-	seedSnapshotForAccount(t, pool, uuid.NullUUID{}, s)
-}
-
-// seedSnapshotForAccount fills the legacy account_id column too. Only the TPMS
-// backfill migration test needs it: that migration matches vehicle_metrics to
-// vehicle_snapshots on account_id, and it is frozen, so the fixture has to
-// supply the column it reads.
-func seedSnapshotForAccount(t *testing.T, pool *pgxpool.Pool, accountID uuid.NullUUID, s telemetry.Snapshot) {
-	t.Helper()
 	updatedAt := s.UpdatedAt
 	if updatedAt.IsZero() {
 		updatedAt = s.CapturedAt
 	}
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO telemetry.vehicle_snapshots (
-			account_id, tesla_id, captured_at, captured_date, raw_data,
+			tesla_id, captured_at, captured_date, raw_data,
 			battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
 			odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
 			tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
 			updated_at
 		) VALUES (
-			$1, $2, $3, $4, '{}'::jsonb,
-			$5, $6, $7, $8,
-			$9, $10, $11, $12, $13, $14,
-			$15, $16, $17, $18,
-			$19
+			$1, $2, $3, '{}'::jsonb,
+			$4, $5, $6, $7,
+			$8, $9, $10, $11, $12, $13,
+			$14, $15, $16, $17,
+			$18
 		)`,
-		accountID, s.TeslaID,
+		s.TeslaID,
 		pgtype.Timestamptz{Time: s.CapturedAt, Valid: true},
 		dateFrom(s.CapturedDate),
 		int32(s.BatteryLevelPct), s.BatteryRangeKm, s.ChargingState, int32(s.ChargeLimitSocPct),
