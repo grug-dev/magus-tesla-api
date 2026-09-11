@@ -181,6 +181,27 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   the column DEFAULT.) Do not "complete the pattern" on either.
   _Source: `charging/db/query.sql`._
 
+- **The gap ledger is keyed on vehicle and day, never on account.** There is at most one row per
+  vehicle-day. A day's shortfall is one aggregate observation, so it is never split across two
+  rows for the same day. A car can change hands; the flagged day belongs to the car.
+  _Source: spec analytics — Requirement: Charge Gap Ledger._
+- **A reconciliation is all-or-nothing.** Every insert, update, and removal it makes either fully
+  applies or has no effect. Do not add a write to this path that can land on its own.
+  _Source: spec analytics — Requirement: Charge Gap Ledger._
+- **A mis-scoped flagged entry rejects the WHOLE call, writing nothing.** If any supplied day
+  does not belong to the call's own vehicle, or falls outside the call's own window, nothing is
+  stored — including the entries that were correctly scoped. This is a caller bug, not data to
+  accept quietly.
+  _Source: spec analytics — Requirement: Charge Gap Ledger._
+- **Removal leaves no trace.** A day that stops flagging is deleted. There is no resolved marker
+  and no soft delete: a row is either present (still flagged) or absent. Do not add a
+  `resolved_at` column to make history queryable — the ledger is a live worklist by design.
+  _Source: spec analytics — Requirement: Charge Gap Ledger._
+- **Days outside the reconciled window are never touched**, whatever their own flagged state.
+  This is why a correction older than the nightly window is never healed: the pass simply does
+  not look there.
+  _Source: spec analytics — Requirement: Charge Gap Ledger._
+
 ## Related KB
 
 - Use cases: `use-case/charging/update-manual-charge.md`,

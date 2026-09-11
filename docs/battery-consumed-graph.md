@@ -283,16 +283,22 @@ Contract points: an **empty** flagged list is legal and clears the window; days 
 ### Table shape
 
 `internal/analytics/db/migrations/20260815000002_add_charge_gaps.sql` (DDL at lines 59-71; the file
-opens with ~58 lines of rationale worth reading):
+opens with ~58 lines of rationale worth reading), as re-keyed by
+`internal/analytics/db/migrations/20260911000001_rekey_charge_gaps_on_tesla_id.sql`:
 
-- `UNIQUE (account_id, tesla_id, gap_date)` — **one row per vehicle-day**, deliberately *not* per
+- `UNIQUE (tesla_id, gap_date)` — **one row per vehicle-day**, deliberately *not* per
   day-and-type. One combined shortfall can't be split into a MANUAL and a SUPERCHARGER share, so a
   second row would be speculative.
 - `missing_charging_type` — `CHECK IN ('MANUAL','SUPERCHARGER')`, NOT NULL.
 - **No `resolved_at`, no soft delete** — this is a *live worklist*, not an audit trail (**D7b**).
   The consuming notification wants "what is outstanding", not a history of resolved days.
-- No cross-module foreign keys on `account_id` / `tesla_id`; no `raw_data` JSONB.
-- Index `idx_charge_gaps_account (account_id, gap_date DESC)`.
+- No cross-module foreign key on `tesla_id`; no `raw_data` JSONB.
+- **No `account_id` column.** `tesla_id` already names one vehicle, so the account added no
+  isolation. A car can also change hands, and the gap belongs to the car, not to whoever owned it
+  on the day it was flagged.
+- **No second index.** The UNIQUE constraint's own `(tesla_id, gap_date)` index serves every query
+  the module runs. A `gap_date DESC` twin would add nothing — Postgres reads the same index
+  backward at no cost.
 
 ### Nothing reads it yet
 
@@ -470,8 +476,10 @@ and index plan need confirming before implementation.
 point of persisting it — per the original ticket, "to notify the user later (In Another ticket)" —
 is unbuilt.
 
-**Where.** `internal/analytics/analytics.go` exposes only `GapWriter`; the index
-`idx_charge_gaps_account (account_id, gap_date DESC)` already exists for the account-wide read.
+**Where.** `internal/analytics/analytics.go` exposes only `GapWriter`. The table now carries one
+index, the `UNIQUE (tesla_id, gap_date)` constraint's own. A per-vehicle read is served by it
+directly; an account-wide read would first have to resolve the account's vehicles through
+`internal/account`, because `charge_gaps` stores no `account_id`.
 
 **Suggested shape.** A `GapReader` port on `internal/analytics` plus a dashboard surface listing
 outstanding days, each linking to the manual-charge form pre-filled with that date. Remember

@@ -14,39 +14,32 @@ import (
 
 const chargeGapDatesByVehicleBetween = `-- name: ChargeGapDatesByVehicleBetween :many
 SELECT gap_date FROM analytics.charge_gaps
-WHERE account_id = $1
-  AND tesla_id   = $2
-  AND gap_date   >= $3
-  AND gap_date   <= $4
+WHERE tesla_id = $1
+  AND gap_date >= $2
+  AND gap_date <= $3
 `
 
 type ChargeGapDatesByVehicleBetweenParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-	Start     pgtype.Date
-	EndDate   pgtype.Date
+	TeslaID int64
+	Start   pgtype.Date
+	EndDate pgtype.Date
 }
 
-// Return every stored charge_gaps date for one vehicle (within one account)
-// in the closed range [start, end]. Used ONLY by
-// GapWriter.ReconcileWindow's internal bookkeeping to compute which
-// previously-stored days are no longer in the caller's flagged set (and so
-// must be deleted) -- not a public read port, not consumed outside this
-// module's own write path. Single-column SELECT (gap_date only): the caller
-// already has every other field it needs for any date it decides to keep
-// (it is re-upserting from its own freshly-computed flagged set, never
-// reading this table's other columns back).
+// Return every stored charge_gaps date for one vehicle in the closed range
+// [start, end]. Used ONLY by GapWriter.ReconcileWindow's internal
+// bookkeeping to compute which previously-stored days are no longer in the
+// caller's flagged set (and so must be deleted) -- not a public read port,
+// not consumed outside this module's own write path. Single-column SELECT
+// (gap_date only): the caller already has every other field it needs for
+// any date it decides to keep (it is re-upserting from its own
+// freshly-computed flagged set, never reading this table's other columns
+// back).
 //
-// Index reuse (design.md Index Plan, Read path 1): served directly by
-// charge_gaps_account_tesla_date_unique's own (account_id, tesla_id, gap_date)
-// index as a single contiguous forward range scan -- no new index.
+// Index reuse: served directly by charge_gaps_tesla_date_unique's own
+// (tesla_id, gap_date) index as a single contiguous forward range scan --
+// no new index.
 func (q *Queries) ChargeGapDatesByVehicleBetween(ctx context.Context, arg ChargeGapDatesByVehicleBetweenParams) ([]pgtype.Date, error) {
-	rows, err := q.db.Query(ctx, chargeGapDatesByVehicleBetween,
-		arg.AccountID,
-		arg.TeslaID,
-		arg.Start,
-		arg.EndDate,
-	)
+	rows, err := q.db.Query(ctx, chargeGapDatesByVehicleBetween, arg.TeslaID, arg.Start, arg.EndDate)
 	if err != nil {
 		return nil, err
 	}
@@ -67,25 +60,22 @@ func (q *Queries) ChargeGapDatesByVehicleBetween(ctx context.Context, arg Charge
 
 const deleteChargeGap = `-- name: DeleteChargeGap :exec
 DELETE FROM analytics.charge_gaps
-WHERE account_id = $1
-  AND tesla_id   = $2
-  AND gap_date   = $3
+WHERE tesla_id = $1
+  AND gap_date = $2
 `
 
 type DeleteChargeGapParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-	GapDate   pgtype.Date
+	TeslaID int64
+	GapDate pgtype.Date
 }
 
-// Delete one charge_gaps row scoped to (account_id, tesla_id, gap_date) -- a
-// point delete served by the charge_gaps_account_tesla_date_unique
-// constraint's own index (design.md Index Plan, Read path 1). Called by
-// GapWriter.ReconcileWindow for every previously-stored day in the window
-// that is no longer present in the caller's freshly-computed flagged set
-// (roadmap D7b).
+// Delete one charge_gaps row scoped to (tesla_id, gap_date) -- a point
+// delete served by the charge_gaps_tesla_date_unique constraint's own
+// index. Called by GapWriter.ReconcileWindow for every previously-stored
+// day in the window that is no longer present in the caller's
+// freshly-computed flagged set.
 func (q *Queries) DeleteChargeGap(ctx context.Context, arg DeleteChargeGapParams) error {
-	_, err := q.db.Exec(ctx, deleteChargeGap, arg.AccountID, arg.TeslaID, arg.GapDate)
+	_, err := q.db.Exec(ctx, deleteChargeGap, arg.TeslaID, arg.GapDate)
 	return err
 }
 
@@ -271,37 +261,36 @@ func (q *Queries) LatestVehicleMetricsByAccount(ctx context.Context, accountID u
 
 const upsertChargeGap = `-- name: UpsertChargeGap :exec
 INSERT INTO analytics.charge_gaps (
-    account_id, tesla_id, vin, gap_date, missing_charging_type
+    tesla_id, vin, gap_date, missing_charging_type
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4
 )
-ON CONFLICT (account_id, tesla_id, gap_date) DO UPDATE SET
+ON CONFLICT (tesla_id, gap_date) DO UPDATE SET
     vin                    = EXCLUDED.vin,
     missing_charging_type  = EXCLUDED.missing_charging_type,
     updated_at             = now()
 `
 
 type UpsertChargeGapParams struct {
-	AccountID           uuid.UUID
 	TeslaID             int64
 	Vin                 string
 	GapDate             pgtype.Date
 	MissingChargingType string
 }
 
-// Upsert one flagged vehicle-day. On conflict with the
-// charge_gaps_account_tesla_date_unique constraint, refresh vin (in case the
+// Upsert one flagged vehicle-day. tesla_id already names one vehicle
+// uniquely, so the row's identity key is (tesla_id, gap_date) alone --
+// account_id added no isolation beyond that. On conflict with the
+// charge_gaps_tesla_date_unique constraint, refresh vin (in case the
 // vehicle's VIN changed since the day was first flagged -- cheap safety, not
 // an expected case) and missing_charging_type (the inferred type can change
 // between nightly runs if detection logic evolves, or if a Supercharger
 // session with NULL percentages later appears for a day previously inferred
 // MANUAL), and refresh updated_at to now(). created_at is DELIBERATELY
-// ABSENT from the SET clause -- design D-Table2/the table's own column
-// comment: it must record when this vehicle-day was FIRST flagged, not the
-// most recent confirmation.
+// ABSENT from the SET clause -- it must record when this vehicle-day was
+// FIRST flagged, not the most recent confirmation.
 func (q *Queries) UpsertChargeGap(ctx context.Context, arg UpsertChargeGapParams) error {
 	_, err := q.db.Exec(ctx, upsertChargeGap,
-		arg.AccountID,
 		arg.TeslaID,
 		arg.Vin,
 		arg.GapDate,

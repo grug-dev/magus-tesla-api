@@ -281,6 +281,8 @@
 | `mirror cursor` | synonym of `mirror watermark` → `architecture/nightly-cycle.md` |
 | `charging.mirror_watermarks` | the table behind `mirror watermark` → `architecture/nightly-cycle.md` |
 | `who owns the mirror cursor` | the module that READS, not the one that is read → `architecture/nightly-cycle.md` |
+| `charge gap ledger` | synonym of `charge gaps` — the reconcile contract → `architecture/charge-record-mutation.md` |
+| `gap reconciliation` | `analytics.GapWriter.ReconcileWindow`'s own contract → `architecture/charge-record-mutation.md` |
 | `deployment stack` (the five-service Docker Compose stack, its startup order, and its hardening) | `architecture/deployment-stack.md` |
 | `docker compose stack` | synonym of `deployment stack` → `architecture/deployment-stack.md` |
 | `container stack` | synonym of `deployment stack` → `architecture/deployment-stack.md` |

@@ -359,7 +359,6 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 				continue
 			}
 			flagged = append(flagged, analytics.ChargeGap{
-				AccountID:           v.AccountID,
 				TeslaID:             v.TeslaID,
 				VIN:                 v.VIN,
 				Date:                day.Date,
@@ -367,7 +366,7 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 			})
 		}
 
-		if err := p.gapWriter.ReconcileWindow(ctx, v.AccountID, v.TeslaID, start, end, flagged); err != nil {
+		if err := p.gapWriter.ReconcileWindow(ctx, v.TeslaID, start, end, flagged); err != nil {
 			log.Printf("gap reconciliation: vehicle %d: reconcile window: %v", v.TeslaID, err)
 			continue
 		}
