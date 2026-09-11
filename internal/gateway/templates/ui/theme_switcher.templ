@@ -56,6 +56,11 @@ func themeVals(t, csrfToken string) string {
 // needed to open or display the dropdown itself: the DaisyUI "dropdown" pattern is
 // :focus-driven CSS, already on the module's sanctioned zero-JS list.
 //
+// The current theme's name sits in its own data-theme-current span so app.js can
+// rewrite just that word when a theme is picked, and put it back if the save fails.
+// Without it the trigger kept naming the OLD theme until the next full page load,
+// while the page was already painted in the new one.
+//
 // Why the trigger is btn-outline + a chevron, where LangSwitcher's is a bare
 // btn-ghost: btn-ghost is transparent until hover, so it only reads as a control
 // when something else marks it as one. In the navbar that job is done by
@@ -68,7 +73,7 @@ func themeVals(t, csrfToken string) string {
 templ ThemeSwitcher(p ThemeSwitcherProps) {
 	<div class="dropdown">
 		<div tabindex="0" role="button" class="btn btn-outline btn-sm" aria-label={ i18n.T(ctx, i18n.KeyThemeSwitcherAria) }>
-			<span>{ i18n.T(ctx, i18n.KeyThemeSwitcherLabel) }: { titleCase(p.Current) }</span>
+			<span>{ i18n.T(ctx, i18n.KeyThemeSwitcherLabel) }: <span data-theme-current="true">{ titleCase(p.Current) }</span></span>
 			@Icon(IconProps{Name: "chevron_down", Class: "h-4 w-4"})
 		</div>
 		<ul tabindex="-1" class="dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-sm">

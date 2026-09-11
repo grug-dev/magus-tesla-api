@@ -884,7 +884,7 @@ delegate on `document.body`.
 | **RD9** | Inline script in `layouts.BaseAuth` only. Sets the `browser_tz` cookie. |
 | **RD10** | Intercepts `htmx:confirm` and drives `ui.ConfirmDialog`. |
 | **RD12/13/14** | The three `/external-charges` form listeners. |
-| **RD15** | Applies a theme to the DOM at once, reverts if the save fails. |
+| **RD15** | Applies a theme to the DOM at once, closes the dropdown, reverts if the save fails. |
 
 **Four rules bind you even when you are not working on these**, so they stay here:
 

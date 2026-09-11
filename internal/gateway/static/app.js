@@ -244,6 +244,32 @@ document.body.addEventListener("click", function (evt) {
   if (!theme) return;
   document.documentElement.dataset.themePrevious = document.documentElement.dataset.theme;
   document.documentElement.dataset.theme = theme;
+
+  // Close the dropdown. It is CSS-only and stays open while focus is inside it
+  // (DaisyUI hides .dropdown-content on :not(:focus-within)), so picking an
+  // option left the menu hanging open over the page.
+  //
+  // Blur whatever is focused inside this dropdown, not the clicked button:
+  // Chrome and Firefox focus a button on click, Safari does not. In Safari
+  // focus stays on the trigger, so btn.blur() alone would close nothing there.
+  var dropdown = btn.closest(".dropdown");
+  if (dropdown && dropdown.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
+  // Rewrite the trigger's theme name. The trigger is server-rendered, so without
+  // this it kept naming the OLD theme while the page was already painted in the
+  // new one.
+  //
+  // The new text is the clicked option's OWN text, not a title-cased copy of the
+  // theme code: Go's titleCase already produced that word when it rendered the
+  // option, so reading it back keeps one source of truth for the casing, exactly
+  // as the theme value is read back out of the option's hx-vals above.
+  var current = dropdown && dropdown.querySelector("[data-theme-current]");
+  if (current) {
+    current.dataset.previousLabel = current.textContent;
+    current.textContent = btn.textContent.trim();
+  }
 });
 
 // If the background persist request failed, revert to the value the DOM
@@ -261,11 +287,21 @@ document.body.addEventListener("click", function (evt) {
 document.body.addEventListener("htmx:afterRequest", function (evt) {
   var elt = evt.detail.elt;
   if (!elt || !elt.matches || !elt.matches('button[hx-post="/ui/theme/switch"]')) return;
+  // The trigger label is reverted alongside the theme itself: a button naming a
+  // theme the server never stored is the same lie, in words instead of colour.
+  var current = elt.closest(".dropdown");
+  current = current && current.querySelector("[data-theme-current]");
+
   if (evt.detail.successful) {
     delete document.documentElement.dataset.themePrevious;
+    if (current) delete current.dataset.previousLabel;
     return;
   }
   var prev = document.documentElement.dataset.themePrevious;
   if (prev) document.documentElement.dataset.theme = prev;
   delete document.documentElement.dataset.themePrevious;
+  if (current && current.dataset.previousLabel) {
+    current.textContent = current.dataset.previousLabel;
+    delete current.dataset.previousLabel;
+  }
 });
