@@ -647,3 +647,34 @@ type MirrorWatermarkStore interface {
 func NewMirrorWatermarkStore(pool *pgxpool.Pool) MirrorWatermarkStore {
 	return newMirrorWatermarkStore(pool)
 }
+
+// MonthlyCapacityReport summarizes one Calculate call: how many distinct
+// vehicles it considered, how many got a measured (non-NULL) capacity, and how
+// many were left thin (a row was still written, per RD4, but
+// effective_capacity_kwh is NULL). cmd/monthly-capacity (tier 3) prints this;
+// nothing in this tier consumes it yet.
+type MonthlyCapacityReport struct {
+	Period        time.Time
+	VehiclesFound int
+	Measured      int
+	Thin          int
+}
+
+// MonthlyCapacityCalculator computes and stores the effective pack capacity for
+// one or every vehicle, for one calendar month (roadmap Tier 1, RD1/RD3/RD5).
+// period must be the first instant of the month to compute; this module does
+// not compute "now" or "the previous month" itself and imports no clock -- the
+// tier-2 caller (internal/app, via internal/clock, RD7) decides both and passes
+// the result in. teslaID nil means every vehicle with at least one valid row
+// this period (RD8); non-nil scopes the run to one vehicle.
+type MonthlyCapacityCalculator interface {
+	Calculate(ctx context.Context, period time.Time, teslaID *int64) (MonthlyCapacityReport, error)
+}
+
+// NewMonthlyCapacityCalculator constructs a MonthlyCapacityCalculator backed by
+// the given pgxpool. The implementation lives in monthly_capacity.go where the
+// chargingdb generated package is used. This is the only publicly exported
+// factory function for this port.
+func NewMonthlyCapacityCalculator(pool *pgxpool.Pool) MonthlyCapacityCalculator {
+	return newMonthlyCapacityCalculator(pool)
+}

@@ -59,7 +59,7 @@ known divergence lives there.
 |---|---|
 | `internal/charging/service.go` | `Writer.Update` / `.Delete`; `resolveEnergy` (derives `energy_added_kwh` + `energy_source`); `defaultLimit = 100`. |
 | `internal/charging/session_verifier.go` | `VerifySession`; computes `battery_pct_source`; the only writer of the verified percentages. |
-| `internal/charging/capacity.go` | `packCapacityKWh` — hardcoded `62.0`, and `derivedEnergyKWh`. |
+| `internal/charging/capacity.go` | `packCapacityKWh(ctx, lookup, teslaID)` — reads the measured capacity from `charging.monthly_effective_capacity`, falls back to `62.0` only while unmeasured (RM52 tier 1, MAG-32). Also `derivedEnergyKWh`. |
 | `internal/charging/db/query.sql` | `UpdateEntry`, `DeleteEntry`, `VerifySuperchargerSession`, `MirrorSuperchargerSession`. |
 | `internal/charging/db/migrations/20260829000001_add_inferred_capacity.sql` | The `inferred_capacity_kwh_calc` generated column, on **both** tables. |
 
@@ -125,12 +125,12 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   `deriveVehicleMetrics` attributes a charge to a metric row several days later.
   _Source: `gateway/handlers/external_charges.go`, `gateway/handlers/supercharger.go`,
   `analytics/consumed.go` `deriveVehicleMetrics`._
-- **Two pack capacities** — `charging/capacity.go` returns a hardcoded `62.0`;
+- **Two pack capacities** — `charging/capacity.go` returns the vehicle's **measured** capacity from `charging.monthly_effective_capacity`, and `62.0` only while that vehicle has no measured month (RM52 tier 1, MAG-32);
   `analytics/capacity.go` is a car-type map (`model3:75`, `modely:75`, `models:100`,
   `modelx:100`). For an `ESTIMATED` manual entry, `inferred_capacity_kwh_calc` inverts the same
-  formula `resolveEnergy` used and returns exactly `62.000` — carrying no information. The
-  `charging` constant's own comment already requires a future lookup to filter
-  `WHERE energy_source = 'USER'` so it does not average itself back in.
+  formula `resolveEnergy` used, so it returns exactly the capacity that was used — carrying no
+  information. That is why the monthly job in `charging/monthly_capacity.go` filters
+  `WHERE energy_source = 'USER'`: it must never average a derived value back into itself.
   _Source: `charging/capacity.go`, `analytics/capacity.go`._
 - **Different ownership vocabulary** — the manual handlers call `acct.RegisteredVehicles` +
   `vehicleOwned`; `SuperchargerRowUpdate` relies solely on the SQL `AND account_id` scope (a

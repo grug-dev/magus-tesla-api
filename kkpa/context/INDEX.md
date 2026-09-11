@@ -130,6 +130,16 @@
 | `supercharger session battery percentages` (the two `charging.Session` % columns + `battery_pct_source`; nil ⇒ `—`) | `workflows/supercharger-stats-read.md` |
 | `supercharger session status` (the three-state `charging.Session.Status`: `IN_PROGRESS` / `DONE_CALCULATED` / `DONE`, recomputed on every correction) | `workflows/supercharger-stats-read.md` |
 | `supercharger status badge` (2nd-column `ui.Badge` + a `ui.Dot`; Badge Kind `primary`/`neutral`/`ghost`, Dot Variant `success`/`neutral`/`warning`; gateway-read-only) | `workflows/supercharger-stats-read.md` |
+| `vehicle monthly metrics` (the monthly per-vehicle measurement story; today one metric, the measured pack capacity) | `workflows/vehicle-monthly-metrics.md` |
+| `monthly effective capacity` (measured pack capacity per vehicle per month; median of reliable charge records, absent when evidence is thin) | `workflows/vehicle-monthly-metrics.md` |
+| `effective pack capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
+| `measured pack capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
+| `monthly capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
+| `effective capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
+| `pack capacity` | `charging`'s `packCapacityKWh` + its `62.0` fallback → `workflows/vehicle-monthly-metrics.md` (the `analytics` `car_type` table is a different thing — see that guide's last section) |
+| `capacity backfill` | re-run one month — `cmd/monthly-capacity` / `make cmd-monthly-capacity` → `workflows/vehicle-monthly-metrics.md` |
+| `cmd/monthly-capacity` | synonym of `capacity backfill` → `workflows/vehicle-monthly-metrics.md` |
+| `monthly_effective_capacity` | the table → `workflows/vehicle-monthly-metrics.md` |
 
 ## Architecture topics
 
@@ -144,10 +154,12 @@
 | `vehicle snapshots` | `telemetry.Snapshot` / `vehicle_snapshots` → `architecture/telemetry-ingest-only.md` |
 | `supercharger history estimate columns` | **dropped** — RM41 tier 3 removed `start_battery_pct_est` / `end_battery_pct_est`; reverses RM27 D6 → `architecture/telemetry-ingest-only.md` |
 | `verification-time snapshot pair` | synonym of `supercharger history estimate columns` → `architecture/telemetry-ingest-only.md` |
-| `nightly cycle` (the 3-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics) | `architecture/nightly-cycle.md` |
+| `nightly cycle` (the 4-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics → measure monthly capacity, the last one only on the 1st of the month) | `architecture/nightly-cycle.md` |
 | `nightly collection` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly poll` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly batch` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
+| `monthly capacity step` | synonym of the nightly cycle's step 4 → `architecture/nightly-cycle.md` |
+| `step 4` | the nightly cycle's monthly-capacity step → `architecture/nightly-cycle.md` |
 | `the poller run` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `ProcessVehicleData` | `app.Processor.ProcessVehicleData` → `architecture/nightly-cycle.md` |
 | `session mirror` | step 2 of the cycle — `charging.SessionWriter.MirrorSessions` → `architecture/nightly-cycle.md` |

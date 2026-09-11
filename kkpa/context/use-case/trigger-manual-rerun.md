@@ -38,7 +38,7 @@
    `telemetry.TriggeredByAPI`. **From here the path is identical to the nightly one.**
 5. `telemetry.LogCycle` — logs the cycle, exactly as the scheduler and `--once` do.
 
-**The three steps inside `ProcessVehicleData` are not repeated here.** They belong to the
+**The four steps inside `ProcessVehicleData` are not repeated here.** They belong to the
 cycle, not to this call path — see `architecture/nightly-cycle.md`.
 
 ## Database

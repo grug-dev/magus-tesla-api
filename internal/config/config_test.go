@@ -316,6 +316,106 @@ func TestLoadMigration_MigrationsDirsUnsetUsesDefault(t *testing.T) {
 	})
 }
 
+// TestLoadDatabase_* cover LoadDatabase, the config loader for
+// cmd/monthly-capacity. Unlike Load, it must never require
+// TESLA_CLIENT_ID/TESLA_CLIENT_SECRET -- a database-only tool has no reason
+// to validate a credential it never uses.
+
+// unsetDatabaseEnv clears DATABASE_URL from the real environment and returns
+// a restore func for defer. Mirrors unsetMigrationEnv's exact shape.
+func unsetDatabaseEnv(t *testing.T) func() {
+	t.Helper()
+	origURL, hadURL := os.LookupEnv("DATABASE_URL")
+	os.Unsetenv("DATABASE_URL")
+	return func() {
+		if hadURL {
+			os.Setenv("DATABASE_URL", origURL)
+		} else {
+			os.Unsetenv("DATABASE_URL")
+		}
+	}
+}
+
+// .env present with DATABASE_URL set, no Tesla credentials set anywhere:
+// LoadDatabase must succeed and return the DSN, with no credential check.
+func TestLoadDatabase_EnvFilePresent(t *testing.T) {
+	restore := unsetDatabaseEnv(t)
+	defer restore()
+
+	withTempDir(t, func(dir string) {
+		writeEnvFile(t, dir, "DATABASE_URL=postgres://user:pass@db:5432/magus?sslmode=disable\n")
+
+		dbURL, err := LoadDatabase()
+		if err != nil {
+			t.Fatalf("LoadDatabase() returned error: %v", err)
+		}
+		want := "postgres://user:pass@db:5432/magus?sslmode=disable"
+		if dbURL != want {
+			t.Fatalf("LoadDatabase() = %q, want %q", dbURL, want)
+		}
+	})
+}
+
+// .env missing, DATABASE_URL set in the real environment (the container
+// case): LoadDatabase must still succeed.
+func TestLoadDatabase_EnvFileAbsentRealEnvSet(t *testing.T) {
+	restore := unsetDatabaseEnv(t)
+	defer restore()
+
+	withTempDir(t, func(dir string) {
+		// No .env file written in dir on purpose.
+		os.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/magus?sslmode=disable")
+
+		dbURL, err := LoadDatabase()
+		if err != nil {
+			t.Fatalf("LoadDatabase() returned error: %v", err)
+		}
+		want := "postgres://user:pass@db:5432/magus?sslmode=disable"
+		if dbURL != want {
+			t.Fatalf("LoadDatabase() = %q, want %q", dbURL, want)
+		}
+	})
+}
+
+// DATABASE_URL unset everywhere: LoadDatabase must return an error.
+func TestLoadDatabase_DatabaseURLEmpty(t *testing.T) {
+	restore := unsetDatabaseEnv(t)
+	defer restore()
+
+	withTempDir(t, func(dir string) {
+		// No .env file, DATABASE_URL left unset.
+		dbURL, err := LoadDatabase()
+		if err == nil {
+			t.Fatal("LoadDatabase() returned no error, want a DATABASE_URL error")
+		}
+		if dbURL != "" {
+			t.Fatalf("LoadDatabase() dbURL = %q, want empty string on error", dbURL)
+		}
+	})
+}
+
+// .env sets DATABASE_URL, but the real environment sets a different value:
+// the real environment must win, matching godotenv.Load()'s non-overriding
+// behavior.
+func TestLoadDatabase_RealEnvBeatsDotEnv(t *testing.T) {
+	restore := unsetDatabaseEnv(t)
+	defer restore()
+
+	withTempDir(t, func(dir string) {
+		writeEnvFile(t, dir, "DATABASE_URL=postgres://from-dotenv:5432/magus\n")
+		os.Setenv("DATABASE_URL", "postgres://from-real-env:5432/magus")
+
+		dbURL, err := LoadDatabase()
+		if err != nil {
+			t.Fatalf("LoadDatabase() returned error: %v", err)
+		}
+		want := "postgres://from-real-env:5432/magus"
+		if dbURL != want {
+			t.Fatalf("LoadDatabase() = %q, want %q (real env var must win over .env)", dbURL, want)
+		}
+	})
+}
+
 // MIGRATIONS_DIRS with extra whitespace between (and around) entries must not
 // produce an empty directory entry.
 func TestLoadMigration_MigrationsDirsExtraWhitespace(t *testing.T) {

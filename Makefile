@@ -71,7 +71,7 @@ ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
         db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard tidy build vet test check bins \
-        up cmd-setup cmd-explore-tesla cmd-poller-once \
+        up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs docker-migrate backup-db
 
 # --- Help -------------------------------------------------------------------
@@ -761,6 +761,11 @@ cmd-poller-once: ## Build cmd/poller into ./bin and run ONE collection cycle now
 	@mkdir -p bin
 	go build -o bin/poller ./cmd/poller
 	./bin/poller --once
+
+cmd-monthly-capacity: ## Build cmd/monthly-capacity into ./bin and run it. Optional: PERIOD=2026-08 TESLA_ID=123 (defaults: previous month, every vehicle). Needs DATABASE_URL.
+	@mkdir -p bin
+	go build -o bin/monthly-capacity ./cmd/monthly-capacity
+	./bin/monthly-capacity $(if $(PERIOD),-period $(PERIOD)) $(if $(TESLA_ID),-tesla-id $(TESLA_ID))
 
 # --- Docker Compose deploy (VPS / production) --------------------------------
 # See docs/0-set-up/deployment.md §8 (first deploy) and docs/1-deploy/docker.md

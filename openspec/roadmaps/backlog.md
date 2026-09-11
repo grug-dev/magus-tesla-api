@@ -176,6 +176,14 @@ replacing or supplementing the model-coarse one.
 then, `internal/analytics` returns a value with a documented model-coarse approximation
 (`Efficiency.Approximate` stays reserved for the separate "capacity fully unknown" case).
 
+**NOTE (2026-09-10, after RM52 tier 3).** RM52 added a *measured* per-vehicle capacity in
+`charging.monthly_effective_capacity`, read by `internal/charging`'s own `packCapacityKWh`.
+That is a different table from this item's `internal/analytics/capacity.go`, which RM52 never
+touched. Before building the trim table, weigh reading the measured value instead: `analytics`
+already imports `charging`, so there is no cycle. The measured value is not always there — a
+month with too few big charges stores no number — so a fallback would still be needed. Both
+routes stay open; this note only says the cheaper one now exists.
+
 ### ORIGIN
 
 `battery-add-efficiency-metric` design.md decision **D1b** (leader ↔ user grill-me pass,
@@ -566,32 +574,6 @@ starts to duplicate.
 Linear MAG-30 acceptance criterion 2, and the RM30 Step 2 interview (2026-08-27) — the
 owner asked for a follow-up ticket rather than folding the work into RM30.
 
-
-
-## 18. charging — Replace the hardcoded 62 kWh pack capacity with a real per-vehicle value
-
-### PROPOSAL
-
-`internal/charging` derives `energy_added_kwh` from the battery delta when the user leaves the
-field blank (RM33 / MAG-18, decision D3). The pack capacity that derivation multiplies by is a
-hardcoded `62.0` behind `packCapacityKWh(ctx, vin) (float64, error)` — the ctx+error signature
-exists precisely so this becomes a one-body change with zero caller churn.
-
-Replace it with a real value, sourced either from a future vehicle-spec table/module keyed by VIN,
-or from the average of `inferred_capacity_kwh_calc` over that vehicle's own rows.
-
-**If the average approach is taken it MUST filter `WHERE energy_source = 'USER'`** (RM33 decision
-D4). Rows whose energy was itself derived return exactly the capacity constant by algebra
-(`(C · d/100) ÷ (d/100) = C`), so including them feeds the seed value back into the average and it
-stops converging on the pack's real capacity.
-
-**Trigger:** enough user-entered (non-derived) entries exist to average meaningfully, or a
-vehicle-spec module lands.
-
-### ORIGIN
-
-RM33 `manual-record-status` decision D8 (and D4), settled in the 2026-08-29 grill-me interview for
-Linear MAG-18.
 
 
 ## 19. telemetry — Per-vehicle poll duration
@@ -1008,6 +990,64 @@ before any migration that is risky enough to want a tested reverse path.
 
 RM49 tier 1 design.md D9. The worker was told to verify the roadmap's suggested rollback
 command and found it did not exist. Fixing the gap was out of scope for that tier.
+
+
+## 29. analytics — Monthly metrics table, once a second metric exists
+
+### PROPOSAL
+
+MAG-32 / RM52 measures effective pack capacity monthly, and that table lives in `charging`,
+because `charging` owns every input row. The ticket also sketched a wider table —
+`analytics.vehicle_monthly_metrics`, keyed on `(tesla_id, effective_period)`, one column per
+metric — to hold future monthly numbers: `full_charge_count`, average consumption per 100 km,
+energy consumed per date, and comparison results across vehicles.
+
+That table was deliberately NOT built in RM52 (roadmap decision RD12). Today it would hold one
+column, copied from `charging`, that nothing reads.
+
+**Trigger:** the first monthly metric that is NOT owned by a single module — a fleet comparison,
+or a number derived from `telemetry` plus `charging` together. That is the point at which
+`analytics` is the right owner rather than an extra hop.
+
+When it is built it may duplicate `charging`'s capacity value into itself. That is allowed:
+`analytics.vehicle_metrics` already duplicates other modules' observations on purpose, and the
+read-heavy Performance-Profile accepts denormalization on the write path. It needs a refresh rule,
+which `analytics`'s existing watermark/reconcile machinery already provides.
+
+### ORIGIN
+
+RM52 decision RD12, settled with the owner on 2026-09-10 during the MAG-32 design interview.
+
+
+## 30. charging — Make `charge_sessions.tesla_id` NOT NULL
+
+### PROPOSAL
+
+`charge_sessions.tesla_id` is nullable today — "NULL when the VIN is not a currently-registered
+vehicle" — and the nightly mirror refreshes it on every pass. `manual_charge_entries.tesla_id` is
+already `NOT NULL`, so the two sibling tables disagree, and `Session.TeslaID` is a `*int64` while
+`Entry.TeslaID` is a plain `int64`.
+
+The owner's position is that on this platform `tesla_id` is always present and the column should
+be `NOT NULL`.
+
+This is a behaviour change, not a schema tidy-up, so it must first answer three questions:
+
+1. How many rows have `tesla_id IS NULL` today? (Count before writing the migration.)
+2. What does the nightly mirror write when a VIN stops being registered, if not NULL? Skipping the
+   row, keeping the last known id, or refusing the sync are all different products.
+3. `Session.TeslaID *int64` becomes `int64`, which touches every reader of that field.
+
+**Trigger:** picked up on its own. RM52 does not need it — its new table declares its own
+`tesla_id BIGINT NOT NULL` and simply skips session rows where the column is NULL.
+
+**Care required:** the dev database holds hand-entered charge history that Tesla cannot backfill.
+Count the affected rows and agree what happens to them before any `ALTER`.
+
+### ORIGIN
+
+RM52 decision RD13, raised at the MAG-32 database design gate on 2026-09-10 when the owner asked
+for `tesla_id` instead of `vin` as the new table's key.
 
 
 

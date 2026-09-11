@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM52-vehicle-monthly-metrics",
+  "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value per vehicle. A monthly job INSIDE charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops small-delta rows, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table. charging owns every input row, so the derivation lives there too and no cross-module port or import cycle exists (RD1). The wider analytics monthly-metrics table is deferred until a second metric exists (RD12). Linear MAG-32.",
+  "request": "/kkpa-pickup-linear-ticket MAG-32 — Vehicle Monthly Metrics - New table. Estimate effective capacity per vehicle from MAG-25's inferred_capacity_calc. On the first day of every month, after the nightly job, a named process reads all NOT NULL inferred_capacity_calc values from manual_charge_entries and charge_sessions for the previous month, for every active vehicle, and computes a robust weighted/filtered estimate rather than a simple average. The process may also run for one specific period and one specific tesla id, exposed as an API. effective_capacity will be read by the charging module. Future monthly metrics expected: full_charge_count, average consumption per 100 km, energy consumed per date. Create a KB named vehicle-monthly-metrics.",
+  "autopilot": false,
+  "status": "complete",
+  "created_at": "2026-09-10T01:50:10Z",
+  "updated_at": "2026-09-11T01:40:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM52-MAG-32-vehicle-monthly-metrics",
+    "base": "main",
+    "created_at": "2026-09-10T01:50:10Z",
+    "ticket": "MAG-32",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3
+    ]
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-10T02:30:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "charging owns the whole derivation: its own table, its own job, its own read. The earlier PackCapacityReader inverted port is WITHDRAWN. No cross-module port, no import cycle. Supersedes backlog #18.",
+      "why": "Every input row belongs to charging, so the derivation does too. The cycle only existed because the job sat in the wrong module."
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-10T01:25:00Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "Valid input is manual entries with energy_source = 'USER' and supercharger sessions with status = 'DONE'. ESTIMATED entries and DONE_CALCULATED / IN_PROGRESS sessions are excluded.",
+      "why": "Those rows had energy or start percentage derived from the 62.0 constant, so their implied capacity is exactly 62.0. Including them averages the constant back into itself."
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-10T01:30:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Median of valid rows after dropping rows with battery delta under minDeltaPct. Even count averages the two middle values. minSamples = 3, minDeltaPct = 15, both Go constants.",
+      "why": "Capacity error scales as 1/delta, so small charges are noise and are dropped, not corrected. Median ignores an outlier with no outlier maths. Constants keep tuning migration-free."
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-10T01:33:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Under minSamples rows, effective_capacity_kwh stays NULL while sample_count still records what was found. packCapacityKWh takes the newest measured row, else returns 62.0.",
+      "why": "A stored number then always means measured, never guessed. Pack capacity moves slowly, so the newest measurement is a good answer for a thin month."
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-10T02:35:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Keyed on (tesla_id, effective_period) with tesla_id BIGINT NOT NULL. Session rows whose tesla_id is NULL are skipped. No account_id.",
+      "why": "manual_charge_entries.tesla_id is already NOT NULL. GROUP BY tesla_id pools accounts automatically. A capacity cannot be attributed to a car nobody registered."
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-10T01:41:00Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "The trigger is step 4 of app's ProcessVehicleData, after step 3, first day of month only, computing the previous month. Follows the existing step-1 short-circuit.",
+      "why": "Makes the ticket's 'must run after the nightly job' true by construction rather than by timing. No second scheduler."
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-10T01:41:00Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "The month boundary is read through internal/clock in America/Bogota. effective_period stores the first day of the month.",
+      "why": "The project rule allows no raw time.Now(), no hardcoded zone and no hand-rolled UTC midnight. make tz-guard enforces it."
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-10T01:44:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The manual re-run surface is cmd/monthly-capacity with -tesla-id and -period flags. internal/gateway is not touched.",
+      "why": "The job is run while debugging or backfilling, not from a screen. An HTTP endpoint would add auth and a JSON error shape for a caller that is only the owner."
+    },
+    {
+      "id": "RD9",
+      "at": "2026-09-10T01:47:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "No automatic and no SQL backfill. Past periods are computed by running the tool, wrapped in make cmd-monthly-capacity following the Makefile's cmd-* convention.",
+      "why": "Reuses the tool tier 3 already builds. A SQL backfill would write the estimator a second time where it cannot be unit-tested."
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-10T02:35:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Names: table charging.monthly_effective_capacity, runnable cmd/monthly-capacity, target make cmd-monthly-capacity, KB guide vehicle-monthly-metrics.",
+      "why": "The KB keeps the ticket's own name because it documents the whole monthly story, including where a future metric goes."
+    },
+    {
+      "id": "RD11",
+      "at": "2026-09-10T03:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Database design gate PASSED on re-run after the module change. charging schema, tesla_id BIGINT NOT NULL, nullable capacity plus TWO counts: candidate_count (RD2-valid rows, before the delta gate) and sample_count (after the gate, the slice the median used). UNIQUE (tesla_id, effective_period) serves both read and upsert; no separate CREATE INDEX. The seam becomes packCapacityKWh(ctx, teslaID int64), changing two callers.",
+      "why": "One read path and one write path, both served by the UNIQUE btree. Two counts separate 'no valid charges' from 'charged often but always too small' — otherwise a NULL month needs a hand query to explain."
+    },
+    {
+      "id": "RD12",
+      "at": "2026-09-10T02:20:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "analytics.vehicle_monthly_metrics is deferred until a second monthly metric exists. Recorded as backlog #29.",
+      "why": "Today it would hold one column, copied from charging, that nothing reads. It earns its place when a metric genuinely spans modules."
+    },
+    {
+      "id": "RD13",
+      "at": "2026-09-10T02:36:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Making charge_sessions.tesla_id NOT NULL is its own ticket, not part of MAG-32. Recorded as backlog #30.",
+      "why": "The mirror sets it to NULL on purpose when a VIN is unregistered, so this is a behaviour change over irreplaceable history, not a schema tidy-up."
+    },
+    {
+      "id": "RD14",
+      "at": "2026-09-10T02:32:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Added a rule to ai/architecture.md section 2: 'First ask where the fact belongs, not how to break the cycle', with a microservice test and RM52 as the worked precedent.",
+      "why": "The owner wants modules that could become services. A module that can become a service owns its data and the facts derived from it."
+    },
+    {
+      "id": "RD15",
+      "at": "2026-09-10T03:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "candidate_count added to the table at the design gate. sample_count keeps its post-gate meaning (tier 1 design D1, confirmed). A row is stored only when candidate_count >= 1.",
+      "why": "Without it, a month of 20 small top-ups looks identical to a month with nothing measurable. The migration was still unwritten, so the column cost nothing; later it would be a migration."
+    },
+    {
+      "id": "RD16",
+      "at": "2026-09-10T21:55:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "cmd/monthly-capacity is LOCAL ONLY. It is not added to the Dockerfile and does not ship to the VPS image. No backlog entry either.",
+      "why": "The Dockerfile builds each binary by name, so shipping it is extra scope. Prod backfill is a separate problem the owner chose not to open now."
+    },
+    {
+      "id": "RD17",
+      "at": "2026-09-10T21:57:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "Add a new exported config.LoadDatabase(): loadDotEnv, require DATABASE_URL, nothing else. internal/config/ is granted to tier 3 for that file and its test.",
+      "why": "config.Load fails without Tesla credentials this tool never uses. config.LoadMigration already set the precedent for a smaller loader."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM52-charging-add-monthly-effective-capacity",
+      "module": "charging",
+      "depends_on": [],
+      "optional": false,
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (artifact worker)",
+      "started_at": "2026-09-10T02:45:21Z",
+      "completed_at": "2026-09-10T18:12:05Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 24,
+        "five_hour_pct_end": 47,
+        "cost_usd_delta": 13.8,
+        "approx": true,
+        "note": "artifacts phase only: the withdrawn analytics attempt, the design rework, and the charging worker plus its rate-limited correction round"
+      },
+      "notes": "Self-contained in charging. RD11's table, the RD3 estimator as a pure function, the job applying RD2 and grouping by tesla_id (RD5), and the new packCapacityKWh body with its two updated callers. No cross-module port."
+    },
+    {
+      "id": 2,
+      "change": "RM52-app-add-monthly-capacity-step",
+      "module": "app",
+      "depends_on": [
+        1
+      ],
+      "optional": false,
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (workers + reviewer)",
+      "started_at": "2026-09-10T19:00:33Z",
+      "completed_at": "2026-09-10T20:58:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 41,
+        "cost_usd_delta": 9.2,
+        "approx": true,
+        "note": "whole tier 2 implementation in one resumed session: 3 worker dispatches, 1 reviewer round, archive"
+      },
+      "notes": "Step 4 of ProcessVehicleData (RD6), gated on the first day of the month in America/Bogota via internal/clock (RD7). Pure gate + thin wrapper. Task 2.4 added a zone-mismatch warning. Reviewer approved round 1, zero findings."
+    },
+    {
+      "id": 3,
+      "change": "RM52-platform-add-monthly-capacity-cli",
+      "module": "platform",
+      "depends_on": [
+        1,
+        2
+      ],
+      "optional": false,
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / claude-sonnet-5 (artifact worker)",
+      "started_at": "2026-09-10T21:58:00Z",
+      "completed_at": "2026-09-11T01:40:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 71,
+        "cost_usd_delta": 16.9,
+        "approx": true,
+        "note": "two sessions: artifacts + waves 1-2 (~$5.7), then a resumed session for the leader wave, the review round and the archive (~$11.2 measured 1.15 -> 9.26 plus the reviewer's own dispatch)"
+      },
+      "notes": "cmd/monthly-capacity + make cmd-monthly-capacity + config.LoadDatabase, the doc sweep, and the vehicle-monthly-metrics KB guide. Reviewer approved round 1 with two minor findings, both fixed."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-10T01:50:10Z",
+      "event": "roadmap-created",
+      "by": "leader",
+      "detail": "RM52 created from Linear MAG-32 via kkpa-pickup-linear-ticket. Four tiers across analytics, app, charging and a cross-cutting platform tier. Eleven decisions settled with the user in a grill-me interview before any artifact was written; the database design gate passed as RD11. Run scope: HALT AFTER STEP 4 — tier 1 artifacts only, no implementation workers."
+    },
+    {
+      "at": "2026-09-10T02:05:00Z",
+      "event": "tier-1-proposed",
+      "by": "leader",
+      "detail": "Tier 1 artifacts written and validated; progress.json created. Run halted here by scope (HALT AFTER STEP 4). No implementation worker ran."
+    },
+    {
+      "at": "2026-09-10T02:40:00Z",
+      "event": "roadmap-revised",
+      "by": "leader",
+      "detail": "Owner rejected the analytics-first design. Rewritten: charging owns the table, the job and the read, so the import cycle and the inverted port both disappear. Tiers 4 -> 3; the withdrawn RM52-analytics-add-monthly-metrics change folder was deleted (never implemented). Database design gate re-run and passed as RD11 with tesla_id NOT NULL. Three new decisions recorded: RD12, RD13, RD14. Backlog gains #29 and #30. The principle is now a rule in ai/architecture.md section 2."
+    },
+    {
+      "at": "2026-09-10T09:52:17Z",
+      "event": "tier-1-proposed",
+      "by": "leader",
+      "detail": "Tier 1 artifacts complete and validated; progress.json created. Run halted here by scope (HALT AFTER STEP 4). No implementation worker ran."
+    },
+    {
+      "at": "2026-09-10T18:12:05Z",
+      "event": "tier-1-archived",
+      "by": "leader",
+      "detail": "Tier 1 archived to openspec/changes/archive/charging/2026-09-10-RM52-charging-add-monthly-effective-capacity. Reviewer approved round 1 with zero findings, after the owner s reported suite pass. The CLI created openspec/specs/monthly-effective-capacity/spec.md with 2 added requirements, and dropped the archive at the archive root; the leader moved it under archive/charging/ to match this repo s module grouping. L3 done: backlog item 18 removed per the backlog s own rule that a picked-up item moves into the change design.md. Tiers 2 and 3 are now unblocked."
+    },
+    {
+      "at": "2026-09-10T20:58:00Z",
+      "event": "tier-2-archived",
+      "by": "leader",
+      "detail": "Tier 2 archived to openspec/changes/archive/app/2026-09-10-RM52-app-add-monthly-capacity-step. Reviewer approved round 1, zero findings, after the OWNER reported make check passed. Ten tasks plus leader tasks L1/L2/L4. Two docs were found stale and fixed in-change: README.md's internal/app row and the nightly-cycle KB guide, neither of which tasks.md had covered. The owner also chose to fix a pre-existing wrong NewProcessor signature in internal/app/AGENTS.md. Tier 3 (platform, cmd/monthly-capacity) is now unblocked and is the last tier of RM52."
+    },
+    {
+      "at": "2026-09-10T21:04:00Z",
+      "event": "checkpoint",
+      "by": "leader",
+      "detail": "Clean stop at the tier 2 / tier 3 boundary. Tier 2 is archived; nothing is half-written and the tree is clean. Budget: 5h 61% against a gate of 90, context 12% against 40 - neither tripped. The 7-DAY bucket is at 96% and has no configured gate, which is why the leader stopped anyway: tier 3 is a whole new tier (cmd/monthly-capacity, the make target, structure docs and the vehicle-monthly-metrics KB guide), and the roadmap runs with autopilot=false, so advancing was never automatic. Resume with /kkpa-dev-harness-pipeline resume RM52-platform-add-monthly-capacity-cli (tier 3 has no change folder yet, so the resume will start it at Step 2)."
+    },
+    {
+      "at": "2026-09-10T21:58:00Z",
+      "event": "tier-3-started",
+      "by": "leader",
+      "detail": "Resumed at the tier 2/3 boundary. Budget fresh: 5h 3%, 7-day 0%, context 8%. Owner chose to run on a dirty tree - four uncommitted gateway/KB files unrelated to RM52 stay in place, so tier 3 stages files explicitly. Step 2 interview found two decisions the roadmap never covered, both settled with the owner: RD16 (local only) and RD17 (config.LoadDatabase). No database gate: tier 3 touches no schema object. Artifact worker dispatched on Sonnet."
+    },
+    {
+      "at": "2026-09-10T22:12:00Z",
+      "event": "tier-3-proposed",
+      "by": "leader",
+      "detail": "Tier 3 artifacts written and validated (openspec validate --strict passed). Seven design decisions D1-D7 plus T1/T2 (= RD16/RD17). No database gate: the change adds no schema object. The leader fixed two internal inconsistencies in design.md before committing: a task-number reference (3.1 -> 4.1) and a Non-Goals line that read as if internal/charging were untouched when AGENTS.md is edited."
+    },
+    {
+      "at": "2026-09-11T01:40:00Z",
+      "agent": "leader",
+      "event": "Tier 3 archived. All three tiers done, so RM52 is complete. Roadmap files moved to openspec/roadmaps/archive/RM52-vehicle-monthly-metrics/. The work counter is untouched - numbers are monotonic and RM52 keeps its number."
+    }
+  ]
+}

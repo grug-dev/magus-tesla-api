@@ -16,15 +16,21 @@ own.
 to end roadmap violation #3: *"there is no application layer; `cmd/poller`'s
 `reconcilingCollector` is business logic living in a `cmd/` because there is nowhere
 else to put it."* It exposes exactly one public port, `Processor`, whose single method
-`ProcessVehicleData` runs one full vehicle-data cycle as three named steps, in this
+`ProcessVehicleData` runs one full vehicle-data cycle as four named steps, in this
 fixed order:
 
 ```
 Scheduler ──┐
-            ├──> ProcessVehicleData ──┬── Sync Fleet data       (telemetry)
-API ────────┘                         ├── Process Charging data (the T6 mirror)
-                                      └── Recalculate Analytics (analytics)
+            ├──> ProcessVehicleData ──┬── Sync Fleet data              (telemetry)
+API ────────┘                         ├── Process Charging data       (the T6 mirror)
+                                      ├── Recalculate Analytics       (analytics)
+                                      └── Measure Monthly Capacity    (charging, RM52)
 ```
+
+Step 4, added by `RM52-app-add-monthly-capacity-step` tier 2, runs only on the first
+calendar day of the month, in the platform's default zone, and measures the previous
+month. It calls `charging.MonthlyCapacityCalculator.Calculate` — see §Public interface
+and §Testing notes below.
 
 Since `RM36-app-record-poll-run` tier 2, every invocation also measures its own
 start-to-finish span and records exactly one `poll_runs` summary row via
@@ -65,9 +71,10 @@ through code inside `internal/app`. Full reasoning for the scheduler's own place
 including the leader's correction of its own earlier framing:
 `openspec/changes/RM29-app-add-process-vehicle-data/design.md` **D3** and **D4**.
 
-A whole-cycle failure in step 1 (fleet-data sync) skips steps 2 and 3 entirely for that
-invocation — the same short-circuit `cmd/poller`'s `reconcilingCollector` had before this
-module existed. Every per-account/per-vehicle failure inside any step is logged and
+A whole-cycle failure in step 1 (fleet-data sync) skips steps 2, 3 and 4 entirely for
+that invocation — the same short-circuit `cmd/poller`'s `reconcilingCollector` had
+before this module existed. Every per-account/per-vehicle failure inside any step is
+logged and
 isolated (never fatal to the cycle) — this module changes nothing about that isolation,
 it only relocated where the code lives
 (`openspec/changes/RM29-app-add-process-vehicle-data/design.md` D6/D8).
@@ -85,15 +92,21 @@ interface-first):
   module introduces no new report/result type of its own
   (`RM29-app-add-process-vehicle-data` design D7: reuse over a wrapper, since nothing new
   needs structured surfacing beyond what `CollectAll` already reports).
-- `NewProcessor(collector telemetry.Collector, superchargerReader
-  telemetry.SuperchargerReader, runWriter telemetry.RunWriter, sessionWriter
-  charging.SessionWriter, acct account.Service, recalculator analytics.Recalculator,
-  analyticsReader analytics.Reader, gapWriter analytics.GapWriter, loc *time.Location)
-  Processor` is the constructor. Every argument is another module's **public port** —
-  there is no `*pgxpool.Pool` parameter, and there must never be one added (see Data
-  Ownership below). `runWriter` is the port `ProcessVehicleData` calls, exactly once
-  per invocation after measuring the run's start-to-finish span, to record a
-  `poll_runs` summary row (`RM36-app-record-poll-run` tier 2).
+- `NewProcessor(collector telemetry.Collector, superchargerHistoryReader
+  telemetry.SuperchargerHistoryReader, runWriter telemetry.RunWriter, sessionWriter
+  charging.SessionWriter, mirrorWatermarks charging.MirrorWatermarkStore,
+  monthlyCapacityCalculator charging.MonthlyCapacityCalculator, acct account.Service,
+  recalculator analytics.Recalculator, analyticsReader analytics.Reader, gapWriter
+  analytics.GapWriter, loc *time.Location) Processor` is
+  the constructor — ten public ports plus one `*time.Location`. Every argument is another module's **public port** — there is no
+  `*pgxpool.Pool` parameter, and there must never be one added (see Data Ownership
+  below). `runWriter` is the port `ProcessVehicleData` calls, exactly once per
+  invocation after measuring the run's start-to-finish span, to record a `poll_runs`
+  summary row (`RM36-app-record-poll-run` tier 2). `monthlyCapacityCalculator` is
+  `charging`'s third port here (`RM52-app-add-monthly-capacity-step` tier 2, RD6/RD7):
+  `ProcessVehicleData` calls its `Calculate` method once a month, on the first
+  calendar day, for the previous month, always with `teslaID = nil` — never per
+  vehicle, never on any other day.
 
 - `Scheduler` + `NewScheduler(processor Processor, hour, minute int, loc *time.Location,
   cfg telemetry.Config) *Scheduler` + `(*Scheduler) Run(ctx context.Context) error` —
@@ -130,7 +143,11 @@ sub-package or internals:
   `telemetry` owns the type, this module neither declares nor re-exports it), and
   `LogCycle` (called by `Scheduler.Run` across the boundary; it stays in `telemetry`,
   which is why it is exported — design.md D11).
-- `internal/charging` — `SessionWriter` (writes the mirrored charge sessions).
+- `internal/charging` — `SessionWriter` (writes the mirrored charge sessions) and
+  `MonthlyCapacityCalculator` (`RM52-app-add-monthly-capacity-step` tier 2: `Calculate`
+  measures each vehicle's real pack capacity, called once a month). No new import path
+  is added — this module already imports `internal/charging` for `SessionWriter`; the
+  new port comes from the same package.
 - `internal/analytics` — `Recalculator`, `Reader`, `GapWriter`, and the `ChargeGap`
   domain type (the analytics-recalculation step).
 - `internal/clock` — `Now()` and `CalendarDay(t, loc)`, used by `recalculateAnalytics`
@@ -185,7 +202,7 @@ question this tier's own interview asked and answered about `poll_attempts`.
 
 ## Testing notes
 
-**This module is not test-free, and its three covered/uncovered surfaces are covered
+**This module is not test-free, and its four covered/uncovered surfaces are covered
 differently. Keep them distinct — an accepted gap and a violation look identical in a
 coverage delta.**
 
@@ -223,6 +240,26 @@ surface**, alongside `scheduler_test.go`'s four tests above: it tests the
 `recalculateAnalytics`'s own internal logic, which remains deliberately uncovered below,
 unchanged by this tier. Same package (`package app`) for the same reason
 `scheduler_test.go` uses it: `buildPollRun` and `recordRun` are unexported.
+
+**Covered — `monthly_capacity_step_test.go` (`RM52-app-add-monthly-capacity-step` tier
+2, eight tests).** `internal/app/monthly_capacity_step_test.go` holds
+`TestMonthlyCapacityPeriod` (six table cases, A1–A6 — Test Contract Group A) and
+`TestCallMonthlyCapacityCalculator_Success` /
+`TestCallMonthlyCapacityCalculator_ErrorIsLoggedNotPropagated` (Group B), against a new
+fake, `fakeMonthlyCapacityCalculator`, added to the same roster shape
+`processor_test.go` already uses. Step 4 splits into three functions with three
+different testing treatments (design.md D2's own table):
+
+| Function | Pure? | Tested? | Why |
+|---|---|---|---|
+| `monthlyCapacityPeriod` | yes | **yes** — Group A | No I/O — this is where the RD6/RD7 gate logic lives (is today the 1st, and if so, which month) |
+| `callMonthlyCapacityCalculator` | no (calls the port) | **yes** — Group B | No clock involved — a fake port and a fixed `period` make it deterministic |
+| `runMonthlyCapacityStep` | no (reads `clock.Now()`/`clock.Zone()`) | **no** — accepted gap | Three lines of wiring: read the clock, call the pure gate, call the tested function. This is the same category of gap already accepted for `recalculateAnalytics`'s own "yesterday" line below — a direct `clock.Now()` read with no injectable seam |
+
+The important behavior — whether today is the 1st and what period follows, and whether
+the port is called correctly with its outcome logged and its errors swallowed — is
+fully covered. What stays untested is three lines of composition around a real clock
+read, not new logic of its own.
 
 **Deliberately uncovered — the three orchestration steps' own internals.** The
 `processChargingData` and `recalculateAnalytics` steps' own logic (the per-account/

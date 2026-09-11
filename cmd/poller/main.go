@@ -143,6 +143,7 @@ func main() {
 		telemetry.NewRunWriter(pool),
 		charging.NewSessionWriter(pool),
 		charging.NewMirrorWatermarkStore(pool),
+		charging.NewMonthlyCapacityCalculator(pool),
 		acct,
 		recalculator,
 		analyticsReader,

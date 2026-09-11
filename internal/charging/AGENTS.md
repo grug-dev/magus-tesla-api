@@ -43,11 +43,16 @@ types, in two separate tables with two separate vocabularies (see §Data Ownersh
   tables are deliberately not merged: roadmap D4 defers that convergence to
   backlog item 12.
 
+Since RM52 tier 1 (MAG-32, RM52-charging-add-monthly-effective-capacity), the module also
+measures and stores each vehicle's effective pack capacity once a month, computed from the
+two record types above and kept in a third table, `monthly_effective_capacity`.
+
 This module:
 
 - Owns the `manual_charge_entries` table exclusively.
 - Owns the `supercharger_sessions` table exclusively (renamed from `charge_sessions`,
   RM39 tier 3, D5b).
+- Owns the `monthly_effective_capacity` table exclusively (RM52 tier 1, MAG-32).
 - Is isolated from the Tesla Fleet API — it imports no `internal/tesla` package, needs no OAuth
   scope, and wakes no car.
 - Exposes CRUD (Writer) and read (Reader) ports for manual entries, and both a
@@ -611,6 +616,55 @@ Implementation lives in `mirror_watermark.go` (`mirrorWatermarkStore`,
 mirroring `session_writer.go`'s exact concrete-type pattern). `pgtype` stays
 confined to that one file.
 
+### Monthly effective pack capacity (RM52 tier 1, MAG-32, RM52-charging-add-monthly-effective-capacity)
+
+```go
+// MonthlyCapacityReport summarizes one Calculate call: how many distinct
+// vehicles it considered, how many got a measured (non-NULL) capacity, and how
+// many were left thin (a row was still written, but effective_capacity_kwh is
+// NULL).
+type MonthlyCapacityReport struct {
+    Period        time.Time
+    VehiclesFound int
+    Measured      int
+    Thin          int
+}
+
+// MonthlyCapacityCalculator computes and stores the effective pack capacity for
+// one or every vehicle, for one calendar month. period must be the first
+// instant of the month to compute -- this module never computes "now" or "the
+// previous month" itself. teslaID nil means every vehicle with at least one
+// valid row this period; non-nil scopes the run to one vehicle.
+type MonthlyCapacityCalculator interface {
+    Calculate(ctx context.Context, period time.Time, teslaID *int64) (MonthlyCapacityReport, error)
+}
+
+// NewMonthlyCapacityCalculator -- the only publicly exported factory function
+// for this port.
+func NewMonthlyCapacityCalculator(pool *pgxpool.Pool) MonthlyCapacityCalculator
+```
+
+`Calculate` reads valid records from both `manual_charge_entries` (`energy_source = 'USER'`)
+and `supercharger_sessions` (`status = 'DONE'`), groups them by `tesla_id` in Go (this table
+has no `account_id` -- see §Data Ownership below), and writes one row per vehicle with at
+least one valid record. `ESTIMATED` entries and `DONE_CALCULATED` sessions are excluded on
+purpose: both were themselves derived by dividing by the hardcoded `62.0` constant, so
+counting them would feed that constant back into itself.
+
+**`packCapacityKWh` (`capacity.go`) now reads this table.** It no longer returns a hardcoded
+`62.0` for every vehicle -- this closes backlog #18. Through the `packCapacityLookup` seam, it
+returns the vehicle's newest non-`NULL` `effective_capacity_kwh`, and falls back to
+`defaultPackCapacityKWh` (`62.0`) only when no measured row exists yet for that vehicle. Its
+two callers are unchanged: `resolveEnergy` (`service.go`) and `VerifySession`
+(`session_verifier.go`).
+
+The gateway and any other future caller never import `chargingdb` directly, exactly as for
+every other port in this module.
+
+`MonthlyCapacityCalculator` now has two callers: the nightly step (`internal/app`) and
+the manual `cmd/monthly-capacity` tool. Both call the same port, so neither can drift
+from the other's contract.
+
 ---
 
 ## Allowed Imports
@@ -620,25 +674,28 @@ This module may import:
 - `context`, `time`, `math`, `errors`, and other Go standard library packages.
 - `github.com/google/uuid` — for `uuid.UUID` primary and tenant keys.
 - `github.com/jackc/pgx/v5` and `github.com/jackc/pgx/v5/pgxpool` — for DB connectivity.
-- `github.com/jackc/pgx/v5/pgtype` — ONLY inside the four files that talk to the database
-  directly: `service.go`, `session_writer.go`, `session_reader.go`, and
-  `mirror_watermark.go`. Never in public types, interfaces, `charging.go`, or any
-  `_test.go` file. The rule is "only the files that own a query", not "only these names":
-  each of them translates plain Go `*T` fields into a generated params struct's nullable
-  pgtype fields, and translates them back on the way out.
-- `internal/charging/db` (package `chargingdb`) — ONLY inside the five files that talk to
+- `github.com/jackc/pgx/v5/pgtype` — ONLY inside the five files that talk to the database
+  directly: `service.go`, `session_writer.go`, `session_reader.go`,
+  `mirror_watermark.go`, and `monthly_capacity.go`. Never in public types, interfaces,
+  `charging.go`, or any `_test.go` file. The rule is "only the files that own a query",
+  not "only these names": each of them translates plain Go `*T` fields into a generated
+  params struct's nullable pgtype fields, and translates them back on the way out.
+- `internal/charging/db` (package `chargingdb`) — ONLY inside the six files that talk to
   the database directly: `service.go`, `session_writer.go`, `session_reader.go`,
-  `session_verifier.go`, and `mirror_watermark.go`. The generated package is module-private
-  by convention; no other module imports it, and no `_test.go` file does either.
+  `session_verifier.go`, `mirror_watermark.go`, and `monthly_capacity.go`. The generated
+  package is module-private by convention; no other module imports it, and no `_test.go`
+  file does either.
 
   Both lists above have gone stale before. MAG-36 corrected the `chargingdb` list, which had
   named only `service.go` and `session_writer.go` while `session_reader.go` and
   `session_verifier.go` had imported it since RM31. RM44
   (`RM44-platform-add-mirror-watermark`) corrected both lists again: it added
   `mirror_watermark.go` to each, and added `session_reader.go` to the `pgtype` list, which
-  had been missing it. In every case the access was correct and only the doc was wrong.
-  When you add a file that owns a query, add it to both lists in the SAME change — a stale
-  list here reads as a boundary rule and gets trusted like one.
+  had been missing it. RM52 tier 1 (`RM52-charging-add-monthly-effective-capacity`) added
+  `monthly_capacity.go` to both lists in this same change. In every case the access was
+  correct and only the doc was wrong. When you add a file that owns a query, add it to
+  both lists in the SAME change — a stale list here reads as a boundary rule and gets
+  trusted like one.
 
 This module MUST NOT import:
 
@@ -655,6 +712,21 @@ This module MUST NOT import:
 - `internal/gateway` — no HTML, no Templ, no handlers.
 - Any other module's `db` sub-package.
 - `html/template`, `templ`, or any rendering library.
+
+---
+
+## Coding Rules
+
+**The monthly-capacity estimator keeps its gate and its method as separate functions**
+(RM52 tier 1, MAG-32, RM52-charging-add-monthly-effective-capacity design.md D9).
+`estimateEffectiveCapacity` (`monthly_capacity.go`) is the **gate**: it decides which samples
+count as valid evidence (the `minDeltaPct` filter, the `minSamples` check, `sampleCount`).
+`median` is the **method**: it turns the gated samples into one number. A new estimation
+method is a **new function** next to `median`, with `median`'s exact signature
+(`func(gated []capacitySample) float64`) — never an edit to `median`'s body, and never
+inlined into the gate. The gate is **never duplicated**: every method sees the same evidence
+and the same `sample_count`. See design.md D9 for the full reasoning and the priced path for
+a second method's own stored column.
 
 ---
 
@@ -745,13 +817,17 @@ owned by this module may have a name beginning `charge_sessions`. Verify with
     (design.md §Index Plan, D9). If a future change needs to filter by `status`,
     the design's revisit trigger is a **partial**, `account_id`-leading index
     over `WHERE status = 'IN_PROGRESS'` — not a standalone `(status)` index.
-  - Energy may be **derived on write** via the unexported `packCapacityKWh(ctx,
-    vin) (float64, error)` seam in `capacity.go`, which today returns a
-    hardcoded `62.0` for every vehicle (`TODO(MAG-18)`). Backlog #18 replaces
-    its body with a real per-vehicle lookup — a one-file change by design — and
-    that lookup **must filter `WHERE energy_source = 'USER'`** when averaging
-    inferred capacities, or it averages this constant back into itself
-    (design.md D4/D7).
+  - Energy may be **derived on write** via the unexported `packCapacityKWh(ctx, lookup,
+    teslaID) (float64, error)` seam in `capacity.go`. Since RM52 tier 1 (MAG-32,
+    RM52-charging-add-monthly-effective-capacity), it no longer returns a hardcoded `62.0`
+    for every vehicle — this closes backlog #18. It reads the vehicle's newest measured
+    capacity from `monthly_effective_capacity` (see §Public Interface and §Data Ownership)
+    and falls back to `defaultPackCapacityKWh` (`62.0`) only when no measured row exists yet.
+    The monthly job that fills that table (`monthly_capacity.go`) **filters `WHERE
+    energy_source = 'USER'`** on manual entries and `WHERE status = 'DONE'` on sessions,
+    exactly as this section's original rule asked, so it never averages a derived value back
+    into itself (design.md D4/D7 of RM33-charging-add-entry-status; RM52's own design.md
+    Context facts 3-4).
 - **`price_source`** (RM51 tier 1, MAG-58, RM51-charging-derive-status-and-price-source,
   `internal/charging/db/migrations/20260909000001_add_price_source.sql`):
   - `price_source TEXT NOT NULL DEFAULT 'UNCONFIRMED' CHECK (price_source IN ('USER','UNCONFIRMED'))`
@@ -803,12 +879,15 @@ RM29-charging-add-charge-sessions)
     (`charging-add-derived-start-battery-pct`), a `VerifySession` call that leaves
     `start_battery_pct` unsupplied MAY derive it from `energy_kwh` and the supplied end
     percentage — still writable only through this same port, no new writer, no schema
-    change (see §Public Interface above). **Accepted trade-off (design.md D1):** a
+    change (see §Public Interface above). **Accepted trade-off (design.md D1 of MAG-36):** a
     derived value is stored under the same `battery_pct_source = 'user_verified'` value
-    a human-typed one gets, so the two are indistinguishable in this column — a future
-    MAG-18 capacity-averaging implementer over `supercharger_sessions` cannot filter derived
-    rows out by provenance alone; read design.md D1 before building that feature rather
-    than rediscovering this limitation. Since RM41 tier 4 (MAG-45), a fourth
+    a human-typed one gets, so the two are indistinguishable in this column alone. RM52
+    tier 1's `MonthlyCapacityCalculator` (MAG-32) is the capacity-averaging feature this
+    limitation once warned about, and it works around it: it filters sessions by `status =
+    'DONE'` instead of `battery_pct_source`, so a `DONE_CALCULATED` session (one whose
+    `start_battery_pct` this port derived) is skipped, not averaged in. `battery_pct_source`
+    itself still cannot tell a derived value from a typed one — that fact has not changed.
+    Since RM41 tier 4 (MAG-45), a fourth
     charging-owned column, `status`, is computed from these two on every `VerifySession`
     call — see §Public Interface above and the new "Session lifecycle status"
     subsection for the full rule; `status` is not itself mirrored, refreshed, or
@@ -836,6 +915,43 @@ RM29-charging-add-charge-sessions)
   may call `MirrorSuperchargerSession`, only `session_reader.go` may call
   `ListSessionsByVehicleBetween`, and only `session_verifier.go` may call
   `VerifySuperchargerSession` (inside this module).
+
+### `monthly_effective_capacity` (RM52 tier 1, MAG-32, RM52-charging-add-monthly-effective-capacity)
+
+- No other module may read or write this table directly (`ai/architecture.md` §2). Access
+  goes through the `MonthlyCapacityCalculator` port (write, see §Public Interface above) and
+  through `packCapacityKWh`'s internal `packCapacityLookup` seam (read).
+- The migration file
+  `internal/charging/db/migrations/20260909000002_add_monthly_effective_capacity.sql` is the
+  single schema source of truth.
+- **No `account_id` column, on purpose.** This table describes a battery pack, not user data.
+  One `tesla_id` is one car, whoever registered it. Grouping by `tesla_id` (done in Go, not
+  SQL — `monthly_capacity.go`) pools every account's rows into one row automatically.
+- **No foreign key on `tesla_id`, on purpose.** A cross-module FK into the `account` module's
+  tables would couple this migration to a schema this module does not own
+  (`ai/architecture.md` §2). There is also no `raw_data JSONB`: this table stores a computed
+  conclusion, not a vendor payload, so there is nothing lossless to preserve.
+- **`CHECK (EXTRACT(DAY FROM effective_period) = 1)`** — `effective_period` must always be the
+  first day of the month it summarizes. The database rejects any other day; a caller cannot
+  drift from this rule by accident.
+- **`UNIQUE (tesla_id, effective_period)`** is the whole index plan — there is no separate
+  `CREATE INDEX`. Its own btree serves both the read (equality on `tesla_id`, then a
+  backwards scan on `effective_period`) and the upsert's conflict target.
+- **`effective_capacity_kwh IS NULL` never means "guessed."** It means fewer than
+  `minSamples` (a Go constant, currently `3`) valid records survived the delta gate this
+  period. A stored number always means "we measured this" — `packCapacityKWh`'s read skips
+  `NULL` rows and reads the newest non-`NULL` one instead, falling back to the hardcoded
+  `defaultPackCapacityKWh` (`62.0`) only when no measured row exists at all for the vehicle.
+- **`candidate_count` and `sample_count` count different things — never read them as one
+  number.** `candidate_count` counts every valid record found this period, before the delta
+  gate. `sample_count` counts only the ones that survived the gate and fed the median. A row
+  always has `candidate_count >= 1`: a vehicle with zero valid records this period gets no
+  row at all, never a row with `candidate_count = 0`.
+- sqlc generates the `MonthlyEffectiveCapacity` model and the
+  `ListValidManualEntryCapacitiesForPeriod`, `ListValidSessionCapacitiesForPeriod`,
+  `UpsertMonthlyEffectiveCapacity`, and `LatestMeasuredCapacity` queries into the same
+  `chargingdb` package. `monthly_capacity.go` calls the first three; `service.go` and
+  `session_verifier.go` each call `LatestMeasuredCapacity` (inside this module).
 
 ---
 
@@ -980,3 +1096,22 @@ RM29-charging-add-charge-sessions)
   `assertPgErrorCode` helper, SQLSTATE `23514` not message text) and C1-C11 (the
   `price_source` write-path rule and the auto-promotion rule, both through
   `Writer`/`Reader`, including the re-promotion-on-reopen interaction).
+  Since RM52 tier 1 (MAG-32, RM52-charging-add-monthly-effective-capacity):
+  `monthly_capacity_estimator_test.go` (package `charging`, not `charging_test` —
+  `estimateEffectiveCapacity`, `median`, `packCapacityKWh`, and `packCapacityLookup` are all
+  unexported) covers the gate/method split (§Coding Rules) and the `packCapacityKWh` seam
+  offline, against design.md Test Contract Group A (A1-A9): the `minSamples` boundary, the
+  odd and even median, the delta gate dropping a row and its outlier value, the gate's `>=`
+  boundary, `median` sorting its own copy, and `packCapacityKWh`'s three branches (no
+  measured row, a measured value, a lookup error) through a fake `packCapacityLookup`.
+  `db_monthly_capacity_integration_test.go` (package `charging_test`) covers the new table's
+  `CHECK` and `UNIQUE` constraints (Group B, B1-B2) and the `MonthlyCapacityCalculator` job
+  end-to-end plus both updated `packCapacityKWh` callers (Group C, C1-C13): excluding
+  `ESTIMATED` entries and `DONE_CALCULATED`/`IN_PROGRESS` sessions, the `NULL`-capacity and
+  even-median cases through the real job, pooling two accounts' rows under one `tesla_id`,
+  skipping a session with a `NULL` `tesla_id`, the `defaultPackCapacityKWh` fallback and the
+  earlier-measured-month fallback, unchanged behaviour before the first month is computed,
+  the upsert's idempotency, and `candidate_count`'s existence proof (C13). Fixtures are
+  seeded through the public ports (`Writer`, `SessionWriter`, `SessionVerifier`) wherever they
+  can produce the needed shape — this file never imports `chargingdb`, consistent with every
+  other test file in this module.

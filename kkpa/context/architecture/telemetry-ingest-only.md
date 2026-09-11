@@ -75,7 +75,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Add a new telemetry read consumer:** construct `telemetry.NewReader(pool)` / `NewSuperchargerHistoryReader(pool)` in the consumer's composition root (`cmd/web/main.go` or the module's constructor), accept the PORT interface in `Deps`/constructor — never import `internal/telemetry/db`. Gateway handlers go through `resolveSelectedVehicle` for per-vehicle reads.
 - **Add a new read method:** `internal/telemetry/db/queries.sql` → `make sqlc` → implement on `Reader`/`SuperchargerHistoryReader` in `reader.go` + declare in `telemetry.go`. Bounded windows follow the platform `?start=&end=` convention (see `SuperchargerHistoryByVehicleBetween`).
 - **Add a new collected field:** capture path only — `telemetry.Collector`/`service.go` + `db/queries.sql` (+ migration). Units convert exactly once at capture time (display units, RM7 D1/D3); never add read-time conversion.
-- **Change the nightly cycle:** `internal/app/processor.go` (`ProcessVehicleData` 3-step flow) — never re-add orchestration to `cmd/poller`. Full step/port/table map: `architecture/nightly-cycle.md`.
+- **Change the nightly cycle:** `internal/app/processor.go` (`ProcessVehicleData` 4-step flow) — never re-add orchestration to `cmd/poller`. Full step/port/table map: `architecture/nightly-cycle.md`.
 
 - **Record a new run-level fact:** add the field to `telemetry.CycleReport` (populated inside `CollectAll`), add the column to `poll_runs` via a migration, extend `telemetry.PollRun` + the `InsertPollRun` query, and map it in `RunWriter.RecordRun`. The caller in `internal/app` passes the whole `CycleReport` — it gains no pool and no table.
 - **Read `poll_runs`:** there is **no read port yet**. Direct SQL is the only way to see a row today; adding a `Reader`-style method is deferred backlog work, not an existing surface.
@@ -228,4 +228,4 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 - Features: (none yet)
 - Workflows: `workflows/manual-charge-crud.md` (analytics recalc after writes), `workflows/supercharger-stats-read.md` (read-only page over the `supercharger_sessions` mirror)
-- Architecture: `architecture/nightly-cycle.md` (the 3-step `ProcessVehicleData` cycle that drives telemetry's write path)
+- Architecture: `architecture/nightly-cycle.md` (the 4-step `ProcessVehicleData` cycle that drives telemetry's write path)

@@ -18,12 +18,14 @@ package charging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -56,6 +58,11 @@ type store interface {
 	listEntriesByAccount(ctx context.Context, params chargingdb.ListEntriesByAccountParams) ([]chargingdb.ManualChargeEntry, error)
 	listEntriesByVehicleBetween(ctx context.Context, params chargingdb.ListEntriesByVehicleBetweenParams) ([]chargingdb.ManualChargeEntry, error)
 	listEntriesByVehicleUpdatedSince(ctx context.Context, params chargingdb.ListEntriesByVehicleUpdatedSinceParams) ([]chargingdb.ManualChargeEntry, error)
+
+	// latestMeasuredCapacity reads the newest non-NULL effective_capacity_kwh
+	// for teslaID from monthly_effective_capacity, or nil when none exists yet.
+	// Satisfies packCapacityLookup structurally (design.md D3).
+	latestMeasuredCapacity(ctx context.Context, teslaID int64) (*float64, error)
 }
 
 // --- dbStore — the production store (ONLY place chargingdb + pgtype are touched) ---
@@ -95,6 +102,17 @@ func (d *dbStore) listEntriesByVehicleUpdatedSince(ctx context.Context, params c
 	return d.q.ListEntriesByVehicleUpdatedSince(ctx, params)
 }
 
+func (d *dbStore) latestMeasuredCapacity(ctx context.Context, teslaID int64) (*float64, error) {
+	v, err := d.q.LatestMeasuredCapacity(ctx, teslaID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("charging: reading latest measured capacity for tesla_id %d: %w", teslaID, err)
+	}
+	return pgFloat8ToFloat64Ptr(v), nil
+}
+
 // --- writerService — implements Writer ---
 
 // writerService is the unexported concrete Writer implementation. It holds a store
@@ -125,7 +143,7 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		return Entry{}, missingFieldsError(e.Status, missing)
 	}
 
-	energy, source, err := resolveEnergy(ctx, e)
+	energy, source, err := resolveEnergy(ctx, w.store, e)
 	if err != nil {
 		return Entry{}, err
 	}
@@ -199,7 +217,7 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 		return Entry{}, missingFieldsError(e.Status, missing)
 	}
 
-	energy, source, err := resolveEnergy(ctx, e)
+	energy, source, err := resolveEnergy(ctx, w.store, e)
 	if err != nil {
 		return Entry{}, err
 	}
@@ -269,9 +287,13 @@ func missingFieldsError(status Status, missing []Field) error {
 // supplied, or no derivation was possible — it returns exactly what the caller
 // gave (nil included) as EnergySourceUser. The caller's own e.EnergySource is
 // never read (design.md D4).
-func resolveEnergy(ctx context.Context, e Entry) (*float64, EnergySource, error) {
+//
+// s is the same store the caller (writerService) already holds -- packCapacityKWh
+// reads through it via s.latestMeasuredCapacity, structurally satisfying
+// packCapacityLookup (design.md D3).
+func resolveEnergy(ctx context.Context, s store, e Entry) (*float64, EnergySource, error) {
 	if e.EnergyAddedKWh == nil {
-		capacity, err := packCapacityKWh(ctx, e.VIN)
+		capacity, err := packCapacityKWh(ctx, s, e.TeslaID) // RD11: was e.VIN
 		if err != nil {
 			return nil, "", fmt.Errorf("charging: resolving pack capacity: %w", err)
 		}

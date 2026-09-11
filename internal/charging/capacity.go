@@ -2,35 +2,57 @@ package charging
 
 import (
 	"context"
+	"fmt"
 	"math"
 )
 
-// packCapacityKWh returns the usable pack capacity in kWh for the vehicle identified
-// by vin. It is the seam D3's energy derivation divides by, and — since
-// MAG-36 (charging-add-derived-start-battery-pct) — the seam derivedStartBatteryPct's
-// caller (session_verifier.go's VerifySession) also divides by, when deriving a start
-// percentage from an end percentage and energy. Two call directions, one seam: this
-// function is called from resolveEnergy (service.go, deriving energy from a percentage
-// delta) and from VerifySession (session_verifier.go, deriving a start percentage from
-// energy), never duplicated.
+// defaultPackCapacityKWh is the fallback used whenever no vehicle-specific
+// measurement exists yet -- packCapacityKWh's own "no row" branch, and
+// VerifySession's "tesla_id is nil" branch (RD11), both read this same named
+// constant rather than repeating the literal 62.0 in two places.
+const defaultPackCapacityKWh = 62.0
+
+// packCapacityLookup is the narrow read seam packCapacityKWh needs: the newest
+// measured capacity for one vehicle, or nil when none exists yet. Both
+// service.go's store interface (via dbStore.latestMeasuredCapacity) and
+// session_verifier.go's *sessionVerifier (via its own latestMeasuredCapacity
+// method) satisfy this structurally -- Go interfaces need no "implements"
+// declaration -- so packCapacityKWh stays callable from both existing call
+// sites without joining SessionVerifier to store's fake-testability seam, and
+// without giving store a database-shaped dependency it does not otherwise have
+// (design.md Context fact 9).
+type packCapacityLookup interface {
+	latestMeasuredCapacity(ctx context.Context, teslaID int64) (*float64, error)
+}
+
+// packCapacityKWh returns the usable pack capacity in kWh for the vehicle
+// identified by teslaID (RD11 -- this seam took a vin string before this
+// change; it takes the vehicle's stable tesla_id now, matching the key
+// monthly_effective_capacity is keyed on, RD5). It is the seam resolveEnergy's
+// energy derivation (service.go) divides by, and the seam
+// derivedStartBatteryPct's caller (session_verifier.go's VerifySession) also
+// divides by, when deriving a start percentage from an end percentage and
+// energy. Two call directions, one seam: never duplicated.
 //
-// TODO(MAG-18): this returns a hardcoded 62.0 for every vehicle. Backlog #18
-// ("charging: replace the hardcoded 62 kWh pack capacity with a real per-vehicle
-// value") replaces this body with a real lookup. That lookup MUST filter
-// WHERE energy_source = 'USER' when averaging inferred capacities, or it averages
-// this very constant back into itself -- see D4.
+// Reads charging's own monthly_effective_capacity table through lookup,
+// returning the newest measured value for teslaID. Returns
+// defaultPackCapacityKWh when no measured row exists yet for this vehicle --
+// which is every vehicle, until RM52's job (monthly_capacity.go) has actually
+// run at least once and found enough evidence (roadmap RD4). Behaviour is
+// therefore UNCHANGED until the first month is computed.
 //
-// The ctx and error results are deliberate future-proofing and are NOT dead weight:
-// the whole reason the ticket demands a function here is that a DB- or module-backed
-// lookup replaces it later, and such a lookup needs both. Having them now makes that
-// swap a one-body change with zero caller churn. Do not "simplify" this to
-// `func packCapacityKWh() float64`.
-//
-// Unexported: it is an implementation detail of derivedEnergyKWh's caller (service.go
-// D3's derivation step), and nothing outside this module may divide by a pack
-// capacity behind the module's back.
-func packCapacityKWh(ctx context.Context, vin string) (float64, error) {
-	return 62.0, nil
+// Unexported: it is an implementation detail of its two callers' own capacity
+// derivation, and nothing outside this module may divide by a pack capacity
+// behind the module's back.
+func packCapacityKWh(ctx context.Context, lookup packCapacityLookup, teslaID int64) (float64, error) {
+	measured, err := lookup.latestMeasuredCapacity(ctx, teslaID)
+	if err != nil {
+		return 0, fmt.Errorf("charging: resolving pack capacity for tesla_id %d: %w", teslaID, err)
+	}
+	if measured == nil {
+		return defaultPackCapacityKWh, nil
+	}
+	return *measured, nil
 }
 
 // derivedEnergyKWh derives the energy added, in kWh, from a pack capacity and the

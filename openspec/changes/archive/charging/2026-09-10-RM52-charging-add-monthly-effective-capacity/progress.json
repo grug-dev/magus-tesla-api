@@ -1,0 +1,653 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM52-charging-add-monthly-effective-capacity",
+  "module": "charging",
+  "roadmap": "RM52-vehicle-monthly-metrics",
+  "tier": 1,
+  "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value. A monthly job inside charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops rows below a 15-point battery delta, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table and still returns 62.0 until a month is measured. Self-contained: charging owns every input row, so no cross-module port and no import cycle exist.",
+  "status": "verified",
+  "created_at": "2026-09-10T09:52:17Z",
+  "updated_at": "2026-09-10T18:08:54Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM52-MAG-32-vehicle-monthly-metrics",
+    "base": "main",
+    "created_at": "2026-09-10T01:50:10Z",
+    "ticket": "MAG-32",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.6",
+      "4.1",
+      "5.1",
+      "L4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "3.1",
+      "3.2",
+      "3.3"
+    ],
+    "awaiting_user_verification": []
+  },
+  "decisions": [
+    {
+      "id": "D-lead-1",
+      "at": "2026-09-10T03:05:00Z",
+      "scope": "design-gate",
+      "made_by": "user",
+      "decision": "Added candidate_count to the approved DDL. sample_count keeps its post-gate meaning (design D1). A stored row always has candidate_count >= 1.",
+      "why": "sample_count alone cannot tell 'no measurable charges' from '20 charges, all too small'. The migration was unwritten, so the column cost nothing; later it would need a migration."
+    },
+    {
+      "id": "D-lead-2",
+      "at": "2026-09-10T09:50:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "The leader finished the candidate_count edit itself after the charging worker died on a session rate limit mid-task. Worker had completed the DDL, the COMMENT ON, and the upsert; the leader wrote D1, Risk 1, the decision mapping, fixtures C4/C5/C6/C12/C13 and the tasks.md gate note.",
+      "why": "A fresh worker would re-read the whole doc pack for a doc edit the leader already had full context for. Leaving artifacts half-edited was the worse option."
+    },
+    {
+      "id": "D-lead-3",
+      "at": "2026-09-10T09:50:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's own design calls unchanged: D1's post-gate sample_count reasoning, D2 (no row when a tesla_id has zero valid rows), D3 (the packCapacityLookup narrow interface), the no-new-index decision with a recorded revisit trigger, and teslaID filtering in Go rather than a second SQL path.",
+      "why": "Each was argued from the code and none contradicted a roadmap decision. The worker also escalated the one genuinely open question instead of guessing, which is what caught the candidate_count gap."
+    },
+    {
+      "id": "D-lead-4",
+      "at": "2026-09-10T10:40:00Z",
+      "scope": "design",
+      "made_by": "user",
+      "decision": "Added design.md D9 as a standing rule: the monthly capacity estimator stays split into a gate (estimateEffectiveCapacity) and a method (median). A future estimation method is a new sibling function with median's exact signature, func(gated []capacitySample) float64 -- never an edit to median, never inlined into the gate. The seam widened from []float64 to []capacitySample and the sort moved inside median. No strategy type and no method column: the rule is a doc rule plus a signature. D9 also prices the future second-column path so a later agent does not re-derive it. New test A9 pins the seam.",
+      "why": "The owner expects to try another calculation over the same input data later -- for testing, or stored in a new column alongside the median. A []float64 seam drops BatteryDeltaPct, so a delta-weighted or trimmed method would have to reshape estimateEffectiveCapacity's body, the exact code tests A1-A5 pin. No code exists yet (status: proposed), so the fix cost nothing."
+    },
+    {
+      "id": "D-lead-5",
+      "at": "2026-09-10T12:38:11Z",
+      "scope": "implementation",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's CandidateCount fix. design.md's D7 code block omits the field, but its own Expected sqlc diff lists CandidateCount int32 in the params struct. Go would have zero-valued it silently, writing candidate_count = 0 and breaking D1 and fixtures C4/C5/C6/C13.",
+      "why": "A missing struct field compiles in Go, so no signal would have caught it before an integration test. len(samples) is the pre-gate per-vehicle count, which is D1's definition exactly."
+    },
+    {
+      "id": "D-lead-6",
+      "at": "2026-09-10T12:45:40Z",
+      "scope": "tasks",
+      "made_by": "user",
+      "decision": "Delete TestPackCapacityKWh_VinIndependent rather than rewrite it. Appended as task 3.3, ordered after 3.1 so A6-A8 exist before the original goes. Wave 2 left go vet red on this test alone; no task owned the file.",
+      "why": "The test varies a VIN argument D4 removes, so it cannot be ported. Rewritten, it would only duplicate A6 in a second file."
+    },
+    {
+      "id": "D-lead-7",
+      "at": "2026-09-10T15:04:02Z",
+      "scope": "review:design-vs-agents",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker following AGENTS.md over design.md. design.md Group C told tests to seed with chargingdb.New(pool); AGENTS.md forbids any _test.go importing chargingdb. Corrected design.md, which was the wrong half. No expected value changed.",
+      "why": "AGENTS.md is a module boundary rule and all 16 existing integration tests honour it. A per-change artifact does not override a boundary rule."
+    },
+    {
+      "id": "D-lead-8",
+      "at": "2026-09-10T15:04:02Z",
+      "scope": "review:C12",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker reading C12 as starting from C5 (four entries), not C4 (two). Corrected the C12 cell to say C5.",
+      "why": "C12 adds a fifth entry and expects both counts to reach 5. Only a four-row start reaches five. The C4 reference was a typo."
+    },
+    {
+      "id": "D-lead-9",
+      "at": "2026-09-10T15:32:20Z",
+      "scope": "wave-4-execution",
+      "made_by": "user",
+      "decision": "The leader deleted the stale test itself instead of dispatching a worker. The owner chose this at the wave-3 gate.",
+      "why": "A 32-line deletion does not justify a worker re-reading the whole doc pack, with the 7-day bucket at 85 percent."
+    },
+    {
+      "id": "D-lead-10",
+      "at": "2026-09-10T16:47:13Z",
+      "scope": "wave-6-execution",
+      "made_by": "autopilot",
+      "decision": "The leader ran 5.1 itself instead of dispatching a worker. tasks.md marks 5.1 [module: charging worker], but its whole content is running six commands the Test-Execution-Policy already allows the leader to run.",
+      "why": "A worker would re-read the doc pack to run six make targets. No code is written. The 7-day bucket is at 86 percent."
+    },
+    {
+      "id": "D-lead-11",
+      "at": "2026-09-10T16:55:50Z",
+      "scope": "tasks",
+      "made_by": "user",
+      "decision": "Appended task L4 and fixed the root README plus both stale KB guides. The owner chose the full scope at the wave-6 gate. L2 was left as written and ticked: it records a check that ran and failed.",
+      "why": "CLAUDE.md requires structure docs and the KB to track a change in the same change. A stale KB guide is read as authoritative by kkpa-context-fetch."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Migration 20260909000002_add_monthly_effective_capacity.sql, DDL verbatim from design.md",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:23:44Z",
+      "completed_at": "2026-09-10T12:28:11Z",
+      "duration_seconds": 249,
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "one wave-1 bracket shared by 1.1-1.4 (one serial worker). cost_usd_delta unavailable: the start reading came from a stale statusline cache of another session."
+      },
+      "notes": "Migration created verbatim from design.md: header, both COMMENT ON, Index Plan comment, schema-qualified table, no account_id/FK/raw_data. Version 20260909000002 re-checked free repo-wide. Leader confirmed with make migration-guard."
+    },
+    {
+      "id": "1.2",
+      "title": "query.sql — the upsert and the newest-measured read, plus the two batch reads",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:23:44Z",
+      "completed_at": "2026-09-10T12:28:11Z",
+      "duration_seconds": 249,
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "one wave-1 bracket shared by 1.1-1.4 (one serial worker). cost_usd_delta unavailable: the start reading came from a stale statusline cache of another session."
+      },
+      "notes": "Four new queries appended verbatim. LockSessionForVerification gained tesla_id between vin and energy_kwh. No other query touched, confirmed by diff."
+    },
+    {
+      "id": "1.3",
+      "title": "sqlc.yaml rename entry for the new table",
+      "depends_on": [],
+      "wave": 1,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:23:44Z",
+      "completed_at": "2026-09-10T12:28:11Z",
+      "duration_seconds": 249,
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "one wave-1 bracket shared by 1.1-1.4 (one serial worker). cost_usd_delta unavailable: the start reading came from a stale statusline cache of another session."
+      },
+      "notes": "Added charging_monthly_effective_capacity: MonthlyEffectiveCapacity to the charging rename block. Existing three lines left byte-identical, no whitespace realign."
+    },
+    {
+      "id": "1.4",
+      "title": "Run make sqlc and confirm the generated model",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
+      "wave": 1,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:23:44Z",
+      "completed_at": "2026-09-10T12:28:11Z",
+      "duration_seconds": 249,
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "one wave-1 bracket shared by 1.1-1.4 (one serial worker). cost_usd_delta unavailable: the start reading came from a stale statusline cache of another session."
+      },
+      "notes": "make sqlc clean. Diff matches design.md: one new model struct, four query methods plus their Params/Row, and one new field TeslaID pgtype.Int8 on LockSessionForVerificationRow. Nothing else changed."
+    },
+    {
+      "id": "2.1",
+      "title": "capacity.go — new packCapacityKWh(ctx, teslaID int64) body over the lookup",
+      "depends_on": [
+        "1.4"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "capacity.go: added defaultPackCapacityKWh, the packCapacityLookup interface and the new packCapacityKWh body, verbatim from D4. TODO(MAG-18) removed. derivedEnergyKWh and derivedStartBatteryPct untouched. Only new import is fmt."
+    },
+    {
+      "id": "2.2",
+      "title": "charging.go — domain types and the MonthlyCapacityCalculator port",
+      "depends_on": [
+        "1.4"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "charging.go: added MonthlyCapacityReport, MonthlyCapacityCalculator and the NewMonthlyCapacityCalculator forward declaration, verbatim from D7. No existing type, interface or constructor changed."
+    },
+    {
+      "id": "2.3",
+      "title": "service.go — resolveEnergy passes e.TeslaID to the seam",
+      "depends_on": [
+        "2.1"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "service.go: latestMeasuredCapacity added to store and dbStore, resolveEnergy now takes store and passes e.TeslaID, both Create and Update call sites updated. Added errors and pgx imports."
+    },
+    {
+      "id": "2.4",
+      "title": "session_verifier.go — VerifySession passes row.TeslaID, nil falls back to 62.0",
+      "depends_on": [
+        "2.1"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "session_verifier.go: VerifySession now derives teslaID from row.TeslaID; nil short-circuits to defaultPackCapacityKWh without calling the seam (D5). Added latestMeasuredCapacity on sessionVerifier and the errors import."
+    },
+    {
+      "id": "2.5",
+      "title": "monthly_capacity.go — the pure estimator, the RD2 filter, RD5 grouping, the job",
+      "depends_on": [
+        "1.4",
+        "2.2"
+      ],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "monthly_capacity.go created verbatim from D7. D9 respected: gate and median stay separate, median takes []capacitySample and sorts its own copy. Worker added the CandidateCount field D7's code block omitted; leader verified len(samples) is the pre-gate count."
+    },
+    {
+      "id": "2.6",
+      "title": "AGENTS.md Allowed Imports entry",
+      "depends_on": [],
+      "wave": 2,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T12:32:39Z",
+      "completed_at": "2026-09-10T12:38:11Z",
+      "duration_seconds": 332,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 83,
+        "cost_usd_delta": 3.36,
+        "approx": true,
+        "note": "one wave-2 bracket shared by 2.1-2.6 (one serial worker). cost delta from the session cost counter, so it includes the leader's own verification calls."
+      },
+      "notes": "AGENTS.md Allowed Imports: monthly_capacity.go added to both the chargingdb list (now six files) and the pgtype list (now five), with the RM52 history line the file's own convention asks for."
+    },
+    {
+      "id": "3.1",
+      "title": "monthly_capacity_estimator_test.go — the pure-function fixtures A1-A4",
+      "depends_on": [
+        "2.5",
+        "2.1"
+      ],
+      "wave": 3,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T14:50:51Z",
+      "completed_at": "2026-09-10T14:54:19Z",
+      "duration_seconds": 208,
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 16,
+        "cost_usd_delta": 3.82,
+        "approx": true,
+        "note": "one wave-3 bracket shared by 3.1 and 3.2 (one serial worker). 5h bucket reset to null at dispatch, read as 0."
+      },
+      "notes": "Created monthly_capacity_estimator_test.go, package charging, offline. Covers A1-A9: the five estimateEffectiveCapacity cases, median unsorted-input seam pin (D9), packCapacityKWh three cases via an in-package fake."
+    },
+    {
+      "id": "3.2",
+      "title": "db_monthly_capacity_integration_test.go — fixtures B and C1-C13",
+      "depends_on": [
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6"
+      ],
+      "wave": 3,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T14:54:19Z",
+      "completed_at": "2026-09-10T15:01:53Z",
+      "duration_seconds": 454,
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 16,
+        "cost_usd_delta": 3.82,
+        "approx": true,
+        "note": "shared wave-3 bracket, see 3.1."
+      },
+      "notes": "Created db_monthly_capacity_integration_test.go, package charging_test, DB-gated via testdb_test.go. Covers B1-B2 and C1-C13 through the real ports. Seeds via public ports, never chargingdb."
+    },
+    {
+      "id": "4.1",
+      "title": "AGENTS.md — data ownership, the new table, the changed seam",
+      "depends_on": [
+        "2.6",
+        "3.2"
+      ],
+      "wave": 5,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-10T16:39:44Z",
+      "completed_at": "2026-09-10T16:45:18Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 24,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave-5 bracket; end reading taken at the wave-6 boundary."
+      },
+      "notes": "Six AGENTS.md sections updated: Responsibility, Public Interface, Data Ownership, Coding Rules D9, Testing Notes, plus the two stale packCapacityKWh passages. 140 insertions, 12 deletions, no reflow."
+    },
+    {
+      "id": "5.1",
+      "title": "Cheap signals: go build, go vet, gofmt, migration-guard, tz-guard, boundary-guard",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "4.1"
+      ],
+      "wave": 6,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-10T16:47:13Z",
+      "completed_at": "2026-09-10T16:47:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "gofmt clean, go build ./... OK, go vet ./... green repo-wide. migration-guard, tz-guard, boundary-guard, archive-guard all pass. The migration-guard WARNING is the known pre-existing 20260720000001 collision."
+    },
+    {
+      "id": "3.3",
+      "title": "Delete TestPackCapacityKWh_VinIndependent, superseded by Test Contract A6-A8",
+      "depends_on": [
+        "3.1"
+      ],
+      "wave": 4,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-10T15:32:20Z",
+      "completed_at": "2026-09-10T15:32:20Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Leader deleted the test and its A9 section header, 32 lines. The context import became unused and was removed too. go vet ./... is now green repo-wide. RM33 A1-A8 and RM51 groups untouched."
+    },
+    {
+      "id": "L4",
+      "title": "README schema-ownership row + two stale KB guides",
+      "depends_on": [
+        "4.1"
+      ],
+      "wave": 6,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-10T16:55:50Z",
+      "completed_at": "2026-09-10T16:55:50Z",
+      "budget": null,
+      "notes": "Added the monthly_effective_capacity row to README schema ownership and the table to the charging Architecture row. Fixed both KB guides: the packCapacityKWh signature, the PLACEHOLDER claim, and the dead TODO(MAG-18) reference."
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "charging-reviewer",
+    "brief": "Review RM52 tier 1 in internal/charging. Validate, against the diff on ft/RM52-MAG-32-vehicle-monthly-metrics from its merge-base with main: (1) module-boundary compliance - no other module reads or writes charging.monthly_effective_capacity, chargingdb stays module-private, and NO _test.go file imports chargingdb (AGENTS.md Allowed Imports); (2) every DB object matches the user-confirmed design - the DDL verbatim, no account_id, no FK on tesla_id, no raw_data, the CHECK, and UNIQUE (tesla_id, effective_period) as the whole index plan with no separate CREATE INDEX. A mismatch is a BLOCKER finding; (3) the integration and unit tests assert the expected values design.md authored UP FRONT in its Test Contract (A1-A9, B1-B2, C1-C13), not whatever the implementation happens to produce - this is the test-contract rule and it is the highest-value check in this brief; (4) D1 is honoured - candidate_count counted BEFORE the delta gate, sample_count AFTER, never collapsed; D2 - a tesla_id with zero valid rows gets no row at all; (5) RD2 - only USER manual entries and DONE supercharger sessions feed the estimator, so a derived value is never averaged back into itself; (6) D9 - the gate/method split is intact and median keeps the func(gated []capacitySample) float64 signature; (7) the declared read-heavy Performance-Profile; (8) doc-pack conventions, the km/degC/PSI unit rule and the internal/clock time-zone rule; (9) anti-gaming - no task title or acceptance criterion was weakened or deleted, and no status was self-approved. NOTE two leader corrections to design.md made at the wave-3 boundary, recorded as D-lead-7 and D-lead-8: the Group C seeding paragraph (chargingdb replaced by public ports, to obey AGENTS.md) and the C12 cross-reference (C4 corrected to C5). Judge whether both were right. NO Test Contract expected value was changed. SIGNAL PROVENANCE, which you must respect: gofmt, go build, go vet and the guards migration/tz/boundary/archive were ASSISTANT-run and are green. The SUITE was USER-run and reported passing - make test-with-db against a scratch Postgres, no Docker. You must NOT run the suite. Judge test quality by READING the tests.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-10T18:09:53Z",
+        "agent": "charging-reviewer",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-10T02:45:21Z",
+      "event": "artifacts-dispatched",
+      "by": "leader",
+      "detail": "One kkpa-module-worker (charging, claude-sonnet-5) dispatched to write the OpenSpec artifacts for the rewritten, charging-owned design."
+    },
+    {
+      "at": "2026-09-10T03:00:00Z",
+      "event": "artifacts-reviewed",
+      "by": "leader",
+      "detail": "Leader validated the returned artifacts. Migration version 20260909000002 verified free across every module. Capability folder name matches the module's convention. openspec validate --strict passes. The worker escalated one open question (sample_count pre- or post-gate) instead of guessing; the leader took it to the owner, who confirmed post-gate and added candidate_count."
+    },
+    {
+      "at": "2026-09-10T09:45:00Z",
+      "event": "worker-rate-limited",
+      "by": "leader",
+      "detail": "The charging worker hit a session rate limit part-way through applying the candidate_count change. It had completed the DDL, the COMMENT ON COLUMN and the upsert, and died at 'rewrite D1'. Artifacts were left half-edited."
+    },
+    {
+      "at": "2026-09-10T09:52:17Z",
+      "event": "artifacts-completed-by-leader",
+      "by": "leader",
+      "detail": "Leader finished the remaining edits: D1 rewritten to cover both counts, Risk 1 marked resolved, the decision mapping updated, fixtures C4/C5/C6/C12 amended and C13 added, and the tasks.md design-gate note corrected. Re-verified: DDL matches roadmap RD11 on substance (comments ignored) and openspec validate --strict passes."
+    },
+    {
+      "at": "2026-09-10T09:52:17Z",
+      "event": "halted-by-scope",
+      "by": "leader",
+      "detail": "Run scope from kkpa-pickup-linear-ticket was HALT AFTER STEP 4. Artifacts and progress.json exist; no implementation worker was dispatched, no reviewer ran, nothing archived. Resume with: /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity"
+    },
+    {
+      "at": "2026-09-10T12:23:44Z",
+      "event": "wave-1-dispatched",
+      "by": "leader",
+      "detail": "Resumed after the scope halt. One charging worker (claude-sonnet-5) batched serially over 1.1-1.4: migration, query.sql, sqlc.yaml, make sqlc. Budget at dispatch: 5h 57%, context 16%, cost $4.29."
+    },
+    {
+      "at": "2026-09-10T12:28:11Z",
+      "event": "wave-1-completed",
+      "by": "leader",
+      "detail": "All four wave-1 tasks done. Leader cross-checked: migration DDL matches design.md, sqlc diff shape matches (5 hunks, one new struct, four queries, one new Row field), make migration-guard passes. Worker also reported go build / go vet / gofmt clean. Worker reported 00:00:00Z timestamps; the leader replaced them with its own dispatch bracket. Budget: 5h 57%->70%, context 14%. Commit a3943d3."
+    },
+    {
+      "at": "2026-09-10T12:30:55Z",
+      "event": "checkpoint",
+      "by": "leader",
+      "detail": "Clean stop at the wave-1 boundary, user's choice. Not a threshold trip: 5h 70% (gate 90), context 14% (gate 40). Recommended because tier 1 has 5 waves. Wave 1 done and committed; waves 2-5 pending. Resume with /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity. Linear MAG-32 moved Todo -> In Progress at this wave's dispatch."
+    },
+    {
+      "at": "2026-09-10T12:32:39Z",
+      "event": "wave-2-dispatched",
+      "by": "leader",
+      "detail": "One charging worker (claude-sonnet-5) batched serially over 2.1-2.6: capacity.go seam, charging.go ports, service.go, session_verifier.go, monthly_capacity.go job, AGENTS.md imports. Budget at dispatch: 5h 73%, context 10%, cost $0.65."
+    },
+    {
+      "at": "2026-09-10T12:38:11Z",
+      "event": "wave-2-completed",
+      "by": "leader",
+      "detail": "All six wave-2 tasks implemented. Leader verified: gofmt clean, go build ./... clean repo-wide. go vet ./... RED on one pre-existing test, entry_status_test.go:213 TestPackCapacityKWh_VinIndependent, which still calls the old (ctx, vin string) seam. No task in tasks.md owns that test. Budget: 5h 73%->83%, context 13%."
+    },
+    {
+      "at": "2026-09-10T12:45:40Z",
+      "event": "task-appended",
+      "by": "leader",
+      "detail": "Task 3.3 appended to tasks.md and progress.json after the owner's decision on the stale test. Tasks stay append-only: nothing existing was edited or weakened."
+    },
+    {
+      "at": "2026-09-10T12:45:59Z",
+      "event": "checkpoint",
+      "by": "leader",
+      "detail": "Stopped at the wave-2 boundary. 5h at 85% against a gate of 90, and wave 3 is the heaviest wave (two test files, A1-A9 plus B1-B2 and C1-C13), so it is projected to cross 90 mid-wave. Bucket resets 2026-09-10T14:50:00Z. Context 14%. Waves 3-5 pending, 3.3 newly appended. Wave 2 committed as 481308b, task 3.3 as dd797db. go vet is red only on the stale test 3.3 deletes, so the owner's suite cannot pass before wave 3 lands; no test ask was made this boundary. Resume with /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity"
+    },
+    {
+      "at": "2026-09-10T14:47:21Z",
+      "event": "resume-dependency-correction",
+      "by": "leader",
+      "detail": "Resumed at the wave-2 boundary. progress.json depends_on for 3.1, 3.2 and 4.1 disagreed with tasks.md; tasks.md wins and the entries are now copied from it verbatim. The material one: 4.1 depends on 3.2, not 2.5, because its Testing Notes bullet documents the two test files 3.1/3.2 create. 4.1 is therefore NOT dispatchable before wave 3. No task status, title or criterion was touched - only the derived dependency fields."
+    },
+    {
+      "at": "2026-09-10T14:50:51Z",
+      "event": "wave-3-dispatched",
+      "by": "leader",
+      "detail": "One charging worker (claude-sonnet-5) batched serially over 3.1 and 3.2. They are parallel_ok with each other; batched into one worker so the doc pack is read once, because the 7-day bucket is at 83%. Budget at dispatch: 5h bucket just reset (five_hour_pct null), 7d 83%, context 11%, cost $2.53. Worker told go vet is already red on entry_status_test.go (task 3.3 owns it) and must not touch that file."
+    },
+    {
+      "at": "2026-09-10T15:04:02Z",
+      "event": "wave-3-completed",
+      "by": "leader",
+      "detail": "3.1 and 3.2 implemented. Leader verified independently: gofmt clean, go build ./... clean, go vet ./... red on exactly one error, the known entry_status_test.go:213 that task 3.3 deletes. Both files reference all 24 contract IDs A1-A9/B1-B2/C1-C13. Neither imports chargingdb; 3.2 uses package charging_test, matching all 16 existing integration tests. Worker raised two design.md contradictions; leader verified both against AGENTS.md and the C4/C5 fixture shapes, accepted both, and corrected design.md. Worker reported a 3.1 start of 14:40:00Z, before its own dispatch; leader replaced it with the bracket time. Budget: 5h 0%->16%, 7d 83%->85%, context 12%."
+    },
+    {
+      "at": "2026-09-10T15:32:20Z",
+      "event": "wave-4-completed",
+      "by": "leader",
+      "detail": "Task 3.3 done by the leader, on the owner s explicit choice at the wave-3 gate. Deleted TestPackCapacityKWh_VinIndependent, its A9 section header and the now-unused context import: 32 deletions, zero additions. Leader verified: gofmt clean, go build ./... clean, go vet ./... GREEN repo-wide for the first time since wave 2. Diff confirmed to touch no other test group. 4.1 is now unblocked. Budget: 5h 16%, 7d 85%, context 12%."
+    },
+    {
+      "at": "2026-09-10T16:01:01Z",
+      "event": "verification-attempt-blocked",
+      "by": "leader",
+      "detail": "The owner ran make migrate-up and make check. Every guard passed and go build/go vet passed. go test ./... then HUNG in internal/analytics TestMain and died on SIGQUIT. Cause is environmental, not this change: the Docker daemon is wedged. Docker.app backend processes run and the socket exists, but docker info hangs too, so testcontainers Ping never returns. The run never reached internal/charging, so no test of this change executed. No task status changed. 2.1-2.5, 3.1-3.3 stay awaiting-user-verification. Nothing is marked done and nothing is marked blocked: the work is not blocked, only its verification."
+    },
+    {
+      "at": "2026-09-10T16:39:44Z",
+      "event": "wave-5-dispatched",
+      "by": "leader",
+      "detail": "One charging worker (claude-sonnet-5) on 4.1, the AGENTS.md update. Dispatched to a worker, not done by the leader: 985-line file, six sections, and five MAG-18 mentions to clear. Owner chose to continue while Docker is down; waves 5 and 6 need no Docker. Budget at dispatch: 5h 22%, 7d 86%, context 17%."
+    },
+    {
+      "at": "2026-09-10T16:46:31Z",
+      "event": "wave-5-completed",
+      "by": "leader",
+      "detail": "4.1 done. Leader verified independently: gofmt clean, go build clean, go vet green; diff is 140 insertions / 12 deletions, targeted, no reflow of the 985-line file. All six sections present. Data Ownership subsection checked fact by fact against design.md: no account_id, no FK, the CHECK, UNIQUE as the whole index plan, NULL never means guessed, the two counts distinct with candidate_count >= 1. The rewritten status = DONE claim checked against query.sql line 468 and matches. Of the 5 MAG-18 hits now in the file, 3 are correct RM33 history and 2 are new text recording the closure; none still calls the seam a stub. Marked done, not awaiting-user-verification: this is a docs task whose checks are the guards and vet, not the suite, matching how 2.6 was treated. Worker reported a 16:20:00Z start, before its own dispatch; leader replaced it with the bracket time."
+    },
+    {
+      "at": "2026-09-10T16:47:13Z",
+      "event": "wave-6-completed",
+      "by": "leader",
+      "detail": "5.1 done, run by the leader. gofmt clean, go build clean, go vet GREEN repo-wide, and migration-guard / tz-guard / boundary-guard / archive-guard all pass. Every task in tier 1 is now implemented. Change status moved to applied. It does NOT move to verified: the owner s suite has not run, because their Docker daemon is down. The reviewer gate stays closed until that pass arrives. Eight tasks remain awaiting-user-verification. Budget: 5h 24%, 7d 86%, context 18%."
+    },
+    {
+      "at": "2026-09-10T16:48:30Z",
+      "event": "leader-check-L1-L2",
+      "by": "leader",
+      "detail": "L1 PASSES: go build and go vet are green across all 25 packages outside internal/charging, so proposal.md Breaking holds and no cross-module fix is needed. L2 FAILS its own assumption: the root README.md Database schema ownership table lists every table each module owns, internal/charging has two rows, and this change adds a third (charging.monthly_effective_capacity) that is missing. Two KB guides are also stale on the changed seam: kkpa/context/workflows/manual-charge-crud.md (packCapacityKWh(ctx, vin), 62 kWh called a PLACEHOLDER) and kkpa/context/architecture/charge-record-mutation.md (hardcoded 62.0, three places). CLAUDE.md requires both in the SAME change. No task in tasks.md covers either. Awaiting the owner s scope decision before appending a task."
+    },
+    {
+      "at": "2026-09-10T16:55:50Z",
+      "event": "L4-completed",
+      "by": "leader",
+      "detail": "L1, L2 and L4 all ticked. L1 verified: build and vet green across all 25 packages outside internal/charging. L2 ticked as a check that RAN and FAILED, with L4 appended as the fix rather than editing L2. L4 done by the leader: README schema-ownership table gained the monthly_effective_capacity row and the charging Architecture row now names the table; kkpa/context/workflows/manual-charge-crud.md and kkpa/context/architecture/charge-record-mutation.md corrected on the packCapacityKWh signature, the PLACEHOLDER claim and a TODO(MAG-18) comment that no longer exists. go build and go vet re-run after the doc edits, still green. Only L3 remains, and it fires at archive time."
+    },
+    {
+      "at": "2026-09-10T16:56:02Z",
+      "event": "checkpoint",
+      "by": "leader",
+      "detail": "Tier 1 is fully implemented and parked at the reviewer gate. Not a budget trip: 5h 37% against a gate of 90, context 21% against 40; the 7-day bucket is at 87% and is the real constraint. Every assistant-owned task is complete. Only O1, O2 (owner) and L3 (fires at archive) remain unticked. The gate stays CLOSED because Step 6 requires the owner s reported suite pass and their Docker daemon is down, so go test hangs in internal/analytics before reaching charging. Eight tasks stay awaiting-user-verification. Resume with /kkpa-dev-harness-pipeline resume RM52-charging-add-monthly-effective-capacity once make check passes."
+    },
+    {
+      "at": "2026-09-10T18:04:54Z",
+      "event": "docker-free-verify-path-prepared",
+      "by": "leader",
+      "detail": "Docker still down, so the leader found a path that does not need it: internal/testdb uses DATABASE_URL as-is when reachable and only falls back to a container. The owner has a local Homebrew Postgres 16 on 5432. Leader created the scratch DB magus_rm52_test and ran make migrate-up against it; all module migrations applied clean, including 20260909000002. The dev magus DB was NOT touched. O2 evidence gathered by the leader (read-only SELECT, not the suite): pg_constraint returns exactly the three expected rows - pkey, period_is_month_start CHECK, and the tesla_id/effective_period UNIQUE - and the column list matches design.md with no account_id, no FK and no raw_data. O2 stays unticked: it is the owner s task. FOOTGUN recorded: the Makefile does include .env then a bare export, so a DATABASE_URL prefix is overridden by .env and only a make command-line argument wins. The prefix form would run the integration tests against the dev DB."
+    },
+    {
+      "at": "2026-09-10T18:06:14Z",
+      "event": "user-verified",
+      "by": "leader",
+      "detail": "THE OWNER ran the suite and reported it PASSING. Command: make test-with-db DATABASE_URL=postgres://localhost:5432/magus_rm52_test?sslmode=disable, against the scratch DB, with no Docker. This is the owner s report, not the assistant s: the assistant never ran the suite. The eight awaiting-user-verification tasks (2.1-2.5, 3.1, 3.2, 3.3) move to done on that report and the change moves to verified. Guards and vet were assistant-run earlier and are green; the suite is user-run. The reviewer brief must state that split."
+    },
+    {
+      "at": "2026-09-10T18:06:45Z",
+      "event": "reviewer-dispatched",
+      "by": "leader",
+      "detail": "charging-reviewer dispatched on claude-sonnet-5, the cheaper tier, instructed to escalate on doubt rather than approve anything uncertain. Gate opened only after the owner s reported suite pass. Budget at dispatch: 5h 41%, 7d 87%, context 23%."
+    },
+    {
+      "at": "2026-09-10T18:08:54Z",
+      "event": "scratch-db-consolidated",
+      "by": "leader",
+      "detail": "IMPORTANT for any later session: magus_rm52_test NO LONGER EXISTS. On the owner s decision all 13 magus_* scratch databases were dropped, including the one this run used. The dev DB magus was not touched and is unchanged at 10207 kB. One fixed scratch DB magus_test replaces them: created, 46 migrations applied, charging.monthly_effective_capacity has its 3 constraints. Use magus_test from now on and do not invent a new per-run name; the sprawl happened because each session made up its own. The owner s passing suite result stands - it ran before the drop, against the identical schema. Two follow-ups proposed and not yet actioned: a make target for the fixed scratch DB, and the missing timeout on internal/testdb s Docker probe."
+    }
+  ]
+}

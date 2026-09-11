@@ -34,6 +34,7 @@ type processor struct {
 	runWriter                 telemetry.RunWriter
 	sessionWriter             charging.SessionWriter
 	mirrorWatermarks          charging.MirrorWatermarkStore
+	monthlyCapacityCalculator charging.MonthlyCapacityCalculator
 	acct                      account.Service
 	recalculator              analytics.Recalculator
 	analyticsReader           analytics.Reader
@@ -45,35 +46,41 @@ var _ Processor = (*processor)(nil)
 
 // ProcessVehicleData reproduces reconcilingCollector.CollectAll's exact control flow
 // from cmd/poller (design.md D8): generate a fresh RunContext, sync fleet data
-// (step 1), and — only if that succeeds — process charging data (step 2) then
-// recalculate analytics (step 3). Since RM36-app-record-poll-run tier 2, every
-// invocation also measures its own start-to-finish span with internal/clock and
-// records exactly one poll_runs summary row via recordRun — on every exit path,
-// including the step-1 whole-cycle-failure short-circuit below (design.md D4/D6).
+// (step 1), and — only if that succeeds — process charging data (step 2), then
+// recalculate analytics (step 3), then measure monthly vehicle capacity (step 4,
+// RM52 tier 2, RD6/RD7). Step 4 runs only on the first day of the month, in the
+// platform's default zone — see runMonthlyCapacityStep and monthlyCapacityPeriod.
+// Since RM36-app-record-poll-run tier 2, every invocation also measures its own
+// start-to-finish span with internal/clock and records exactly one poll_runs
+// summary row via recordRun — on every exit path, including the step-1
+// whole-cycle-failure short-circuit below (design.md D4/D6).
 //
 // Both preserved properties are load-bearing, not incidental:
 //
 //   - The short-circuit. If step 1's whole-cycle enumeration fails (e.g.
-//     account.AllRegisteredVehicles itself errors), steps 2 and 3 are skipped
+//     account.AllRegisteredVehicles itself errors), steps 2, 3 and 4 are skipped
 //     entirely — exactly reconcilingCollector.CollectAll's existing behavior, and
-//     for the same reason: both later steps read data step 1 was supposed to have
+//     for the same reason: the later steps read data step 1 was supposed to have
 //     just written; running them against a cycle that never happened would
 //     reconcile against stale or absent input. RM36 tier 2 reshapes the early
-//     return into a guarded fall-through (`if err == nil { step2; step3 }`) so both
-//     paths share one measurement/record tail, but the short-circuit's own
-//     behavior — steps 2/3 run if and only if step 1 succeeded — is unchanged
-//     (design.md D4).
+//     return into a guarded fall-through (`if err == nil { step2; step3; step4 }`)
+//     so every path shares one measurement/record tail, but the short-circuit's
+//     own behavior — steps 2/3/4 run if and only if step 1 succeeded — is
+//     unchanged (design.md D4; RM52 tier 2 design.md extends it to step 4).
 //   - The order. Charging-data processing (step 2) runs BEFORE analytics
 //     recalculation (step 3) — the same order T6's own design.md D7 established
-//     ("propagate data, then derive from it").
+//     ("propagate data, then derive from it"). Monthly capacity measurement
+//     (step 4) runs last, after analytics, since it reads charge data analytics
+//     has already had a chance to process this cycle.
 func (p *processor) ProcessVehicleData(ctx context.Context, triggeredBy telemetry.TriggeredBy) (telemetry.CycleReport, error) {
 	run := telemetry.RunContext{RunID: uuid.New(), TriggeredBy: triggeredBy}
 	start := clock.Now()
 
 	report, err := p.collector.CollectAll(ctx, run) // step 1 — sync fleet data
 	if err == nil {
-		p.processChargingData(ctx)  // step 2 — was newSessionMirrorer
-		p.recalculateAnalytics(ctx) // step 3 — was newNightlyReconciler
+		p.processChargingData(ctx)    // step 2 — was newSessionMirrorer
+		p.recalculateAnalytics(ctx)   // step 3 — was newNightlyReconciler
+		p.runMonthlyCapacityStep(ctx) // step 4 — measure monthly vehicle capacity
 	}
 
 	finish := clock.Now()
@@ -365,4 +372,67 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 			continue
 		}
 	}
+}
+
+// monthlyCapacityPeriod applies RD6/RD7's gate: pure over its inputs, no clock
+// read of its own -- mirrors nextRun's shape (scheduler.go). now is a moment
+// already resolved to the platform's own zone; loc is the SAME zone, passed
+// explicitly so the function's own behavior does not depend on which zone now
+// happens to already be expressed in. Returns run=false on every day but the
+// first of the month. On the first, returns the PREVIOUS month's first
+// instant -- charging.MonthlyCapacityCalculator.Calculate's own contract
+// ("period must be the first instant of the month to compute").
+func monthlyCapacityPeriod(now time.Time, loc *time.Location) (period time.Time, run bool) {
+	today := clock.CalendarDay(now, loc)
+	if today.Day() != 1 {
+		return time.Time{}, false
+	}
+	return today.AddDate(0, -1, 0), true
+}
+
+// runMonthlyCapacityStep is the "monthly capacity" step (design.md D2, RM52 tier
+// 2). Reads the real clock (D1) and delegates the actual gate decision to
+// monthlyCapacityPeriod, which is pure and fully unit-tested. This function's
+// own body -- the clock.Now()/clock.Zone() read plus the branch on run -- is
+// deliberately NOT unit-tested, for the same accepted reason
+// recalculateAnalytics's own "yesterday" line is not: it reads the real wall
+// clock directly, with no injectable seam, exactly like every other line in
+// this file that calls clock.Now() (Context fact 11).
+//
+// It also compares p.loc (the poller's own configurable POLLER_TIMEZONE) with
+// clock.Zone() (the platform's fixed default) and logs one warning when they
+// name different zones (task 2.4). This is a diagnostic only: the gate always
+// follows clock.Zone(), per RD7 and D1 -- this check never changes that, never
+// fails the step, and never skips it. It exists so a silent divergence (the
+// cycle firing on a moment that is the 1st in p.loc but a different day in
+// clock.Zone(), or the reverse) becomes a visible log line instead of an
+// unnoticed skipped month.
+func (p *processor) runMonthlyCapacityStep(ctx context.Context) {
+	zone := clock.Zone()
+	if p.loc.String() != zone.String() {
+		log.Printf("monthly capacity: poller zone %s differs from platform zone %s; the monthly gate follows the platform zone", p.loc, zone)
+	}
+
+	period, run := monthlyCapacityPeriod(clock.Now(), zone)
+	if !run {
+		return
+	}
+	p.callMonthlyCapacityCalculator(ctx, period)
+}
+
+// callMonthlyCapacityCalculator calls the tier-1 port for one period and logs
+// the outcome. Split out from runMonthlyCapacityStep so this half -- the part
+// that actually calls the calculator and decides what to log -- is testable
+// with a fake and a fixed period, with no clock involved (design.md D2).
+// Errors are logged, never fatal: the same "errors are logged, isolated"
+// pattern processChargingData and recalculateAnalytics already use -- a missed
+// month self-heals next month, and RD9's manual tool covers backfill.
+func (p *processor) callMonthlyCapacityCalculator(ctx context.Context, period time.Time) {
+	report, err := p.monthlyCapacityCalculator.Calculate(ctx, period, nil)
+	if err != nil {
+		log.Printf("monthly capacity: period %s: %v", period.Format("2006-01"), err)
+		return
+	}
+	log.Printf("monthly capacity: period %s: %d vehicle(s) found, %d measured, %d thin",
+		period.Format("2006-01"), report.VehiclesFound, report.Measured, report.Thin)
 }

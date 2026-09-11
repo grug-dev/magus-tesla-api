@@ -73,6 +73,29 @@ compiler and destroy the boundary; neither is acceptable here:
 - **Merging the packages** — Go only forbids cycles *between* packages, so folding two modules
   into one makes the error disappear along with the boundary.
 
+**First ask where the fact belongs, not how to break the cycle.**
+
+A cycle between two modules is usually a symptom, not the problem. If module `A` owns the source
+rows, module `B` needs a value derived from them, and the derivation depends on `A`'s own internal
+rules — compute it in `A`, store it in `A`, and let `B` read it. The cycle then does not exist to
+break.
+
+Reach for the consumer-side interface below only when the derivation genuinely needs data from
+**both** modules, so it cannot live wholly inside either.
+
+**The microservice test.** If these two modules became separate services, would the derivation
+rule have to travel between them as shared knowledge? If yes, the derivation is in the wrong
+module. This test is the point of the whole boundary: a module that can become a service owns its
+data *and the facts derived from it*.
+
+> *Precedent — MAG-32 / RM52.* Monthly effective pack capacity was first placed in `analytics`,
+> which already imports `charging`. That forced `analytics` to encode **why** `ESTIMATED` entries
+> and `DONE_CALCULATED` sessions are unusable inputs — namely that `charging` derived them from
+> its own hardcoded capacity constant, so their implied capacity is that constant. A fact about
+> `charging`'s internals would have lived in `analytics`, and a consumer-side interface would have
+> been needed to close the loop. Moving the whole derivation into `charging` — which owns every
+> input row — removed the cycle and the leak together, and needed no interface at all.
+
 **The fix is a consumer-side interface.** Go has no `implements` keyword — a type satisfies an
 interface implicitly, so the provider never has to know the interface exists. Declare the
 interface in the package that *needs* it, and wire the concrete type in at `cmd/` startup. This
