@@ -10,10 +10,10 @@
 //     //go:embed cannot reach outside its own directory tree; see ProvisionDirs.
 //
 // Provisioning policy (ai/go-conventions.md §persistence):
-//   - When DATABASE_URL is set AND reachable, it is used as-is (managed/CI
+//   - When TEST_DATABASE_URL is set AND reachable, it is used as-is (managed/CI
 //     Postgres). goose records applied versions in goose_db_version, so
 //     re-running against an already-migrated DB is a no-op.
-//   - Otherwise (DATABASE_URL unset, malformed, or unreachable — including the
+//   - Otherwise (TEST_DATABASE_URL unset, malformed, or unreachable — including the
 //     Makefile's `.env` include quirk where quoted DSNs arrive with literal
 //     quote characters), a disposable `postgres:16-alpine` container is started
 //     via testcontainers-go, migrations are applied, and the DSN is returned.
@@ -46,7 +46,7 @@ import (
 const PostgresImage = "postgres:16-alpine"
 
 // ErrUnavailable wraps the one failure mode that means "this machine cannot give
-// us a Postgres at all" — no reachable DATABASE_URL and no Docker daemon to start
+// us a Postgres at all" — no reachable TEST_DATABASE_URL and no Docker daemon to start
 // a container. A TestMain may legitimately treat it as a reason to SKIP its
 // DB-backed tests (see internal/telemetry/testdb_test.go).
 //
@@ -56,7 +56,7 @@ const PostgresImage = "postgres:16-alpine"
 // migration pass `make check` in silence, which is precisely the trap this
 // sentinel exists to prevent. Callers: use errors.Is(err, testdb.ErrUnavailable)
 // to skip, and log.Fatal on anything else.
-var ErrUnavailable = errors.New("testdb: no Postgres available (no reachable DATABASE_URL and no Docker daemon)")
+var ErrUnavailable = errors.New("testdb: no Postgres available (no reachable TEST_DATABASE_URL and no Docker daemon)")
 
 // Result is what Provision returns. Container is non-nil when a testcontainer
 // was started; the caller MUST Terminate it (typically in TestMain after m.Run).
@@ -101,7 +101,7 @@ func Provision(ctx context.Context, migrationsFS fs.FS) (Result, error) {
 // on another's; today none do (there are no cross-module foreign keys —
 // ai/architecture.md §2), so any order works.
 //
-// Every other behaviour — the DATABASE_URL-then-container policy, ErrUnavailable,
+// Every other behaviour — the TEST_DATABASE_URL-then-container policy, ErrUnavailable,
 // Result ownership — is identical to Provision.
 func ProvisionDirs(ctx context.Context, migrationDirs ...string) (Result, error) {
 	if len(migrationDirs) == 0 {
@@ -130,15 +130,15 @@ func ProvisionDirs(ctx context.Context, migrationDirs ...string) (Result, error)
 	})
 }
 
-// provision holds the DATABASE_URL-then-testcontainer policy shared by Provision
+// provision holds the TEST_DATABASE_URL-then-testcontainer policy shared by Provision
 // and ProvisionDirs. apply receives the DSN and is responsible for putting the
 // caller's schema on it; it is retried, because Postgres may reset connections
 // briefly after reporting ready.
 func provision(ctx context.Context, apply func(context.Context, string) error) (Result, error) {
-	dsn := os.Getenv("DATABASE_URL")
+	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn != "" {
 		if err := retry(5, 2*time.Second, func() error { return apply(ctx, dsn) }); err != nil {
-			log.Printf("testdb: DATABASE_URL not usable (%v); provisioning testcontainer", err)
+			log.Printf("testdb: TEST_DATABASE_URL not usable (%v); provisioning testcontainer", err)
 			dsn = ""
 		}
 	}

@@ -38,7 +38,7 @@
 
 ## T1. `internal/testdb` reads `TEST_DATABASE_URL`; `Makefile` targets updated — no dependency
 
-- [ ] T1.1 In `internal/testdb/testdb.go`, change line 138 from
+- [x] T1.1 In `internal/testdb/testdb.go`, change line 138 from
       `dsn := os.Getenv("DATABASE_URL")` to
       `dsn := os.Getenv("TEST_DATABASE_URL")`. Update the log message at line
       141 (`"testdb: DATABASE_URL not usable (%v); provisioning testcontainer"`)
@@ -46,7 +46,7 @@
       Acceptance: `grep -n 'DATABASE_URL' internal/testdb/testdb.go` matches
       nothing; `grep -n 'TEST_DATABASE_URL' internal/testdb/testdb.go` matches
       the renamed line and log message.
-- [ ] T1.2 In the same file, update the 6 doc-comment lines that describe the
+- [x] T1.2 In the same file, update the 6 doc-comment lines that describe the
       old `DATABASE_URL`-then-container policy by that name (design.md D1):
       lines 13, 16, 49, 59, 104, 133. Name `TEST_DATABASE_URL` in each; the
       described *behavior* (real DB if reachable, else a testcontainer) does
@@ -55,7 +55,7 @@
       variable says `TEST_DATABASE_URL`; `internal/config`'s own
       `DATABASE_URL` reading is untouched (design.md D2) — this task does not
       touch `internal/config` at all.
-- [ ] T1.3 In `Makefile`, replace the `test` and `test-with-db` targets
+- [x] T1.3 In `Makefile`, replace the `test` and `test-with-db` targets
       (currently around lines 503–507) with the text in design.md D3: `test`
       drops `env -u DATABASE_URL` and becomes plain `go test ./...`;
       `test-with-db` becomes `TEST_DATABASE_URL="$(DATABASE_URL)" go test ./...`.
@@ -68,7 +68,7 @@
 
 ## T2. Fix the `analytics` test's cleanup leak — no dependency
 
-- [ ] T2.1 In `internal/analytics/db_integration_test.go`, add
+- [x] T2.1 In `internal/analytics/db_integration_test.go`, add
       `DELETE FROM telemetry.vehicle_snapshots WHERE account_id = $1 AND tesla_id = $2`
       to the existing `t.Cleanup` block inside `cleanupVehicleMetrics`
       (design.md D4), alongside the two `DELETE`s it already runs. Use the
@@ -77,14 +77,14 @@
       Acceptance: `cleanupVehicleMetrics` deletes rows from all three tables
       it touches (`analytics.vehicle_metrics`, `analytics.vehicle_metric_watermarks`,
       `telemetry.vehicle_snapshots`) scoped to the same `(accountID, teslaID)`.
-- [ ] T2.2 Fix this file's own 3 stale lines naming `DATABASE_URL` for test
+- [x] T2.2 Fix this file's own 3 stale lines naming `DATABASE_URL` for test
       gating: the header comment at lines 1 and 5, and the `t.Skip` message
       at line 78 (`"no test Postgres: set DATABASE_URL or start Docker..."`).
       Name `TEST_DATABASE_URL` in all three.
       Acceptance: `grep -n 'DATABASE_URL' internal/analytics/db_integration_test.go`
       matches nothing; `grep -n 'TEST_DATABASE_URL'` matches the 3 updated
       lines.
-- [ ] T2.3 Note in this file's header comment (or leave a short line near
+- [x] T2.3 Note in this file's header comment (or leave a short line near
       `cleanupVehicleMetrics`) that an `analytics` test writing raw SQL into
       `telemetry`'s own table crossed a module boundary, and that this is
       the deeper reason the cleanup was forgotten — fixing that boundary
@@ -103,36 +103,36 @@ touch `cmd/poller/main.go`, `cmd/web/main.go`, `cmd/migrate/main.go`,
 describe the application's own `DATABASE_URL` config and stay unchanged
 (design.md D2).
 
-- [ ] T3.1 `internal/telemetry/service.go:28`
-- [ ] T3.2 `internal/telemetry/db_poll_run_integration_test.go:17`
-- [ ] T3.3 `internal/telemetry/testdb_test.go:6`
-- [ ] T3.4 `internal/telemetry/telemetry.go:668`
-- [ ] T3.5 `internal/telemetry/db_read_integration_test.go:14`
-- [ ] T3.6 `internal/telemetry/query_log_test.go:21`
-- [ ] T3.7 `internal/telemetry/db_change_detection_integration_test.go:9`
-- [ ] T3.8 `internal/telemetry/service_test.go:20`
-- [ ] T3.9 `internal/telemetry/db_supercharger_between_integration_test.go:13`
-- [ ] T3.10 `internal/telemetry/db_supercharger_account_updated_since_integration_test.go:15`
-- [ ] T3.11 `internal/telemetry/db_integration_test.go:18` and `:27` (the
+- [x] T3.1 `internal/telemetry/service.go:28`
+- [x] T3.2 `internal/telemetry/db_poll_run_integration_test.go:17`
+- [x] T3.3 `internal/telemetry/testdb_test.go:6`
+- [x] T3.4 `internal/telemetry/telemetry.go:668`
+- [x] T3.5 `internal/telemetry/db_read_integration_test.go:14`
+- [x] T3.6 `internal/telemetry/query_log_test.go:21`
+- [x] T3.7 `internal/telemetry/db_change_detection_integration_test.go:9`
+- [x] T3.8 `internal/telemetry/service_test.go:20`
+- [x] T3.9 `internal/telemetry/db_supercharger_between_integration_test.go:13`
+- [x] T3.10 `internal/telemetry/db_supercharger_account_updated_since_integration_test.go:15`
+- [x] T3.11 `internal/telemetry/db_integration_test.go:18` and `:27` (the
       `t.Skip` message) — 2 lines
-- [ ] T3.12 `internal/telemetry/run_writer.go:15`
-- [ ] T3.13 `internal/telemetry/db_sourcea_integration_test.go:17` and `:20`
+- [x] T3.12 `internal/telemetry/run_writer.go:15`
+- [x] T3.13 `internal/telemetry/db_sourcea_integration_test.go:17` and `:20`
       — 2 lines
-- [ ] T3.14 `internal/telemetry/db_supercharger_integration_test.go:13` and
+- [x] T3.14 `internal/telemetry/db_supercharger_integration_test.go:13` and
       `:15` — 2 lines
-- [ ] T3.15 `internal/account/testdb_test.go:5`
-- [ ] T3.16 `internal/account/service_integration_test.go:449`, `:586`,
+- [x] T3.15 `internal/account/testdb_test.go:5`
+- [x] T3.16 `internal/account/service_integration_test.go:449`, `:586`,
       `:702` — 3 lines
-- [ ] T3.17 `internal/charging/testdb_test.go:6`
-- [ ] T3.18 `internal/charging/service.go:52`
-- [ ] T3.19 `internal/charging/db_integration_test.go:3`
-- [ ] T3.20 `internal/charging/session_verifier.go:28`
-- [ ] T3.21 `internal/charging/session_reader.go:18`
-- [ ] T3.22 `internal/charging/monthly_capacity.go:94`
-- [ ] T3.23 `internal/analytics/testdb_test.go:9`
-- [ ] T3.24 `internal/analytics/db_watermark_migration_integration_test.go:104`
+- [x] T3.17 `internal/charging/testdb_test.go:6`
+- [x] T3.18 `internal/charging/service.go:52`
+- [x] T3.19 `internal/charging/db_integration_test.go:3`
+- [x] T3.20 `internal/charging/session_verifier.go:28`
+- [x] T3.21 `internal/charging/session_reader.go:18`
+- [x] T3.22 `internal/charging/monthly_capacity.go:94`
+- [x] T3.23 `internal/analytics/testdb_test.go:9`
+- [x] T3.24 `internal/analytics/db_watermark_migration_integration_test.go:104`
       and `:125` — 2 lines
-- [ ] T3.25 `internal/analytics/db_gap_writer_integration_test.go:14`
+- [x] T3.25 `internal/analytics/db_gap_writer_integration_test.go:14`
 
 Acceptance (whole task): `grep -rn "DATABASE_URL" --include="*.go" internal/`
 shows only lines inside `internal/config/` (application config, untouched)
@@ -144,7 +144,7 @@ Required by the project rule that a changed build/test workflow is
 documented in the same change (`CLAUDE.md` "Workflow & architectural
 decisions are documented with their steps"). 15 lines across 6 files.
 
-- [ ] T4.1 `README.md` — 5 lines: the `go test ./...` comment block (around
+- [x] T4.1 `README.md` — 5 lines: the `go test ./...` comment block (around
       line 74), the two `>` notes right after it about `make test` /
       `make test-with-db` (lines 78, 80), the `internal/testdb` row in the
       Project Structure tree (line 130), and the `internal/testdb` row in the
@@ -153,20 +153,20 @@ decisions are documented with their steps"). 15 lines across 6 files.
       `DATABASE_URL + SESSION_SECRET` / `DATABASE_URL` lines describing how to
       run `cmd/web` / `cmd/poller` (lines 31, 34) or the `make db-setup` line
       (line 172) — those describe the application's own config.
-- [ ] T4.2 `ai/go-conventions.md` — 3 lines: "DB tests are `DATABASE_URL`-gated"
+- [x] T4.2 `ai/go-conventions.md` — 3 lines: "DB tests are `DATABASE_URL`-gated"
       (line 108), "`DATABASE_URL`-gated integration tests — write them last"
       (line 145), and the `Provisioning the test database` table's own
       wording (line 160, "a reachable `DATABASE_URL` if there is one"). Do not
       touch line 101 ("`DATABASE_URL` is the single source of truth for the
       DSN") or line 295 (the `cmd/web` run comment) — application config.
-- [ ] T4.3 `internal/analytics/AGENTS.md` — 2 lines in the Testing section
+- [x] T4.3 `internal/analytics/AGENTS.md` — 2 lines in the Testing section
       (around lines 201–202): "`DATABASE_URL`-gated DB-integration tests" and
       "must pass with `DATABASE_URL` unset."
-- [ ] T4.4 `internal/account/AGENTS.md` — 1 line (around line 95): "when
+- [x] T4.4 `internal/account/AGENTS.md` — 1 line (around line 95): "when
       `DATABASE_URL` is set AND reachable, that managed Postgres is used."
-- [ ] T4.5 `internal/charging/AGENTS.md` — 1 line (around line 477):
+- [x] T4.5 `internal/charging/AGENTS.md` — 1 line (around line 477):
       "`testdb_test.go` provisions it: `DATABASE_URL` when set."
-- [ ] T4.6 `internal/telemetry/AGENTS.md` — 3 lines (around lines 200, 202,
+- [x] T4.6 `internal/telemetry/AGENTS.md` — 3 lines (around lines 200, 202,
       204): the `env -u DATABASE_URL go test ...` example command (which
       after D1 no longer needs `env -u` at all — `TEST_DATABASE_URL` is
       simply left unset), "`make test-with-db` runs against whatever
@@ -180,7 +180,7 @@ above still names `DATABASE_URL` for test provisioning.
 
 ## T5. Add the one-off cleanup SQL script — no dependency
 
-- [ ] T5.1 Create `scripts/2026-09-11-cleanup-orphan-vehicle-snapshots.sql`
+- [x] T5.1 Create `scripts/2026-09-11-cleanup-orphan-vehicle-snapshots.sql`
       with the exact content in design.md D6: header comment naming the
       change and stating "back up the database first," a `SELECT count(*)`
       before the delete, the `DELETE ... WHERE NOT EXISTS (...)` statement,

@@ -11,7 +11,7 @@ import (
 )
 
 // These tests exercise the real dbStore.latestSnapshotsByAccount method against a live
-// Postgres from DATABASE_URL and self-skip when it is unset, so `go test ./...` stays
+// Postgres from TEST_DATABASE_URL and self-skip when it is unset, so `go test ./...` stays
 // green without a database (ai/go-conventions.md §persistence). They mirror the pattern
 // established in db_integration_test.go. Requires the goose migration applied
 // (`make migrate-up`).

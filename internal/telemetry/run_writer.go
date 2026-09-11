@@ -12,7 +12,7 @@ import (
 // (RM36-telemetry-add-poll-runs design D12). It is NOT part of the store
 // interface reader.go/service.go define for Reader/Collector — mirroring
 // SuperchargerHistoryReader's and internal/analytics' gapWriter's identical precedent
-// for a port proven by a DATABASE_URL-gated integration test rather than an
+// for a port proven by a TEST_DATABASE_URL-gated integration test rather than an
 // offline fake. pgtype never appears in this file: run_id binds as a plain
 // uuid.UUID (poll_runs.run_id is NOT NULL, so sqlc's uuid override maps it
 // straight to uuid.UUID rather than pgtype.UUID — no runIDToPgUUID wrap

@@ -665,7 +665,7 @@ type PollRun struct {
 
 // RunWriter persists one poll_runs row per app.ProcessVehicleData invocation. It
 // is a separate port from Collector/Reader (RM36-telemetry-add-poll-runs design
-// D12): its correctness is proven by a DATABASE_URL-gated integration test, not
+// D12): its correctness is proven by a TEST_DATABASE_URL-gated integration test, not
 // by an offline fake, so its implementation talks to telemetrydb.Queries directly
 // rather than being routed through the store interface service.go/reader.go
 // share (mirroring this module's own SuperchargerHistoryReader and internal/analytics'

@@ -474,7 +474,7 @@ re-argue a settled decision.
   `supercharger_sessions` ships a backfill reading telemetry's table, so that table must
   exist first. **This is a path dependency on a directory, not a Go import** — no `_test.go`
   file here imports `internal/telemetry`, and §Allowed Imports still forbids it.
-- `testdb_test.go` provisions it: `DATABASE_URL` when set, otherwise a disposable
+- `testdb_test.go` provisions it: `TEST_DATABASE_URL` when set, otherwise a disposable
   `postgres:16-alpine` via `testcontainers-go`, one `*pgxpool.Pool` per package. Migrations
   run through the `github.com/pressly/goose/v3` Go API (`goose.NewProvider` records applied
   versions in `goose_db_version`), so re-running against a managed DB is a no-op. **No

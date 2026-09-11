@@ -10,9 +10,9 @@ import (
 )
 
 // These tests exercise the real telemetrydb store and SuperchargerHistoryReader against a live
-// Postgres from DATABASE_URL and self-skip when it is unset, so `go test ./...` stays
+// Postgres from TEST_DATABASE_URL and self-skip when it is unset, so `go test ./...` stays
 // green without a database (ai/go-conventions.md §persistence). They require:
-//   - DATABASE_URL set to a running Postgres with goose migrations applied.
+//   - TEST_DATABASE_URL set to a running Postgres with goose migrations applied.
 //   - The supercharger_sessions table created by migration 20260716000001.
 //
 // Design compliance:

@@ -71,13 +71,14 @@ go mod tidy
 sqlc generate
 go build ./...   # compile everything
 go vet ./...     # static analysis
-go test ./...    # tests — internal/testdb uses DATABASE_URL when reachable,
+go test ./...    # tests — internal/testdb uses TEST_DATABASE_URL when set and reachable,
                  # otherwise a disposable postgres:16-alpine testcontainer
 ```
 
-> `make test` deliberately **ignores** `.env`'s `DATABASE_URL` and always runs against a
-> disposable testcontainer, so the suite can never touch the real magus database. Use
-> `make test-with-db` to opt in to the configured `DATABASE_URL` (CI with a managed Postgres).
+> `make test` never reads `DATABASE_URL` at all and always runs against a disposable
+> testcontainer, so the suite can never touch the real magus database. Use
+> `make test-with-db` to opt in — it forwards your `DATABASE_URL` as `TEST_DATABASE_URL`
+> (CI with a managed Postgres).
 
 To produce runnable **binaries** (not just compile), build the entrypoints into `./bin`:
 
@@ -127,7 +128,7 @@ magus-tesla-api/
 │   ├── config/         # .env loading and token persistence
 │   ├── auth/           # Tesla OAuth URL, code exchange, token refresh
 │   ├── clock/          # Platform default time zone (America/Bogota) + calendar-day normalization. Stdlib time only.
-│   └── testdb/         # Test-only Postgres provisioning (DATABASE_URL → testcontainer fallback)
+│   └── testdb/         # Test-only Postgres provisioning (TEST_DATABASE_URL → testcontainer fallback)
 │
 ├── magus-public-key-netlify/   # EC public key hosted on Netlify for Tesla verification
 │   └── well-known/appspecific/
@@ -219,7 +220,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
 | `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config`, `telemetry`, `analytics`, `app` and `gateway` (`RM35` tiers 2–6). |
-| `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
+| `internal/testdb` | Test-only Postgres provisioning helper (uses `TEST_DATABASE_URL` when set and reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph
 

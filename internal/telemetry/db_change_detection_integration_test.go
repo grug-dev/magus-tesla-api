@@ -6,7 +6,7 @@
 // expected values here are binding; do not adjust them to match whatever the
 // SQL happens to do.
 //
-// All tests are DATABASE_URL-gated integration tests, following the existing
+// All tests are TEST_DATABASE_URL-gated integration tests, following the existing
 // pattern in db_integration_test.go (internal/testdb provisioning, TestMain
 // auto-skip when no Postgres is reachable). A small sleep separates the two
 // upserts in every test: Postgres's now() has microsecond resolution, so a

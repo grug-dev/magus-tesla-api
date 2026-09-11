@@ -15,7 +15,7 @@ import (
 
 // These tests exercise the real telemetrydb store against a live Postgres
 // provisioned by TestMain (see testdb_test.go). The test database is
-// auto-provisioned via testcontainers-go when DATABASE_URL is unset/unreachable
+// auto-provisioned via testcontainers-go when TEST_DATABASE_URL is unset/unreachable
 // (ai/go-conventions.md §persistence), so `go test ./...` is green with no
 // manual DB setup as long as Docker is running locally.
 
@@ -24,7 +24,7 @@ import (
 func newTestStore(t *testing.T) (*dbStore, *pgxpool.Pool) {
 	t.Helper()
 	if testDSN == "" {
-		t.Skip("no test Postgres: set DATABASE_URL or start Docker to run the DB-backed tests")
+		t.Skip("no test Postgres: set TEST_DATABASE_URL or start Docker to run the DB-backed tests")
 	}
 	pool, err := pgxpool.New(context.Background(), testDSN)
 	if err != nil {

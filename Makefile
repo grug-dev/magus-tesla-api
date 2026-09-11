@@ -500,11 +500,11 @@ build: ## Compile every package + command in the monolith (go build ./...)
 vet: ## Static analysis across all packages (go vet ./...)
 	go vet ./...
 
-test: ## Run all tests against disposable testcontainer Postgres (never the real magus DB; ignores .env DATABASE_URL)
-	env -u DATABASE_URL go test ./...
-
-test-with-db: ## Run all tests against the configured DATABASE_URL (opt-in; CI with a managed Postgres)
+test: ## Run all tests against disposable testcontainer Postgres (TEST_DATABASE_URL is never read from .env here)
 	go test ./...
+
+test-with-db: ## Run all tests against TEST_DATABASE_URL (opt-in; point it at a throwaway or CI Postgres, never the real one)
+	TEST_DATABASE_URL="$(DATABASE_URL)" go test ./...
 
 # Every module's migrations share ONE goose_db_version table, keyed by version number
 # (see the MIGRATIONS_DIRS note near the top of this file). A number used by two modules

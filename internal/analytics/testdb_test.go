@@ -6,7 +6,7 @@
 // codebase — tasks.md task 6.1).
 //
 // Behavior (see internal/testdb and ai/go-conventions.md §persistence):
-//   - If DATABASE_URL is set AND reachable, use it (managed/CI Postgres).
+//   - If TEST_DATABASE_URL is set AND reachable, use it (managed/CI Postgres).
 //   - Otherwise auto-provision a disposable `postgres:16-alpine` container.
 //
 // This package's fixtures span THREE modules' schemas: Recalculate reads

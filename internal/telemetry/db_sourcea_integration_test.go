@@ -14,10 +14,10 @@ import (
 
 // These tests exercise Source A of RM2-telemetry-add-charging-stats: the 6 nullable
 // charge-enrichment columns on vehicle_snapshots. They require:
-//   - DATABASE_URL set to a running Postgres with goose migrations applied (including
+//   - TEST_DATABASE_URL set to a running Postgres with goose migrations applied (including
 //     migration 20260716000002_enrich_vehicle_snapshots_charge.sql).
 //
-// They self-skip when DATABASE_URL is unset, so `go test ./...` stays green without
+// They self-skip when TEST_DATABASE_URL is unset, so `go test ./...` stays green without
 // a database (ai/go-conventions.md §persistence).
 //
 // Design compliance (A5):

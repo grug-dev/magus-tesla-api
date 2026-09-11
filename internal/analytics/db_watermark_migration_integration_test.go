@@ -101,7 +101,7 @@ const superchargerVocabMigrationVersion int64 = 20260902000004
 func newAnalyticsMigrationProvider(t *testing.T) *goose.Provider {
 	t.Helper()
 	if testDSN == "" {
-		t.Skip("no test Postgres: set DATABASE_URL or start Docker to run the DB-backed tests")
+		t.Skip("no test Postgres: set TEST_DATABASE_URL or start Docker to run the DB-backed tests")
 	}
 	db, err := sql.Open("pgx", withSearchPath(testDSN, "public", "analytics"))
 	if err != nil {
@@ -122,7 +122,7 @@ func newAnalyticsMigrationProvider(t *testing.T) *goose.Provider {
 // search_path for every new connection opened from the returned DSN --
 // documented pgx behavior (postgres://host/db?search_path=myschema,public),
 // not a hand-rolled protocol detail. Every DSN this module's tests see
-// (DATABASE_URL, or testdb's testcontainers-generated one) is URL-form
+// (TEST_DATABASE_URL, or testdb's testcontainers-generated one) is URL-form
 // (`postgres://...`), matching this repo's own convention (.env.example,
 // Makefile) -- see this file's newAnalyticsMigrationProvider doc comment for
 // why only THIS ONE test connection needs it.

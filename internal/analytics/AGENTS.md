@@ -198,8 +198,8 @@ change); it needs no migration.
 
 ## Testing
 
-Both offline unit tests and `DATABASE_URL`-gated DB-integration tests. **The offline tests
-must pass with `DATABASE_URL` unset and Docker down** — the DB-backed ones self-skip in that
+Both offline unit tests and `TEST_DATABASE_URL`-gated DB-integration tests. **The offline tests
+must pass with `TEST_DATABASE_URL` unset and Docker down** — the DB-backed ones self-skip in that
 state.
 
 - **`testdb_test.go` uses `testdb.ProvisionDirs`, NOT `testdb.Provision`.** This module's

@@ -92,7 +92,7 @@ to apply to today — it governs any unit-bearing column added to this module in
 - Unit tests with fakes at the DB boundary, plus integration tests
   (`service_integration_test.go`) against real Postgres. The test database is
   provisioned by `testdb_test.go` via the shared `internal/testdb` helper: when
-  `DATABASE_URL` is set AND reachable, that managed Postgres is used; otherwise
+  `TEST_DATABASE_URL` is set AND reachable, that managed Postgres is used; otherwise
   a disposable `postgres:16-alpine` container is auto-started via
   testcontainers-go, with goose migrations embedded under `db/migrations/`
   applied before the suite runs. `make check` is green with zero manual DB

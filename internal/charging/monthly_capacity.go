@@ -91,7 +91,7 @@ func median(gated []capacitySample) float64 {
 // MonthlyCapacityCalculator. Like sessionVerifier and mirrorWatermarkStore, it
 // is a small unexported struct talking directly to chargingdb.Queries, not
 // part of service.go's store interface -- this job runs once a month, offline
-// from any request path, and is exercised by DATABASE_URL-gated integration
+// from any request path, and is exercised by TEST_DATABASE_URL-gated integration
 // tests, not a fake (design.md Context fact 9's reasoning applies here too).
 type monthlyCapacityCalculator struct {
 	pool *pgxpool.Pool

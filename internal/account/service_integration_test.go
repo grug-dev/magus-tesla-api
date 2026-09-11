@@ -446,7 +446,7 @@ func TestSeedVehicles_InsertsWhenMissing(t *testing.T) {
 func ptr(s string) *string { return &s }
 
 // TestAccessType_RoundTrip verifies that access_type is persisted and read back
-// correctly through the full seed→read path (DATABASE_URL-gated, design.md D4).
+// correctly through the full seed→read path (TEST_DATABASE_URL-gated, design.md D4).
 func TestAccessType_RoundTrip(t *testing.T) {
 	s, pool := newTestService(t)
 	ctx := context.Background()
@@ -583,7 +583,7 @@ func TestAccessType_InvalidValueRejectedByCheckConstraint(t *testing.T) {
 }
 
 // TestSetVehicleConfigIfEmpty_RoundTrip verifies the conditional-update port method
-// (design.md D4, DATABASE_URL-gated) through the full seed -> capture -> read path.
+// (design.md D4, TEST_DATABASE_URL-gated) through the full seed -> capture -> read path.
 // Mirrors TestAccessType_RoundTrip's setup. Covers: fresh capture, no-op once fully
 // captured, self-heal of a partially-captured row (the OR-semantics case that
 // distinguishes design.md D4 from the rejected AND), both read paths, and the nil
@@ -699,7 +699,7 @@ func TestSetVehicleConfigIfEmpty_RoundTrip(t *testing.T) {
 }
 
 // TestLanguagePreference_RoundTrip verifies the full language preference
-// read/write path (design.md D3/D4, DATABASE_URL-gated): a fresh account's
+// read/write path (design.md D3/D4, TEST_DATABASE_URL-gated): a fresh account's
 // default, a successful switch and switch-back, rejection of an unsupported
 // code (no write occurs), and normalization of a value written outside this
 // module's write path. Mirrors TestAccessType_RoundTrip's setup.

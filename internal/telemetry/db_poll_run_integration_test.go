@@ -14,7 +14,7 @@ import (
 // These tests exercise RunWriter.RecordRun against a real Postgres poll_runs table
 // (RM36-telemetry-add-poll-runs, design D1-D5/D11/D12). They implement the test
 // contract authored in this change's design.md BEFORE the implementation existed
-// (§"Test Contract", Fixture 5a/5b/5c). DATABASE_URL-gated via the package's existing
+// (§"Test Contract", Fixture 5a/5b/5c). TEST_DATABASE_URL-gated via the package's existing
 // testdb/TestMain pattern (see testdb_test.go): newTestStore skips every test in this
 // file when no Postgres is reachable and no Docker daemon can provision one.
 //

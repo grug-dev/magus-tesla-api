@@ -197,13 +197,14 @@ history: `kkpa/context/architecture/telemetry-tables.md`.
   distinction.** Widening the skip would let a broken schema pass `make check` in silence.
 - **A green suite does NOT by itself prove the DB tests ran.** To actually exercise them start
   Docker and run `make test` (disposable container), or
-  `env -u DATABASE_URL go test ./internal/telemetry/ -run TestStore_ -v`, and confirm the
-  output says `PASS` and not `SKIP`.
-- **`make test-with-db` runs against whatever `DATABASE_URL` points at and applies migrations
-  to it.** Only ever point it at a throwaway or CI Postgres — never the owner's live database.
-- Store tests use the shared `internal/testdb` helper (`testdb_test.go`): `DATABASE_URL` when
-  set and reachable, otherwise a disposable `postgres:16-alpine` via testcontainers with the
-  embedded goose migrations applied.
+  `go test ./internal/telemetry/ -run TestStore_ -v` with `TEST_DATABASE_URL` left unset, and
+  confirm the output says `PASS` and not `SKIP`.
+- **`make test-with-db` runs against whatever `TEST_DATABASE_URL` points at and applies
+  migrations to it.** Only ever point it at a throwaway or CI Postgres — never the owner's live
+  database.
+- Store tests use the shared `internal/testdb` helper (`testdb_test.go`): `TEST_DATABASE_URL`
+  when set and reachable, otherwise a disposable `postgres:16-alpine` via testcontainers with
+  the embedded goose migrations applied.
 - **Two schema self-checks must keep passing as the tables grow.** The change-detecting
   upsert's comparison must cover exactly the columns its `SET` clause writes, with every other
   column on an explicit deny-list; `db_change_detection_schema_test.go` derives the real column
