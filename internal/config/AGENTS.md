@@ -102,22 +102,15 @@ None. No table, no migration, no `db/` package. `.env` is a local file, not a da
 
 ## Testing
 
-- Pure, offline, table-driven tests only — no DB, no container, no network.
-  `quote_test.go` covers `envStripped`'s quote-stripping behavior.
-  `timezone_test.go` covers `pollerTimezoneOrDefault`'s unset-env-var default
-  (RM35-config-adopt-clock, the one case with previously zero coverage — RM35 D6's
-  narrow exception for tiers 2–6, which otherwise add no new tests).
-- `config_test.go` tests `Load()` and `LoadMigration()` directly, using
-  `t.TempDir()` + `os.Chdir` (restoring both in `defer`) to control the `.env`
-  file and the real environment for each case: `.env` present, `.env` absent
-  with real env vars set, required values missing, and a real env var beating
-  a `.env` value. Added by `platform-add-docker-compose-deploy` (T1, T7).
-  `pollerTimezoneOrDefault`, `envInt`, `envDuration`, and `envStripped` stay
-  covered as small pure functions in their own test files, unchanged.
-- `config_test.go` also covers `MigrationsDirs` (T8): `MIGRATIONS_DIRS` set to
-  an ordered list, `MIGRATIONS_DIRS` unset falling back to the four
-  `<root>/<module>` default paths in order, and extra whitespace between
-  entries producing no empty directory.
-- `config_test.go` also covers `LoadDatabase`: `.env` present, `.env` absent with a
-  real `DATABASE_URL`, `DATABASE_URL` missing everywhere, and a real environment
-  variable beating a `.env` value.
+Pure, offline, table-driven tests only — no DB, no container, no network.
+
+- **`Load()` / `LoadMigration()` / `LoadDatabase()` are tested with `t.TempDir()` + `os.Chdir`,
+  restoring both in `defer`**, so each case controls its own `.env` file and real environment.
+  The four cases every loader needs: `.env` present, `.env` absent with real env vars set,
+  a required value missing everywhere, and a real env var beating a `.env` value.
+- `MigrationsDirs` is covered for the ordered-list case, the unset fallback to the four
+  `<root>/<module>` paths in order, and extra whitespace producing no empty directory.
+- The small pure helpers — `pollerTimezoneOrDefault`, `envInt`, `envDuration`, `envStripped` —
+  stay covered in their own test files.
+
+Which test file covers what: `ls internal/config/*_test.go`.
