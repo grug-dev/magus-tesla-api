@@ -5,7 +5,7 @@
   "module": "platform",
   "roadmap": null,
   "request": "MAG-72 \u2014 clean up telemetry integration-test fixtures in vehicle_snapshots. Investigation found the ticket's premise wrong: telemetry's tests clean up correctly; internal/analytics/db_integration_test.go inserts into telemetry.vehicle_snapshots without deleting it, and internal/testdb reads DATABASE_URL so any test run that sees it uses the real dev database. Scope agreed with the owner: read TEST_DATABASE_URL instead, fix the analytics cleanup, sweep stale docs, add a one-off cleanup script for the 78 existing rows, and document magus_test as the opt-in target.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -23,7 +23,7 @@
     ]
   },
   "created_at": "2026-09-11T15:08:21Z",
-  "updated_at": "2026-09-11T15:41:17Z",
+  "updated_at": "2026-09-11T15:44:45Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -251,7 +251,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "platform-reviewer",
     "brief": null,
     "rounds": [
@@ -265,19 +265,51 @@
             "id": "R1",
             "severity": "major",
             "note": "docs/0-set-up/deployment.md:284 (\"go test ./... # account integration tests run only when DATABASE_URL is set\") and :301 (\"Integration tests skipped | Expected when DATABASE_URL is unset\") still name DATABASE_URL for test gating. testdb no longer reads that variable, so a developer following this setup guide sets the wrong one and gets a silent testcontainer instead of their real database. This file was not in T4's 6-file list; the D5 sweep missed it.",
-            "status": "open"
+            "status": "fixed"
           },
           {
             "id": "R2",
             "severity": "minor",
             "note": "openspec/roadmaps/backlog.md item 10 (\"testing \u2014 testdb.Provision can mask a real migration failure as unavailable\") still says \"internal/testdb.Provision tries DATABASE_URL first\" and quotes the old log message. Its own stated Trigger (\"the next time anyone touches internal/testdb\") fired with T1. Not user-facing like R1, but it is a live, non-archived doc describing current code by the wrong variable name.",
-            "status": "open"
+            "status": "fixed"
           },
           {
             "id": "R3",
             "severity": "minor",
             "note": "internal/analytics/db_integration_test.go cleanupVehicleMetrics: the new 6-line paragraph explaining the telemetry boundary crossing is longer than the 1-line DELETE it justifies. Task T2.3 asked for a short line near the function; consider trimming to 2-3 lines.",
-            "status": "open"
+            "status": "fixed"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-09-11T17:05:00Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Fixed in 52727ce. docs/0-set-up/deployment.md:284 and :301 now name TEST_DATABASE_URL and describe the real skip condition (Docker down and TEST_DATABASE_URL unset). Confirmed the file's other DATABASE_URL mentions (app config: role/DB creation, migrate-up, troubleshooting) were left alone.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Fixed in 52727ce. openspec/roadmaps/backlog.md item 10 and the line-99 charging-harness mention both now say TEST_DATABASE_URL. Confirmed zero bare DATABASE_URL left in the file.",
+            "status": "fixed"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "Fixed in 52727ce. cleanupVehicleMetrics's added comment is now 3 lines (8 total with the pre-existing block) against a 9-line function body. Kept the fact a reader cannot infer (telemetry's own helpers never see these rows, so only this function can clean them up) and dropped the narration about how the leak used to reach a real database.",
+            "status": "fixed"
+          },
+          {
+            "id": "R4",
+            "severity": "major",
+            "note": "Found and fixed by the leader in 52727ce, not caught by round 1. README.md:78 claimed make test \"never reads DATABASE_URL\" and \"always\" uses a testcontainer \u2014 true of the old env-u target, false of the new plain `go test ./...`, which honors an exported TEST_DATABASE_URL. New wording (\"No test reads DATABASE_URL any more... make test uses TEST_DATABASE_URL when you set it, and a disposable testcontainer when you do not\") verified accurate against Makefile lines 554-558 and testdb.go:138.",
+            "status": "fixed"
           }
         ]
       }
@@ -388,6 +420,11 @@
       "at": "2026-09-11T15:41:17Z",
       "agent": "leader",
       "event": "round 1 triage: accepted R1, R2, R3 (all verified against the files). Leader swept live docs again and found a fourth issue the review missed: README overstated that make test can never reach a real database. Fixed all four; build, vet and 4 guards clean."
+    },
+    {
+      "at": "2026-09-11T15:44:45Z",
+      "agent": "leader",
+      "event": "archived under archive/platform/ per the project's module-grouped rule; the CLI drops archives at the archive root, so the folder is moved by hand in this same commit"
     }
   ]
 }

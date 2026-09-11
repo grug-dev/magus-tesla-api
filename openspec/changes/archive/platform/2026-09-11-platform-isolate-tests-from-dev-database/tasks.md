@@ -193,10 +193,13 @@ above still names `DATABASE_URL` for test provisioning.
 
 ## T6. Cheap signals — depends on T1, T2, T3, T4
 
-- [ ] T6.1 `go build ./...` — confirms nothing broke compiling.
-- [ ] T6.2 `go vet ./...` — compiles every `_test.go` file too, catching any
+> Run by the leader. Build, vet and the four guards were clean; `gofmt` flagged only
+> `internal/account/testdb_test.go`, which was already unformatted on `main`.
+
+- [x] T6.1 `go build ./...` — confirms nothing broke compiling.
+- [x] T6.2 `go vet ./...` — compiles every `_test.go` file too, catching any
       leftover reference or signature drift from T1–T4.
-- [ ] T6.3 `gofmt -l internal/testdb internal/analytics internal/telemetry internal/account internal/charging` —
+- [x] T6.3 `gofmt -l internal/testdb internal/analytics internal/telemetry internal/account internal/charging` —
       confirms no formatting drift in the touched files.
       Acceptance: all three commands exit clean with no output beyond normal
       build/vet noise.
@@ -207,14 +210,19 @@ Test-Execution-Policy): `go test ./...`, `make test`, `make test-with-db`,
 
 ## T7. OWNER-RUN — back up, run the script, verify counts — depends on T1, T2, T5
 
-- [ ] T7.1 **(Owner)** Back up the dev database.
-- [ ] T7.2 **(Owner)** Run
+> Run by the owner on 2026-09-11 and reported back: the script took orphans 78 to 0,
+> `make db-setup-test` re-owned four schemas and applied one migration, and `make test`
+> passed. The leader then confirmed against the dev database: 0 orphans, 0 duplicate
+> groups, 114 rows, and a newest-write timestamp predating the suite run.
+
+- [x] T7.1 **(Owner)** Back up the dev database.
+- [x] T7.2 **(Owner)** Run
       `scripts/2026-09-11-cleanup-orphan-vehicle-snapshots.sql` against the
       dev database.
-- [ ] T7.3 **(Owner)** Confirm the Verification Contract in design.md: orphan
+- [x] T7.3 **(Owner)** Confirm the Verification Contract in design.md: orphan
       count 78 → 0, total `vehicle_snapshots` rows 190 → 112, the 112 real
       rows untouched.
-- [ ] T7.4 **(Owner)** Run the full suite (`make test`, then optionally
+- [x] T7.4 **(Owner)** Run the full suite (`make test`, then optionally
       `make test-with-db` pointed at a throwaway Postgres — never the dev
       database) and report the results back. This is the point where T1–T4
       move from `awaiting-user-verification` to actually verified.
