@@ -15,7 +15,7 @@ import (
 // sessionReader is the concrete implementation of the SessionReader port
 // (RM30-charging-add-session-read-port design.md D7). It mirrors sessionWriter's exact
 // shape: NOT part of the store interface service.go defines for Writer/Reader —
-// SessionReader is tested only via real DATABASE_URL-gated integration tests (no fake),
+// SessionReader is tested only via real TEST_DATABASE_URL-gated integration tests (no fake),
 // so it is a small unexported struct talking directly to chargingdb.Queries. pgtype is
 // confined to this file (and service.go, session_writer.go) — see
 // internal/charging/AGENTS.md §Allowed Imports.

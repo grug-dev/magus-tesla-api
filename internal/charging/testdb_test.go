@@ -3,7 +3,7 @@
 // db_session_integration_test.go and db_backfill_integration_test.go.
 //
 // Behavior (see internal/testdb and ai/go-conventions.md §persistence):
-//   - If DATABASE_URL is set AND reachable, use it (managed/CI Postgres).
+//   - If TEST_DATABASE_URL is set AND reachable, use it (managed/CI Postgres).
 //   - Otherwise auto-provision a disposable `postgres:16-alpine` container.
 //
 // TWO migration DIRECTORIES are applied, in this order: internal/telemetry's

@@ -105,7 +105,7 @@ Every future DB-backed module follows the same shape.
   as part of a build** — they are explicit developer/deploy steps.
 - **Secrets at rest:** Tesla tokens are stored plaintext for now (local Postgres). Add column
   encryption before any non-local deployment — tracked as an open item on the `account` change.
-- **DB tests are `DATABASE_URL`-gated** and self-skip when it is unset, so `go test ./...` stays
+- **DB tests are `TEST_DATABASE_URL`-gated** and self-skip when it is unset, so `go test ./...` stays
   green without a database. Pure logic (e.g. token-expiry math) is unit-tested without a DB.
 
 ### Testing — who writes them, who runs them
@@ -142,7 +142,7 @@ runs the other phases individually, so excluding `check` costs no guard coverage
 **Authoring order** (it follows from the above — unexecuted tests need to be right first time):
 
 - **Pure/offline tests** — write them early, TDD-style. `go vet` verifies they compile.
-- **`DATABASE_URL`-gated integration tests** — write them **last**, after the migration and
+- **`TEST_DATABASE_URL`-gated integration tests** — write them **last**, after the migration and
   the sqlc-generated types exist; they cannot compile before that.
 - **But author their expected values up front**, in the change's `design.md`, before the
   implementation exists. A test written after reading the implementation confirms what the
@@ -157,7 +157,7 @@ costs a fix on every redesign and buys nothing. The full banned/required split l
 `internal/gateway/AGENTS.md` §"Do not test what the page looks like" (MAG-39).
 
 **Provisioning the test database — which entry point.** `internal/testdb` provisions a
-throw-away Postgres (a reachable `DATABASE_URL` if there is one, otherwise a disposable
+throw-away Postgres (a reachable `TEST_DATABASE_URL` if there is one, otherwise a disposable
 `postgres:16-alpine` container) with your migrations applied. It has two entry points, and
 picking the wrong one produces a mystifying "relation does not exist" deep inside a test:
 
@@ -165,6 +165,14 @@ picking the wrong one produces a mystifying "relation does not exist" deep insid
 |---|---|---|
 | only its own module's tables | `testdb.Provision(ctx, fsys)` | `//go:embed db/migrations/*.sql`, then `fs.Sub`. See `internal/telemetry/testdb_test.go`. |
 | more than one module's tables | `testdb.ProvisionDirs(ctx, dirs...)` | Relative migration **directories**, e.g. `"db/migrations"`, `"../telemetry/db/migrations"`. See `internal/analytics/testdb_test.go`. |
+
+**Opt-in: a real local database instead of the testcontainer.** Set
+`TEST_DATABASE_URL=postgres://localhost:5432/magus_test?sslmode=disable` (or any other
+Postgres you keep around) and `internal/testdb` uses it instead of starting a container.
+Run `make db-setup-test` first — and again before any later test run — to create it if
+missing, re-own its schemas, and apply pending migrations. This is faster and needs no
+Docker daemon, but the database can go stale between runs; `make db-setup-test` is what
+keeps it current, and nothing touches it unless `TEST_DATABASE_URL` is set on purpose.
 
 Why the second form takes paths rather than an `fs.FS`: the **`//go:embed` directive may not
 contain `..` path elements**, so a package can only ever embed its own migrations. That is a

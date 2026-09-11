@@ -12,7 +12,7 @@ import (
 
 // These tests exercise SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince
 // (RM44-platform-add-mirror-watermark, MAG-48, roadmap D20) against a real Postgres from
-// DATABASE_URL and self-skip when it is unset, so `go test ./...` stays green without a
+// TEST_DATABASE_URL and self-skip when it is unset, so `go test ./...` stays green without a
 // database (ai/go-conventions.md §persistence, AGENTS.md §Testing notes). They reuse
 // upsertSuperchargerHistory (service.go) and newSuperchargerHistoryReaderImpl (reader.go),
 // the same helpers db_supercharger_integration_test.go already exercises, plus the itoa

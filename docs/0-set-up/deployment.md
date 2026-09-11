@@ -281,7 +281,7 @@ Build/vet before shipping:
 
 ```bash
 go build ./... && go vet ./...
-go test ./...        # account integration tests run only when DATABASE_URL is set
+go test ./...        # DB tests use a disposable container; set TEST_DATABASE_URL to use a real one
 ```
 
 ---
@@ -298,7 +298,7 @@ go test ./...        # account integration tests run only when DATABASE_URL is s
 | `WARNING: database 'magus' … owned by '<other>', not 'magusadmindb'` | A **leftover DB from an earlier setup** exists, owned by your OS user. The app role can't touch its tables. For a clean, correctly-owned DB: **`make db-reset`** (DESTRUCTIVE — drops + recreates owned by the role + migrates). |
 | App: `permission denied for table accounts` (or similar) | The DB/tables are owned by a different role than the one in `DATABASE_URL`. Easiest fix on dev: `make db-reset`. |
 | `\getenv: not found` / role step fails | Needs `psql` **16+** (ships with `postgresql@16`). Check `psql --version`. |
-| Integration tests skipped | Expected when `DATABASE_URL` is unset — they self-skip. |
+| Integration tests skipped | Docker is not running and `TEST_DATABASE_URL` is unset, so no Postgres could be provisioned. Start Docker, or set `TEST_DATABASE_URL`. |
 
 ---
 

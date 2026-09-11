@@ -25,7 +25,7 @@ import (
 const defaultRetryBackoff = 2 * time.Second
 
 // store is the narrow persistence seam the collection service writes through. It
-// exists so CollectAll can be unit-tested offline with a fake store (no DATABASE_URL,
+// exists so CollectAll can be unit-tested offline with a fake store (no TEST_DATABASE_URL,
 // no Postgres) while the production path uses the telemetrydb-backed implementation
 // built in NewService. Keeping it unexported and domain-typed (Snapshot / Attempt in,
 // error out) is what keeps pgtype from leaking past the module boundary: the mapping

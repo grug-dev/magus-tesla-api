@@ -1,8 +1,8 @@
-// File db_integration_test.go holds this module's DATABASE_URL-gated
+// File db_integration_test.go holds this module's TEST_DATABASE_URL-gated
 // DB-integration tests (RM29-analytics-add-vehicle-metrics, Wave 6) — this
 // module's FIRST-EVER DB-backed test file, run against a live Postgres
 // provisioned by TestMain (testdb_test.go), auto-provisioned via
-// testcontainers-go when DATABASE_URL is unset/unreachable
+// testcontainers-go when TEST_DATABASE_URL is unset/unreachable
 // (ai/go-conventions.md §persistence).
 //
 // # Status of this file relative to tasks.md Wave 6
@@ -75,7 +75,7 @@ import (
 func newTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if testDSN == "" {
-		t.Skip("no test Postgres: set DATABASE_URL or start Docker to run the DB-backed tests")
+		t.Skip("no test Postgres: set TEST_DATABASE_URL or start Docker to run the DB-backed tests")
 	}
 	pool, err := pgxpool.New(context.Background(), testDSN)
 	if err != nil {
@@ -89,12 +89,17 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 // rows this test created, scoped to one (accountID, teslaID), so a shared DB
 // stays tidy across test runs (mirrors telemetry/db_integration_test.go's
 // cleanupVehicle one level up).
+//
+// It also deletes the telemetry.vehicle_snapshots rows this file inserts
+// directly. Telemetry's own helpers never see those rows, so only this
+// function can remove them.
 func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) {
 	t.Helper()
 	t.Cleanup(func() {
 		ctx := context.Background()
 		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metrics WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
 		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
 	})
 }
 

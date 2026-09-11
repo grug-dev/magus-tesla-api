@@ -1,6 +1,6 @@
 // Package charging_test contains database-backed integration tests for the
 // charging module. Postgres is auto-provisioned by testdb_test.go's TestMain:
-//   - When DATABASE_URL is set, that managed Postgres is used (unchanged behavior).
+//   - When TEST_DATABASE_URL is set, that managed Postgres is used (unchanged behavior).
 //   - Otherwise a disposable `postgres:16-alpine` container is started for the run.
 //
 // goose migrations are embedded and applied before any test runs, so the schema is

@@ -18,7 +18,7 @@ import (
 // A.2, and the raw_data half of Group C). Every expected log line below was
 // transcribed from design.md D6's tables BEFORE re-reading query_log.go's
 // format strings — the assertions pin what the design specifies, not what the
-// code happens to print. All tests are pure offline: no DATABASE_URL, no
+// code happens to print. All tests are pure offline: no TEST_DATABASE_URL, no
 // network, a fake `inner` per decorated interface.
 
 // captureLog redirects the standard logger to an in-memory buffer for the

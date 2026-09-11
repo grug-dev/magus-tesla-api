@@ -11,7 +11,7 @@ import (
 )
 
 // These tests exercise the real analyticsdb-backed GapWriter (gap_writer.go) against
-// the test Postgres this package's TestMain provisions -- DATABASE_URL when set,
+// the test Postgres this package's TestMain provisions -- TEST_DATABASE_URL when set,
 // otherwise a Docker container -- and self-skip when neither is available, so
 // `go test ./...` stays green without a database (ai/go-conventions.md §persistence,
 // AGENTS.md §Testing notes). They require the charge_gaps table created by migration

@@ -49,7 +49,7 @@ const defaultLimit = 100
 // Keeping it unexported and typed entirely in chargingdb terms means pgtype is
 // confined to dbStore — it never surfaces in the service logic or public types.
 // The seam also enables offline unit testing of higher-level logic by swapping in a
-// fake store (no DATABASE_URL required).
+// fake store (no TEST_DATABASE_URL required).
 type store interface {
 	createEntry(ctx context.Context, params chargingdb.CreateEntryParams) (chargingdb.ManualChargeEntry, error)
 	updateEntry(ctx context.Context, params chargingdb.UpdateEntryParams) (chargingdb.ManualChargeEntry, error)

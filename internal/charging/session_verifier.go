@@ -25,7 +25,7 @@ const batteryPctSourceUserVerified = "user_verified"
 // (RM31-charging-add-session-verification-port design.md D9). It mirrors
 // sessionWriter's/sessionReader's exact shape: NOT part of the store interface
 // service.go defines for Writer/Reader — SessionVerifier is tested only via real
-// DATABASE_URL-gated integration tests (no fake), so it is a small unexported struct
+// TEST_DATABASE_URL-gated integration tests (no fake), so it is a small unexported struct
 // talking directly to chargingdb.Queries. pgtype never appears in this file — the two
 // existing helpers it reuses (intPtrToPgInt2, stringPtrToPgText, service.go) confine
 // pgtype to the DB boundary, as this module's Allowed Imports rule requires.

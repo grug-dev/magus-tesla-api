@@ -1,0 +1,430 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "platform-isolate-tests-from-dev-database",
+  "module": "platform",
+  "roadmap": null,
+  "request": "MAG-72 \u2014 clean up telemetry integration-test fixtures in vehicle_snapshots. Investigation found the ticket's premise wrong: telemetry's tests clean up correctly; internal/analytics/db_integration_test.go inserts into telemetry.vehicle_snapshots without deleting it, and internal/testdb reads DATABASE_URL so any test run that sees it uses the real dev database. Scope agreed with the owner: read TEST_DATABASE_URL instead, fix the analytics cleanup, sweep stale docs, add a one-off cleanup script for the 78 existing rows, and document magus_test as the opt-in target.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9"
+    ]
+  },
+  "created_at": "2026-09-11T15:08:21Z",
+  "updated_at": "2026-09-11T15:44:45Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH54-MAG-72-platform-isolate-tests-from-dev-database",
+    "base": "2812fc961c6c8aa1786fe6466e2ce07a9b4a7d4c",
+    "ticket": "MAG-72",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-72/clean-up-telemetry-integration-test-fixtures-in-vehicle-snapshots",
+    "created_at": "2026-09-11T15:08:21Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "internal/testdb reads TEST_DATABASE_URL; Makefile test targets updated",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-11T15:00:00Z",
+      "completed_at": "2026-09-11T15:12:00Z",
+      "duration_seconds": 720,
+      "notes": "Renamed to TEST_DATABASE_URL in testdb.go (functional line, log message, 6 comment lines, ErrUnavailable string). Makefile test/test-with-db rewritten with new help text.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 43.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.78,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T1-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Fix the analytics test cleanup leak into telemetry.vehicle_snapshots",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-11T15:12:00Z",
+      "completed_at": "2026-09-11T15:20:00Z",
+      "duration_seconds": 480,
+      "notes": "Added the missing telemetry.vehicle_snapshots DELETE to cleanupVehicleMetrics. Renamed 3 stale lines. Boundary-crossing note added in plain words.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 43.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.78,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T1-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Sweep 31 stale DATABASE_URL-gated comments across 25 Go files",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-11T15:20:00Z",
+      "completed_at": "2026-09-11T15:45:00Z",
+      "duration_seconds": 1500,
+      "notes": "Swept 31 lines across 25 Go files. Leader verified no bare DATABASE_URL remains outside internal/config.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 43.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.78,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T1-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Sweep 15 stale DATABASE_URL references across 6 doc files",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-11T15:45:00Z",
+      "completed_at": "2026-09-11T15:58:00Z",
+      "duration_seconds": 780,
+      "notes": "Swept 15 lines across 6 Markdown files. Leader verified README 31/34/173 and go-conventions 101/295 untouched.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 43.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.78,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T1-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Add the one-off orphan-cleanup SQL script",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-11T15:58:00Z",
+      "completed_at": "2026-09-11T16:02:00Z",
+      "duration_seconds": 240,
+      "notes": "Created scripts/2026-09-11-cleanup-orphan-vehicle-snapshots.sql. NOT EXISTS predicate, before/after counts, backup warning. Leader rewrote the header to drop a change-name pointer.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 43.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.78,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T1-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Cheap signals: go build, go vet, gofmt -l",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T15:22:40Z",
+      "completed_at": "2026-09-11T15:22:40Z",
+      "duration_seconds": 0,
+      "notes": "go build, go vet clean. gofmt flags only internal/account/testdb_test.go, verified pre-existing on main. boundary/tz/migration/archive guards all pass.",
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "OWNER-RUN: back up, run the script, verify counts, run the suite",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-09-11T15:33:22Z",
+      "completed_at": "2026-09-11T15:33:22Z",
+      "duration_seconds": 0,
+      "notes": "Owner ran the script (78 to 0), db-setup-test (4 schemas re-owned, 1 migration applied) and make test (passed). Leader confirmed the suite wrote nothing to magus.",
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "Add the db-setup-test Makefile target for magus_test",
+      "module": "platform",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-11T15:16:46Z",
+      "completed_at": "2026-09-11T15:22:40Z",
+      "duration_seconds": null,
+      "notes": "Added TEST_DATABASE_URL/TEST_DB_NAME/TEST_ADMIN_DATABASE_URL/TEST_ADMIN_ON_DB and the db-setup-test target. Leader found and fixed a broken psql -d call that discarded the URI host. Owner must run it once for real.",
+      "budget": {
+        "five_hour_pct_start": 43.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.5,
+        "context_pct_end": 27,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the T8-T9 wave jointly, including the psql fix round"
+      }
+    },
+    {
+      "id": "T9",
+      "title": "Document the opt-in TEST_DATABASE_URL path in README and go-conventions",
+      "module": "platform",
+      "depends_on": [
+        "T4",
+        "T8"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-11T15:16:46Z",
+      "completed_at": "2026-09-11T15:22:40Z",
+      "duration_seconds": null,
+      "notes": "Documented the opt-in path in README.md and ai/go-conventions.md, with the commands and the staleness trade-off.",
+      "budget": {
+        "five_hour_pct_start": 43.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 9.0,
+        "cost_usd_delta": 3.5,
+        "context_pct_end": 27,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the T8-T9 wave jointly, including the psql fix round"
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "platform-reviewer",
+    "brief": null,
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-11T16:20:00Z",
+        "duration_seconds": null,
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "docs/0-set-up/deployment.md:284 (\"go test ./... # account integration tests run only when DATABASE_URL is set\") and :301 (\"Integration tests skipped | Expected when DATABASE_URL is unset\") still name DATABASE_URL for test gating. testdb no longer reads that variable, so a developer following this setup guide sets the wrong one and gets a silent testcontainer instead of their real database. This file was not in T4's 6-file list; the D5 sweep missed it.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "openspec/roadmaps/backlog.md item 10 (\"testing \u2014 testdb.Provision can mask a real migration failure as unavailable\") still says \"internal/testdb.Provision tries DATABASE_URL first\" and quotes the old log message. Its own stated Trigger (\"the next time anyone touches internal/testdb\") fired with T1. Not user-facing like R1, but it is a live, non-archived doc describing current code by the wrong variable name.",
+            "status": "fixed"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "internal/analytics/db_integration_test.go cleanupVehicleMetrics: the new 6-line paragraph explaining the telemetry boundary crossing is longer than the 1-line DELETE it justifies. Task T2.3 asked for a short line near the function; consider trimming to 2-3 lines.",
+            "status": "fixed"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-09-11T17:05:00Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Fixed in 52727ce. docs/0-set-up/deployment.md:284 and :301 now name TEST_DATABASE_URL and describe the real skip condition (Docker down and TEST_DATABASE_URL unset). Confirmed the file's other DATABASE_URL mentions (app config: role/DB creation, migrate-up, troubleshooting) were left alone.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Fixed in 52727ce. openspec/roadmaps/backlog.md item 10 and the line-99 charging-harness mention both now say TEST_DATABASE_URL. Confirmed zero bare DATABASE_URL left in the file.",
+            "status": "fixed"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "Fixed in 52727ce. cleanupVehicleMetrics's added comment is now 3 lines (8 total with the pre-existing block) against a 9-line function body. Kept the fact a reader cannot infer (telemetry's own helpers never see these rows, so only this function can clean them up) and dropped the narration about how the leak used to reach a real database.",
+            "status": "fixed"
+          },
+          {
+            "id": "R4",
+            "severity": "major",
+            "note": "Found and fixed by the leader in 52727ce, not caught by round 1. README.md:78 claimed make test \"never reads DATABASE_URL\" and \"always\" uses a testcontainer \u2014 true of the old env-u target, false of the new plain `go test ./...`, which honors an exported TEST_DATABASE_URL. New wording (\"No test reads DATABASE_URL any more... make test uses TEST_DATABASE_URL when you set it, and a disposable testcontainer when you do not\") verified accurate against Makefile lines 554-558 and testdb.go:138.",
+            "status": "fixed"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-SCOPE",
+      "at": "2026-09-11T15:08:21Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "keep all three parts on MAG-72 rather than splitting into new tickets",
+      "why": "MAG-72 was the cleanup ticket; the owner chose to widen it after the real cause was found",
+      "covered_by": null
+    },
+    {
+      "id": "D-MODULE",
+      "at": "2026-09-11T15:08:21Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "owning module is platform, as one change, not a roadmap",
+      "why": "config.yaml reserves platform for cross-cutting work; a roadmap is heavy for a four-file fix",
+      "covered_by": null
+    },
+    {
+      "id": "D-CLEANUP-FORM",
+      "at": "2026-09-11T15:08:21Z",
+      "scope": "task:T5",
+      "made_by": "user",
+      "decision": "one-off SQL script run by hand, not a goose migration",
+      "why": "the orphan rows exist only on dev; a migration would run on every environment forever",
+      "covered_by": null
+    },
+    {
+      "id": "D-MAGUS-TEST",
+      "at": "2026-09-11T15:08:21Z",
+      "scope": "task:T8",
+      "made_by": "user",
+      "decision": "keep magus_test and document it as the opt-in TEST_DATABASE_URL target",
+      "why": "it already exists and is unreferenced; the container stays the default because a hand-kept database drifts",
+      "covered_by": null
+    },
+    {
+      "id": "D-SPEC-DELTA",
+      "at": "2026-09-11T15:08:21Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "added a platform capability delta after strict validation rejected the change",
+      "why": "the leader wrongly told the worker a delta was optional; the spec-driven schema requires one",
+      "covered_by": null
+    },
+    {
+      "id": "D-PSQL-CONN",
+      "at": "2026-09-11T15:22:40Z",
+      "scope": "task:T8",
+      "made_by": "autopilot",
+      "decision": "replaced psql \"$ADMIN\" -d \"$DB\" with a single positional admin URI aimed at the test database",
+      "why": "-d takes the dbname slot, so the URI became a username and the host was dropped; verified by reproducing the FATAL",
+      "covered_by": null
+    },
+    {
+      "id": "D-README-CLAIM",
+      "at": "2026-09-11T15:41:17Z",
+      "scope": "review:round-1",
+      "made_by": "autopilot",
+      "decision": "also corrected README's claim that make test can never touch the real database",
+      "why": "true of the old env -u target, false now that make test is plain go test and honours TEST_DATABASE_URL",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-11T15:08:21Z",
+      "agent": "leader",
+      "event": "artifacts committed (f9e2a4a); strict validation passes; ticket MAG-72 moved to In Progress"
+    },
+    {
+      "at": "2026-09-11T15:08:21Z",
+      "agent": "leader",
+      "event": "ticket premise corrected before implementation: cause is internal/analytics/db_integration_test.go, not telemetry; correction comment posted to MAG-72"
+    },
+    {
+      "at": "2026-09-11T15:08:35Z",
+      "agent": "leader",
+      "event": "dispatched wave 1 (T1-T5) on sonnet; budget start five_hour_pct=34 cost_usd=15.86"
+    },
+    {
+      "at": "2026-09-11T15:16:39Z",
+      "agent": "leader",
+      "event": "wave 1 (T1-T5) complete; go build and go vet clean; gofmt flags internal/account/testdb_test.go, verified pre-existing on main and left alone"
+    },
+    {
+      "at": "2026-09-11T15:16:46Z",
+      "agent": "leader",
+      "event": "wave 1 committed c802c48; dispatched wave 2 (T8, T9) on sonnet; budget start five_hour_pct=43"
+    },
+    {
+      "at": "2026-09-11T15:22:40Z",
+      "agent": "leader",
+      "event": "wave 2 (T8, T9) complete; leader ran T6 signals: build/vet clean, 4 guards pass; gofmt drift pre-existing and left alone"
+    },
+    {
+      "at": "2026-09-11T15:33:22Z",
+      "agent": "leader",
+      "event": "USER verified: ran the cleanup script, make db-setup-test and make test, all passing. Leader confirmed against the dev database: orphans 0, duplicate groups 0, total 114 (112 plus two later poller days), newest write 2026-09-11T05:35 predates the suite run, so the tests wrote nothing to magus."
+    },
+    {
+      "at": "2026-09-11T15:41:17Z",
+      "agent": "leader",
+      "event": "round 1 triage: accepted R1, R2, R3 (all verified against the files). Leader swept live docs again and found a fourth issue the review missed: README overstated that make test can never reach a real database. Fixed all four; build, vet and 4 guards clean."
+    },
+    {
+      "at": "2026-09-11T15:44:45Z",
+      "agent": "leader",
+      "event": "archived under archive/platform/ per the project's module-grouped rule; the CLI drops archives at the archive root, so the folder is moved by hand in this same commit"
+    }
+  ]
+}

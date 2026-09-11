@@ -17,7 +17,7 @@ import (
 
 // The tests below exercise CollectAll fully OFFLINE: fake account.Service and
 // tesla.VehicleService ports plus an in-memory fake store injected through the
-// unexported `store` seam. No DATABASE_URL, no network, and — critically — no Tesla
+// unexported `store` seam. No TEST_DATABASE_URL, no network, and — critically — no Tesla
 // API call ever fires (the fakes never touch the real adapter).
 
 // --- fake account.Service (only the two methods CollectAll uses are meaningful) ---

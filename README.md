@@ -71,13 +71,26 @@ go mod tidy
 sqlc generate
 go build ./...   # compile everything
 go vet ./...     # static analysis
-go test ./...    # tests — internal/testdb uses DATABASE_URL when reachable,
+go test ./...    # tests — internal/testdb uses TEST_DATABASE_URL when set and reachable,
                  # otherwise a disposable postgres:16-alpine testcontainer
 ```
 
-> `make test` deliberately **ignores** `.env`'s `DATABASE_URL` and always runs against a
-> disposable testcontainer, so the suite can never touch the real magus database. Use
-> `make test-with-db` to opt in to the configured `DATABASE_URL` (CI with a managed Postgres).
+> No test reads `DATABASE_URL` any more, so your real magus database is safe by
+> default. `make test` uses `TEST_DATABASE_URL` when you set it, and a disposable
+> testcontainer when you do not. Reaching a real database now takes a deliberate
+> step: set `TEST_DATABASE_URL` yourself, or use `make test-with-db`, which forwards
+> your `DATABASE_URL` as `TEST_DATABASE_URL` (CI with a managed Postgres).
+
+> **Prefer a real local database over the testcontainer?** It starts faster and needs
+> no Docker daemon. Run `make db-setup-test` once to bring it current, then point tests
+> at it yourself:
+> ```bash
+> make db-setup-test
+> TEST_DATABASE_URL=postgres://localhost:5432/magus_test?sslmode=disable make test
+> ```
+> Trade-off: this is a second database that can go stale between runs. Re-run
+> `make db-setup-test` before testing to bring it current — nothing else touches it
+> unless you set `TEST_DATABASE_URL` on purpose.
 
 To produce runnable **binaries** (not just compile), build the entrypoints into `./bin`:
 
@@ -127,7 +140,7 @@ magus-tesla-api/
 │   ├── config/         # .env loading and token persistence
 │   ├── auth/           # Tesla OAuth URL, code exchange, token refresh
 │   ├── clock/          # Platform default time zone (America/Bogota) + calendar-day normalization. Stdlib time only.
-│   └── testdb/         # Test-only Postgres provisioning (DATABASE_URL → testcontainer fallback)
+│   └── testdb/         # Test-only Postgres provisioning (TEST_DATABASE_URL → testcontainer fallback)
 │
 ├── magus-public-key-netlify/   # EC public key hosted on Netlify for Tesla verification
 │   └── well-known/appspecific/
@@ -219,7 +232,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
 | `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config`, `telemetry`, `analytics`, `app` and `gateway` (`RM35` tiers 2–6). |
-| `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
+| `internal/testdb` | Test-only Postgres provisioning helper (uses `TEST_DATABASE_URL` when set and reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph
 
