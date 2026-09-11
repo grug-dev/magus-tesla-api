@@ -51,263 +51,80 @@ Raw Tesla API responses are only an intermediate step. The primary value of the 
 
 # Primary Objectives
 
-For each user and their vehicles, the platform should answer questions such as:
+For each user and their vehicles, the platform answers questions like *is my battery degrading
+normally*, *how much energy do I consume per kilometre*, *what are my charging habits*, and
+*how much am I saving against a petrol car*. The full set, and the metrics and dashboards that
+could answer them, live in [`VISION.md`](VISION.md).
 
-* Is my battery degrading normally?
-* How has my battery capacity changed over time?
-* How much energy do I consume per kilometer?
-* How efficient is my driving?
-* What affects my efficiency the most?
-* How much money am I saving compared to a gasoline vehicle?
-* What are my charging habits?
-* How much phantom drain does the vehicle experience?
-* How accurate are Tesla's range predictions?
-* Are there unusual behaviors that deserve investigation?
-* How does weather affect energy consumption?
-* How does driving style affect efficiency?
-* How often do I fast charge?
-* How healthy are my charging habits?
-
-The platform should always evolve toward answering more meaningful questions.
+Raw Tesla API responses are only an intermediate step. The value is in the calculated insights.
 
 ---
 
 # Data Collection Strategy
 
-The platform should identify Tesla APIs that provide valuable historical information.
-
-Typical categories include:
-
-* Battery information
-* Charging sessions
-* Vehicle state
-* Drive state
-* Climate state
-* Vehicle configuration
-
-
-Agents should continuously evaluate whether new Tesla APIs introduce useful analytical opportunities.
+Identify Tesla APIs that provide valuable **historical** information — battery, charging
+sessions, vehicle state, drive state, climate, configuration. Evaluate whether a new Tesla API
+opens an analytical opportunity.
 
 ---
 
 # Data Retention Philosophy
 
-Prefer storing historical events rather than overwriting state.
+**Prefer storing historical events over overwriting state.** Battery and vehicle snapshots,
+charging sessions, trips, daily and monthly summaries.
 
-Examples include:
-
-* Battery snapshots
-* Charging sessions
-* Vehicle snapshots
-* Climate snapshots
-* Trips
-* Daily or weekly summaries (The best that cannot consume too much tesla API quota)
-* Monthly summaries
-
-Historical information should never be discarded unless retention policies explicitly require it.
-
----
-
-# Metrics
-
-Whenever possible, derive metrics instead of storing only raw values.
-
-Examples include:
-
-Battery
-
-* Estimated battery health
-* Capacity degradation
-* Range degradation
-* Battery aging
-* Battery efficiency
-
-Charging
-
-* Home charging ratio
-* Other charging ration
-* Supercharger ratio
-* Charging efficiency
-* Average charging speed
-* Charging duration
-* Energy added
-* Charging costs
-
-Driving
-
-* Energy per kilometer
-* Energy per trip
-* Average speed
-* Daily distance
-* Monthly distance
-* Seasonal efficiency
-* Driving efficiency score
-
-Cost
-
-* Electricity costs
-* Estimated gasoline equivalent
-* Savings
-* Cost per kilometer
-* Cost per month
-
-Vehicle Usage
-
-* Daily utilization
-* Idle time
-* Sleep time
-* Phantom drain
-* Vehicle availability
-
-Forecasting
-
-* Predicted battery degradation
-* Estimated remaining battery capacity
-* Projected yearly energy costs
-* Charging recommendations
-
-Agents are encouraged to identify and implement additional derived metrics whenever they provide meaningful insights.
+**Historical information is never discarded** unless a retention policy explicitly requires it.
+The development database holds hand-verified history Tesla cannot re-supply, so price any
+destructive operation before proposing it.
 
 ---
 
 # Polling Strategy
 
-Not every Tesla API should be called at the same frequency.
+Not every Tesla API should be called at the same frequency. Choose intervals from vehicle
+state, charging and driving status, sleep state, data volatility, rate limits, battery impact
+and cost. Adaptive polling is preferred over fixed schedules.
 
-The platform should intelligently determine polling intervals based on:
-
-* Vehicle state
-* Charging status
-* Driving status
-* Sleep state
-* Data volatility
-* API rate limits
-* Battery impact
-* Cost
-
-The vehicle should not be unnecessarily awakened solely for data collection.
-
-Adaptive polling is preferred over fixed schedules.
+**The vehicle must not be woken merely to collect data.**
 
 ## Data Access Model (who may call Tesla)
 
-End users never trigger Tesla API calls on demand. The only user-initiated call is
-listing the account's vehicles when a Tesla account is first connected. Every other
-Tesla API call is made by server-side scheduled/background collection jobs, and
-dashboards read exclusively from data the platform has already stored.
+**End users never trigger a Tesla API call on demand.** The only user-initiated call is listing
+the account's vehicles when a Tesla account is first connected. Every other Tesla API call is
+made by a server-side scheduled or background job, and **dashboards read exclusively from data
+the platform has already stored**.
 
-Consequently, a scheduled wake is sanctioned when it is the only way to collect data a
-platform feature requires (e.g. the nightly anchor snapshot) — a deliberate, bounded
-exception to the no-wake preference above, since no on-demand collection path exists.
+A scheduled wake is sanctioned only when it is the one way to collect data a platform feature
+requires — the nightly anchor snapshot, for example. That is a bounded exception to the no-wake
+rule above, allowed because no on-demand collection path exists. Tesla API calls are paid and
+they wake the car.
 
 ---
 
 # Storage Strategy
 
-The persistence layer should support efficient historical analysis.
-
-Prefer immutable event records.
-
-Avoid designs that lose historical information.
-
-Optimize for:
-
-* Trend analysis
-* Time-series queries
-* Aggregations
-* Forecasting
-* Dashboards
+The persistence layer supports efficient historical analysis: prefer immutable event records,
+avoid designs that lose historical information, and optimize for trend analysis, time-series
+queries, aggregation and forecasting.
 
 ---
 
-# Dashboard Philosophy
+# What to propose
 
-Dashboards should explain the vehicle's behavior rather than merely displaying values.
-
-Useful visualizations include:
-
-Battery
-
-* Battery health over time
-* Capacity degradation
-* Range degradation
-* Battery temperature history
-
-Charging
-
-* Charging sessions
-* Energy added
-* Charging locations
-* Charger type distribution
-* Charging efficiency
-
-Driving
-
-* Daily distance
-* Monthly distance
-* Energy consumption
-* Efficiency trends
-* Energy per kilometer
-
-Cost
-
-* Electricity cost
-* Cost per kilometer
-* Monthly expenses
-* Savings versus gasoline
-
-Vehicle Usage
-
-* Daily activity
-* Idle time
-* Phantom drain
-* Vehicle availability
-
-Forecasts
-
-* Battery lifespan
-* Expected degradation
-* Annual charging costs
-* Future range estimates
-
-Agents are encouraged to propose new dashboards whenever historical data supports additional insights.
-
----
-
-# AI Responsibilities
-
-AI coding assistants should proactively:
-
-* Suggest new metrics.
-* Identify missing historical data.
-* Recommend better data models.
-* Detect opportunities for aggregation.
-* Recommend useful dashboards.
-* Identify performance optimizations.
-* Suggest statistical analyses.
-* Recommend forecasting models.
-* Detect anomalies.
-* Improve maintainability.
-
-Agents should think like both a software architect and a data analyst.
+Think like a software architect and a data analyst. Proactively suggest new metrics, missing
+historical data, better data models, aggregation opportunities, useful dashboards, performance
+improvements and anomaly detection. [`VISION.md`](VISION.md) carries the standing candidate
+list.
 
 ---
 
 # Success Criteria
 
-The project succeeds when **each user** can understand the long-term behavior of **their vehicles** without manually inspecting Tesla API responses.
+The project succeeds when **each user** can understand the long-term behaviour of **their
+vehicles** without manually inspecting Tesla API responses — battery health, charging
+behaviour, driving efficiency, utilization, operating costs, long-term trends and forecasts.
 
-Every feature should increase the user's understanding of:
-
-* Battery health
-* Charging behavior
-* Driving efficiency
-* Vehicle utilization
-* Operating costs
-* Long-term trends
-* Future predictions
-
-The project should evolve into a comprehensive **multi-tenant** Tesla intelligence platform rather than a simple Tesla API client.
+A comprehensive **multi-tenant** Tesla intelligence platform, not a Tesla API client.
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph

@@ -184,3 +184,130 @@ Instead, the platform should explain:
 * What is likely to happen next
 
 The long-term vision is to create a personal Tesla intelligence system that continuously learns from the vehicle's history and becomes more valuable every month it operates.
+
+---
+
+# Metric and dashboard candidates
+
+Moved here from the root `AGENTS.md`, which every assistant loads on every session. These are
+**candidates, not commitments** — a backlog of ideas to draw on, not a list anything is
+measured against. The Core Pillars above say what the platform is for; this says what it could
+compute and show.
+
+# Metrics
+
+Whenever possible, derive metrics instead of storing only raw values.
+
+Examples include:
+
+Battery
+
+* Estimated battery health
+* Capacity degradation
+* Range degradation
+* Battery aging
+* Battery efficiency
+
+Charging
+
+* Home charging ratio
+* Other charging ration
+* Supercharger ratio
+* Charging efficiency
+* Average charging speed
+* Charging duration
+* Energy added
+* Charging costs
+
+Driving
+
+* Energy per kilometer
+* Energy per trip
+* Average speed
+* Daily distance
+* Monthly distance
+* Seasonal efficiency
+* Driving efficiency score
+
+Cost
+
+* Electricity costs
+* Estimated gasoline equivalent
+* Savings
+* Cost per kilometer
+* Cost per month
+
+Vehicle Usage
+
+* Daily utilization
+* Idle time
+* Sleep time
+* Phantom drain
+* Vehicle availability
+
+Forecasting
+
+* Predicted battery degradation
+* Estimated remaining battery capacity
+* Projected yearly energy costs
+* Charging recommendations
+
+Agents are encouraged to identify and implement additional derived metrics whenever they provide meaningful insights.
+
+---
+
+---
+
+# Dashboard Philosophy
+
+Dashboards should explain the vehicle's behavior rather than merely displaying values.
+
+Useful visualizations include:
+
+Battery
+
+* Battery health over time
+* Capacity degradation
+* Range degradation
+* Battery temperature history
+
+Charging
+
+* Charging sessions
+* Energy added
+* Charging locations
+* Charger type distribution
+* Charging efficiency
+
+Driving
+
+* Daily distance
+* Monthly distance
+* Energy consumption
+* Efficiency trends
+* Energy per kilometer
+
+Cost
+
+* Electricity cost
+* Cost per kilometer
+* Monthly expenses
+* Savings versus gasoline
+
+Vehicle Usage
+
+* Daily activity
+* Idle time
+* Phantom drain
+* Vehicle availability
+
+Forecasts
+
+* Battery lifespan
+* Expected degradation
+* Annual charging costs
+* Future range estimates
+
+Agents are encouraged to propose new dashboards whenever historical data supports additional insights.
+
+---
