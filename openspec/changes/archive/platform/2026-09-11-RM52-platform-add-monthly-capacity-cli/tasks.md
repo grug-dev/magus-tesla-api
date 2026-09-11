@@ -169,7 +169,7 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite:
+- [x] **O1** **[owner]** Run the suite:
   ```bash
   make check
   ```
@@ -206,7 +206,7 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
   `make archive-guard` (this change's `Makefile`/`kkpa/context/` edits are exactly the
   kind of touch those guards watch).
 
-- [ ] **L3** **[leader]** When this change archives, update
+- [x] **L3** **[leader]** When this change archives, update
   `openspec/roadmaps/RM52-vehicle-monthly-metrics.md`'s tier 3 status to `[x]` — this
   closes the roadmap. Also update the "Tiers" table's own status legend row if all three
   now read `[x]`.
