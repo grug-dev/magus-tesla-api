@@ -154,7 +154,7 @@ Independent of T5–T7; may run in parallel with them.
 - [x] 8.2 `internal/analytics/README.md`: does not exist in this repo today —
       no-op. (The ticket named it; this repo's analytics module has no
       README.md, only `AGENTS.md`. Confirmed by directory listing.)
-- [ ] 8.3 This change's `specs/analytics/spec.md` delta (already written as
+- [x] 8.3 This change's `specs/analytics/spec.md` delta (already written as
       part of this change's artifacts) is synced into
       `openspec/specs/analytics/spec.md` at archive time via the normal
       OpenSpec sync step — no separate task here, but confirm at archive

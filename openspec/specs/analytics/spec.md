@@ -560,12 +560,11 @@ that reflect the replacing observation — not the replaced one.
 The analytics capability SHALL provide a durable ledger recording, per vehicle-day,
 that a charge record is missing or incomplete — a signal the analytics capability's
 own per-day consumption derivation computes. Each ledger row SHALL identify the
-owning account, the vehicle (its Tesla id and VIN), the flagged calendar day, and
-which charge source is suspected missing for that day (a manual charge entry not
-captured by the vehicle API, or a Supercharger session missing its
-battery-percentage readings). There SHALL be at most one ledger row per
-account/vehicle/day: a day's shortfall is a single aggregate observation and is
-never split across multiple rows for the same day.
+vehicle (its Tesla id and VIN), the flagged calendar day, and which charge source is
+suspected missing for that day (a manual charge entry not captured by the vehicle API,
+or a Supercharger session missing its battery-percentage readings). There SHALL be at
+most one ledger row per vehicle/day: a day's shortfall is a single aggregate
+observation and is never split across multiple rows for the same day.
 
 The ledger SHALL expose a write operation that reconciles a caller-supplied set of
 currently-flagged days against a caller-supplied date window for one vehicle: every
@@ -580,28 +579,28 @@ SHALL either fully apply (every insert, update, and removal it makes) or have no
 effect at all.
 
 The ledger SHALL reject a reconciliation call, without applying any part of it, if
-any supplied flagged day does not belong to the call's own account and vehicle, or if
-any supplied flagged day's date falls outside the call's own window.
+any supplied flagged day does not belong to the call's own vehicle, or if any supplied
+flagged day's date falls outside the call's own window.
 
 #### Scenario: A newly-flagged day is stored
-- **GIVEN** no ledger row exists for a given account, vehicle, and day
+- **GIVEN** no ledger row exists for a given vehicle and day
 - **WHEN** a reconciliation is performed for a window containing that day, with the
   day present in the flagged set and attributed to a specific suspected charge source
-- **THEN** the ledger stores exactly one row for that account, vehicle, and day
+- **THEN** the ledger stores exactly one row for that vehicle and day
 - **AND** the stored row's suspected charge source matches what was supplied
 
 #### Scenario: Re-flagging the same day on a later reconciliation does not duplicate it
-- **GIVEN** a ledger row already exists for a given account, vehicle, and day
+- **GIVEN** a ledger row already exists for a given vehicle and day
 - **WHEN** a later reconciliation is performed for a window containing that day, with the
   day still present in the flagged set
-- **THEN** the ledger still contains exactly one row for that account, vehicle, and day
+- **THEN** the ledger still contains exactly one row for that vehicle and day
 - **AND** the row's suspected charge source reflects the later reconciliation's value
 
 #### Scenario: A day that stops flagging is removed from the ledger
-- **GIVEN** a ledger row exists for a given account, vehicle, and day, within some window
+- **GIVEN** a ledger row exists for a given vehicle and day, within some window
 - **WHEN** a reconciliation is performed for that same window, with the day absent from the
   flagged set
-- **THEN** the ledger no longer contains any row for that account, vehicle, and day
+- **THEN** the ledger no longer contains any row for that vehicle and day
 - **AND** no trace of the removed day (such as a resolved marker) remains in the ledger
 
 #### Scenario: An empty flagged set clears every previously-flagged day in the window
@@ -616,10 +615,9 @@ any supplied flagged day's date falls outside the call's own window.
   contains
 - **THEN** the row outside the window is unaffected — neither removed nor altered
 
-#### Scenario: A reconciliation attempting to write another account or vehicle's day is rejected entirely
-- **GIVEN** a reconciliation call scoped to one account and vehicle
-- **WHEN** its flagged set contains an entry belonging to a different account or a different
-  vehicle
+#### Scenario: A reconciliation attempting to write another vehicle's day is rejected entirely
+- **GIVEN** a reconciliation call scoped to one vehicle
+- **WHEN** its flagged set contains an entry belonging to a different vehicle
 - **THEN** the reconciliation is rejected
 - **AND** no part of that call's flagged set is stored, including entries that were
   correctly scoped
@@ -631,17 +629,9 @@ any supplied flagged day's date falls outside the call's own window.
 - **AND** no part of that call's flagged set is stored
 
 #### Scenario: Ledger rows for different vehicles are independent
-- **GIVEN** two vehicles belonging to the same account, each with a ledger row for the same
-  calendar day
+- **GIVEN** two vehicles, each with a ledger row for the same calendar day
 - **WHEN** a reconciliation is performed for one vehicle that removes its row for that day
 - **THEN** the other vehicle's ledger row for the same day is unaffected
-
-#### Scenario: Ledger rows for different accounts are independent
-- **GIVEN** two accounts, each with a vehicle carrying a ledger row for the same calendar
-  day
-- **WHEN** a reconciliation is performed for one account's vehicle
-- **THEN** the other account's ledger row is unaffected, regardless of overlapping days or
-  vehicle identifiers
 
 ### Requirement: Reconciliation Cutoff Uses a UTC Calendar Day, Not the Platform Default Time Zone
 The analytics capability SHALL bound its incremental reconciliation window so it never recomputes a day whose data may still be in progress, using a calendar day computed in UTC — never the platform's default time zone, and never a host process's own local time zone.
