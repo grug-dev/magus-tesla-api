@@ -1,0 +1,1196 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "telemetry-rekey-vehicle-snapshots-on-tesla-id",
+  "module": "telemetry",
+  "roadmap": null,
+  "request": "Source ticket MAG-65 — re-key telemetry.vehicle_snapshots on tesla_id and demote poll_attempts.account_id to polled_by_account_id. Step 2 of MAG-63. Elect one polling account per vehicle first, then dedupe, swap the UNIQUE constraint, drop the column. Unit tests excluded.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "3.6",
+      "3.7",
+      "3.8",
+      "3.9",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "4.5",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "5.6",
+      "5.7",
+      "5.8",
+      "5.9",
+      "6.1",
+      "6.2",
+      "6.3",
+      "6.4",
+      "6.5",
+      "6.6",
+      "6.7",
+      "6.8",
+      "6.9",
+      "6.10",
+      "7.1",
+      "7.2",
+      "7.3",
+      "8.1",
+      "8.2",
+      "8.3",
+      "8.4",
+      "8.5",
+      "8.6",
+      "8.7",
+      "8.8",
+      "8.9",
+      "8.10",
+      "9.1",
+      "9.2",
+      "9.3",
+      "9.4",
+      "9.5",
+      "9.6",
+      "9.7"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-11T19:20:00Z",
+  "updated_at": "2026-09-11T19:20:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH55-MAG-65-telemetry-rekey-vehicle-snapshots-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-65",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-65/2-re-key-telemetryvehicle-snapshots-on-tesla-id-demote-poll",
+    "created_at": "2026-09-11T17:10:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "In `internal/telemetry/service.go`, add `electPollingVehicles` exactly as specified in `design.md` Part 1: sor…",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "Change `CollectAll` to call `elected := electPollingVehicles(vehicles)` immediately after `AllRegisteredVehicl…",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "Update `CollectAll`'s doc comment (and `groupByAccount`'s, if it still says \"buckets the flat cross-account ve…",
+      "module": "telemetry",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "`go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...` — expect these to still pass; T1 cha…",
+      "module": "telemetry",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "Write `internal/telemetry/db/migrations/20260911000001_rekey_vehicle_snapshots_on_tesla_id.sql` exactly as spe…",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "Do not touch any existing migration file — historic migrations are never edited (`ai/go-conventions.md`).",
+      "module": "telemetry",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Run `make migration-guard`. Expect clean (no cross-module schema reference introduced).",
+      "module": "telemetry",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "In `internal/telemetry/db/query.sql`, remove `account_id` from `InsertVehicleSnapshot`'s column list, `VALUES`…",
+      "module": "telemetry",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "Remove `account_id` from `SnapshotsByVehicleSince`'s `SELECT` column list and `WHERE` clause.",
+      "module": "telemetry",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "Remove `account_id` from `SnapshotsByVehicleBetween`'s `SELECT` column list and `WHERE` clause.",
+      "module": "telemetry",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "Remove `account_id` from `SnapshotsByVehicleUpdatedSince`'s `SELECT` column list and `WHERE` clause.",
+      "module": "telemetry",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.5",
+      "title": "Remove `account_id` from `SnapshotPrecedingDay`'s `SELECT` column list and `WHERE` clause.",
+      "module": "telemetry",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.6",
+      "title": "Rename `InsertPollAttempt`'s bound column/parameter from `account_id`/`@account_id` to `polled_by_account_id`/…",
+      "module": "telemetry",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.7",
+      "title": "Rename `LatestSnapshotsByAccount` to `LatestSnapshotsByVehicles`: replace `WHERE account_id = @account_id` wit…",
+      "module": "telemetry",
+      "depends_on": [
+        "3.6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.8",
+      "title": "Rewrite each of the six edited queries' doc comments so none of them cite `design D1`/`D2`/`D3`/`D4`/`D5` from…",
+      "module": "telemetry",
+      "depends_on": [
+        "3.7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.9",
+      "title": "Run `make sqlc` (or `sqlc generate`). Confirm `InsertVehicleSnapshotParams`, `SnapshotsByVehicleSinceParams`,…",
+      "module": "telemetry",
+      "depends_on": [
+        "3.8"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "In `internal/telemetry/telemetry.go`, remove `AccountID uuid.UUID` from `Snapshot` (design.md D-SNAPSHOT-FIELD…",
+      "module": "telemetry",
+      "depends_on": [
+        "3.9"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "In the same file, rename `Attempt.AccountID` to `Attempt.PolledByAccountID` (design.md D-ATTEMPT-FIELD) and up…",
+      "module": "telemetry",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "Change `Reader`'s five methods to the signatures in `design.md`: `SnapshotsByVehicleSince`, `SnapshotsByVehicl…",
+      "module": "telemetry",
+      "depends_on": [
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.4",
+      "title": "Mirror the same five signature/name changes on the unexported `store` interface in `service.go` (`latestSnapsh…",
+      "module": "telemetry",
+      "depends_on": [
+        "4.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.5",
+      "title": "`go build ./internal/telemetry/...` — expect this to fail until T5 lands (the concrete implementations and eve…",
+      "module": "telemetry",
+      "depends_on": [
+        "4.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "In `service.go`, drop `accountID uuid.UUID` from `snapshotFrom`'s parameter list; update its call site in `att…",
+      "module": "telemetry",
+      "depends_on": [
+        "4.5",
+        "1.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "In `mapping.go`'s `rowToSnapshot`, drop the `AccountID: r.AccountID,` line.",
+      "module": "telemetry",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.3",
+      "title": "In `service.go`'s `dbStore.insertSnapshot`, drop `AccountID: s.AccountID,` from the `InsertVehicleSnapshotPara…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.4",
+      "title": "In `service.go`'s `record()`, build `Attempt{PolledByAccountID: accountID, ...}` instead of `Attempt{AccountID…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.5",
+      "title": "In `service.go`'s `dbStore.insertPollAttempt`, map `PolledByAccountID: a.PolledByAccountID,` using whatever fi…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.6",
+      "title": "Update `dbStore`'s four `snapshotsByVehicle*`/`snapshotPrecedingDay` methods and `latestSnapshotsByVehicles` t…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.7",
+      "title": "Update `reader.go`'s five pass-through methods to the new signatures (thin delegation to the renamed/resigned…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.8",
+      "title": "In `query_log.go`: update `loggingStore`'s and `loggingReader`'s method signatures to match. `insertSnapshot`'…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.9",
+      "title": "`go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...` — expect these to still fail until T…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.8"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.1",
+      "title": "`db_read_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; drop the `accountID`/`.Ac…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.9"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.2",
+      "title": "`db_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; update `Attempt{AccountID: ...…",
+      "module": "telemetry",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.3",
+      "title": "`db_preceding_snapshot_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; drop the `a…",
+      "module": "telemetry",
+      "depends_on": [
+        "6.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.4",
+      "title": "`db_sourcea_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal.",
+      "module": "telemetry",
+      "depends_on": [
+        "6.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.5",
+      "title": "`db_tpms_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal.",
+      "module": "telemetry",
+      "depends_on": [
+        "6.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.6",
+      "title": "`query_log_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; update `Attempt{AccountID: ...}` to…",
+      "module": "telemetry",
+      "depends_on": [
+        "6.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.7",
+      "title": "`reader_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; update `fakeReadStore`, `fakeHistorySt…",
+      "module": "telemetry",
+      "depends_on": [
+        "6.6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.8",
+      "title": "`service_test.go`: update `fakeStore` to implement all five renamed/resigned `store` methods; delete the `got.…",
+      "module": "telemetry",
+      "depends_on": [
+        "6.7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.9",
+      "title": "`snapshot_from_test.go`: drop the leading `uuid.New()` argument from all four `snapshotFrom(...)` calls.",
+      "module": "telemetry",
+      "depends_on": [
+        "6.8"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.10",
+      "title": "`go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...` — expect clean now.",
+      "module": "telemetry",
+      "depends_on": [
+        "6.9"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "7.1",
+      "title": "`internal/telemetry/AGENTS.md`: update the \"Data ownership\" table's `vehicle_snapshots` row grain from \"one ro…",
+      "module": "telemetry",
+      "depends_on": [
+        "5.9"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "7.2",
+      "title": "This change's `specs/telemetry/spec.md` delta (already written as part of this change's artifacts) is synced i…",
+      "module": "telemetry",
+      "depends_on": [
+        "7.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "7.3",
+      "title": "`kkpa/context/architecture/telemetry-ingest-only.md`: update the \"Same-day captures dedupe\" bullet in \"Convent…",
+      "module": "telemetry",
+      "depends_on": [
+        "7.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.1",
+      "title": "`internal/analytics/reader.go:136`: drop the `accountID` argument from the `r.telemetry.SnapshotsByVehicleSinc…",
+      "module": "analytics",
+      "depends_on": [
+        "5.9"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.2",
+      "title": "`internal/analytics/recalculate.go:104`: drop the `accountID` argument from the `r.telemetry.SnapshotsByVehicl…",
+      "module": "analytics",
+      "depends_on": [
+        "8.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.3",
+      "title": "`internal/analytics/recalculate.go:123`: drop the `accountID` argument from the `r.telemetry.SnapshotPreceding…",
+      "module": "analytics",
+      "depends_on": [
+        "8.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.4",
+      "title": "`internal/analytics/recalculate.go:269`: drop the `accountID` argument from the `r.telemetry.SnapshotsByVehicl…",
+      "module": "analytics",
+      "depends_on": [
+        "8.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.5",
+      "title": "`internal/analytics`'s own `Recalculate`/`Reconcile` functions and their `accountID` parameter are UNCHANGED —…",
+      "module": "analytics",
+      "depends_on": [
+        "8.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.6",
+      "title": "`internal/analytics/reader_test.go`: fix the mechanical fallout of 8.1 in this file's own fixtures/assertions.",
+      "module": "analytics",
+      "depends_on": [
+        "8.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.7",
+      "title": "`internal/analytics/reader_test.go`'s `fakeTelemetryReader` (found by this design, not in the original dispatc…",
+      "module": "analytics",
+      "depends_on": [
+        "8.6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.8",
+      "title": "`internal/analytics/recalculate_test.go`: fix the mechanical fallout of 8.2–8.4 in this file's own fixtures/as…",
+      "module": "analytics",
+      "depends_on": [
+        "8.7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.9",
+      "title": "`internal/analytics/consumption_test.go`: fix the mechanical fallout of 8.1–8.4 in this file's own fixtures/as…",
+      "module": "analytics",
+      "depends_on": [
+        "8.8"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.10",
+      "title": "`go build ./internal/analytics/...` and `go vet ./internal/analytics/...` — expect clean.",
+      "module": "analytics",
+      "depends_on": [
+        "8.9"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.1",
+      "title": "`go build ./...`",
+      "module": "telemetry",
+      "depends_on": [
+        "6.10",
+        "7.3",
+        "8.10"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.2",
+      "title": "`go vet ./...`",
+      "module": "telemetry",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.3",
+      "title": "`make migration-guard`",
+      "module": "telemetry",
+      "depends_on": [
+        "9.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.4",
+      "title": "`make boundary-guard`",
+      "module": "telemetry",
+      "depends_on": [
+        "9.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.5",
+      "title": "Grep the whole repo for `account_id` scoped to `vehicle_snapshots` / `Snapshot` / `LatestSnapshotsByAccount` a…",
+      "module": "telemetry",
+      "depends_on": [
+        "9.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.6",
+      "title": "Confirm `internal/gateway/` still has zero real `internal/telemetry` imports (`make boundary-guard` already co…",
+      "module": "telemetry",
+      "depends_on": [
+        "9.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.7",
+      "title": "Suite commands for the owner to run (Claude does not run these): `go test ./internal/telemetry/... ./internal/…",
+      "module": "telemetry",
+      "depends_on": [
+        "9.6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-11T17:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Owning module is telemetry; one standalone change, not a roadmap",
+      "why": "The analytics edits are forced signature updates with no analytics design decision. Same shape as the MAG-64 pilot.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-11T17:20:00Z",
+      "scope": "task:1.1",
+      "made_by": "user",
+      "decision": "Election: prefer OWNER, else any candidate, tie broken by lowest account_id; never skip a car",
+      "why": "User first chose skip-when-no-OWNER, then reversed once shown it permanently stops the DRIVER-only car Palomito Nachito.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-11T17:25:00Z",
+      "scope": "task:1.1",
+      "made_by": "user",
+      "decision": "Election makes no token liveness check; stays pure Go",
+      "why": "AccessTokenFor rotates the single-use refresh token, so probing candidates would rotate tokens for accounts that poll nothing.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-11T19:18:00Z",
+      "scope": "task:2.1",
+      "made_by": "user",
+      "decision": "Design gate passed: no second index; only the index UNIQUE (tesla_id, captured_date) creates",
+      "why": "Departs from the ticket's own bullet. Follows MAG-63's rule: justify every index against a query that exists today.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-11T19:16:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted the artifact worker's output although it died before sending its final report",
+      "why": "Rate limit killed it after all four files were written. Leader verified them instead of paying a full re-dispatch.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-11T17:10:00Z",
+      "agent": "leader",
+      "event": "created branch ft/CH55-MAG-65-…; work counter 55 → 56"
+    },
+    {
+      "at": "2026-09-11T17:30:00Z",
+      "agent": "leader",
+      "event": "dispatched telemetry worker (sonnet) for artifacts; 5h bucket at 82% on dispatch"
+    },
+    {
+      "at": "2026-09-11T19:15:00Z",
+      "agent": "leader",
+      "event": "worker terminated by session rate limit (429) after writing all four artifacts, before its final report; bucket reset at 14:10 -05"
+    },
+    {
+      "at": "2026-09-11T19:17:00Z",
+      "agent": "leader",
+      "event": "leader verified artifacts in place of the missing worker report; openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-11T19:18:00Z",
+      "agent": "leader",
+      "event": "database design gate CONFIRMED BY USER: migration shape + no-second-index plan (D4)"
+    },
+    {
+      "at": "2026-09-11T19:19:00Z",
+      "agent": "leader",
+      "event": "committed artifacts + counter bump as 3810616; HALT AFTER STEP 4 per pickup scope — no implementation dispatched"
+    }
+  ]
+}
