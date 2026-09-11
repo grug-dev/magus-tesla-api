@@ -96,7 +96,7 @@ case IS tested (T6.2e) — so this is a **test-coverage** gap only, not a correc
 **TRIGGER — pick up when** the `charging` module is next touched (e.g. RM3 tier 2 gateway UI
 work, or any change adding fields/constraints). Add three `TestCreate_CheckConstraint_*` cases in
 `internal/charging/db_integration_test.go` mirroring the existing pattern; each asserts a DB
-error is returned. Cheap (~30 lines) against the live DATABASE_URL-gated harness.
+error is returned. Cheap (~30 lines) against the live TEST_DATABASE_URL-gated harness.
 
 ### ORIGIN
 
@@ -250,21 +250,21 @@ rather than silently bundled in or silently dropped.
 
 ### PROPOSAL
 
-`internal/testdb.Provision` tries `DATABASE_URL` first; when applying migrations against it
-fails, it logs `DATABASE_URL not usable` and falls through to the testcontainer path. That
+`internal/testdb.Provision` tries `TEST_DATABASE_URL` first; when applying migrations against it
+fails, it logs `TEST_DATABASE_URL not usable` and falls through to the testcontainer path. That
 fallback does NOT distinguish *"the DB was unreachable"* from *"the DB was reachable and the
 migration is genuinely broken"*. If Docker is then also absent, the error the caller finally
 sees is the container path's `testdb.ErrUnavailable` — so a real, reproducible migration bug
 gets reported as mere environment-unavailability, and a `TestMain` that skips on
 `ErrUnavailable` (currently `internal/telemetry`) will skip instead of failing. The `AGENTS.md`
-mitigation ("check the log for `DATABASE_URL not usable`") does not surface under default,
+mitigation ("check the log for `TEST_DATABASE_URL not usable`") does not surface under default,
 non-`-v` `go test` / `make check` output.
 
-Narrower than the bug it descends from — it needs a reachable-but-broken `DATABASE_URL` **and**
+Narrower than the bug it descends from — it needs a reachable-but-broken `TEST_DATABASE_URL` **and**
 no Docker fallback — but that combination is plausible in a CI runner without Docker-in-Docker,
 which is exactly where a silent skip is most costly.
 
-Fix sketch: have `Provision` classify the `DATABASE_URL` attempt — a connection/dial failure
+Fix sketch: have `Provision` classify the `TEST_DATABASE_URL` attempt — a connection/dial failure
 keeps today's fall-through, whereas a successful connection with a failing `goose up` returns a
 hard, unwrapped error immediately instead of degrading to the container path.
 

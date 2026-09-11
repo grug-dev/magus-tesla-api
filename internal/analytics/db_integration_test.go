@@ -90,12 +90,9 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 // stays tidy across test runs (mirrors telemetry/db_integration_test.go's
 // cleanupVehicle one level up).
 //
-// This also deletes the telemetry.vehicle_snapshots rows this file's own
-// fixtures insert directly. A test in this package writes straight into
-// another module's table because telemetry offers no public writer for a
-// single snapshot — but that means telemetry's own test helpers never see
-// these rows, so nothing outside this function knew to clean them up. Left
-// unpaired, every test run leaked permanent rows into a real database.
+// It also deletes the telemetry.vehicle_snapshots rows this file inserts
+// directly. Telemetry's own helpers never see those rows, so only this
+// function can remove them.
 func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) {
 	t.Helper()
 	t.Cleanup(func() {

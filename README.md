@@ -75,10 +75,11 @@ go test ./...    # tests — internal/testdb uses TEST_DATABASE_URL when set and
                  # otherwise a disposable postgres:16-alpine testcontainer
 ```
 
-> `make test` never reads `DATABASE_URL` at all and always runs against a disposable
-> testcontainer, so the suite can never touch the real magus database. Use
-> `make test-with-db` to opt in — it forwards your `DATABASE_URL` as `TEST_DATABASE_URL`
-> (CI with a managed Postgres).
+> No test reads `DATABASE_URL` any more, so your real magus database is safe by
+> default. `make test` uses `TEST_DATABASE_URL` when you set it, and a disposable
+> testcontainer when you do not. Reaching a real database now takes a deliberate
+> step: set `TEST_DATABASE_URL` yourself, or use `make test-with-db`, which forwards
+> your `DATABASE_URL` as `TEST_DATABASE_URL` (CI with a managed Postgres).
 
 > **Prefer a real local database over the testcontainer?** It starts faster and needs
 > no Docker daemon. Run `make db-setup-test` once to bring it current, then point tests

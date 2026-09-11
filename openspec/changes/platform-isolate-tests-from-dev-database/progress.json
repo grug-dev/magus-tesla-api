@@ -5,27 +5,25 @@
   "module": "platform",
   "roadmap": null,
   "request": "MAG-72 \u2014 clean up telemetry integration-test fixtures in vehicle_snapshots. Investigation found the ticket's premise wrong: telemetry's tests clean up correctly; internal/analytics/db_integration_test.go inserts into telemetry.vehicle_snapshots without deleting it, and internal/testdb reads DATABASE_URL so any test run that sees it uses the real dev database. Scope agreed with the owner: read TEST_DATABASE_URL instead, fix the analytics cleanup, sweep stale docs, add a one-off cleanup script for the 78 existing rows, and document magus_test as the opt-in target.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "T1",
       "T2",
       "T3",
       "T4",
       "T5",
-      "T8"
-    ],
-    "pending": [
-      "T7"
-    ],
-    "blocked": [],
-    "done": [
       "T6",
+      "T7",
+      "T8",
       "T9"
     ]
   },
   "created_at": "2026-09-11T15:08:21Z",
-  "updated_at": "2026-09-11T15:22:40Z",
+  "updated_at": "2026-09-11T15:41:17Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -45,7 +43,7 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "platform",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-11T15:00:00Z",
@@ -69,7 +67,7 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "platform",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-11T15:12:00Z",
@@ -93,7 +91,7 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "platform",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-11T15:20:00Z",
@@ -117,7 +115,7 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "platform",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-11T15:45:00Z",
@@ -141,7 +139,7 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "platform",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-11T15:58:00Z",
@@ -189,13 +187,13 @@
         "T5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "user",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "started_at": "2026-09-11T15:33:22Z",
+      "completed_at": "2026-09-11T15:33:22Z",
+      "duration_seconds": 0,
+      "notes": "Owner ran the script (78 to 0), db-setup-test (4 schemas re-owned, 1 migration applied) and make test (passed). Leader confirmed the suite wrote nothing to magus.",
       "budget": null
     },
     {
@@ -206,7 +204,7 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "platform",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-11T15:16:46Z",
@@ -253,10 +251,37 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "changes-requested",
+    "agent": "platform-reviewer",
     "brief": null,
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-11T16:20:00Z",
+        "duration_seconds": null,
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "docs/0-set-up/deployment.md:284 (\"go test ./... # account integration tests run only when DATABASE_URL is set\") and :301 (\"Integration tests skipped | Expected when DATABASE_URL is unset\") still name DATABASE_URL for test gating. testdb no longer reads that variable, so a developer following this setup guide sets the wrong one and gets a silent testcontainer instead of their real database. This file was not in T4's 6-file list; the D5 sweep missed it.",
+            "status": "open"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "openspec/roadmaps/backlog.md item 10 (\"testing \u2014 testdb.Provision can mask a real migration failure as unavailable\") still says \"internal/testdb.Provision tries DATABASE_URL first\" and quotes the old log message. Its own stated Trigger (\"the next time anyone touches internal/testdb\") fired with T1. Not user-facing like R1, but it is a live, non-archived doc describing current code by the wrong variable name.",
+            "status": "open"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "internal/analytics/db_integration_test.go cleanupVehicleMetrics: the new 6-line paragraph explaining the telemetry boundary crossing is longer than the 1-line DELETE it justifies. Task T2.3 asked for a short line near the function; consider trimming to 2-3 lines.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -312,6 +337,15 @@
       "decision": "replaced psql \"$ADMIN\" -d \"$DB\" with a single positional admin URI aimed at the test database",
       "why": "-d takes the dbname slot, so the URI became a username and the host was dropped; verified by reproducing the FATAL",
       "covered_by": null
+    },
+    {
+      "id": "D-README-CLAIM",
+      "at": "2026-09-11T15:41:17Z",
+      "scope": "review:round-1",
+      "made_by": "autopilot",
+      "decision": "also corrected README's claim that make test can never touch the real database",
+      "why": "true of the old env -u target, false now that make test is plain go test and honours TEST_DATABASE_URL",
+      "covered_by": null
     }
   ],
   "events": [
@@ -344,6 +378,16 @@
       "at": "2026-09-11T15:22:40Z",
       "agent": "leader",
       "event": "wave 2 (T8, T9) complete; leader ran T6 signals: build/vet clean, 4 guards pass; gofmt drift pre-existing and left alone"
+    },
+    {
+      "at": "2026-09-11T15:33:22Z",
+      "agent": "leader",
+      "event": "USER verified: ran the cleanup script, make db-setup-test and make test, all passing. Leader confirmed against the dev database: orphans 0, duplicate groups 0, total 114 (112 plus two later poller days), newest write 2026-09-11T05:35 predates the suite run, so the tests wrote nothing to magus."
+    },
+    {
+      "at": "2026-09-11T15:41:17Z",
+      "agent": "leader",
+      "event": "round 1 triage: accepted R1, R2, R3 (all verified against the files). Leader swept live docs again and found a fourth issue the review missed: README overstated that make test can never reach a real database. Fixed all four; build, vet and 4 guards clean."
     }
   ]
 }
