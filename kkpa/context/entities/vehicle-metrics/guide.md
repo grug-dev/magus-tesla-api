@@ -161,6 +161,111 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **`km_per_pct_calc` has a stricter NULL rule than the other two travel figures, and it is on the latest-status port now.** It is NULL on a predecessor-less day like its siblings, and ALSO whenever that day's `battery_used_pct_calc` is `<= 0` — the divisor guard in `consumption.go`. A day the vehicle sat parked and charged therefore carries a distance and a consumed percent but no efficiency. The dashboard renders that as a dash, never a `0`.
   _Source: `internal/analytics/consumption.go` divisor guard; migration `20260821000001` column comments._
 
+## Column detail — the three analytics tables
+
+Moved here from `internal/analytics/AGENTS.md`, which every worker dispatched to that module
+re-reads in full. The ownership rules and the port contracts stayed there; this is the
+column-by-column detail.
+
+- `vehicle_metrics` — one row per `(account_id, tesla_id, metric_date)` for every day
+  the vehicle reported, holding both the raw observations and the five derived `_calc`
+  columns. It is a **precomputed read model**: written by `Recalculator`, read by
+  `Reader`. It is **dense** — a day with no computable predecessor still gets a row,
+  with its `_calc` columns and `consumed_pct` NULL and `flagged` an explicit `false`
+  (`design.md` D9/D10). That is why both `Reader` queries filter `IS NOT NULL` rather
+  than trusting a zero.
+  - **Eight more columns** (`locked`, `sentry_mode`, `car_version`, `inside_temp_c`,
+    `outside_temp_c`, `charging_state`, `charge_limit_soc_pct`, `captured_at`), added by
+    `RM38-analytics-add-vehicle-status-columns` (MAG-12 tier 1). All eight are copied
+    verbatim from the day's own `telemetry.Snapshot` and — unlike the five `_calc`
+    columns above — are always populated regardless of whether that day has a
+    computable predecessor. **All eight are nullable, and no backfill was run**
+    (roadmap D2): every row that existed before this migration keeps all eight NULL
+    forever, self-healing only on that vehicle's next `Reconcile`. `sentry_mode`'s NULL
+    is **ambiguous** — it can mean either "the vehicle did not report sentry" or
+    "this row predates the migration" — where every other column's NULL means only the
+    latter; do not attempt to disambiguate it here without first reading
+    `openspec/changes/RM38-analytics-add-vehicle-status-columns/design.md` D2/D3/D8,
+    which also documents the `captured_at`-as-proxy disambiguation a future consumer
+    can use.
+  - **`max_range_charge_counter`** (migration `20260905000001`) is a **ninth** column of
+    exactly that shape: copied verbatim from the day's own `telemetry.Snapshot`, always
+    populated regardless of a computable predecessor, nullable, **no backfill**. Two
+    things set it apart from the eight above. It carries **no unit suffix** because it
+    is a count, not a measurement (`ai/go-conventions.md` §display units). And its NULL
+    is **ambiguous like `sentry_mode`'s**, not like the other seven: the vehicle may not
+    have reported it (the telemetry source field is itself a `*int`) or the row may
+    predate the migration — disambiguate via `captured_at`. A reported `0` is stored as
+    `0`, never NULL.
+  - **`tpms_pressure_fl_psi`/`fr`/`rl`/`rr`** (migration `20260908000002`,
+    `RM50-analytics-add-tire-pressure-columns`) are four more columns of exactly the
+    same shape as `max_range_charge_counter`: copied verbatim from the day's own
+    `telemetry.Snapshot`, always populated regardless of a computable predecessor,
+    nullable. Names match `telemetry.vehicle_snapshots`' own column names exactly
+    (`fl`/`fr`/`rl`/`rr` = front-left/front-right/rear-left/rear-right), already in PSI —
+    no conversion at this layer. **Unlike** `max_range_charge_counter`, this migration
+    **DID backfill** every pre-existing row from `telemetry.vehicle_snapshots` in the
+    same migration (a one-off, user-confirmed deviation from "No Cross-Module Database
+    Access" — a `goose`-run SQL statement, never a Go import; see design.md Part C for
+    the full rationale). NULL still means one of two things — the vehicle did not report
+    TPMS at that capture, or the row predates the migration and had no matching
+    snapshot to backfill from — but no consumer needs to disambiguate them (unlike
+    `sentry_mode`/`max_range_charge_counter`, this NULL is not otherwise ambiguous:
+    `telemetry.Snapshot`'s own TPMS fields never had a fabricated non-nil default).
+  - **`tpms_pressure_fl_psi_calc`/`fr`/`rl`/`rr`** (migration `20260908000003`,
+    `RM50-analytics-add-tire-pressure-variance`) are four **derived delta** columns, one
+    per wheel: this row's raw reading minus the previous day's row, in PSI. **This is
+    the opposite NULL rule from the raw `tpms_pressure_*_psi` columns just above.** A raw
+    column is always populated regardless of a predecessor; a delta column is NULL when
+    EITHER of two things is true — the day has no predecessor row at all, OR either
+    day's own raw wheel reading is itself NULL (`design.md` D2) — the same rule
+    `distance_traveled_km_calc` already follows. Computed in `consumption.go`'s
+    `deriveConsumption` via the `tpmsDeltaPSI` helper, populated only in the
+    "has a predecessor" branch of `deriveVehicleMetrics`
+    (`consumed.go`), same as `DistanceTraveledKmCalc`. This delta partly reflects
+    ambient air temperature change (about 1 PSI per 5.5°C), not only a genuine
+    pressure change — accepted, not a defect (roadmap RD3); never add a threshold or a
+    target-pressure comparison to "fix" it. **This migration DID backfill** every
+    pre-existing row, but unlike tier 1's raw-column backfill, this one reads only
+    `analytics.vehicle_metrics` joined against itself (a self-join on
+    `metric_date - 1`) — not a cross-module read, so it needs no
+    `// boundary:allow:` comment. A row whose previous day is missing keeps all four
+    columns NULL after the backfill, never a fabricated `0`. Full rationale:
+    `openspec/changes/RM50-analytics-add-tire-pressure-variance/design.md` D1–D3.
+- `vehicle_metric_watermarks` — one recompute cursor per `(account_id, tesla_id,
+  source)`, three sources. Drives `Reconcile`'s incremental pass; no row means "epoch",
+  i.e. backfill the vehicle's full history (`design.md` D7).
+- `charge_gaps` — one row per flagged vehicle-day whose battery math does not add up
+  (migration `20260815000002`, originally `RM28-telemetry-add-charge-gap-storage`,
+  MAG-15; moved into this module, unchanged, by `RM29-analytics-own-charge-gaps`,
+  MAG-26 tier 5). Written through the `GapWriter` port, driven by this module's own
+  `ConsumedByDay`-derived flagging logic (D5/D5a) via `internal/app`'s nightly
+  reconciliation — this module both derives the gap AND stores the conclusion; no
+  other module writes or reads this table. Columns: `id UUID PRIMARY KEY`,
+  `account_id UUID NOT NULL`, `tesla_id BIGINT NOT NULL` (**always resolved, NOT
+  NULL** — this module filters out any vehicle/session it cannot attribute to a
+  currently-registered vehicle before gap detection ever runs), `vin TEXT NOT NULL`,
+  `gap_date DATE NOT NULL` (the flagged calendar day, plain `DATE` — no time-of-day
+  component), `missing_charging_type TEXT NOT NULL CHECK (IN ('MANUAL',
+  'SUPERCHARGER'))` (which charge source is suspected missing — `SUPERCHARGER` when
+  a Supercharger session exists that day with NULL start/end battery percentages,
+  `MANUAL` otherwise), `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` (when FIRST
+  flagged — preserved across every re-upsert of the same still-flagged day),
+  `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` (refreshed to `now()` on every
+  re-confirmation). `UNIQUE (account_id, tesla_id, gap_date)` constraint
+  (`charge_gaps_account_tesla_date_unique`) is both the write-idempotency mechanism
+  (`ON CONFLICT DO UPDATE`) and the index that serves `GapWriter`'s own
+  read-before-diff query — no separate index needed for that path. A second index,
+  `idx_charge_gaps_account (account_id, gap_date DESC)`, serves the future
+  account-wide notification read pattern (no `tesla_id` predicate) — out of scope
+  today, no read port exists for it yet. **No FK** on `account_id`/`tesla_id` (same
+  no-cross-module-FK precedent as `vehicle_metrics`/`vehicle_metric_watermarks` —
+  referential integrity is upheld by flow, not a DB constraint,
+  `ai/architecture.md` §2). **No `raw_data` JSONB** — this table stores a
+  Go-computed conclusion (this module's own derivation), not an external API
+  response, so the mandatory-`raw_data` rule (`ai/go-conventions.md` §persistence)
+  does not apply here.
+
 ## Related KB
 
 - Architecture: `architecture/telemetry-ingest-only.md` (the snapshot/supercharger sources this table derives from)
