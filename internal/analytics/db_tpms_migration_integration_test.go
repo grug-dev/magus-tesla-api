@@ -105,7 +105,7 @@ func TestMigration_TpmsPressureBackfill(t *testing.T) {
 	// seedSnapshot narrows them through REAL (float4) on the way in, and a
 	// non-power-of-two fraction would pick up a float32 rounding error
 	// irrelevant to the migration under test.
-	seedSnapshot(t, pool, telemetry.Snapshot{
+	seedSnapshotForAccount(t, pool, uuid.NullUUID{UUID: accountID, Valid: true}, telemetry.Snapshot{
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 9, 10, 3, 30, 0, 0, time.UTC),
 		CapturedDate:      snapshotDay,

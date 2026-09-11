@@ -489,8 +489,11 @@ func TestRecentEfficiency_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if telemetryFake.gotAccountID != accountID {
-		t.Errorf("telemetry: accountID not passed through: want %v, got %v", accountID, telemetryFake.gotAccountID)
+	// The telemetry port is deliberately absent here. Its reads are keyed on
+	// tesla_id alone now, so there is no accountID argument left to check.
+	// telemetryFake.gotTeslaID below covers the identity it does receive.
+	if telemetryFake.gotTeslaID != teslaID {
+		t.Errorf("telemetry: teslaID not passed through: want %d, got %d", teslaID, telemetryFake.gotTeslaID)
 	}
 	if superchargerFake.gotAccountID != accountID {
 		t.Errorf("supercharger: accountID not passed through: want %v, got %v", accountID, superchargerFake.gotAccountID)

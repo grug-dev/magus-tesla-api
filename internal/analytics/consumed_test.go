@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
@@ -494,7 +492,6 @@ func TestDeriveVehicleMetrics_ZoneShiftedRowAtWindowEnd_Emitted(t *testing.T) {
 // TestDeriveVehicleMetrics_FixtureA covers design.md's Test Contract Fixture A -- a
 // plain day, no charge events.
 func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	prevDay := day(2026, 8, 10)
@@ -529,9 +526,6 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 	}
 	entry := got[0]
 
-	if entry.AccountID != accountID {
-		t.Errorf("AccountID: want %v, got %v", accountID, entry.AccountID)
-	}
 	if entry.TeslaID != teslaID {
 		t.Errorf("TeslaID: want %d, got %d", teslaID, entry.TeslaID)
 	}
@@ -579,7 +573,6 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 // RAW, unclamped stored value deriveVehicleMetrics produces (any read-side clamp is a
 // Reader-level concern, tested in reader_test.go).
 func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	prevDay := day(2026, 8, 12)
@@ -609,9 +602,6 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 	}
 	entry := got[0]
 
-	if entry.AccountID != accountID {
-		t.Errorf("AccountID: want %v, got %v", accountID, entry.AccountID)
-	}
 	if entry.TeslaID != teslaID {
 		t.Errorf("TeslaID: want %d, got %d", teslaID, entry.TeslaID)
 	}
@@ -658,7 +648,6 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 // written -- with every derived/consumed field NULL, flagged == false (NOT true, NOT
 // left to a stray zero-value comparison), and missing_charging_type == "" (SQL NULL).
 func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	cur := telemetry.Snapshot{
@@ -684,9 +673,6 @@ func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
 	}
 	entry := got[0]
 
-	if entry.AccountID != accountID {
-		t.Errorf("AccountID: want %v, got %v", accountID, entry.AccountID)
-	}
 	if entry.TeslaID != teslaID {
 		t.Errorf("TeslaID: want %d, got %d", teslaID, entry.TeslaID)
 	}

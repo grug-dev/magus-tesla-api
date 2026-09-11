@@ -76,7 +76,7 @@
     ]
   },
   "created_at": "2026-09-11T19:20:00Z",
-  "updated_at": "2026-09-11T21:56:00Z",
+  "updated_at": "2026-09-11T22:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -1500,6 +1500,33 @@
       "decision": "account_id is relaxed to NULLABLE, not dropped; the drop moves to a follow-up",
       "why": "Migrations run one module dir at a time, so a 2026-09-08 analytics backfill joining vs.account_id runs after our drop on a fresh database and fails. Filed as backlog 31.",
       "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-09-11T22:20:00Z",
+      "scope": "task:8.9",
+      "made_by": "autopilot",
+      "decision": "Leader bug: the wave-5 script deleted whole lines starting with AccountID:, taking TeslaID with them on 15 shared lines",
+      "why": "Every analytics DB failure came from tesla_id 0: empty query results, duplicate-key collisions, no backfill match. Restored by diffing against the wave-4 file.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-09-11T22:25:00Z",
+      "scope": "task:8.6",
+      "made_by": "user",
+      "decision": "Identity assertions move from account_id to tesla_id instead of being deleted",
+      "why": "User asked for tesla_id rather than removal. FixtureA/B/C already assert TeslaID, and both scoping tests keep their supercharger and manual halves.",
+      "covered_by": null
+    },
+    {
+      "id": "D17",
+      "at": "2026-09-11T22:30:00Z",
+      "scope": "task:8.9",
+      "made_by": "autopilot",
+      "decision": "seedSnapshot split: seedSnapshotForAccount fills legacy account_id for the TPMS migration test only",
+      "why": "That test runs the frozen 20260908000002 migration for real, and its backfill joins on account_id. Test-only, nothing ships.",
+      "covered_by": "D14"
     }
   ],
   "events": [
@@ -1607,6 +1634,16 @@
       "at": "2026-09-11T21:56:00Z",
       "agent": "leader",
       "event": "both fixed under D13/D14; design.md corrected with a Corrections section; backlog entry 31 files the migration-ordering root fix. Change stays applied, NOT verified: awaiting a new user test run."
+    },
+    {
+      "at": "2026-09-11T22:10:00Z",
+      "agent": "leader",
+      "event": "USER RAN make test (2nd): internal/telemetry now PASSES, both earlier fixes confirmed. internal/analytics still failing."
+    },
+    {
+      "at": "2026-09-11T22:35:00Z",
+      "agent": "leader",
+      "event": "root cause was a leader bug, not the change: 15 TeslaID fields deleted as collateral in wave 5. Restored, plus 3 assertion fixes under D16/D17. build+vet clean. Still NOT verified: awaiting a third user test run."
     }
   ]
 }
