@@ -35,53 +35,49 @@ func NewReader(pool *pgxpool.Pool) Reader {
 	})
 }
 
-// LatestSnapshotsByAccount implements Reader. It returns the most-recently captured
-// Snapshot for each vehicle belonging to the given account. It returns a non-nil empty
-// slice (never nil) when the account has no snapshots, so callers can range over the
-// result safely (design D5).
-func (r *reader) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error) {
-	return r.store.latestSnapshotsByAccount(ctx, accountID)
+// LatestSnapshotsByVehicles implements Reader. It returns the most-recently captured
+// Snapshot for each of the given vehicles. It returns a non-nil empty slice (never
+// nil) when none of them has a snapshot, so callers can range over the result safely.
+func (r *reader) LatestSnapshotsByVehicles(ctx context.Context, teslaIDs []int64) ([]Snapshot, error) {
+	return r.store.latestSnapshotsByVehicles(ctx, teslaIDs)
 }
 
 // SnapshotsByVehicleSince implements Reader. It returns all snapshots captured for the
-// given vehicle (within the given account) at or after since, ordered oldest-first.
-// Returns a non-nil empty slice (never nil) when no snapshots exist in the window
-// (parity with LatestSnapshotsByAccount's empty contract — callers range safely).
-// Reuses the store.snapshotsByVehicleSince seam so it is fully offline-testable via a
-// fake store, mirroring the LatestSnapshotsByAccount pattern (design D3/D7 of
-// telemetry-add-snapshot-read-port).
-func (r *reader) SnapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
-	return r.store.snapshotsByVehicleSince(ctx, accountID, teslaID, since)
+// given vehicle at or after since, ordered oldest-first. Returns a non-nil empty slice
+// (never nil) when no snapshots exist in the window (parity with
+// LatestSnapshotsByVehicles's empty contract — callers range safely). Reuses the
+// store.snapshotsByVehicleSince seam so it is fully offline-testable via a fake store,
+// mirroring the LatestSnapshotsByVehicles pattern.
+func (r *reader) SnapshotsByVehicleSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
+	return r.store.snapshotsByVehicleSince(ctx, teslaID, since)
 }
 
 // SnapshotsByVehicleBetween implements Reader. It returns the snapshots for the given
-// vehicle (within the given account) whose EffectiveDate calendar day falls in the
-// caller-supplied `[start, end]` window inclusive, ordered oldest-first (ascending by
-// EffectiveDate == ascending by captured_at). Returns a non-nil empty slice (never nil)
-// when no snapshots exist in the window (parity with SnapshotsByVehicleSince /
-// LatestSnapshotsByAccount — no nil-slice footgun for callers).
+// vehicle whose EffectiveDate calendar day falls in the caller-supplied `[start, end]`
+// window inclusive, ordered oldest-first (ascending by EffectiveDate == ascending by
+// captured_at). Returns a non-nil empty slice (never nil) when no snapshots exist in
+// the window (parity with SnapshotsByVehicleSince / LatestSnapshotsByVehicles — no
+// nil-slice footgun for callers).
 //
 // This pass-through does NOT translate `(start, end)` into captured_at bounds — that
-// `+1day`/`+2day` translation is the dbStore implementation's job (design D5), so the
-// public port stays a clean bounded window and the offset math stays in one testable
-// place (service.go's dbStore.snapshotsByVehicleBetween). The reader forwards the
-// caller's raw `(accountID, teslaID, start, end)` to the store seam unchanged, mirroring
-// SnapshotsByVehicleSince's pattern (design D3/D7 of telemetry-add-snapshot-read-port).
-// The compile-time `var _ Reader = (*reader)(nil)` assertion above pins this new
-// interface method.
-func (r *reader) SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error) {
-	return r.store.snapshotsByVehicleBetween(ctx, accountID, teslaID, start, end)
+// `+1day`/`+2day` translation is the dbStore implementation's job, so the public port
+// stays a clean bounded window and the offset math stays in one testable place
+// (service.go's dbStore.snapshotsByVehicleBetween). The reader forwards the caller's
+// raw `(teslaID, start, end)` to the store seam unchanged, mirroring
+// SnapshotsByVehicleSince's pattern. The compile-time `var _ Reader = (*reader)(nil)`
+// assertion above pins this interface method.
+func (r *reader) SnapshotsByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]Snapshot, error) {
+	return r.store.snapshotsByVehicleBetween(ctx, teslaID, start, end)
 }
 
 // SnapshotsByVehicleUpdatedSince implements Reader. It returns every snapshot for
-// the given vehicle (within the given account) whose UpdatedAt is at or after
-// since, ordered oldest-first by updated_at. Returns a non-nil empty slice (never
-// nil) when no snapshot has been updated in the window (parity with every other
-// Reader method's empty-result contract). Reuses the store.snapshotsByVehicleUpdatedSince
-// seam so it is fully offline-testable via a fake store, mirroring
-// SnapshotsByVehicleSince's pattern (RM29-analytics-add-vehicle-metrics task 1.2).
-func (r *reader) SnapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
-	return r.store.snapshotsByVehicleUpdatedSince(ctx, accountID, teslaID, since)
+// the given vehicle whose UpdatedAt is at or after since, ordered oldest-first by
+// updated_at. Returns a non-nil empty slice (never nil) when no snapshot has been
+// updated in the window (parity with every other Reader method's empty-result
+// contract). Reuses the store.snapshotsByVehicleUpdatedSince seam so it is fully
+// offline-testable via a fake store, mirroring SnapshotsByVehicleSince's pattern.
+func (r *reader) SnapshotsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
+	return r.store.snapshotsByVehicleUpdatedSince(ctx, teslaID, since)
 }
 
 // SnapshotPrecedingDay implements Reader. It delegates to the store seam so it
@@ -89,29 +85,24 @@ func (r *reader) SnapshotsByVehicleUpdatedSince(ctx context.Context, accountID u
 // type. See the interface doc comment (telemetry.go) for the full contract —
 // absent-predecessor vs. error semantics, the zone-safety rationale for bounding
 // on captured_date rather than captured_at, and the unbounded-lookback guarantee.
-// (RM29-telemetry-drop-derived-columns design D2, wave 1.)
-func (r *reader) SnapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error) {
-	return r.store.snapshotPrecedingDay(ctx, accountID, teslaID, day)
+func (r *reader) SnapshotPrecedingDay(ctx context.Context, teslaID int64, day time.Time) (*Snapshot, error) {
+	return r.store.snapshotPrecedingDay(ctx, teslaID, day)
 }
 
-// snapshotPrecedingDay implements the store seam design D2 of
-// RM29-telemetry-drop-derived-columns relies on: it calls the SnapshotPrecedingDay
-// query generated by sqlc and maps pgx.ErrNoRows to (nil, nil) — "no predecessor
-// exists" is NOT an error. Any other query error is returned as-is; the caller
-// (internal/analytics' Recalculate, via Reader.SnapshotPrecedingDay) treats it as
-// a transient store failure — NEVER as "no predecessor" — so a real DB error
-// cannot silently zero out a real vehicle's derived figures. A found row is
-// mapped via the existing shared rowToSnapshot mapper (mapping.go) — no new
-// mapper. `day` is bound via the existing dateFrom helper (service.go):
-// captured_date is a DATE column, so the parameter is pgtype.Date, not
-// pgtype.Timestamptz. This is the module's sole predecessor lookup: the former
-// dbStore.previousSnapshot (instant-bounded) was deleted in tier 4 (design D8)
-// once this calendar-day-bounded method took over as its only caller's need.
-func (d *dbStore) snapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error) {
+// snapshotPrecedingDay implements the store seam behind Reader.SnapshotPrecedingDay:
+// it calls the SnapshotPrecedingDay query generated by sqlc and maps pgx.ErrNoRows to
+// (nil, nil) — "no predecessor exists" is NOT an error. Any other query error is
+// returned as-is; the caller (internal/analytics' Recalculate, via
+// Reader.SnapshotPrecedingDay) treats it as a transient store failure — NEVER as "no
+// predecessor" — so a real DB error cannot silently zero out a real vehicle's derived
+// figures. A found row is mapped via the existing shared rowToSnapshot mapper
+// (mapping.go) — no new mapper. `day` is bound via the existing dateFrom helper
+// (service.go): captured_date is a DATE column, so the parameter is pgtype.Date, not
+// pgtype.Timestamptz. This is the module's sole predecessor lookup.
+func (d *dbStore) snapshotPrecedingDay(ctx context.Context, teslaID int64, day time.Time) (*Snapshot, error) {
 	row, err := d.q.SnapshotPrecedingDay(ctx, telemetrydb.SnapshotPrecedingDayParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-		Day:       dateFrom(day),
+		TeslaID: teslaID,
+		Day:     dateFrom(day),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

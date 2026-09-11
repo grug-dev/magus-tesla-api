@@ -107,15 +107,15 @@ queries against it).
 Depends on: T3 (needs the regenerated `telemetrydb` types to know the exact
 generated field names to reference).
 
-- [ ] 4.1 In `internal/telemetry/telemetry.go`, remove `AccountID
+- [x] 4.1 In `internal/telemetry/telemetry.go`, remove `AccountID
       uuid.UUID` from `Snapshot` (design.md D-SNAPSHOT-FIELD) and update its
       doc comment.
-- [ ] 4.2 In the same file, rename `Attempt.AccountID` to
+- [x] 4.2 In the same file, rename `Attempt.AccountID` to
       `Attempt.PolledByAccountID` (design.md D-ATTEMPT-FIELD) and update its
       doc comment to describe it as "the account whose credentials performed
       this attempt," dropping any wording implying it is the vehicle's
       single owning account.
-- [ ] 4.3 Change `Reader`'s five methods to the signatures in `design.md`:
+- [x] 4.3 Change `Reader`'s five methods to the signatures in `design.md`:
       `SnapshotsByVehicleSince`, `SnapshotsByVehicleBetween`,
       `SnapshotsByVehicleUpdatedSince`, `SnapshotPrecedingDay` each drop
       `accountID uuid.UUID`; `LatestSnapshotsByAccount` renames to
@@ -124,11 +124,11 @@ generated field names to reference).
       "defense-in-depth tenant isolation" paragraph naming `account_id`;
       keep everything else (window semantics, ordering, empty-result
       contract, index reuse) updated to the new predicate.
-- [ ] 4.4 Mirror the same five signature/name changes on the unexported
+- [x] 4.4 Mirror the same five signature/name changes on the unexported
       `store` interface in `service.go` (`latestSnapshotsByAccount` →
       `latestSnapshotsByVehicles(ctx, teslaIDs []int64)`, and the other four
       drop `accountID`).
-- [ ] 4.5 `go build ./internal/telemetry/...` — expect this to fail until T5
+- [x] 4.5 `go build ./internal/telemetry/...` — expect this to fail until T5
       lands (the concrete implementations and every test file still
       reference the old shapes); expected at this point, not a regression.
 
@@ -138,35 +138,35 @@ Depends on: T4, T1 (T1 already edited `service.go`; land this after it to
 avoid a merge conflict on the same file, even though the two changes are
 logically independent).
 
-- [ ] 5.1 In `service.go`, drop `accountID uuid.UUID` from `snapshotFrom`'s
+- [x] 5.1 In `service.go`, drop `accountID uuid.UUID` from `snapshotFrom`'s
       parameter list; update its call site in `attemptVehicle` to drop the
       `v.AccountID` argument.
-- [ ] 5.2 In `mapping.go`'s `rowToSnapshot`, drop the `AccountID: r.AccountID,`
+- [x] 5.2 In `mapping.go`'s `rowToSnapshot`, drop the `AccountID: r.AccountID,`
       line.
-- [ ] 5.3 In `service.go`'s `dbStore.insertSnapshot`, drop
+- [x] 5.3 In `service.go`'s `dbStore.insertSnapshot`, drop
       `AccountID: s.AccountID,` from the `InsertVehicleSnapshotParams`
       literal.
-- [ ] 5.4 In `service.go`'s `record()`, build
+- [x] 5.4 In `service.go`'s `record()`, build
       `Attempt{PolledByAccountID: accountID, ...}` instead of
       `Attempt{AccountID: accountID, ...}`.
-- [ ] 5.5 In `service.go`'s `dbStore.insertPollAttempt`, map
+- [x] 5.5 In `service.go`'s `dbStore.insertPollAttempt`, map
       `PolledByAccountID: a.PolledByAccountID,` using whatever field name
       `sqlc generate` actually produced for the renamed column (confirmed in
       T3.9) — do not guess it before that step ran.
-- [ ] 5.6 Update `dbStore`'s four `snapshotsByVehicle*`/`snapshotPrecedingDay`
+- [x] 5.6 Update `dbStore`'s four `snapshotsByVehicle*`/`snapshotPrecedingDay`
       methods and `latestSnapshotsByVehicles` to drop/replace `accountID`
       in their own signatures and in the `telemetrydb.*Params` literals they
       build, using T3.9's confirmed generated field/parameter names.
-- [ ] 5.7 Update `reader.go`'s five pass-through methods to the new
+- [x] 5.7 Update `reader.go`'s five pass-through methods to the new
       signatures (thin delegation to the renamed/resigned `store` methods —
       no logic change).
-- [ ] 5.8 In `query_log.go`: update `loggingStore`'s and `loggingReader`'s
+- [x] 5.8 In `query_log.go`: update `loggingStore`'s and `loggingReader`'s
       method signatures to match. `insertSnapshot`'s log line drops
       `account=%s`. `insertPollAttempt`'s log line reads
       `a.PolledByAccountID` (keep the label `account=%s` or change it to
       `polled_by_account=%s` — either is fine). `LatestSnapshotsByVehicles`'s
       log line reports the requested `tesla_ids` instead of `account=%s`.
-- [ ] 5.9 `go build ./internal/telemetry/...` and `go vet
+- [x] 5.9 `go build ./internal/telemetry/...` and `go vet
       ./internal/telemetry/...` — expect these to still fail until T6 also
       lands (the package's own test files still reference the old shapes);
       expected at this point, not a regression to fix here.

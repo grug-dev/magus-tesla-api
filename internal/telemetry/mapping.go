@@ -106,7 +106,6 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 	}
 
 	return Snapshot{
-		AccountID:         r.AccountID,
 		TeslaID:           r.TeslaID,
 		CapturedAt:        r.CapturedAt.Time,
 		CapturedDate:      r.CapturedDate.Time,

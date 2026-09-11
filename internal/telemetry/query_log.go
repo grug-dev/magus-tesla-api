@@ -74,40 +74,40 @@ func formatNullableTeslaID(t *int64) string {
 
 // insertSnapshot implements store, logging before delegating (design D6).
 func (l *loggingStore) insertSnapshot(ctx context.Context, s Snapshot) error {
-	log.Printf("telemetry query: insertSnapshot account=%s tesla_id=%d captured_at=%s raw_data_bytes=%d",
-		s.AccountID, s.TeslaID, s.CapturedAt.UTC().Format(time.RFC3339), len(s.RawData))
+	log.Printf("telemetry query: insertSnapshot tesla_id=%d captured_at=%s raw_data_bytes=%d",
+		s.TeslaID, s.CapturedAt.UTC().Format(time.RFC3339), len(s.RawData))
 	return l.inner.insertSnapshot(ctx, s)
 }
 
 // insertPollAttempt implements store, logging before delegating (design D6).
 func (l *loggingStore) insertPollAttempt(ctx context.Context, a Attempt) error {
-	log.Printf("telemetry query: insertPollAttempt account=%s tesla_id=%d attempted_at=%s outcome=%s reason=%s",
-		a.AccountID, a.TeslaID, a.AttemptedAt.UTC().Format(time.RFC3339), a.Outcome, a.Reason)
+	log.Printf("telemetry query: insertPollAttempt polled_by_account=%s tesla_id=%d attempted_at=%s outcome=%s reason=%s",
+		a.PolledByAccountID, a.TeslaID, a.AttemptedAt.UTC().Format(time.RFC3339), a.Outcome, a.Reason)
 	return l.inner.insertPollAttempt(ctx, a)
 }
 
-// latestSnapshotsByAccount implements store as a silent pass-through — the
+// latestSnapshotsByVehicles implements store as a silent pass-through — the
 // read side is logged by loggingReader instead (design D1).
-func (l *loggingStore) latestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error) {
-	return l.inner.latestSnapshotsByAccount(ctx, accountID)
+func (l *loggingStore) latestSnapshotsByVehicles(ctx context.Context, teslaIDs []int64) ([]Snapshot, error) {
+	return l.inner.latestSnapshotsByVehicles(ctx, teslaIDs)
 }
 
 // snapshotsByVehicleSince implements store as a silent pass-through — the
 // read side is logged by loggingReader instead (design D1).
-func (l *loggingStore) snapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
-	return l.inner.snapshotsByVehicleSince(ctx, accountID, teslaID, since)
+func (l *loggingStore) snapshotsByVehicleSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
+	return l.inner.snapshotsByVehicleSince(ctx, teslaID, since)
 }
 
 // snapshotsByVehicleBetween implements store as a silent pass-through — the
 // read side is logged by loggingReader instead (design D1).
-func (l *loggingStore) snapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error) {
-	return l.inner.snapshotsByVehicleBetween(ctx, accountID, teslaID, start, end)
+func (l *loggingStore) snapshotsByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]Snapshot, error) {
+	return l.inner.snapshotsByVehicleBetween(ctx, teslaID, start, end)
 }
 
 // snapshotsByVehicleUpdatedSince implements store as a silent pass-through —
 // the read side is logged by loggingReader instead (design D1).
-func (l *loggingStore) snapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
-	return l.inner.snapshotsByVehicleUpdatedSince(ctx, accountID, teslaID, since)
+func (l *loggingStore) snapshotsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
+	return l.inner.snapshotsByVehicleUpdatedSince(ctx, teslaID, since)
 }
 
 // upsertSuperchargerHistory implements store, logging before delegating
@@ -121,8 +121,8 @@ func (l *loggingStore) upsertSuperchargerHistory(ctx context.Context, s Supercha
 
 // snapshotPrecedingDay implements store as a silent pass-through — the read
 // side is logged by loggingReader instead (design D1).
-func (l *loggingStore) snapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error) {
-	return l.inner.snapshotPrecedingDay(ctx, accountID, teslaID, day)
+func (l *loggingStore) snapshotPrecedingDay(ctx context.Context, teslaID int64, day time.Time) (*Snapshot, error) {
+	return l.inner.snapshotPrecedingDay(ctx, teslaID, day)
 }
 
 // --- loggingReader ---
@@ -147,42 +147,42 @@ func newLoggingReader(inner Reader) *loggingReader {
 // override here fails to compile.
 var _ Reader = (*loggingReader)(nil)
 
-// LatestSnapshotsByAccount implements Reader, logging after delegating.
-func (l *loggingReader) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error) {
-	result, err := l.inner.LatestSnapshotsByAccount(ctx, accountID)
-	log.Printf("telemetry query: LatestSnapshotsByAccount account=%s rows=%d", accountID, len(result))
+// LatestSnapshotsByVehicles implements Reader, logging after delegating.
+func (l *loggingReader) LatestSnapshotsByVehicles(ctx context.Context, teslaIDs []int64) ([]Snapshot, error) {
+	result, err := l.inner.LatestSnapshotsByVehicles(ctx, teslaIDs)
+	log.Printf("telemetry query: LatestSnapshotsByVehicles tesla_ids=%v rows=%d", teslaIDs, len(result))
 	return result, err
 }
 
 // SnapshotsByVehicleSince implements Reader, logging after delegating.
-func (l *loggingReader) SnapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
-	result, err := l.inner.SnapshotsByVehicleSince(ctx, accountID, teslaID, since)
-	log.Printf("telemetry query: SnapshotsByVehicleSince account=%s tesla_id=%d since=%s rows=%d",
-		accountID, teslaID, since.UTC().Format(time.RFC3339), len(result))
+func (l *loggingReader) SnapshotsByVehicleSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
+	result, err := l.inner.SnapshotsByVehicleSince(ctx, teslaID, since)
+	log.Printf("telemetry query: SnapshotsByVehicleSince tesla_id=%d since=%s rows=%d",
+		teslaID, since.UTC().Format(time.RFC3339), len(result))
 	return result, err
 }
 
 // SnapshotsByVehicleBetween implements Reader, logging after delegating.
-func (l *loggingReader) SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error) {
-	result, err := l.inner.SnapshotsByVehicleBetween(ctx, accountID, teslaID, start, end)
-	log.Printf("telemetry query: SnapshotsByVehicleBetween account=%s tesla_id=%d start=%s end=%s rows=%d",
-		accountID, teslaID, start.UTC().Format("2006-01-02"), end.UTC().Format("2006-01-02"), len(result))
+func (l *loggingReader) SnapshotsByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]Snapshot, error) {
+	result, err := l.inner.SnapshotsByVehicleBetween(ctx, teslaID, start, end)
+	log.Printf("telemetry query: SnapshotsByVehicleBetween tesla_id=%d start=%s end=%s rows=%d",
+		teslaID, start.UTC().Format("2006-01-02"), end.UTC().Format("2006-01-02"), len(result))
 	return result, err
 }
 
 // SnapshotsByVehicleUpdatedSince implements Reader, logging after delegating.
-func (l *loggingReader) SnapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
-	result, err := l.inner.SnapshotsByVehicleUpdatedSince(ctx, accountID, teslaID, since)
-	log.Printf("telemetry query: SnapshotsByVehicleUpdatedSince account=%s tesla_id=%d since=%s rows=%d",
-		accountID, teslaID, since.UTC().Format(time.RFC3339), len(result))
+func (l *loggingReader) SnapshotsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
+	result, err := l.inner.SnapshotsByVehicleUpdatedSince(ctx, teslaID, since)
+	log.Printf("telemetry query: SnapshotsByVehicleUpdatedSince tesla_id=%d since=%s rows=%d",
+		teslaID, since.UTC().Format(time.RFC3339), len(result))
 	return result, err
 }
 
 // SnapshotPrecedingDay implements Reader, logging after delegating.
-func (l *loggingReader) SnapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error) {
-	result, err := l.inner.SnapshotPrecedingDay(ctx, accountID, teslaID, day)
-	log.Printf("telemetry query: SnapshotPrecedingDay account=%s tesla_id=%d day=%s found=%t",
-		accountID, teslaID, day.UTC().Format("2006-01-02"), result != nil)
+func (l *loggingReader) SnapshotPrecedingDay(ctx context.Context, teslaID int64, day time.Time) (*Snapshot, error) {
+	result, err := l.inner.SnapshotPrecedingDay(ctx, teslaID, day)
+	log.Printf("telemetry query: SnapshotPrecedingDay tesla_id=%d day=%s found=%t",
+		teslaID, day.UTC().Format("2006-01-02"), result != nil)
 	return result, err
 }
 

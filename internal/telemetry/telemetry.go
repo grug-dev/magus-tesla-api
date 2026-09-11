@@ -22,22 +22,22 @@ import (
 )
 
 // Snapshot is one immutable capture of a vehicle's state — our own domain model
-// (no vendor suffix). It carries the owning account id, the vehicle's Tesla id,
-// the platform capture time, the extracted typed fields, and the lossless raw
-// vehicle_data payload. Every unit-bearing field is stored in its DISPLAY unit,
-// converted exactly once at capture time by calling the tesla adapter's Km()/
-// PSI() companions (telemetry-store-display-units design D1/D3, RM7 Decision 1);
-// this module holds no conversion constant of its own and exposes no read-time
-// conversion method — the field name itself carries the unit.
+// (no vendor suffix). It carries the vehicle's Tesla id, the platform capture
+// time, the extracted typed fields, and the lossless raw vehicle_data payload.
+// It has no account id: a vehicle can be registered to more than one account,
+// but only one is elected to poll it each night (electPollingVehicles), so a
+// snapshot's identity is the vehicle alone. Every unit-bearing field is stored
+// in its DISPLAY unit, converted exactly once at capture time by calling the
+// tesla adapter's Km()/PSI() companions; this module holds no conversion
+// constant of its own and exposes no read-time conversion method — the field
+// name itself carries the unit.
 type Snapshot struct {
-	AccountID  uuid.UUID
 	TeslaID    int64
 	CapturedAt time.Time
 	// CapturedDate is the calendar date CapturedAt falls on, computed in the
-	// poller's configured timezone (Config.Location) at write time (design D2 of
-	// telemetry-dedupe-daily-snapshots). It backs the UNIQUE (account_id,
-	// tesla_id, captured_date) constraint that collapses repeated same-day
-	// captures into one row (design D1: latest capture wins). Represented as a
+	// poller's configured timezone (Config.Location) at write time. It backs
+	// the UNIQUE (tesla_id, captured_date) constraint that collapses repeated
+	// same-day captures into one row (latest capture wins). Represented as a
 	// time.Time normalized to UTC midnight (the pgtype.Date convention) — treat
 	// it as a plain calendar date, not a timestamp; CapturedAt remains the
 	// authoritative "when."
@@ -149,11 +149,16 @@ const (
 // Attempt is one recorded (vehicle, run) collection attempt — exactly one is
 // written per vehicle per cycle regardless of outcome (design D5).
 type Attempt struct {
-	AccountID   uuid.UUID
-	TeslaID     int64
-	AttemptedAt time.Time
-	Outcome     Outcome
-	Reason      Reason
+	// PolledByAccountID is the account whose credentials performed this
+	// attempt. It is not necessarily the vehicle's only registered account —
+	// one account is elected to poll each vehicle per night
+	// (electPollingVehicles, service.go), so this records which one actually
+	// did, not "the" owning account.
+	PolledByAccountID uuid.UUID
+	TeslaID           int64
+	AttemptedAt       time.Time
+	Outcome           Outcome
+	Reason            Reason
 	// RunID correlates this attempt to the RunContext.RunID of the CollectAll
 	// invocation that wrote it (RM29-app-add-process-vehicle-data design D5).
 	// Always non-zero on write — every Attempt is built from a real RunContext
@@ -295,88 +300,76 @@ type Collector interface {
 // Callers must never import telemetrydb directly — all access goes through
 // this interface.
 type Reader interface {
-	// LatestSnapshotsByAccount returns the most-recently captured snapshot for
-	// each vehicle belonging to the given account. If the account has no stored
-	// snapshots it returns an empty (non-nil) slice and a nil error. Order of
-	// the returned slice is unspecified.
-	LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)
+	// LatestSnapshotsByVehicles returns the most-recently captured snapshot
+	// for each of the given vehicles. If none of the given vehicles has a
+	// stored snapshot it returns an empty (non-nil) slice and a nil error.
+	// Order of the returned slice is unspecified. The caller typically passes
+	// every vehicle one account can see, but nothing here assumes the
+	// vehicles share one account — the batch is keyed on tesla_id alone.
+	LatestSnapshotsByVehicles(ctx context.Context, teslaIDs []int64) ([]Snapshot, error)
 
 	// SnapshotsByVehicleSince returns the nightly snapshots captured for the
-	// given vehicle (within the given account) at or after `since`, ordered
-	// oldest-first. Returns an empty (non-nil) slice and nil error when no
-	// snapshots exist in the window (design D1: caller supplies the window
-	// boundary; this port is a pure data accessor). The account_id AND tesla_id
-	// filter provides defense-in-depth tenant isolation (D2) even when the
-	// gateway already resolves tesla_id from account.RegisteredVehicles(uid).
-	// Distance and range fields are already in kilometres, converted at capture
-	// time — no companion conversion method exists on the returned Snapshot
-	// (telemetry-store-display-units design D1/D3).
-	SnapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
+	// given vehicle at or after `since`, ordered oldest-first. Returns an
+	// empty (non-nil) slice and nil error when no snapshots exist in the
+	// window (caller supplies the window boundary; this port is a pure data
+	// accessor). Distance and range fields are already in kilometres,
+	// converted at capture time — no companion conversion method exists on
+	// the returned Snapshot.
+	SnapshotsByVehicleSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error)
 
 	// SnapshotsByVehicleBetween returns the nightly snapshots captured for the given
-	// vehicle (within the given account) whose **EffectiveDate calendar day** falls in
-	// the caller-supplied `[start, end]` window inclusive, ordered ascending by
-	// EffectiveDate (equivalently ascending by `captured_at`, since EffectiveDate is
-	// monotonic in CapturedAt — oldest-first). `start` and `end` are whole UTC-midnight-
-	// bounded calendar days; `end` is **inclusive** (Decision #2 of the RM8 roadmap
-	// grill-me interview). The port is a clean bounded window: there is **no lookback
-	// parameter** — the 1-day lookback the gateway needs for the first odometer delta is
-	// a gateway concern, expressed by the caller passing `start - 1 day` as `start`
-	// (Decision #4). The port does no validation of the UTC-midnight/inclusive-`end`
-	// contract; that is the HTTP layer's job in tier 2.
+	// vehicle whose **EffectiveDate calendar day** falls in the caller-supplied
+	// `[start, end]` window inclusive, ordered ascending by EffectiveDate
+	// (equivalently ascending by `captured_at`, since EffectiveDate is monotonic in
+	// CapturedAt — oldest-first). `start` and `end` are whole UTC-midnight-bounded
+	// calendar days; `end` is **inclusive**. The port is a clean bounded window: there
+	// is **no lookback parameter** — the 1-day lookback the gateway needs for the
+	// first odometer delta is a gateway concern, expressed by the caller passing
+	// `start - 1 day` as `start`. The port does no validation of the
+	// UTC-midnight/inclusive-`end` contract; that is the HTTP layer's job.
 	//
 	// The implementation honors `EffectiveDate ∈ [start, end]` by filtering on the
-	// `captured_at` TIMESTAMPTZ column (NOT the poller-zone `captured_date` — see design
-	// D1) with bounds derived from the window; that translation is an internal detail of
-	// the dbStore implementation (design D5) and never appears in this signature.
+	// `captured_at` TIMESTAMPTZ column (NOT the poller-zone `captured_date`) with
+	// bounds derived from the window; that translation is an internal detail of the
+	// dbStore implementation and never appears in this signature.
 	//
 	// Returns an empty (non-nil) slice and nil error when the vehicle has no snapshots
-	// in the window (parity with SnapshotsByVehicleSince / LatestSnapshotsByAccount — no
-	// nil-slice footgun for callers). Reuses the single `rowToSnapshot` mapper, so this
-	// method inherits EffectiveDate and every Extracted typed field for free with no
-	// per-method duplication. Distance and range fields are already in kilometres,
-	// converted at capture time — no companion conversion method exists on the returned
-	// Snapshot (telemetry-store-display-units design D1/D3).
+	// in the window (parity with SnapshotsByVehicleSince / LatestSnapshotsByVehicles —
+	// no nil-slice footgun for callers). Reuses the single `rowToSnapshot` mapper, so
+	// this method inherits EffectiveDate and every extracted typed field for free with
+	// no per-method duplication. Distance and range fields are already in kilometres,
+	// converted at capture time — no companion conversion method exists on the
+	// returned Snapshot.
 	//
-	// The account_id AND tesla_id filter provides defense-in-depth tenant isolation
-	// (parity with SnapshotsByVehicleSince's D2) even when the gateway already resolves
-	// tesla_id from account.RegisteredVehicles(uid). This method is ADDITIVE alongside
-	// SnapshotsByVehicleSince (kept unchanged — Decision #4 / design D4); the two serve
-	// different access patterns (open lower bound vs bounded window) and deprecation/
-	// removal of `Since`, if ever, is a separate change.
-	SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error)
+	// This method is ADDITIVE alongside SnapshotsByVehicleSince (kept unchanged); the
+	// two serve different access patterns (open lower bound vs bounded window) and
+	// deprecation/removal of `Since`, if ever, is a separate change.
+	SnapshotsByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]Snapshot, error)
 
 	// SnapshotsByVehicleUpdatedSince returns every stored snapshot for the given
-	// vehicle (within the given account) whose UpdatedAt is at or after `since`,
-	// without ordering guarantees stronger than the underlying query provides
-	// (ordered ascending by updated_at, mirroring SnapshotsByVehicleSince's
-	// oldest-first convention). It exists so other modules (internal/analytics'
-	// Recalculator, RM29-analytics-add-vehicle-metrics) can detect which
-	// snapshots changed recently — including a same-day REPLACE via the
-	// existing UPSERT (design D1 of telemetry-dedupe-daily-snapshots) — without
-	// importing telemetrydb directly. Returns a non-nil empty slice and nil
-	// error when no snapshot for the vehicle has been updated at or after
-	// `since` (parity with every other Reader method's empty-result contract —
-	// no nil-slice footgun for callers). The account_id AND tesla_id filter
-	// provides defense-in-depth tenant isolation, mirroring every other
-	// per-vehicle method on this interface. Reuses the existing
-	// idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at)
-	// index's leading (account_id, tesla_id) columns as a scan prefix;
-	// updated_at is a residual filter within that scan — no new index (verified
-	// via EXPLAIN in the DB-integration test, Wave 6 of that change). Reuses
-	// the single rowToSnapshot mapper — no per-method duplication.
-	SnapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
+	// vehicle whose UpdatedAt is at or after `since`, without ordering guarantees
+	// stronger than the underlying query provides (ordered ascending by updated_at,
+	// mirroring SnapshotsByVehicleSince's oldest-first convention). It exists so
+	// other modules (internal/analytics' Recalculator) can detect which snapshots
+	// changed recently — including a same-day REPLACE via the existing UPSERT —
+	// without importing telemetrydb directly. Returns a non-nil empty slice and nil
+	// error when no snapshot for the vehicle has been updated at or after `since`
+	// (parity with every other Reader method's empty-result contract — no nil-slice
+	// footgun for callers). Reuses the (tesla_id, captured_date) UNIQUE index as a
+	// scan prefix on the tesla_id equality; updated_at is a residual filter within
+	// that scan — no new index. Reuses the single rowToSnapshot mapper — no
+	// per-method duplication.
+	SnapshotsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error)
 
 	// SnapshotPrecedingDay returns the single most recently captured snapshot for
-	// the given vehicle (within the given account) whose CapturedDate is strictly
-	// before `day`, or `(nil, nil)` when the vehicle has no earlier snapshot at all
-	// (its first-ever capture) — an absent predecessor is a normal answer, never an
-	// error. `day` is a bare calendar date, UTC-midnight-normalized — the same
-	// representation `Snapshot.CapturedDate` already carries, not a precise capture
-	// instant (RM29-telemetry-drop-derived-columns design D2, carries interview
-	// outcome I2). A genuine query error is returned as-is and MUST NOT be degraded
-	// to "no predecessor" — a transient storage fault must never be mistaken by a
-	// caller for "this vehicle has no earlier snapshot" (its only intended caller,
+	// the given vehicle whose CapturedDate is strictly before `day`, or `(nil, nil)`
+	// when the vehicle has no earlier snapshot at all (its first-ever capture) — an
+	// absent predecessor is a normal answer, never an error. `day` is a bare
+	// calendar date, UTC-midnight-normalized — the same representation
+	// `Snapshot.CapturedDate` already carries, not a precise capture instant. A
+	// genuine query error is returned as-is and MUST NOT be degraded to "no
+	// predecessor" — a transient storage fault must never be mistaken by a caller
+	// for "this vehicle has no earlier snapshot" (its only intended caller,
 	// internal/analytics' Recalculate, aborts on error rather than silently NULLing
 	// a real vehicle's derived figures).
 	//
@@ -388,33 +381,27 @@ type Reader interface {
 	// already the poller-zone calendar day (stamped once on the write path by
 	// `clock.CalendarDay`), the predicate is zone-free at query time, and a same-day
 	// re-capture (the "latest capture for a calendar day wins" replace rule) can
-	// never select its own about-to-be-replaced row as its own predecessor — the
-	// exact guarantee the module's former `dayStart`-bounded `previousSnapshot`
-	// seam provided, re-expressed in the schema's own day column.
+	// never select its own about-to-be-replaced row as its own predecessor.
 	//
 	// The port reaches the TRUE predecessor however old it is: there is no maximum
 	// lookback, no trailing-window limit, and no fixed number of days beyond which
 	// the predecessor is reported absent — unlike SnapshotsByVehicleSince/Between,
 	// which are bounded windows. This is the exact predecessor a multi-day capture
 	// gap needs; a bounded/widened-window alternative was rejected because it would
-	// yield a silently wrong delta for any gap exceeding the window (design D2).
+	// yield a silently wrong delta for any gap exceeding the window.
 	//
-	// Reuses the existing idx_vehicle_snapshots_vehicle_time (account_id, tesla_id,
-	// captured_at) index as a BACKWARD scan off its two leading equality columns —
-	// no new index. `vehicle_snapshots_account_tesla_date_unique` guarantees at most
-	// one row per vehicle per calendar day, so at most one row is examined and
-	// rejected by the captured_date residual predicate before the match (verified
-	// via EXPLAIN in the DB-integration test). The account_id AND tesla_id filter
-	// provides defense-in-depth tenant isolation, mirroring every other per-vehicle
-	// method on this interface. Reuses the single `rowToSnapshot` mapper — no new
-	// mapper, no per-method duplication.
+	// Served by the (tesla_id, captured_date) UNIQUE index as the exact predicate
+	// pair, in index order. That constraint guarantees at most one row per vehicle
+	// per calendar day, so at most one row is examined and rejected by the
+	// captured_date residual predicate before the match. Reuses the single
+	// `rowToSnapshot` mapper — no new mapper, no per-method duplication.
 	//
 	// This method is the module's former private `previousSnapshot` store seam
 	// promoted to the public port, with its bound changed from an instant
 	// (`captured_at < before`) to a calendar day (`captured_date < day`) so a
 	// caller holding no `*time.Location` (internal/analytics deliberately holds
 	// none) can still compute a correct, zone-free bound.
-	SnapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error)
+	SnapshotPrecedingDay(ctx context.Context, teslaID int64, day time.Time) (*Snapshot, error)
 }
 
 // --- Source B: Supercharger sessions ---

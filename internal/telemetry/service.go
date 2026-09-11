@@ -33,10 +33,10 @@ const defaultRetryBackoff = 2 * time.Second
 // error out) is what keeps pgtype from leaking past the module boundary: the mapping
 // to pgtype happens ONLY inside the telemetrydb-backed implementation below.
 //
-// The read method latestSnapshotsByAccount is added here so the Reader implementation
-// can also be unit-tested offline via the same fake-store pattern (design D3 of
-// telemetry-add-snapshot-read-port). The mapping from pgtype→domain happens in
-// mapping.go (rowToSnapshot), confining pgtype to the concrete dbStore.
+// The read methods (latestSnapshotsByVehicles and friends) are added here so the
+// Reader implementation can also be unit-tested offline via the same fake-store
+// pattern. The mapping from pgtype→domain happens in mapping.go (rowToSnapshot),
+// confining pgtype to the concrete dbStore.
 //
 // upsertSuperchargerHistory is the Source B write seam: it maps a domain
 // SuperchargerHistory into telemetrydb params at the DB boundary. pgtype never
@@ -44,26 +44,25 @@ const defaultRetryBackoff = 2 * time.Second
 type store interface {
 	insertSnapshot(ctx context.Context, s Snapshot) error
 	insertPollAttempt(ctx context.Context, a Attempt) error
-	latestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)
-	snapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
-	snapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error)
-	// snapshotsByVehicleUpdatedSince returns every snapshot for (accountID,
-	// teslaID) whose updated_at is at or after since, ordered oldest-first by
-	// updated_at (Reader.SnapshotsByVehicleUpdatedSince, RM29-analytics-add-
-	// vehicle-metrics task 1.2). Reuses rowToSnapshot — no new mapper.
-	snapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
+	latestSnapshotsByVehicles(ctx context.Context, teslaIDs []int64) ([]Snapshot, error)
+	snapshotsByVehicleSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error)
+	snapshotsByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]Snapshot, error)
+	// snapshotsByVehicleUpdatedSince returns every snapshot for teslaID whose
+	// updated_at is at or after since, ordered oldest-first by updated_at
+	// (Reader.SnapshotsByVehicleUpdatedSince). Reuses rowToSnapshot — no new
+	// mapper.
+	snapshotsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error)
 	upsertSuperchargerHistory(ctx context.Context, s SuperchargerHistory) error
-	// snapshotPrecedingDay backs the public Reader.SnapshotPrecedingDay
-	// (RM29-telemetry-drop-derived-columns design D2): the most recent stored
-	// snapshot for (accountID, teslaID) whose captured_date is strictly before
-	// `day`, or (nil, nil) when none exists. Its bound is a calendar day, not an
-	// instant — see the Reader.SnapshotPrecedingDay doc comment (telemetry.go)
-	// for the full zone-safety rationale. This is the module's former private
-	// previousSnapshot seam (deleted, tier 4 design D8), now the sole predecessor
-	// lookup and the only one telemetry itself never calls — its one consumer is
+	// snapshotPrecedingDay backs the public Reader.SnapshotPrecedingDay: the
+	// most recent stored snapshot for teslaID whose captured_date is strictly
+	// before `day`, or (nil, nil) when none exists. Its bound is a calendar
+	// day, not an instant — see the Reader.SnapshotPrecedingDay doc comment
+	// (telemetry.go) for the full zone-safety rationale. This is the module's
+	// former private previousSnapshot seam, now the sole predecessor lookup
+	// and the only one telemetry itself never calls — its one consumer is
 	// internal/analytics via the public Reader port. Implemented by dbStore in
 	// reader.go and by every test fake in this file and reader_test.go.
-	snapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error)
+	snapshotPrecedingDay(ctx context.Context, teslaID int64, day time.Time) (*Snapshot, error)
 }
 
 // service is the concrete Collector. It consumes the account and tesla PORTS only
@@ -488,7 +487,7 @@ func (s *service) attemptVehicle(ctx context.Context, tsla tesla.VehicleService,
 	// residue of the removed dayStart-bounded predecessor lookup: a single s.now()
 	// call still keeps every timestamp on this row internally consistent).
 	capturedAt := s.now()
-	snap := snapshotFrom(v.AccountID, v.TeslaID, capturedAt, s.location(), data, raw)
+	snap := snapshotFrom(v.TeslaID, capturedAt, s.location(), data, raw)
 
 	// attemptVehicle is a pure fetch → map → store pass (RM29-telemetry-drop-
 	// derived-columns, design D8): the five derived-consumption columns and the
@@ -571,13 +570,13 @@ func (s *service) record(ctx context.Context, run RunContext, accountID uuid.UUI
 	}
 
 	_ = s.store.insertPollAttempt(ctx, Attempt{
-		AccountID:   accountID,
-		TeslaID:     teslaID,
-		AttemptedAt: s.now(),
-		Outcome:     outcome,
-		Reason:      reason,
-		RunID:       run.RunID,
-		TriggeredBy: run.TriggeredBy,
+		PolledByAccountID: accountID,
+		TeslaID:           teslaID,
+		AttemptedAt:       s.now(),
+		Outcome:           outcome,
+		Reason:            reason,
+		RunID:             run.RunID,
+		TriggeredBy:       run.TriggeredBy,
 	})
 
 	report.Attempted++
@@ -611,9 +610,8 @@ func (s *service) record(ctx context.Context, run RunContext, accountID uuid.UUI
 //
 // latitude/longitude and fast_charger_type are NOT extracted here — those typed columns
 // were dropped in migration 20260801000001. Values remain lossless in raw_data JSONB.
-func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, loc *time.Location, data *tesla.VehicleDataTesla, raw []byte) Snapshot {
+func snapshotFrom(teslaID int64, capturedAt time.Time, loc *time.Location, data *tesla.VehicleDataTesla, raw []byte) Snapshot {
 	return Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        capturedAt,
 		CapturedDate:      clock.CalendarDay(capturedAt, loc),
@@ -667,7 +665,6 @@ type dbStore struct {
 
 func (d *dbStore) insertSnapshot(ctx context.Context, s Snapshot) error {
 	return d.q.InsertVehicleSnapshot(ctx, telemetrydb.InsertVehicleSnapshotParams{
-		AccountID:         s.AccountID,
 		TeslaID:           s.TeslaID,
 		CapturedAt:        timestamptzFrom(s.CapturedAt),
 		CapturedDate:      dateFrom(s.CapturedDate),
@@ -762,23 +759,25 @@ func runIDToPgUUID(v uuid.UUID) pgtype.UUID {
 
 func (d *dbStore) insertPollAttempt(ctx context.Context, a Attempt) error {
 	return d.q.InsertPollAttempt(ctx, telemetrydb.InsertPollAttemptParams{
-		AccountID:   a.AccountID,
-		TeslaID:     a.TeslaID,
-		AttemptedAt: timestamptzFrom(a.AttemptedAt),
-		Outcome:     string(a.Outcome),
-		Reason:      string(a.Reason),
-		RunID:       runIDToPgUUID(a.RunID),
-		TriggeredBy: string(a.TriggeredBy),
+		PolledByAccountID: a.PolledByAccountID,
+		TeslaID:           a.TeslaID,
+		AttemptedAt:       timestamptzFrom(a.AttemptedAt),
+		Outcome:           string(a.Outcome),
+		Reason:            string(a.Reason),
+		RunID:             runIDToPgUUID(a.RunID),
+		TriggeredBy:       string(a.TriggeredBy),
 	})
 }
 
-// latestSnapshotsByAccount implements the read seam: it calls the DISTINCT ON
+// latestSnapshotsByVehicles implements the read seam: it calls the DISTINCT ON
 // query generated by sqlc and maps each row to the domain Snapshot via rowToSnapshot
 // (mapping.go). pgtype never appears in the return type — it stays inside the module
-// (ai/go-conventions.md §persistence). Returns a non-nil empty slice when the account
-// has no snapshots (design D5: avoids nil-slice footguns for the gateway caller).
-func (d *dbStore) latestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error) {
-	rows, err := d.q.LatestSnapshotsByAccount(ctx, accountID)
+// (ai/go-conventions.md §persistence). Returns a non-nil empty slice when none of the
+// given vehicles has a snapshot (avoids nil-slice footguns for the caller). sqlc
+// generates a plain positional []int64 argument for the bigint[] binding — no Params
+// struct for this query.
+func (d *dbStore) latestSnapshotsByVehicles(ctx context.Context, teslaIDs []int64) ([]Snapshot, error) {
+	rows, err := d.q.LatestSnapshotsByVehicles(ctx, teslaIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -793,13 +792,12 @@ func (d *dbStore) latestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 // SnapshotsByVehicleSince range-scan query generated by sqlc and maps each row
 // to the domain Snapshot via rowToSnapshot (mapping.go). The since parameter is
 // converted at the DB boundary so pgtype never leaks past service.go.
-// Returns a non-nil empty slice when no rows exist (design D5 parity with
-// latestSnapshotsByAccount).
-func (d *dbStore) snapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
+// Returns a non-nil empty slice when no rows exist (parity with
+// latestSnapshotsByVehicles).
+func (d *dbStore) snapshotsByVehicleSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
 	rows, err := d.q.SnapshotsByVehicleSince(ctx, telemetrydb.SnapshotsByVehicleSinceParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-		Since:     timestamptzFrom(since),
+		TeslaID: teslaID,
+		Since:   timestamptzFrom(since),
 	})
 	if err != nil {
 		return nil, err
@@ -843,13 +841,12 @@ func (d *dbStore) snapshotsByVehicleSince(ctx context.Context, accountID uuid.UU
 //
 // LIMIT 400 is enforced in the SQL itself (query.sql), so no pagination logic is
 // needed here. Returns a non-nil empty slice when no rows exist (parity with
-// latestSnapshotsByAccount / snapshotsByVehicleSince — design D5: no nil-slice footgun
+// latestSnapshotsByVehicles / snapshotsByVehicleSince — no nil-slice footgun
 // for the gateway caller).
-func (d *dbStore) snapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error) {
+func (d *dbStore) snapshotsByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]Snapshot, error) {
 	startBound := start.AddDate(0, 0, 1) // UTC midnight beginning first eligible capture day
 	endBound := end.AddDate(0, 0, 2)     // UTC midnight ending last eligible capture day (exclusive)
 	rows, err := d.q.SnapshotsByVehicleBetween(ctx, telemetrydb.SnapshotsByVehicleBetweenParams{
-		AccountID:  accountID,
 		TeslaID:    teslaID,
 		StartBound: timestamptzFrom(startBound),
 		EndBound:   timestamptzFrom(endBound),
@@ -871,13 +868,12 @@ func (d *dbStore) snapshotsByVehicleBetween(ctx context.Context, accountID uuid.
 // other extracted typed field with no per-method duplication
 // (RM29-analytics-add-vehicle-metrics task 1.2). The since parameter is converted
 // at the DB boundary so pgtype never leaks past service.go. Returns a non-nil
-// empty slice when no rows exist (design D5 parity with snapshotsByVehicleSince /
-// latestSnapshotsByAccount).
-func (d *dbStore) snapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
+// empty slice when no rows exist (parity with snapshotsByVehicleSince /
+// latestSnapshotsByVehicles).
+func (d *dbStore) snapshotsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
 	rows, err := d.q.SnapshotsByVehicleUpdatedSince(ctx, telemetrydb.SnapshotsByVehicleUpdatedSinceParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-		Since:     timestamptzFrom(since),
+		TeslaID: teslaID,
+		Since:   timestamptzFrom(since),
 	})
 	if err != nil {
 		return nil, err
