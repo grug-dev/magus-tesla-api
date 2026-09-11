@@ -204,6 +204,15 @@
 | `account status` | `account.Account.Status` (`Active` / `Inactive`) → `architecture/account-activation-gate.md` |
 | `blocked login` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
 | `deactivated account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
+| `gateway write exceptions` (the closed list of handlers allowed to break the gateway's read-only rule, their guard sets, and why three of them deliberately differ) | `architecture/gateway-write-exceptions.md` |
+| `write aperture` | synonym of `gateway write exceptions` → `architecture/gateway-write-exceptions.md` |
+| `read-only rule` | the gateway default — handlers call `Reader` ports only → `architecture/gateway-write-exceptions.md` |
+| `CSRF` | the four session keys + `checkCSRFKey`'s fail-closed contract → `architecture/gateway-write-exceptions.md` |
+| `csrf_theme` / `csrf_supercharger` / `csrf_externalcharge` / `csrf_vehicle_select` | the four CSRF session keys, one per form → `architecture/gateway-write-exceptions.md` |
+| `tenant ownership check` | `RegisteredVehicles` on the submitted `(TeslaID, VIN)` — and the two apertures that deliberately skip it → `architecture/gateway-write-exceptions.md` |
+| `language switch` | `LangSwitch` — no CSRF by user-approved decision; `SameSite=Lax` is the defence → `architecture/gateway-write-exceptions.md` |
+| `theme switch` | `ThemeSwitch` — auth + CSRF, cookie written only after the persist → `architecture/gateway-write-exceptions.md` |
+| `SameSite` | why the `lang` cookie's `SameSite=Lax` is mandatory → `architecture/gateway-write-exceptions.md` |
 | `poll run summary` (one row per `ProcessVehicleData` invocation, recorded on every exit path incl. whole-cycle failure) | `architecture/nightly-cycle.md` |
 | `SEO metatags` (the one `seoHead` component that renders every search-engine and share tag; public pages indexable, `BaseAuth` pages `noindex`) | `architecture/seo-metadata.md` |
 | `metatags` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |

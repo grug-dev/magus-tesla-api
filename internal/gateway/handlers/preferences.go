@@ -182,9 +182,9 @@ const csrfThemeKey = "csrf_theme"
 // is purely a mirror of what the account row actually holds — so setting it
 // before (or regardless of) a successful SetTheme would let it claim a
 // value the database write never reached. Do not "fix" this ordering to
-// match lang.go; see AGENTS.md's "Exception: theme switch" (D8) for the
-// same warning recorded where a future agent is more likely to read it
-// first.
+// match lang.go; the same warning is recorded in
+// kkpa/context/architecture/gateway-write-exceptions.md, where a future
+// agent is more likely to read it first.
 func (h *Handler) ThemeSwitch(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
