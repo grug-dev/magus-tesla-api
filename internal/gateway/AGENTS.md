@@ -664,7 +664,7 @@ HTML) stays cheap and predictable.
 
 - Handlers only call **`Reader` ports** (e.g. `account.RegisteredVehicles`,
   `charging.SessionReader.ListSessionsByVehicleBetween`). Never call `Collector` or
-  `Writer` ports from a handler, **except as documented below**. The telemetry
+  `Writer` ports from a handler, **except through the apertures below**. The telemetry
   module is off-limits entirely — see "Public interface" above.
 - No writes, no Tesla API calls, no side effects on user requests. The only
   user-initiated Tesla API call is listing vehicles on first Tesla connect
@@ -674,174 +674,35 @@ HTML) stays cheap and predictable.
   the nightly batch (`telemetry.Collector`) or inside `account.Service` methods
   called from non-gateway paths — never from a gateway handler.
 
-### Exception: user-initiated writes (D4 amendment — RM3-gateway-add-manual-charge-ui)
+### The write apertures — a closed list
 
-The gateway MAY call `charging.Writer` (Create / Update / Delete) from the
-`/external-charges` form handlers (`ExternalChargeCreate`, `ExternalChargeRowUpdate`,
-`ExternalChargeRowDelete`) — and **only** those. Every such write needs, in order: the
-`currentUID(c)` auth guard (else redirect to `/login`), a `RegisteredVehicles`
-tenant-ownership check on the submitted `(tesla_id, vin)` pair (403 if the vehicle is not
-the caller's), and `checkCSRF(c)` against the session key `csrf_externalcharge` (403 on
-mismatch). This does NOT open general write access — Reader-only remains the default for
-every other handler.
+| Handler | Port it may call | Guards, in order |
+|---|---|---|
+| `ExternalChargeCreate` / `ExternalChargeRowUpdate` / `ExternalChargeRowDelete` | `charging.Writer` | auth → vehicle ownership → CSRF `csrf_externalcharge` |
+| `SuperchargerRowUpdate` | `charging.SessionVerifier` | auth → CSRF `csrf_supercharger`. **No ownership check** |
+| `ThemeSwitch` | `account.Service.SetTheme` | auth → CSRF `csrf_theme` |
+| `LangSwitch` | `account.Service.SetLanguage` | **none** — it must serve anonymous callers |
+| `syncLoginLanguageCookie` | `account.Service.SetLanguage` | none — best-effort, inside `GoogleCallback` |
+| `VehicleSelect` | none — writes the session only | auth → CSRF `csrf_vehicle_select` → vehicle ownership |
+| `rejectIfInactive` | none — refuses a session | must run **before** `sess.Set("uid", …)`; that order is the security property |
 
-**Why the gateway carries the ownership check at all:** no cross-module FK exists in the
-database, so tenant scoping for this write is enforced at the application layer. Keep it
-in the handler; do not push it into `charging`.
+**That table is the whole aperture list. Every other handler is Reader-only.** Adding a row
+is never a worker's call — each one was put to the user and approved. Stop and ask.
 
-Per-route detail — which handler does what, the recalculation window, the response
-shapes — lives in `kkpa/context/workflows/manual-charge-crud.md` and
-`kkpa/context/input-port/charging/external-charges.md`. Fetch those before changing a
-charge write.
-### Manual charge form & list — page detail lives in the KB
+**Do not copy one row's guard set onto another.** Three of them diverge on purpose: the
+language switch has no CSRF, the Supercharger write has no ownership check, and the theme
+cookie is written only *after* its database write succeeds. Each divergence is a settled,
+user-approved decision whose reasoning does not transfer, and each has been "simplified"
+by a well-meaning agent before. Read
+`kkpa/context/architecture/gateway-reader-writer-ports.md` — the guards, the reasons, and the
+per-aperture mechanism — before you touch any of them.
 
-The `/external-charges` form layout, its field rules, the edit-save retarget, the
-one-row-editable invariant, the helper copy, the one-`IN_PROGRESS`-per-day rule and
-the success notice are **`/external-charges`-specific**. They moved to
-`kkpa/context/input-port/charging/external-charges.md` (MAG-39) so this file — re-read in full
-on every gateway dispatch — is not carrying one page's detail for every other page's
-work. Fetch that guide before changing the charges form or list.
+One line is repeated here rather than left to the guide, because dropping it is silent and
+the only thing that catches it is a test: **`setLangCookie` MUST call
+`c.SetSameSite(http.SameSiteLaxMode)` before `c.SetCookie(...)`.** gin's `SetCookie` has no
+SameSite parameter, and that attribute is the language switch's entire CSRF defence.
+`TestLangSwitch_CookieIsSameSiteLax` pins it — if it fails, fix the cookie, never the test.
 
-Two things stay here, because they are **not** page-specific:
-
-- **Never pair a top-level `<tr>` with a non-table `hx-swap-oob` sibling in one
-  response.** htmx 2.0.4 parses a response inside a `<template>` (`makeFragment`); a
-  leading `<tr>` start tag switches the HTML parser into table insertion mode, and the
-  non-table sibling that follows is foster-parented off the fragment's top level — the
-  only place htmx looks for `hx-swap-oob`. **Server-side tests see the OOB element in
-  the response body and pass; only the browser drops it.** Discovered on
-  `ExternalChargeRowUpdate`, but it applies to any page returning a row plus an OOB sibling.
-  `ExternalChargeCreateSuccessOOB` is unaffected because both of its elements are `<div>`s.
-- **No `<details>`/`<summary>` collapse around a required control, on any form.** A
-  browser cannot report an HTML5 validation message on a control inside a closed
-  `<details>` — Chrome logs *"An invalid form control ... is not focusable"* and the
-  submit silently does nothing: no message, no request. Pinned by
-  `TestExternalChargeForms_NoDetailsCollapse` (`handlers/external_charges_test.go`).
-
-### Exception: language switch (D-lang amendment — RM24-gateway-add-i18n-foundation)
-
-The gateway MAY call `account.Service.SetLanguage` from `handlers.LangSwitch`
-(`POST /ui/lang/switch`), subject to a **different** set of constraints than the
-D4/charging amendment above — it does not transplant cleanly, because this
-endpoint must work for anonymous callers too:
-
-1. **No auth guard, no redirect-to-login.** Every other write handler starts with
-   `currentUID(c)` and redirects an anonymous caller to `/login`. `LangSwitch`
-   branches instead: it always sets the `lang` cookie; it calls `SetLanguage` only
-   when a session `uid` is present.
-2. **No tenant-ownership check.** `SetLanguage(ctx, uid, lang)` always targets the
-   caller's own session `uid` — there is no user-submitted resource identifier (unlike
-   the vehicle `(TeslaID, VIN)` pair D4 validates) for a forged request to redirect at
-   a different account.
-3. **No CSRF check — a deliberate divergence from D4, not an oversight.** A forged
-   switch request can only ever change the caller's own display language (no data
-   mutation, nothing to exfiltrate, reversible in one click). Requiring CSRF here
-   would mean minting a session CSRF token on every page in the module — including
-   `Home`/`Dashboard`/`SuperchargerStats`, which mint none today — for a control
-   mounted on every page (design.md D6), to protect against a cosmetic annoyance.
-   **The actual defence is the `lang` cookie's `SameSite=Lax` attribute**, which
-   makes modern browsers refuse to attach it to a cross-site `POST` — this is
-   MANDATORY, not incidental; dropping it would void this decision and re-open the
-   CSRF question. `setLangCookie` (`internal/gateway/handlers/lang.go`) MUST call
-   `c.SetSameSite(http.SameSiteLaxMode)` **before** `c.SetCookie(...)` (gin's
-   `SetCookie` has no SameSite parameter). `TestLangSwitch_CookieIsSameSiteLax`
-   (`lang_test.go`) is mandatory and may not be dropped or weakened — if it fails,
-   fix the cookie, never the test.
-   - **This trade-off was put to the user and explicitly approved on 2026-08-13,
-     conditional on `SameSite=Lax`.** It is not a worker's unilateral call.
-4. **Scope stays narrow.** Only `account.Service.SetLanguage` is permitted under this
-   exception. Every other handler stays Reader-only except the pre-existing D4
-   aperture above.
-
-### Exception: theme switch (D3/D8 — RM42-gateway-add-theme-selector)
-
-The gateway MAY call `account.Service.SetTheme` from `handlers.ThemeSwitch`
-(`POST /ui/theme/switch`), subject to auth + CSRF — mirroring the Supercharger/D8
-write-exception below, **NOT** the language-switch exception immediately above. This is a
-SETTLED, user-confirmed decision (design.md D3, `RM42-gateway-add-theme-selector`): an
-earlier draft of that design proposed reusing the language exception's no-CSRF shape, and
-the user explicitly declined it.
-
-**Unlike the language switch, the theme switch is CSRF-protected — the analogy to the
-language exception breaks on exactly one point, so do not "simplify" this endpoint by
-copying `lang.go`'s no-CSRF, cookie-first-unconditionally shape.** The language exception's
-entire cost argument rests on `LangSwitcher` mounting on EVERY page, including anonymous
-ones (`Base`) — a session CSRF token cannot even exist for an anonymous visitor, so
-requiring one there would have meant a much larger redesign. `ThemeSwitcher` mounts on
-exactly ONE page, `/settings`, which is already authenticated — there never was an
-anonymous write path to protect against in the first place, so the "nowhere to mint a
-token" problem that earned language its exception simply does not exist here. Every other
-axis of the language exception's reasoning (own-account-only mutation, reversible, low
-stakes) is still true of theme; the CSRF requirement specifically is the one axis that does
-not transfer.
-
-**Mechanism (mirrors the Supercharger/D8 amendment exactly, read that section first):**
-
-1. **Auth guard first** — `currentUID(c)` must resolve a valid session UID or the handler
-   redirects to `/login` and returns. No CSRF check, no write, proceeds without one.
-2. **CSRF token check** — `h.checkCSRFKey(c, csrfThemeKey)`, where `csrfThemeKey =
-   "csrf_theme"` is its own session key, distinct from `csrfExternalChargeKey`,
-   `csrfVehicleSelectKey`, and `csrfSuperchargerKey`. Minted once per `GET /settings` by
-   `SettingsPage` (the same file, `preferences.go` — mirrors `SuperchargerStatsPage` and
-   `csrfSuperchargerKey` living together in `supercharger.go`); checked, never re-issued, by
-   `ThemeSwitch`. Returns HTTP 403 on a missing/stale/mismatched token; no write proceeds.
-3. **No separate tenant-ownership check** — same divergence the Supercharger amendment
-   documents for its own case: `SetTheme(ctx, uid, theme)` targets the caller's OWN session
-   `uid`, so there is no submitted resource identifier (no `TeslaID`/`VIN`-shaped value) for
-   a forged request to redirect at a different account.
-4. **Only `account.Service.SetTheme` is permitted** — this amendment does not open general
-   write access to the gateway.
-
-**Cookie-ordering divergence — the `theme` cookie is set only AFTER a successful
-`SetTheme`, not unconditionally first like `lang`'s.** `LangSwitch` sets its cookie FIRST,
-unconditionally, because the cookie is that endpoint's ONLY persistence for an anonymous
-caller. `theme` has no anonymous caller at all (design.md D2): its cookie is now purely a
-mirror of what the `account.settings` row already holds, kept only so a logged-out or
-pre-login page (which has no session, hence no `PreferencesFor` call) still renders the
-account's last-known theme. Setting it before — or regardless of — a successful `SetTheme`
-would let the cookie claim a value the database write never reached. `ThemeSwitch`
-(`preferences.go`) therefore sets `theme`'s cookie ONLY on the success path, after
-`account.Service.SetTheme` returns no error — a future agent must not "fix" this ordering
-to match `lang.go`'s.
-
-### Exception: Supercharger session battery verification (D8 amendment — RM31-gateway-add-session-battery-edit)
-
-The gateway MAY call `charging.SessionVerifier.VerifySession` from `SuperchargerRowUpdate`
-(`PATCH /ui/supercharger-stats/row/:id`) — nothing else passes through this aperture.
-`SessionVerifier` is a DIFFERENT port from D4's `charging.Writer`: this amendment names its
-own aperture rather than stretching D4's language, and it changes nothing about D4. Auth
-guard first, then `checkCSRFKey(c, csrfSuperchargerKey)` — `"csrf_supercharger"`, a session
-key distinct from D4's, issued once by `SuperchargerStatsPage` and only read afterwards.
-
-**The one divergence you must not "fix": there is deliberately NO `RegisteredVehicles`
-ownership check here.** `VerifySession`'s own `WHERE id = @id AND account_id = @account_id`
-is the sole tenant boundary — the port has no vehicle predicate at all, so a `TeslaID` check
-in the gateway would test a predicate the write itself never applies. A session on another
-vehicle of the SAME account stays writable through this route by design; another account's
-row is unreachable regardless of the id supplied.
-
-Full flow, DB effects and the recalculation window:
-`kkpa/context/use-case/charging/verify-session-battery.md`.
-### Inactive-account login block (RM34-gateway-block-inactive-login, 2026-08-30)
-
-`GoogleCallback` refuses a session to any account whose `account.Account.Status` is not
-`account.StatusActive`. `rejectIfInactive(c, acct)` runs after `h.acct.UpsertFromOAuth`
-resolves the account and **strictly before** `h.syncLoginLanguageCookie` or
-`sess.Set("uid", ...)`, rendering `pages.AccountBlocked()` at HTTP 403 via `renderError`.
-That ordering IS the security property — a check placed after a session write leaves a
-usable session behind on the refusal path. The check is fail-closed: anything that is not
-exactly `Active` is refused, never "reject when Inactive".
-
-**One render site, no route.** There is no `GET /account-blocked` route and no
-status-gate middleware — an earlier `AccountActiveGate` design was withdrawn before
-implementation (RM34 D26). Do not add either. This shape does not generalize to revoking
-an **already-established** session mid-flight; that is a different problem and needs its
-own design.
-
-Everything else — why `rejectIfInactive` is a free function, why the page always renders
-in the visitor's pre-login language, the hardcoded contact address, and the account
-module's own half of the gate — lives in
-`kkpa/context/architecture/account-activation-gate.md`.
 ## Vehicle-scoped reads — always send the selected TeslaID
 
 The gateway is multi-tenant **and** multi-vehicle: the user picks the active vehicle with
@@ -1190,6 +1051,25 @@ Companion markup rule: a submitting form carries `hx-post`/`hx-put` on the `<for
 `Type: "submit"` button, never `hx-*` on the button — otherwise htmx skips HTML5 validation
 entirely and every `Required` prop is inert. See
 [`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) §htmx attribute conventions.
+
+### Two response traps a server-side test cannot catch
+
+Both were found on the charges page, but neither is page-specific. Both pass every Go test
+and fail only in a real browser.
+
+- **Never pair a top-level `<tr>` with a non-table `hx-swap-oob` sibling in one response.**
+  htmx 2.0.4 parses a response inside a `<template>` (`makeFragment`); a leading `<tr>` start
+  tag switches the HTML parser into table insertion mode, and the non-table sibling that
+  follows is foster-parented off the fragment's top level — the only place htmx looks for
+  `hx-swap-oob`. **A server-side test sees the OOB element in the response body and passes;
+  only the browser drops it.** Found on `ExternalChargeRowUpdate`, applies to any handler
+  returning a row plus an OOB sibling. `ExternalChargeCreateSuccessOOB` is unaffected because
+  both of its elements are `<div>`s.
+- **No `<details>`/`<summary>` collapse around a required control, on any form.** A browser
+  cannot report an HTML5 validation message on a control inside a closed `<details>` — Chrome
+  logs *"An invalid form control ... is not focusable"* and the submit silently does nothing:
+  no message, no request. Pinned by `TestExternalChargeForms_NoDetailsCollapse`
+  (`handlers/external_charges_test.go`).
 
 ### Auth guard pattern — same on every page
 

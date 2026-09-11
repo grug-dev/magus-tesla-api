@@ -204,6 +204,18 @@
 | `account status` | `account.Account.Status` (`Active` / `Inactive`) → `architecture/account-activation-gate.md` |
 | `blocked login` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
 | `deactivated account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
+| `gateway reader/writer ports` (which ports a gateway handler may call: `Reader` always, `Writer` only in six named places, with their guard sets and why three deliberately differ) | `architecture/gateway-reader-writer-ports.md` |
+| `read-only rule` | the gateway default — a handler calls `Reader` ports only → `architecture/gateway-reader-writer-ports.md` |
+| `read-only at request time` | synonym of `read-only rule` → `architecture/gateway-reader-writer-ports.md` |
+| `Reader port` / `Writer port` (in the gateway) | which handler may call which → `architecture/gateway-reader-writer-ports.md` |
+| `gateway write exceptions` | synonym — the six places allowed to call a `Writer` → `architecture/gateway-reader-writer-ports.md` |
+| `write aperture` | synonym of `gateway write exceptions` → `architecture/gateway-reader-writer-ports.md` |
+| `CSRF` | the four session keys + `checkCSRFKey`'s fail-closed contract → `architecture/gateway-reader-writer-ports.md` |
+| `csrf_theme` / `csrf_supercharger` / `csrf_externalcharge` / `csrf_vehicle_select` | the four CSRF session keys, one per form → `architecture/gateway-reader-writer-ports.md` |
+| `tenant ownership check` | `RegisteredVehicles` on the submitted `(TeslaID, VIN)` — and the two apertures that deliberately skip it → `architecture/gateway-reader-writer-ports.md` |
+| `language switch` | `LangSwitch` — no CSRF by user-approved decision; `SameSite=Lax` is the defence → `architecture/gateway-reader-writer-ports.md` |
+| `theme switch` | `ThemeSwitch` — auth + CSRF, cookie written only after the persist → `architecture/gateway-reader-writer-ports.md` |
+| `SameSite` | why the `lang` cookie's `SameSite=Lax` is mandatory → `architecture/gateway-reader-writer-ports.md` |
 | `poll run summary` (one row per `ProcessVehicleData` invocation, recorded on every exit path incl. whole-cycle failure) | `architecture/nightly-cycle.md` |
 | `SEO metatags` (the one `seoHead` component that renders every search-engine and share tag; public pages indexable, `BaseAuth` pages `noindex`) | `architecture/seo-metadata.md` |
 | `metatags` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |
@@ -236,6 +248,21 @@
 | `schema per module` (one PostgreSQL schema per persistence-owning `internal/` module, named after the module; RM39) | `architecture/schema-per-module.md` |
 | `module schema` | synonym of `schema per module` → `architecture/schema-per-module.md` |
 | `account schema` | the `account` schema holding `accounts`, `tesla_tokens`, `vehicles`, `settings` (added RM42 tier 1 — language + theme preferences) → `architecture/schema-per-module.md` |
+| `charging tables` (every column, CHECK, generated column and index decision on the four tables `internal/charging` owns) | `architecture/charging-tables.md` |
+| `telemetry tables` (every column, dropped column, and the units history on the four tables `internal/telemetry` owns) | `architecture/telemetry-tables.md` |
+| `vehicle_snapshots` | the nightly per-vehicle snapshot — one row per (account, vehicle, `captured_date`) → `architecture/telemetry-tables.md` |
+| `poll_attempts` | append-only audit row per (vehicle, run) → `architecture/telemetry-tables.md` |
+| `supercharger_history` | the raw vendor Supercharger upsert + the human-owned battery-% trio → `architecture/telemetry-tables.md` |
+| `captured_date` | Go-computed calendar day, never a DB expression → `architecture/telemetry-tables.md` |
+| `raw_data` | the lossless Fleet API payload — stays in native units (miles, bar) → `architecture/telemetry-tables.md` |
+| `battery_pct_source` | why a human-verified percentage trio exists; never stores `"estimated"` → `architecture/telemetry-tables.md` |
+| `manual_charge_entries` | the user-asserted charge table — columns, CHECKs, the Go-side required-field set → `architecture/charging-tables.md` |
+| `supercharger_sessions` | the Supercharger mirror + the human-owned percentage columns → `architecture/charging-tables.md` |
+| `monthly_effective_capacity` | the measured per-vehicle pack capacity, one row per month → `architecture/charging-tables.md` |
+| `mirror_watermarks` | the per-account mirror cursor; never advances to `now()` → `architecture/charging-tables.md` |
+| `inferred_capacity_kwh_calc` | the `GENERATED ALWAYS AS … STORED` capacity column on both charge tables → `architecture/charging-tables.md` |
+| `energy_source` / `price_source` | module-computed provenance columns, ignored when supplied by a caller → `architecture/charging-tables.md` |
+| `_calc` suffix | the `<what>_<unit>_calc` naming rule for a stored derived column → `architecture/charging-tables.md` |
 | `schema-qualified query` | why every `query.sql` table reference carries its schema (sqlc codegen requirement) → `architecture/schema-per-module.md` |
 | `gen.go.rename` | the `sqlc.yaml` block that keeps generated Go type names stable across a schema move → `architecture/schema-per-module.md` |
 | `vehicles table schema` | `account.vehicles` — the registry lives in its owning module's schema → `architecture/schema-per-module.md` |

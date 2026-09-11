@@ -7,12 +7,13 @@ Per-module instructions for `internal/account/` — merged with the global rules
 
 ## Doc-Pack (module)
 
-Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it.
-A dispatched worker/reviewer reads: base pack + this list + this file, before any write.
+Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it, and
+never restates it: the base list lives in `CLAUDE.md` alone, so a copy here cannot drift.
+A dispatched worker reads: base pack + this list + this file, before any write.
 
-
-- `ai/go-conventions.md` §persistence — binding here: goose migrations are the single
-  sqlc schema source; convert pgtype values to domain types at the DB→domain boundary
+*(empty — no docs beyond the base pack. `ai/go-conventions.md` §persistence is already in
+that base and is the binding one here: goose migrations are the single sqlc schema source,
+and pgtype values convert to domain types at the DB→domain boundary.)*
 
 ## Responsibility
 
@@ -31,6 +32,18 @@ Consumers (e.g. the gateway) call these — never this module's tables
 - `AccessTokenFor(ctx, accountID) (string, error)` — a valid access token for Fleet API
   calls (refreshing behind the scenes when needed)
 - `RegisteredVehicles` — the user's persisted vehicle registry
+- `AllRegisteredVehicles` — every vehicle across every account, for the nightly collector,
+  which must list them without reading this module's tables. **It does NOT check
+  Tesla-connection liveness** — a vehicle is returned whether or not its account has a usable
+  token. Deciding that is the caller's job, per account, via `AccessTokenFor`, which returns
+  `ErrNoTeslaConnection` when there is none.
+- `SeedVehicles` — register vehicles for an account, **idempotent per (account_id, tesla_id)**:
+  an already-registered vehicle is left untouched and its stored `display_name` is NOT
+  overwritten. Returns the account's full registered set after the seed.
+- `SetVehicleConfigIfEmpty` — write the static vehicle-config values once, on a row that does
+  not have them. **Callers MUST pass non-empty strings** — this module treats its inputs as
+  opaque and does not reject an empty one, so skipping the call when an observed value is
+  empty is the caller's responsibility.
 - `LanguageFor`/`SetLanguage` — read/persist a user's `{es, en}` language preference, now
   backed by `account.settings` (RM42 tier 1), not a column on `accounts`
 - `ThemeFor`/`SetTheme` — read/persist a user's `{apex, graphite, halloween}` UI theme

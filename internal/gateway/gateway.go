@@ -46,14 +46,14 @@ type Deps struct {
 	// port over charge_sessions. Injected from cmd/web via
 	// charging.NewSessionVerifier(pool) and passed straight through to
 	// handlers.Deps. Called ONLY by SuperchargerRowUpdate on an explicit
-	// user-initiated row save. See internal/gateway/AGENTS.md "Exception:
-	// Supercharger session battery verification". NEVER import
+	// user-initiated row save. See the aperture table in
+	// internal/gateway/AGENTS.md §"Read-only at request time". NEVER import
 	// internal/charging/db (chargingdb) for this path. Added by
 	// RM31-gateway-add-session-battery-edit.
 	SuperchargerVerifier charging.SessionVerifier
 	// ChargingWriter is the charging write port. Called by write handlers
 	// (create/update/delete) on explicit user-initiated form submissions only.
-	// See AGENTS.md "Exception: user-initiated writes" for the full amendment.
+	// See the aperture table in AGENTS.md §"Read-only at request time".
 	ChargingWriter charging.Writer
 	// ChargingReader is the charging read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
@@ -75,7 +75,7 @@ type Deps struct {
 	// ExternalChargeRowDelete), after their corresponding charging.Writer call
 	// succeeds, to keep the precomputed history charts current with no
 	// separate refresh step — mirrors the ChargingWriter exception's narrow
-	// aperture (AGENTS.md "Exception: user-initiated writes"). Never called
+	// aperture (AGENTS.md §"Read-only at request time"). Never called
 	// from a Reader-only handler.
 	AnalyticsRecalculator analytics.Recalculator
 	SessionSecret         string

@@ -58,7 +58,7 @@ func setLangCookie(c *gin.Context, lang string) {
 // user-submitted resource id for a forged request to redirect at a different
 // account), and NO CSRF token. The missing CSRF check is a deliberate,
 // user-approved divergence from the charging/D4 write-exception pattern —
-// see internal/gateway/AGENTS.md "Exception: language switch" for the full
+// see kkpa/context/architecture/gateway-reader-writer-ports.md for the full
 // rationale. The lang cookie's SameSite=Lax attribute (set exclusively by
 // setLangCookie, above) is the actual defence; do not add a CSRF check here
 // without first re-reading that rationale AND getting the user's sign-off —

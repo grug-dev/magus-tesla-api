@@ -16,8 +16,13 @@ A dispatched worker/reviewer reads: base pack + this list + this file, before an
 
 Owns the platform's single default time zone (`America/Bogota`) and the primitives every
 other module uses to obtain "now" or normalize a moment to its calendar day. It is a pure,
-in-memory function library — no table, no query, no config, no external state, and (as of
-this tier) no call sites: tiers 2–6 of `RM35-timezone-centralization` are what adopt it.
+in-memory function library — no table, no query, no config, no external state.
+
+**It is adopted platform-wide and `make tz-guard` enforces it.** The guard fails any raw
+`time.Now()`, hardcoded zone name, or hand-rolled UTC-midnight truncation under `internal/`.
+The escape hatch is a `// tz:allow: <reason>` comment, and there are two standing exemptions:
+the `pgtype.Date` UTC-midnight storage encoding, and the gateway's per-user `browser_tz`
+cookie, which still wins for a signed-in user.
 
 ## Public interface (the module's port)
 
@@ -55,8 +60,8 @@ nothing project-local.
 ## Boundaries
 
 - Does not read config, environment variables, or any other module's internals.
-- Not adopted anywhere yet (tier 1 of `RM35-timezone-centralization`) — zero call sites
-  outside `internal/clock` itself until tiers 2–6 land.
+- Adopted across `internal/` and `cmd/`. `make tz-guard` is what keeps it that way — read
+  its three legs in the `Makefile` before adding a `tz:allow` marker.
 
 ## Testing
 
