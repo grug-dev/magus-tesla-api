@@ -80,6 +80,17 @@ go test ./...    # tests — internal/testdb uses TEST_DATABASE_URL when set and
 > `make test-with-db` to opt in — it forwards your `DATABASE_URL` as `TEST_DATABASE_URL`
 > (CI with a managed Postgres).
 
+> **Prefer a real local database over the testcontainer?** It starts faster and needs
+> no Docker daemon. Run `make db-setup-test` once to bring it current, then point tests
+> at it yourself:
+> ```bash
+> make db-setup-test
+> TEST_DATABASE_URL=postgres://localhost:5432/magus_test?sslmode=disable make test
+> ```
+> Trade-off: this is a second database that can go stale between runs. Re-run
+> `make db-setup-test` before testing to bring it current — nothing else touches it
+> unless you set `TEST_DATABASE_URL` on purpose.
+
 To produce runnable **binaries** (not just compile), build the entrypoints into `./bin`:
 
 ```bash

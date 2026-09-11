@@ -166,6 +166,14 @@ picking the wrong one produces a mystifying "relation does not exist" deep insid
 | only its own module's tables | `testdb.Provision(ctx, fsys)` | `//go:embed db/migrations/*.sql`, then `fs.Sub`. See `internal/telemetry/testdb_test.go`. |
 | more than one module's tables | `testdb.ProvisionDirs(ctx, dirs...)` | Relative migration **directories**, e.g. `"db/migrations"`, `"../telemetry/db/migrations"`. See `internal/analytics/testdb_test.go`. |
 
+**Opt-in: a real local database instead of the testcontainer.** Set
+`TEST_DATABASE_URL=postgres://localhost:5432/magus_test?sslmode=disable` (or any other
+Postgres you keep around) and `internal/testdb` uses it instead of starting a container.
+Run `make db-setup-test` first — and again before any later test run — to create it if
+missing, re-own its schemas, and apply pending migrations. This is faster and needs no
+Docker daemon, but the database can go stale between runs; `make db-setup-test` is what
+keeps it current, and nothing touches it unless `TEST_DATABASE_URL` is set on purpose.
+
 Why the second form takes paths rather than an `fs.FS`: the **`//go:embed` directive may not
 contain `..` path elements**, so a package can only ever embed its own migrations. That is a
 restriction on the directive, not on the filesystem — and `go test` always runs a test binary

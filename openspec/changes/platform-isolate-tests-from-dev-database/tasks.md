@@ -221,7 +221,7 @@ Test-Execution-Policy): `go test ./...`, `make test`, `make test-with-db`,
 
 ## T8. `db-setup-test` Makefile target (D7) — depends on T1
 
-- [ ] T8.1 In `Makefile`, add the `TEST_DATABASE_URL`, `TEST_DB_NAME`, and
+- [x] T8.1 In `Makefile`, add the `TEST_DATABASE_URL`, `TEST_DB_NAME`, and
       `TEST_ADMIN_DATABASE_URL` variables (design.md D7), derived from
       `TEST_DATABASE_URL` the same way `DB_NAME` / `ADMIN_DATABASE_URL` are
       derived from `DATABASE_URL`. Default:
@@ -229,7 +229,7 @@ Test-Execution-Policy): `go test ./...`, `make test`, `make test-with-db`,
       Acceptance: `make -n db-setup-test DATABASE_URL=...` (see T8.2) prints
       the derived admin URL and DB name correctly for both the default and an
       overridden `TEST_DATABASE_URL`.
-- [ ] T8.2 Add the `db-setup-test` target itself (design.md D7 shows the
+- [x] T8.2 Add the `db-setup-test` target itself (design.md D7 shows the
       shape): create `magus_test` if missing (owned by `$(APP_ROLE)`);
       `ALTER SCHEMA ... OWNER TO $(APP_ROLE)` for each of `account`,
       `analytics`, `charging`, `telemetry` that already exists; then run the
@@ -241,14 +241,14 @@ Test-Execution-Policy): `go test ./...`, `make test`, `make test-with-db`,
       2 pending migrations (`goose_db_version` reaches `20260911000001`); the
       second run prints "already exists" / no schema changes / no pending
       migrations, and exits 0 (design.md D7 "safe to re-run").
-- [ ] T8.3 Rewrite `db-setup-test`'s trailing `##` help text to describe what
+- [x] T8.3 Rewrite `db-setup-test`'s trailing `##` help text to describe what
       it does and when to use it (design.md D7 part 3: faster than the
       container, no Docker daemon needed), matching the terseness of
       `db-setup`'s own help text.
 
 ## T9. Document the opt-in `TEST_DATABASE_URL` path (D7) — depends on T4, T8
 
-- [ ] T9.1 In `README.md`, next to the `make test` / `make test-with-db`
+- [x] T9.1 In `README.md`, next to the `make test` / `make test-with-db`
       notes T4.1 already rewrites, add the opt-in form:
       `TEST_DATABASE_URL=postgres://localhost:5432/magus_test?sslmode=disable make test`,
       preceded by `make db-setup-test` to bring it current. State plainly why
@@ -256,7 +256,7 @@ Test-Execution-Policy): `go test ./...`, `make test`, `make test-with-db`,
       and the trade-off (a second database that can go stale — mitigated by
       re-running `db-setup-test`, and by nothing touching it unless
       `TEST_DATABASE_URL` is set on purpose).
-- [ ] T9.2 In `ai/go-conventions.md`'s "Provisioning the test database" table
+- [x] T9.2 In `ai/go-conventions.md`'s "Provisioning the test database" table
       (the same section T4.2 already touches), add a row or note for the
       `TEST_DATABASE_URL=<magus_test DSN>` opt-in path and the
       `make db-setup-test` command that keeps it current.

@@ -69,8 +69,24 @@ DB_NAME := $(shell echo "$(DATABASE_URL)" | sed -E 's|.*/([^/?]+).*|\1|')
 DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/[^/?]+|\1\4/postgres|')
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
+# TEST_DATABASE_URL is the opt-in target for `db-setup-test` — a hand-kept local database
+# a developer can point tests at instead of the disposable testcontainer (see `test-with-db`
+# above). It is NOT read by `test`/`test-with-db` themselves; a developer sets it on the
+# command line when they want it. TEST_DB_NAME and TEST_ADMIN_DATABASE_URL are derived from
+# it the same way DB_NAME and ADMIN_DATABASE_URL are derived from DATABASE_URL.
+TEST_DATABASE_URL ?= postgres://localhost:5432/magus_test?sslmode=disable
+TEST_DB_NAME := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|.*/([^/?]+).*|\1|')
+TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/[^/?]+|\1\4/postgres|')
+
+# TEST_ADMIN_ON_DB connects to the test database ITSELF (not the `postgres` maintenance DB),
+# with any user:pass stripped from TEST_DATABASE_URL. Stripping matters: a schema in
+# magus_test may be owned by the developer's own OS role rather than the app role, and
+# dropping the credentials makes psql fall back to that OS role, the one that can actually
+# re-own the schema. Never pass this alongside `-d` — the dbname is already in the URI.
+TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
+
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard tidy build vet test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs docker-migrate backup-db
 
@@ -184,6 +200,41 @@ db-setup: check-goose ## ONE COMMAND: create the app role + database (both if mi
 db-reset: ## DROP the database, recreate (owned by APP_ROLE), and migrate (DESTRUCTIVE — local/dev only)
 	@psql "$(ADMIN_DATABASE_URL)" -c "DROP DATABASE IF EXISTS \"$(DB_NAME)\""
 	@$(MAKE) db-setup
+
+# db-setup-test brings TEST_DATABASE_URL's database current, for the developer who wants
+# to point tests at a real, always-there Postgres instead of the disposable testcontainer:
+# it starts faster and needs no Docker daemon. Unlike the testcontainer, this database can
+# go stale between runs, so the target re-owns every module schema and re-applies pending
+# migrations each time — safe to run as often as you like, including right before `make
+# test-with-db TEST_DATABASE_URL=...`.
+db-setup-test: check-goose ## Bring TEST_DATABASE_URL current (create/re-own/migrate) — faster than the testcontainer, no Docker needed
+	@set -e; \
+	if [ "$(TEST_DB_NAME)" = "$(DB_NAME)" ]; then \
+		echo "ERROR: TEST_DATABASE_URL resolves to database '$(TEST_DB_NAME)', the same name as DATABASE_URL." >&2; \
+		echo "       Refusing to run — this target must never touch the real database." >&2; \
+		echo "       Point TEST_DATABASE_URL at a different database, e.g. magus_test." >&2; \
+		exit 1; \
+	fi; \
+	ADMIN="$(TEST_ADMIN_DATABASE_URL)"; ADMIN_ON_DB="$(TEST_ADMIN_ON_DB)"; DB="$(TEST_DB_NAME)"; ROLE="$(APP_ROLE)"; \
+	if psql "$$ADMIN" -tAc "SELECT 1 FROM pg_database WHERE datname='$$DB'" | grep -q 1; then \
+		echo "Database '$$DB' already exists."; \
+	else \
+		echo "Creating database $$DB owned by $$ROLE..."; \
+		psql "$$ADMIN" -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$$DB\" OWNER \"$$ROLE\""; \
+	fi; \
+	echo "Re-owning module schemas to '$$ROLE' (a schema that doesn't exist yet is skipped)..."; \
+	for schema in account analytics charging telemetry; do \
+		if psql "$(TEST_DATABASE_URL)" -tAc "SELECT 1 FROM pg_namespace WHERE nspname='$$schema'" | grep -q 1; then \
+			psql "$$ADMIN_ON_DB" -v ON_ERROR_STOP=1 -c "ALTER SCHEMA \"$$schema\" OWNER TO \"$$ROLE\""; \
+		fi; \
+	done; \
+	echo "Migrating '$$DB' to latest..."; \
+	for dir in $(MIGRATIONS_DIRS); do \
+		echo "goose up: $$dir"; \
+		$(GOOSE) -dir $$dir postgres "$(TEST_DATABASE_URL)" up -allow-missing; \
+	done; \
+	echo; echo "✓ $$DB ready. Point tests at it with:"; \
+	echo "    TEST_DATABASE_URL=$(TEST_DATABASE_URL) make test"
 
 # --- .env bootstrap (multi-tenant / cmd/web only) ---------------------------
 
