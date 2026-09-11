@@ -204,15 +204,18 @@
 | `account status` | `account.Account.Status` (`Active` / `Inactive`) → `architecture/account-activation-gate.md` |
 | `blocked login` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
 | `deactivated account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
-| `gateway write exceptions` (the closed list of handlers allowed to break the gateway's read-only rule, their guard sets, and why three of them deliberately differ) | `architecture/gateway-write-exceptions.md` |
-| `write aperture` | synonym of `gateway write exceptions` → `architecture/gateway-write-exceptions.md` |
-| `read-only rule` | the gateway default — handlers call `Reader` ports only → `architecture/gateway-write-exceptions.md` |
-| `CSRF` | the four session keys + `checkCSRFKey`'s fail-closed contract → `architecture/gateway-write-exceptions.md` |
-| `csrf_theme` / `csrf_supercharger` / `csrf_externalcharge` / `csrf_vehicle_select` | the four CSRF session keys, one per form → `architecture/gateway-write-exceptions.md` |
-| `tenant ownership check` | `RegisteredVehicles` on the submitted `(TeslaID, VIN)` — and the two apertures that deliberately skip it → `architecture/gateway-write-exceptions.md` |
-| `language switch` | `LangSwitch` — no CSRF by user-approved decision; `SameSite=Lax` is the defence → `architecture/gateway-write-exceptions.md` |
-| `theme switch` | `ThemeSwitch` — auth + CSRF, cookie written only after the persist → `architecture/gateway-write-exceptions.md` |
-| `SameSite` | why the `lang` cookie's `SameSite=Lax` is mandatory → `architecture/gateway-write-exceptions.md` |
+| `gateway reader/writer ports` (which ports a gateway handler may call: `Reader` always, `Writer` only in six named places, with their guard sets and why three deliberately differ) | `architecture/gateway-reader-writer-ports.md` |
+| `read-only rule` | the gateway default — a handler calls `Reader` ports only → `architecture/gateway-reader-writer-ports.md` |
+| `read-only at request time` | synonym of `read-only rule` → `architecture/gateway-reader-writer-ports.md` |
+| `Reader port` / `Writer port` (in the gateway) | which handler may call which → `architecture/gateway-reader-writer-ports.md` |
+| `gateway write exceptions` | synonym — the six places allowed to call a `Writer` → `architecture/gateway-reader-writer-ports.md` |
+| `write aperture` | synonym of `gateway write exceptions` → `architecture/gateway-reader-writer-ports.md` |
+| `CSRF` | the four session keys + `checkCSRFKey`'s fail-closed contract → `architecture/gateway-reader-writer-ports.md` |
+| `csrf_theme` / `csrf_supercharger` / `csrf_externalcharge` / `csrf_vehicle_select` | the four CSRF session keys, one per form → `architecture/gateway-reader-writer-ports.md` |
+| `tenant ownership check` | `RegisteredVehicles` on the submitted `(TeslaID, VIN)` — and the two apertures that deliberately skip it → `architecture/gateway-reader-writer-ports.md` |
+| `language switch` | `LangSwitch` — no CSRF by user-approved decision; `SameSite=Lax` is the defence → `architecture/gateway-reader-writer-ports.md` |
+| `theme switch` | `ThemeSwitch` — auth + CSRF, cookie written only after the persist → `architecture/gateway-reader-writer-ports.md` |
+| `SameSite` | why the `lang` cookie's `SameSite=Lax` is mandatory → `architecture/gateway-reader-writer-ports.md` |
 | `poll run summary` (one row per `ProcessVehicleData` invocation, recorded on every exit path incl. whole-cycle failure) | `architecture/nightly-cycle.md` |
 | `SEO metatags` (the one `seoHead` component that renders every search-engine and share tag; public pages indexable, `BaseAuth` pages `noindex`) | `architecture/seo-metadata.md` |
 | `metatags` | synonym of `SEO metatags` → `architecture/seo-metadata.md` |

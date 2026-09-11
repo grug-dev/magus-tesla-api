@@ -1,4 +1,4 @@
-# Gateway write exceptions — the apertures that break the read-only rule
+# Gateway Reader and Writer ports — the read-only default and its six exceptions
 
 > The map for changing this concept without re-scanning the codebase. Paths + symbols only;
 > for current signatures/callers/callees, ask CodeGraph. Pin to file paths, never line numbers.
@@ -6,7 +6,8 @@
 
 ## Glossary
 
-- **Known as:** `write exception`, `write aperture`, `read-only exception`, `D4 amendment`,
+- **Known as:** `Reader port`, `Writer port`, `read-only rule`, `read-only at request time`,
+  `write exception`, `write aperture`, `read-only exception`, `D4 amendment`,
   `D8 amendment`, `CSRF`, `csrf_token`, `csrf_externalcharge`, `csrf_supercharger`,
   `csrf_theme`, `csrf_vehicle_select`, `checkCSRF`, `checkCSRFKey`, `tenant ownership check`,
   `SameSite`, `lang cookie`, `theme cookie`

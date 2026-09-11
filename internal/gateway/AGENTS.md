@@ -694,7 +694,7 @@ language switch has no CSRF, the Supercharger write has no ownership check, and 
 cookie is written only *after* its database write succeeds. Each divergence is a settled,
 user-approved decision whose reasoning does not transfer, and each has been "simplified"
 by a well-meaning agent before. Read
-`kkpa/context/architecture/gateway-write-exceptions.md` — the guards, the reasons, and the
+`kkpa/context/architecture/gateway-reader-writer-ports.md` — the guards, the reasons, and the
 per-aperture mechanism — before you touch any of them.
 
 One line is repeated here rather than left to the guide, because dropping it is silent and

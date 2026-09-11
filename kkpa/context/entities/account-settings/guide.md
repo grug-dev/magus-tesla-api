@@ -73,7 +73,7 @@ All KB links are relative to `kkpa/context/`, never to this file.
   `account` schema), `architecture/account-activation-gate.md` (the account module's other
   read-time rule)
 - Use cases: the gateway's theme and language switches call the account module's write ports;
-  see `architecture/gateway-write-exceptions.md`.
+  see `architecture/gateway-reader-writer-ports.md`.
 - Read consumers of `AnalysisStartDateFor`: the gateway's `/external-charges` form reads it to
   reject a `charged_on` before that date — see `input-port/charging/external-charges.md`
   (RM49 tier 2, MAG-55).
