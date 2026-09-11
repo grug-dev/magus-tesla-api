@@ -3,11 +3,11 @@
   "kind": "roadmap",
   "roadmap": "RM52-vehicle-monthly-metrics",
   "intention": "Replace charging's hardcoded 62.0 kWh pack capacity with a real, measured value per vehicle. A monthly job INSIDE charging pools each vehicle's valid charge records (USER manual entries and DONE supercharger sessions only, RD2), drops small-delta rows, and stores the median in charging.monthly_effective_capacity keyed on (tesla_id, effective_period). packCapacityKWh reads that table. charging owns every input row, so the derivation lives there too and no cross-module port or import cycle exists (RD1). The wider analytics monthly-metrics table is deferred until a second metric exists (RD12). Linear MAG-32.",
-  "request": "/kkpa-pickup-linear-ticket MAG-32 \u2014 Vehicle Monthly Metrics - New table. Estimate effective capacity per vehicle from MAG-25's inferred_capacity_calc. On the first day of every month, after the nightly job, a named process reads all NOT NULL inferred_capacity_calc values from manual_charge_entries and charge_sessions for the previous month, for every active vehicle, and computes a robust weighted/filtered estimate rather than a simple average. The process may also run for one specific period and one specific tesla id, exposed as an API. effective_capacity will be read by the charging module. Future monthly metrics expected: full_charge_count, average consumption per 100 km, energy consumed per date. Create a KB named vehicle-monthly-metrics.",
+  "request": "/kkpa-pickup-linear-ticket MAG-32 — Vehicle Monthly Metrics - New table. Estimate effective capacity per vehicle from MAG-25's inferred_capacity_calc. On the first day of every month, after the nightly job, a named process reads all NOT NULL inferred_capacity_calc values from manual_charge_entries and charge_sessions for the previous month, for every active vehicle, and computes a robust weighted/filtered estimate rather than a simple average. The process may also run for one specific period and one specific tesla id, exposed as an API. effective_capacity will be read by the charging module. Future monthly metrics expected: full_charge_count, average consumption per 100 km, energy consumed per date. Create a KB named vehicle-monthly-metrics.",
   "autopilot": false,
-  "status": "in-progress",
+  "status": "complete",
   "created_at": "2026-09-10T01:50:10Z",
-  "updated_at": "2026-09-10T22:12:00Z",
+  "updated_at": "2026-09-11T01:40:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,14 +21,13 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-32/vehicle-monthly-metrics-new-table"
   },
   "rollup": {
-    "current": [
-      3
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -118,7 +117,7 @@
       "scope": "roadmap",
       "made_by": "user",
       "decision": "Database design gate PASSED on re-run after the module change. charging schema, tesla_id BIGINT NOT NULL, nullable capacity plus TWO counts: candidate_count (RD2-valid rows, before the delta gate) and sample_count (after the gate, the slice the median used). UNIQUE (tesla_id, effective_period) serves both read and upsert; no separate CREATE INDEX. The seam becomes packCapacityKWh(ctx, teslaID int64), changing two callers.",
-      "why": "One read path and one write path, both served by the UNIQUE btree. Two counts separate 'no valid charges' from 'charged often but always too small' \u2014 otherwise a NULL month needs a hand query to explain."
+      "why": "One read path and one write path, both served by the UNIQUE btree. Two counts separate 'no valid charges' from 'charged often but always too small' — otherwise a NULL month needs a hand query to explain."
     },
     {
       "id": "RD12",
@@ -223,14 +222,20 @@
         2
       ],
       "optional": false,
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5 (leader) / claude-sonnet-5 (artifact worker)",
       "started_at": "2026-09-10T21:58:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-11T01:40:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "cmd/monthly-capacity (RD8) + make cmd-monthly-capacity (RD9) + wiring + structure docs + the vehicle-monthly-metrics KB guide (ticket item 4)."
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 71,
+        "cost_usd_delta": 16.9,
+        "approx": true,
+        "note": "two sessions: artifacts + waves 1-2 (~$5.7), then a resumed session for the leader wave, the review round and the archive (~$11.2 measured 1.15 -> 9.26 plus the reviewer's own dispatch)"
+      },
+      "notes": "cmd/monthly-capacity + make cmd-monthly-capacity + config.LoadDatabase, the doc sweep, and the vehicle-monthly-metrics KB guide. Reviewer approved round 1 with two minor findings, both fixed."
     }
   ],
   "events": [
@@ -238,7 +243,7 @@
       "at": "2026-09-10T01:50:10Z",
       "event": "roadmap-created",
       "by": "leader",
-      "detail": "RM52 created from Linear MAG-32 via kkpa-pickup-linear-ticket. Four tiers across analytics, app, charging and a cross-cutting platform tier. Eleven decisions settled with the user in a grill-me interview before any artifact was written; the database design gate passed as RD11. Run scope: HALT AFTER STEP 4 \u2014 tier 1 artifacts only, no implementation workers."
+      "detail": "RM52 created from Linear MAG-32 via kkpa-pickup-linear-ticket. Four tiers across analytics, app, charging and a cross-cutting platform tier. Eleven decisions settled with the user in a grill-me interview before any artifact was written; the database design gate passed as RD11. Run scope: HALT AFTER STEP 4 — tier 1 artifacts only, no implementation workers."
     },
     {
       "at": "2026-09-10T02:05:00Z",
@@ -287,6 +292,11 @@
       "event": "tier-3-proposed",
       "by": "leader",
       "detail": "Tier 3 artifacts written and validated (openspec validate --strict passed). Seven design decisions D1-D7 plus T1/T2 (= RD16/RD17). No database gate: the change adds no schema object. The leader fixed two internal inconsistencies in design.md before committing: a task-number reference (3.1 -> 4.1) and a Non-Goals line that read as if internal/charging were untouched when AGENTS.md is edited."
+    },
+    {
+      "at": "2026-09-11T01:40:00Z",
+      "agent": "leader",
+      "event": "Tier 3 archived. All three tiers done, so RM52 is complete. Roadmap files moved to openspec/roadmaps/archive/RM52-vehicle-monthly-metrics/. The work counter is untouched - numbers are monotonic and RM52 keeps its number."
     }
   ]
 }
