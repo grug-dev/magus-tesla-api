@@ -9,7 +9,7 @@
 Target guide: `workflows/vehicle-monthly-metrics.md`
 Source spec:  `openspec/specs/monthly-capacity-cli/spec.md`
 Generated:    `2026-09-11`
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-11
 
 **Read this before applying — the proposal is deliberately small.** The guide was written by the
 leader in the same change that created this capability, so most of the spec is already live. Only

@@ -139,6 +139,25 @@ With no arguments it does the previous month, every vehicle. It needs `DATABASE_
   `analytics` and needed an inverted port to escape an import cycle; that design was withdrawn. A
   cycle here means the work is in the wrong module.
 
+- **A bad month is rejected before the tool touches a database.** The month value is parsed and
+  validated first. A month number that does not exist, or a value in the wrong shape, exits with a
+  failure status and attempts no measurement. Keep this order if the flag handling is ever
+  rewritten — validating after connecting turns a typo into a wasted connection.
+  _Source: spec monthly-capacity-cli — Requirement: An Invalid Month Is Rejected Before Any Work Starts._
+- **The tool reports four numbers, or it reports a failure — never both.** A successful run names
+  the month it measured, how many vehicles it considered, how many got a measured capacity, and how
+  many were left thin. Any failure — bad input, a database problem, a measurement error — reports
+  the failure, exits non-zero, and never prints a success summary.
+  _Source: spec monthly-capacity-cli — Requirement: The Tool Reports What It Measured And Exits Accordingly._
+- **The tool needs a database connection and nothing else.** It never calls the Tesla Fleet API, so
+  it must never require a Tesla credential to start. This is why it uses `config.LoadDatabase()`
+  and not the full `config.Load()`. Without a database connection it fails to start and says so.
+  _Source: spec monthly-capacity-cli — Requirement: The Tool Needs Only A Database Connection, Never A Tesla Credential._
+- **The tool is local only. It is not in the production image.** It runs from a checkout against a
+  database the operator can reach directly. `deploy/docker/Dockerfile` builds only `web`, `poller`
+  and `migrate`. Do not add it: it is an operator tool for re-running a month, not a service.
+  _Source: spec monthly-capacity-cli — Requirement: The Tool Is Not Part Of The Deployed Production Image._
+
 ## Adding a second monthly metric
 
 The plural name is a placeholder, not a promise of a shared table. When a second metric arrives,
