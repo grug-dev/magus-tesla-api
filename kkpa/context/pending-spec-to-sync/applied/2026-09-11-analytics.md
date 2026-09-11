@@ -9,7 +9,7 @@
 Target guide: `architecture/charge-record-mutation.md`
 Source spec:  `openspec/specs/analytics/spec.md`
 Generated:    2026-09-11
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-11
 
 ---
 
