@@ -1,10 +1,12 @@
 package telemetry
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -117,11 +119,14 @@ func (s *service) location() *time.Location {
 }
 
 // CollectAll runs one collection cycle over every registered vehicle across all
-// accounts (the Collector port). It enumerates vehicles via the account port, groups
-// them by account for per-account token batching (D3), and collects each vehicle with
-// full per-vehicle isolation: a single vehicle's failure is recorded as a poll_attempt
-// and never aborts the account or the cycle. It returns an error ONLY when the
-// whole-cycle enumeration itself fails (D9) — never for an individual vehicle.
+// accounts (the Collector port). It enumerates vehicles via the account port, elects
+// one polling account per distinct vehicle (electPollingVehicles — a car registered to
+// more than one account is fetched once a night, not once per registering account),
+// groups the elected vehicles by account for per-account token batching (D3), and
+// collects each vehicle with full per-vehicle isolation: a single vehicle's failure is
+// recorded as a poll_attempt and never aborts the account or the cycle. It returns an
+// error ONLY when the whole-cycle enumeration itself fails (D9) — never for an
+// individual vehicle.
 //
 // run identifies this invocation (RunID/TriggeredBy, RM29-app-add-process-vehicle-data
 // design D5) and is threaded straight through to collectAccount/record as a plain
@@ -146,9 +151,13 @@ func (s *service) CollectAll(ctx context.Context, run RunContext) (CycleReport, 
 		return report, fmt.Errorf("telemetry: enumerating registered vehicles: %w", err)
 	}
 
+	// Elect one account to poll each distinct vehicle, so a car registered to more
+	// than one account is fetched once a night, not once per registering account.
+	elected := electPollingVehicles(vehicles)
+
 	// Group by owning account so we resolve each account's access token exactly once
 	// and make a single ListVehicles call per account (per-account batching, D3).
-	byAccount := groupByAccount(vehicles)
+	byAccount := groupByAccount(elected)
 	report.AccountsAttempted = len(byAccount)
 
 	for accountID, owned := range byAccount {
@@ -161,7 +170,7 @@ func (s *service) CollectAll(ctx context.Context, run RunContext) (CycleReport, 
 	return report, nil
 }
 
-// groupByAccount buckets the flat cross-account vehicle list by owning account id so
+// groupByAccount buckets the already-elected vehicle list by owning account id so
 // the collection loop can batch token resolution and ListVehicles per account (D3).
 func groupByAccount(vehicles []account.OwnedVehicle) map[uuid.UUID][]account.OwnedVehicle {
 	byAccount := map[uuid.UUID][]account.OwnedVehicle{}
@@ -169,6 +178,61 @@ func groupByAccount(vehicles []account.OwnedVehicle) map[uuid.UUID][]account.Own
 		byAccount[v.AccountID] = append(byAccount[v.AccountID], v)
 	}
 	return byAccount
+}
+
+// electPollingVehicles picks exactly one owning account to poll each distinct
+// tesla_id, so a car registered to more than one account is fetched once per
+// night, not once per registering account. Prefers OWNER; falls back to any
+// candidate; a vehicle is NEVER dropped regardless of AccessType (a missed
+// night is a permanent gap — the Fleet API has no date filter). Ties (two
+// OWNERs, or no OWNER with several candidates) break on the lowest
+// AccountID, compared as raw bytes — arbitrary but deterministic, so the
+// elected account does not flap between runs with no real change.
+//
+// Pure Go, no DB call: it reads only what AllRegisteredVehicles already
+// returned. It does NOT check whether the elected account's token is usable
+// — that stays collectAccount's job via the existing AccessTokenFor call, so
+// election never pays AccessTokenFor's cost (a FOR UPDATE row lock plus a
+// single-use refresh-token rotation) for a candidate it might not even use.
+//
+// Sorts its own input explicitly rather than trusting the caller's order:
+// ListAllVehicles happens to return rows ordered (account_id, tesla_id), but
+// that is an account-module implementation detail telemetry must not
+// silently depend on.
+func electPollingVehicles(vehicles []account.OwnedVehicle) []account.OwnedVehicle {
+	sorted := make([]account.OwnedVehicle, len(vehicles))
+	copy(sorted, vehicles)
+	sort.Slice(sorted, func(i, j int) bool {
+		return bytes.Compare(sorted[i].AccountID[:], sorted[j].AccountID[:]) < 0
+	})
+
+	elected := make(map[int64]account.OwnedVehicle, len(sorted))
+	for _, v := range sorted {
+		current, ok := elected[v.TeslaID]
+		if !ok {
+			elected[v.TeslaID] = v
+			continue
+		}
+		if !isOwner(current) && isOwner(v) {
+			elected[v.TeslaID] = v
+		}
+		// Otherwise keep current: it already has the lower AccountID (sorted
+		// ascending above) at the same or better preference level.
+	}
+
+	result := make([]account.OwnedVehicle, 0, len(elected))
+	for _, v := range elected {
+		result = append(result, v)
+	}
+	return result
+}
+
+// isOwner reports whether v's AccessType is Tesla's "OWNER" value. A nil
+// AccessType (not captured at seed time) is treated as not-owner, the same
+// as any other non-OWNER value — it never wins an election tie against a
+// confirmed OWNER candidate.
+func isOwner(v account.OwnedVehicle) bool {
+	return v.AccessType != nil && *v.AccessType == "OWNER"
 }
 
 // collectAccount collects every vehicle for one account (per-account batching, D3).

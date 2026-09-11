@@ -15,20 +15,20 @@ parallel with it.
 
 Depends on: nothing.
 
-- [ ] 1.1 In `internal/telemetry/service.go`, add `electPollingVehicles`
+- [x] 1.1 In `internal/telemetry/service.go`, add `electPollingVehicles`
       exactly as specified in `design.md` Part 1: sorts its input by
       `AccountID` (raw byte comparison, not string formatting), then a single
       pass that prefers `OWNER`, keeps the first-seen (lowest `AccountID`)
       candidate on any tie, and never drops a `tesla_id`. Add the small
       `isOwner` helper. Import `bytes` and `sort`.
-- [ ] 1.2 Change `CollectAll` to call `elected := electPollingVehicles(vehicles)`
+- [x] 1.2 Change `CollectAll` to call `elected := electPollingVehicles(vehicles)`
       immediately after `AllRegisteredVehicles`, and pass `elected` (not
       `vehicles`) into `groupByAccount`. Do not change `groupByAccount` or
       `collectAccount` themselves.
-- [ ] 1.3 Update `CollectAll`'s doc comment (and `groupByAccount`'s, if it
+- [x] 1.3 Update `CollectAll`'s doc comment (and `groupByAccount`'s, if it
       still says "buckets the flat cross-account vehicle list") to say the
       list it buckets is the elected subset, not every registered vehicle.
-- [ ] 1.4 `go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...`
+- [x] 1.4 `go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...`
       — expect these to still pass; T1 changes no type signature any test
       depends on.
 
@@ -36,19 +36,30 @@ Depends on: nothing.
 
 Depends on: nothing.
 
-- [ ] 2.1 Write `internal/telemetry/db/migrations/20260911000001_rekey_vehicle_snapshots_on_tesla_id.sql`
-      exactly as specified in `design.md`'s "Migration SQL": the
-      duplicate-collapse `DELETE` (keyed on `tesla_id, captured_date`, latest
-      `captured_at` wins), `DROP CONSTRAINT vehicle_snapshots_account_tesla_date_unique`,
+- [x] 2.1 Write `internal/telemetry/db/migrations/20260911000002_rekey_vehicle_snapshots_on_tesla_id.sql`
+      (renamed from the `...0001` filename `design.md` specifies — see note
+      below) with the SQL content exactly as specified in `design.md`'s
+      "Migration SQL": the duplicate-collapse `DELETE` (keyed on
+      `tesla_id, captured_date`, latest `captured_at` wins),
+      `DROP CONSTRAINT vehicle_snapshots_account_tesla_date_unique`,
       `DROP INDEX telemetry.idx_vehicle_snapshots_vehicle_time`,
       `DROP COLUMN account_id`, `ADD CONSTRAINT vehicle_snapshots_tesla_date_unique
       UNIQUE (tesla_id, captured_date)`, then `ALTER TABLE telemetry.poll_attempts
       RENAME COLUMN account_id TO polled_by_account_id`, plus the
       `-- +goose Down` half.
-- [ ] 2.2 Do not touch any existing migration file — historic migrations are
-      never edited (`ai/go-conventions.md`).
-- [ ] 2.3 Run `make migration-guard`. Expect clean (no cross-module schema
-      reference introduced).
+- [x] 2.2 Do not touch any existing migration file — historic migrations are
+      never edited (`ai/go-conventions.md`). Confirmed: no existing file was
+      modified, only the new file was created (then renamed to `...0002`).
+- [x] 2.3 Run `make migration-guard`. `design.md`'s literal filename
+      (`20260911000001_...`) collided with `internal/analytics`'s own
+      same-day pilot migration
+      (`internal/analytics/db/migrations/20260911000001_rekey_charge_gaps_on_tesla_id.sql`)
+      — the guard failed with "duplicate migration version number(s) across
+      modules." Fixed per the guard's own instruction: renumbered the
+      telemetry file to `...0002` (SQL content unchanged). Guard now passes
+      clean: "migration-guard: no duplicate version numbers across 4 module
+      dirs" (plus a pre-existing, unrelated backlog warning about
+      `20260720000001`).
 
 ## T3 — Queries + sqlc
 
