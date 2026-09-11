@@ -195,6 +195,12 @@ Every expected value is fixed in `design.md` §Test Contract. **Assert that cont
   capacity`, `pack capacity`, `effective capacity`, `capacity backfill`).
   `depends_on`: 5.1-5.7 · `parallel_ok`: no
 
+  > **Correction (2026-09-11, review round 1, finding R1-F2).** The guide was written at
+  > `kkpa/context/workflows/vehicle-monthly-metrics.md`, not under `entities/`. The
+  > `kkpa-context-curate` skill routes by trigger: this job has no single external trigger,
+  > so it is a workflow. RD10 fixes only the guide's name, which is unchanged. The path above
+  > is left as first written; this note is the record of what shipped.
+
 - [x] **L2** **[leader]** Confirm `go build ./...` / `go vet ./...` are green repo-wide
   once Wave 6 lands, and re-run `make tz-guard`, `make boundary-guard`,
   `make archive-guard` (this change's `Makefile`/`kkpa/context/` edits are exactly the

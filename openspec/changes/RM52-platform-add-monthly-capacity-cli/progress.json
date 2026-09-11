@@ -5,12 +5,9 @@
   "module": "platform",
   "roadmap": "openspec/roadmaps/RM52-vehicle-monthly-metrics.md",
   "request": "RM52 tier 3 — cmd/monthly-capacity (RD8) + make cmd-monthly-capacity (RD9) + wiring verification + structure docs + the vehicle-monthly-metrics KB guide (ticket item 4). From Linear MAG-32.",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
-    "current": [
-      "3.1",
-      "3.2"
-    ],
+    "current": [],
     "pending": [
       "L3"
     ],
@@ -30,11 +27,13 @@
       "6.1",
       "L1",
       "L2",
-      "L4"
+      "L4",
+      "3.1",
+      "3.2"
     ]
   },
   "created_at": "2026-09-10T22:12:00Z",
-  "updated_at": "2026-09-11T00:55:00Z",
+  "updated_at": "2026-09-11T01:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -130,13 +129,13 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "platform",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T22:03:00Z",
       "completed_at": "2026-09-10T22:08:00Z",
       "duration_seconds": null,
-      "notes": "Groups A and B asserted. Leader corrected A4's expected value and replaced A5's oracle, which called the function under test.",
+      "notes": "Groups A and B asserted. Leader corrected A4's expected value and replaced A5's oracle, which called the function under test. Suite verified by the owner (make check).",
       "budget": {
         "five_hour_pct_start": 26,
         "five_hour_pct_end": 34,
@@ -156,13 +155,13 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "platform",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-10T22:03:00Z",
       "completed_at": "2026-09-10T22:08:00Z",
       "duration_seconds": null,
-      "notes": "Group C: four TestLoadDatabase_* cases, reusing withTempDir/writeEnvFile.",
+      "notes": "Group C: four TestLoadDatabase_* cases, reusing withTempDir/writeEnvFile. Suite verified by the owner (make check).",
       "budget": {
         "five_hour_pct_start": 26,
         "five_hour_pct_end": 34,
@@ -507,10 +506,44 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "platform-reviewer",
+    "brief": "Review RM52 tier 3 (change RM52-platform-add-monthly-capacity-cli, module platform). Read the DIFF against the merge-base with main, not the whole repo. Commits: f922fda (code + config), 486b6b0 (Makefile + docs), f7772c0 (backlog note), 8ba8fc8 (KB guide).\n\n'platform' is a pseudo-module: cmd/monthly-capacity/, internal/config/, Makefile, README.md, cmd/README.md, internal/charging/AGENTS.md, docs/, kkpa/context/. Anything changed OUTSIDE those paths is a blocker finding.\n\nVALIDATE:\n1. Module boundary. cmd/monthly-capacity holds ZERO business logic beyond pure period/flag helpers. It calls charging.NewMonthlyCapacityCalculator as a PUBLIC port; it must not import internal/charging/db. cmd/web must still not wire the calculator.\n2. Design compliance, verbatim: period.go's four functions against design.md D1-D3; main.go's flag.Visit handling of an explicit -tesla-id 0 (D1); resolvePeriod called BEFORE any config or DB touch; the output line and exit codes (D5); the make target's two optional arguments (D6); config.LoadDatabase's shape and its no-Tesla-credential rule (D7).\n3. THE TEST-CONTRACT RULE, the hardest check: period_test.go and config_test.go must assert design.md's Test Contract groups A, B and C as authored BEFORE implementation - never whatever the code happens to do. Check each expected value against design.md's own table. The leader already corrected A4's expected value and replaced A5's oracle, which called the function under test; verify no other case has a self-referencing oracle.\n4. previousMonth correctness. The leader fixed a bug here: it reused tier 2's day math without tier 2's day==1 gate, so it returned the wrong day on any day but the 1st. Confirm it now goes to the month start first, and that a test would catch a regression.\n5. Time zone. cmd/* is exempt from the raw-time.Now ban only as design.md states; the period default must come through internal/clock. make tz-guard must stay green.\n6. Docs. Every doc the new runnable makes stale is updated in-change: root README structure tree + dependency graph, cmd/README.md binaries table, cmd/monthly-capacity/README.md, internal/charging/AGENTS.md, internal/config/AGENTS.md, kkpa/context/architecture/nightly-cycle.md, and the new kkpa/context/workflows/vehicle-monthly-metrics.md + its INDEX.md rows. Flag any that is wrong or missing.\n7. KB guide accuracy. vehicle-monthly-metrics.md must match the CODE, not the archived change docs. It absorbed two staged sync proposals, one of which described tier 1 only. Check its component map paths and symbol names all exist.\n8. openspec/changes/archive/ must be untouched. make archive-guard enforces it.\n9. Anti-gaming: no acceptance criterion weakened, no task ticked without the work, no status self-approved.\n\nTEST SIGNALS - who ran what. Assistant-run: gofmt -l, go build ./..., go vet ./..., make tz-guard, make boundary-guard, make archive-guard - all green. USER-run and user-reported: make check passed (the full suite, including the tests in this change). Judge test QUALITY by reading the tests. Do NOT run the suite yourself.\n\nNote for your report, not a finding to fix here: tier 1's comments in internal/charging/monthly_capacity.go and capacity.go cite decision IDs and design.md. That is out of this tier's scope and out of its granted paths. Do not edit them.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "reviewed_at": "2026-09-11T02:00:00Z",
+        "findings": [
+          {
+            "id": "R1-F1",
+            "severity": "minor",
+            "note": "cmd/monthly-capacity/period_test.go:10 — the file doc comment says \"This file asserts design.md's Test Contract Group A...\". design.md gets archived and frozen, so this pointer will die. Rewrite it to state the intent directly, e.g. \"Expected values here are fixed up front, not read off the implementation.\"",
+            "status": "open"
+          },
+          {
+            "id": "R1-F2",
+            "severity": "minor",
+            "note": "proposal.md and design.md's docs table both say the new KB guide goes at kkpa/context/entities/vehicle-monthly-metrics/guide.md, but it was actually written at kkpa/context/workflows/vehicle-monthly-metrics.md. progress.json task L1 records this was an owner-confirmed routing decision by the kkpa-context-curate skill (no single external trigger -> workflows, not entities). The change's own design docs were never updated to match. Not blocking: the artifacts are frozen once archived, and the note in progress.json explains the deviation honestly.",
+            "status": "open"
+          }
+        ],
+        "leader_triage": [
+          {
+            "finding": "R1-F1",
+            "verdict": "accepted",
+            "fix": "period_test.go's file comment no longer names design.md. It states the rule itself: expectations were fixed before the code, and an oracle must never call the function under test."
+          },
+          {
+            "finding": "R1-F2",
+            "verdict": "accepted",
+            "fix": "design.md and proposal.md now name kkpa/context/workflows/vehicle-monthly-metrics.md, with one line on why. tasks.md keeps its original L1 text and carries an appended correction note, so the task record stays append-only.",
+            "note": "The reviewer called this non-blocking BECAUSE the artifacts freeze on archive. That is the reason to fix it, not to skip it. An archived design.md may never be edited, so a wrong path there would be wrong forever."
+          }
+        ],
+        "leader_note": "Both findings are minor and neither changes behavior: one comment rewrite and three doc-path corrections. No re-review round was requested. The verdict was already approved, and a second round would cost a full dispatch for zero risk."
+      }
+    ]
   },
   "decisions": [
     {
@@ -570,6 +603,16 @@
       "at": "2026-09-11T00:55:00Z",
       "agent": "leader",
       "event": "Resumed in a fresh session. Leader wave: L2 guards green (build, vet, tz, boundary, archive), L4 backlog item 7 re-read and kept, L1 KB guide written via kkpa-context-curate. Owner chose workflows/ over entities/ for the guide path, and to fold + archive both staged KB proposals. Unrelated gateway doc work left dirty in the tree by the owner's choice; INDEX.md staged as HEAD+RM52 rows only so it stayed out of this commit. Only 3.1/3.2 and L3 remain."
+    },
+    {
+      "at": "2026-09-11T01:05:00Z",
+      "agent": "leader",
+      "event": "Owner reported `make check` passed. Recorded as the OWNER's verification, not the assistant's. Tasks 3.1 and 3.2 move to done; change status -> verified. Review brief written; dispatching platform-reviewer next."
+    },
+    {
+      "at": "2026-09-11T01:20:00Z",
+      "agent": "leader",
+      "event": "Review round 1 returned APPROVED with 2 minor findings. Leader accepted both and fixed them. R1-F1: test file comment no longer cites design.md. R1-F2: design.md/proposal.md corrected to the workflows/ guide path, tasks.md got an append-only correction note. gofmt and go vet clean on the touched paths. internal/config/quote_test.go is unformatted but pre-exists on main and is untouched by this branch - verified, not this change's to fix."
     }
   ]
 }

@@ -7,10 +7,10 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
 )
 
-// This file asserts design.md's Test Contract Group A (previousMonth,
-// resolvePeriod's empty-string path) and Group B (parsePeriod,
-// teslaIDPointer). The expected values come from that contract, not from
-// reading the implementation.
+// Every expected value here was fixed before the code was written, so these
+// tests say what the period logic must do -- not what it happens to do. Never
+// re-derive an expectation by running the function under test: an oracle that
+// calls previousMonth or parsePeriod passes even when both are wrong.
 
 // TestPreviousMonth covers Test Contract A1-A4.
 func TestPreviousMonth(t *testing.T) {

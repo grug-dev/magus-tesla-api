@@ -357,7 +357,7 @@ Both are one task in `tasks.md` (task 4.1) — **verify, do not re-implement.**
 | `internal/charging/AGENTS.md` | Note the CLI as `MonthlyCapacityCalculator`'s second caller | The existing text only names `internal/app`; leaving it would make the doc read as if the port had one caller after this change ships |
 | `internal/config/AGENTS.md` | §Public interface gains `LoadDatabase`; §Testing gains its cases | Same structural-change rule, for the new exported function |
 | `kkpa/context/architecture/nightly-cycle.md` | Port-map row for `charging.MonthlyCapacityCalculator` gains the CLI as a second caller | Same reason as the `AGENTS.md` note above, at the KB layer |
-| `kkpa/context/entities/vehicle-monthly-metrics/guide.md` (new) | The whole monthly-metrics story: table, estimator, nightly step, CLI, and where a second metric would go (RD12) | RD10 names this guide by name as the roadmap's own deliverable; run via `kkpa-context-curate` (leader task, `tasks.md`) |
+| `kkpa/context/workflows/vehicle-monthly-metrics.md` (new) | The whole monthly-metrics story: table, estimator, nightly step, CLI, and where a second metric would go (RD12) | RD10 names this guide by name as the roadmap's own deliverable; run via `kkpa-context-curate` (leader task, `tasks.md`). **Corrected at review:** this row first said `entities/vehicle-monthly-metrics/guide.md`. The curate skill routes by trigger — the job has no single external trigger, so it is a workflow, not an entity. RD10 fixes only the name, which is unchanged. Owner-confirmed on 2026-09-11. |
 
 **KB grep result.** Searched `kkpa/context/` for `charging` (`grep -rn charging kkpa/context/`,
 excluding `pending-spec-to-sync/` — those are staged, human-gated proposals, not live

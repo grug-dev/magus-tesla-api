@@ -66,7 +66,7 @@ after fixing bad data. RD8 asks for exactly this: a `cmd/` tool, not a gateway p
   has a second caller, the manual CLI, alongside `internal/app`'s nightly step.
 - **CHANGED** — `kkpa/context/architecture/nightly-cycle.md`: the port-map row for
   `charging.MonthlyCapacityCalculator` gains the CLI as its second caller.
-- **ADDED** — a new KB guide, `kkpa/context/entities/vehicle-monthly-metrics/guide.md`
+- **ADDED** — a new KB guide, `kkpa/context/workflows/vehicle-monthly-metrics.md`
   (RD10), documenting the whole monthly-metrics story end to end: the table, the
   estimator, the nightly step, the CLI, and where a future second metric would go (RD12).
   Run via the `kkpa-context-curate` skill — a **leader** task (see `tasks.md`).
