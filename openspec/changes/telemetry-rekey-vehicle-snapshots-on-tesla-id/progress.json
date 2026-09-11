@@ -76,7 +76,7 @@
     ]
   },
   "created_at": "2026-09-11T19:20:00Z",
-  "updated_at": "2026-09-11T21:30:00Z",
+  "updated_at": "2026-09-11T21:56:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -1482,6 +1482,24 @@
       "decision": "Swept all six docs naming LatestSnapshotsByAccount, including the two pre-existing gateway ones",
       "why": "Four were invalidated by this change. openspec/specs/gateway/spec.md was already wrong since RM38: the charges suggestion reads analytics, not telemetry.",
       "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-09-11T21:50:00Z",
+      "scope": "task:3.5",
+      "made_by": "user",
+      "decision": "SnapshotPrecedingDay orders by captured_date DESC, not captured_at DESC",
+      "why": "design.md D-INDEX claimed the (tesla_id, captured_date) index serves captured_at ordering. It does not. One row per day means the two orderings pick the same row, so no second index is needed.",
+      "covered_by": "D4"
+    },
+    {
+      "id": "D14",
+      "at": "2026-09-11T21:55:00Z",
+      "scope": "task:2.1",
+      "made_by": "user",
+      "decision": "account_id is relaxed to NULLABLE, not dropped; the drop moves to a follow-up",
+      "why": "Migrations run one module dir at a time, so a 2026-09-08 analytics backfill joining vs.account_id runs after our drop on a fresh database and fails. Filed as backlog 31.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -1579,6 +1597,16 @@
       "at": "2026-09-11T21:30:00Z",
       "agent": "leader",
       "event": "doc sweep committed. Leader correction: internal/gateway/AGENTS.md was NOT claiming live telemetry calls, only a historical name. openspec/specs/gateway/spec.md was the genuinely stale one, verified against external_charges.go:696"
+    },
+    {
+      "at": "2026-09-11T21:40:00Z",
+      "agent": "leader",
+      "event": "USER RAN make test: FAILED. Two real defects, neither a test-fixup problem. (1) analytics testcontainer cannot provision: analytics migration 20260908000002 joins telemetry.vehicle_snapshots on account_id, which our migration dropped. (2) TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan: query lost its index walk."
+    },
+    {
+      "at": "2026-09-11T21:56:00Z",
+      "agent": "leader",
+      "event": "both fixed under D13/D14; design.md corrected with a Corrections section; backlog entry 31 files the migration-ordering root fix. Change stays applied, NOT verified: awaiting a new user test run."
     }
   ]
 }

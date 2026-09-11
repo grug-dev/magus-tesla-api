@@ -258,7 +258,7 @@ ORDER BY tesla_id, captured_at DESC;
 --
 -- Index reuse (no new index): the (tesla_id, captured_date) UNIQUE index is
 -- the exact predicate pair, in index order — tesla_id equality plus a
--- captured_date bound, walked backward to satisfy ORDER BY captured_at DESC.
+-- captured_date bound, walked backward to satisfy ORDER BY captured_date DESC.
 -- Because the UNIQUE constraint allows at most ONE row per
 -- (tesla_id, captured_date), and captured_date is monotone non-decreasing
 -- with captured_at for a vehicle, AT MOST ONE row is skipped before the
@@ -276,7 +276,7 @@ SELECT
 FROM telemetry.vehicle_snapshots
 WHERE tesla_id     = @tesla_id
   AND captured_date < @day
-ORDER BY captured_at DESC
+ORDER BY captured_date DESC
 LIMIT 1;
 
 -- LOAD-BEARING (R3, RM27-telemetry-add-supercharger-battery-pct): start_battery_pct,

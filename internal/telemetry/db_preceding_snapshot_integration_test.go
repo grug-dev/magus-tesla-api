@@ -172,6 +172,17 @@ func TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan(t *testing.T) {
 	// SnapshotPrecedingDay implementation uses (design D2).
 	explainDay := clock.CalendarDay(day1.AddDate(0, 0, 1), time.UTC)
 
+	// Force the planner off a sequential scan. This fixture holds two rows, so
+	// Postgres reads the whole table no matter what indexes exist. Turning
+	// seqscan off makes EXPLAIN show the plan it would pick on a real table,
+	// which is what this test is about.
+	if _, err := pool.Exec(ctx, "SET enable_seqscan = off"); err != nil {
+		t.Fatalf("disabling seqscan: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "SET enable_seqscan = on")
+	})
+
 	rows, err := pool.Query(ctx, `EXPLAIN (FORMAT TEXT)
 SELECT
     id, tesla_id, captured_at, raw_data,
@@ -186,7 +197,7 @@ SELECT
 FROM telemetry.vehicle_snapshots
 WHERE tesla_id     = $1
   AND captured_date < $2
-ORDER BY captured_at DESC
+ORDER BY captured_date DESC
 LIMIT 1`, teslaID, dateFrom(explainDay))
 	if err != nil {
 		t.Fatalf("EXPLAIN query: %v", err)

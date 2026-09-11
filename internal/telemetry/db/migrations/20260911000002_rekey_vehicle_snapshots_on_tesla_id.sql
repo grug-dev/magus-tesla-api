@@ -21,8 +21,16 @@ ALTER TABLE telemetry.vehicle_snapshots
 -- goose does not guarantee telemetry is on it.
 DROP INDEX telemetry.idx_vehicle_snapshots_vehicle_time;
 
+-- account_id is NOT dropped yet, only made nullable, and the write path stops
+-- filling it. A 2026-09-08 analytics backfill migration still joins this table
+-- on account_id. Migrations are applied one module directory at a time --
+-- account, telemetry, charging, analytics -- so on a fresh database every
+-- telemetry migration runs before that analytics one. Dropping the column here
+-- makes the analytics migration fail on any new database, including every test
+-- container. The column is dropped once migrations are applied in date order
+-- across modules; until then it holds NULL for rows written from now on.
 ALTER TABLE telemetry.vehicle_snapshots
-    DROP COLUMN account_id;
+    ALTER COLUMN account_id DROP NOT NULL;
 
 ALTER TABLE telemetry.vehicle_snapshots
     ADD CONSTRAINT vehicle_snapshots_tesla_date_unique UNIQUE (tesla_id, captured_date);
@@ -45,12 +53,9 @@ ALTER TABLE telemetry.poll_attempts
 ALTER TABLE telemetry.vehicle_snapshots
     DROP CONSTRAINT vehicle_snapshots_tesla_date_unique;
 
--- account_id comes back NULLABLE, not NOT NULL: the DROP COLUMN in Up threw
--- the values away, so there is nothing to backfill a NOT NULL constraint
--- with on a populated table -- the same limitation every DROP COLUMN in
--- this codebase's migrations has on Down (mirrors the pilot's own Down).
-ALTER TABLE telemetry.vehicle_snapshots
-    ADD COLUMN account_id UUID;
+-- account_id is not re-added: Up only relaxed it to NULLABLE, it was never
+-- dropped. It is not restored to NOT NULL either, because rows written while
+-- Up was in effect hold NULL and there is nothing to backfill them with.
 
 CREATE INDEX idx_vehicle_snapshots_vehicle_time
     ON telemetry.vehicle_snapshots (account_id, tesla_id, captured_at);

@@ -200,7 +200,7 @@ second, explicit `(tesla_id, captured_at)` index is added.
 | `SnapshotsByVehicleSince` | `tesla_id = $1 AND captured_at >= $2 ORDER BY captured_at ASC` | `tesla_id` pinned by equality; `captured_date` is monotonic non-decreasing in `captured_at` for one vehicle (at most one row per calendar day), so the index still prunes to this vehicle's rows in one range scan before the `captured_at` residual filter/sort — same shape the old three-column index gave, minus the redundant `account_id` prefix |
 | `SnapshotsByVehicleBetween` | `tesla_id = $1 AND captured_at ∈ [start_bound, end_bound)` | same as above |
 | `SnapshotsByVehicleUpdatedSince` | `tesla_id = $1 AND updated_at >= $2` | `tesla_id` prunes the scan; `updated_at` is already a residual filter on the OLD index too (it is not `captured_date`-ordered) — no regression |
-| `SnapshotPrecedingDay` | `tesla_id = $1 AND captured_date < $2 ORDER BY captured_at DESC LIMIT 1` | `(tesla_id, captured_date)` **is** the exact predicate pair, in index order — this query improves from a residual filter to a direct index bound |
+| `SnapshotPrecedingDay` | `tesla_id = $1 AND captured_date < $2 ORDER BY captured_date DESC LIMIT 1` | `(tesla_id, captured_date)` **is** the exact predicate pair, in index order — this query improves from a residual filter to a direct index bound |
 | `LatestSnapshotsByVehicles` | `tesla_id = ANY($1) ORDER BY tesla_id, captured_at DESC` (`DISTINCT ON`) | `tesla_id` is the leading column; the old index needed `account_id` first only because callers filtered on it — gone now |
 
 No fifth query exists on this table beyond these six.
@@ -302,7 +302,7 @@ ALTER TABLE telemetry.vehicle_snapshots
 DROP INDEX telemetry.idx_vehicle_snapshots_vehicle_time;
 
 ALTER TABLE telemetry.vehicle_snapshots
-    DROP COLUMN account_id;
+    ALTER COLUMN account_id DROP NOT NULL;
 
 ALTER TABLE telemetry.vehicle_snapshots
     ADD CONSTRAINT vehicle_snapshots_tesla_date_unique UNIQUE (tesla_id, captured_date);
@@ -696,3 +696,35 @@ to the new key shape, not new scenarios.
   change's shape (no new cross-module import, no schema file outside
   `internal/telemetry/db/migrations/`); run both as part of this change's
   own verification (`tasks.md`).
+
+
+## Corrections made during implementation
+
+Two design errors were found by running the work. Both were confirmed with
+the user before the fix landed.
+
+**1. `SnapshotPrecedingDay` kept the wrong `ORDER BY`.** The D-INDEX table above
+said the `(tesla_id, captured_date)` UNIQUE index serves
+`ORDER BY captured_at DESC`. It does not: the index orders by `captured_date`,
+so Postgres must add a Sort, and the query loses the backward index walk the
+old `(account_id, tesla_id, captured_at)` index gave it. The integration test
+this design wrote up front is what caught it.
+
+The fix needs no new index. The new UNIQUE constraint allows only one row per
+`(tesla_id, captured_date)`, so `ORDER BY captured_date DESC LIMIT 1` selects
+exactly the same row as `ORDER BY captured_at DESC LIMIT 1`, and the index
+serves it directly. D-INDEX's "no second index" decision stands.
+
+**2. `account_id` is made nullable, not dropped.** The analytics migration
+`20260908000002_add_tpms_pressure_columns.sql` backfills TPMS columns with a
+join on `vs.account_id`. Migrations are applied one module directory at a time
+-- `account`, `telemetry`, `charging`, `analytics` (`internal/config/config.go`,
+`Makefile`) -- so on a fresh database every telemetry migration runs before that
+analytics one. Dropping the column makes the analytics migration fail on any new
+database, including every test container, and on a fresh production database.
+
+Existing databases are not affected: goose already recorded that migration.
+
+So this change stops writing `account_id` and relaxes it to NULLABLE. The column
+is dropped in a follow-up, once migrations are applied in date order across
+modules. That follow-up is recorded in `openspec/roadmaps/backlog.md`.

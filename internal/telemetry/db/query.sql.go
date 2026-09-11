@@ -337,7 +337,7 @@ SELECT
 FROM telemetry.vehicle_snapshots
 WHERE tesla_id     = $1
   AND captured_date < $2
-ORDER BY captured_at DESC
+ORDER BY captured_date DESC
 LIMIT 1
 `
 
@@ -362,7 +362,7 @@ type SnapshotPrecedingDayParams struct {
 //
 // Index reuse (no new index): the (tesla_id, captured_date) UNIQUE index is
 // the exact predicate pair, in index order — tesla_id equality plus a
-// captured_date bound, walked backward to satisfy ORDER BY captured_at DESC.
+// captured_date bound, walked backward to satisfy ORDER BY captured_date DESC.
 // Because the UNIQUE constraint allows at most ONE row per
 // (tesla_id, captured_date), and captured_date is monotone non-decreasing
 // with captured_at for a vehicle, AT MOST ONE row is skipped before the

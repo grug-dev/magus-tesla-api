@@ -1024,6 +1024,55 @@ for `tesla_id` instead of `vin` as the new table's key.
 
 
 
+## 31. platform — Apply migrations in date order across modules, then drop `vehicle_snapshots.account_id`
+
+### PROPOSAL
+
+Migrations are applied one module directory at a time, in a fixed order:
+`account`, `telemetry`, `charging`, `analytics` (`internal/config/config.go`
+`defaultMigrationModules`, mirrored by the `Makefile`'s `MIGRATIONS_DIRS` and by
+`internal/testdb.ProvisionDirs`). Every migration in one directory runs before
+the first migration of the next.
+
+That breaks any migration that reads another module's table, when the owning
+module later changes it. A telemetry migration dated AFTER an analytics
+migration still runs BEFORE it on a fresh database.
+
+MAG-65 hit this. The analytics migration
+`20260908000002_add_tpms_pressure_columns.sql` backfills by joining
+`telemetry.vehicle_snapshots` on `account_id`. MAG-65 re-keys that table on
+`tesla_id` and wanted to drop `account_id`, which made the analytics migration
+fail on every fresh database, test containers included. Existing databases were
+safe only because goose had already recorded that migration.
+
+MAG-65 therefore relaxed `account_id` to NULLABLE and stopped writing it,
+instead of dropping it. The column is still there, holding NULL for every row
+written since.
+
+This change does two things, in order:
+
+1. Apply all module migrations in one global version order instead of one
+   directory at a time. `make migration-guard` already proves version numbers
+   are unique across the four module directories, which is the precondition.
+   Global version order also reproduces the order the migrations were actually
+   written and applied, so a fresh database ends in the same state as an old one.
+2. Once that ships, drop `telemetry.vehicle_snapshots.account_id` for real.
+
+**Care required:** this changes how every production deploy applies migrations.
+`cmd/migrate`, `internal/config`, `internal/testdb` and the `Makefile` all
+encode the current per-directory order, and the Dockerfile COPYs the same
+layout. There is also a known un-renumbered collision, `20260720000001`, that
+`migration-guard` warns about; resolve it before merging directories.
+
+**Trigger:** picked up on its own, before any other change wants to drop a
+column another module's migration reads.
+
+### ORIGIN
+
+MAG-65 (`telemetry-rekey-vehicle-snapshots-on-tesla-id`), found when
+`make test` failed provisioning the analytics test container on 2026-09-11.
+
+
 # BRAINSTORMING
 
 
