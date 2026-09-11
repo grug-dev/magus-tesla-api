@@ -4,13 +4,12 @@ Agent-Name: telemetry
 
 ## Doc-Pack (module)
 
-Additive to the base Doc-Pack (repo-root `CLAUDE.md`, `AGENTS.md`, `ai/architecture.md`,
-`ai/go-conventions.md`, `ai/agentic-workflow.md`) — never replacing it. This module adds:
+Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it, and
+never restates it: the base list lives in `CLAUDE.md` alone, so a copy here cannot drift.
+A dispatched worker reads: base pack + this list + this file, before any write.
 
-
-
-(The htmx docs in some modules' packs are irrelevant here — telemetry is a backend
-collection/storage module with no HTML.)
+*(empty — this module needs nothing beyond the base pack. It is backend-only: no HTML,
+no Templ, no htmx.)*
 
 ## Responsibility
 

@@ -7,12 +7,13 @@ Per-module instructions for `internal/account/` — merged with the global rules
 
 ## Doc-Pack (module)
 
-Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it.
-A dispatched worker/reviewer reads: base pack + this list + this file, before any write.
+Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it, and
+never restates it: the base list lives in `CLAUDE.md` alone, so a copy here cannot drift.
+A dispatched worker reads: base pack + this list + this file, before any write.
 
-
-- `ai/go-conventions.md` §persistence — binding here: goose migrations are the single
-  sqlc schema source; convert pgtype values to domain types at the DB→domain boundary
+*(empty — no docs beyond the base pack. `ai/go-conventions.md` §persistence is already in
+that base and is the binding one here: goose migrations are the single sqlc schema source,
+and pgtype values convert to domain types at the DB→domain boundary.)*
 
 ## Responsibility
 

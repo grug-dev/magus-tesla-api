@@ -4,18 +4,13 @@ Agent-Name: charging
 
 ## Doc-Pack (module)
 
-No module-specific docs beyond the base pack. Every worker dispatched to this module reads
-the base doc-pack declared in `CLAUDE.md` § Pipeline config:
+Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it, and
+never restates it: the base list lives in `CLAUDE.md` alone, so a copy here cannot drift.
+A dispatched worker reads: base pack + this list + this file, before any write.
 
-- `CLAUDE.md`
-- `ai/architecture.md`
-- `ai/go-conventions.md`
-
-No htmx, no template, no Templ conventions apply here — this module is backend-only (no HTML).
-If a future task touches the gateway integration (wiring this module's ports into `cmd/web` Deps),
-that work belongs in the `gateway` module and its agent, not here.
-
----
+*(empty — this module needs nothing beyond the base pack. It is backend-only: no HTML, no
+Templ, no htmx. Wiring its ports into `cmd/web` Deps is the `gateway` module's work, not
+this one's.)*
 
 ## Responsibility
 

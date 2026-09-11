@@ -4,11 +4,13 @@ Agent-Name: app
 
 ## Doc-Pack (module)
 
-Additive to the base Doc-Pack (repo-root `CLAUDE.md`, `AGENTS.md`, `ai/architecture.md`,
-`ai/go-conventions.md`, `ai/agentic-workflow.md`) — never replacing it. This module adds
-no further docs of its own: it is a pure composition layer over other modules' already-
-documented ports, and has no HTML, no database, and no unit-of-measure concerns of its
-own.
+Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it, and
+never restates it: the base list lives in `CLAUDE.md` alone, so a copy here cannot drift.
+A dispatched worker reads: base pack + this list + this file, before any write.
+
+*(empty — this module adds no docs of its own. It is a pure composition layer over other
+modules' already-documented ports, with no HTML, no database, and no unit-of-measure
+concerns.)*
 
 ## Responsibility
 

@@ -109,6 +109,20 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
   re-reads it in full. Module-specific docs are declared per module in the
   `## Doc-Pack (module)` section of `internal/<module>/AGENTS.md` — additive to this
   base, never replacing it (e.g. the htmx docs live in the gateway module's pack).
+  **This list is declared here and nowhere else.** A module's own Doc-Pack section names
+  only its additions and must never restate the base — four of them once did, and two had
+  drifted into naming the root `AGENTS.md` and the reviewer-only `ai/agentic-workflow.md`,
+  which would have added ~3,400 tokens to every worker dispatch that believed them.
+  **The root `AGENTS.md` is deliberately NOT in this pack** — it carries mission and
+  product vision, not implementation rules.
+  **Measured after MAG-38 (2026-09-11):** the base pack is ~11,900 tokens and is now the
+  floor on every dispatch. Only `gateway` still has a module file larger than it
+  (~13,400); every other module's is under 5,500, and six are under 2,000. **The next
+  worthwhile reduction is in this base pack, not in the module files** — for a small
+  module like `clock` it is already 94% of the dispatch cost. Page- and column-level
+  detail belongs in `kkpa/context/`, which is fetched on demand; a rule belongs in an
+  `AGENTS.md` only when an agent could break it *without ever thinking about the
+  concept*, and no build, `go vet`, or guard would catch the break.
 - **Doc-Pack (reviewer):** `ai/agentic-workflow.md` — the leader-protocol/contract doc,
   added to reviewer dispatches only; workers never receive it.
 - **Context-Checkpoint-At:** `40` — context-window % that trips the auto-checkpoint;
