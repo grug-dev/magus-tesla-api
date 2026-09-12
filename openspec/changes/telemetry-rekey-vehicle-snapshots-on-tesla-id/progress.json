@@ -5,13 +5,18 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Source ticket MAG-65 \u2014 re-key telemetry.vehicle_snapshots on tesla_id and demote poll_attempts.account_id to polled_by_account_id. Step 2 of MAG-63. Elect one polling account per vehicle first, then dedupe, swap the UNIQUE constraint, drop the column. Unit tests excluded.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
     "blocked": [],
     "done": [
+      "1.1",
+      "1.2",
+      "1.3",
       "1.4",
+      "2.1",
+      "2.2",
       "2.3",
       "3.1",
       "3.2",
@@ -37,7 +42,6 @@
       "5.8",
       "5.9",
       "6.1",
-      "6.10",
       "6.2",
       "6.3",
       "6.4",
@@ -46,11 +50,11 @@
       "6.7",
       "6.8",
       "6.9",
+      "6.10",
       "7.1",
       "7.2",
       "7.3",
       "8.1",
-      "8.10",
       "8.2",
       "8.3",
       "8.4",
@@ -59,24 +63,19 @@
       "8.7",
       "8.8",
       "8.9",
+      "8.10",
       "9.1",
       "9.2",
       "9.3",
       "9.4",
       "9.5",
-      "9.6"
-    ],
-    "awaiting_user_verification": [
-      "1.1",
-      "1.2",
-      "1.3",
-      "2.1",
-      "2.2",
+      "9.6",
       "9.7"
-    ]
+    ],
+    "awaiting_user_verification": []
   },
   "created_at": "2026-09-11T19:20:00Z",
-  "updated_at": "2026-09-11T23:55:00Z",
+  "updated_at": "2026-09-12T00:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -96,7 +95,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -119,7 +118,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -142,7 +141,7 @@
         "1.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -186,7 +185,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -209,7 +208,7 @@
         "2.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-11T19:50:00Z",
@@ -1358,7 +1357,7 @@
         "9.6"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": null,
       "started_at": null,
@@ -1371,7 +1370,7 @@
   "review": {
     "status": "pending",
     "agent": null,
-    "brief": null,
+    "brief": "Review the change telemetry-rekey-vehicle-snapshots-on-tesla-id on branch ft/CH55-MAG-65-telemetry-rekey-vehicle-snapshots-on-tesla-id. Read the DIFF against its merge-base with main, not the whole module.\n\nVALIDATE:\n1. Module boundaries: no module reads another's DB; gateway imports no telemetry (make boundary-guard); analytics reaches telemetry only through the public Reader.\n2. Every doc-pack convention, above all the code-comment rule: no comment may cite design.md, a decision ID, or a change/roadmap ID.\n3. Spec/tasks coverage: all 60 tasks in tasks.md are implemented as written.\n4. DB objects match the USER-CONFIRMED design. Two corrections were confirmed AFTER the original gate and are binding: D13 (SnapshotPrecedingDay orders by captured_date DESC, and NO second index is added) and D14 (account_id is relaxed to NULLABLE, NOT dropped, because a frozen 2026-09-08 analytics backfill joins on it and migrations apply one module dir at a time). A mismatch with either is a blocker finding.\n5. Integration tests assert what design.md authored up front, not what the implementation happens to do.\n6. Performance-Profile compliance (read-heavy).\n7. Anti-gaming: no acceptance criterion weakened, no self-approved status. Deleted tests must each be justified: D9 (two dead per-account tests), D18 (TPMS migration test), D19 (three more migration tests, under the new no-migration-tests rule).\n\nSIGNALS: assistant-run and clean -- go build ./..., go vet ./..., gofmt, make migration-guard, make boundary-guard, make archive-guard. USER-REPORTED -- make test (go test ./...) PASSED on 2026-09-12. The assistant never ran the suite. Judge test quality by READING the tests, never by running them.\n\nKNOWN WEAK POINT, check it hard: three separate bugs in this change were raw SQL in _test.go naming a column the migration removed. go vet cannot see inside a SQL string. Re-scan every SQL string in the diff ACROSS LINE BREAKS, and check that fixture UPDATE/DELETE calls assert RowsAffected.",
     "rounds": []
   },
   "decisions": [
@@ -1700,6 +1699,11 @@
       "at": "2026-09-11T23:40:00Z",
       "agent": "leader",
       "event": "USER RAN make test (3rd): ONE failure left, TestRecalculate_AfterSameDayRecapture. Cause: raw UPDATE filtered on account_id, matched 0 rows silently. Fixed + RowsAffected guard. Re-scanned every SQL string in internal/ multi-line: no other hit. Still NOT verified."
+    },
+    {
+      "at": "2026-09-12T00:05:00Z",
+      "agent": "leader",
+      "event": "USER REPORTED make test PASSED (go test ./...). Verification is the OWNER's, not the assistant's: the assistant never ran the suite. Cleared 6 awaiting-user-verification tasks to done; change status -> verified. Reviewer gate is now unblocked."
     }
   ]
 }
