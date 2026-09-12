@@ -67,7 +67,7 @@
 
 ## T2. Gateway `authorizeVehicle` helper + tests — depends on T1
 
-- [ ] T2.1 Add `func (h *Handler) authorizeVehicle(ctx context.Context, uid uuid.UUID, teslaID
+- [x] T2.1 Add `func (h *Handler) authorizeVehicle(ctx context.Context, uid uuid.UUID, teslaID
       int64) (vehicleref.Ref, error)` in `internal/gateway/handlers/handlers.go`, placed
       immediately beside the existing `resolveSelectedVehicle` (design.md D5). It calls
       `h.acct.RegisteredVehicles(ctx, uid)` — reusing the exact call `vehiclesFor` already
@@ -79,12 +79,12 @@
       both must render as the same 404).
       Acceptance: matches design.md's Test Contract `authorizeVehicle` cases 1-3 exactly,
       including that a lookup failure and an ownership miss are indistinguishable to the caller.
-- [ ] T2.2 Do NOT rewire any existing handler to call `authorizeVehicle` in this change
+- [x] T2.2 Do NOT rewire any existing handler to call `authorizeVehicle` in this change
       (design.md D1). The four `LatestMetricsByAccount` call sites and the two
       `ListEntriesByAccount` call sites named in the dispatch are untouched here.
       Acceptance: `grep -rn "authorizeVehicle" internal/gateway/handlers --include='*.go'`
       shows exactly the new function's definition and its own test file — no other call site.
-- [ ] T2.3 Add a test in `internal/gateway/handlers/handlers_test.go` (or a new sibling
+- [x] T2.3 Add a test in `internal/gateway/handlers/handlers_test.go` (or a new sibling
       `_test.go` file, implementer's choice) covering the Test Contract's three
       `authorizeVehicle` cases, using a fake `account.Service` mirroring the existing fake
       pattern in that file.
@@ -125,14 +125,14 @@
 
 ## T5. `ai/architecture.md` + `internal/gateway/AGENTS.md` rule — depends on T2
 
-- [ ] T5.1 Add the rule to `ai/architecture.md` (a short paragraph near §2 "Strict Boundary
+- [x] T5.1 Add the rule to `ai/architecture.md` (a short paragraph near §2 "Strict Boundary
       Rules" or §5 "Multi-Tenancy" — implementer's judgment on the best-fitting existing
       section): the gateway authorizes the vehicle; a domain module below it does not
       independently re-check tenant ownership of a vehicle identity it receives (design.md,
       spec.md "Vehicle Ownership Check Happens At The Gateway").
       Acceptance: the new rule is discoverable from the same section a future worker would
       already be reading when adding a new vehicle-scoped port method.
-- [ ] T5.2 Add the same rule to `internal/gateway/AGENTS.md`, in a location consistent with its
+- [x] T5.2 Add the same rule to `internal/gateway/AGENTS.md`, in a location consistent with its
       existing structure (e.g. near "Vehicle-scoped reads — always send the selected TeslaID" or
       as its own short subsection) — state that `authorizeVehicle` exists and where
       (`handlers.go`, beside `resolveSelectedVehicle`), and that it is not yet called by any

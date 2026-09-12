@@ -33,6 +33,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // stalenessThreshold is the duration after which a snapshot is considered stale.
@@ -1040,6 +1041,37 @@ func (h *Handler) resolveSelectedVehicle(ctx context.Context, c *gin.Context, ui
 	}
 	setCurrentVehicle(c, chosen.TeslaID, chosen.VIN)
 	return chosen, true
+}
+
+// errVehicleNotAuthorized is the one error authorizeVehicle ever returns. It
+// covers both "the account lookup failed" and "the vehicle is not owned by
+// this account" — the caller must not be able to tell the two apart, or a
+// failed lookup could be used to learn that a probed vehicle id is real.
+var errVehicleNotAuthorized = errors.New("vehicle not authorized")
+
+// authorizeVehicle proves that uid's account owns teslaID, returning a
+// vehicleref.Ref that a module port can require in its own signature. It
+// reuses the same RegisteredVehicles call resolveSelectedVehicle already
+// makes above — no second account lookup, no new account.Service method.
+//
+// Render errVehicleNotAuthorized as HTTP 404, never 403: a 403 confirms the
+// vehicle id exists and only access is denied, which tells an attacker
+// probing sequential ids which ones are real. A 404 makes "not yours" and
+// "does not exist" indistinguishable from outside.
+func (h *Handler) authorizeVehicle(ctx context.Context, uid uuid.UUID, teslaID int64) (vehicleref.Ref, error) {
+	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
+	if err != nil {
+		return vehicleref.Ref{}, errVehicleNotAuthorized
+	}
+	owned := make([]int64, 0, len(vehicles))
+	for _, v := range vehicles {
+		owned = append(owned, v.TeslaID)
+	}
+	ref, ok := vehicleref.Authorize(owned, teslaID)
+	if !ok {
+		return vehicleref.Ref{}, errVehicleNotAuthorized
+	}
+	return ref, nil
 }
 
 // ConnectTesla starts the Tesla OAuth connect flow for the signed-in user.
