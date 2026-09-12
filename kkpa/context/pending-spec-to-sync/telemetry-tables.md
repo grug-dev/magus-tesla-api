@@ -48,8 +48,8 @@ hand. Each correction below is verified against the migration
 - Should read: `Columns: tesla_id, captured_at, …`. `account_id` still exists but is
   **NULLABLE and no longer written or read**. It was kept, not dropped, because the analytics
   migration `20260908000002_add_tpms_pressure_columns.sql` joins on it, and migrations apply
-  one module directory at a time, so telemetry runs first. The drop is a follow-up, recorded
-  in `openspec/roadmaps/backlog.md`.
+  one module directory at a time, so telemetry runs first. The drop is a follow-up, tracked
+  as Linear MAG-76.
 
 **3. `## The tables` → `poll_attempts`, the column list (around line 61)**
 
