@@ -729,6 +729,25 @@ a read that ignores the selection silently shows a *different* car's data.
    `HX-Trigger`". Gold standards: the dashboard `#dashboard-content` and the external-charges
    `#external-charges-content` regions (each re-fetches `GET /ui/dashboard` / `GET /ui/external-charges`).
 
+## Vehicle ownership — proved once, at the gateway
+
+The gateway is the only layer that checks whether a requested vehicle belongs to the
+signed-in user. A domain module never re-checks this on its own — it trusts that the
+gateway already proved ownership before calling it.
+
+- **`authorizeVehicle`** (`handlers.go`, next to `resolveSelectedVehicle`) turns an
+  account id and a requested `TeslaID` into an `internal/vehicleref.Ref` — a value a
+  handler can only get by calling this helper. It reuses the same
+  `account.RegisteredVehicles` call `resolveSelectedVehicle` already makes; it adds no
+  new account lookup.
+- **A miss and a lookup failure look the same to the caller.** Both return one
+  unexported error, rendered as HTTP **404**, never 403 — a 403 would confirm the
+  vehicle id is real, just not the caller's.
+- **No handler calls it yet.** Every existing read still filters by account id the same
+  way it does today. `authorizeVehicle` is wired into a handler only when that handler's
+  own module port is changed to require a `Ref` instead of a bare account id — read
+  `internal/vehicleref/AGENTS.md` before adding a new call site.
+
 ## HTTP date-filter convention
 
 **Every date-filtered gateway HTTP endpoint takes `?start=YYYY-MM-DD&end=YYYY-MM-DD`** — both

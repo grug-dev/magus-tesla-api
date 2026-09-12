@@ -292,6 +292,10 @@
 | `docker compose stack` | synonym of `deployment stack` → `architecture/deployment-stack.md` |
 | `container stack` | synonym of `deployment stack` → `architecture/deployment-stack.md` |
 | `deploy stack` | synonym of `deployment stack` → `architecture/deployment-stack.md` |
+| `vehicle ownership proof` (the gateway proves the signed-in user owns a vehicle once and passes the proof down; modules below do not re-check tenancy) | `architecture/vehicle-ownership-proof.md` |
+| `authorization seam` | synonym of `vehicle ownership proof` → `architecture/vehicle-ownership-proof.md` |
+| `vehicleref` | `internal/vehicleref` (`Ref` / `Authorize` / `All` / `TeslaIDs`) → `architecture/vehicle-ownership-proof.md` |
+| `can a module check tenancy itself` | no — the gateway proves ownership, modules trust it → `architecture/vehicle-ownership-proof.md` |
 
 <!--
 Notes for the curator:

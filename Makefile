@@ -86,7 +86,7 @@ TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(pos
 TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard tidy build vet test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard archive-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs docker-migrate backup-db
 
@@ -725,6 +725,37 @@ theme-guard: ## Fail if ui.Themes, account's Theme* constants, and input.css's r
 		echo "theme-guard: ui.Themes, account's Theme* constants, and input.css agree ($$ui_themes)"; \
 	fi
 
+# vehicleref-guard mirrors boundary-guard's grep-based shape and escape-hatch convention.
+# It enforces that vehicleref.Authorize and vehicleref.All are only ever called from
+# internal/vehicleref itself (its own package and its own test) and from the gateway's
+# authorizeVehicle helper in internal/gateway/handlers/handlers.go. A Ref proves a vehicle
+# id was checked against a caller's own ownership list; a second, unreviewed construction
+# site would let a future handler build a "checked" Ref without the check ever running.
+#
+# Escape hatch: a trailing `// vehicleref:allow: <reason>` comment on the same line as the
+# call. Never widen the pattern to silence a true positive.
+vehicleref-guard: ## Fail if vehicleref.Authorize/.All are called outside internal/vehicleref and the gateway's authorizeVehicle helper (escape hatch: // vehicleref:allow: <reason>)
+	@hits=$$(grep -rnE 'vehicleref\.(Authorize|All)\(' internal --include='*.go' \
+		| grep -v '^internal/vehicleref/' \
+		| grep -v '^internal/gateway/handlers/handlers\.go:' \
+		| grep -v 'vehicleref:allow' || true); \
+	if [ -n "$$hits" ]; then \
+		echo "$$hits"; \
+		echo ""; \
+		echo "ERROR: vehicleref.Authorize/.All called outside internal/vehicleref and"; \
+		echo "internal/gateway/handlers/handlers.go above."; \
+		echo "A Ref must only ever be built by internal/vehicleref itself or by the"; \
+		echo "gateway's authorizeVehicle helper. A second construction site defeats the"; \
+		echo "compile-time guarantee: a handler could build its own 'checked' Ref without"; \
+		echo "the ownership check ever running."; \
+		echo "Genuinely unavoidable (false positive)? Mark it with // vehicleref:allow: <reason>"; \
+		echo "as a trailing comment on the same line. Never weaken this pattern to silence"; \
+		echo "a true positive."; \
+		exit 1; \
+	else \
+		echo "vehicleref-guard: vehicleref.Authorize/.All called only from internal/vehicleref and authorizeVehicle"; \
+	fi
+
 # archive-guard is the one guard that reads git history instead of the working tree,
 # because the rule it enforces is about CHANGE, not about content: everything under
 # openspec/changes/archive/ is an immutable snapshot of what was decided at the time.
@@ -771,7 +802,7 @@ archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or de
 		echo "archive-guard: no archived file edited or deleted since $$base"; \
 	fi
 
-check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard archive-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + theme-guard + archive-guard + test
+check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard archive-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + archive-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

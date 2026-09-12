@@ -175,6 +175,15 @@ The system serves **many users**, each with their own Tesla account. Rules:
 - **Standard request flow:**
   `gateway → account.TokensFor(userID) → tesla.GetVehicleData(ctx, creds) → domain module → gateway renders fragment`.
   No module ever touches another module's database; everything crosses via interfaces.
+- **The gateway is the only place that checks whether a vehicle belongs to the
+  signed-in user.** A domain module below the gateway never re-checks this — it
+  trusts that a vehicle id it receives was already proven owned. The proof is a
+  value, not a boolean: `internal/vehicleref` turns "the account's own vehicle
+  list" plus "one requested vehicle id" into a `Ref` that only exists when the
+  check passed. A handler that skips the check has no `Ref` to pass to a port
+  that requires one, so the mistake fails to compile instead of failing a
+  runtime check nobody notices. `internal/gateway/handlers/handlers.go`'s
+  `authorizeVehicle`, next to `resolveSelectedVehicle`, is where this check runs.
 
 ---
 
