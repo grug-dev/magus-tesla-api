@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM57-rekey-supercharger-pair-on-tesla-id",
   "intention": "Both Supercharger tables are keyed on tesla_id, account_id is gone, the mirror runs one pass per vehicle, and the gateway proves ownership before every Supercharger read.",
-  "request": "MAG-67 \u2014 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
+  "request": "MAG-67 — 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-12T12:28:05Z",
+  "updated_at": "2026-09-12T12:30:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -138,6 +138,11 @@
       "at": "2026-09-12T12:28:05Z",
       "what": "budget-checkpoint",
       "detail": "Stopped before the tier-1 artifact dispatch. five_hour_pct 91 >= 90, context_pct 18. five_hour_resets_at 1789227000. No tier started; roadmap files are committed."
+    },
+    {
+      "at": "2026-09-12T12:30:30Z",
+      "what": "resume-deferred",
+      "detail": "Resume attempted. five_hour_pct 95 (was 91 at checkpoint), bucket not reset; resets_at 1789227000 = 2026-09-12T15:30:00Z. User chose to wait. No tier started."
     }
   ]
 }
