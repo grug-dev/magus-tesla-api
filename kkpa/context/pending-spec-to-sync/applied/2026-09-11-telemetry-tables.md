@@ -9,7 +9,7 @@
 Target guide: `architecture/telemetry-tables.md`
 Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    2026-09-12
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-11
 
 ---
 

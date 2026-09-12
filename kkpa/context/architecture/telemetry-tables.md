@@ -9,7 +9,7 @@
 - **Known as:** `vehicle_snapshots`, `poll_attempts`, `supercharger_history`, `poll_runs`,
   `captured_date`, `raw_data`, `sentry_mode`, `max_range_charge_counter`,
   `battery_pct_source`, `start_battery_pct`, `end_battery_pct`, `telemetry schema`,
-  `supercharger_sessions` (the old name), `charge_gaps` (moved away)
+  `polled_by_account_id`, `supercharger_sessions` (the old name), `charge_gaps` (moved away)
 - **Internal name:** the `telemetry` Postgres schema. `internal/telemetry` is its sole owner.
 
 ## Component map
@@ -39,10 +39,15 @@ imports**):
 
 - `vehicle_snapshots` — **no longer append-only** (superseded by
   `telemetry-dedupe-daily-snapshots`, migration `20260805000001` — see below): at most one row
-  per `(account_id, tesla_id, captured_date)`, enforced by the
-  `vehicle_snapshots_account_tesla_date_unique` constraint. A same-day re-capture **REPLACES**
+  per `(tesla_id, captured_date)`, enforced by the `vehicle_snapshots_tesla_date_unique`
+  constraint (migration `20260911000002`; the account is no longer part of the key, because
+  exactly one elected account polls each car per cycle). A same-day re-capture **REPLACES**
   the existing row via `ON CONFLICT ... DO UPDATE` — the newest capture for a calendar day always
-  wins (design D1). Columns: `account_id`, `tesla_id`, `captured_at` (the precise capture
+  wins (design D1). `account_id` still exists but is **NULLABLE and no longer written or
+  read**: it was kept rather than dropped because the analytics migration
+  `20260908000002_add_tpms_pressure_columns.sql` joins on it, and migrations apply one module
+  directory at a time, so telemetry runs first. The drop is a follow-up, tracked as Linear
+  MAG-76. Columns: `tesla_id`, `captured_at` (the precise capture
   instant), `captured_date DATE` (the calendar day, **Go-computed** from `captured_at` in the
   poller's configured timezone — `Config.Location`/`clock.CalendarDay`, design D2; never a DB expression,
   since a UNIQUE index cannot depend on the runtime `POLLER_TIMEZONE` env var), `raw_data JSONB`
@@ -58,7 +63,9 @@ imports**):
   columns via `Reader.SnapshotPrecedingDay` (see below); this module never read the dropped
   columns back, and their only consumer was another module.
 - `poll_attempts` — **unaffected, still append-only/immutable** (design D4): one row per
-  (vehicle, run): `account_id`, `tesla_id`, `attempted_at`, `outcome` (`success`|`failure`),
+  (vehicle, run): `polled_by_account_id` (renamed from `account_id`, migration
+  `20260911000002` — it records which account's token made the Fleet API call; not a key, and
+  no read filters on it), `tesla_id`, `attempted_at`, `outcome` (`success`|`failure`),
   `reason` (`ok`|`asleep-timeout`|`unauthorized`|`api-error`). Doubles as future availability /
   sleep-behavior data — a daily collapse would destroy that signal, so this table is explicitly
   out of scope for the dedupe change. **Gains two columns, migration `20260823000002`**

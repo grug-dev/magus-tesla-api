@@ -36,7 +36,7 @@ documented — see the boundary gotcha below.
 
 ## Glossary
 
-- **Known as:** `telemetry module`, `vehicle snapshots`, `supercharger history`, `nightly collection`, `telemetry schema`, `who reads telemetry`, `telemetry vs analytics`, `can the gateway read telemetry`, `ingest module`, `poll run`, `run summary`, `telemetry query logging`, `fleet api logging`
+- **Known as:** `telemetry module`, `vehicle snapshots`, `supercharger history`, `nightly collection`, `telemetry schema`, `who reads telemetry`, `telemetry vs analytics`, `can the gateway read telemetry`, `ingest module`, `poll run`, `run summary`, `telemetry query logging`, `fleet api logging`, `poll account election`, `elected polling account`
 - **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerHistoryReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables (all in schema `telemetry`) `vehicle_snapshots`, `supercharger_history`, `poll_attempts`, `poll_runs`
 
 ## Component map
@@ -223,6 +223,30 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   this data for another module; nothing outside `internal/telemetry` imports
   `internal/telemetry/db`. `make boundary-guard` enforces it.
   _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+
+- **One car is polled once a night, not once per account.** A car can be registered to
+  several accounts. Before the per-account collection loop runs, the module elects exactly
+  one account to poll each distinct vehicle. Adding a second account for a car does not add
+  a second Fleet API call or a second snapshot row.
+  _Source: spec telemetry — Requirement: Poll Account Election._
+- **The election prefers OWNER but never requires it.** It picks an OWNER-access candidate
+  when one exists, and otherwise any account that registered the car. It never skips a
+  vehicle. An OWNER-only filter would silently stop polling a DRIVER-only car, and Tesla
+  cannot backfill the lost days.
+  _Source: spec telemetry — Requirement: Poll Account Election._
+- **The election is pure and deterministic.** It uses only the vehicle and access-type data
+  already returned by enumerating registered vehicles. It never checks whether an account's
+  Tesla connection still works, and a tie resolves the same way every run, whatever order the
+  account module returned the candidates in.
+  _Source: spec telemetry — Requirement: Poll Account Election._
+- **A `poll_attempts` row names the elected account, not every account.** The account on an
+  attempt is the one whose token paid for that call. After the election there is exactly one
+  such account per car per cycle, so the row no longer tells you who else registered the car.
+  _Source: spec telemetry — Requirement: Per-Vehicle Isolation And Attempt Recording._
+- **Every snapshot read port takes Tesla ids only.** The latest-snapshot, history,
+  updated-since and preceding-day ports identify vehicles by their Tesla numeric id. No
+  caller passes an account id to read snapshots.
+  _Source: spec telemetry — Requirements: Latest Snapshot Read Port; Snapshot History Read Port; Snapshot Updated-Since Read Port; Preceding-Snapshot Read Port._
 
 ## Related KB
 
