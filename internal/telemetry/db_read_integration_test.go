@@ -213,7 +213,7 @@ func TestReadStore_LatestSnapshotsByVehicles_SentryNilRoundTrip(t *testing.T) {
 }
 
 // TestReadStore_LatestSnapshotsByVehicles_EmptyResult asserts that a batch of
-// tesla_ids with no rows returns an empty non-nil slice and nil error (design D5).
+// tesla_ids with no rows returns an empty non-nil slice and nil error.
 func TestReadStore_LatestSnapshotsByVehicles_EmptyResult(t *testing.T) {
 	st, _ := newTestStore(t)
 	ctx := context.Background()

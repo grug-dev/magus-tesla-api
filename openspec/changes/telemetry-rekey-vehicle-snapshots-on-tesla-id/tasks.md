@@ -254,23 +254,23 @@ accurately). Independent of T6; may run in parallel with it.
 Depends on: T4 (needs the final `Reader` signatures). **Not this worker's
 sandbox — `internal/telemetry` workers must not edit these files.**
 
-- [ ] 8.1 `internal/analytics/reader.go:136`: drop the `accountID` argument
+- [x] 8.1 `internal/analytics/reader.go:136`: drop the `accountID` argument
       from the `r.telemetry.SnapshotsByVehicleSince(ctx, accountID, teslaID,
       since)` call, keeping `teslaID` and `since`.
-- [ ] 8.2 `internal/analytics/recalculate.go:104`: drop the `accountID`
+- [x] 8.2 `internal/analytics/recalculate.go:104`: drop the `accountID`
       argument from the `r.telemetry.SnapshotsByVehicleBetween(...)` call.
-- [ ] 8.3 `internal/analytics/recalculate.go:123`: drop the `accountID`
+- [x] 8.3 `internal/analytics/recalculate.go:123`: drop the `accountID`
       argument from the `r.telemetry.SnapshotPrecedingDay(...)` call.
-- [ ] 8.4 `internal/analytics/recalculate.go:269`: drop the `accountID`
+- [x] 8.4 `internal/analytics/recalculate.go:269`: drop the `accountID`
       argument from the `r.telemetry.SnapshotsByVehicleUpdatedSince(...)`
       call.
-- [ ] 8.5 `internal/analytics`'s own `Recalculate`/`Reconcile` functions and
+- [x] 8.5 `internal/analytics`'s own `Recalculate`/`Reconcile` functions and
       their `accountID` parameter are UNCHANGED — they still need it to
       reach the charge sources (design.md D-SCOPE / proposal.md Non-goals).
       Do not remove it.
-- [ ] 8.6 `internal/analytics/reader_test.go`: fix the mechanical fallout of
+- [x] 8.6 `internal/analytics/reader_test.go`: fix the mechanical fallout of
       8.1 in this file's own fixtures/assertions.
-- [ ] 8.7 `internal/analytics/reader_test.go`'s `fakeTelemetryReader`
+- [x] 8.7 `internal/analytics/reader_test.go`'s `fakeTelemetryReader`
       (found by this design, not in the original dispatch — design.md
       "Correction to the dispatch"): add a
       `LatestSnapshotsByVehicles(ctx context.Context, teslaIDs []int64)
@@ -278,33 +278,33 @@ sandbox — `internal/telemetry` workers must not edit these files.**
       `LatestSnapshotsByAccount` stub's `panic(...)` body — it is not
       actually called by anything in this module, same as today) so the
       fake keeps satisfying `telemetry.Reader`.
-- [ ] 8.8 `internal/analytics/recalculate_test.go`: fix the mechanical
+- [x] 8.8 `internal/analytics/recalculate_test.go`: fix the mechanical
       fallout of 8.2–8.4 in this file's own fixtures/assertions.
-- [ ] 8.9 `internal/analytics/consumption_test.go`: fix the mechanical
+- [x] 8.9 `internal/analytics/consumption_test.go`: fix the mechanical
       fallout of 8.1–8.4 in this file's own fixtures/assertions, if any
       (per the dispatch's verified facts — confirm scope on inspection).
-- [ ] 8.10 `go build ./internal/analytics/...` and `go vet
+- [x] 8.10 `go build ./internal/analytics/...` and `go vet
       ./internal/analytics/...` — expect clean.
 
 ## T9 — Final verification
 
 Depends on: T1–T8.
 
-- [ ] 9.1 `go build ./...`
-- [ ] 9.2 `go vet ./...`
-- [ ] 9.3 `make migration-guard`
-- [ ] 9.4 `make boundary-guard`
-- [ ] 9.5 Grep the whole repo for `account_id` scoped to `vehicle_snapshots` /
+- [x] 9.1 `go build ./...`
+- [x] 9.2 `go vet ./...`
+- [x] 9.3 `make migration-guard`
+- [x] 9.4 `make boundary-guard`
+- [x] 9.5 Grep the whole repo for `account_id` scoped to `vehicle_snapshots` /
       `Snapshot` / `LatestSnapshotsByAccount` and confirm zero remaining
       hits outside the immutable `openspec/changes/archive/` tree and the
       untouched historic migration files. Separately grep for
       `poll_attempts.account_id` / `Attempt{AccountID` and confirm zero
       hits outside the same exclusions (every live reference should now say
       `polled_by_account_id` / `PolledByAccountID`).
-- [ ] 9.6 Confirm `internal/gateway/` still has zero real
+- [x] 9.6 Confirm `internal/gateway/` still has zero real
       `internal/telemetry` imports (`make boundary-guard` already covers
       this, but the ticket's own framing — "still no gateway consumer" —
       makes it worth stating as its own check here).
-- [ ] 9.7 Suite commands for the owner to run (Claude does not run these):
+- [x] 9.7 Suite commands for the owner to run (Claude does not run these):
       `go test ./internal/telemetry/... ./internal/analytics/...` (or
       `make test` / `make test-with-db` for the full suite).

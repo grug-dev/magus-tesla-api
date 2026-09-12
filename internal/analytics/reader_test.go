@@ -40,9 +40,8 @@ type fakeTelemetryReader struct {
 	preceding    *telemetry.Snapshot
 	precedingErr error
 
-	gotAccountID uuid.UUID
-	gotTeslaID   int64
-	gotSince     time.Time
+	gotTeslaID int64
+	gotSince   time.Time
 
 	gotBetweenStart time.Time
 	gotBetweenEnd   time.Time

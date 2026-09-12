@@ -2,9 +2,8 @@
 -- Collapse any (tesla_id, captured_date) duplicates before the new UNIQUE
 -- constraint can be added. Keeps the row with the latest captured_at, ties
 -- broken by id -- the same "newest capture wins" rule the write path
--- already applies one column narrower (20260805000001's own dedupe, design
--- D1: a same-day re-capture REPLACES the existing row). On a database where
--- poll election (Part 1 of this change) has already suppressed every
+-- already applies one column narrower: a same-day re-capture REPLACES the
+-- existing row. On a database where poll election already suppressed every
 -- duplicate-writer case, this deletes zero rows; it exists so the migration
 -- is still safe against a database migrated before that Go change deploys.
 DELETE FROM telemetry.vehicle_snapshots a

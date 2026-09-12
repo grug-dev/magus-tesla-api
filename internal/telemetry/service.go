@@ -121,10 +121,11 @@ func (s *service) location() *time.Location {
 // accounts (the Collector port). It enumerates vehicles via the account port, elects
 // one polling account per distinct vehicle (electPollingVehicles — a car registered to
 // more than one account is fetched once a night, not once per registering account),
-// groups the elected vehicles by account for per-account token batching (D3), and
+// groups the elected vehicles by account so each account resolves its token and
+// lists its vehicles once, and
 // collects each vehicle with full per-vehicle isolation: a single vehicle's failure is
 // recorded as a poll_attempt and never aborts the account or the cycle. It returns an
-// error ONLY when the whole-cycle enumeration itself fails (D9) — never for an
+// error ONLY when the whole-cycle enumeration itself fails — never for an
 // individual vehicle.
 //
 // run identifies this invocation (RunID/TriggeredBy, RM29-app-add-process-vehicle-data
@@ -783,7 +784,7 @@ func (d *dbStore) latestSnapshotsByVehicles(ctx context.Context, teslaIDs []int6
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		snaps = append(snaps, rowToSnapshot(r))
+		snaps = append(snaps, rowToSnapshot(snapshotRow(r)))
 	}
 	return snaps, nil
 }
@@ -804,7 +805,7 @@ func (d *dbStore) snapshotsByVehicleSince(ctx context.Context, teslaID int64, si
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		snaps = append(snaps, rowToSnapshot(r))
+		snaps = append(snaps, rowToSnapshot(snapshotRow(r)))
 	}
 	return snaps, nil
 }
@@ -856,7 +857,7 @@ func (d *dbStore) snapshotsByVehicleBetween(ctx context.Context, teslaID int64, 
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		snaps = append(snaps, rowToSnapshot(r))
+		snaps = append(snaps, rowToSnapshot(snapshotRow(r)))
 	}
 	return snaps, nil
 }
@@ -880,7 +881,7 @@ func (d *dbStore) snapshotsByVehicleUpdatedSince(ctx context.Context, teslaID in
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		snaps = append(snaps, rowToSnapshot(r))
+		snaps = append(snaps, rowToSnapshot(snapshotRow(r)))
 	}
 	return snaps, nil
 }

@@ -268,6 +268,35 @@ WHERE tesla_id = ANY($1::bigint[])
 ORDER BY tesla_id, captured_at DESC
 `
 
+type LatestSnapshotsByVehiclesRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
 // Return the latest stored snapshot for each vehicle in the given batch of
 // tesla_ids, regardless of which account registered them.
 // DISTINCT ON (tesla_id) with ORDER BY tesla_id, captured_at DESC picks the row
@@ -276,15 +305,15 @@ ORDER BY tesla_id, captured_at DESC
 // planner satisfies the WHERE and ORDER BY in a single efficient scan.
 // This is the batch read for the dashboard: it avoids the N+1 that would
 // result from reading each vehicle's snapshots separately.
-func (q *Queries) LatestSnapshotsByVehicles(ctx context.Context, teslaIds []int64) ([]VehicleSnapshot, error) {
+func (q *Queries) LatestSnapshotsByVehicles(ctx context.Context, teslaIds []int64) ([]LatestSnapshotsByVehiclesRow, error) {
 	rows, err := q.db.Query(ctx, latestSnapshotsByVehicles, teslaIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VehicleSnapshot
+	var items []LatestSnapshotsByVehiclesRow
 	for rows.Next() {
-		var i VehicleSnapshot
+		var i LatestSnapshotsByVehiclesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TeslaID,
@@ -346,6 +375,35 @@ type SnapshotPrecedingDayParams struct {
 	Day     pgtype.Date
 }
 
+type SnapshotPrecedingDayRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
 // Return the single most recent snapshot for a vehicle whose captured_date is
 // strictly before the given calendar day, or pgx.ErrNoRows when none exists
 // (the vehicle's first-ever snapshot). Backs telemetry.Reader.SnapshotPrecedingDay,
@@ -367,9 +425,9 @@ type SnapshotPrecedingDayParams struct {
 // (tesla_id, captured_date), and captured_date is monotone non-decreasing
 // with captured_at for a vehicle, AT MOST ONE row is skipped before the
 // first match.
-func (q *Queries) SnapshotPrecedingDay(ctx context.Context, arg SnapshotPrecedingDayParams) (VehicleSnapshot, error) {
+func (q *Queries) SnapshotPrecedingDay(ctx context.Context, arg SnapshotPrecedingDayParams) (SnapshotPrecedingDayRow, error) {
 	row := q.db.QueryRow(ctx, snapshotPrecedingDay, arg.TeslaID, arg.Day)
-	var i VehicleSnapshot
+	var i SnapshotPrecedingDayRow
 	err := row.Scan(
 		&i.ID,
 		&i.TeslaID,
@@ -426,6 +484,35 @@ type SnapshotsByVehicleBetweenParams struct {
 	EndBound   pgtype.Timestamptz
 }
 
+type SnapshotsByVehicleBetweenRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
 // Return the snapshots for a single vehicle whose **EffectiveDate calendar
 // day** falls in the caller-supplied `[start, end]` window inclusive,
 // ordered oldest-first (ascending by captured_at == ascending by
@@ -479,15 +566,15 @@ type SnapshotsByVehicleBetweenParams struct {
 // [start, end] window supplied by the caller is the real protection, not the
 // LIMIT. Truncation detection or pagination for a vehicle exceeding 4000
 // days is explicitly out of scope.
-func (q *Queries) SnapshotsByVehicleBetween(ctx context.Context, arg SnapshotsByVehicleBetweenParams) ([]VehicleSnapshot, error) {
+func (q *Queries) SnapshotsByVehicleBetween(ctx context.Context, arg SnapshotsByVehicleBetweenParams) ([]SnapshotsByVehicleBetweenRow, error) {
 	rows, err := q.db.Query(ctx, snapshotsByVehicleBetween, arg.TeslaID, arg.StartBound, arg.EndBound)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VehicleSnapshot
+	var items []SnapshotsByVehicleBetweenRow
 	for rows.Next() {
-		var i VehicleSnapshot
+		var i SnapshotsByVehicleBetweenRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TeslaID,
@@ -549,6 +636,35 @@ type SnapshotsByVehicleSinceParams struct {
 	Since   pgtype.Timestamptz
 }
 
+type SnapshotsByVehicleSinceRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
 // Return all snapshots for a single vehicle captured at or after `since`,
 // ordered oldest-first. Used by telemetry.Reader.SnapshotsByVehicleSince to
 // power the odometer/battery history charts.
@@ -561,15 +677,15 @@ type SnapshotsByVehicleSinceParams struct {
 // cadence ever increases. A 30-day window returns ~30 rows under the current
 // nightly schedule — 400 comfortably exceeds any realistic dashboard window
 // (~13 months).
-func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVehicleSinceParams) ([]VehicleSnapshot, error) {
+func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVehicleSinceParams) ([]SnapshotsByVehicleSinceRow, error) {
 	rows, err := q.db.Query(ctx, snapshotsByVehicleSince, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VehicleSnapshot
+	var items []SnapshotsByVehicleSinceRow
 	for rows.Next() {
-		var i VehicleSnapshot
+		var i SnapshotsByVehicleSinceRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TeslaID,
@@ -630,6 +746,35 @@ type SnapshotsByVehicleUpdatedSinceParams struct {
 	Since   pgtype.Timestamptz
 }
 
+type SnapshotsByVehicleUpdatedSinceRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
 // Return every snapshot for a single vehicle whose updated_at is at or after
 // `since`, ordered oldest-first by updated_at. Used by
 // telemetry.Reader.SnapshotsByVehicleUpdatedSince to let internal/analytics'
@@ -643,15 +788,15 @@ type SnapshotsByVehicleUpdatedSinceParams struct {
 // prunes the scan to this one vehicle's rows via the tesla_id equality
 // before the updated_at predicate and sort are applied -- updated_at is a
 // residual filter within that scan.
-func (q *Queries) SnapshotsByVehicleUpdatedSince(ctx context.Context, arg SnapshotsByVehicleUpdatedSinceParams) ([]VehicleSnapshot, error) {
+func (q *Queries) SnapshotsByVehicleUpdatedSince(ctx context.Context, arg SnapshotsByVehicleUpdatedSinceParams) ([]SnapshotsByVehicleUpdatedSinceRow, error) {
 	rows, err := q.db.Query(ctx, snapshotsByVehicleUpdatedSince, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VehicleSnapshot
+	var items []SnapshotsByVehicleUpdatedSinceRow
 	for rows.Next() {
-		var i VehicleSnapshot
+		var i SnapshotsByVehicleUpdatedSinceRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TeslaID,

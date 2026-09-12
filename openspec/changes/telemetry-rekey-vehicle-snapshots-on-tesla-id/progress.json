@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Source ticket MAG-65 \u2014 re-key telemetry.vehicle_snapshots on tesla_id and demote poll_attempts.account_id to polled_by_account_id. Step 2 of MAG-63. Elect one polling account per vehicle first, then dedupe, swap the UNIQUE constraint, drop the column. Unit tests excluded.",
-  "status": "verified",
+  "status": "changes-requested",
   "rollup": {
     "current": [],
     "pending": [],
@@ -75,7 +75,7 @@
     "awaiting_user_verification": []
   },
   "created_at": "2026-09-11T19:20:00Z",
-  "updated_at": "2026-09-12T00:05:00Z",
+  "updated_at": "2026-09-12T02:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -1368,10 +1368,47 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "changes-requested",
+    "agent": "telemetry-reviewer",
     "brief": "Review the change telemetry-rekey-vehicle-snapshots-on-tesla-id on branch ft/CH55-MAG-65-telemetry-rekey-vehicle-snapshots-on-tesla-id. Read the DIFF against its merge-base with main, not the whole module.\n\nVALIDATE:\n1. Module boundaries: no module reads another's DB; gateway imports no telemetry (make boundary-guard); analytics reaches telemetry only through the public Reader.\n2. Every doc-pack convention, above all the code-comment rule: no comment may cite design.md, a decision ID, or a change/roadmap ID.\n3. Spec/tasks coverage: all 60 tasks in tasks.md are implemented as written.\n4. DB objects match the USER-CONFIRMED design. Two corrections were confirmed AFTER the original gate and are binding: D13 (SnapshotPrecedingDay orders by captured_date DESC, and NO second index is added) and D14 (account_id is relaxed to NULLABLE, NOT dropped, because a frozen 2026-09-08 analytics backfill joins on it and migrations apply one module dir at a time). A mismatch with either is a blocker finding.\n5. Integration tests assert what design.md authored up front, not what the implementation happens to do.\n6. Performance-Profile compliance (read-heavy).\n7. Anti-gaming: no acceptance criterion weakened, no self-approved status. Deleted tests must each be justified: D9 (two dead per-account tests), D18 (TPMS migration test), D19 (three more migration tests, under the new no-migration-tests rule).\n\nSIGNALS: assistant-run and clean -- go build ./..., go vet ./..., gofmt, make migration-guard, make boundary-guard, make archive-guard. USER-REPORTED -- make test (go test ./...) PASSED on 2026-09-12. The assistant never ran the suite. Judge test quality by READING the tests, never by running them.\n\nKNOWN WEAK POINT, check it hard: three separate bugs in this change were raw SQL in _test.go naming a column the migration removed. go vet cannot see inside a SQL string. Re-scan every SQL string in the diff ACROSS LINE BREAKS, and check that fixture UPDATE/DELETE calls assert RowsAffected.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-12T00:00:00Z",
+        "duration_seconds": 742,
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "internal/telemetry/db/models.go and internal/telemetry/db/query.sql.go are stale after the D14 fix. The migration only relaxes vehicle_snapshots.account_id to NULLABLE (commit 8d382a0) -- it does not drop the column. But make sqlc / sqlc generate was never re-run after that fix. I ran `sqlc generate` myself (same version, v1.31.1, as the committed header) and it produces a real diff: VehicleSnapshot gains back `AccountID pgtype.UUID`, and LatestSnapshotsByVehicles/SnapshotPrecedingDay/SnapshotsByVehicleSince/SnapshotsByVehicleUpdatedSince all switch from returning the shared VehicleSnapshot type to dedicated per-query Row types. I reverted my own regeneration (git checkout) before finishing the review -- the working tree is clean. This is not a live bug today (every query lists its columns explicitly, so nothing reads or writes the stray column), but it is a real breach of ai/go-conventions.md's 'regenerate after editing any query.sql or migration' rule, and it is a landmine: the next unrelated `make sqlc` run on this module will silently change 4 methods' return types and break rowToSnapshot's single shared parameter type across the whole read path. Fix: run `make sqlc` now, on top of the current migration, and commit the result.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Code comments this diff added or edited still cite decision IDs / design.md / a change ID -- the doc-pack's own code-comment rule. (a) internal/telemetry/db/migrations/20260911000002_..._on_tesla_id.sql lines 5-6 (brand-new file): \"20260805000001's own dedupe, design D1\" -- copied verbatim from design.md's SQL block into a persisted migration comment. (b) internal/telemetry/service.go, CollectAll's doc comment (edited by task 1.3): keeps \"(D3)\" and \"(D9)\" on lines this diff rewrote. (c) internal/telemetry/db_read_integration_test.go line 216, the renamed TestReadStore_LatestSnapshotsByVehicles_EmptyResult: keeps \"(design D5)\". (d) internal/gateway/handlers/external_charges.go ~line 690 and (e) internal/gateway/handlers/handlers.go ~line 305-308: both comments were partly rewritten (the old method name swapped for the new one) but still carry \"RM38-gateway-read-dashboard-from-metrics\" and \"design.md D9\" / \"design.md D6, tier 1\" on the adjacent untouched line of the same sentence -- the legacy-cleanup rule asks for the whole reference to go when the comment is touched, not just the identifier. Also worth a look: the same migration file's \"(Part 1 of this change)\" phrasing (two spots) points at design.md's own Part 1/Part 2 structure, which will not resolve once the change is archived.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "tasks.md still shows every box in T8 (8.1-8.10) and T9 (9.1-9.7) as unchecked ([ ]), while progress.json's rollup marks all 60 tasks, including those 17, as done. I independently verified the T8 analytics edits and the T9 build/vet/guard/grep checks are genuinely done and correct -- this is a bookkeeping gap, not fabricated completion -- but tasks.md is the file that wins on implementation done-ness (ai/agentic-workflow.md) and an archive check may read it. Check the boxes before archiving.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R4",
+            "severity": "minor",
+            "note": "internal/analytics/reader_test.go: fakeTelemetryReader still declares a gotAccountID uuid.UUID field, but every method that used to set it (SnapshotsByVehicleSince, SnapshotsByVehicleBetween, SnapshotPrecedingDay) had that assignment removed in this diff, and nothing reads the field any more. Dead leftover from the account-id-removal refactor -- harmless, but a future reader may assume it still tracks something.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -1562,6 +1599,24 @@
       "decision": "Added the raw-SQL-in-tests rule to ai/go-conventions.md Testing",
       "why": "The same bug shape cost three test rounds in this change. go vet cannot see inside a SQL string, and an UPDATE matching zero rows does not error.",
       "covered_by": null
+    },
+    {
+      "id": "D22",
+      "at": "2026-09-12T02:30:00Z",
+      "scope": "review:R1",
+      "made_by": "user",
+      "decision": "Regenerate sqlc and add a snapshotRow alias; convert at the call sites",
+      "why": "D14 kept account_id, so the queries read a subset and sqlc emits five identical Row types. Deferring leaves stale codegen that breaks any later make sqlc.",
+      "covered_by": null
+    },
+    {
+      "id": "D23",
+      "at": "2026-09-12T02:30:00Z",
+      "scope": "review:R2",
+      "made_by": "leader",
+      "decision": "Cleaned the two gateway comments as well, not only the four added lines",
+      "why": "The conventions' legacy-cleanup rule covers a doc comment whose own function this change edited. Both gateway comments were edited.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -1704,6 +1759,16 @@
       "at": "2026-09-12T00:05:00Z",
       "agent": "leader",
       "event": "USER REPORTED make test PASSED (go test ./...). Verification is the OWNER's, not the assistant's: the assistant never ran the suite. Cleared 6 awaiting-user-verification tasks to done; change status -> verified. Reviewer gate is now unblocked."
+    },
+    {
+      "at": "2026-09-12T02:00:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; dispatched telemetry-reviewer (Sonnet) on the merge-base diff for review round 1. budget start: 5h 15%, cost $0.8367."
+    },
+    {
+      "at": "2026-09-12T02:30:00Z",
+      "agent": "leader",
+      "event": "review round 1: changes-requested, 4 findings, ALL accepted after leader triage. R1 fixed per user choice (D22). R2 fixed in 5 files. R3: ticked 17 T8/T9 boxes. R4: deleted the dead field. build+vet+gofmt+3 guards clean. NOT verified: sqlc regen changed types, so the suite needs a rerun."
     }
   ]
 }

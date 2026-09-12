@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-
-	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
 // The reader tests exercise the Reader port fully OFFLINE: a fakeReadStore implements
@@ -415,7 +413,7 @@ func TestReader_SnapshotsByVehicleSince_StoreError(t *testing.T) {
 // inherit for free since they share this one mapper.
 func TestRowToSnapshot_EffectiveDate_OneCalendarDayBeforeCapturedAt(t *testing.T) {
 	capturedAt := time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC)
-	row := telemetrydb.VehicleSnapshot{
+	row := snapshotRow{
 		TeslaID:    10,
 		CapturedAt: pgtype.Timestamptz{Time: capturedAt, Valid: true},
 	}
@@ -452,7 +450,7 @@ func TestRowToSnapshot_EffectiveDate_DSTBoundary_CalendarDayNotDuration(t *testi
 	}
 
 	capturedAt := time.Date(2026, 3, 9, 1, 30, 0, 0, loc)
-	row := telemetrydb.VehicleSnapshot{
+	row := snapshotRow{
 		TeslaID:    20,
 		CapturedAt: pgtype.Timestamptz{Time: capturedAt, Valid: true},
 	}

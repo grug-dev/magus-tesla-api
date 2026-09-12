@@ -110,7 +110,7 @@ func (d *dbStore) snapshotPrecedingDay(ctx context.Context, teslaID int64, day t
 		}
 		return nil, err
 	}
-	snap := rowToSnapshot(row)
+	snap := rowToSnapshot(snapshotRow(row))
 	return &snap, nil
 }
 

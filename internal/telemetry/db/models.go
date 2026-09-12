@@ -78,6 +78,7 @@ type SuperchargerHistory struct {
 
 type VehicleSnapshot struct {
 	ID                    uuid.UUID
+	AccountID             pgtype.UUID
 	TeslaID               int64
 	CapturedAt            pgtype.Timestamptz
 	RawData               []byte
