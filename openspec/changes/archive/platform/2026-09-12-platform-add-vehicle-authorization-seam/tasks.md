@@ -172,16 +172,16 @@
 
 ## T9. Verification — depends on T1-T8
 
-- [ ] T9.1 `go build ./...` and `go vet ./...` pass repo-wide.
-- [ ] T9.2 `gofmt -l` reports no diffs for any file this change touched.
-- [ ] T9.3 `make vehicleref-guard` and `make boundary-guard` pass.
-- [ ] T9.4 Confirm D1 holds: `grep -rn "authorizeVehicle" internal/gateway --include='*.go'`
+- [x] T9.1 `go build ./...` and `go vet ./...` pass repo-wide.
+- [x] T9.2 `gofmt -l` reports no diffs for any file this change touched.
+- [x] T9.3 `make vehicleref-guard` and `make boundary-guard` pass.
+- [x] T9.4 Confirm D1 holds: `grep -rn "authorizeVehicle" internal/gateway --include='*.go'`
       shows only its own definition and test — no existing handler calls it yet.
-- [ ] T9.5 Confirm `internal/vehicleref` imports nothing project-local (mirrors `clock`'s
+- [x] T9.5 Confirm `internal/vehicleref` imports nothing project-local (mirrors `clock`'s
       import-cycle-proof shape) — inspect its import block directly.
-- [ ] T9.6 `openspec validate platform-add-vehicle-authorization-seam --strict` passes and
+- [x] T9.6 `openspec validate platform-add-vehicle-authorization-seam --strict` passes and
       every checkbox above reflects real completion.
-- [ ] T9.7 Report the exact test-suite commands the owner must run
+- [x] T9.7 Report the exact test-suite commands the owner must run
       (`go test ./internal/vehicleref/...`, `go test ./internal/gateway/...`, and the full
       `go test ./...`) — this change writes tests but does not execute them
       (`Test-Execution-Policy`); the owner's run is what turns T1.7/T2.3 from

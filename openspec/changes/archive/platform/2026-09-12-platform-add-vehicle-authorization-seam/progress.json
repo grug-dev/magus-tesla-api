@@ -5,12 +5,14 @@
   "module": "platform",
   "roadmap": null,
   "request": "MAG-66 \u2014 3. Build the authorization seam (no table changes). Step 3 of MAG-63. Today WHERE account_id = $1 is the tenant boundary in ~40 queries. Children 4, 5 and 6 remove that column, so something must take that job first. Create a small shared package (internal/vehicleref) exporting a value type whose teslaID field is unexported, plus a gateway helper authorizeVehicle(ctx, uid, teslaID) (vehicleref.Ref, error) that checks membership in account.Service.RegisteredVehicles and returns 404, never 403. It must not live in internal/account, because internal/charging may not import that module. Writes no migration.",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
     "blocked": [],
     "done": [
+      "T1",
+      "T2",
       "T3",
       "T4",
       "T5",
@@ -19,13 +21,10 @@
       "T8",
       "T9"
     ],
-    "awaiting_user_verification": [
-      "T1",
-      "T2"
-    ]
+    "awaiting_user_verification": []
   },
   "created_at": "2026-09-12T10:59:44Z",
-  "updated_at": "2026-09-12T11:19:00Z",
+  "updated_at": "2026-09-12T11:22:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -45,7 +44,7 @@
       "module": "vehicleref",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "vehicleref",
       "model": "sonnet",
       "started_at": "2026-09-12T11:07:30Z",
@@ -68,7 +67,7 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "sonnet",
       "started_at": "2026-09-12T11:09:30Z",
@@ -250,10 +249,65 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "platform-reviewer",
+    "brief": "Review the diff of f62f716..HEAD on this branch only. Check: (1) module-boundary compliance - internal/vehicleref imports nothing project-local, the gateway does not reach into another module's DB; (2) every doc-pack convention in CLAUDE.md, ai/architecture.md, ai/go-conventions.md and the module AGENTS.md files; (3) spec and tasks coverage - every requirement in specs/vehicleref/spec.md is met and every tasks.md checkbox reflects real work; (4) the tests assert the expected values design.md authored UP FRONT in its Test Contract, not whatever the implementation happens to do - read design.md's contract first, then the tests; (5) the seam actually holds: a handler must not be able to build a Ref without going through Authorize, and errVehicleNotAuthorized must be indistinguishable between a lookup failure and an ownership miss (404, never 403); (6) D1 - zero handlers rewired, zero module ports changed; (7) Performance-Profile compliance; (8) anti-gaming - no weakened acceptance criterion, no self-approved status, no task ticked without the work. NO DATABASE OBJECT is created or altered by this change; design.md states so. Flag any DB change as a blocker. Signals: go build, go vet, gofmt, vehicleref-guard, boundary-guard, archive-guard and openspec validate --strict were run BY THE ASSISTANT and pass. The TEST SUITE was run BY THE OWNER, who reported 'make test passed'. Judge test quality by reading the tests; do not run them.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "at": "2026-09-12T12:00:00Z",
+        "checked": [
+          "Module boundaries: internal/vehicleref imports nothing project-local (confirmed by reading its import block: only the package doc, no imports at all). Gateway does not touch another module's DB; it calls account.RegisteredVehicles, an existing public interface method.",
+          "Doc-pack conventions: base pack (CLAUDE.md, ai/architecture.md, ai/go-conventions.md) and both module AGENTS.md files followed. New AGENTS.md for vehicleref mirrors internal/clock/AGENTS.md shape as required.",
+          "Spec and tasks coverage: all three requirements in specs/vehicleref/spec.md are met by vehicleref.go (Authorize, All, TeslaID) and by authorizeVehicle. All ticked tasks.md boxes (T1-T8) correspond to real diff content.",
+          "Test contract: vehicleref_test.go and authorize_vehicle_test.go values match design.md's Test Contract verbatim (owned={111,222,333}, hit/miss/empty cases, the three authorizeVehicle cases including that a lookup failure and an ownership miss both render errVehicleNotAuthorized).",
+          "The seam holds: ran `make vehicleref-guard` clean, then planted a second construction site (vehicleref.Authorize call in a throwaway file under internal/gateway/handlers/) and confirmed the guard fails on it, then removed the file. errVehicleNotAuthorized is returned identically for a RegisteredVehicles error and an Authorize miss - confirmed by reading authorizeVehicle line by line.",
+          "D1/U6 scope: grep -rn \"authorizeVehicle\" internal/gateway --include='*.go' shows only the definition (handlers.go) and its own test file (authorize_vehicle_test.go). No handler rewired.",
+          "No database object: grep of the diff shows no migration, no schema.sql, no query.sql, no sqlc.yaml change. design.md's own reverse-direction check confirms this and I verified the claim against the diff stat directly.",
+          "Anti-gaming: no acceptance criterion edited or weakened. decisions[] U1-U8 match design.md's decisions D1-D8. Ran go build ./..., go vet ./..., gofmt -l, make vehicleref-guard, make boundary-guard, make archive-guard, openspec validate --strict myself - all pass, matching the brief's claimed assistant-run signals.",
+          "Code comments: grepped the diff for design.md/decision-id/change-id citations in .go files - none found (the one hit is in vehicleref/AGENTS.md, a living doc, not a frozen code comment, and matches the existing repo-wide convention of every other module's AGENTS.md citing design.md/RM/MAG ids)."
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "openspec/changes/platform-add-vehicle-authorization-seam/tasks.md lines 175-184: T9.1-T9.7 checkboxes are still unchecked ([ ]), but progress.json rollup.done lists T9 and the events log records the leader actually ran all seven checks (build, vet, gofmt, both guards, openspec validate, D1 grep) with passing results. Per ai/agentic-workflow.md, tasks.md wins on implementation done-ness, so this is a real mismatch between the two files, not a fabricated status - I re-ran go build ./..., go vet ./..., gofmt -l, make vehicleref-guard, make boundary-guard, and openspec validate --strict myself and all seven T9 items are genuinely satisfied. Tick T9.1-T9.7 to [x] before archiving so tasks.md matches the verified reality.",
+            "status": "fixed",
+            "resolution": "Leader ticked tasks.md T9.1-T9.7 to [x]. Verified myself: git diff on tasks.md shows only those seven lines changed ([ ] to [x]), zero unticked boxes remain in the file, no other line touched."
+          }
+        ],
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/vehicleref/AGENTS.md",
+          "internal/gateway/AGENTS.md",
+          "ai/htmx-conventions.md (declared in gateway pack; not applicable - this change touches no .templ file)",
+          "ai/htmx-go-integration.md (declared in gateway pack; not applicable - same reason)",
+          "openspec/changes/platform-add-vehicle-authorization-seam/proposal.md",
+          "openspec/changes/platform-add-vehicle-authorization-seam/design.md",
+          "openspec/changes/platform-add-vehicle-authorization-seam/specs/vehicleref/spec.md",
+          "openspec/changes/platform-add-vehicle-authorization-seam/tasks.md",
+          "openspec/changes/platform-add-vehicle-authorization-seam/progress.json"
+        ],
+        "signals": {
+          "assistant_run": [
+            "go build ./... - pass",
+            "go vet ./... - pass",
+            "gofmt -l internal/vehicleref internal/gateway/handlers - clean",
+            "make vehicleref-guard - pass, and independently confirmed it catches a planted second construction site",
+            "make boundary-guard - pass",
+            "make archive-guard - pass",
+            "openspec validate platform-add-vehicle-authorization-seam --strict - pass"
+          ],
+          "owner_reported": [
+            "make test passed (recorded in events log 2026-09-12T11:22:00Z; not re-run by the reviewer)"
+          ]
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -399,6 +453,11 @@
       "at": "2026-09-12T11:19:00Z",
       "agent": "leader",
       "event": "T9 verification done by leader: build, vet, gofmt, vehicleref-guard, boundary-guard, archive-guard, openspec validate --strict all pass. Suite NOT run - reserved to the owner."
+    },
+    {
+      "at": "2026-09-12T11:22:00Z",
+      "agent": "leader",
+      "event": "THE OWNER ran 'make test' and reported it passed. Verification is the owner's, not the assistant's. T1 and T2 promoted from awaiting-user-verification to done on that report; change status -> verified."
     }
   ]
 }
