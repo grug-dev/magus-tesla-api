@@ -6,15 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-
-	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
 // The reader tests exercise the Reader port fully OFFLINE: a fakeReadStore implements
 // the store seam without any database, network, or Tesla API call. Only the read method
-// (latestSnapshotsByAccount) is exercised here; the write methods panic to catch any
+// (latestSnapshotsByVehicles) is exercised here; the write methods panic to catch any
 // accidental call from the reader path.
 
 // fakeReadStore is a read-only fake that implements the full store seam (required by
@@ -32,7 +29,7 @@ func (f *fakeReadStore) insertPollAttempt(_ context.Context, _ Attempt) error {
 	panic("fakeReadStore: insertPollAttempt must not be called from the reader path")
 }
 
-func (f *fakeReadStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]Snapshot, error) {
+func (f *fakeReadStore) latestSnapshotsByVehicles(_ context.Context, _ []int64) ([]Snapshot, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -45,24 +42,24 @@ func (f *fakeReadStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID)
 // snapshotsByVehicleSince satisfies the store seam for reader tests that exercise
 // SnapshotsByVehicleSince. Base fakeReadStore returns nil, nil; extend with
 // fakeHistoryStore for history-specific tests.
-func (f *fakeReadStore) snapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+func (f *fakeReadStore) snapshotsByVehicleSince(_ context.Context, _ int64, _ time.Time) ([]Snapshot, error) {
 	return nil, nil
 }
 
 // snapshotsByVehicleBetween satisfies the store seam (added by RM8 tier 1). Base
 // fakeReadStore returns nil, nil; extend with fakeBetweenStore for Between-specific
-// tests. Kept as a no-op return (not a panic) so existing LatestSnapshotsByAccount
+// tests. Kept as a no-op return (not a panic) so existing LatestSnapshotsByVehicles
 // tests that build a fakeReadStore keep compiling without touching the Between path.
-func (f *fakeReadStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]Snapshot, error) {
+func (f *fakeReadStore) snapshotsByVehicleBetween(_ context.Context, _ int64, _, _ time.Time) ([]Snapshot, error) {
 	return nil, nil
 }
 
 // snapshotsByVehicleUpdatedSince satisfies the store seam added by
 // RM29-analytics-add-vehicle-metrics task 1.2. Base fakeReadStore returns nil, nil
 // (no-op), mirroring snapshotsByVehicleSince/Between's own precedent above — this
-// method is not exercised by the LatestSnapshotsByAccount-focused tests in this
+// method is not exercised by the LatestSnapshotsByVehicles-focused tests in this
 // file.
-func (f *fakeReadStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+func (f *fakeReadStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]Snapshot, error) {
 	return nil, nil
 }
 
@@ -76,7 +73,7 @@ func (f *fakeReadStore) upsertSuperchargerHistory(_ context.Context, _ Superchar
 // (nil, nil — "no predecessor") keeps fakeReadStore implementing the full store
 // interface, mirroring snapshotsByVehicleSince/Between's own no-op-return
 // precedent above.
-func (f *fakeReadStore) snapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+func (f *fakeReadStore) snapshotPrecedingDay(_ context.Context, _ int64, _ time.Time) (*Snapshot, error) {
 	return nil, nil
 }
 
@@ -86,18 +83,15 @@ func newFakeReader(s store) *reader {
 	return &reader{store: s}
 }
 
-// TestReader_LatestSnapshotsByAccount_ReturnsFakeSnapshots asserts that the reader
+// TestReader_LatestSnapshotsByVehicles_ReturnsFakeSnapshots asserts that the reader
 // delegates directly to the store and returns whatever the store returns unmodified.
-func TestReader_LatestSnapshotsByAccount_ReturnsFakeSnapshots(t *testing.T) {
-	acctID := uuid.New()
-
+func TestReader_LatestSnapshotsByVehicles_ReturnsFakeSnapshots(t *testing.T) {
 	now := time.Now().UTC()
 	older := now.Add(-time.Hour)
 	sentryon := true
 
 	want := []Snapshot{
 		{
-			AccountID:       acctID,
 			TeslaID:         10,
 			CapturedAt:      now,
 			BatteryLevelPct: 80,
@@ -106,7 +100,6 @@ func TestReader_LatestSnapshotsByAccount_ReturnsFakeSnapshots(t *testing.T) {
 			SentryMode:      &sentryon,
 		},
 		{
-			AccountID:       acctID,
 			TeslaID:         20,
 			CapturedAt:      older,
 			BatteryLevelPct: 55,
@@ -117,7 +110,7 @@ func TestReader_LatestSnapshotsByAccount_ReturnsFakeSnapshots(t *testing.T) {
 	}
 
 	r := newFakeReader(&fakeReadStore{snapshots: want})
-	got, err := r.LatestSnapshotsByAccount(context.Background(), acctID)
+	got, err := r.LatestSnapshotsByVehicles(context.Background(), []int64{10, 20})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -156,21 +149,21 @@ func TestReader_LatestSnapshotsByAccount_ReturnsFakeSnapshots(t *testing.T) {
 	}
 }
 
-// TestReader_EmptyAccount_ReturnsNonNilEmptySlice asserts that an account with no
+// TestReader_EmptyVehicleList_ReturnsNonNilEmptySlice asserts that a batch with no
 // snapshots gets an empty (non-nil) slice and nil error (design D5 — avoids nil-slice
 // footguns for the gateway).
-func TestReader_EmptyAccount_ReturnsNonNilEmptySlice(t *testing.T) {
+func TestReader_EmptyVehicleList_ReturnsNonNilEmptySlice(t *testing.T) {
 	r := newFakeReader(&fakeReadStore{snapshots: nil})
 
-	got, err := r.LatestSnapshotsByAccount(context.Background(), uuid.New())
+	got, err := r.LatestSnapshotsByVehicles(context.Background(), []int64{999999})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if got == nil {
-		t.Fatal("empty account must return non-nil empty slice, got nil")
+		t.Fatal("no matching snapshots must return non-nil empty slice, got nil")
 	}
 	if len(got) != 0 {
-		t.Fatalf("empty account must return empty slice, got %d element(s)", len(got))
+		t.Fatalf("no matching snapshots must return empty slice, got %d element(s)", len(got))
 	}
 }
 
@@ -180,7 +173,7 @@ func TestReader_StoreError_PropagatesError(t *testing.T) {
 	wantErr := errors.New("db: connection lost")
 	r := newFakeReader(&fakeReadStore{err: wantErr})
 
-	_, err := r.LatestSnapshotsByAccount(context.Background(), uuid.New())
+	_, err := r.LatestSnapshotsByVehicles(context.Background(), []int64{1})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("want store error %v propagated, got %v", wantErr, err)
 	}
@@ -191,14 +184,13 @@ func TestReader_StoreError_PropagatesError(t *testing.T) {
 // not be collapsed into *false (design D1).
 func TestReader_SentryModeNilFidelity(t *testing.T) {
 	snap := Snapshot{
-		AccountID:  uuid.New(),
 		TeslaID:    99,
 		CapturedAt: time.Now().UTC(),
 		SentryMode: nil,
 	}
 	r := newFakeReader(&fakeReadStore{snapshots: []Snapshot{snap}})
 
-	got, err := r.LatestSnapshotsByAccount(context.Background(), snap.AccountID)
+	got, err := r.LatestSnapshotsByVehicles(context.Background(), []int64{snap.TeslaID})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -224,7 +216,6 @@ func TestReader_NoConversionOnRead(t *testing.T) {
 	const wantKm = 321.8688 // an arbitrary already-converted km value, not derived
 	// from a miles literal here — proving the reader does no further arithmetic on it.
 	snap := Snapshot{
-		AccountID:      uuid.New(),
 		TeslaID:        1,
 		CapturedAt:     time.Now().UTC(),
 		BatteryRangeKm: wantKm,
@@ -232,7 +223,7 @@ func TestReader_NoConversionOnRead(t *testing.T) {
 	}
 	r := newFakeReader(&fakeReadStore{snapshots: []Snapshot{snap}})
 
-	got, err := r.LatestSnapshotsByAccount(context.Background(), snap.AccountID)
+	got, err := r.LatestSnapshotsByVehicles(context.Background(), []int64{snap.TeslaID})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -252,12 +243,11 @@ func TestReader_NoConversionOnRead(t *testing.T) {
 
 // fakeHistoryStore extends the read-only fake store seam to return configurable
 // snapshots for SnapshotsByVehicleSince, capturing the params passed by the reader
-// for assertion. Write methods and latestSnapshotsByAccount panic to catch accidental
+// for assertion. Write methods and latestSnapshotsByVehicles panic to catch accidental
 // calls — history tests exercise only the history method.
 type fakeHistoryStore struct {
 	snapshots  []Snapshot
 	err        error
-	gotAccount uuid.UUID
 	gotTeslaID int64
 	gotSince   time.Time
 }
@@ -270,12 +260,11 @@ func (f *fakeHistoryStore) insertPollAttempt(_ context.Context, _ Attempt) error
 	panic("fakeHistoryStore: insertPollAttempt must not be called")
 }
 
-func (f *fakeHistoryStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]Snapshot, error) {
-	panic("fakeHistoryStore: latestSnapshotsByAccount must not be called from history path")
+func (f *fakeHistoryStore) latestSnapshotsByVehicles(_ context.Context, _ []int64) ([]Snapshot, error) {
+	panic("fakeHistoryStore: latestSnapshotsByVehicles must not be called from history path")
 }
 
-func (f *fakeHistoryStore) snapshotsByVehicleSince(_ context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
-	f.gotAccount = accountID
+func (f *fakeHistoryStore) snapshotsByVehicleSince(_ context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
 	f.gotTeslaID = teslaID
 	f.gotSince = since
 	if f.err != nil {
@@ -289,7 +278,7 @@ func (f *fakeHistoryStore) snapshotsByVehicleSince(_ context.Context, accountID 
 // snapshotsByVehicleBetween satisfies the store seam (added by RM8 tier 1).
 // fakeHistoryStore exercises only the Since path, so the Between path panics to
 // catch any accidental cross-path call.
-func (f *fakeHistoryStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]Snapshot, error) {
+func (f *fakeHistoryStore) snapshotsByVehicleBetween(_ context.Context, _ int64, _, _ time.Time) ([]Snapshot, error) {
 	panic("fakeHistoryStore: snapshotsByVehicleBetween must not be called from the Since path")
 }
 
@@ -297,7 +286,7 @@ func (f *fakeHistoryStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.U
 // RM29-analytics-add-vehicle-metrics task 1.2. fakeHistoryStore exercises only the
 // Since path, so this panics to catch any accidental cross-path call, mirroring
 // snapshotsByVehicleBetween's own precedent immediately above.
-func (f *fakeHistoryStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+func (f *fakeHistoryStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]Snapshot, error) {
 	panic("fakeHistoryStore: snapshotsByVehicleUpdatedSince must not be called from the Since path")
 }
 
@@ -310,7 +299,7 @@ func (f *fakeHistoryStore) upsertSuperchargerHistory(_ context.Context, _ Superc
 // exercises only the Since path, so this panics to catch any accidental
 // cross-path call, mirroring this fake's existing pattern for the other
 // unrelated seam methods above.
-func (f *fakeHistoryStore) snapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+func (f *fakeHistoryStore) snapshotPrecedingDay(_ context.Context, _ int64, _ time.Time) (*Snapshot, error) {
 	panic("fakeHistoryStore: snapshotPrecedingDay must not be called from the Since path")
 }
 
@@ -323,21 +312,20 @@ func TestReader_SnapshotsByVehicleSince_OldestFirst(t *testing.T) {
 	day2 := now.Add(-24 * time.Hour)
 	day3 := now
 
-	accountID := uuid.New()
 	const teslaID = int64(111)
 	since := day1
 
 	// Store returns snapshots already oldest-first (as the DB query guarantees).
 	want := []Snapshot{
-		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day1, BatteryLevelPct: 70, OdometerKm: 1609.344},  // 1000 mi * 1.609344
-		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day2, BatteryLevelPct: 68, OdometerKm: 1689.8112}, // 1050 mi * 1.609344
-		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day3, BatteryLevelPct: 65, OdometerKm: 1770.2784}, // 1100 mi * 1.609344
+		{TeslaID: teslaID, CapturedAt: day1, BatteryLevelPct: 70, OdometerKm: 1609.344},  // 1000 mi * 1.609344
+		{TeslaID: teslaID, CapturedAt: day2, BatteryLevelPct: 68, OdometerKm: 1689.8112}, // 1050 mi * 1.609344
+		{TeslaID: teslaID, CapturedAt: day3, BatteryLevelPct: 65, OdometerKm: 1770.2784}, // 1100 mi * 1.609344
 	}
 
 	fake := &fakeHistoryStore{snapshots: want}
 	r := &reader{store: fake}
 
-	got, err := r.SnapshotsByVehicleSince(context.Background(), accountID, teslaID, since)
+	got, err := r.SnapshotsByVehicleSince(context.Background(), teslaID, since)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -362,7 +350,7 @@ func TestReader_SnapshotsByVehicleSince_EmptyNonNil(t *testing.T) {
 	fake := &fakeHistoryStore{snapshots: nil}
 	r := &reader{store: fake}
 
-	got, err := r.SnapshotsByVehicleSince(context.Background(), uuid.New(), 42, time.Now())
+	got, err := r.SnapshotsByVehicleSince(context.Background(), 42, time.Now())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -374,22 +362,18 @@ func TestReader_SnapshotsByVehicleSince_EmptyNonNil(t *testing.T) {
 	}
 }
 
-// TestReader_SnapshotsByVehicleSince_ParamsPassedThrough asserts that accountID,
-// teslaID, and since are forwarded to the store unchanged (no silent mutation).
+// TestReader_SnapshotsByVehicleSince_ParamsPassedThrough asserts that teslaID and
+// since are forwarded to the store unchanged (no silent mutation).
 func TestReader_SnapshotsByVehicleSince_ParamsPassedThrough(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(9999)
 	since := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 
 	fake := &fakeHistoryStore{}
 	r := &reader{store: fake}
 
-	_, err := r.SnapshotsByVehicleSince(context.Background(), accountID, teslaID, since)
+	_, err := r.SnapshotsByVehicleSince(context.Background(), teslaID, since)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if fake.gotAccount != accountID {
-		t.Errorf("accountID not passed through: want %v, got %v", accountID, fake.gotAccount)
 	}
 	if fake.gotTeslaID != teslaID {
 		t.Errorf("teslaID not passed through: want %d, got %d", teslaID, fake.gotTeslaID)
@@ -400,13 +384,13 @@ func TestReader_SnapshotsByVehicleSince_ParamsPassedThrough(t *testing.T) {
 }
 
 // TestReader_SnapshotsByVehicleSince_StoreError asserts that a store error is
-// propagated to the caller without wrapping (same contract as LatestSnapshotsByAccount).
+// propagated to the caller without wrapping (same contract as LatestSnapshotsByVehicles).
 func TestReader_SnapshotsByVehicleSince_StoreError(t *testing.T) {
 	wantErr := errors.New("store: connection reset")
 	fake := &fakeHistoryStore{err: wantErr}
 	r := &reader{store: fake}
 
-	_, err := r.SnapshotsByVehicleSince(context.Background(), uuid.New(), 1, time.Now())
+	_, err := r.SnapshotsByVehicleSince(context.Background(), 1, time.Now())
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("want store error %v propagated, got %v", wantErr, err)
 	}
@@ -415,7 +399,7 @@ func TestReader_SnapshotsByVehicleSince_StoreError(t *testing.T) {
 // --- EffectiveDate (telemetry-add-effective-date) ---
 //
 // rowToSnapshot (mapping.go) is the SINGLE DB→domain mapper both
-// dbStore.latestSnapshotsByAccount and dbStore.snapshotsByVehicleSince call per
+// dbStore.latestSnapshotsByVehicles and dbStore.snapshotsByVehicleSince call per
 // row (service.go — design D4: computed once in the mapper, not per read
 // method). Testing rowToSnapshot directly therefore proves EffectiveDate for
 // both Reader methods without a database. TestReadStore_*_EffectiveDate in
@@ -425,12 +409,11 @@ func TestReader_SnapshotsByVehicleSince_StoreError(t *testing.T) {
 // TestRowToSnapshot_EffectiveDate_OneCalendarDayBeforeCapturedAt asserts that
 // for a row with a known captured_at, rowToSnapshot derives EffectiveDate as
 // exactly CapturedAt.AddDate(0,0,-1) and leaves CapturedAt itself unchanged —
-// the property both LatestSnapshotsByAccount and SnapshotsByVehicleSince
+// the property both LatestSnapshotsByVehicles and SnapshotsByVehicleSince
 // inherit for free since they share this one mapper.
 func TestRowToSnapshot_EffectiveDate_OneCalendarDayBeforeCapturedAt(t *testing.T) {
 	capturedAt := time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC)
-	row := telemetrydb.VehicleSnapshot{
-		AccountID:  uuid.New(),
+	row := snapshotRow{
 		TeslaID:    10,
 		CapturedAt: pgtype.Timestamptz{Time: capturedAt, Valid: true},
 	}
@@ -467,8 +450,7 @@ func TestRowToSnapshot_EffectiveDate_DSTBoundary_CalendarDayNotDuration(t *testi
 	}
 
 	capturedAt := time.Date(2026, 3, 9, 1, 30, 0, 0, loc)
-	row := telemetrydb.VehicleSnapshot{
-		AccountID:  uuid.New(),
+	row := snapshotRow{
 		TeslaID:    20,
 		CapturedAt: pgtype.Timestamptz{Time: capturedAt, Valid: true},
 	}
@@ -493,13 +475,12 @@ func TestRowToSnapshot_EffectiveDate_DSTBoundary_CalendarDayNotDuration(t *testi
 
 // fakeBetweenStore extends the read-only fake store seam to return configurable
 // snapshots for SnapshotsByVehicleBetween, capturing the params passed by the reader
-// for assertion. Write methods, latestSnapshotsByAccount, and snapshotsByVehicleSince
+// for assertion. Write methods, latestSnapshotsByVehicles, and snapshotsByVehicleSince
 // panic to catch accidental cross-path calls — Between tests exercise only the
 // Between method (mirrors fakeHistoryStore's pattern for the Since path).
 type fakeBetweenStore struct {
 	snapshots  []Snapshot
 	err        error
-	gotAccount uuid.UUID
 	gotTeslaID int64
 	gotStart   time.Time
 	gotEnd     time.Time
@@ -513,18 +494,17 @@ func (f *fakeBetweenStore) insertPollAttempt(_ context.Context, _ Attempt) error
 	panic("fakeBetweenStore: insertPollAttempt must not be called")
 }
 
-func (f *fakeBetweenStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]Snapshot, error) {
-	panic("fakeBetweenStore: latestSnapshotsByAccount must not be called from Between path")
+func (f *fakeBetweenStore) latestSnapshotsByVehicles(_ context.Context, _ []int64) ([]Snapshot, error) {
+	panic("fakeBetweenStore: latestSnapshotsByVehicles must not be called from Between path")
 }
 
-func (f *fakeBetweenStore) snapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+func (f *fakeBetweenStore) snapshotsByVehicleSince(_ context.Context, _ int64, _ time.Time) ([]Snapshot, error) {
 	panic("fakeBetweenStore: snapshotsByVehicleSince must not be called from Between path")
 }
 
 // snapshotsByVehicleBetween is the seam the Between tests exercise: it captures the
 // reader's forwarded params and returns the configurable slice (or the injected error).
-func (f *fakeBetweenStore) snapshotsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error) {
-	f.gotAccount = accountID
+func (f *fakeBetweenStore) snapshotsByVehicleBetween(_ context.Context, teslaID int64, start, end time.Time) ([]Snapshot, error) {
 	f.gotTeslaID = teslaID
 	f.gotStart = start
 	f.gotEnd = end
@@ -540,7 +520,7 @@ func (f *fakeBetweenStore) snapshotsByVehicleBetween(_ context.Context, accountI
 // RM29-analytics-add-vehicle-metrics task 1.2. fakeBetweenStore exercises only the
 // Between path, so this panics to catch any accidental cross-path call, mirroring
 // snapshotsByVehicleSince's own precedent above.
-func (f *fakeBetweenStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+func (f *fakeBetweenStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]Snapshot, error) {
 	panic("fakeBetweenStore: snapshotsByVehicleUpdatedSince must not be called from Between path")
 }
 
@@ -553,18 +533,17 @@ func (f *fakeBetweenStore) upsertSuperchargerHistory(_ context.Context, _ Superc
 // exercises only the Between path, so this panics to catch any accidental
 // cross-path call, mirroring this fake's existing pattern for the other
 // unrelated seam methods above.
-func (f *fakeBetweenStore) snapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+func (f *fakeBetweenStore) snapshotPrecedingDay(_ context.Context, _ int64, _ time.Time) (*Snapshot, error) {
 	panic("fakeBetweenStore: snapshotPrecedingDay must not be called from the Between path")
 }
 
 // TestReader_SnapshotsByVehicleBetween_ParamsPassedThrough asserts that the reader
-// forwards (accountID, teslaID, start, end) to the store seam UNCHANGED — the reader
+// forwards (teslaID, start, end) to the store seam UNCHANGED — the reader
 // does NOT translate start/end into captured_at bounds. The +1day/+2day translation is
 // the dbStore implementation's job (design D5), not the reader's; the public port stays
 // a clean window. This mirrors TestReader_SnapshotsByVehicleSince_ParamsPassedThrough
 // for the bounded-window path (task 4.2).
 func TestReader_SnapshotsByVehicleBetween_ParamsPassedThrough(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(7007)
 	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
@@ -572,12 +551,9 @@ func TestReader_SnapshotsByVehicleBetween_ParamsPassedThrough(t *testing.T) {
 	fake := &fakeBetweenStore{}
 	r := &reader{store: fake}
 
-	_, err := r.SnapshotsByVehicleBetween(context.Background(), accountID, teslaID, start, end)
+	_, err := r.SnapshotsByVehicleBetween(context.Background(), teslaID, start, end)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if fake.gotAccount != accountID {
-		t.Errorf("accountID not passed through: want %v, got %v", accountID, fake.gotAccount)
 	}
 	if fake.gotTeslaID != teslaID {
 		t.Errorf("teslaID not passed through: want %d, got %d", teslaID, fake.gotTeslaID)
@@ -592,23 +568,22 @@ func TestReader_SnapshotsByVehicleBetween_ParamsPassedThrough(t *testing.T) {
 
 // TestReader_SnapshotsByVehicleBetween_ReturnsStoreSliceVerbatim asserts that the
 // reader returns whatever the store returned, unmodified (parity with the
-// LatestSnapshotsByAccount / Since pass-through contract). The store's ordering
+// LatestSnapshotsByVehicles / Since pass-through contract). The store's ordering
 // (oldest-first) is preserved by the reader; the reader does not re-sort.
 func TestReader_SnapshotsByVehicleBetween_ReturnsStoreSliceVerbatim(t *testing.T) {
-	acctID := uuid.New()
 	const teslaID = int64(7008)
 	day1 := time.Date(2026, 8, 2, 8, 30, 0, 0, time.UTC)
 	day2 := time.Date(2026, 8, 5, 8, 30, 0, 0, time.UTC)
 
 	want := []Snapshot{
-		{AccountID: acctID, TeslaID: teslaID, CapturedAt: day1, BatteryLevelPct: 70, OdometerKm: 1609.344},
-		{AccountID: acctID, TeslaID: teslaID, CapturedAt: day2, BatteryLevelPct: 68, OdometerKm: 1689.8112},
+		{TeslaID: teslaID, CapturedAt: day1, BatteryLevelPct: 70, OdometerKm: 1609.344},
+		{TeslaID: teslaID, CapturedAt: day2, BatteryLevelPct: 68, OdometerKm: 1689.8112},
 	}
 
 	fake := &fakeBetweenStore{snapshots: want}
 	r := &reader{store: fake}
 
-	got, err := r.SnapshotsByVehicleBetween(context.Background(), acctID, teslaID,
+	got, err := r.SnapshotsByVehicleBetween(context.Background(), teslaID,
 		time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
 	)
@@ -635,7 +610,7 @@ func TestReader_SnapshotsByVehicleBetween_EmptyNonNil(t *testing.T) {
 	fake := &fakeBetweenStore{snapshots: nil}
 	r := &reader{store: fake}
 
-	got, err := r.SnapshotsByVehicleBetween(context.Background(), uuid.New(), 42,
+	got, err := r.SnapshotsByVehicleBetween(context.Background(), 42,
 		time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
 	)
@@ -652,13 +627,13 @@ func TestReader_SnapshotsByVehicleBetween_EmptyNonNil(t *testing.T) {
 
 // TestReader_SnapshotsByVehicleBetween_StoreError asserts that a store error is
 // propagated to the caller without wrapping (parity with Since /
-// LatestSnapshotsByAccount).
+// LatestSnapshotsByVehicles).
 func TestReader_SnapshotsByVehicleBetween_StoreError(t *testing.T) {
 	wantErr := errors.New("store: between query failed")
 	fake := &fakeBetweenStore{err: wantErr}
 	r := &reader{store: fake}
 
-	_, err := r.SnapshotsByVehicleBetween(context.Background(), uuid.New(), 1,
+	_, err := r.SnapshotsByVehicleBetween(context.Background(), 1,
 		time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
 	)

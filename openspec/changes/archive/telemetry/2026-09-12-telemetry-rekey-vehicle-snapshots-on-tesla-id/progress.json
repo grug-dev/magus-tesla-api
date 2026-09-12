@@ -1,0 +1,1815 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "telemetry-rekey-vehicle-snapshots-on-tesla-id",
+  "module": "telemetry",
+  "roadmap": null,
+  "request": "Source ticket MAG-65 \u2014 re-key telemetry.vehicle_snapshots on tesla_id and demote poll_attempts.account_id to polled_by_account_id. Step 2 of MAG-63. Elect one polling account per vehicle first, then dedupe, swap the UNIQUE constraint, drop the column. Unit tests excluded.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "3.6",
+      "3.7",
+      "3.8",
+      "3.9",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "4.5",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "5.6",
+      "5.7",
+      "5.8",
+      "5.9",
+      "6.1",
+      "6.2",
+      "6.3",
+      "6.4",
+      "6.5",
+      "6.6",
+      "6.7",
+      "6.8",
+      "6.9",
+      "6.10",
+      "7.1",
+      "7.2",
+      "7.3",
+      "8.1",
+      "8.2",
+      "8.3",
+      "8.4",
+      "8.5",
+      "8.6",
+      "8.7",
+      "8.8",
+      "8.9",
+      "8.10",
+      "9.1",
+      "9.2",
+      "9.3",
+      "9.4",
+      "9.5",
+      "9.6",
+      "9.7"
+    ],
+    "awaiting_user_verification": []
+  },
+  "created_at": "2026-09-11T19:20:00Z",
+  "updated_at": "2026-09-12T02:40:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH55-MAG-65-telemetry-rekey-vehicle-snapshots-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-65",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-65/2-re-key-telemetryvehicle-snapshots-on-tesla-id-demote-poll",
+    "created_at": "2026-09-11T17:10:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "In `internal/telemetry/service.go`, add `electPollingVehicles` exactly as specified in `design.md` Part 1: sor\u2026",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T19:50:00Z",
+      "completed_at": "2026-09-11T19:52:00Z",
+      "duration_seconds": 120,
+      "notes": "Added electPollingVehicles + isOwner to service.go, exactly as design.md Part 1 specifies. Imports bytes, sort.",
+      "budget": {
+        "cost_usd": 1.746,
+        "five_hour_pct_start": 13,
+        "five_hour_pct_end": 19,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Change `CollectAll` to call `elected := electPollingVehicles(vehicles)` immediately after `AllRegisteredVehicl\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T19:50:00Z",
+      "completed_at": "2026-09-11T19:52:00Z",
+      "duration_seconds": 120,
+      "notes": "CollectAll now calls elected := electPollingVehicles(vehicles) and passes elected into groupByAccount. groupByAccount/collectAccount untouched.",
+      "budget": {
+        "cost_usd": 1.746,
+        "five_hour_pct_start": 13,
+        "five_hour_pct_end": 19,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "Update `CollectAll`'s doc comment (and `groupByAccount`'s, if it still says \"buckets the flat cross-account ve\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T19:50:00Z",
+      "completed_at": "2026-09-11T19:52:00Z",
+      "duration_seconds": 120,
+      "notes": "Updated CollectAll's and groupByAccount's doc comments to say they operate on the elected subset.",
+      "budget": {
+        "cost_usd": 1.746,
+        "five_hour_pct_start": 13,
+        "five_hour_pct_end": 19,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "1.4",
+      "title": "`go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...` \u2014 expect these to still pass; T1 cha\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T19:50:00Z",
+      "completed_at": "2026-09-11T19:52:00Z",
+      "duration_seconds": 120,
+      "notes": "go build ./internal/telemetry/... and go vet ./internal/telemetry/... both clean, no errors.",
+      "budget": {
+        "cost_usd": 1.746,
+        "five_hour_pct_start": 13,
+        "five_hour_pct_end": 19,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "Write `internal/telemetry/db/migrations/20260911000001_rekey_vehicle_snapshots_on_tesla_id.sql` exactly as spe\u2026",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T19:50:00Z",
+      "completed_at": "2026-09-11T19:52:00Z",
+      "duration_seconds": 120,
+      "notes": "Wrote the migration SQL exactly as design.md's Migration SQL section. Filename renamed ...0001 to ...0002 for a version collision.",
+      "budget": {
+        "cost_usd": 1.746,
+        "five_hour_pct_start": 13,
+        "five_hour_pct_end": 19,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "Do not touch any existing migration file \u2014 historic migrations are never edited (`ai/go-conventions.md`).",
+      "module": "telemetry",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T19:50:00Z",
+      "completed_at": "2026-09-11T19:52:00Z",
+      "duration_seconds": 120,
+      "notes": "Confirmed: no existing migration file edited, only the new file created.",
+      "budget": {
+        "cost_usd": 1.746,
+        "five_hour_pct_start": 13,
+        "five_hour_pct_end": 19,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "Run `make migration-guard`. Expect clean (no cross-module schema reference introduced).",
+      "module": "telemetry",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T19:50:00Z",
+      "completed_at": "2026-09-11T19:52:00Z",
+      "duration_seconds": 120,
+      "notes": "make migration-guard first failed on a version collision with the analytics pilot migration, then passed clean after the rename.",
+      "budget": {
+        "cost_usd": 1.746,
+        "five_hour_pct_start": 13,
+        "five_hour_pct_end": 19,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "In `internal/telemetry/db/query.sql`, remove `account_id` from `InsertVehicleSnapshot`'s column list, `VALUES`\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "Dropped account_id from InsertVehicleSnapshot column/VALUES lists; conflict target now (tesla_id, captured_date).",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "Remove `account_id` from `SnapshotsByVehicleSince`'s `SELECT` column list and `WHERE` clause.",
+      "module": "telemetry",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "SnapshotsByVehicleSince SELECT + WHERE drop account_id.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "Remove `account_id` from `SnapshotsByVehicleBetween`'s `SELECT` column list and `WHERE` clause.",
+      "module": "telemetry",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "SnapshotsByVehicleBetween SELECT + WHERE drop account_id.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "Remove `account_id` from `SnapshotsByVehicleUpdatedSince`'s `SELECT` column list and `WHERE` clause.",
+      "module": "telemetry",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "SnapshotsByVehicleUpdatedSince SELECT + WHERE drop account_id.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.5",
+      "title": "Remove `account_id` from `SnapshotPrecedingDay`'s `SELECT` column list and `WHERE` clause.",
+      "module": "telemetry",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "SnapshotPrecedingDay SELECT + WHERE drop account_id.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.6",
+      "title": "Rename `InsertPollAttempt`'s bound column/parameter from `account_id`/`@account_id` to `polled_by_account_id`/\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "InsertPollAttempt column/param renamed account_id to polled_by_account_id, kept as a bound arg.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.7",
+      "title": "Rename `LatestSnapshotsByAccount` to `LatestSnapshotsByVehicles`: replace `WHERE account_id = @account_id` wit\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "3.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "Renamed LatestSnapshotsByAccount to LatestSnapshotsByVehicles; WHERE tesla_id = ANY(@tesla_ids::bigint[]); DISTINCT ON/ORDER BY unchanged.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.8",
+      "title": "Rewrite each of the six edited queries' doc comments so none of them cite `design D1`/`D2`/`D3`/`D4`/`D5` from\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "3.7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "Rewrote doc comments on all 7 edited queries. design.md said six; SnapshotPrecedingDay also named the retired constraint. No design/decision IDs remain.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "3.9",
+      "title": "Run `make sqlc` (or `sqlc generate`). Confirm `InsertVehicleSnapshotParams`, `SnapshotsByVehicleSinceParams`,\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "3.8"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:13:00Z",
+      "completed_at": "2026-09-11T20:18:00Z",
+      "duration_seconds": 278,
+      "notes": "sqlc generate clean. LatestSnapshotsByVehicles(ctx, teslaIds []int64) has NO params struct. InsertPollAttemptParams.PolledByAccountID. No AccountID on the five snapshot params.",
+      "budget": {
+        "cost_usd": 1.32,
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 23,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "In `internal/telemetry/telemetry.go`, remove `AccountID uuid.UUID` from `Snapshot` (design.md D-SNAPSHOT-FIELD\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "3.9"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "Removed AccountID from Snapshot, rewrote doc comment to explain election instead of a per-account key.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "In the same file, rename `Attempt.AccountID` to `Attempt.PolledByAccountID` (design.md D-ATTEMPT-FIELD) and up\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "Renamed Attempt.AccountID to PolledByAccountID; doc comment states it is the polling account, not the owner.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "4.3",
+      "title": "Change `Reader`'s five methods to the signatures in `design.md`: `SnapshotsByVehicleSince`, `SnapshotsByVehicl\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "Five Reader methods re-signed; removed the defense-in-depth tenant isolation paragraphs; kept window/ordering/empty-result/index text.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "4.4",
+      "title": "Mirror the same five signature/name changes on the unexported `store` interface in `service.go` (`latestSnapsh\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "4.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "Mirrored the same five changes on the unexported store interface in service.go.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "4.5",
+      "title": "`go build ./internal/telemetry/...` \u2014 expect this to fail until T5 lands (the concrete implementations and eve\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "4.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "go build passed (build does not compile _test.go); go vet confirms test fallout is exactly as expected.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "In `service.go`, drop `accountID uuid.UUID` from `snapshotFrom`'s parameter list; update its call site in `att\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "4.5",
+        "1.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "snapshotFrom dropped accountID; call site in attemptVehicle updated.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "In `mapping.go`'s `rowToSnapshot`, drop the `AccountID: r.AccountID,` line.",
+      "module": "telemetry",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "rowToSnapshot no longer sets AccountID.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.3",
+      "title": "In `service.go`'s `dbStore.insertSnapshot`, drop `AccountID: s.AccountID,` from the `InsertVehicleSnapshotPara\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "dbStore.insertSnapshot drops AccountID from InsertVehicleSnapshotParams.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.4",
+      "title": "In `service.go`'s `record()`, build `Attempt{PolledByAccountID: accountID, ...}` instead of `Attempt{AccountID\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "record() builds Attempt{PolledByAccountID: accountID, ...}.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.5",
+      "title": "In `service.go`'s `dbStore.insertPollAttempt`, map `PolledByAccountID: a.PolledByAccountID,` using whatever fi\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "dbStore.insertPollAttempt maps PolledByAccountID: a.PolledByAccountID.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.6",
+      "title": "Update `dbStore`'s four `snapshotsByVehicle*`/`snapshotPrecedingDay` methods and `latestSnapshotsByVehicles` t\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "Renamed latestSnapshotsByAccount to latestSnapshotsByVehicles (positional []int64, no Params struct); dropped accountID from the three window reads.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.7",
+      "title": "Update `reader.go`'s five pass-through methods to the new signatures (thin delegation to the renamed/resigned\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "reader.go five pass-throughs updated; snapshotPrecedingDay dropped accountID and its params field.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.8",
+      "title": "In `query_log.go`: update `loggingStore`'s and `loggingReader`'s method signatures to match. `insertSnapshot`'\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "loggingStore/loggingReader re-signed; insertSnapshot log drops account; insertPollAttempt logs polled_by_account; LatestSnapshotsByVehicles logs tesla_ids.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "5.9",
+      "title": "`go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...` \u2014 expect these to still fail until T\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.8"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:19:00Z",
+      "completed_at": "2026-09-11T20:24:00Z",
+      "duration_seconds": 279,
+      "notes": "go build ./internal/telemetry/... passes clean. go vet fails only on _test.go fallout, which is T6 scope.",
+      "budget": {
+        "cost_usd": 2.1,
+        "five_hour_pct_start": 30,
+        "five_hour_pct_end": 36,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "`db_read_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; drop the `accountID`/`.Ac\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.9"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_read_integration_test.go: dropped AccountID from all literals, renamed 5 test funcs, fixed latestSnapshotsByVehicles calls. 3 tests flagged and resolved by the user.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "`db_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; update `Attempt{AccountID: ...\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_integration_test.go: fixed cleanupVehicle and 5 raw-SQL helpers, fixed 3 Attempt literals.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.3",
+      "title": "`db_preceding_snapshot_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; drop the `a\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "6.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_preceding_snapshot_integration_test.go: dropped AccountID, fixed calls, rewrote the EXPLAIN test for the new index name.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.4",
+      "title": "`db_sourcea_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal.",
+      "module": "telemetry",
+      "depends_on": [
+        "6.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_sourcea_integration_test.go: dropped AccountID, fixed 2 raw-SQL helpers and call sites.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.5",
+      "title": "`db_tpms_integration_test.go`: drop `AccountID:` from every `Snapshot{...}` literal.",
+      "module": "telemetry",
+      "depends_on": [
+        "6.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "db_tpms_integration_test.go: same pattern as 6.4.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.6",
+      "title": "`query_log_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; update `Attempt{AccountID: ...}` to\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "6.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "query_log_test.go: fixed both fakes (5 methods each), rewrote every want log-line string to match query_log.go.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.7",
+      "title": "`reader_test.go`: drop `AccountID:` from every `Snapshot{...}` literal; update `fakeReadStore`, `fakeHistorySt\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "6.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "reader_test.go: fixed 3 fakes (5 methods each), dropped gotAccount fields, removed unused uuid import, renamed 2 tests.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.8",
+      "title": "`service_test.go`: update `fakeStore` to implement all five renamed/resigned `store` methods; delete the `got.\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "6.7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "service_test.go: updated fakeStore 5 methods, deleted the got.AccountID assertion as authorized.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.9",
+      "title": "`snapshot_from_test.go`: drop the leading `uuid.New()` argument from all four `snapshotFrom(...)` calls.",
+      "module": "telemetry",
+      "depends_on": [
+        "6.8"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "snapshot_from_test.go: dropped leading uuid.New() from all 4 snapshotFrom calls, removed unused import.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "6.10",
+      "title": "`go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...` \u2014 expect clean now.",
+      "module": "telemetry",
+      "depends_on": [
+        "6.9"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "go build and go vet ./internal/telemetry/... both clean.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "7.1",
+      "title": "`internal/telemetry/AGENTS.md`: update the \"Data ownership\" table's `vehicle_snapshots` row grain from \"one ro\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "5.9"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "AGENTS.md: updated the grain row and the account_id/tesla_id rule, added a Poll election note pointing at electPollingVehicles.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "7.2",
+      "title": "This change's `specs/telemetry/spec.md` delta (already written as part of this change's artifacts) is synced i\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "7.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "Confirmed only, no edit. The delta spec already carries the Poll Account Election requirement; sync happens at archive.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "7.3",
+      "title": "`kkpa/context/architecture/telemetry-ingest-only.md`: update the \"Same-day captures dedupe\" bullet in \"Convent\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "7.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-11T20:25:00Z",
+      "completed_at": "2026-09-11T20:52:00Z",
+      "duration_seconds": 1091,
+      "notes": "KB telemetry-ingest-only.md: fixed the dedupe bullet constraint name. Grepped the whole file; no other stale mention found.",
+      "budget": {
+        "cost_usd": 4.2,
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 52,
+        "approx": true,
+        "note": "one shared wave delta across the batched tasks"
+      }
+    },
+    {
+      "id": "8.1",
+      "title": "`internal/analytics/reader.go:136`: drop the `accountID` argument from the `r.telemetry.SnapshotsByVehicleSinc\u2026",
+      "module": "analytics",
+      "depends_on": [
+        "5.9"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "reader.go:136 drops the accountID argument from SnapshotsByVehicleSince.",
+      "budget": null
+    },
+    {
+      "id": "8.2",
+      "title": "`internal/analytics/recalculate.go:104`: drop the `accountID` argument from the `r.telemetry.SnapshotsByVehicl\u2026",
+      "module": "analytics",
+      "depends_on": [
+        "8.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "recalculate.go:104 drops the accountID argument from SnapshotsByVehicleBetween.",
+      "budget": null
+    },
+    {
+      "id": "8.3",
+      "title": "`internal/analytics/recalculate.go:123`: drop the `accountID` argument from the `r.telemetry.SnapshotPreceding\u2026",
+      "module": "analytics",
+      "depends_on": [
+        "8.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "recalculate.go:123 drops the accountID argument from SnapshotPrecedingDay.",
+      "budget": null
+    },
+    {
+      "id": "8.4",
+      "title": "`internal/analytics/recalculate.go:269`: drop the `accountID` argument from the `r.telemetry.SnapshotsByVehicl\u2026",
+      "module": "analytics",
+      "depends_on": [
+        "8.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "recalculate.go:269 drops the accountID argument from SnapshotsByVehicleUpdatedSince.",
+      "budget": null
+    },
+    {
+      "id": "8.5",
+      "title": "`internal/analytics`'s own `Recalculate`/`Reconcile` functions and their `accountID` parameter are UNCHANGED \u2014\u2026",
+      "module": "analytics",
+      "depends_on": [
+        "8.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "Confirmed unchanged: Recalculate/Reconcile keep their accountID parameter for the charge sources.",
+      "budget": null
+    },
+    {
+      "id": "8.6",
+      "title": "`internal/analytics/reader_test.go`: fix the mechanical fallout of 8.1 in this file's own fixtures/assertions.",
+      "module": "analytics",
+      "depends_on": [
+        "8.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "reader_test.go fixtures fixed for the new signatures.",
+      "budget": null
+    },
+    {
+      "id": "8.7",
+      "title": "`internal/analytics/reader_test.go`'s `fakeTelemetryReader` (found by this design, not in the original dispatc\u2026",
+      "module": "analytics",
+      "depends_on": [
+        "8.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "fakeTelemetryReader now has LatestSnapshotsByVehicles(ctx, []int64) plus the four re-signed methods.",
+      "budget": null
+    },
+    {
+      "id": "8.8",
+      "title": "`internal/analytics/recalculate_test.go`: fix the mechanical fallout of 8.2\u20138.4 in this file's own fixtures/as\u2026",
+      "module": "analytics",
+      "depends_on": [
+        "8.7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "recalculate_test.go fallout fixed.",
+      "budget": null
+    },
+    {
+      "id": "8.9",
+      "title": "`internal/analytics/consumption_test.go`: fix the mechanical fallout of 8.1\u20138.4 in this file's own fixtures/as\u2026",
+      "module": "analytics",
+      "depends_on": [
+        "8.8"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "NOT a no-op as first guessed: consumed_test.go had 17 Snapshot literals carrying AccountID. All removed, plus 7 now-unused accountID vars.",
+      "budget": null
+    },
+    {
+      "id": "8.10",
+      "title": "`go build ./internal/analytics/...` and `go vet ./internal/analytics/...` \u2014 expect clean.",
+      "module": "analytics",
+      "depends_on": [
+        "8.9"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "go build and go vet ./internal/analytics/... clean.",
+      "budget": null
+    },
+    {
+      "id": "9.1",
+      "title": "`go build ./...`",
+      "module": "telemetry",
+      "depends_on": [
+        "6.10",
+        "7.3",
+        "8.10"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "go build ./... clean.",
+      "budget": null
+    },
+    {
+      "id": "9.2",
+      "title": "`go vet ./...`",
+      "module": "telemetry",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "go vet ./... clean.",
+      "budget": null
+    },
+    {
+      "id": "9.3",
+      "title": "`make migration-guard`",
+      "module": "telemetry",
+      "depends_on": [
+        "9.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "make migration-guard clean (only the known 20260720000001 backlog warning).",
+      "budget": null
+    },
+    {
+      "id": "9.4",
+      "title": "`make boundary-guard`",
+      "module": "telemetry",
+      "depends_on": [
+        "9.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "make boundary-guard clean: gateway does not import telemetry.",
+      "budget": null
+    },
+    {
+      "id": "9.5",
+      "title": "Grep the whole repo for `account_id` scoped to `vehicle_snapshots` / `Snapshot` / `LatestSnapshotsByAccount` a\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "9.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "Greps clean. Found and fixed two stale raw SQL helpers vet cannot see, plus 6 comments naming the renamed method.",
+      "budget": null
+    },
+    {
+      "id": "9.6",
+      "title": "Confirm `internal/gateway/` still has zero real `internal/telemetry` imports (`make boundary-guard` already co\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "9.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-11T20:53:00Z",
+      "completed_at": "2026-09-11T21:20:00Z",
+      "duration_seconds": 1620,
+      "notes": "Confirmed zero internal/telemetry imports in internal/gateway.",
+      "budget": null
+    },
+    {
+      "id": "9.7",
+      "title": "Suite commands for the owner to run (Claude does not run these): `go test ./internal/telemetry/... ./internal/\u2026",
+      "module": "telemetry",
+      "depends_on": [
+        "9.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Suite is the owner to run: go test ./internal/telemetry/... ./internal/analytics/...",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review the change telemetry-rekey-vehicle-snapshots-on-tesla-id on branch ft/CH55-MAG-65-telemetry-rekey-vehicle-snapshots-on-tesla-id. Read the DIFF against its merge-base with main, not the whole module.\n\nVALIDATE:\n1. Module boundaries: no module reads another's DB; gateway imports no telemetry (make boundary-guard); analytics reaches telemetry only through the public Reader.\n2. Every doc-pack convention, above all the code-comment rule: no comment may cite design.md, a decision ID, or a change/roadmap ID.\n3. Spec/tasks coverage: all 60 tasks in tasks.md are implemented as written.\n4. DB objects match the USER-CONFIRMED design. Two corrections were confirmed AFTER the original gate and are binding: D13 (SnapshotPrecedingDay orders by captured_date DESC, and NO second index is added) and D14 (account_id is relaxed to NULLABLE, NOT dropped, because a frozen 2026-09-08 analytics backfill joins on it and migrations apply one module dir at a time). A mismatch with either is a blocker finding.\n5. Integration tests assert what design.md authored up front, not what the implementation happens to do.\n6. Performance-Profile compliance (read-heavy).\n7. Anti-gaming: no acceptance criterion weakened, no self-approved status. Deleted tests must each be justified: D9 (two dead per-account tests), D18 (TPMS migration test), D19 (three more migration tests, under the new no-migration-tests rule).\n\nSIGNALS: assistant-run and clean -- go build ./..., go vet ./..., gofmt, make migration-guard, make boundary-guard, make archive-guard. USER-REPORTED -- make test (go test ./...) PASSED on 2026-09-12. The assistant never ran the suite. Judge test quality by READING the tests, never by running them.\n\nKNOWN WEAK POINT, check it hard: three separate bugs in this change were raw SQL in _test.go naming a column the migration removed. go vet cannot see inside a SQL string. Re-scan every SQL string in the diff ACROSS LINE BREAKS, and check that fixture UPDATE/DELETE calls assert RowsAffected.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-12T00:00:00Z",
+        "duration_seconds": 742,
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "internal/telemetry/db/models.go and internal/telemetry/db/query.sql.go are stale after the D14 fix. The migration only relaxes vehicle_snapshots.account_id to NULLABLE (commit 8d382a0) -- it does not drop the column. But make sqlc / sqlc generate was never re-run after that fix. I ran `sqlc generate` myself (same version, v1.31.1, as the committed header) and it produces a real diff: VehicleSnapshot gains back `AccountID pgtype.UUID`, and LatestSnapshotsByVehicles/SnapshotPrecedingDay/SnapshotsByVehicleSince/SnapshotsByVehicleUpdatedSince all switch from returning the shared VehicleSnapshot type to dedicated per-query Row types. I reverted my own regeneration (git checkout) before finishing the review -- the working tree is clean. This is not a live bug today (every query lists its columns explicitly, so nothing reads or writes the stray column), but it is a real breach of ai/go-conventions.md's 'regenerate after editing any query.sql or migration' rule, and it is a landmine: the next unrelated `make sqlc` run on this module will silently change 4 methods' return types and break rowToSnapshot's single shared parameter type across the whole read path. Fix: run `make sqlc` now, on top of the current migration, and commit the result.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Code comments this diff added or edited still cite decision IDs / design.md / a change ID -- the doc-pack's own code-comment rule. (a) internal/telemetry/db/migrations/20260911000002_..._on_tesla_id.sql lines 5-6 (brand-new file): \"20260805000001's own dedupe, design D1\" -- copied verbatim from design.md's SQL block into a persisted migration comment. (b) internal/telemetry/service.go, CollectAll's doc comment (edited by task 1.3): keeps \"(D3)\" and \"(D9)\" on lines this diff rewrote. (c) internal/telemetry/db_read_integration_test.go line 216, the renamed TestReadStore_LatestSnapshotsByVehicles_EmptyResult: keeps \"(design D5)\". (d) internal/gateway/handlers/external_charges.go ~line 690 and (e) internal/gateway/handlers/handlers.go ~line 305-308: both comments were partly rewritten (the old method name swapped for the new one) but still carry \"RM38-gateway-read-dashboard-from-metrics\" and \"design.md D9\" / \"design.md D6, tier 1\" on the adjacent untouched line of the same sentence -- the legacy-cleanup rule asks for the whole reference to go when the comment is touched, not just the identifier. Also worth a look: the same migration file's \"(Part 1 of this change)\" phrasing (two spots) points at design.md's own Part 1/Part 2 structure, which will not resolve once the change is archived.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "tasks.md still shows every box in T8 (8.1-8.10) and T9 (9.1-9.7) as unchecked ([ ]), while progress.json's rollup marks all 60 tasks, including those 17, as done. I independently verified the T8 analytics edits and the T9 build/vet/guard/grep checks are genuinely done and correct -- this is a bookkeeping gap, not fabricated completion -- but tasks.md is the file that wins on implementation done-ness (ai/agentic-workflow.md) and an archive check may read it. Check the boxes before archiving.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R4",
+            "severity": "minor",
+            "note": "internal/analytics/reader_test.go: fakeTelemetryReader still declares a gotAccountID uuid.UUID field, but every method that used to set it (SnapshotsByVehicleSince, SnapshotsByVehicleBetween, SnapshotPrecedingDay) had that assignment removed in this diff, and nothing reads the field any more. Dead leftover from the account-id-removal refactor -- harmless, but a future reader may assume it still tracks something.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-09-12T03:00:00Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Re-verified fixed. internal/telemetry/mapping.go:71-76 adds `type snapshotRow = telemetrydb.LatestSnapshotsByVehiclesRow` with a comment that states the reason (five queries now emit identical Row structs since they no longer select the full table), no design.md/decision-ID citation. rowToSnapshot takes snapshotRow; call sites in reader.go:113 and service.go:786,807,859,883 convert with `snapshotRow(r)` -- a valid Go conversion since I confirmed all five generated Row types (LatestSnapshotsByVehiclesRow, SnapshotPrecedingDayRow, SnapshotsByVehicleSinceRow, SnapshotsByVehicleBetweenRow, SnapshotsByVehicleUpdatedSinceRow) have identical field lists (26 fields, same names/types/order) by reading the regenerated query.sql.go. Two reader_test.go fixtures now build `snapshotRow{...}` directly (no conversion needed, it's the named type itself). I re-ran `sqlc generate` myself: zero diff against the committed internal/telemetry/db/ and internal/analytics/db/ files -- the generated code is now genuinely in sync with the migration. go build ./..., go vet ./... both clean.",
+            "status": "fixed",
+            "triage": null
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Re-verified fixed. All six locations confirmed: the migration's \"20260805000001's own dedupe, design D1\" became \"the same 'newest capture wins' rule the write path already applies one column narrower: a same-day re-capture REPLACES the existing row\" (reason kept, pointer dropped); the same file's \"(Part 1 of this change)\" phrasing is also gone (\"poll election already suppressed\"), which I had flagged as a secondary note, not a separate finding. service.go's CollectAll comment: \"(D3)\" replaced with the actual reason (why grouping by account matters), \"(D9)\" simply dropped since the sentence already states the rule without it. db_read_integration_test.go:216 dropped \"(design D5)\" with the sentence left intact. external_charges.go and handlers.go: both RM38/design.md citations removed and replaced with the substance, not just the method-name swap -- confirmed the reference was replaced, not merely relocated. No new citation introduced anywhere in the diff.",
+            "status": "fixed",
+            "triage": null
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "Re-verified fixed. `grep -c '^- \\[ \\]' tasks.md` returns 0; `grep -c '^- \\[x\\]'` returns 60. tasks.md and progress.json's rollup now agree.",
+            "status": "fixed",
+            "triage": null
+          },
+          {
+            "id": "R4",
+            "severity": "minor",
+            "note": "Re-verified fixed. fakeTelemetryReader.gotAccountID is gone from internal/analytics/reader_test.go; the struct's other fields (gotTeslaID, gotSince, gotBetweenStart/End, gotPrecedingDay) are untouched. Confirmed the three other fakes in the same file (fakeSuperchargerReader, fakeManualReader, fakeVehicleLookup) keep their own gotAccountID, correctly -- those ports still take an accountID and it is still asserted.",
+            "status": "fixed",
+            "triage": null
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-11T17:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Owning module is telemetry; one standalone change, not a roadmap",
+      "why": "The analytics edits are forced signature updates with no analytics design decision. Same shape as the MAG-64 pilot.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-11T17:20:00Z",
+      "scope": "task:1.1",
+      "made_by": "user",
+      "decision": "Election: prefer OWNER, else any candidate, tie broken by lowest account_id; never skip a car",
+      "why": "User first chose skip-when-no-OWNER, then reversed once shown it permanently stops the DRIVER-only car Palomito Nachito.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-11T17:25:00Z",
+      "scope": "task:1.1",
+      "made_by": "user",
+      "decision": "Election makes no token liveness check; stays pure Go",
+      "why": "AccessTokenFor rotates the single-use refresh token, so probing candidates would rotate tokens for accounts that poll nothing.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-11T19:18:00Z",
+      "scope": "task:2.1",
+      "made_by": "user",
+      "decision": "Design gate passed: no second index; only the index UNIQUE (tesla_id, captured_date) creates",
+      "why": "Departs from the ticket's own bullet. Follows MAG-63's rule: justify every index against a query that exists today.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-11T19:16:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted the artifact worker's output although it died before sending its final report",
+      "why": "Rate limit killed it after all four files were written. Leader verified them instead of paying a full re-dispatch.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-11T19:52:00Z",
+      "scope": "task:2.1",
+      "made_by": "autopilot",
+      "decision": "Migration file renumbered 20260911000001 -> 20260911000002; SQL content unchanged",
+      "why": "design.md picked a version already used by the analytics pilot migration. make migration-guard failed and named the renumber as its own fix.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-11T20:12:30Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Do not apply the migration to the dev database at any point in this change",
+      "why": "Tests provision their own Postgres and apply migrations themselves. The Up migration DELETEs duplicate rows, and the dev DB holds snapshot history Tesla cannot backfill.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-11T20:18:00Z",
+      "scope": "task:3.8",
+      "made_by": "autopilot",
+      "decision": "Rewrote 7 query doc comments, not the 6 tasks.md names",
+      "why": "SnapshotPrecedingDay also named the retired constraint. Leaving it would have left a stale name pointing at a dropped object.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-11T20:50:00Z",
+      "scope": "task:6.1",
+      "made_by": "user",
+      "decision": "Deleted LatestSnapshotsByVehicles_DifferentAccountExcluded and SnapshotsByVehicleSince_CrossAccountExcluded; kept the third as SnapshotsByVehicleBetween_SiblingVehicleExcluded",
+      "why": "Both deleted tests only proved the account filter this change removes, and the second had a fixture that collides on the new key. The third also proves sibling-vehicle exclusion, which stays valid.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-11T21:00:00Z",
+      "scope": "task:8.1",
+      "made_by": "autopilot",
+      "decision": "vehicle_metrics.account_id is now set from the caller accountID in recalculate.go, not from the snapshot",
+      "why": "design.md missed this. The old telemetry query filtered by account, so the snapshot account always equalled the caller. Behaviour identical, no schema change, so no design gate.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-09-11T21:10:00Z",
+      "scope": "task:9.5",
+      "made_by": "autopilot",
+      "decision": "Renamed LatestSnapshotsByAccount in 6 comments across analytics and gateway; left the historic migration file untouched",
+      "why": "A comment naming a deleted method misleads the next reader. Historic migrations are never edited.",
+      "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-09-11T21:30:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Swept all six docs naming LatestSnapshotsByAccount, including the two pre-existing gateway ones",
+      "why": "Four were invalidated by this change. openspec/specs/gateway/spec.md was already wrong since RM38: the charges suggestion reads analytics, not telemetry.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-09-11T21:50:00Z",
+      "scope": "task:3.5",
+      "made_by": "user",
+      "decision": "SnapshotPrecedingDay orders by captured_date DESC, not captured_at DESC",
+      "why": "design.md D-INDEX claimed the (tesla_id, captured_date) index serves captured_at ordering. It does not. One row per day means the two orderings pick the same row, so no second index is needed.",
+      "covered_by": "D4"
+    },
+    {
+      "id": "D14",
+      "at": "2026-09-11T21:55:00Z",
+      "scope": "task:2.1",
+      "made_by": "user",
+      "decision": "account_id is relaxed to NULLABLE, not dropped; the drop moves to a follow-up",
+      "why": "Migrations run one module dir at a time, so a 2026-09-08 analytics backfill joining vs.account_id runs after our drop on a fresh database and fails. Filed as backlog 31.",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-09-11T22:20:00Z",
+      "scope": "task:8.9",
+      "made_by": "autopilot",
+      "decision": "Leader bug: the wave-5 script deleted whole lines starting with AccountID:, taking TeslaID with them on 15 shared lines",
+      "why": "Every analytics DB failure came from tesla_id 0: empty query results, duplicate-key collisions, no backfill match. Restored by diffing against the wave-4 file.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-09-11T22:25:00Z",
+      "scope": "task:8.6",
+      "made_by": "user",
+      "decision": "Identity assertions move from account_id to tesla_id instead of being deleted",
+      "why": "User asked for tesla_id rather than removal. FixtureA/B/C already assert TeslaID, and both scoping tests keep their supercharger and manual halves.",
+      "covered_by": null
+    },
+    {
+      "id": "D17",
+      "at": "2026-09-11T22:30:00Z",
+      "scope": "task:8.9",
+      "made_by": "autopilot",
+      "decision": "SUPERSEDED by D18: seedSnapshot split for the TPMS migration test",
+      "why": "The user deleted the test instead, so the split had no purpose and was reverted.",
+      "covered_by": "D14"
+    },
+    {
+      "id": "D18",
+      "at": "2026-09-11T22:45:00Z",
+      "scope": "task:8.9",
+      "made_by": "user",
+      "decision": "Deleted TestMigration_TpmsPressureBackfill and its file; reverted the seedSnapshot split",
+      "why": "User does not want migration tests. Coverage lost: proof that the 2026-09-08 TPMS backfill filled the columns. That migration already ran everywhere.",
+      "covered_by": null
+    },
+    {
+      "id": "D19",
+      "at": "2026-09-11T23:00:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Standing rule added to ai/go-conventions.md Testing: never write migration tests, delete them on sight; deleted the 3 remaining ones",
+      "why": "Owner verifies migrations by checking the database directly. A migration is frozen but its fixture is not, so later schema changes break tests of work that already ran.",
+      "covered_by": null
+    },
+    {
+      "id": "D20",
+      "at": "2026-09-11T23:40:00Z",
+      "scope": "task:8.8",
+      "made_by": "autopilot",
+      "decision": "Third raw-SQL fixture bug fixed: the recapture UPDATE still filtered on account_id; added a RowsAffected check",
+      "why": "An UPDATE matching zero rows does not error, so the recapture silently never happened and the assertion failed for the wrong reason. My earlier line-based grep missed it because the SQL spans lines.",
+      "covered_by": null
+    },
+    {
+      "id": "D21",
+      "at": "2026-09-11T23:55:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Added the raw-SQL-in-tests rule to ai/go-conventions.md Testing",
+      "why": "The same bug shape cost three test rounds in this change. go vet cannot see inside a SQL string, and an UPDATE matching zero rows does not error.",
+      "covered_by": null
+    },
+    {
+      "id": "D22",
+      "at": "2026-09-12T02:30:00Z",
+      "scope": "review:R1",
+      "made_by": "user",
+      "decision": "Regenerate sqlc and add a snapshotRow alias; convert at the call sites",
+      "why": "D14 kept account_id, so the queries read a subset and sqlc emits five identical Row types. Deferring leaves stale codegen that breaks any later make sqlc.",
+      "covered_by": null
+    },
+    {
+      "id": "D23",
+      "at": "2026-09-12T02:30:00Z",
+      "scope": "review:R2",
+      "made_by": "leader",
+      "decision": "Cleaned the two gateway comments as well, not only the four added lines",
+      "why": "The conventions' legacy-cleanup rule covers a doc comment whose own function this change edited. Both gateway comments were edited.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-11T17:10:00Z",
+      "agent": "leader",
+      "event": "created branch ft/CH55-MAG-65-\u2026; work counter 55 \u2192 56"
+    },
+    {
+      "at": "2026-09-11T17:30:00Z",
+      "agent": "leader",
+      "event": "dispatched telemetry worker (sonnet) for artifacts; 5h bucket at 82% on dispatch"
+    },
+    {
+      "at": "2026-09-11T19:15:00Z",
+      "agent": "leader",
+      "event": "worker terminated by session rate limit (429) after writing all four artifacts, before its final report; bucket reset at 14:10 -05"
+    },
+    {
+      "at": "2026-09-11T19:17:00Z",
+      "agent": "leader",
+      "event": "leader verified artifacts in place of the missing worker report; openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-11T19:18:00Z",
+      "agent": "leader",
+      "event": "database design gate CONFIRMED BY USER: migration shape + no-second-index plan (D4)"
+    },
+    {
+      "at": "2026-09-11T19:19:00Z",
+      "agent": "leader",
+      "event": "committed artifacts + counter bump as 3810616; HALT AFTER STEP 4 per pickup scope \u2014 no implementation dispatched"
+    },
+    {
+      "at": "2026-09-11T19:50:00Z",
+      "agent": "leader",
+      "event": "wave 1 dispatch (T1 poll election + T2 migration) to telemetry worker, sonnet; 5h 13% / ctx 9% at start"
+    },
+    {
+      "at": "2026-09-11T19:52:00Z",
+      "agent": "leader",
+      "event": "wave 1 complete (T1+T2), all 7 tasks done; leader verified the renumber against the real collision and the election code against design.md; committed as e55a9af"
+    },
+    {
+      "at": "2026-09-11T19:54:00Z",
+      "agent": "leader",
+      "event": "asked user to run the telemetry suite at this green point; tasks 1.1-1.3, 2.1-2.2 await their report"
+    },
+    {
+      "at": "2026-09-11T20:12:00Z",
+      "agent": "leader",
+      "event": "USER RAN go test ./internal/telemetry/...: ~40 DB-backed tests fail with column account_id does not exist. EXPECTED, not a regression: testdb_test.go embeds and applies db/migrations, so the test container already has wave 1 new schema while the Go code is still old. Cleared by T3-T6."
+    },
+    {
+      "at": "2026-09-11T20:12:30Z",
+      "agent": "leader",
+      "event": "leader correction: wave 1 is NOT a green point for the suite. Writing the migration file alone reddens every DB-backed telemetry test. Only build/vet/guards stay green until T6."
+    },
+    {
+      "at": "2026-09-11T20:13:00Z",
+      "agent": "leader",
+      "event": "wave 2 dispatch (T3 queries + sqlc) to telemetry worker, sonnet"
+    },
+    {
+      "at": "2026-09-11T20:18:00Z",
+      "agent": "leader",
+      "event": "wave 2 complete (T3), 9 tasks done; leader verified the generated signature and that residual AccountID hits are Supercharger-only"
+    },
+    {
+      "at": "2026-09-11T20:19:00Z",
+      "agent": "leader",
+      "event": "wave 2 committed as 4d5a258; wave 3 dispatch (T4 ports + T5 implementation) to telemetry worker, sonnet; 5h 30% / ctx 14%"
+    },
+    {
+      "at": "2026-09-11T20:24:00Z",
+      "agent": "leader",
+      "event": "wave 3 complete (T4+T5), 14 tasks done; leader verified go build passes and every remaining AccountID in non-test telemetry code is Supercharger-history only"
+    },
+    {
+      "at": "2026-09-11T20:25:00Z",
+      "agent": "leader",
+      "event": "wave 3 committed as f379fff; wave 4 dispatch (T6 test fixups + T7 docs) to telemetry worker, sonnet; 5h 40% / ctx 16%"
+    },
+    {
+      "at": "2026-09-11T20:52:00Z",
+      "agent": "leader",
+      "event": "wave 4 complete (T6+T7), 13 tasks done; go vet clean. Leader verified the broken fixture claim, then applied the user decision on the three dead tests (D9)"
+    },
+    {
+      "at": "2026-09-11T21:20:00Z",
+      "agent": "leader",
+      "event": "T8 + T9 complete (leader-owned). go build, go vet, gofmt, migration-guard, boundary-guard, archive-guard all clean. Found 2 raw-SQL bugs go vet cannot catch: analytics cleanup helper and seedSnapshot INSERT still used vehicle_snapshots.account_id"
+    },
+    {
+      "at": "2026-09-11T21:30:00Z",
+      "agent": "leader",
+      "event": "doc sweep committed. Leader correction: internal/gateway/AGENTS.md was NOT claiming live telemetry calls, only a historical name. openspec/specs/gateway/spec.md was the genuinely stale one, verified against external_charges.go:696"
+    },
+    {
+      "at": "2026-09-11T21:40:00Z",
+      "agent": "leader",
+      "event": "USER RAN make test: FAILED. Two real defects, neither a test-fixup problem. (1) analytics testcontainer cannot provision: analytics migration 20260908000002 joins telemetry.vehicle_snapshots on account_id, which our migration dropped. (2) TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan: query lost its index walk."
+    },
+    {
+      "at": "2026-09-11T21:56:00Z",
+      "agent": "leader",
+      "event": "both fixed under D13/D14; design.md corrected with a Corrections section; backlog entry 31 files the migration-ordering root fix. Change stays applied, NOT verified: awaiting a new user test run."
+    },
+    {
+      "at": "2026-09-11T22:10:00Z",
+      "agent": "leader",
+      "event": "USER RAN make test (2nd): internal/telemetry now PASSES, both earlier fixes confirmed. internal/analytics still failing."
+    },
+    {
+      "at": "2026-09-11T22:35:00Z",
+      "agent": "leader",
+      "event": "root cause was a leader bug, not the change: 15 TeslaID fields deleted as collateral in wave 5. Restored, plus 3 assertion fixes under D16/D17. build+vet clean. Still NOT verified: awaiting a third user test run."
+    },
+    {
+      "at": "2026-09-11T22:45:00Z",
+      "agent": "leader",
+      "event": "user deleted the TPMS migration test outright. Three other TestMigration_* tests remain in internal/analytics, currently passing, not touched by this change; offered for separate removal."
+    },
+    {
+      "at": "2026-09-11T23:00:00Z",
+      "agent": "leader",
+      "event": "no-migration-tests rule written to ai/go-conventions.md (base Doc-Pack, so every future worker reads it). All 4 TestMigration_* deleted repo-wide. No orphaned helpers left; build+vet clean."
+    },
+    {
+      "at": "2026-09-11T21:43:16Z",
+      "agent": "leader",
+      "event": "USER ASKED for a live poller run. Ran it from main, NOT this branch: the dev DB still has the old schema (account_id NOT NULL, old unique constraint) while branch code omits account_id and targets ON CONFLICT (tesla_id, captured_date), so a run here would have woken the car and then failed the insert. Result on main: 2/2 vehicles, 7 charging sessions, 9 API calls, run 8e068674. Branch restored, nothing lost."
+    },
+    {
+      "at": "2026-09-11T23:40:00Z",
+      "agent": "leader",
+      "event": "USER RAN make test (3rd): ONE failure left, TestRecalculate_AfterSameDayRecapture. Cause: raw UPDATE filtered on account_id, matched 0 rows silently. Fixed + RowsAffected guard. Re-scanned every SQL string in internal/ multi-line: no other hit. Still NOT verified."
+    },
+    {
+      "at": "2026-09-12T00:05:00Z",
+      "agent": "leader",
+      "event": "USER REPORTED make test PASSED (go test ./...). Verification is the OWNER's, not the assistant's: the assistant never ran the suite. Cleared 6 awaiting-user-verification tasks to done; change status -> verified. Reviewer gate is now unblocked."
+    },
+    {
+      "at": "2026-09-12T02:00:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; dispatched telemetry-reviewer (Sonnet) on the merge-base diff for review round 1. budget start: 5h 15%, cost $0.8367."
+    },
+    {
+      "at": "2026-09-12T02:30:00Z",
+      "agent": "leader",
+      "event": "review round 1: changes-requested, 4 findings, ALL accepted after leader triage. R1 fixed per user choice (D22). R2 fixed in 5 files. R3: ticked 17 T8/T9 boxes. R4: deleted the dead field. build+vet+gofmt+3 guards clean. NOT verified: sqlc regen changed types, so the suite needs a rerun."
+    },
+    {
+      "at": "2026-09-12T02:40:00Z",
+      "agent": "leader",
+      "event": "USER REPORTED make test PASSED after the round-1 fixes (sqlc regen changed types, so the earlier pass was stale). Verification is the OWNER's: the assistant never ran the suite. Re-dispatching the same reviewer for round 2."
+    }
+  ]
+}

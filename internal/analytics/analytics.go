@@ -150,14 +150,14 @@ type Reader interface {
 
 	// LatestMetricsByAccount returns the latest precomputed vehicle_metrics row for
 	// each vehicle belonging to the given account, as VehicleStatus — the
-	// analytics-owned equivalent of telemetry.Reader.LatestSnapshotsByAccount (never
+	// analytics-owned equivalent of telemetry.Reader.LatestSnapshotsByVehicles (never
 	// telemetry.Snapshot itself, ai/architecture.md §6). "Latest" means the row with
 	// the greatest metric_date for that (account_id, tesla_id) — vehicle_metrics'
 	// grain is a calendar day, not a capture instant, so this describes the vehicle's
 	// most recently RECALCULATED day, which is typically yesterday (metric_date is
 	// the snapshot's effective day, recalculate.go). If the account has no stored
 	// vehicle_metrics rows it returns an empty (non-nil) slice and a nil error, same
-	// contract as LatestSnapshotsByAccount. Order of the returned slice is
+	// contract as LatestSnapshotsByVehicles. Order of the returned slice is
 	// unspecified.
 	LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]VehicleStatus, error)
 }

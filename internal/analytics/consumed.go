@@ -279,7 +279,6 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			// nil (-> SQL NULL). flagged is forced false here, never left to a
 			// stray zero-value comparison against distance.
 			out = append(out, vehicleMetricRow{
-				AccountID:         cur.AccountID,
 				TeslaID:           cur.TeslaID,
 				MetricDate:        day,
 				BatteryLevelPct:   cur.BatteryLevelPct,
@@ -324,7 +323,6 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 		}
 
 		out = append(out, vehicleMetricRow{
-			AccountID:              cur.AccountID,
 			TeslaID:                cur.TeslaID,
 			MetricDate:             day,
 			BatteryLevelPct:        cur.BatteryLevelPct,

@@ -101,10 +101,14 @@ and SHALL NOT keep waking that vehicle for the rest of the run.
 - **AND** the cycle continues to the other vehicles
 
 ### Requirement: Per-Vehicle Isolation And Attempt Recording
+
 The telemetry capability SHALL record exactly one attempt per vehicle per collection cycle, with an
 outcome of success or failure and a reason. A failure collecting one vehicle SHALL NOT abort the
 cycle — every other vehicle SHALL still be processed. The capability SHALL retry a transient
-failure at most once per vehicle per cycle before recording it as a failure.
+failure at most once per vehicle per cycle before recording it as a failure. Each recorded attempt
+SHALL identify the account whose credentials performed the attempt, which — once a vehicle is
+polled by exactly one elected account per cycle — is that vehicle's single elected account for the
+cycle, not necessarily every account that has ever registered the vehicle.
 
 #### Scenario: One vehicle's failure does not stop the others
 - **GIVEN** three registered vehicles where the second fails to be captured
@@ -117,8 +121,9 @@ failure at most once per vehicle per cycle before recording it as a failure.
 - **GIVEN** a collection cycle over a set of registered vehicles
 - **WHEN** the cycle completes
 - **THEN** each vehicle has exactly one recorded attempt for that cycle
-- **AND** each attempt carries the owning account id, the vehicle's Tesla id, the attempt time, an
-  outcome of success or failure, and a reason
+- **AND** each attempt carries the id of the account whose credentials performed the
+  attempt, the vehicle's Tesla id, the attempt time, an outcome of success or failure,
+  and a reason
 
 ### Requirement: Expired Or Revoked Connections Are Isolated, Not Fatal
 The telemetry capability SHALL treat an account with no usable Tesla connection (missing, expired
@@ -169,19 +174,21 @@ SHALL shut down gracefully when the process receives a termination signal.
 - **AND** no new collection cycle is started after the shutdown begins
 
 ### Requirement: Latest Snapshot Read Port
-The telemetry capability's read port SHALL return snapshots whose values are already expressed in
-their display units, and SHALL NOT perform, or require its callers to perform, any unit conversion
-on read. The read port SHALL return the TPMS tire pressure fields for all four corners, expressed
-in PSI, alongside the existing snapshot fields. The capability SHALL NOT expose companion
-conversion methods on the returned snapshot type; every returned field SHALL be directly usable in
-the unit its name declares. The pressure fields SHALL remain nullable, preserving the
-nil/not-reported distinction from the stored value itself rather than re-deriving it per call. No
-new read method is introduced; the four TPMS fields ride on the existing Snapshot returned by the
-existing read port methods.
+
+The telemetry capability SHALL expose a read port method that returns the most recently captured
+snapshot for each of a caller-supplied batch of vehicles, identified by their Tesla numeric ids, in
+a single call. The read port SHALL return snapshots whose values are already expressed in their
+display units, and SHALL NOT perform, or require its callers to perform, any unit conversion on
+read. The read port SHALL return the TPMS tire pressure fields for all four corners, expressed in
+PSI, alongside the existing snapshot fields. The capability SHALL NOT expose companion conversion
+methods on the returned snapshot type; every returned field SHALL be directly usable in the unit
+its name declares. The pressure fields SHALL remain nullable, preserving the nil/not-reported
+distinction from the stored value itself rather than re-deriving it per call.
 
 #### Scenario: Values are returned ready to use, with no conversion on read
 - **GIVEN** a stored snapshot for a registered vehicle
-- **WHEN** a caller retrieves it through LatestSnapshotsByAccount or SnapshotsByVehicleSince
+- **WHEN** a caller retrieves it through the latest-snapshots-by-vehicle-batch method or
+  the since-a-given-instant history method
 - **THEN** the odometer and battery range fields are expressed in kilometres, the temperature
   fields in degrees Celsius, and the tire pressure fields in PSI
 - **AND** the caller performs no arithmetic and calls no conversion method to obtain those units
@@ -189,16 +196,27 @@ existing read port methods.
 
 #### Scenario: Nil fidelity is preserved by the stored pressure value
 - **GIVEN** a snapshot row for which TPMS pressure was not reported (NULL in the database)
-- **WHEN** a caller retrieves the snapshot through LatestSnapshotsByAccount or
-  SnapshotsByVehicleSince and reads any of the four pressure fields
+- **WHEN** a caller retrieves the snapshot through the latest-snapshots-by-vehicle-batch
+  method or the since-a-given-instant history method and reads any of the four pressure
+  fields
 - **THEN** each pressure field is nil
 - **AND** the caller can distinguish "not reported" from "reported 0.0 PSI"
 
-#### Scenario: Callers never access the telemetry database directly for TPMS data
-- **GIVEN** any caller that needs to display or process TPMS tire pressure data
+#### Scenario: A batch of vehicle ids returns each vehicle's own latest snapshot
+- **GIVEN** several registered vehicles, each with at least one stored snapshot, regardless
+  of which account or accounts registered them
+- **WHEN** a caller requests the latest snapshots for a batch containing those vehicles'
+  Tesla ids
+- **THEN** exactly one snapshot is returned per requested vehicle id that has a stored
+  snapshot
+- **AND** each returned snapshot is that vehicle's most recently captured one
+
+#### Scenario: Callers never access the telemetry database directly
+- **GIVEN** any caller that needs to display or process TPMS tire pressure data, or a
+  vehicle's latest snapshot
 - **WHEN** it obtains that data
-- **THEN** it does so exclusively through the Reader port interface (LatestSnapshotsByAccount
-  or SnapshotsByVehicleSince), reading the pressure fields on the returned Snapshot
+- **THEN** it does so exclusively through the read port interface, reading the pressure
+  fields on the returned Snapshot
 - **AND** it imports no package from internal/telemetry/db
 
 ### Requirement: Supercharger Session Ledger
@@ -441,23 +459,24 @@ occurred.
 - **AND** snapshot collection succeeded normally for both accounts
 
 ### Requirement: Snapshot History Read Port
+
 The telemetry capability SHALL expose a read port through which other modules (the gateway in
 particular) can retrieve the **history** of stored snapshots for a single vehicle — all snapshots
 captured at or after a caller-supplied instant — without accessing the telemetry module's database
-tables directly. The port SHALL identify the vehicle by its account and its Tesla numeric id, and
-SHALL return the existing `Snapshot` domain type (including all extracted typed fields and the raw
+tables directly. The port SHALL identify the vehicle by its Tesla numeric id alone, and SHALL
+return the existing `Snapshot` domain type (including all extracted typed fields and the raw
 payload), ordered **oldest-first** by capture time. The window boundary is supplied by the caller
 as an absolute instant (`since`, inclusive); the port SHALL NOT compute the window itself. Callers
 SHALL receive an empty result (not an error) when the vehicle has no snapshots in the window. The
 distance and range fields SHALL be returned in kilometres, already converted at capture time, and
 the returned type SHALL carry no companion method for deriving them.
 
-#### Scenario: History is returned oldest-first for a vehicle within its account
+#### Scenario: History is returned oldest-first for a vehicle
 
-- **GIVEN** an account that has stored several snapshots for one vehicle across different
-  collection runs, all captured at or after a given instant
-- **WHEN** the caller requests that vehicle's snapshot history since that instant (passing the
-  account id, the vehicle's Tesla id, and the instant)
+- **GIVEN** a vehicle with several stored snapshots across different collection runs, all
+  captured at or after a given instant
+- **WHEN** the caller requests that vehicle's snapshot history since that instant (passing
+  the vehicle's Tesla id and the instant)
 - **THEN** every snapshot captured at or after the instant is returned
 - **AND** the snapshots are ordered oldest-first by capture time
 - **AND** all extracted fields (including odometer, battery level, and battery range) match the
@@ -485,14 +504,12 @@ the returned type SHALL carry no companion method for deriving them.
 - **THEN** an empty collection is returned
 - **AND** no error is returned
 
-#### Scenario: Per-account and per-vehicle scoping
+#### Scenario: Snapshots are isolated to the requested vehicle
 
-- **GIVEN** two accounts that each own vehicles with stored snapshots, and an account that owns two
-  vehicles
-- **WHEN** the caller requests history for one account and one vehicle
-- **THEN** only snapshots belonging to that account AND that vehicle are returned
-- **AND** no snapshot belonging to another account, or to another vehicle of the same account,
-  appears in the result
+- **GIVEN** two vehicles, each with stored snapshots
+- **WHEN** the caller requests history for one specific vehicle
+- **THEN** only snapshots belonging to that vehicle are returned
+- **AND** no snapshot belonging to the other vehicle appears in the result
 
 #### Scenario: Callers never access the telemetry database directly
 
@@ -659,7 +676,7 @@ persists but did not previously map onto its public domain type.
 The telemetry capability SHALL expose a read port through which other modules can retrieve every
 stored snapshot for a single vehicle whose last-updated timestamp is at or after a
 caller-supplied instant, without accessing the telemetry module's database tables directly. The
-port SHALL identify the vehicle by its account and its Tesla numeric id, and SHALL return the
+port SHALL identify the vehicle by its Tesla numeric id alone, and SHALL return the
 existing `Snapshot` domain type. Callers SHALL receive an empty result (not an error) when no
 snapshot for that vehicle has been updated at or after the given instant.
 
@@ -711,16 +728,16 @@ when no session for that vehicle has been updated at or after the given instant.
 ### Requirement: Preceding-Snapshot Read Port
 
 The telemetry capability SHALL expose a read port through which another module can
-retrieve, for one vehicle within one account, the single most recently captured
-snapshot whose capture calendar day is strictly before a caller-supplied calendar day
-— without accessing the telemetry module's database tables directly. The port SHALL
-identify the vehicle by its account and its Tesla numeric id, SHALL take the boundary
-as a whole calendar day (never an instant), and SHALL return the existing `Snapshot`
-domain type. When the vehicle has no snapshot captured before that day, the port SHALL
-return an absent result and no error — "no predecessor exists" is a normal answer, not
-a failure. A genuine lookup failure SHALL be reported as an error and SHALL NOT be
-represented as an absent result, so a transient storage fault can never be mistaken by
-a caller for "this vehicle has no earlier snapshot".
+retrieve, for one vehicle, the single most recently captured snapshot whose capture
+calendar day is strictly before a caller-supplied calendar day — without accessing the
+telemetry module's database tables directly. The port SHALL identify the vehicle by its
+Tesla numeric id alone, SHALL take the boundary as a whole calendar day (never an
+instant), and SHALL return the existing `Snapshot` domain type. When the vehicle has no
+snapshot captured before that day, the port SHALL return an absent result and no error —
+"no predecessor exists" is a normal answer, not a failure. A genuine lookup failure SHALL
+be reported as an error and SHALL NOT be represented as an absent result, so a transient
+storage fault can never be mistaken by a caller for "this vehicle has no earlier
+snapshot".
 
 The boundary SHALL be evaluated against the snapshot's stored capture calendar day,
 not against its precise capture instant. Consequently a snapshot captured on the
@@ -1260,4 +1277,61 @@ use this account-wide port instead.
 - **WHEN** it obtains that data
 - **THEN** it does so exclusively through this read port
 - **AND** it imports no package from `internal/telemetry/db`
+
+### Requirement: Poll Account Election
+
+The telemetry capability SHALL elect exactly one account to poll each
+distinct registered vehicle before running its per-account collection loop,
+so a vehicle registered to more than one account is fetched at most once per
+collection cycle. The election SHALL prefer a candidate account whose access
+type for that vehicle is OWNER. When no candidate account has OWNER access
+type for a vehicle, the election SHALL select any candidate account that has
+registered the vehicle. When more than one candidate account is equally
+preferred (two OWNER candidates, or no OWNER candidate and several
+non-OWNER candidates), the election SHALL break the tie deterministically,
+and the tie-break outcome SHALL NOT depend on the order the account module
+returns candidates in. The election SHALL NOT skip a registered vehicle for
+any reason, including a vehicle with no OWNER-access candidate at all —
+every registered vehicle SHALL be assigned exactly one polling account on
+every cycle. The election SHALL determine its outcome using only the vehicle
+and access-type information already available from enumerating registered
+vehicles; it SHALL NOT query or otherwise depend on whether any candidate
+account's stored Tesla connection is currently usable.
+
+#### Scenario: A vehicle registered to two accounts is polled by its OWNER account
+- **GIVEN** a vehicle registered to two accounts, one with OWNER access type and one
+  with DRIVER access type
+- **WHEN** the election runs for a collection cycle
+- **THEN** the OWNER account is the one elected to poll that vehicle
+- **AND** the DRIVER account is not elected for that vehicle in the same cycle
+
+#### Scenario: A vehicle with no OWNER-access account is still polled
+- **GIVEN** a vehicle registered only to accounts whose access type for it is DRIVER, or
+  whose access type was never captured
+- **WHEN** the election runs for a collection cycle
+- **THEN** one of those accounts is elected to poll the vehicle
+- **AND** the vehicle is not omitted from the elected set for lacking an OWNER-access
+  candidate
+
+#### Scenario: A vehicle registered to exactly one account is always polled by that account
+- **GIVEN** a vehicle registered to exactly one account, regardless of that account's
+  access type for it
+- **WHEN** the election runs for a collection cycle
+- **THEN** that account is elected to poll the vehicle
+
+#### Scenario: The election makes no connection-liveness check
+- **GIVEN** a vehicle whose only candidate account's Tesla connection state is unknown
+  to the election step
+- **WHEN** the election runs for a collection cycle
+- **THEN** a candidate account is still elected for that vehicle
+- **AND** the election does not read or wait on any check of whether that account's
+  stored Tesla connection is currently usable
+
+#### Scenario: A tie between equally preferred candidates resolves the same way every time
+- **GIVEN** a vehicle registered to two accounts that are equally preferred by the
+  election rule (both OWNER, or neither OWNER)
+- **WHEN** the election runs for the same input more than once
+- **THEN** the same account is elected each time
+- **AND** the outcome does not depend on the order the two candidate accounts were
+  enumerated in
 

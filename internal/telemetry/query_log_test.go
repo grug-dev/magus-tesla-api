@@ -52,22 +52,22 @@ type fakeQueryLogStore struct {
 
 func (f *fakeQueryLogStore) insertSnapshot(context.Context, Snapshot) error   { return nil }
 func (f *fakeQueryLogStore) insertPollAttempt(context.Context, Attempt) error { return nil }
-func (f *fakeQueryLogStore) latestSnapshotsByAccount(context.Context, uuid.UUID) ([]Snapshot, error) {
+func (f *fakeQueryLogStore) latestSnapshotsByVehicles(context.Context, []int64) ([]Snapshot, error) {
 	return f.snapshots, nil
 }
-func (f *fakeQueryLogStore) snapshotsByVehicleSince(context.Context, uuid.UUID, int64, time.Time) ([]Snapshot, error) {
+func (f *fakeQueryLogStore) snapshotsByVehicleSince(context.Context, int64, time.Time) ([]Snapshot, error) {
 	return f.snapshots, nil
 }
-func (f *fakeQueryLogStore) snapshotsByVehicleBetween(context.Context, uuid.UUID, int64, time.Time, time.Time) ([]Snapshot, error) {
+func (f *fakeQueryLogStore) snapshotsByVehicleBetween(context.Context, int64, time.Time, time.Time) ([]Snapshot, error) {
 	return f.snapshots, nil
 }
-func (f *fakeQueryLogStore) snapshotsByVehicleUpdatedSince(context.Context, uuid.UUID, int64, time.Time) ([]Snapshot, error) {
+func (f *fakeQueryLogStore) snapshotsByVehicleUpdatedSince(context.Context, int64, time.Time) ([]Snapshot, error) {
 	return f.snapshots, nil
 }
 func (f *fakeQueryLogStore) upsertSuperchargerHistory(context.Context, SuperchargerHistory) error {
 	return nil
 }
-func (f *fakeQueryLogStore) snapshotPrecedingDay(context.Context, uuid.UUID, int64, time.Time) (*Snapshot, error) {
+func (f *fakeQueryLogStore) snapshotPrecedingDay(context.Context, int64, time.Time) (*Snapshot, error) {
 	return f.precedingSnapshot, nil
 }
 
@@ -79,19 +79,19 @@ type fakeQueryLogReader struct {
 	preceding *Snapshot
 }
 
-func (f *fakeQueryLogReader) LatestSnapshotsByAccount(context.Context, uuid.UUID) ([]Snapshot, error) {
+func (f *fakeQueryLogReader) LatestSnapshotsByVehicles(context.Context, []int64) ([]Snapshot, error) {
 	return f.snapshots, nil
 }
-func (f *fakeQueryLogReader) SnapshotsByVehicleSince(context.Context, uuid.UUID, int64, time.Time) ([]Snapshot, error) {
+func (f *fakeQueryLogReader) SnapshotsByVehicleSince(context.Context, int64, time.Time) ([]Snapshot, error) {
 	return f.snapshots, nil
 }
-func (f *fakeQueryLogReader) SnapshotsByVehicleBetween(context.Context, uuid.UUID, int64, time.Time, time.Time) ([]Snapshot, error) {
+func (f *fakeQueryLogReader) SnapshotsByVehicleBetween(context.Context, int64, time.Time, time.Time) ([]Snapshot, error) {
 	return f.snapshots, nil
 }
-func (f *fakeQueryLogReader) SnapshotsByVehicleUpdatedSince(context.Context, uuid.UUID, int64, time.Time) ([]Snapshot, error) {
+func (f *fakeQueryLogReader) SnapshotsByVehicleUpdatedSince(context.Context, int64, time.Time) ([]Snapshot, error) {
 	return f.snapshots, nil
 }
-func (f *fakeQueryLogReader) SnapshotPrecedingDay(context.Context, uuid.UUID, int64, time.Time) (*Snapshot, error) {
+func (f *fakeQueryLogReader) SnapshotPrecedingDay(context.Context, int64, time.Time) (*Snapshot, error) {
 	return f.preceding, nil
 }
 
@@ -152,7 +152,6 @@ func TestLoggingStore_InsertSnapshot_LogsExpectedLine(t *testing.T) {
 	rawData := []byte("RAWDATA") // len 7
 
 	if err := l.insertSnapshot(context.Background(), Snapshot{
-		AccountID:  qlAccountID,
 		TeslaID:    qlTeslaID,
 		CapturedAt: capturedAt,
 		RawData:    rawData,
@@ -161,8 +160,8 @@ func TestLoggingStore_InsertSnapshot_LogsExpectedLine(t *testing.T) {
 	}
 
 	want := fmt.Sprintf(
-		"telemetry query: insertSnapshot account=%s tesla_id=%d captured_at=%s raw_data_bytes=%d\n",
-		qlAccountID, qlTeslaID, capturedAt.Format(time.RFC3339), len(rawData))
+		"telemetry query: insertSnapshot tesla_id=%d captured_at=%s raw_data_bytes=%d\n",
+		qlTeslaID, capturedAt.Format(time.RFC3339), len(rawData))
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -175,17 +174,17 @@ func TestLoggingStore_InsertPollAttempt_LogsExpectedLine(t *testing.T) {
 	attemptedAt := time.Date(2026, 2, 1, 3, 31, 0, 0, time.UTC)
 
 	if err := l.insertPollAttempt(context.Background(), Attempt{
-		AccountID:   qlAccountID,
-		TeslaID:     qlTeslaID,
-		AttemptedAt: attemptedAt,
-		Outcome:     OutcomeSuccess,
-		Reason:      ReasonOK,
+		PolledByAccountID: qlAccountID,
+		TeslaID:           qlTeslaID,
+		AttemptedAt:       attemptedAt,
+		Outcome:           OutcomeSuccess,
+		Reason:            ReasonOK,
 	}); err != nil {
 		t.Fatalf("insertPollAttempt: unexpected error: %v", err)
 	}
 
 	want := fmt.Sprintf(
-		"telemetry query: insertPollAttempt account=%s tesla_id=%d attempted_at=%s outcome=%s reason=%s\n",
+		"telemetry query: insertPollAttempt polled_by_account=%s tesla_id=%d attempted_at=%s outcome=%s reason=%s\n",
 		qlAccountID, qlTeslaID, attemptedAt.Format(time.RFC3339), OutcomeSuccess, ReasonOK)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -231,35 +230,35 @@ func TestLoggingStore_SilentReadMethods_ProduceNoOutput(t *testing.T) {
 	l := newLoggingStore(fake)
 	ctx := context.Background()
 
-	if _, err := l.latestSnapshotsByAccount(ctx, qlAccountID); err != nil {
-		t.Fatalf("latestSnapshotsByAccount: %v", err)
+	if _, err := l.latestSnapshotsByVehicles(ctx, []int64{qlTeslaID}); err != nil {
+		t.Fatalf("latestSnapshotsByVehicles: %v", err)
 	}
 	if buf.Len() != 0 {
-		t.Fatalf("latestSnapshotsByAccount logged output, want silence: %q", buf.String())
+		t.Fatalf("latestSnapshotsByVehicles logged output, want silence: %q", buf.String())
 	}
 
-	if _, err := l.snapshotsByVehicleSince(ctx, qlAccountID, qlTeslaID, time.Now()); err != nil {
+	if _, err := l.snapshotsByVehicleSince(ctx, qlTeslaID, time.Now()); err != nil {
 		t.Fatalf("snapshotsByVehicleSince: %v", err)
 	}
 	if buf.Len() != 0 {
 		t.Fatalf("snapshotsByVehicleSince logged output, want silence: %q", buf.String())
 	}
 
-	if _, err := l.snapshotsByVehicleBetween(ctx, qlAccountID, qlTeslaID, time.Now(), time.Now()); err != nil {
+	if _, err := l.snapshotsByVehicleBetween(ctx, qlTeslaID, time.Now(), time.Now()); err != nil {
 		t.Fatalf("snapshotsByVehicleBetween: %v", err)
 	}
 	if buf.Len() != 0 {
 		t.Fatalf("snapshotsByVehicleBetween logged output, want silence: %q", buf.String())
 	}
 
-	if _, err := l.snapshotsByVehicleUpdatedSince(ctx, qlAccountID, qlTeslaID, time.Now()); err != nil {
+	if _, err := l.snapshotsByVehicleUpdatedSince(ctx, qlTeslaID, time.Now()); err != nil {
 		t.Fatalf("snapshotsByVehicleUpdatedSince: %v", err)
 	}
 	if buf.Len() != 0 {
 		t.Fatalf("snapshotsByVehicleUpdatedSince logged output, want silence: %q", buf.String())
 	}
 
-	if _, err := l.snapshotPrecedingDay(ctx, qlAccountID, qlTeslaID, time.Now()); err != nil {
+	if _, err := l.snapshotPrecedingDay(ctx, qlTeslaID, time.Now()); err != nil {
 		t.Fatalf("snapshotPrecedingDay: %v", err)
 	}
 	if buf.Len() != 0 {
@@ -271,15 +270,16 @@ func TestLoggingStore_SilentReadMethods_ProduceNoOutput(t *testing.T) {
 // Group A — loggingReader's 5 methods
 // ============================================================
 
-func TestLoggingReader_LatestSnapshotsByAccount_LogsExpectedLine(t *testing.T) {
+func TestLoggingReader_LatestSnapshotsByVehicles_LogsExpectedLine(t *testing.T) {
 	buf := captureLog(t)
 	l := newLoggingReader(&fakeQueryLogReader{snapshots: twoSnapshots()})
 
-	if _, err := l.LatestSnapshotsByAccount(context.Background(), qlAccountID); err != nil {
+	teslaIDs := []int64{qlTeslaID}
+	if _, err := l.LatestSnapshotsByVehicles(context.Background(), teslaIDs); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: LatestSnapshotsByAccount account=%s rows=%d\n", qlAccountID, 2)
+	want := fmt.Sprintf("telemetry query: LatestSnapshotsByVehicles tesla_ids=%v rows=%d\n", teslaIDs, 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -290,12 +290,12 @@ func TestLoggingReader_SnapshotsByVehicleSince_LogsExpectedLine(t *testing.T) {
 	l := newLoggingReader(&fakeQueryLogReader{snapshots: twoSnapshots()})
 
 	since := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
-	if _, err := l.SnapshotsByVehicleSince(context.Background(), qlAccountID, qlTeslaID, since); err != nil {
+	if _, err := l.SnapshotsByVehicleSince(context.Background(), qlTeslaID, since); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleSince account=%s tesla_id=%d since=%s rows=%d\n",
-		qlAccountID, qlTeslaID, since.Format(time.RFC3339), 2)
+	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleSince tesla_id=%d since=%s rows=%d\n",
+		qlTeslaID, since.Format(time.RFC3339), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -307,12 +307,12 @@ func TestLoggingReader_SnapshotsByVehicleBetween_LogsExpectedLine(t *testing.T) 
 
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
-	if _, err := l.SnapshotsByVehicleBetween(context.Background(), qlAccountID, qlTeslaID, start, end); err != nil {
+	if _, err := l.SnapshotsByVehicleBetween(context.Background(), qlTeslaID, start, end); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleBetween account=%s tesla_id=%d start=%s end=%s rows=%d\n",
-		qlAccountID, qlTeslaID, start.Format("2006-01-02"), end.Format("2006-01-02"), 2)
+	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleBetween tesla_id=%d start=%s end=%s rows=%d\n",
+		qlTeslaID, start.Format("2006-01-02"), end.Format("2006-01-02"), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -323,12 +323,12 @@ func TestLoggingReader_SnapshotsByVehicleUpdatedSince_LogsExpectedLine(t *testin
 	l := newLoggingReader(&fakeQueryLogReader{snapshots: twoSnapshots()})
 
 	since := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
-	if _, err := l.SnapshotsByVehicleUpdatedSince(context.Background(), qlAccountID, qlTeslaID, since); err != nil {
+	if _, err := l.SnapshotsByVehicleUpdatedSince(context.Background(), qlTeslaID, since); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleUpdatedSince account=%s tesla_id=%d since=%s rows=%d\n",
-		qlAccountID, qlTeslaID, since.Format(time.RFC3339), 2)
+	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleUpdatedSince tesla_id=%d since=%s rows=%d\n",
+		qlTeslaID, since.Format(time.RFC3339), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -341,12 +341,12 @@ func TestLoggingReader_SnapshotPrecedingDay_LogsExpectedLine(t *testing.T) {
 		buf := captureLog(t)
 		l := newLoggingReader(&fakeQueryLogReader{preceding: &Snapshot{}})
 
-		if _, err := l.SnapshotPrecedingDay(context.Background(), qlAccountID, qlTeslaID, day); err != nil {
+		if _, err := l.SnapshotPrecedingDay(context.Background(), qlTeslaID, day); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		want := fmt.Sprintf("telemetry query: SnapshotPrecedingDay account=%s tesla_id=%d day=%s found=%t\n",
-			qlAccountID, qlTeslaID, day.Format("2006-01-02"), true)
+		want := fmt.Sprintf("telemetry query: SnapshotPrecedingDay tesla_id=%d day=%s found=%t\n",
+			qlTeslaID, day.Format("2006-01-02"), true)
 		if got := buf.String(); got != want {
 			t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 		}
@@ -356,12 +356,12 @@ func TestLoggingReader_SnapshotPrecedingDay_LogsExpectedLine(t *testing.T) {
 		buf := captureLog(t)
 		l := newLoggingReader(&fakeQueryLogReader{preceding: nil})
 
-		if _, err := l.SnapshotPrecedingDay(context.Background(), qlAccountID, qlTeslaID, day); err != nil {
+		if _, err := l.SnapshotPrecedingDay(context.Background(), qlTeslaID, day); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		want := fmt.Sprintf("telemetry query: SnapshotPrecedingDay account=%s tesla_id=%d day=%s found=%t\n",
-			qlAccountID, qlTeslaID, day.Format("2006-01-02"), false)
+		want := fmt.Sprintf("telemetry query: SnapshotPrecedingDay tesla_id=%d day=%s found=%t\n",
+			qlTeslaID, day.Format("2006-01-02"), false)
 		if got := buf.String(); got != want {
 			t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 		}
@@ -526,7 +526,6 @@ func TestQueryLog_NeverLogsRawDataContent(t *testing.T) {
 	teslaID := qlTeslaID
 
 	if err := l.insertSnapshot(context.Background(), Snapshot{
-		AccountID:  qlAccountID,
 		TeslaID:    qlTeslaID,
 		CapturedAt: now,
 		RawData:    rawData,

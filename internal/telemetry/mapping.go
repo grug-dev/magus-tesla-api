@@ -68,8 +68,15 @@ func pgNullableInt16AsInt(v pgtype.Int2) *int {
 	return &r
 }
 
-// rowToSnapshot converts a generated telemetrydb.VehicleSnapshot row into the
-// domain Snapshot type. This is the DB→domain mapping boundary for the read path:
+// snapshotRow is the shape sqlc generates for the snapshot-reading queries.
+// They all select the same column list, and that list no longer covers the whole
+// table, so sqlc gives each query its own Row struct instead of reusing
+// VehicleSnapshot. Those structs are identical, so one name plus a struct
+// conversion at the call site replaces five copies of this mapper.
+type snapshotRow = telemetrydb.LatestSnapshotsByVehiclesRow
+
+// rowToSnapshot converts a generated snapshot row into the domain Snapshot type.
+// This is the DB→domain mapping boundary for the read path:
 // all pgtype conversions are confined here so pgtype never escapes the module
 // (ai/go-conventions.md §persistence). Mapping rules:
 //
@@ -98,7 +105,7 @@ func pgNullableInt16AsInt(v pgtype.Int2) *int {
 //   - latitude/longitude and fast_charger_type were dropped in migration 20260801000001;
 //     they are not present on VehicleSnapshot and not mapped here. Values are lossless
 //     in raw_data JSONB.
-func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
+func rowToSnapshot(r snapshotRow) Snapshot {
 	var sentryMode *bool
 	if r.SentryMode.Valid {
 		v := r.SentryMode.Bool
@@ -106,7 +113,6 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 	}
 
 	return Snapshot{
-		AccountID:         r.AccountID,
 		TeslaID:           r.TeslaID,
 		CapturedAt:        r.CapturedAt.Time,
 		CapturedDate:      r.CapturedDate.Time,

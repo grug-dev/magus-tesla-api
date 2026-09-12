@@ -99,7 +99,7 @@ func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID
 		ctx := context.Background()
 		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metrics WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
 		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE tesla_id = $1", teslaID)
 	})
 }
 
@@ -113,7 +113,6 @@ func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID
 // window/scoping, or that an error from one of them propagates.
 func fixtureAPair(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC),
@@ -122,7 +121,6 @@ func fixtureAPair(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snaps
 		BatteryRangeKm:  300.0,
 	}
 	cur = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC),
@@ -204,9 +202,11 @@ func TestRecalculate_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	if fakeTelemetry.gotAccountID != accountID || fakeTelemetry.gotTeslaID != teslaID {
-		t.Errorf("telemetry scoping: want (%s, %d), got (%s, %d)",
-			accountID, teslaID, fakeTelemetry.gotAccountID, fakeTelemetry.gotTeslaID)
+	// Telemetry reads are keyed on tesla_id alone now, so only the vehicle is
+	// checked here. The supercharger and manual ports below still take the
+	// account and are still checked for both.
+	if fakeTelemetry.gotTeslaID != teslaID {
+		t.Errorf("telemetry scoping: want teslaID %d, got %d", teslaID, fakeTelemetry.gotTeslaID)
 	}
 	if fakeSupercharger.gotAccountID != accountID || fakeSupercharger.gotTeslaID != teslaID {
 		t.Errorf("supercharger scoping: want (%s, %d), got (%s, %d)",
@@ -349,6 +349,8 @@ func TestRecalculate_ManualError_Propagates(t *testing.T) {
 // boundary). nil stays nil (SQL NULL); existing callers that never set these
 // fields keep getting NULL, a behavior-preserving change for every
 // pre-existing fixture.
+// seedSnapshot writes a snapshot with no account. vehicle_snapshots is keyed on
+// tesla_id, so the account is not part of a row's identity any more.
 func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 	t.Helper()
 	updatedAt := s.UpdatedAt
@@ -357,19 +359,19 @@ func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 	}
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO telemetry.vehicle_snapshots (
-			account_id, tesla_id, captured_at, captured_date, raw_data,
+			tesla_id, captured_at, captured_date, raw_data,
 			battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
 			odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
 			tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
 			updated_at
 		) VALUES (
-			$1, $2, $3, $4, '{}'::jsonb,
-			$5, $6, $7, $8,
-			$9, $10, $11, $12, $13, $14,
-			$15, $16, $17, $18,
-			$19
+			$1, $2, $3, '{}'::jsonb,
+			$4, $5, $6, $7,
+			$8, $9, $10, $11, $12, $13,
+			$14, $15, $16, $17,
+			$18
 		)`,
-		s.AccountID, s.TeslaID,
+		s.TeslaID,
 		pgtype.Timestamptz{Time: s.CapturedAt, Valid: true},
 		dateFrom(s.CapturedDate),
 		int32(s.BatteryLevelPct), s.BatteryRangeKm, s.ChargingState, int32(s.ChargeLimitSocPct),
@@ -695,7 +697,6 @@ func fetchWatermark(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesla
 // derived figures itself (D1/D10).
 func metricsFixtureA(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 10),
@@ -704,7 +705,6 @@ func metricsFixtureA(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 		BatteryRangeKm:  300.0,
 	}
 	cur = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 11),
@@ -726,7 +726,6 @@ func metricsFixtureA(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 // row).
 func metricsFixtureB(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 12, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 12),
@@ -735,7 +734,6 @@ func metricsFixtureB(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 		BatteryRangeKm:  250.0,
 	}
 	cur = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 13, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 13),
@@ -750,7 +748,6 @@ func metricsFixtureB(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 // true first-ever snapshot, no predecessor row seeded at all.
 func metricsFixtureC(accountID uuid.UUID, teslaID int64) telemetry.Snapshot {
 	return telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 5, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 5),
@@ -1056,12 +1053,12 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	day1 := day0.AddDate(0, 0, 1)
 
 	prev := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day0.Add(3*time.Hour + 30*time.Minute), CapturedDate: day0,
 		OdometerKm: 500.0, BatteryLevelPct: 70, BatteryRangeKm: 260.0,
 	}
 	cur := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day1.Add(3*time.Hour + 30*time.Minute), CapturedDate: day1,
 		OdometerKm: 520.0, BatteryLevelPct: 62, BatteryRangeKm: 240.0,
 	}
@@ -1120,12 +1117,12 @@ func TestReconcile_Idempotent(t *testing.T) {
 	day1 := day0.AddDate(0, 0, 1)
 
 	prev := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day0.Add(3*time.Hour + 30*time.Minute), CapturedDate: day0,
 		OdometerKm: 1000.0, BatteryLevelPct: 80, BatteryRangeKm: 300.0,
 	}
 	cur := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day1.Add(3*time.Hour + 30*time.Minute), CapturedDate: day1,
 		OdometerKm: 1050.0, BatteryLevelPct: 65, BatteryRangeKm: 280.0,
 	}
@@ -1209,13 +1206,13 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 	oldDay := clock.CalendarDay(refNow, time.UTC).AddDate(0, 0, -25) // "three weeks ago" and then some -- safely before yesterday
 
 	prev := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: oldDay.Add(3*time.Hour + 30*time.Minute), CapturedDate: oldDay,
 		OdometerKm: 1000.0, BatteryLevelPct: 50, BatteryRangeKm: 220.0,
 	}
 	curDay := oldDay.AddDate(0, 0, 1)
 	cur := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: curDay.Add(3*time.Hour + 30*time.Minute), CapturedDate: curDay,
 		OdometerKm: 1010.0, BatteryLevelPct: 45, BatteryRangeKm: 210.0,
 	}
@@ -1368,12 +1365,12 @@ func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 	// clock.CalendarDay(s.CapturedDate, time.UTC) - 1 day (consumed.go), and design.md's own
 	// "Then" bullet pins the resulting row's metric_date at day(2026,8,14).
 	prev := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day(2026, 8, 14).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 14),
 		OdometerKm: 100.0, BatteryLevelPct: 80,
 	}
 	cur := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day(2026, 8, 15).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 15),
 		OdometerKm: 140.0, BatteryLevelPct: 75,
 	}
@@ -1441,12 +1438,12 @@ func TestReconcile_T4_NilTeslaIDSessionExcludedByPort(t *testing.T) {
 	cleanupVehicleMetrics(t, pool, accountID, teslaID)
 
 	prev := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day(2026, 8, 14).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 14),
 		OdometerKm: 100.0, BatteryLevelPct: 80,
 	}
 	cur := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day(2026, 8, 15).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 15),
 		OdometerKm: 140.0, BatteryLevelPct: 75,
 	}
@@ -1516,12 +1513,12 @@ func TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy(t *testing.
 	// (day(2026,8,20)/day(2026,8,21)) -- design.md's "Then" pins the row's
 	// metric_date at day(2026,8,21).
 	prev := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day(2026, 8, 21).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 21),
 		OdometerKm: 1000.0, BatteryLevelPct: 90,
 	}
 	cur := telemetry.Snapshot{
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: day(2026, 8, 22).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 22),
 		OdometerKm: 1000.0, BatteryLevelPct: 85,
 	}
@@ -1761,7 +1758,6 @@ func TestReader_BothMethods_ExcludeFixtureCRow(t *testing.T) {
 // reachable only via telemetry.Reader.SnapshotPrecedingDay (design.md D2/D7).
 func metricsFixtureD(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 1, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 1),
@@ -1770,7 +1766,6 @@ func metricsFixtureD(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 		BatteryRangeKm:  350.0,
 	}
 	cur = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 8),
@@ -1977,7 +1972,6 @@ func TestRecalculate_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 // is excluded exactly like a negative. Raw observations only (D1/D10).
 func metricsFixtureE(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 15, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 15),
@@ -1986,7 +1980,6 @@ func metricsFixtureE(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 		BatteryRangeKm:  280.0,
 	}
 	cur = telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 16, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 16),
@@ -2096,17 +2089,17 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 	cleanupVehicleMetrics(t, pool, accountID, teslaID)
 
 	snapA := telemetry.Snapshot{ // day N-1
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: time.Date(2026, 8, 20, 3, 30, 0, 0, time.UTC), CapturedDate: day(2026, 8, 20),
 		OdometerKm: 1000.0, BatteryLevelPct: 80, BatteryRangeKm: 300.0,
 	}
 	snapB := telemetry.Snapshot{ // day N -- the row that gets recaptured
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: time.Date(2026, 8, 21, 3, 30, 0, 0, time.UTC), CapturedDate: day(2026, 8, 21),
 		OdometerKm: 1050.0, BatteryLevelPct: 70, BatteryRangeKm: 280.0,
 	}
 	snapC := telemetry.Snapshot{ // day N+1 -- the successor whose row must refresh
-		AccountID: accountID, TeslaID: teslaID,
+		TeslaID:    teslaID,
 		CapturedAt: time.Date(2026, 8, 22, 3, 30, 0, 0, time.UTC), CapturedDate: day(2026, 8, 22),
 		OdometerKm: 1150.0, BatteryLevelPct: 55, BatteryRangeKm: 250.0,
 	}
@@ -2139,12 +2132,19 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 	// A direct UPDATE is the right substitute here: telemetry exposes no
 	// public writer for a single row (D19), and the point under test is
 	// Recalculate's read-time behavior, not the UPSERT mechanics themselves.
-	if _, err := pool.Exec(ctx,
+	tag, err := pool.Exec(ctx,
 		`UPDATE telemetry.vehicle_snapshots SET odometer_km = $1, battery_level_pct = $2, battery_range_km = $3
-		 WHERE account_id = $4 AND tesla_id = $5 AND captured_date = $6`,
-		1080.0, int32(60), 260.0, accountID, teslaID, dateFrom(day(2026, 8, 21)),
-	); err != nil {
+		 WHERE tesla_id = $4 AND captured_date = $5`,
+		1080.0, int32(60), 260.0, teslaID, dateFrom(day(2026, 8, 21)),
+	)
+	if err != nil {
 		t.Fatalf("simulating same-day recapture: %v", err)
+	}
+	// Check the row count. An UPDATE that matches nothing does not error, so a
+	// wrong WHERE here would silently skip the recapture and make the
+	// assertions below pass for the wrong reason.
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("simulating same-day recapture: want 1 row updated, got %d", tag.RowsAffected())
 	}
 
 	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
@@ -2333,7 +2333,7 @@ func TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor(t *te
 // Task 5.3 -- TestReader_LatestMetricsByAccount_*: the four cases from
 // design.md's Test Contract ("Multi-vehicle DISTINCT ON case", Fixture
 // RM38-A/RM38-C, and the empty-account contract mirroring
-// LatestSnapshotsByAccount's own).
+// LatestSnapshotsByVehicles's own).
 // ===========================================================================
 
 // TestReader_LatestMetricsByAccount_SingleVehicleFullyPopulated covers
@@ -2570,7 +2570,7 @@ func TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus(t *tes
 // TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice
 // covers design.md's Test Contract "An account with no computed vehicles yet
 // returns no results, not an error" -- mirroring
-// telemetry.Reader.LatestSnapshotsByAccount's identical empty-account
+// telemetry.Reader.LatestSnapshotsByVehicles's identical empty-account
 // contract (design D5).
 func TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice(t *testing.T) {
 	pool := newTestPool(t)
@@ -2627,7 +2627,6 @@ func TestRecalculate_TPMS_RoundTrip(t *testing.T) {
 
 	metricDate := day(2026, 9, 1)
 	cur := telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 9, 2, 3, 30, 0, 0, time.UTC),
 		CapturedDate:      metricDate.AddDate(0, 0, 1),

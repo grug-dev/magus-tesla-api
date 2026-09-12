@@ -14,30 +14,31 @@ import (
 
 const insertPollAttempt = `-- name: InsertPollAttempt :exec
 INSERT INTO telemetry.poll_attempts (
-    account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by
+    polled_by_account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
 )
 `
 
 type InsertPollAttemptParams struct {
-	AccountID   uuid.UUID
-	TeslaID     int64
-	AttemptedAt pgtype.Timestamptz
-	Outcome     string
-	Reason      string
-	RunID       pgtype.UUID
-	TriggeredBy string
+	PolledByAccountID uuid.UUID
+	TeslaID           int64
+	AttemptedAt       pgtype.Timestamptz
+	Outcome           string
+	Reason            string
+	RunID             pgtype.UUID
+	TriggeredBy       string
 }
 
 // Record one attempt per (vehicle, run), success or failure. outcome is
 // success|failure; reason is ok|asleep-timeout|unauthorized|api-error. run_id
-// correlates every vehicle's row from one app.ProcessVehicleData invocation;
-// triggered_by records what triggered that invocation (RM29-app-add-process-
-// vehicle-data design D5/D7).
+// correlates every vehicle's row from one collection cycle; triggered_by
+// records what triggered that cycle. polled_by_account_id is the account
+// whose credentials made this attempt — not necessarily the vehicle's only
+// registered account, since one account is elected to poll each vehicle.
 func (q *Queries) InsertPollAttempt(ctx context.Context, arg InsertPollAttemptParams) error {
 	_, err := q.db.Exec(ctx, insertPollAttempt,
-		arg.AccountID,
+		arg.PolledByAccountID,
 		arg.TeslaID,
 		arg.AttemptedAt,
 		arg.Outcome,
@@ -116,7 +117,7 @@ func (q *Queries) InsertPollRun(ctx context.Context, arg InsertPollRunParams) er
 const insertVehicleSnapshot = `-- name: InsertVehicleSnapshot :exec
 
 INSERT INTO telemetry.vehicle_snapshots (
-    account_id, tesla_id, captured_at, raw_data,
+    tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
@@ -126,17 +127,17 @@ INSERT INTO telemetry.vehicle_snapshots (
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date
 ) VALUES (
-    $1, $2, $3, $4,
-    $5, $6, $7, $8,
-    $9, $10, $11, $12, $13,
-    $14,
-    $15, $16, $17,
-    $18, $19,
-    $20,
-    $21, $22, $23, $24,
-    $25
+    $1, $2, $3,
+    $4, $5, $6, $7,
+    $8, $9, $10, $11, $12,
+    $13,
+    $14, $15, $16,
+    $17, $18,
+    $19,
+    $20, $21, $22, $23,
+    $24
 )
-ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
+ON CONFLICT (tesla_id, captured_date) DO UPDATE SET
     captured_at               = EXCLUDED.captured_at,
     raw_data                  = EXCLUDED.raw_data,
     battery_level_pct         = EXCLUDED.battery_level_pct,
@@ -163,7 +164,6 @@ ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
 `
 
 type InsertVehicleSnapshotParams struct {
-	AccountID             uuid.UUID
 	TeslaID               int64
 	CapturedAt            pgtype.Timestamptz
 	RawData               []byte
@@ -196,48 +196,34 @@ type InsertVehicleSnapshotParams struct {
 // §persistence). All writes are append-only inserts (no UPDATE/DELETE): the two
 // tables are immutable history.
 // Upsert one snapshot: inserts a new row, or REPLACES the existing row for
-// the same (account_id, tesla_id, captured_date) if one already exists — the
-// newest capture for a calendar day always wins (design D1 of
-// telemetry-dedupe-daily-snapshots, which SUPERSEDES the table's prior
-// append-only invariant — migration 20260710000002 design D1 of
-// RM1-telemetry-add-nightly-snapshots). captured_date is Go-computed
-// (snapshotFrom/clock.CalendarDay, service.go) from captured_at in the poller's
-// configured timezone (design D2) — never a DB expression, because a UNIQUE
-// index cannot depend on the runtime POLLER_TIMEZONE env var.
+// the same (tesla_id, captured_date) if one already exists — a later
+// same-day capture is fresher information about that day, so it wins.
+// captured_date is Go-computed (snapshotFrom/clock.CalendarDay, service.go)
+// from captured_at in the platform's default zone — never a DB expression,
+// since a UNIQUE index cannot depend on a runtime env var.
 // Distance/range columns store DISPLAY units (km), converted exactly once at
-// capture time by calling the tesla adapter's Km() companions — never derived
-// on read (telemetry-store-display-units design D1/D3, RM7 Decision 1).
+// capture time by calling the tesla adapter's Km() companions — never
+// derived on read.
 // sentry_mode is bound as a nullable boolean (nil = vehicle did not report
 // sentry) so absent stays distinct from a reported off.
-// Source A (RM2-telemetry-add-charging-stats): the 5 charge-enrichment columns are
-// always non-NULL for rows written after the 20260716000002 migration — snapshotFrom
-// stores the actual DTO value pointer-wrapped (D12: no zero-is-absent heuristic).
-// NULL is reserved for pre-migration rows only; see design DSA1/DSA3.
-// max_range_charge_counter: nullable int, lifetime count of charges to max-range.
-// NULL for rows written before 20260801000001 migration (pre-extraction). A real 0
-// is stored as non-NULL via pointer-wrap in snapshotFrom (D12/DSA3 convention).
-// tpms_pressure_{fl,fr,rl,rr}_psi: nullable REAL, tire pressure in PSI — converted
-// exactly once at capture time from the Fleet API's native bar reading by calling
-// the tesla adapter's TpmsPressure*PSI() companions (telemetry-store-display-units
-// design D1/D3). NULL for rows written before 20260802000001 migration
-// (pre-extraction) or when the vehicle did not report TPMS. A 0.0 PSI is stored
-// non-NULL (D12/DSA3 convention). No new index: tpms columns ride along on the
-// existing heap row fetch.
-// latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
+// The charge-enrichment, max_range_charge_counter and tpms_pressure_*
+// columns are nullable: snapshotFrom pointer-wraps the actual DTO value, so
+// a real 0 (or 0.0 PSI) is stored non-NULL and NULL means the vehicle did
+// not report the field, or the row predates that column's extraction. No
+// new index for the tpms columns — they ride along on the existing heap
+// row fetch.
+// latitude/longitude/fast_charger_type are not extracted columns — lossless
+// in raw_data only.
 // updated_at is NOT sent as a param: DEFAULT now() handles a fresh INSERT;
 // the ON CONFLICT clause explicitly refreshes it to now() on a same-day
-// replace (design D5), mirroring UpsertSuperchargerHistory's own
-// `updated_at = now()`.
+// replace, mirroring UpsertSuperchargerHistory's own `updated_at = now()`.
 // The five derived-consumption columns (distance_traveled_km_calc,
 // battery_used_pct_calc, km_per_pct_calc, estimated_range_km_calc,
-// days_spanned_calc) that used to be bound here were DROPPED by migration
-// 20260822000001 (RM29-telemetry-drop-derived-columns tier 4, MAG-26): the
-// derivation moved to internal/analytics, which computes the same figures
+// days_spanned_calc) are not bound here: internal/analytics computes them
 // from this table's surviving raw columns (odometer_km, battery_level_pct,
-// captured_date). Nothing inside telemetry ever read them back.
+// captured_date) and never reads them back from here.
 func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSnapshotParams) error {
 	_, err := q.db.Exec(ctx, insertVehicleSnapshot,
-		arg.AccountID,
 		arg.TeslaID,
 		arg.CapturedAt,
 		arg.RawData,
@@ -266,9 +252,9 @@ func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSn
 	return err
 }
 
-const latestSnapshotsByAccount = `-- name: LatestSnapshotsByAccount :many
+const latestSnapshotsByVehicles = `-- name: LatestSnapshotsByVehicles :many
 SELECT DISTINCT ON (tesla_id)
-    id, account_id, tesla_id, captured_at, raw_data,
+    id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
@@ -278,29 +264,58 @@ SELECT DISTINCT ON (tesla_id)
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM telemetry.vehicle_snapshots
-WHERE account_id = $1
+WHERE tesla_id = ANY($1::bigint[])
 ORDER BY tesla_id, captured_at DESC
 `
 
-// Return the latest stored snapshot for each vehicle owned by the given account.
+type LatestSnapshotsByVehiclesRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
+// Return the latest stored snapshot for each vehicle in the given batch of
+// tesla_ids, regardless of which account registered them.
 // DISTINCT ON (tesla_id) with ORDER BY tesla_id, captured_at DESC picks the row
 // with the highest captured_at per tesla_id — one Postgres index scan, no N+1.
-// The existing (account_id, tesla_id, captured_at) index covers this query: the
-// planner satisfies the WHERE and ORDER BY in a single efficient range scan.
-// This is the batch read for the dashboard (tier 5, gateway-read-stored-vehicles);
-// it avoids the N+1 that would result from reading each vehicle's snapshots separately.
-func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]VehicleSnapshot, error) {
-	rows, err := q.db.Query(ctx, latestSnapshotsByAccount, accountID)
+// The (tesla_id, captured_date) UNIQUE index covers the tesla_id filter; the
+// planner satisfies the WHERE and ORDER BY in a single efficient scan.
+// This is the batch read for the dashboard: it avoids the N+1 that would
+// result from reading each vehicle's snapshots separately.
+func (q *Queries) LatestSnapshotsByVehicles(ctx context.Context, teslaIds []int64) ([]LatestSnapshotsByVehiclesRow, error) {
+	rows, err := q.db.Query(ctx, latestSnapshotsByVehicles, teslaIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VehicleSnapshot
+	var items []LatestSnapshotsByVehiclesRow
 	for rows.Next() {
-		var i VehicleSnapshot
+		var i LatestSnapshotsByVehiclesRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.AccountID,
 			&i.TeslaID,
 			&i.CapturedAt,
 			&i.RawData,
@@ -339,7 +354,7 @@ func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 
 const snapshotPrecedingDay = `-- name: SnapshotPrecedingDay :one
 SELECT
-    id, account_id, tesla_id, captured_at, raw_data,
+    id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
@@ -349,17 +364,44 @@ SELECT
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM telemetry.vehicle_snapshots
-WHERE account_id   = $1
-  AND tesla_id     = $2
-  AND captured_date < $3
-ORDER BY captured_at DESC
+WHERE tesla_id     = $1
+  AND captured_date < $2
+ORDER BY captured_date DESC
 LIMIT 1
 `
 
 type SnapshotPrecedingDayParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-	Day       pgtype.Date
+	TeslaID int64
+	Day     pgtype.Date
+}
+
+type SnapshotPrecedingDayRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
 }
 
 // Return the single most recent snapshot for a vehicle whose captured_date is
@@ -368,33 +410,26 @@ type SnapshotPrecedingDayParams struct {
 // whose only consumer is internal/analytics' Recalculate: it needs the EXACT
 // predecessor, however old, because a capture gap longer than its fetch window
 // would otherwise yield a silently wrong (or silently absent) daily delta.
-// REPLACES PreviousSnapshotForVehicle (deleted by RM29-telemetry-drop-derived-columns
-// tier 4, design D8): same table, same index strategy, same LIMIT 1; only the
-// bound moved from an instant to a calendar day.
 //
 // The bound is captured_date, NOT captured_at: captured_date is already the
-// poller-zone calendar day (stamped once on the write path by clock.CalendarDay), so the
-// predicate is zone-free at query time. It is exactly equivalent to the
-// captured_at < dayStart(cur.captured_at, loc) bound the deleted
-// PreviousSnapshotForVehicle query used, and it preserves that bound's purpose:
-// a same-day re-capture cannot select today's own about-to-be-replaced row as
-// its own predecessor, because that row's captured_date equals @day.
+// platform-zone calendar day (stamped once on the write path by
+// clock.CalendarDay), so the predicate is zone-free at query time. This
+// preserves the bound's purpose: a same-day re-capture cannot select today's
+// own about-to-be-replaced row as its own predecessor, because that row's
+// captured_date equals @day.
 //
-// Index reuse (no new index): the planner seeks the existing
-// idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at) on its
-// two leading equality columns and walks the ascending B-tree BACKWARD to
-// satisfy ORDER BY captured_at DESC, stopping at the first row that also passes
-// the captured_date residual predicate. Because
-// vehicle_snapshots_account_tesla_date_unique allows at most ONE row per
-// (account_id, tesla_id, captured_date), and captured_date is monotone
-// non-decreasing with captured_at for a vehicle, AT MOST ONE row is skipped
-// before the first match. Verified via EXPLAIN in the DB-integration test.
-func (q *Queries) SnapshotPrecedingDay(ctx context.Context, arg SnapshotPrecedingDayParams) (VehicleSnapshot, error) {
-	row := q.db.QueryRow(ctx, snapshotPrecedingDay, arg.AccountID, arg.TeslaID, arg.Day)
-	var i VehicleSnapshot
+// Index reuse (no new index): the (tesla_id, captured_date) UNIQUE index is
+// the exact predicate pair, in index order — tesla_id equality plus a
+// captured_date bound, walked backward to satisfy ORDER BY captured_date DESC.
+// Because the UNIQUE constraint allows at most ONE row per
+// (tesla_id, captured_date), and captured_date is monotone non-decreasing
+// with captured_at for a vehicle, AT MOST ONE row is skipped before the
+// first match.
+func (q *Queries) SnapshotPrecedingDay(ctx context.Context, arg SnapshotPrecedingDayParams) (SnapshotPrecedingDayRow, error) {
+	row := q.db.QueryRow(ctx, snapshotPrecedingDay, arg.TeslaID, arg.Day)
+	var i SnapshotPrecedingDayRow
 	err := row.Scan(
 		&i.ID,
-		&i.AccountID,
 		&i.TeslaID,
 		&i.CapturedAt,
 		&i.RawData,
@@ -426,7 +461,7 @@ func (q *Queries) SnapshotPrecedingDay(ctx context.Context, arg SnapshotPrecedin
 
 const snapshotsByVehicleBetween = `-- name: SnapshotsByVehicleBetween :many
 SELECT
-    id, account_id, tesla_id, captured_at, raw_data,
+    id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
@@ -436,30 +471,57 @@ SELECT
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM telemetry.vehicle_snapshots
-WHERE account_id = $1
-  AND tesla_id   = $2
-  AND captured_at >= $3
-  AND captured_at <  $4
+WHERE tesla_id   = $1
+  AND captured_at >= $2
+  AND captured_at <  $3
 ORDER BY captured_at ASC
 LIMIT 4000
 `
 
 type SnapshotsByVehicleBetweenParams struct {
-	AccountID  uuid.UUID
 	TeslaID    int64
 	StartBound pgtype.Timestamptz
 	EndBound   pgtype.Timestamptz
 }
 
-// Return the snapshots for a single vehicle (within the given account) whose
-// **EffectiveDate calendar day** falls in the caller-supplied `[start, end]` window
-// inclusive, ordered oldest-first (ascending by captured_at == ascending by
+type SnapshotsByVehicleBetweenRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
+// Return the snapshots for a single vehicle whose **EffectiveDate calendar
+// day** falls in the caller-supplied `[start, end]` window inclusive,
+// ordered oldest-first (ascending by captured_at == ascending by
 // EffectiveDate, since EffectiveDate is monotonic in CapturedAt). Used by
-// telemetry.Reader.SnapshotsByVehicleBetween to power the bounded history charts
-// (RM8 tier 1, MAG-7 date filters). `start` and `end` are whole UTC-midnight-bounded
-// calendar days; `end` is inclusive.
+// telemetry.Reader.SnapshotsByVehicleBetween to power the bounded history
+// charts. `start` and `end` are whole UTC-midnight-bounded calendar days;
+// `end` is inclusive.
 //
-// Bounds derivation (design D1/D5): EffectiveDate = CapturedAt.AddDate(0,0,-1), i.e.
+// Bounds derivation: EffectiveDate = CapturedAt.AddDate(0,0,-1), i.e.
 // EffectiveDate's UTC calendar day == CapturedAt's UTC calendar day minus 1. So
 // `EffectiveDate ∈ [start, end]` inclusive ⟺ `CapturedAt ∈ [start+1 day, end+1 day]`
 // (calendar days, inclusive both ends). Expressed as TIMESTAMPTZ predicates this is
@@ -469,70 +531,52 @@ type SnapshotsByVehicleBetweenParams struct {
 //	end_bound   = end   + 2 calendar days  (end  .AddDate(0,0,2)  — UTC midnight ending the last eligible capture day, exclusive)
 //
 // The half-open upper bound makes `end` inclusive without an off-by-one on a
-// UTC-midnight `end` instant (design D3).
-// The translation `(start, end) → (start_bound, end_bound)` lives INSIDE the dbStore
-// implementation (service.go), NOT in the public Reader method (design D5): the
-// reader/store seam passes the caller's raw `(start, end)` through unchanged, and the
-// dbStore computes and binds the two bounds as pgtype.Timestamptz here.
+// UTC-midnight `end` instant.
+// The translation `(start, end) → (start_bound, end_bound)` lives INSIDE the
+// dbStore implementation (service.go), NOT in the public Reader method: the
+// reader/store seam passes the caller's raw `(start, end)` through unchanged,
+// and the dbStore computes and binds the two bounds as pgtype.Timestamptz here.
 //
-// Why captured_at (TIMESTAMPTZ) and NOT captured_date (DATE) (design D1): captured_at
-// is the UTC capture instant EffectiveDate is derived from (rowToSnapshot:
-// CapturedAt.Time.AddDate(0,0,-1)), so the query and the mapper are consistent by
-// construction with zero timezone coupling. captured_date is Go-computed in the
-// poller's configured timezone (POLLER_TIMEZONE, currently America/Bogota, UTC−5) and
-// used solely for the (account_id, tesla_id, captured_date) dedupe UNIQUE constraint
-// (telemetry-dedupe-daily-snapshots design D2). Filtering on captured_date would
-// couple this port's correctness to the poller's timezone and break quietly the moment
-// a capture straddles UTC midnight or POLLER_TIMEZONE changes — the exact fragility
-// the dedupe change's D2 rejected. (The implicit (account_id, tesla_id, captured_date)
-// unique index would *serve* such a query, but semantic correctness disqualifies it.)
+// Why captured_at (TIMESTAMPTZ) and NOT captured_date (DATE): captured_at is
+// the UTC capture instant EffectiveDate is derived from (rowToSnapshot:
+// CapturedAt.Time.AddDate(0,0,-1)), so the query and the mapper are consistent
+// by construction with zero timezone coupling. captured_date is Go-computed in
+// the platform's default zone and used solely for the (tesla_id, captured_date)
+// dedupe UNIQUE constraint. Filtering on captured_date would couple this
+// port's correctness to that zone and break quietly the moment a capture
+// straddles UTC midnight or the zone changes. (The (tesla_id, captured_date)
+// unique index would *serve* such a query, but semantic correctness
+// disqualifies it.)
 //
-// Index reuse (D2): the existing idx_vehicle_snapshots_vehicle_time
-// (account_id, tesla_id, captured_at) is an ASCENDING index. The query's
-// (account_id = $1 AND tesla_id = $2 AND captured_at >= $3 AND captured_at < $4
-// ORDER BY captured_at ASC) is a forward range scan: the planner seeks to
-// (account_id, tesla_id, start_bound) and reads forward in index order, satisfying
-// both WHERE and ORDER BY with no sort step; the upper bound `captured_at < end_bound`
-// prunes the scan in-place. This is the identical access pattern SnapshotsByVehicleSince
-// uses, with one extra range predicate — strictly cheaper than the open Since scan for
-// the same dashboard window. No new index, no migration, no new column (design D2 —
-// the `database` design-gate is NOT triggered).
+// Index reuse: the (tesla_id, captured_date) UNIQUE index prunes the scan to
+// this vehicle's rows on the tesla_id equality; the residual
+// (captured_at >= start_bound AND captured_at < end_bound ORDER BY
+// captured_at ASC) filter and sort run over that already-small,
+// one-row-per-day set — the same access pattern SnapshotsByVehicleSince
+// uses, with one extra range predicate.
 //
-// LIMIT 4000 (D3, raised from 400 by RM29-telemetry-drop-derived-columns tier 4,
-// task 4.9): the original 400 was sized for the gateway's bounded ~91-row HTTP
-// window (Decision #2/#4), but this same query also backs internal/analytics'
-// Reconcile epoch backfill (roadmap D7/D8, RM29-analytics-add-vehicle-metrics),
-// which — since RM29 tier 4's watermark reset (design D3, I3) — can call
-// Recalculate over a SINGLE vehicle's ENTIRE snapshot history in one window. At
-// 400, a vehicle with more than 400 days of history had its NEWEST rows
-// silently dropped (this query is `ORDER BY captured_at ASC LIMIT 400`), and
-// Reconcile then advanced the watermark past days it never recomputed —
-// permanently wrong metrics, no error, no log line. That failure mode is
-// exactly what this port's own SnapshotPrecedingDay (above) exists to prevent
-// for the *predecessor* side; this raise closes the matching gap on the
-// *forward window* side that the watermark reset re-arms. 4000 is ~11 years at
-// the platform's one-snapshot-per-vehicle-per-day cadence — the cap remains a
-// runaway-query guard (all D3 ever claimed for it), and the bounded [start,
-// end] window supplied by the caller stays the real protection, not the LIMIT.
-// Truncation detection or pagination for a vehicle exceeding 4000 days is
-// explicitly out of scope (design.md Risks; do not add it here).
-func (q *Queries) SnapshotsByVehicleBetween(ctx context.Context, arg SnapshotsByVehicleBetweenParams) ([]VehicleSnapshot, error) {
-	rows, err := q.db.Query(ctx, snapshotsByVehicleBetween,
-		arg.AccountID,
-		arg.TeslaID,
-		arg.StartBound,
-		arg.EndBound,
-	)
+// LIMIT 4000: this query also backs internal/analytics' Reconcile epoch
+// backfill, which can call Recalculate over a SINGLE vehicle's ENTIRE
+// snapshot history in one window. A cap too low would silently drop the
+// newest rows (this query is `ORDER BY captured_at ASC LIMIT n`), and
+// Reconcile would then advance its watermark past days it never recomputed
+// — permanently wrong metrics, no error, no log line. 4000 is ~11 years at
+// the platform's one-snapshot-per-vehicle-per-day cadence, comfortably above
+// any real vehicle's history — the cap is a runaway-query guard; the bounded
+// [start, end] window supplied by the caller is the real protection, not the
+// LIMIT. Truncation detection or pagination for a vehicle exceeding 4000
+// days is explicitly out of scope.
+func (q *Queries) SnapshotsByVehicleBetween(ctx context.Context, arg SnapshotsByVehicleBetweenParams) ([]SnapshotsByVehicleBetweenRow, error) {
+	rows, err := q.db.Query(ctx, snapshotsByVehicleBetween, arg.TeslaID, arg.StartBound, arg.EndBound)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VehicleSnapshot
+	var items []SnapshotsByVehicleBetweenRow
 	for rows.Next() {
-		var i VehicleSnapshot
+		var i SnapshotsByVehicleBetweenRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.AccountID,
 			&i.TeslaID,
 			&i.CapturedAt,
 			&i.RawData,
@@ -571,7 +615,7 @@ func (q *Queries) SnapshotsByVehicleBetween(ctx context.Context, arg SnapshotsBy
 
 const snapshotsByVehicleSince = `-- name: SnapshotsByVehicleSince :many
 SELECT
-    id, account_id, tesla_id, captured_at, raw_data,
+    id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
@@ -581,44 +625,69 @@ SELECT
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM telemetry.vehicle_snapshots
-WHERE account_id = $1
-  AND tesla_id   = $2
-  AND captured_at >= $3
+WHERE tesla_id   = $1
+  AND captured_at >= $2
 ORDER BY captured_at ASC
 LIMIT 400
 `
 
 type SnapshotsByVehicleSinceParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-	Since     pgtype.Timestamptz
+	TeslaID int64
+	Since   pgtype.Timestamptz
 }
 
-// Return all snapshots for a single vehicle (within the given account) captured at or
-// after `since`, ordered oldest-first. Used by telemetry.Reader.SnapshotsByVehicleSince
-// to power the odometer/battery history charts (RM5 tier 1).
+type SnapshotsByVehicleSinceRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
+// Return all snapshots for a single vehicle captured at or after `since`,
+// ordered oldest-first. Used by telemetry.Reader.SnapshotsByVehicleSince to
+// power the odometer/battery history charts.
 //
-// Index reuse (D3): the existing idx_vehicle_snapshots_vehicle_time
-// (account_id, tesla_id, captured_at) is an ASCENDING index. The query's
-// (account_id = $1 AND tesla_id = $2 AND captured_at >= $3 ORDER BY captured_at ASC)
-// is a forward range scan: the planner seeks to (account_id, tesla_id, since) and
-// reads forward in index order, satisfying both WHERE and ORDER BY with no sort step.
+// Index reuse: the (tesla_id, captured_date) UNIQUE index prunes the scan to
+// this vehicle's rows on the tesla_id equality; captured_at then applies as
+// a residual filter and sort over that already one-row-per-day-at-most set.
 //
-// LIMIT 400 (D4): safety cap against an accidentally large result set if capture
-// cadence ever increases. A 30-day window returns ~30 rows under the current nightly
-// schedule — 400 comfortably exceeds any realistic dashboard window (~13 months).
-func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVehicleSinceParams) ([]VehicleSnapshot, error) {
-	rows, err := q.db.Query(ctx, snapshotsByVehicleSince, arg.AccountID, arg.TeslaID, arg.Since)
+// LIMIT 400: safety cap against an accidentally large result set if capture
+// cadence ever increases. A 30-day window returns ~30 rows under the current
+// nightly schedule — 400 comfortably exceeds any realistic dashboard window
+// (~13 months).
+func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVehicleSinceParams) ([]SnapshotsByVehicleSinceRow, error) {
+	rows, err := q.db.Query(ctx, snapshotsByVehicleSince, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VehicleSnapshot
+	var items []SnapshotsByVehicleSinceRow
 	for rows.Next() {
-		var i VehicleSnapshot
+		var i SnapshotsByVehicleSinceRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.AccountID,
 			&i.TeslaID,
 			&i.CapturedAt,
 			&i.RawData,
@@ -657,7 +726,7 @@ func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVe
 
 const snapshotsByVehicleUpdatedSince = `-- name: SnapshotsByVehicleUpdatedSince :many
 SELECT
-    id, account_id, tesla_id, captured_at, raw_data,
+    id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
@@ -667,47 +736,69 @@ SELECT
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM telemetry.vehicle_snapshots
-WHERE account_id = $1
-  AND tesla_id   = $2
-  AND updated_at >= $3
+WHERE tesla_id   = $1
+  AND updated_at >= $2
 ORDER BY updated_at ASC
 `
 
 type SnapshotsByVehicleUpdatedSinceParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-	Since     pgtype.Timestamptz
+	TeslaID int64
+	Since   pgtype.Timestamptz
 }
 
-// Return every snapshot for a single vehicle (within the given account) whose
-// updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
+type SnapshotsByVehicleUpdatedSinceRow struct {
+	ID                    uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
+}
+
+// Return every snapshot for a single vehicle whose updated_at is at or after
+// `since`, ordered oldest-first by updated_at. Used by
 // telemetry.Reader.SnapshotsByVehicleUpdatedSince to let internal/analytics'
-// Recalculator (RM29-analytics-add-vehicle-metrics) detect which snapshots
-// changed recently -- including a same-day REPLACE via the existing UPSERT
-// (design D1 of telemetry-dedupe-daily-snapshots), which advances updated_at
+// Recalculator detect which snapshots changed recently -- including a
+// same-day REPLACE via the existing UPSERT, which advances updated_at
 // without necessarily changing captured_at's calendar day.
 //
-// Index reuse: the existing idx_vehicle_snapshots_vehicle_time
-// (account_id, tesla_id, captured_at) is NOT sorted on updated_at, so this
-// query cannot use it as a pure ORDER BY-satisfying range scan the way
-// SnapshotsByVehicleSince does on captured_at. It STILL prunes the scan to
-// this one vehicle's rows via the index's (account_id, tesla_id) leading-
-// column prefix before the updated_at predicate and sort are applied --
-// updated_at is a residual filter within that scan, per this change's
-// explicit design call (no new index; verified via EXPLAIN in the
-// DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
-func (q *Queries) SnapshotsByVehicleUpdatedSince(ctx context.Context, arg SnapshotsByVehicleUpdatedSinceParams) ([]VehicleSnapshot, error) {
-	rows, err := q.db.Query(ctx, snapshotsByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
+// Index reuse: the (tesla_id, captured_date) UNIQUE index is not sorted on
+// updated_at, so this query cannot use it as a pure ORDER BY-satisfying
+// range scan the way SnapshotsByVehicleSince does on captured_at. It STILL
+// prunes the scan to this one vehicle's rows via the tesla_id equality
+// before the updated_at predicate and sort are applied -- updated_at is a
+// residual filter within that scan.
+func (q *Queries) SnapshotsByVehicleUpdatedSince(ctx context.Context, arg SnapshotsByVehicleUpdatedSinceParams) ([]SnapshotsByVehicleUpdatedSinceRow, error) {
+	rows, err := q.db.Query(ctx, snapshotsByVehicleUpdatedSince, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VehicleSnapshot
+	var items []SnapshotsByVehicleUpdatedSinceRow
 	for rows.Next() {
-		var i VehicleSnapshot
+		var i SnapshotsByVehicleUpdatedSinceRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.AccountID,
 			&i.TeslaID,
 			&i.CapturedAt,
 			&i.RawData,

@@ -133,7 +133,7 @@ func sumManualKWh(entries []charging.Entry, since time.Time) float64 {
 func (r *reader) RecentEfficiency(ctx context.Context, accountID uuid.UUID, teslaID int64) (Efficiency, bool, error) {
 	since := r.now().Add(-r.window)
 
-	snapshots, err := r.telemetry.SnapshotsByVehicleSince(ctx, accountID, teslaID, since)
+	snapshots, err := r.telemetry.SnapshotsByVehicleSince(ctx, teslaID, since)
 	if err != nil {
 		return Efficiency{}, false, err
 	}

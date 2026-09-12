@@ -45,7 +45,6 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 	day1 := day0.AddDate(0, 0, 1)
 
 	first := Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      day0,
 		CapturedDate:    clock.CalendarDay(day0, time.UTC),
@@ -71,7 +70,7 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 
 	// SnapshotPrecedingDay(day1's CapturedDate) must return the day-0 row —
 	// the bound is day1's calendar day itself (design D2), not an instant.
-	prev, err := reader.SnapshotPrecedingDay(ctx, accountID, teslaID, second.CapturedDate)
+	prev, err := reader.SnapshotPrecedingDay(ctx, teslaID, second.CapturedDate)
 	if err != nil {
 		t.Fatalf("SnapshotPrecedingDay: %v", err)
 	}
@@ -91,7 +90,6 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 	const teslaIDSingle = int64(940002)
 	cleanupVehicle(t, pool, accountIDSingle, teslaIDSingle)
 	only := Snapshot{
-		AccountID:       accountIDSingle,
 		TeslaID:         teslaIDSingle,
 		CapturedAt:      day0,
 		CapturedDate:    clock.CalendarDay(day0, time.UTC),
@@ -105,7 +103,7 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 		t.Fatalf("insert single snapshot: %v", err)
 	}
 	dayAfter := clock.CalendarDay(day0.AddDate(0, 0, 2), time.UTC) // well after the sole snapshot's own captured_date
-	got, err := reader.SnapshotPrecedingDay(ctx, accountIDSingle, teslaIDSingle, dayAfter)
+	got, err := reader.SnapshotPrecedingDay(ctx, teslaIDSingle, dayAfter)
 	if err != nil {
 		t.Fatalf("SnapshotPrecedingDay (single-row vehicle): %v", err)
 	}
@@ -118,9 +116,8 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 
 	// A vehicle with NO stored snapshots at all: (nil, nil) — not an error
 	// (design D2/D8/D10, the first-ever-snapshot case).
-	noneAccountID := uuid.New()
 	const noneTeslaID = int64(940003)
-	none, err := reader.SnapshotPrecedingDay(ctx, noneAccountID, noneTeslaID, dayAfter)
+	none, err := reader.SnapshotPrecedingDay(ctx, noneTeslaID, dayAfter)
 	if err != nil {
 		t.Fatalf("SnapshotPrecedingDay (no snapshots): want nil error, got %v", err)
 	}
@@ -129,18 +126,12 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 	}
 }
 
-// TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan verifies design.md's
-// Index Plan (RM29-telemetry-drop-derived-columns): the query reuses
-// idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at) by
-// walking it BACKWARD to satisfy ORDER BY captured_at DESC, rather than adding
-// a new index or falling back to a sequential scan. Mirrors the same-shaped
-// EXPLAIN assertion design.md documents for SnapshotsByVehicleUpdatedSince
-// (telemetry.go's doc comment on that method) — no such Go test currently
-// exists in the repo to literally mirror line-for-line, so this test is
-// authored directly from design.md's "EXPLAIN assertion" section instead.
-// The SELECT below is copied verbatim from the generated
-// internal/telemetry/db/query.sql.go's snapshotPrecedingDay constant (query.sql
-// task 1.1), prefixed with EXPLAIN (FORMAT TEXT), so a drift between this test
+// TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan verifies the query
+// reuses the UNIQUE (tesla_id, captured_date) index by walking it BACKWARD to
+// satisfy ORDER BY captured_at DESC, rather than adding a new index or
+// falling back to a sequential scan. The SELECT below is copied verbatim from
+// the generated internal/telemetry/db/query.sql.go's snapshotPrecedingDay
+// constant, prefixed with EXPLAIN (FORMAT TEXT), so a drift between this test
 // and the real query would only ever make the test fail, never pass on a stale
 // copy silently.
 func TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan(t *testing.T) {
@@ -155,7 +146,6 @@ func TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan(t *testing.T) {
 	day1 := day0.AddDate(0, 0, 1)
 
 	older := Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      day0,
 		CapturedDate:    clock.CalendarDay(day0, time.UTC),
@@ -182,9 +172,20 @@ func TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan(t *testing.T) {
 	// SnapshotPrecedingDay implementation uses (design D2).
 	explainDay := clock.CalendarDay(day1.AddDate(0, 0, 1), time.UTC)
 
+	// Force the planner off a sequential scan. This fixture holds two rows, so
+	// Postgres reads the whole table no matter what indexes exist. Turning
+	// seqscan off makes EXPLAIN show the plan it would pick on a real table,
+	// which is what this test is about.
+	if _, err := pool.Exec(ctx, "SET enable_seqscan = off"); err != nil {
+		t.Fatalf("disabling seqscan: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), "SET enable_seqscan = on")
+	})
+
 	rows, err := pool.Query(ctx, `EXPLAIN (FORMAT TEXT)
 SELECT
-    id, account_id, tesla_id, captured_at, raw_data,
+    id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
@@ -194,11 +195,10 @@ SELECT
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM telemetry.vehicle_snapshots
-WHERE account_id   = $1
-  AND tesla_id     = $2
-  AND captured_date < $3
-ORDER BY captured_at DESC
-LIMIT 1`, accountID, teslaID, dateFrom(explainDay))
+WHERE tesla_id     = $1
+  AND captured_date < $2
+ORDER BY captured_date DESC
+LIMIT 1`, teslaID, dateFrom(explainDay))
 	if err != nil {
 		t.Fatalf("EXPLAIN query: %v", err)
 	}
@@ -221,8 +221,8 @@ LIMIT 1`, accountID, teslaID, dateFrom(explainDay))
 	if !strings.Contains(planText, "Index Scan Backward") {
 		t.Errorf("expected plan to contain %q, got:\n%s", "Index Scan Backward", planText)
 	}
-	if !strings.Contains(planText, "idx_vehicle_snapshots_vehicle_time") {
-		t.Errorf("expected plan to contain %q, got:\n%s", "idx_vehicle_snapshots_vehicle_time", planText)
+	if !strings.Contains(planText, "vehicle_snapshots_tesla_date_unique") {
+		t.Errorf("expected plan to contain %q, got:\n%s", "vehicle_snapshots_tesla_date_unique", planText)
 	}
 	if strings.Contains(planText, "Seq Scan") {
 		t.Errorf("expected plan to NOT contain %q — design.md's \"deliberately not added\" index reasoning depends on this plan; report to the leader instead of adding an index, got:\n%s", "Seq Scan", planText)
@@ -235,7 +235,7 @@ LIMIT 1`, accountID, teslaID, dateFrom(explainDay))
 // SnapshotPrecedingDay's captured_date < @day predicate (design.md D2) — the
 // replacement for the deleted TestDayStart_* tests (task 4.7). A same-day
 // re-capture REPLACES the existing row via the dedupe UPSERT
-// (vehicle_snapshots_account_tesla_date_unique); SnapshotPrecedingDay must
+// (vehicle_snapshots_tesla_date_unique); SnapshotPrecedingDay must
 // still return the day N−1 row, never either the first or the replacing day-N
 // capture.
 func TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor(t *testing.T) {
@@ -251,7 +251,6 @@ func TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor(t *tes
 	dayN := dayNMinus1.AddDate(0, 0, 1)
 
 	predecessor := Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      dayNMinus1,
 		CapturedDate:    clock.CalendarDay(dayNMinus1, time.UTC),
@@ -290,7 +289,7 @@ func TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor(t *tes
 		t.Fatalf("insert day N second (replacing) capture: %v", err)
 	}
 
-	got, err := reader.SnapshotPrecedingDay(ctx, accountID, teslaID, second.CapturedDate)
+	got, err := reader.SnapshotPrecedingDay(ctx, teslaID, second.CapturedDate)
 	if err != nil {
 		t.Fatalf("SnapshotPrecedingDay: %v", err)
 	}

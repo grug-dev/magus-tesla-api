@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
@@ -494,14 +492,12 @@ func TestDeriveVehicleMetrics_ZoneShiftedRowAtWindowEnd_Emitted(t *testing.T) {
 // TestDeriveVehicleMetrics_FixtureA covers design.md's Test Contract Fixture A -- a
 // plain day, no charge events.
 func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	prevDay := day(2026, 8, 10)
 	curDay := day(2026, 8, 11)
 
 	prev := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    prevDay,
@@ -510,7 +506,6 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 		BatteryRangeKm:  300.0,
 	}
 	cur := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    curDay,
@@ -531,9 +526,6 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 	}
 	entry := got[0]
 
-	if entry.AccountID != accountID {
-		t.Errorf("AccountID: want %v, got %v", accountID, entry.AccountID)
-	}
 	if entry.TeslaID != teslaID {
 		t.Errorf("TeslaID: want %d, got %d", teslaID, entry.TeslaID)
 	}
@@ -581,14 +573,12 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 // RAW, unclamped stored value deriveVehicleMetrics produces (any read-side clamp is a
 // Reader-level concern, tested in reader_test.go).
 func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	prevDay := day(2026, 8, 12)
 	curDay := day(2026, 8, 13)
 
 	prev := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 12, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    prevDay,
@@ -596,7 +586,6 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 		BatteryLevelPct: 40,
 	}
 	cur := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 13, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    curDay,
@@ -613,9 +602,6 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 	}
 	entry := got[0]
 
-	if entry.AccountID != accountID {
-		t.Errorf("AccountID: want %v, got %v", accountID, entry.AccountID)
-	}
 	if entry.TeslaID != teslaID {
 		t.Errorf("TeslaID: want %d, got %d", teslaID, entry.TeslaID)
 	}
@@ -662,11 +648,9 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 // written -- with every derived/consumed field NULL, flagged == false (NOT true, NOT
 // left to a stray zero-value comparison), and missing_charging_type == "" (SQL NULL).
 func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	cur := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 5, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 5),
@@ -689,9 +673,6 @@ func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
 	}
 	entry := got[0]
 
-	if entry.AccountID != accountID {
-		t.Errorf("AccountID: want %v, got %v", accountID, entry.AccountID)
-	}
 	if entry.TeslaID != teslaID {
 		t.Errorf("TeslaID: want %d, got %d", teslaID, entry.TeslaID)
 	}
@@ -746,11 +727,9 @@ func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
 // `preceding` falls into the prev == nil branch and produces an ALL-NIL row with an
 // empty-looking result -- the negative assertion at the end catches exactly that.
 func TestDeriveVehicleMetrics_FixtureD_UsesPrecedingSnapshot(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	preceding := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 1, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 1),
@@ -759,7 +738,6 @@ func TestDeriveVehicleMetrics_FixtureD_UsesPrecedingSnapshot(t *testing.T) {
 		BatteryRangeKm:  350.0,
 	}
 	cur := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 8),
@@ -824,11 +802,9 @@ func TestDeriveVehicleMetrics_FixtureD_UsesPrecedingSnapshot(t *testing.T) {
 // that widened the predecessor lookup (Fixture D) but not the charge-source fetches
 // would miss this entry and wrongly report ConsumedPct 35.0 here.
 func TestDeriveVehicleMetrics_FixtureD2_ChargeInsideTheGap(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	preceding := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 1, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 1),
@@ -837,7 +813,6 @@ func TestDeriveVehicleMetrics_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 		BatteryRangeKm:  350.0,
 	}
 	cur := telemetry.Snapshot{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC),
 		CapturedDate:    day(2026, 8, 8),
@@ -897,14 +872,12 @@ func TestDeriveVehicleMetrics_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 // fields so a leak from prev instead of cur would be caught by the dedicated
 // negative assertion at the end (design D3: "copy from cur, never prev").
 func TestDeriveVehicleMetrics_FixtureRM38A_StatusColumnsPopulated(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	prevDay := day(2026, 8, 10)
 	curDay := day(2026, 8, 11)
 
 	prev := telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
 		CapturedDate:      prevDay,
@@ -920,7 +893,6 @@ func TestDeriveVehicleMetrics_FixtureRM38A_StatusColumnsPopulated(t *testing.T) 
 		ChargeLimitSocPct: 100,
 	}
 	cur := telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC),
 		CapturedDate:      curDay,
@@ -990,11 +962,9 @@ func TestDeriveVehicleMetrics_FixtureRM38A_StatusColumnsPopulated(t *testing.T) 
 // regression risk): it asserts the eight new fields are non-nil on the SAME
 // row where the five _calc columns/ConsumedPct are nil and Flagged is false.
 func TestDeriveVehicleMetrics_FixtureRM38B_StatusColumnsPopulatedWithoutPredecessor(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	cur := telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 8, 5, 3, 30, 15, 0, time.UTC),
 		CapturedDate:      day(2026, 8, 5),
@@ -1092,11 +1062,9 @@ func TestDeriveVehicleMetrics_FixtureRM38B_StatusColumnsPopulatedWithoutPredeces
 // -- design.md's own "one wheel absent" input -- so this single test also
 // proves an absent wheel travels through as nil, not a fabricated zero.
 func TestDeriveVehicleMetrics_TPMS_PredecessorLess_CopiesVerbatim(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	cur := telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 8, 5, 3, 30, 0, 0, time.UTC),
 		CapturedDate:      day(2026, 8, 5),
@@ -1150,14 +1118,12 @@ func TestDeriveVehicleMetrics_TPMS_PredecessorLess_CopiesVerbatim(t *testing.T) 
 // different TPMS values so a leak from prev instead of cur is caught here,
 // mirroring the RM38 fixtures' own "opposite value on prev" regression guard.
 func TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	prevDay := day(2026, 8, 10)
 	curDay := day(2026, 8, 11)
 
 	prev := telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
 		CapturedDate:      prevDay,
@@ -1170,7 +1136,6 @@ func TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev(t *testi
 		TpmsPressureRRPSI: floatPtr(35.3),
 	}
 	cur := telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC),
 		CapturedDate:      curDay,
@@ -1216,21 +1181,18 @@ func TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev(t *testi
 // no-predecessor case above) -- a missing wheel reading must stay nil, never
 // a fabricated zero, regardless of which branch the row takes.
 func TestDeriveVehicleMetrics_TPMS_OneWheelAbsent_WithPredecessor(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	prevDay := day(2026, 8, 10)
 	curDay := day(2026, 8, 11)
 
 	prev := telemetry.Snapshot{
-		AccountID:    accountID,
 		TeslaID:      teslaID,
 		CapturedAt:   time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
 		CapturedDate: prevDay,
 		OdometerKm:   1000.0,
 	}
 	cur := telemetry.Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC),
 		CapturedDate:      curDay,

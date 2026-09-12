@@ -35,12 +35,15 @@ func newTestStore(t *testing.T) (*dbStore, *pgxpool.Pool) {
 }
 
 // cleanupVehicle removes any rows this test created so a shared DB stays tidy. The
-// tables are append-only in production, but tests own their (account_id, tesla_id).
+// tables are append-only in production, but tests own their teslaID. vehicle_snapshots
+// is keyed on tesla_id alone (no account_id column); poll_attempts still carries the
+// polling account, so it also filters on accountID. The function signature keeps the
+// accountID parameter so every existing call site stays unchanged.
 func cleanupVehicle(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) {
 	t.Cleanup(func() {
 		ctx := context.Background()
-		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.poll_attempts WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE tesla_id = $1", teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.poll_attempts WHERE polled_by_account_id = $1 AND tesla_id = $2", accountID, teslaID)
 	})
 }
 
@@ -67,14 +70,14 @@ type snapshotFullRow struct {
 	RawData           []byte
 }
 
-func querySnapshotsFull(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]snapshotFullRow, error) {
+func querySnapshotsFull(ctx context.Context, pool *pgxpool.Pool, teslaID int64) ([]snapshotFullRow, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT battery_level_pct, charge_limit_soc_pct, battery_range_km, odometer_km,
 		        charging_state, car_version, locked, sentry_mode, captured_at, raw_data
 		   FROM telemetry.vehicle_snapshots
-		  WHERE account_id = $1 AND tesla_id = $2
+		  WHERE tesla_id = $1
 		  ORDER BY captured_at DESC`,
-		accountID, teslaID,
+		teslaID,
 	)
 	if err != nil {
 		return nil, err
@@ -98,13 +101,13 @@ type snapshotSentryRow struct {
 	SentryMode pgtype.Bool
 }
 
-func querySnapshotsSentry(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]snapshotSentryRow, error) {
+func querySnapshotsSentry(ctx context.Context, pool *pgxpool.Pool, teslaID int64) ([]snapshotSentryRow, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT sentry_mode
 		   FROM telemetry.vehicle_snapshots
-		  WHERE account_id = $1 AND tesla_id = $2
+		  WHERE tesla_id = $1
 		  ORDER BY captured_at DESC`,
-		accountID, teslaID,
+		teslaID,
 	)
 	if err != nil {
 		return nil, err
@@ -129,13 +132,13 @@ type snapshotBatteryVersionRow struct {
 	CapturedAt      pgtype.Timestamptz
 }
 
-func querySnapshotsBatteryVersion(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]snapshotBatteryVersionRow, error) {
+func querySnapshotsBatteryVersion(ctx context.Context, pool *pgxpool.Pool, teslaID int64) ([]snapshotBatteryVersionRow, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT battery_level_pct, car_version, captured_at
 		   FROM telemetry.vehicle_snapshots
-		  WHERE account_id = $1 AND tesla_id = $2
+		  WHERE tesla_id = $1
 		  ORDER BY captured_at DESC`,
-		accountID, teslaID,
+		teslaID,
 	)
 	if err != nil {
 		return nil, err
@@ -159,13 +162,13 @@ type snapshotBatteryRow struct {
 	CapturedAt      pgtype.Timestamptz
 }
 
-func querySnapshotsBattery(ctx context.Context, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) ([]snapshotBatteryRow, error) {
+func querySnapshotsBattery(ctx context.Context, pool *pgxpool.Pool, teslaID int64) ([]snapshotBatteryRow, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT battery_level_pct, captured_at
 		   FROM telemetry.vehicle_snapshots
-		  WHERE account_id = $1 AND tesla_id = $2
+		  WHERE tesla_id = $1
 		  ORDER BY captured_at DESC`,
-		accountID, teslaID,
+		teslaID,
 	)
 	if err != nil {
 		return nil, err
@@ -193,7 +196,7 @@ func queryPollAttempts(ctx context.Context, pool *pgxpool.Pool, accountID uuid.U
 	rows, err := pool.Query(ctx,
 		`SELECT outcome, reason, attempted_at
 		   FROM telemetry.poll_attempts
-		  WHERE account_id = $1 AND tesla_id = $2
+		  WHERE polled_by_account_id = $1 AND tesla_id = $2
 		  ORDER BY attempted_at DESC`,
 		accountID, teslaID,
 	)
@@ -222,7 +225,6 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
 		CapturedDate:      clock.CalendarDay(captured, time.UTC),
@@ -243,7 +245,7 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 		t.Fatalf("insertSnapshot: %v", err)
 	}
 
-	got, err := querySnapshotsFull(ctx, pool, accountID, teslaID)
+	got, err := querySnapshotsFull(ctx, pool, teslaID)
 	if err != nil {
 		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
@@ -294,7 +296,6 @@ func TestStore_SentryTrueAndFalseRoundTripFaithfully(t *testing.T) {
 
 			captured := time.Now().UTC()
 			snap := Snapshot{
-				AccountID:     accountID,
 				TeslaID:       tc.teslaID,
 				CapturedAt:    captured,
 				CapturedDate:  clock.CalendarDay(captured, time.UTC),
@@ -307,7 +308,7 @@ func TestStore_SentryTrueAndFalseRoundTripFaithfully(t *testing.T) {
 				t.Fatalf("insertSnapshot: %v", err)
 			}
 
-			got, err := querySnapshotsSentry(ctx, pool, accountID, tc.teslaID)
+			got, err := querySnapshotsSentry(ctx, pool, tc.teslaID)
 			if err != nil {
 				t.Fatalf("querying vehicle_snapshots: %v", err)
 			}
@@ -343,7 +344,6 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 	day := time.Date(2026, 1, 15, 4, 0, 0, 0, time.UTC)
 
 	base := Snapshot{
-		AccountID:     accountID,
 		TeslaID:       teslaID,
 		ChargingState: "Disconnected",
 		CarVersion:    "v1",
@@ -367,7 +367,7 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 		t.Fatalf("second insertSnapshot: %v", err)
 	}
 
-	got, err := querySnapshotsBatteryVersion(ctx, pool, accountID, teslaID)
+	got, err := querySnapshotsBatteryVersion(ctx, pool, teslaID)
 	if err != nil {
 		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
@@ -390,8 +390,8 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 
 // TestStore_SnapshotInsert_DifferentDayCreatesNewRow verifies that a capture
 // on a NEW captured_date always inserts a new row and never touches a prior
-// day's row — the dedupe constraint is scoped to (account_id, tesla_id,
-// captured_date), not the vehicle alone.
+// day's row — the dedupe constraint is scoped to (tesla_id, captured_date),
+// not the vehicle alone.
 func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
@@ -404,7 +404,6 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 	day2 := day1.AddDate(0, 0, 1)
 
 	base := Snapshot{
-		AccountID:     accountID,
 		TeslaID:       teslaID,
 		ChargingState: "Disconnected",
 		CarVersion:    "v1",
@@ -426,7 +425,7 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 		t.Fatalf("day-2 insertSnapshot: %v", err)
 	}
 
-	got, err := querySnapshotsBattery(ctx, pool, accountID, teslaID)
+	got, err := querySnapshotsBattery(ctx, pool, teslaID)
 	if err != nil {
 		t.Fatalf("querying vehicle_snapshots: %v", err)
 	}
@@ -454,11 +453,11 @@ func TestStore_PollAttemptRoundTrip(t *testing.T) {
 
 	attemptedAt := time.Now().UTC().Truncate(time.Microsecond)
 	if err := st.insertPollAttempt(ctx, Attempt{
-		AccountID:   accountID,
-		TeslaID:     teslaID,
-		AttemptedAt: attemptedAt,
-		Outcome:     OutcomeFailure,
-		Reason:      ReasonAsleepTimeout,
+		PolledByAccountID: accountID,
+		TeslaID:           teslaID,
+		AttemptedAt:       attemptedAt,
+		Outcome:           OutcomeFailure,
+		Reason:            ReasonAsleepTimeout,
 	}); err != nil {
 		t.Fatalf("insertPollAttempt: %v", err)
 	}
@@ -490,7 +489,7 @@ func TestStore_PollAttemptRoundTrip(t *testing.T) {
 // ListPollAttemptsByVehicle or any other sqlc reader query — so the assertion
 // exercises exactly the two new columns, independent of any other query's own
 // column list or mapping. The row is identified by its unique
-// (account_id, tesla_id) pair (each test uses a fresh uuid.New() account plus
+// (polled_by_account_id, tesla_id) pair (each test uses a fresh uuid.New() account plus
 // its own unused tesla_id constant), which is unique per test exactly like
 // TestStore_PollAttemptRoundTrip's own lookup above; poll_attempts.id exists
 // but insertPollAttempt is a sqlc :exec query with no RETURNING clause, so the
@@ -508,13 +507,13 @@ func TestStore_PollAttemptRoundTrip_RunIDAndTriggeredByAPI(t *testing.T) {
 	wantRunID := uuid.New()
 	attemptedAt := time.Now().UTC().Truncate(time.Microsecond)
 	if err := st.insertPollAttempt(ctx, Attempt{
-		AccountID:   accountID,
-		TeslaID:     teslaID,
-		AttemptedAt: attemptedAt,
-		Outcome:     OutcomeSuccess,
-		Reason:      ReasonOK,
-		RunID:       wantRunID,
-		TriggeredBy: TriggeredByAPI,
+		PolledByAccountID: accountID,
+		TeslaID:           teslaID,
+		AttemptedAt:       attemptedAt,
+		Outcome:           OutcomeSuccess,
+		Reason:            ReasonOK,
+		RunID:             wantRunID,
+		TriggeredBy:       TriggeredByAPI,
 	}); err != nil {
 		t.Fatalf("insertPollAttempt: %v", err)
 	}
@@ -522,7 +521,7 @@ func TestStore_PollAttemptRoundTrip_RunIDAndTriggeredByAPI(t *testing.T) {
 	var gotRunID pgtype.UUID
 	var gotTriggeredBy string
 	if err := pool.QueryRow(ctx,
-		`SELECT run_id, triggered_by FROM telemetry.poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		`SELECT run_id, triggered_by FROM telemetry.poll_attempts WHERE polled_by_account_id = $1 AND tesla_id = $2`,
 		accountID, teslaID,
 	).Scan(&gotRunID, &gotTriggeredBy); err != nil {
 		t.Fatalf("querying poll_attempts: %v", err)
@@ -559,7 +558,7 @@ func TestStore_PollAttempt_PreMigrationRowDefaultsRunIDNullTriggeredByScheduler(
 
 	attemptedAt := time.Now().UTC().Truncate(time.Microsecond)
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO telemetry.poll_attempts (account_id, tesla_id, attempted_at, outcome, reason)
+		`INSERT INTO telemetry.poll_attempts (polled_by_account_id, tesla_id, attempted_at, outcome, reason)
 		 VALUES ($1, $2, $3, $4, $5)`,
 		accountID, teslaID, attemptedAt, string(OutcomeSuccess), string(ReasonOK),
 	); err != nil {
@@ -569,7 +568,7 @@ func TestStore_PollAttempt_PreMigrationRowDefaultsRunIDNullTriggeredByScheduler(
 	var gotRunID pgtype.UUID
 	var gotTriggeredBy string
 	if err := pool.QueryRow(ctx,
-		`SELECT run_id, triggered_by FROM telemetry.poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		`SELECT run_id, triggered_by FROM telemetry.poll_attempts WHERE polled_by_account_id = $1 AND tesla_id = $2`,
 		accountID, teslaID,
 	).Scan(&gotRunID, &gotTriggeredBy); err != nil {
 		t.Fatalf("querying poll_attempts: %v", err)
@@ -600,20 +599,20 @@ func TestStore_PollAttemptRoundTrip_TriggeredByScheduler(t *testing.T) {
 
 	attemptedAt := time.Now().UTC().Truncate(time.Microsecond)
 	if err := st.insertPollAttempt(ctx, Attempt{
-		AccountID:   accountID,
-		TeslaID:     teslaID,
-		AttemptedAt: attemptedAt,
-		Outcome:     OutcomeSuccess,
-		Reason:      ReasonOK,
-		RunID:       uuid.New(),
-		TriggeredBy: TriggeredByScheduler,
+		PolledByAccountID: accountID,
+		TeslaID:           teslaID,
+		AttemptedAt:       attemptedAt,
+		Outcome:           OutcomeSuccess,
+		Reason:            ReasonOK,
+		RunID:             uuid.New(),
+		TriggeredBy:       TriggeredByScheduler,
 	}); err != nil {
 		t.Fatalf("insertPollAttempt: %v", err)
 	}
 
 	var gotTriggeredBy string
 	if err := pool.QueryRow(ctx,
-		`SELECT triggered_by FROM telemetry.poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		`SELECT triggered_by FROM telemetry.poll_attempts WHERE polled_by_account_id = $1 AND tesla_id = $2`,
 		accountID, teslaID,
 	).Scan(&gotTriggeredBy); err != nil {
 		t.Fatalf("querying poll_attempts: %v", err)

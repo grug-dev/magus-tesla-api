@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
@@ -43,7 +41,7 @@ func TestSnapshotFrom_ConvertsToDisplayUnits(t *testing.T) {
 	data.ClimateState.OutsideTemp = 9.0
 
 	captured := time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)
-	snap := snapshotFrom(uuid.New(), 42, captured, time.UTC, data, []byte(`{}`))
+	snap := snapshotFrom(42, captured, time.UTC, data, []byte(`{}`))
 
 	const eps = 1e-9
 	if math.Abs(snap.BatteryRangeKm-80.4672) > eps {
@@ -84,7 +82,7 @@ func TestSnapshotFrom_TPMSZeroBarIsNonNilZeroPSI(t *testing.T) {
 	data := &tesla.VehicleDataTesla{ID: 1}
 	data.VehicleState.TpmsPressureFL = 0.0 // a genuine flat-tire reading, not "absent"
 
-	snap := snapshotFrom(uuid.New(), 1, time.Now().UTC(), time.UTC, data, []byte(`{}`))
+	snap := snapshotFrom(1, time.Now().UTC(), time.UTC, data, []byte(`{}`))
 
 	if snap.TpmsPressureFLPSI == nil {
 		t.Fatal("TpmsPressureFLPSI: want non-nil *0.0 for a truthful 0.0 bar reading, got nil — D12 violated")
@@ -123,8 +121,8 @@ func TestSnapshotFrom_TPMS_UnreportedVsZero(t *testing.T) {
 	reportedZero := &tesla.VehicleDataTesla{ID: 3}
 	reportedZero.VehicleState.TpmsPressureFL = 0.0
 
-	got1 := snapshotFrom(uuid.New(), 2, time.Now().UTC(), time.UTC, unreported, []byte(`{}`))
-	got2 := snapshotFrom(uuid.New(), 3, time.Now().UTC(), time.UTC, reportedZero, []byte(`{}`))
+	got1 := snapshotFrom(2, time.Now().UTC(), time.UTC, unreported, []byte(`{}`))
+	got2 := snapshotFrom(3, time.Now().UTC(), time.UTC, reportedZero, []byte(`{}`))
 
 	if got1.TpmsPressureFLPSI == nil || got2.TpmsPressureFLPSI == nil {
 		t.Fatal("both must be non-nil *0.0 — snapshotFrom cannot distinguish unreported from a truthful zero given the current tesla.VehicleStateTesla DTO shape")

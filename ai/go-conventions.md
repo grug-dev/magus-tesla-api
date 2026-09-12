@@ -156,6 +156,25 @@ decoration, copy). The UI changes often and is checked by hand, so an appearance
 costs a fix on every redesign and buys nothing. The full banned/required split lives in
 `internal/gateway/AGENTS.md` §"Do not test what the page looks like" (MAG-39).
 
+**Do not test migrations. Delete migration tests when you find them.** Never write a test
+that runs a migration — rolls it back, re-applies it, and asserts what its backfill wrote.
+Never add one when asked to "add tests" broadly, and delete any that already exist rather
+than repairing them. **Migrations are verified by the owner, by inspecting the database
+directly.** That is the check that matters, and it is the one being done.
+
+The cost is one-sided. A migration is frozen the moment it is applied, but its test fixture
+is not: the fixture must keep seeding the schema that migration expected. So every later
+change that touches those columns breaks a test of work that already ran, correctly, on every
+database that needed it — and the migration itself can no longer even reach a row written by
+the new code. The test then measures nothing and still has to be fixed. Precedent:
+`TestMigration_TpmsPressureBackfill` seeded `vehicle_snapshots.account_id` so a 2026-09-08
+analytics backfill could join on it; MAG-65 re-keyed that table on `tesla_id` and the test
+broke. It was deleted, not repaired.
+
+What still belongs in a test is the **behaviour after** a migration — the queries, ports and
+derivations that read the new shape. Those are ordinary integration tests against the
+provisioned schema, and they are not migration tests.
+
 **Provisioning the test database — which entry point.** `internal/testdb` provisions a
 throw-away Postgres (a reachable `TEST_DATABASE_URL` if there is one, otherwise a disposable
 `postgres:16-alpine` container) with your migrations applied. It has two entry points, and
@@ -220,6 +239,20 @@ snapshot and none at all for a Supercharger session, so its fixtures are seeded 
 SQL (RM29 decision D19). This is a test-only concession and does not weaken the boundary rule —
 production code still reaches another module only through its public port.
 
+**Raw SQL in tests is invisible to `go vet`.** It is a string, so a fixture naming a column
+a migration just dropped or renamed still compiles, and `vet` stays green. Two habits:
+
+- When a change drops or renames a column, **scan the SQL strings in `_test.go` too** — and
+  scan across line breaks. A table name and its column often sit on different lines, so a
+  line-based `grep` finds some hits and misses others.
+- **Assert `RowsAffected()` on a fixture `UPDATE` or `DELETE`.** A write that matches no row
+  does not error. The fixture then does nothing, and the assertions after it pass or fail for
+  a reason that has nothing to do with the code under test.
+
+MAG-65 hit this three times in one change and paid a full test round each time. The last one
+reported a bug in `Recalculate` that did not exist: its `UPDATE` still filtered on the removed
+`account_id`, matched zero rows, and the re-capture it was meant to simulate never happened.
+
 ### Read optimization (project-wide)
 
 This system has an **asymmetric workload** — ~99% reads, ~1% writes (the nightly
@@ -259,9 +292,9 @@ module:
   JSONB on the hot path. Reference: `vehicle_snapshots.battery_level`, `odometer`,
   etc. alongside `raw_data`.
 - **`DISTINCT ON (x) ... ORDER BY x, time DESC` for "latest per X" queries.** One
-  Postgres index scan, no N+1. Reference: `LatestSnapshotsByAccount` in
+  Postgres index scan, no N+1. Reference: `LatestSnapshotsByVehicles` in
   `internal/telemetry/db/query.sql`. Write batch reads at the module interface
-  level (`LatestSnapshotsByAccount` — all vehicles in one query), never per-entity
+  level (`LatestSnapshotsByVehicles` — all vehicles in one query), never per-entity
   helpers (`LatestSnapshotForVehicle`) that the caller must loop over.
 - **Append-only inserts for historical event tables.** No `UPDATE`/`DELETE` on
   snapshot/history tables — they are immutable. Writes are cheap (blind `INSERT`);

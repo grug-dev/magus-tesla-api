@@ -129,7 +129,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   general rule against a gateway→telemetry import still stands project-wide — see
   `ai/architecture.md` §"Exception: the gateway may not depend on `telemetry` at all" — but
   this specific read no longer violates it). `RM38-gateway-read-dashboard-from-metrics`
-  repointed this use case from `telemetry.Reader.LatestSnapshotsByAccount` onto
+  repointed this use case off the telemetry latest-state port onto
   `analytics.Reader.LatestMetricsByAccount`, so `dashboardFor`'s own read path is
   `telemetry`-free. The sibling use case `use-case/gateway/read-dashboard-history.md`
   (`SnapshotsByVehicleBetween`) is a **different**, untouched use case that still reads
