@@ -239,6 +239,20 @@ snapshot and none at all for a Supercharger session, so its fixtures are seeded 
 SQL (RM29 decision D19). This is a test-only concession and does not weaken the boundary rule —
 production code still reaches another module only through its public port.
 
+**Raw SQL in tests is invisible to `go vet`.** It is a string, so a fixture naming a column
+a migration just dropped or renamed still compiles, and `vet` stays green. Two habits:
+
+- When a change drops or renames a column, **scan the SQL strings in `_test.go` too** — and
+  scan across line breaks. A table name and its column often sit on different lines, so a
+  line-based `grep` finds some hits and misses others.
+- **Assert `RowsAffected()` on a fixture `UPDATE` or `DELETE`.** A write that matches no row
+  does not error. The fixture then does nothing, and the assertions after it pass or fail for
+  a reason that has nothing to do with the code under test.
+
+MAG-65 hit this three times in one change and paid a full test round each time. The last one
+reported a bug in `Recalculate` that did not exist: its `UPDATE` still filtered on the removed
+`account_id`, matched zero rows, and the re-capture it was meant to simulate never happened.
+
 ### Read optimization (project-wide)
 
 This system has an **asymmetric workload** — ~99% reads, ~1% writes (the nightly
