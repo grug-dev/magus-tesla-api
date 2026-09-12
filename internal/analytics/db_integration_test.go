@@ -2132,12 +2132,19 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 	// A direct UPDATE is the right substitute here: telemetry exposes no
 	// public writer for a single row (D19), and the point under test is
 	// Recalculate's read-time behavior, not the UPSERT mechanics themselves.
-	if _, err := pool.Exec(ctx,
+	tag, err := pool.Exec(ctx,
 		`UPDATE telemetry.vehicle_snapshots SET odometer_km = $1, battery_level_pct = $2, battery_range_km = $3
-		 WHERE account_id = $4 AND tesla_id = $5 AND captured_date = $6`,
-		1080.0, int32(60), 260.0, accountID, teslaID, dateFrom(day(2026, 8, 21)),
-	); err != nil {
+		 WHERE tesla_id = $4 AND captured_date = $5`,
+		1080.0, int32(60), 260.0, teslaID, dateFrom(day(2026, 8, 21)),
+	)
+	if err != nil {
 		t.Fatalf("simulating same-day recapture: %v", err)
+	}
+	// Check the row count. An UPDATE that matches nothing does not error, so a
+	// wrong WHERE here would silently skip the recapture and make the
+	// assertions below pass for the wrong reason.
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("simulating same-day recapture: want 1 row updated, got %d", tag.RowsAffected())
 	}
 
 	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
