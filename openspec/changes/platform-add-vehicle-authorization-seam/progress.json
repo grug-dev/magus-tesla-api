@@ -4,17 +4,33 @@
   "change": "platform-add-vehicle-authorization-seam",
   "module": "platform",
   "roadmap": null,
-  "request": "MAG-66 — 3. Build the authorization seam (no table changes). Step 3 of MAG-63. Today WHERE account_id = $1 is the tenant boundary in ~40 queries. Children 4, 5 and 6 remove that column, so something must take that job first. Create a small shared package (internal/vehicleref) exporting a value type whose teslaID field is unexported, plus a gateway helper authorizeVehicle(ctx, uid, teslaID) (vehicleref.Ref, error) that checks membership in account.Service.RegisteredVehicles and returns 404, never 403. It must not live in internal/account, because internal/charging may not import that module. Writes no migration.",
-  "status": "proposed",
+  "request": "MAG-66 \u2014 3. Build the authorization seam (no table changes). Step 3 of MAG-63. Today WHERE account_id = $1 is the tenant boundary in ~40 queries. Children 4, 5 and 6 remove that column, so something must take that job first. Create a small shared package (internal/vehicleref) exporting a value type whose teslaID field is unexported, plus a gateway helper authorizeVehicle(ctx, uid, teslaID) (vehicleref.Ref, error) that checks membership in account.Service.RegisteredVehicles and returns 404, never 403. It must not live in internal/account, because internal/charging may not import that module. Writes no migration.",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"],
+    "pending": [
+      "T2",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T3"
+    ],
+    "awaiting_user_verification": [
+      "T1"
+    ]
   },
   "created_at": "2026-09-12T10:59:44Z",
-  "updated_at": "2026-09-12T10:59:44Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-12T11:09:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/CH56-MAG-66-platform-add-vehicle-authorization-seam",
@@ -24,34 +40,300 @@
     "created_at": "2026-09-12T10:59:44Z"
   },
   "tasks": [
-    { "id": "T1", "title": "internal/vehicleref package + tests", "module": "vehicleref", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T2", "title": "Gateway authorizeVehicle helper + tests", "module": "gateway", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3", "title": "internal/vehicleref/AGENTS.md", "module": "vehicleref", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T4", "title": "make vehicleref-guard", "module": "platform", "depends_on": ["T1", "T2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T5", "title": "ai/architecture.md + internal/gateway/AGENTS.md rule", "module": "gateway", "depends_on": ["T2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T6", "title": "CLAUDE.md guard entry", "module": "platform", "depends_on": ["T4"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7", "title": "Root README.md structure + architecture table", "module": "platform", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T8", "title": "kkpa/context/ KB sweep", "module": "platform", "depends_on": ["T1", "T2", "T5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T9", "title": "Verification — build, vet, gofmt, guards", "module": "platform", "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+    {
+      "id": "T1",
+      "title": "internal/vehicleref package + tests",
+      "module": "vehicleref",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "vehicleref",
+      "model": "sonnet",
+      "started_at": "2026-09-12T11:07:30Z",
+      "completed_at": "2026-09-12T11:08:05Z",
+      "duration_seconds": 51,
+      "notes": "Implemented Ref, Authorize, All, TeslaIDs, (Ref).TeslaID() per D3. Wrote vehicleref_test.go from the Test Contract. Build/vet/gofmt clean. Owner must run go test to promote to done.",
+      "budget": {
+        "five_hour_pct_start": 32,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 1.9,
+        "approx": true,
+        "note": "delta covers the whole T1+T3 wave jointly"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Gateway authorizeVehicle helper + tests",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "internal/vehicleref/AGENTS.md",
+      "module": "vehicleref",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "vehicleref",
+      "model": "sonnet",
+      "started_at": "2026-09-12T11:08:05Z",
+      "completed_at": "2026-09-12T11:08:25Z",
+      "duration_seconds": 20,
+      "notes": "Created AGENTS.md mirroring clock/AGENTS.md \u2014 Agent-Name header, empty Doc-Pack, responsibility, full public interface, why-not-account rationale, data ownership, testing notes.",
+      "budget": {
+        "five_hour_pct_start": 32,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 1.9,
+        "approx": true,
+        "note": "delta covers the whole T1+T3 wave jointly"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "make vehicleref-guard",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "ai/architecture.md + internal/gateway/AGENTS.md rule",
+      "module": "gateway",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "CLAUDE.md guard entry",
+      "module": "platform",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "Root README.md structure + architecture table",
+      "module": "platform",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "kkpa/context/ KB sweep",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T9",
+      "title": "Verification \u2014 build, vet, gofmt, guards",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
   "decisions": [
-    { "id": "U1", "at": "2026-09-12T10:59:44Z", "scope": "change", "made_by": "user", "decision": "internal/vehicleref is a NEW module mirroring internal/clock; one standalone change named platform-add-vehicle-authorization-seam", "why": "The two halves cannot compile apart, so roadmap tiers would ship a broken tier 1. Module ownership was put to the user as a gate." },
-    { "id": "U2", "at": "2026-09-12T10:59:44Z", "scope": "change", "made_by": "user", "decision": "Account-wide ports take a LIST — ...ForVehicles(ctx, refs []vehicleref.Ref), SQL tesla_id = ANY($1). Recorded for MAG-67/68/69; no port changes here", "why": "The vehicle list is already in hand at all 4 gateway call sites, so the list costs no extra query. Singular would run N queries per dashboard render." },
-    { "id": "U3", "at": "2026-09-12T10:59:44Z", "scope": "change", "made_by": "user", "decision": "An empty []Ref logs a warning and returns zero rows, never an error. Gateway keeps its len(registered) > 0 guard", "why": "Empty is fail-closed and 'user has no cars' is a real state, not an error. The guard stops a new user logging a warning on every render." },
-    { "id": "U4", "at": "2026-09-12T10:59:44Z", "scope": "change", "made_by": "user", "decision": "vehicleref.Authorize(owned []int64, want int64) (Ref, bool) plus a new make vehicleref-guard, escape hatch // vehicleref:allow:", "why": "Go has no friend packages. An unexported field blocks only a struct literal, so an exported constructor would let a handler skip the check and still compile." },
-    { "id": "U5", "at": "2026-09-12T10:59:44Z", "scope": "change", "made_by": "user", "decision": "Package surface is exactly Authorize, All, TeslaIDs and Ref.TeslaID()", "why": "TeslaIDs stops each module's SQL layer rewriting the same unwrap loop. Two plain functions are more idiomatic than a named Refs slice type." },
-    { "id": "U6", "at": "2026-09-12T10:59:44Z", "scope": "change", "made_by": "user", "decision": "Scope is the seam only — zero module ports touched, everything additive", "why": "The ticket's Done when asks only for the package and the helper. Adopting it now would pull in 3 modules and change behaviour while account_id is still the real boundary." },
-    { "id": "U7", "at": "2026-09-12T10:59:44Z", "scope": "change", "made_by": "user", "decision": "Names confirmed: package internal/vehicleref, type Ref", "why": "internal/vehicle was an old package replaced by the tesla adapter, so reusing that name would confuse anyone reading git history." },
-    { "id": "U8", "at": "2026-09-12T10:59:44Z", "scope": "change", "made_by": "user", "decision": "Unit tests INCLUDED for the seam only, overriding the ticket's 'excluded' line", "why": "This is the part of MAG-63 where a mistake leaks another user's data. Tests cover authorizeVehicle and Ref construction only." },
-    { "id": "D1", "at": "2026-09-12T10:59:44Z", "scope": "task:artifacts", "made_by": "autopilot", "decision": "Dispatched the artifacts worker as the gateway sub-agent on Sonnet, sandbox extended to the change folder", "why": "The helper lands in gateway and its AGENTS.md carries the new rule. There is no internal/platform module to own a platform- change. Every decision was pre-settled, so Sonnet was enough." }
+    {
+      "id": "U1",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "internal/vehicleref is a NEW module mirroring internal/clock; one standalone change named platform-add-vehicle-authorization-seam",
+      "why": "The two halves cannot compile apart, so roadmap tiers would ship a broken tier 1. Module ownership was put to the user as a gate."
+    },
+    {
+      "id": "U2",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Account-wide ports take a LIST \u2014 ...ForVehicles(ctx, refs []vehicleref.Ref), SQL tesla_id = ANY($1). Recorded for MAG-67/68/69; no port changes here",
+      "why": "The vehicle list is already in hand at all 4 gateway call sites, so the list costs no extra query. Singular would run N queries per dashboard render."
+    },
+    {
+      "id": "U3",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "An empty []Ref logs a warning and returns zero rows, never an error. Gateway keeps its len(registered) > 0 guard",
+      "why": "Empty is fail-closed and 'user has no cars' is a real state, not an error. The guard stops a new user logging a warning on every render."
+    },
+    {
+      "id": "U4",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "vehicleref.Authorize(owned []int64, want int64) (Ref, bool) plus a new make vehicleref-guard, escape hatch // vehicleref:allow:",
+      "why": "Go has no friend packages. An unexported field blocks only a struct literal, so an exported constructor would let a handler skip the check and still compile."
+    },
+    {
+      "id": "U5",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Package surface is exactly Authorize, All, TeslaIDs and Ref.TeslaID()",
+      "why": "TeslaIDs stops each module's SQL layer rewriting the same unwrap loop. Two plain functions are more idiomatic than a named Refs slice type."
+    },
+    {
+      "id": "U6",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Scope is the seam only \u2014 zero module ports touched, everything additive",
+      "why": "The ticket's Done when asks only for the package and the helper. Adopting it now would pull in 3 modules and change behaviour while account_id is still the real boundary."
+    },
+    {
+      "id": "U7",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Names confirmed: package internal/vehicleref, type Ref",
+      "why": "internal/vehicle was an old package replaced by the tesla adapter, so reusing that name would confuse anyone reading git history."
+    },
+    {
+      "id": "U8",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unit tests INCLUDED for the seam only, overriding the ticket's 'excluded' line",
+      "why": "This is the part of MAG-63 where a mistake leaks another user's data. Tests cover authorizeVehicle and Ref construction only."
+    },
+    {
+      "id": "D1",
+      "at": "2026-09-12T10:59:44Z",
+      "scope": "task:artifacts",
+      "made_by": "autopilot",
+      "decision": "Dispatched the artifacts worker as the gateway sub-agent on Sonnet, sandbox extended to the change folder",
+      "why": "The helper lands in gateway and its AGENTS.md carries the new rule. There is no internal/platform module to own a platform- change. Every decision was pre-settled, so Sonnet was enough."
+    }
   ],
   "events": [
-    { "at": "2026-09-12T10:59:44Z", "agent": "leader", "event": "Linear MAG-66 picked up; branch ft/CH56-MAG-66-platform-add-vehicle-authorization-seam created off main; .work-counter bumped 56 to 57" },
-    { "at": "2026-09-12T10:59:44Z", "agent": "leader", "event": "Step 2 interview ran grill-me with the user (6 questions). 8 user decisions recorded as U1-U8." },
-    { "at": "2026-09-12T10:59:44Z", "agent": "leader", "event": "design gate NOT triggered — this change touches no database object; design.md states so explicitly" },
-    { "at": "2026-09-12T10:59:44Z", "agent": "leader", "event": "dispatched gateway worker (Sonnet) for the artifacts task; returned proposal.md, design.md, specs/vehicleref/spec.md, tasks.md; openspec validate --strict passes" },
-    { "at": "2026-09-12T10:59:44Z", "agent": "leader", "event": "finding for MAG-70 sweep: telemetry.SuperchargerHistoryByAccount has no caller anywhere — only a logging wrapper and a test fake. Left in place by the seam-only scope." },
-    { "at": "2026-09-12T10:59:44Z", "agent": "leader", "event": "HALT AFTER STEP 4 per kkpa-pickup-linear-ticket scope — no implementation workers dispatched, no reviewer, no archive" }
+    {
+      "at": "2026-09-12T10:59:44Z",
+      "agent": "leader",
+      "event": "Linear MAG-66 picked up; branch ft/CH56-MAG-66-platform-add-vehicle-authorization-seam created off main; .work-counter bumped 56 to 57"
+    },
+    {
+      "at": "2026-09-12T10:59:44Z",
+      "agent": "leader",
+      "event": "Step 2 interview ran grill-me with the user (6 questions). 8 user decisions recorded as U1-U8."
+    },
+    {
+      "at": "2026-09-12T10:59:44Z",
+      "agent": "leader",
+      "event": "design gate NOT triggered \u2014 this change touches no database object; design.md states so explicitly"
+    },
+    {
+      "at": "2026-09-12T10:59:44Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (Sonnet) for the artifacts task; returned proposal.md, design.md, specs/vehicleref/spec.md, tasks.md; openspec validate --strict passes"
+    },
+    {
+      "at": "2026-09-12T10:59:44Z",
+      "agent": "leader",
+      "event": "finding for MAG-70 sweep: telemetry.SuperchargerHistoryByAccount has no caller anywhere \u2014 only a logging wrapper and a test fake. Left in place by the seam-only scope."
+    },
+    {
+      "at": "2026-09-12T10:59:44Z",
+      "agent": "leader",
+      "event": "HALT AFTER STEP 4 per kkpa-pickup-linear-ticket scope \u2014 no implementation workers dispatched, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-12T11:07:30Z",
+      "agent": "leader",
+      "event": "resume: wave 1 dispatched (T1,T3) to vehicleref worker on Sonnet; budget start five_hour_pct=32 cost=0.761"
+    },
+    {
+      "at": "2026-09-12T11:09:00Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: T1 awaiting-user-verification (tests written, not run), T3 done. Leader verified go list -deps shows zero project-local imports in internal/vehicleref."
+    }
   ]
 }

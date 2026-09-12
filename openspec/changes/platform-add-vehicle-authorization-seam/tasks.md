@@ -33,7 +33,7 @@
 
 ## T1. `internal/vehicleref` package + tests — no dependencies
 
-- [ ] T1.1 Create `internal/vehicleref/vehicleref.go` with a package doc comment stating why
+- [x] T1.1 Create `internal/vehicleref/vehicleref.go` with a package doc comment stating why
       this wrapper is justified (design.md D4's risk note): it guards a repeated,
       security-critical surface — every account-scoped module port a handler could call — where
       a handler that forgets the check must fail to compile, not merely fail a runtime check a
@@ -41,24 +41,24 @@
       name in the comment.
       Acceptance: the doc comment names the *reason* (compile-time proof on a security-critical
       surface), not a ticket, tier, or design.md reference.
-- [ ] T1.2 Implement `type Ref struct { teslaID int64 }` with the field unexported.
+- [x] T1.2 Implement `type Ref struct { teslaID int64 }` with the field unexported.
       Acceptance: `vehicleref.Ref{}` compiles from outside the package (zero value is fine) but
       `vehicleref.Ref{teslaID: 1}` does not.
-- [ ] T1.3 Implement `func Authorize(owned []int64, want int64) (Ref, bool)` per design.md D3:
+- [x] T1.3 Implement `func Authorize(owned []int64, want int64) (Ref, bool)` per design.md D3:
       returns `(Ref{teslaID: want}, true)` when `want` appears in `owned`, else the zero `Ref`
       and `false`.
       Acceptance: matches every case in design.md's Test Contract `Authorize` table exactly,
       including the empty-`owned` case.
-- [ ] T1.4 Implement `func All(owned []int64) []Ref` per design.md D3: wraps every id in
+- [x] T1.4 Implement `func All(owned []int64) []Ref` per design.md D3: wraps every id in
       `owned`, unchecked, preserving order. An empty or nil `owned` returns a zero-length slice
       (never nil-panics on range).
       Acceptance: matches design.md's Test Contract `All` cases, including the empty-input case.
-- [ ] T1.5 Implement `func TeslaIDs(refs []Ref) []int64` per design.md D3: unwraps each `Ref`
+- [x] T1.5 Implement `func TeslaIDs(refs []Ref) []int64` per design.md D3: unwraps each `Ref`
       back to its `teslaID`, preserving order. Empty/nil input returns a zero-length result.
       Acceptance: matches design.md's Test Contract `TeslaIDs` cases; round-trips with `All`
       (`TeslaIDs(All(xs))` equals `xs` for any `[]int64` input, including nil/empty).
-- [ ] T1.6 Implement `func (r Ref) TeslaID() int64` — a plain accessor, no logic.
-- [ ] T1.7 `internal/vehicleref/vehicleref_test.go` — transcribe design.md's Test Contract
+- [x] T1.6 Implement `func (r Ref) TeslaID() int64` — a plain accessor, no logic.
+- [x] T1.7 `internal/vehicleref/vehicleref_test.go` — transcribe design.md's Test Contract
       cases for `Authorize`, `All`, and `TeslaIDs` verbatim into table-driven or individual test
       functions.
       Acceptance: `go vet ./internal/vehicleref/...` compiles the test file cleanly (this
@@ -93,7 +93,7 @@
 
 ## T3. `internal/vehicleref/AGENTS.md` — depends on T1
 
-- [ ] T3.1 Create `internal/vehicleref/AGENTS.md` mirroring `internal/clock/AGENTS.md`'s shape:
+- [x] T3.1 Create `internal/vehicleref/AGENTS.md` mirroring `internal/clock/AGENTS.md`'s shape:
       an `Agent-Name: vehicleref` header, a `## Doc-Pack (module)` section (empty — state
       explicitly that this module needs nothing beyond the base pack, like `clock`'s does), the
       module's responsibility (vehicle-ownership proof, so a handler cannot pass an
