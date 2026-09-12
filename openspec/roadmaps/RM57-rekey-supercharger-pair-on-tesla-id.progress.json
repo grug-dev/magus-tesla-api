@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM57-rekey-supercharger-pair-on-tesla-id",
+  "intention": "Both Supercharger tables are keyed on tesla_id, account_id is gone, the mirror runs one pass per vehicle, and the gateway proves ownership before every Supercharger read.",
+  "request": "MAG-67 — 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
+  "status": "in-progress",
+  "autopilot": false,
+  "updated_at": "2026-09-12T12:27:24Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-67",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-67/4-re-key-the-supercharger-pair-on-tesla-id-reshape-the-mirror",
+    "created_at": "2026-09-12T12:27:24Z"
+  },
+  "rollup": { "current": [1], "pending": [2, 3], "blocked": [], "done": [] },
+  "decisions": [
+    {
+      "id": "RD1",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "tesla_id becomes NOT NULL on both Supercharger tables; account_id is dropped from both.",
+      "why": "Nothing but account_id ties a supercharger_history row to an account. After the drop an orphan row (tesla_id IS NULL) is unreachable by any query, so keeping the column nullable saves nothing."
+    },
+    {
+      "id": "RD2",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "The migration deletes rows where tesla_id IS NULL before SET NOT NULL.",
+      "why": "Owner confirmed after checking: both tables hold 0 such rows today, so the DELETE is a guard, not a data loss. The down-migration cannot restore a deleted row."
+    },
+    {
+      "id": "RD3",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "Run as roadmap RM57 with three tiers (telemetry, charging, gateway) instead of one standalone change.",
+      "why": "Two modules each own a migration and the mirror between them is reshaped. Three smaller proposals are easier to review than one large one."
+    },
+    {
+      "id": "RD4",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "Tier 3 is owned by gateway; the internal/app and internal/analytics call-site updates inside it are leader-owned integration work.",
+      "why": "A worker is sandboxed to one module. Port signature changes ripple into app and analytics, which is cross-module integration the leader owns by contract."
+    },
+    {
+      "id": "RD5",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "collectChargingHistory skips a session whose VIN is not a registered vehicle, and counts the skip in CycleReport.",
+      "why": "RD1 makes tesla_id NOT NULL, so the row cannot be written. A silent skip would hide it; counting it mirrors the existing ChargingFetchFailures shape."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM57-telemetry-rekey-supercharger-history-on-tesla-id",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": "2026-09-12T12:27:24Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "change": "RM57-charging-rekey-supercharger-sessions-on-tesla-id",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 3,
+      "change": "RM57-gateway-authorize-supercharger-reads",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1, 2],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "events": [
+    { "at": "2026-09-12T12:27:24Z", "what": "roadmap-created", "detail": "RM57 from MAG-67. Branch ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id off main 6676da8. Work counter 57 -> 58." },
+    { "at": "2026-09-12T12:27:24Z", "what": "contract-note", "detail": "openspec/config.yaml proposal rule says multi-module work must become a roadmap; followed. Budget at roadmap creation: five_hour_pct 85, context_pct 15." }
+  ]
+}
