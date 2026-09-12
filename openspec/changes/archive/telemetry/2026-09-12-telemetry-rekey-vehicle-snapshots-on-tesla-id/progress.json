@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Source ticket MAG-65 \u2014 re-key telemetry.vehicle_snapshots on tesla_id and demote poll_attempts.account_id to polled_by_account_id. Step 2 of MAG-63. Elect one polling account per vehicle first, then dedupe, swap the UNIQUE constraint, drop the column. Unit tests excluded.",
-  "status": "changes-requested",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -1368,7 +1368,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "approved",
     "agent": "telemetry-reviewer",
     "brief": "Review the change telemetry-rekey-vehicle-snapshots-on-tesla-id on branch ft/CH55-MAG-65-telemetry-rekey-vehicle-snapshots-on-tesla-id. Read the DIFF against its merge-base with main, not the whole module.\n\nVALIDATE:\n1. Module boundaries: no module reads another's DB; gateway imports no telemetry (make boundary-guard); analytics reaches telemetry only through the public Reader.\n2. Every doc-pack convention, above all the code-comment rule: no comment may cite design.md, a decision ID, or a change/roadmap ID.\n3. Spec/tasks coverage: all 60 tasks in tasks.md are implemented as written.\n4. DB objects match the USER-CONFIRMED design. Two corrections were confirmed AFTER the original gate and are binding: D13 (SnapshotPrecedingDay orders by captured_date DESC, and NO second index is added) and D14 (account_id is relaxed to NULLABLE, NOT dropped, because a frozen 2026-09-08 analytics backfill joins on it and migrations apply one module dir at a time). A mismatch with either is a blocker finding.\n5. Integration tests assert what design.md authored up front, not what the implementation happens to do.\n6. Performance-Profile compliance (read-heavy).\n7. Anti-gaming: no acceptance criterion weakened, no self-approved status. Deleted tests must each be justified: D9 (two dead per-account tests), D18 (TPMS migration test), D19 (three more migration tests, under the new no-migration-tests rule).\n\nSIGNALS: assistant-run and clean -- go build ./..., go vet ./..., gofmt, make migration-guard, make boundary-guard, make archive-guard. USER-REPORTED -- make test (go test ./...) PASSED on 2026-09-12. The assistant never ran the suite. Judge test quality by READING the tests, never by running them.\n\nKNOWN WEAK POINT, check it hard: three separate bugs in this change were raw SQL in _test.go naming a column the migration removed. go vet cannot see inside a SQL string. Re-scan every SQL string in the diff ACROSS LINE BREAKS, and check that fixture UPDATE/DELETE calls assert RowsAffected.",
     "rounds": [
@@ -1405,6 +1405,42 @@
             "note": "internal/analytics/reader_test.go: fakeTelemetryReader still declares a gotAccountID uuid.UUID field, but every method that used to set it (SnapshotsByVehicleSince, SnapshotsByVehicleBetween, SnapshotPrecedingDay) had that assignment removed in this diff, and nothing reads the field any more. Dead leftover from the account-id-removal refactor -- harmless, but a future reader may assume it still tracks something.",
             "status": "fixed",
             "triage": "accepted"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-09-12T03:00:00Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Re-verified fixed. internal/telemetry/mapping.go:71-76 adds `type snapshotRow = telemetrydb.LatestSnapshotsByVehiclesRow` with a comment that states the reason (five queries now emit identical Row structs since they no longer select the full table), no design.md/decision-ID citation. rowToSnapshot takes snapshotRow; call sites in reader.go:113 and service.go:786,807,859,883 convert with `snapshotRow(r)` -- a valid Go conversion since I confirmed all five generated Row types (LatestSnapshotsByVehiclesRow, SnapshotPrecedingDayRow, SnapshotsByVehicleSinceRow, SnapshotsByVehicleBetweenRow, SnapshotsByVehicleUpdatedSinceRow) have identical field lists (26 fields, same names/types/order) by reading the regenerated query.sql.go. Two reader_test.go fixtures now build `snapshotRow{...}` directly (no conversion needed, it's the named type itself). I re-ran `sqlc generate` myself: zero diff against the committed internal/telemetry/db/ and internal/analytics/db/ files -- the generated code is now genuinely in sync with the migration. go build ./..., go vet ./... both clean.",
+            "status": "fixed",
+            "triage": null
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Re-verified fixed. All six locations confirmed: the migration's \"20260805000001's own dedupe, design D1\" became \"the same 'newest capture wins' rule the write path already applies one column narrower: a same-day re-capture REPLACES the existing row\" (reason kept, pointer dropped); the same file's \"(Part 1 of this change)\" phrasing is also gone (\"poll election already suppressed\"), which I had flagged as a secondary note, not a separate finding. service.go's CollectAll comment: \"(D3)\" replaced with the actual reason (why grouping by account matters), \"(D9)\" simply dropped since the sentence already states the rule without it. db_read_integration_test.go:216 dropped \"(design D5)\" with the sentence left intact. external_charges.go and handlers.go: both RM38/design.md citations removed and replaced with the substance, not just the method-name swap -- confirmed the reference was replaced, not merely relocated. No new citation introduced anywhere in the diff.",
+            "status": "fixed",
+            "triage": null
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "Re-verified fixed. `grep -c '^- \\[ \\]' tasks.md` returns 0; `grep -c '^- \\[x\\]'` returns 60. tasks.md and progress.json's rollup now agree.",
+            "status": "fixed",
+            "triage": null
+          },
+          {
+            "id": "R4",
+            "severity": "minor",
+            "note": "Re-verified fixed. fakeTelemetryReader.gotAccountID is gone from internal/analytics/reader_test.go; the struct's other fields (gotTeslaID, gotSince, gotBetweenStart/End, gotPrecedingDay) are untouched. Confirmed the three other fakes in the same file (fakeSuperchargerReader, fakeManualReader, fakeVehicleLookup) keep their own gotAccountID, correctly -- those ports still take an accountID and it is still asserted.",
+            "status": "fixed",
+            "triage": null
           }
         ]
       }
