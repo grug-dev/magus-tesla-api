@@ -75,7 +75,7 @@
     "awaiting_user_verification": []
   },
   "created_at": "2026-09-11T19:20:00Z",
-  "updated_at": "2026-09-12T02:30:00Z",
+  "updated_at": "2026-09-12T02:40:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -1769,6 +1769,11 @@
       "at": "2026-09-12T02:30:00Z",
       "agent": "leader",
       "event": "review round 1: changes-requested, 4 findings, ALL accepted after leader triage. R1 fixed per user choice (D22). R2 fixed in 5 files. R3: ticked 17 T8/T9 boxes. R4: deleted the dead field. build+vet+gofmt+3 guards clean. NOT verified: sqlc regen changed types, so the suite needs a rerun."
+    },
+    {
+      "at": "2026-09-12T02:40:00Z",
+      "agent": "leader",
+      "event": "USER REPORTED make test PASSED after the round-1 fixes (sqlc regen changed types, so the earlier pass was stale). Verification is the OWNER's: the assistant never ran the suite. Re-dispatching the same reviewer for round 2."
     }
   ]
 }
