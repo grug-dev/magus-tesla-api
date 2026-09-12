@@ -107,7 +107,7 @@
 
 ## T4. `make vehicleref-guard` — depends on T1 and T2
 
-- [ ] T4.1 Add a `vehicleref-guard` target to the `Makefile`, mirroring `boundary-guard`'s
+- [x] T4.1 Add a `vehicleref-guard` target to the `Makefile`, mirroring `boundary-guard`'s
       grep-based shape and escape-hatch convention (design.md D4): fail if
       `vehicleref\.Authorize\(` or `vehicleref\.All\(` appears anywhere under `internal/`
       outside `internal/vehicleref` itself (its own package-internal use and its own test file
@@ -118,7 +118,7 @@
       convention.
       Acceptance: `make vehicleref-guard` passes clean against the tree T1-T2 produce (the only
       call sites are inside `internal/vehicleref` itself and inside `authorizeVehicle`).
-- [ ] T4.2 Add `vehicleref-guard` to `check`'s prerequisite list in the `Makefile`
+- [x] T4.2 Add `vehicleref-guard` to `check`'s prerequisite list in the `Makefile`
       (`build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard
       theme-guard vehicleref-guard archive-guard test`).
       Acceptance: `grep -n '^check:' Makefile` shows `vehicleref-guard` in the dependency list.
@@ -143,7 +143,7 @@
 
 ## T6. `CLAUDE.md` guard entry — depends on T4
 
-- [ ] T6.1 Add `make vehicleref-guard` to `CLAUDE.md`'s "Builds & local checks" allowed-commands
+- [x] T6.1 Add `make vehicleref-guard` to `CLAUDE.md`'s "Builds & local checks" allowed-commands
       list (next to `make ui-guard` / `i18n-guard` / etc.) and to the `make check` phase-list
       explanation in the same section.
       Acceptance: `grep -n 'vehicleref-guard' CLAUDE.md` shows it in both the allowed-commands
@@ -151,9 +151,9 @@
 
 ## T7. Root `README.md` — depends on T1
 
-- [ ] T7.1 Add `internal/vehicleref/` to the "Project Structure" tree, in whichever position
+- [x] T7.1 Add `internal/vehicleref/` to the "Project Structure" tree, in whichever position
       matches the tree's existing ordering convention (alongside `internal/clock`).
-- [ ] T7.2 Add a row for `internal/vehicleref` to the "Architecture" table, one line, describing
+- [x] T7.2 Add a row for `internal/vehicleref` to the "Architecture" table, one line, describing
       it as the platform's vehicle-ownership-proof package — mirroring the terse, one-line style
       every other row in that table already uses.
       Acceptance: both edits land in this change per `CLAUDE.md`'s docs-track-structural-change
@@ -161,7 +161,7 @@
 
 ## T8. `kkpa/context/` sweep — depends on T1, T2, and T5
 
-- [ ] T8.1 Grep `kkpa/context/` for any guide whose consumer map, file map, or title this
+- [x] T8.1 Grep `kkpa/context/` for any guide whose consumer map, file map, or title this
       change invalidates — a new module joining `internal/`, or a new tenancy rule an existing
       architecture guide states differently. Fix any hit found, in this change (never touching
       `openspec/changes/archive/` — a name-hit there is not this change's to fix).

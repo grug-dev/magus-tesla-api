@@ -140,6 +140,7 @@ magus-tesla-api/
 │   ├── config/         # .env loading and token persistence
 │   ├── auth/           # Tesla OAuth URL, code exchange, token refresh
 │   ├── clock/          # Platform default time zone (America/Bogota) + calendar-day normalization. Stdlib time only.
+│   ├── vehicleref/     # Vehicle-ownership proof (Ref) the gateway builds after checking account ownership. No project-local imports.
 │   └── testdb/         # Test-only Postgres provisioning (TEST_DATABASE_URL → testcontainer fallback)
 │
 ├── magus-public-key-netlify/   # EC public key hosted on Netlify for Tesla verification
@@ -232,6 +233,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
 | `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config`, `telemetry`, `analytics`, `app` and `gateway` (`RM35` tiers 2–6). |
+| `internal/vehicleref` | Vehicle-ownership proof — `Ref`, built only by `Authorize`/`All` after the gateway checks `account.RegisteredVehicles`. A module port that requires a `Ref` cannot be called without that check having already run. No table, no query, no config. |
 | `internal/testdb` | Test-only Postgres provisioning helper (uses `TEST_DATABASE_URL` when set and reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph

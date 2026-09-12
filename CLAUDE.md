@@ -8,7 +8,7 @@
 
 - `go build ./...`, `go vet ./...`, `gofmt -l`
 - `make build`, `make vet`, `make bins`
-- `make ui-guard`, `make i18n-guard`, `make money-guard`, `make tz-guard`, `make migration-guard`, `make boundary-guard`, `make archive-guard` — the standalone guards
+- `make ui-guard`, `make i18n-guard`, `make money-guard`, `make tz-guard`, `make migration-guard`, `make boundary-guard`, `make vehicleref-guard`, `make archive-guard` — the standalone guards
 - `sqlc generate` / `make sqlc`, `go mod tidy` / `make tidy`
 
 **Claude does NOT run the test suite — the owner does.** Never run `go test ./...`,
@@ -23,7 +23,7 @@ executed. Skipping a signal like that doesn't save anything; it converts it into
 round-trip that costs more than the output it replaced.
 
 `make check` is owner-only *only* because it ends in `test` — its other phases
-(`build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard archive-guard`) are all on the allowed list and Claude runs
+(`build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard vehicleref-guard archive-guard`) are all on the allowed list and Claude runs
 them individually. So excluding `check` costs no guard coverage.
 
 Consequence: when Claude has written tests but not run them, the honest state is **awaiting
