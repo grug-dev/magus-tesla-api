@@ -37,12 +37,12 @@ Sequencing rules that are not optional:
 
 Depends on: nothing.
 
-- [ ] 0.1 Grep the module's five offline test files (`charging_test.go`,
+- [x] 0.1 Grep the module's five offline test files (`charging_test.go`,
       `entry_status_test.go`, `monthly_capacity_estimator_test.go`,
       `price_source_test.go`, `session_verifier_derivation_test.go`) for
       `AccountID`, `accountID` and `account_id`. Expect **zero** hits. If a hit
       appears, the file is not offline-only and belongs to T6 instead.
-- [ ] 0.2 Record in the change's notes that this change adds **no new offline
+- [x] 0.2 Record in the change's notes that this change adds **no new offline
       test**, and why: no pure function changes behaviour; the whole change is
       schema, queries and port signatures (`design.md` §Test contract).
 
@@ -57,18 +57,20 @@ Depends on: nothing.
       `SELECT session_id, count(*) FROM charging.supercharger_sessions GROUP BY session_id HAVING count(*) > 1;`
       A non-empty second result means a duplicate pair exists, and the owner
       must confirm which copy to keep before the migration runs.
-- [ ] 1.1 Write `internal/charging/db/migrations/20260912000002_rekey_supercharger_sessions_on_tesla_id.sql`
+      **Not run by this worker — needs a live database connection the owner
+      must check. See the final report.**
+- [x] 1.1 Write `internal/charging/db/migrations/20260912000002_rekey_supercharger_sessions_on_tesla_id.sql`
       exactly as `design.md` §Schema gives it — Up and Down, comments included.
       Do not renumber: `20260912000002` is free across all four module
       directories (`design.md` §Makefile).
-- [ ] 1.2 Write `internal/charging/db/migrations/20260912000003_rekey_mirror_watermarks_on_tesla_id.sql`
+- [x] 1.2 Write `internal/charging/db/migrations/20260912000003_rekey_mirror_watermarks_on_tesla_id.sql`
       exactly as `design.md` §Schema gives it — Up and Down, comments included.
-- [ ] 1.3 Do NOT touch `COMMENT ON TABLE` or any `COMMENT ON COLUMN`
+- [x] 1.3 Do NOT touch `COMMENT ON TABLE` or any `COMMENT ON COLUMN`
       (`design.md` D8), the primary keys, or any CHECK constraint.
-- [ ] 1.4 Do NOT touch `charging.manual_charge_entries` in either file. MAG-68
+- [x] 1.4 Do NOT touch `charging.manual_charge_entries` in either file. MAG-68
       owns that table.
-- [ ] 1.5 `make migration-guard` — expect clean.
-- [ ] 1.6 Do NOT write a test for either migration. This project does not test
+- [x] 1.5 `make migration-guard` — expect clean.
+- [x] 1.6 Do NOT write a test for either migration. This project does not test
       migrations; the owner verifies them against the database directly.
 
 ## T2 — Queries and sqlc

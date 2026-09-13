@@ -5,12 +5,12 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
   "request": "MAG-67 tier 2 \u2014 Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
+    "current": [
+      "T1"
+    ],
     "pending": [
-      "T0",
-      "T1",
       "T2",
       "T3",
       "T4",
@@ -21,10 +21,12 @@
       "T9"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T0"
+    ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T12:35:00Z",
+  "updated_at": "2026-09-13T12:38:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -44,14 +46,23 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-13T12:36:00Z",
+      "completed_at": "2026-09-13T12:38:00Z",
+      "duration_seconds": 120,
+      "notes": "Grepped the five offline test files for AccountID/accountID/account_id. Zero hits in every file, as design.md predicted. This change adds no new offline test: no pure function changes behaviour.",
+      "budget": {
+        "five_hour_pct_start": 65,
+        "five_hour_pct_end": 71,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.59,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T0 and T1; the wave delta is copied onto both."
+      }
     },
     {
       "id": "T1",
@@ -59,14 +70,23 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-13T12:36:00Z",
+      "completed_at": "2026-09-13T12:38:00Z",
+      "duration_seconds": 120,
+      "notes": "Both migrations written as design.md gives them, Up and Down. make migration-guard clean. No migration test, per project rule. T1.0 stays open: its two pre-check queries need the owner and a live database.",
+      "budget": {
+        "five_hour_pct_start": 65,
+        "five_hour_pct_end": 71,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.59,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T0 and T1; the wave delta is copied onto both."
+      }
     },
     {
       "id": "T2",
@@ -267,6 +287,16 @@
       "at": "2026-09-13T12:35:00Z",
       "agent": "leader",
       "event": "database design gate confirmed by the user (4 decisions); progress.json seeded with T0-T9"
+    },
+    {
+      "at": "2026-09-13T12:36:00Z",
+      "agent": "leader",
+      "event": "dispatched wave 1 (T0, T1) to one serial charging worker on Sonnet; budget five_hour_pct 65, context_pct 15"
+    },
+    {
+      "at": "2026-09-13T12:38:00Z",
+      "agent": "leader",
+      "event": "wave 1 complete (T0 done, T1 awaiting-user-verification on the T1.0 pre-check). make migration-guard clean apart from a pre-existing unrelated 20260720000001 collision warning already in backlog.md. Budget five_hour_pct 65 -> 71."
     }
   ]
 }
