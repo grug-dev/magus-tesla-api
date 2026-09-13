@@ -296,6 +296,8 @@
 | `authorization seam` | synonym of `vehicle ownership proof` → `architecture/vehicle-ownership-proof.md` |
 | `vehicleref` | `internal/vehicleref` (`Ref` / `Authorize` / `All` / `TeslaIDs`) → `architecture/vehicle-ownership-proof.md` |
 | `can a module check tenancy itself` | no — the gateway proves ownership, modules trust it → `architecture/vehicle-ownership-proof.md` |
+| `charging_skipped_unregistered` | the cycle-log label for a session skipped because its VIN is not a registered vehicle → `architecture/telemetry-ingest-only.md` |
+| `cycle report charging counters` | the three independent charging counters (upserted · fetch failures · skipped unregistered) → `architecture/telemetry-ingest-only.md` |
 
 <!--
 Notes for the curator:

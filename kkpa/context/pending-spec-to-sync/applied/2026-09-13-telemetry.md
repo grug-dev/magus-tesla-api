@@ -9,7 +9,7 @@
 Target guide: `architecture/telemetry-ingest-only.md`
 Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    `2026-09-13`
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-13
 
 Origin: RM57 tier 1 (`RM57-telemetry-rekey-supercharger-history-on-tesla-id`, ticket MAG-67),
 archived 2026-09-13. That change synced 4 MODIFIED and 1 REMOVED requirement into the main

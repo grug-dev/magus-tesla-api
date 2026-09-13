@@ -251,6 +251,37 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   caller passes an account id to read snapshots.
   _Source: spec telemetry — Requirements: Latest Snapshot Read Port; Snapshot History Read Port; Snapshot Updated-Since Read Port; Preceding-Snapshot Read Port._
 
+- **The charging counters are three, and they are independent.** A cycle counts sessions
+  upserted, accounts whose charging-history fetch failed, and sessions skipped because the VIN
+  was not a registered vehicle. A skip is never also an upsert or a fetch failure, and a fetch
+  failure is never a skip. All three appear on the per-cycle log line, so a run that stored
+  nothing still says whether it skipped or failed.
+  _Source: spec telemetry — Requirement: Cycle Report Charging Counters._
+
+- **The Supercharger read port has exactly two methods, and both take a Tesla id alone.** One
+  returns a vehicle's sessions newest-first with a limit; one returns the sessions whose charge
+  stop time falls in a caller-supplied window, oldest-first with no limit, because the window
+  itself bounds the result. The old account-scoped "all of an account's sessions" method is gone
+  — the ledger stores no account to filter on, and nothing called it.
+  _Source: spec telemetry — Requirement: Supercharger Session Read Port._
+
+- **The date-windowed read judges a session by its stop time, not its start time.** A session
+  that starts before the window and stops inside it belongs to the window. Filtering on start
+  time instead silently drops every session that crosses a window edge.
+  _Source: spec telemetry — Requirement: Supercharger Session Read Port._
+
+- **The updated-since read must stay a single index scan with no sort step.** The spec puts this
+  obligation on the persistence layer, not just on the query: the index has to satisfy the
+  vehicle filter, the instant predicate and the ordering together. Adding a column to the
+  `ORDER BY`, or reordering the index, reintroduces a sort that the mirror pays on every
+  nightly run.
+  _Source: spec telemetry — Requirement: Supercharger Session Updated-Since Read Port._
+
+- **Every stored session carries a vehicle identifier — the ledger refuses to store one without.**
+  This is the ledger's own rule, not a side effect of a read port. It is why an unregistered VIN
+  is skipped at write time rather than stored and filtered later.
+  _Source: spec telemetry — Requirement: Supercharger Session Ledger._
+
 ## Related KB
 
 - Features: (none yet)
