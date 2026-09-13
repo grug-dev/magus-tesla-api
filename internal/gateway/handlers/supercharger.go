@@ -177,7 +177,7 @@ func (h *Handler) fetchSuperchargerRowVM(c *gin.Context, uid uuid.UUID, id uuid.
 		return fragments.SuperchargerRowVM{}, false
 	}
 
-	sessions, err := h.superchargerReader.ListSessionsByVehicleBetween(c.Request.Context(), uid, selected.TeslaID, start, end)
+	sessions, err := h.superchargerReader.ListSessionsByVehicleBetween(c.Request.Context(), selected.TeslaID, start, end)
 	if err != nil {
 		return fragments.SuperchargerRowVM{}, false
 	}
@@ -302,7 +302,7 @@ func (h *Handler) buildSuperchargerStatsView(ctx context.Context, uid uuid.UUID,
 		WindowEndStr:   end.Format("2006-01-02"),
 	}
 
-	sessions, err := h.superchargerReader.ListSessionsByVehicleBetween(ctx, uid, teslaID, start, end)
+	sessions, err := h.superchargerReader.ListSessionsByVehicleBetween(ctx, teslaID, start, end)
 	if err != nil {
 		log.Printf("gateway: supercharger reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Chart = fragments.HistoryChart{Empty: true}
@@ -668,7 +668,17 @@ func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
 		return
 	}
 
-	updated, err := h.superchargerVerifier.VerifySession(c.Request.Context(), uid, id, startPct, endPct)
+	// The port is scoped by vehicle, not by account, so the handler must supply
+	// the vehicle. resolveSelectedVehicle only ever returns a vehicle of the
+	// signed-in account, which is what keeps one account from writing another's
+	// session.
+	selected, selOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
+	if !selOK {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorSessionNotFound))
+		return
+	}
+
+	updated, err := h.superchargerVerifier.VerifySession(c.Request.Context(), selected.TeslaID, id, startPct, endPct)
 	if err != nil {
 		log.Printf("gateway: SuperchargerRowUpdate writer error for account %s, id %s: %v", uid, id, err)
 		// D9 — distinguish 404 from 500 by RE-RESOLVING via
@@ -685,14 +695,9 @@ func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
 		return
 	}
 
-	// D6 — a nil TeslaID (the session's VIN is not a currently-registered
-	// vehicle) skips recalculation and logs it; the write itself already
-	// succeeded above regardless.
-	if updated.TeslaID != nil {
-		h.recalculateAfterSessionVerify(c.Request.Context(), uid, *updated.TeslaID, updated.ChargeStopDateTime)
-	} else {
-		log.Printf("gateway: supercharger session %s verified with nil TeslaID for account %s — skipping recalculation", id, uid)
-	}
+	// A stored session always names a registered vehicle, so recalculation
+	// always runs — there is no longer an unregistered-VIN case to skip.
+	h.recalculateAfterSessionVerify(c.Request.Context(), uid, updated.TeslaID, updated.ChargeStopDateTime)
 
 	vm := superchargerRowVMFromSession(updated)
 	render(c, http.StatusOK, fragments.SuperchargerRow(vm, csrfToken, windowStartStr, windowEndStr))

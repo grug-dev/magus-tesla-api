@@ -129,10 +129,17 @@ RM29-charging-add-charge-sessions)
   `start_battery_pct_est`/`end_battery_pct_est` pair, the same drop this change
   performed one tier earlier on `charging.supercharger_sessions`; neither table
   has carried an `_est` column since.
+- **Keyed on `tesla_id`, not `account_id`.** `tesla_id BIGINT NOT NULL` identifies the
+  vehicle; the table carries no `account_id` column at all. `UNIQUE (session_id)`
+  (`supercharger_sessions_session_id_unique`) is the whole uniqueness rule — a
+  Supercharger session belongs to exactly one car, so one row per `session_id` is
+  enough. `idx_supercharger_sessions_vehicle_stop (tesla_id, charge_stop_date_time)`
+  is the only index: it prunes to one vehicle and serves the ordered vehicle reads in
+  the same scan.
 - Column-by-column:
-  - `account_id`, `vin`, `session_id`, `charge_start_date_time`, `charge_stop_date_time`,
+  - `vin`, `session_id`, `charge_start_date_time`, `charge_stop_date_time`,
     `site_location_name` — mirrored, **write-once**: telemetry never refreshes these
-    either, so this table doesn't (design.md D1's rule).
+    either, so this table doesn't.
   - `tesla_id`, `energy_kwh`, `total_cost`, `currency`, `is_paid` — mirrored,
     **refreshed on every nightly pass** (telemetry's own `ON CONFLICT DO UPDATE SET`
     refreshes them too — fees settle, invoices finalize).

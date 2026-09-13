@@ -5,27 +5,27 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
   "request": "MAG-67 tier 2 — Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       "T5",
       "T6",
-      "T7",
       "T8",
       "T9"
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       "T0",
       "T1",
       "T2",
       "T3",
-      "T4"
+      "T4",
+      "T7"
     ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T14:33:08Z",
+  "updated_at": "2026-09-13T19:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -173,14 +173,23 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-13T19:30:00Z",
+      "completed_at": "2026-09-13T19:50:56Z",
+      "duration_seconds": 1256,
+      "notes": "Deleted db_backfill_integration_test.go. Re-keyed every db_session_*, db_mirror_* and capacity test to tesla_id. Added T-1..T-7, T-10, T-11, T-13. Deleted C7 and C11: both needed a nil TeslaID, which no longer compiles.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 51,
+        "cost_usd_delta": 22.4,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "Wave 3 delta covers T5+T6 (worker A), T7 (worker B) and T8 (leader), all co-run; copied onto each."
+      }
     },
     {
       "id": "T6",
@@ -190,14 +199,23 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-13T19:30:00Z",
+      "completed_at": "2026-09-13T19:50:56Z",
+      "duration_seconds": 1256,
+      "notes": "Grepped every _test.go across line breaks for both tables: no stray hits. Fixed testdb_test.go's header and removed an unused embed. The four manual_charge_entries suites are untouched. go vet and gofmt clean.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 51,
+        "cost_usd_delta": 22.4,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "Wave 3 delta covers T5+T6 (worker A), T7 (worker B) and T8 (leader), all co-run; copied onto each."
+      }
     },
     {
       "id": "T7",
@@ -207,14 +225,23 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-13T19:30:00Z",
+      "completed_at": "2026-09-13T19:38:30Z",
+      "duration_seconds": 510,
+      "notes": "Eight markdown files now state the tesla_id key: AGENTS.md plus seven kkpa/context guides. make archive-guard passes. No Go file touched.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 51,
+        "cost_usd_delta": 22.4,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "Wave 3 delta covers T5+T6 (worker A), T7 (worker B) and T8 (leader), all co-run; copied onto each."
+      }
     },
     {
       "id": "T8",
@@ -224,14 +251,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-13T19:30:00Z",
+      "completed_at": "2026-09-13T19:47:00Z",
+      "duration_seconds": 1020,
+      "notes": "processChargingData loops per tesla_id. Analytics and gateway call sites re-keyed; the dead TeslaID != nil branch removed. Deleted the gateway test for that branch; reshaped three nil-vehicle tests into other-vehicle ones.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 51,
+        "cost_usd_delta": 22.4,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "Wave 3 delta covers T5+T6 (worker A), T7 (worker B) and T8 (leader), all co-run; copied onto each."
+      }
     },
     {
       "id": "T9",
@@ -249,14 +285,23 @@
         "T8"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-13T19:48:00Z",
+      "completed_at": "2026-09-13T19:52:00Z",
+      "duration_seconds": 240,
+      "notes": "9.1-9.9 all clean: build, vet ./..., four guards, gofmt, the repo grep and openspec validate --strict. 9.10 and 9.11 stay open: only the owner runs the suite and the post-migrate-up queries.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 51,
+        "cost_usd_delta": 22.4,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "Wave 3 delta covers T5+T6 (worker A), T7 (worker B) and T8 (leader), all co-run; copied onto each."
+      }
     }
   ],
   "review": {
@@ -309,6 +354,38 @@
       "made_by": "autopilot",
       "decision": "T2, T3 and T4 go to ONE serial worker instead of three dispatches",
       "why": "They form a hard compile chain and each is prescriptive. Three dispatches would re-read the ~12k-token doc pack twice more and leave two non-building states."
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-13T19:30:00Z",
+      "scope": "wave:3",
+      "made_by": "autopilot",
+      "decision": "Wave 3 runs two parallel Sonnet workers (T5+T6 tests, T7 docs) plus the leader on T8",
+      "why": "Files are disjoint: Go tests, markdown docs, and three other modules. The 5-hour bucket just reset to 3%, so parallel drain costs nothing here."
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-13T19:52:00Z",
+      "scope": "task:T7",
+      "made_by": "leader",
+      "decision": "T7 recorded as done, not awaiting-user-verification as the worker reported",
+      "why": "T7 changes no Go file, so no suite covers it. Its only signal, make archive-guard, ran and passed."
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-13T19:52:00Z",
+      "scope": "task:T8",
+      "made_by": "leader",
+      "decision": "Deleted the gateway nil-TeslaID test; reshaped three nil-vehicle fixtures into other-vehicle ones",
+      "why": "tesla_id is NOT NULL and TeslaID is int64, so a nil vehicle no longer compiles. The cross-vehicle leak is the real risk left."
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-13T19:52:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "T9's verification ran in the same wave as T5-T8 rather than a fourth wave",
+      "why": "T9 edits no code. A separate wave would re-read the doc pack to run commands the leader had already run."
     }
   ],
   "events": [
@@ -361,6 +438,31 @@
       "at": "2026-09-13T14:33:08Z",
       "agent": "leader",
       "event": "budget-checkpoint on resume: five_hour_pct 91 >= 90, context_pct 10, five_hour_resets_at 1789315800 (2026-09-13T16:10:00Z). Wave 3 (T5, T6, T7) NOT dispatched. User chose to wait for the reset. Resume with /kkpa-dev-harness-pipeline resume RM57-charging-rekey-supercharger-sessions-on-tesla-id"
+    },
+    {
+      "at": "2026-09-13T19:30:00Z",
+      "agent": "leader",
+      "event": "5-hour bucket reset (five_hour_pct 3, context_pct 11). Resumed. Dispatched wave 3: worker A (T5, T6) and worker B (T7) on Sonnet in parallel; leader takes T8. go build ./... is red in internal/analytics until T8 lands, as tasks.md predicted."
+    },
+    {
+      "at": "2026-09-13T19:52:00Z",
+      "agent": "leader",
+      "event": "wave 3 complete. T5, T6 (worker A), T7 (worker B), T8 (leader). go build ./..., go vet ./... , gofmt -l, migration/boundary/vehicleref/archive guards and openspec validate --strict all clean. gofmt still flags 3 files that are unformatted on main and untouched by this branch."
+    },
+    {
+      "at": "2026-09-13T19:52:00Z",
+      "agent": "leader",
+      "event": "worker A reported C7 and C11 deleted from db_monthly_capacity_integration_test.go. Leader verified in the diff: both seeded tesla_id IS NULL, impossible under the new NOT NULL column. Deletion is a design consequence, not a weakened criterion. Lost coverage named in the file header."
+    },
+    {
+      "at": "2026-09-13T19:52:00Z",
+      "agent": "leader",
+      "event": "worker B flagged kkpa/context/architecture/charging-tables.md line 30 saying charging owns 'two' tables when it owns four. Predates this change and outside T7; left for the user to decide."
+    },
+    {
+      "at": "2026-09-13T19:52:00Z",
+      "agent": "leader",
+      "event": "T9 done through 9.9. 9.10 and 9.11 stay open: the suite and the post-migrate-up inspection are the owner's."
     }
   ]
 }

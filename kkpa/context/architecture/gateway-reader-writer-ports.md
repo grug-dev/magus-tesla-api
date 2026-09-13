@@ -24,7 +24,7 @@ and are not.
 | Aperture | Handler / file | Route | Port called | Guards, in order |
 |---|---|---|---|---|
 | manual charge write (D4) | `ExternalChargeCreate`, `ExternalChargeRowUpdate`, `ExternalChargeRowDelete` — `internal/gateway/handlers/external_charges.go` | `POST` / `PUT` / `DELETE` under `/external-charges` | `charging.Writer` — `Create` / `Update` / `Delete` | auth → `RegisteredVehicles` ownership → `checkCSRF` (`csrf_externalcharge`) |
-| session battery verify (D8) | `SuperchargerRowUpdate` — `internal/gateway/handlers/supercharger.go` | `PATCH /ui/supercharger-stats/row/:id` | `charging.SessionVerifier.VerifySession` | auth → `checkCSRFKey(csrf_supercharger)`. **No ownership check** |
+| session battery verify (D8) | `SuperchargerRowUpdate` — `internal/gateway/handlers/supercharger.go` | `PATCH /ui/supercharger-stats/row/:id` | `charging.SessionVerifier.VerifySession` | auth → `checkCSRFKey(csrf_supercharger)`. **No separate ownership check — `VerifySession`'s own `tesla_id` predicate is the boundary** |
 | theme switch (D3/D8) | `handlers.ThemeSwitch` — `internal/gateway/handlers/preferences.go` | `POST /ui/theme/switch` | `account.Service.SetTheme` | auth → `checkCSRFKey(csrf_theme)`. No ownership check |
 | language switch (D-lang) | `handlers.LangSwitch` — `internal/gateway/handlers/lang.go` | `POST /ui/lang/switch` | `account.Service.SetLanguage` | **none** — no auth, no ownership, no CSRF |
 | login language sync | `syncLoginLanguageCookie` — `internal/gateway/handlers/lang.go` | none (runs inside `GoogleCallback`) | `account.Service.SetLanguage` | none — best-effort, inside the login flow |
@@ -87,12 +87,14 @@ nothing about D4.
 
 Auth guard first, then `checkCSRFKey(c, csrfSuperchargerKey)`.
 
-**The one divergence you must not "fix": there is deliberately NO `RegisteredVehicles`
-ownership check here.** `VerifySession`'s own `WHERE id = @id AND account_id = @account_id`
-is the sole tenant boundary. The port has no vehicle predicate at all, so a `TeslaID` check
-in the gateway would test a predicate the write itself never applies. A session on another
-vehicle of the **same** account stays writable through this route by design; another
-account's row is unreachable regardless of the id supplied.
+**The one divergence you must not "fix": there is deliberately NO separate
+`RegisteredVehicles` ownership check here.** `VerifySession`'s own `WHERE id = @id AND
+tesla_id = @tesla_id` is the sole tenant boundary — the caller names the vehicle it
+believes the session belongs to. A mismatched vehicle matches zero rows and surfaces the
+same as an unknown id, so the caller cannot tell "not yours" from "does not exist." The
+gateway already resolves the selected vehicle on this route and passes its `tesla_id`; a
+session on a *different* vehicle — even one on the same account — is not writable through
+this route unless that vehicle is the one currently selected.
 
 Full flow, DB effects and the recalculation window: `use-case/charging/verify-session-battery.md`.
 

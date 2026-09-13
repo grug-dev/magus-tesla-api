@@ -1,30 +1,31 @@
 // Package charging_test — database-backed integration tests for SessionReader
-// (session_reader.go) and its ListSessionsByVehicleBetween query (db/query.sql),
-// covering design.md's Test Contract T1–T11 (RM30-charging-add-session-read-port,
-// tasks.md task 3.1).
+// (session_reader.go) and its ListSessionsByVehicleBetween query (db/query.sql).
+// Re-keyed on tesla_id, not account_id (RM57-charging-rekey-supercharger-
+// sessions-on-tesla-id, MAG-67): the query has no account_id predicate left, and
+// there is no tenant to isolate — every read is scoped by vehicle alone.
 //
 // Fixtures are seeded through SessionWriter.MirrorSessions (the only writer this
-// table has) and, for the human-owned battery-percentage columns, by direct SQL —
-// mirroring db_session_integration_test.go's existing pattern. Assertions are ONLY
-// against charging.Session domain fields — pgtype NEVER appears in this file
-// (internal/charging/AGENTS.md §Testing Notes).
+// table has). Assertions are ONLY against charging.Session domain fields — pgtype
+// NEVER appears in this file (internal/charging/AGENTS.md §Testing Notes).
 //
-// Test → Test Contract case mapping:
+// T-10's EXPLAIN runs inside a transaction with `SET LOCAL enable_seqscan = off` —
+// load-bearing, not a workaround: the small fixture is otherwise cheap enough that
+// the planner would prefer a Seq Scan, which would fail a correct design.
 //
-//	T1, T2, T3, T4, T9, T10  TestListSessionsByVehicleBetween_S1_BoundariesOrderingAndPercentages
-//	T5                       TestListSessionsByVehicleBetween_NoMatchReturnsEmptyNonNilSlice
-//	T6                       TestListSessionsByVehicleBetween_MultiTenantIsolation
-//	T7                       TestListSessionsByVehicleBetween_DifferentVehicleSameAccountIsolation
-//	T8                       TestListSessionsByVehicleBetween_NullTeslaIDNeverReturned
-//	T11                      TestListSessionsByVehicleBetween_NullableFeeFieldsRoundTripAsNil
+// Test → Test Contract case mapping (design.md §"Test contract"):
+//
+//	T-3   TestListSessionsByVehicleBetween_ScopesByVehicleAlone
+//	T-10  TestListSessionsByVehicleBetween_T10_ExplainConfirmsIndexNoSort
+//	      TestListSessionsByVehicleBetween_NoMatchReturnsEmptyNonNilSlice
+//	      TestListSessionsByVehicleBetween_NullableFeeFieldsRoundTripAsNil
 package charging_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
@@ -34,172 +35,72 @@ import (
 
 // fetchSessionsByVehicleBetween wraps SessionReader.ListSessionsByVehicleBetween for
 // this file's tests, failing the test on any error from the port itself.
-func fetchSessionsByVehicleBetween(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, from, to time.Time) []charging.Session {
+func fetchSessionsByVehicleBetween(t *testing.T, pool *pgxpool.Pool, teslaID int64, from, to time.Time) []charging.Session {
 	t.Helper()
 	r := charging.NewSessionReader(pool)
-	sessions, err := r.ListSessionsByVehicleBetween(context.Background(), accountID, teslaID, from, to)
+	sessions, err := r.ListSessionsByVehicleBetween(context.Background(), teslaID, from, to)
 	if err != nil {
 		t.Fatalf("ListSessionsByVehicleBetween: %v", err)
 	}
 	return sessions
 }
 
-// seedS1 seeds design.md's baseline fixture S1: four sessions under accountID/teslaID,
-// session_ids 940001-940004, spanning the query window [2026-08-01, 2026-08-31] with
-// 940004 deliberately stopping at the first instant of the day AFTER the window (so it
-// is excluded). Seeded via SessionWriter.MirrorSessions, then 940002's battery
-// percentages are written directly by SQL — mirroring
-// db_session_integration_test.go's existing pattern for the human-owned columns.
-func seedS1(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) {
-	t.Helper()
+// T-3: ListSessionsByVehicleBetween scopes by vehicle alone. Seed four rows with
+// distinct session ids: 9101/9102/9103 for tesla_id 111, 9104 for tesla_id 222.
+// Query the half-open window [2026-08-01, 2026-08-03]. Expect exactly [9101, 9102],
+// ascending by stop time — 9103 excluded by the half-open end bound, 9104 excluded
+// because it is another vehicle.
+func TestListSessionsByVehicleBetween_ScopesByVehicleAlone(t *testing.T) {
+	pool := newTestPool(t)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, 9101, 9102, 9103, 9104)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
 	sessions := []charging.SessionMirror{
-		{
-			AccountID:           accountID,
-			VIN:                 "V940001",
-			TeslaID:             ptrInt64(teslaID),
-			SessionID:           940001,
-			ChargeStartDateTime: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		{VIN: "V9101", TeslaID: 111, SessionID: 9101,
+			ChargeStartDateTime: time.Date(2026, 7, 31, 23, 0, 0, 0, time.UTC),
 			ChargeStopDateTime:  time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
-			SiteLocationName:    "S1 Site",
-		},
-		{
-			AccountID:           accountID,
-			VIN:                 "V940001",
-			TeslaID:             ptrInt64(teslaID),
-			SessionID:           940002,
-			ChargeStartDateTime: time.Date(2026, 7, 31, 23, 50, 0, 0, time.UTC),
-			ChargeStopDateTime:  time.Date(2026, 8, 1, 0, 10, 0, 0, time.UTC),
-			SiteLocationName:    "S1 Site",
-		},
-		{
-			AccountID:           accountID,
-			VIN:                 "V940001",
-			TeslaID:             ptrInt64(teslaID),
-			SessionID:           940003,
-			ChargeStartDateTime: time.Date(2026, 8, 31, 23, 0, 0, 0, time.UTC),
-			ChargeStopDateTime:  time.Date(2026, 8, 31, 23, 59, 59, 999999000, time.UTC),
-			SiteLocationName:    "S1 Site",
-		},
-		{
-			AccountID:           accountID,
-			VIN:                 "V940001",
-			TeslaID:             ptrInt64(teslaID),
-			SessionID:           940004,
-			ChargeStartDateTime: time.Date(2026, 8, 31, 23, 50, 0, 0, time.UTC),
-			ChargeStopDateTime:  time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
-			SiteLocationName:    "S1 Site",
-		},
+			SiteLocationName:    "Site 9101"},
+		{VIN: "V9102", TeslaID: 111, SessionID: 9102,
+			ChargeStartDateTime: time.Date(2026, 8, 3, 23, 30, 0, 0, time.UTC),
+			ChargeStopDateTime:  time.Date(2026, 8, 3, 23, 59, 0, 0, time.UTC),
+			SiteLocationName:    "Site 9102"},
+		{VIN: "V9103", TeslaID: 111, SessionID: 9103,
+			ChargeStartDateTime: time.Date(2026, 8, 3, 23, 30, 0, 0, time.UTC),
+			ChargeStopDateTime:  time.Date(2026, 8, 4, 0, 0, 0, 0, time.UTC),
+			SiteLocationName:    "Site 9103"},
+		{VIN: "V9104", TeslaID: 222, SessionID: 9104,
+			ChargeStartDateTime: time.Date(2026, 8, 1, 23, 30, 0, 0, time.UTC),
+			ChargeStopDateTime:  time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC),
+			SiteLocationName:    "Site 9104"},
 	}
-	if err := w.MirrorSessions(ctx, accountID, sessions); err != nil {
-		t.Fatalf("seedS1: MirrorSessions: %v", err)
+	if err := w.MirrorSessions(ctx, sessions); err != nil {
+		t.Fatalf("MirrorSessions (seed): %v", err)
 	}
-
-	if _, err := pool.Exec(ctx, `
-		UPDATE charging.supercharger_sessions
-		SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified'
-		WHERE account_id = $1 AND session_id = 940002`,
-		accountID); err != nil {
-		t.Fatalf("seedS1: direct-SQL set battery percentages on 940002: %v", err)
-	}
-}
-
-// --- T1, T2, T3, T4, T9, T10 — the shared S1 fixture and its one call ---
-
-// TestListSessionsByVehicleBetween_S1_BoundariesOrderingAndPercentages seeds S1 and
-// makes the one design.md call (from = 2026-08-01, to = 2026-08-31), then asserts
-// every expectation the Test Contract derives from that single result set:
-//   - T1: 940001 (stops exactly at from_time) is included.
-//   - T2: 940003 (stops at 23:59:59.999999Z on the to day) is included.
-//   - T3: 940004 (stops exactly at end_bound, the day after to) is excluded.
-//   - T4: 940002 (starts before the window, stops inside it) is included, and its
-//     ChargeStartDateTime is reported as recorded, not clamped to the window.
-//   - T9: 940002 carries the battery percentages written by direct SQL; 940001 and
-//     940003 carry all three as nil.
-//   - T10: results are ordered ascending by ChargeStopDateTime: 940001, 940002, 940003.
-func TestListSessionsByVehicleBetween_S1_BoundariesOrderingAndPercentages(t *testing.T) {
-	pool := newTestPool(t)
-	accountID := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
-	const teslaID = int64(940001)
-	seedS1(t, pool, accountID, teslaID)
 
 	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
-	sessions := fetchSessionsByVehicleBetween(t, pool, accountID, teslaID, from, to)
+	to := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	got := fetchSessionsByVehicleBetween(t, pool, 111, from, to)
 
-	// T3: 940004 excluded -> exactly 3 rows.
-	if len(sessions) != 3 {
-		t.Fatalf("expected 3 sessions (940004 excluded per T3), got %d: %+v", len(sessions), sessions)
+	wantIDs := []int64{9101, 9102}
+	if len(got) != len(wantIDs) {
+		t.Fatalf("expected %d sessions, got %d: %+v", len(wantIDs), len(got), got)
 	}
-
-	// T10: ascending order by ChargeStopDateTime, not SessionID or insertion order
-	// (they happen to coincide here, but the assertion is on stop-time order).
-	wantIDs := []int64{940001, 940002, 940003}
-	for i, s := range sessions {
+	for i, s := range got {
 		if s.SessionID != wantIDs[i] {
-			t.Errorf("T10: sessions[%d].SessionID = %d, want %d (ascending ChargeStopDateTime order)", i, s.SessionID, wantIDs[i])
-		}
-	}
-
-	byID := make(map[int64]charging.Session, len(sessions))
-	for _, s := range sessions {
-		byID[s.SessionID] = s
-	}
-
-	// T1: lower bound inclusive.
-	if _, ok := byID[940001]; !ok {
-		t.Error("T1: expected 940001 present (stops exactly at from_time, the lower bound)")
-	}
-
-	// T2: last representable instant of the `to` day is included.
-	if _, ok := byID[940003]; !ok {
-		t.Error("T2: expected 940003 present (stops at 23:59:59.999999Z on the to day)")
-	}
-
-	// T4: session that starts before the window but stops inside it.
-	s940002, ok := byID[940002]
-	if !ok {
-		t.Fatal("T4: expected 940002 present (starts before window, stops inside it)")
-	}
-	wantStart := time.Date(2026, 7, 31, 23, 50, 0, 0, time.UTC)
-	if !s940002.ChargeStartDateTime.Equal(wantStart) {
-		t.Errorf("T4: 940002.ChargeStartDateTime = %v, want %v (reported as recorded, even though it precedes the window)", s940002.ChargeStartDateTime, wantStart)
-	}
-
-	// T9: battery percentages carried on 940002; nil on 940001/940003.
-	if s940002.StartBatteryPct == nil || *s940002.StartBatteryPct != 20 {
-		t.Errorf("T9: 940002.StartBatteryPct = %v, want 20", s940002.StartBatteryPct)
-	}
-	if s940002.EndBatteryPct == nil || *s940002.EndBatteryPct != 80 {
-		t.Errorf("T9: 940002.EndBatteryPct = %v, want 80", s940002.EndBatteryPct)
-	}
-	if s940002.BatteryPctSource == nil || *s940002.BatteryPctSource != "user_verified" {
-		t.Errorf("T9: 940002.BatteryPctSource = %v, want user_verified", s940002.BatteryPctSource)
-	}
-	for _, id := range []int64{940001, 940003} {
-		s := byID[id]
-		if s.StartBatteryPct != nil || s.EndBatteryPct != nil || s.BatteryPctSource != nil {
-			t.Errorf("T9: session %d: expected all three battery fields nil, got %+v", id, s)
+			t.Errorf("sessions[%d].SessionID = %d, want %d (ascending stop time)", i, s.SessionID, wantIDs[i])
 		}
 	}
 }
 
-// --- T5 ---
-
-// TestListSessionsByVehicleBetween_NoMatchReturnsEmptyNonNilSlice: a query against an
-// account/vehicle with no sessions at all returns a non-nil, zero-length slice.
+// TestListSessionsByVehicleBetween_NoMatchReturnsEmptyNonNilSlice: a query against a
+// vehicle with no sessions at all returns a non-nil, zero-length slice.
 func TestListSessionsByVehicleBetween_NoMatchReturnsEmptyNonNilSlice(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
-	// No sessions seeded for this account at all.
 
 	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
-	sessions := fetchSessionsByVehicleBetween(t, pool, accountID, 940001, from, to)
+	sessions := fetchSessionsByVehicleBetween(t, pool, 940999, from, to)
 
 	if sessions == nil {
 		t.Error("expected non-nil empty slice, got nil")
@@ -209,133 +110,12 @@ func TestListSessionsByVehicleBetween_NoMatchReturnsEmptyNonNilSlice(t *testing.
 	}
 }
 
-// --- T6 ---
-
-// TestListSessionsByVehicleBetween_MultiTenantIsolation: an identical session under a
-// second account, same TeslaID and an overlapping window, never leaks into the first
-// account's result.
-func TestListSessionsByVehicleBetween_MultiTenantIsolation(t *testing.T) {
-	pool := newTestPool(t)
-	acctA := uuid.New()
-	acctB := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, acctA, acctB)
-	ctx := context.Background()
-	w := charging.NewSessionWriter(pool)
-
-	const teslaID = int64(940001)
-	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
-	inWindowStop := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
-
-	sessA := charging.SessionMirror{
-		AccountID: acctA, VIN: "VA", TeslaID: ptrInt64(teslaID), SessionID: 940010,
-		ChargeStartDateTime: inWindowStop.Add(-time.Hour), ChargeStopDateTime: inWindowStop,
-		SiteLocationName: "A Site",
-	}
-	sessB := charging.SessionMirror{
-		AccountID: acctB, VIN: "VB", TeslaID: ptrInt64(teslaID), SessionID: 940011,
-		ChargeStartDateTime: inWindowStop.Add(-time.Hour), ChargeStopDateTime: inWindowStop,
-		SiteLocationName: "B Site",
-	}
-	if err := w.MirrorSessions(ctx, acctA, []charging.SessionMirror{sessA}); err != nil {
-		t.Fatalf("MirrorSessions acctA: %v", err)
-	}
-	if err := w.MirrorSessions(ctx, acctB, []charging.SessionMirror{sessB}); err != nil {
-		t.Fatalf("MirrorSessions acctB: %v", err)
-	}
-
-	sessions := fetchSessionsByVehicleBetween(t, pool, acctA, teslaID, from, to)
-	if len(sessions) != 1 || sessions[0].SessionID != 940010 {
-		t.Fatalf("expected only acctA's session (940010), got %+v", sessions)
-	}
-}
-
-// --- T7 ---
-
-// TestListSessionsByVehicleBetween_DifferentVehicleSameAccountIsolation: a second
-// vehicle's session within the SAME account and window does not leak into a
-// teslaID-scoped read for a different vehicle.
-func TestListSessionsByVehicleBetween_DifferentVehicleSameAccountIsolation(t *testing.T) {
-	pool := newTestPool(t)
-	accountID := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
-	ctx := context.Background()
-	w := charging.NewSessionWriter(pool)
-
-	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
-	inWindowStop := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
-
-	primary := charging.SessionMirror{
-		AccountID: accountID, VIN: "VPRIMARY", TeslaID: ptrInt64(940001), SessionID: 940020,
-		ChargeStartDateTime: inWindowStop.Add(-time.Hour), ChargeStopDateTime: inWindowStop,
-		SiteLocationName: "Primary Site",
-	}
-	otherVehicle := charging.SessionMirror{
-		AccountID: accountID, VIN: "VOTHER", TeslaID: ptrInt64(940099), SessionID: 940021,
-		ChargeStartDateTime: inWindowStop.Add(-time.Hour), ChargeStopDateTime: inWindowStop,
-		SiteLocationName: "Other Vehicle Site",
-	}
-	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{primary, otherVehicle}); err != nil {
-		t.Fatalf("MirrorSessions: %v", err)
-	}
-
-	sessions := fetchSessionsByVehicleBetween(t, pool, accountID, 940001, from, to)
-	for _, s := range sessions {
-		if s.SessionID == 940021 {
-			t.Errorf("expected session 940021 (different vehicle, TeslaID 940099) to be absent, but it was returned")
-		}
-	}
-	if len(sessions) != 1 || sessions[0].SessionID != 940020 {
-		t.Fatalf("expected only session 940020, got %+v", sessions)
-	}
-}
-
-// --- T8 ---
-
-// TestListSessionsByVehicleBetween_NullTeslaIDNeverReturned: a session mirrored with
-// TeslaID: nil (a deregistered vehicle) is never returned by any teslaID value — SQL's
-// NULL = value is neither true nor false (design.md D6). Not a bug to special-case NULL
-// away — an orphaned session is definitionally outside a vehicle-scoped read.
-func TestListSessionsByVehicleBetween_NullTeslaIDNeverReturned(t *testing.T) {
-	pool := newTestPool(t)
-	accountID := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
-	ctx := context.Background()
-	w := charging.NewSessionWriter(pool)
-
-	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
-	inWindowStop := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
-
-	orphaned := charging.SessionMirror{
-		AccountID: accountID, VIN: "VORPHAN", TeslaID: nil, SessionID: 940030,
-		ChargeStartDateTime: inWindowStop.Add(-time.Hour), ChargeStopDateTime: inWindowStop,
-		SiteLocationName: "Orphaned Site",
-	}
-	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{orphaned}); err != nil {
-		t.Fatalf("MirrorSessions: %v", err)
-	}
-
-	for _, teslaID := range []int64{940001, 940030, 0} {
-		sessions := fetchSessionsByVehicleBetween(t, pool, accountID, teslaID, from, to)
-		for _, s := range sessions {
-			if s.SessionID == 940030 {
-				t.Errorf("teslaID=%d: expected orphaned session 940030 (NULL tesla_id) never returned, but it was", teslaID)
-			}
-		}
-	}
-}
-
-// --- T11 ---
-
 // TestListSessionsByVehicleBetween_NullableFeeFieldsRoundTripAsNil: a session mirrored
-// with all four fee fields nil round-trips as nil through the reverse pgtype helpers
-// (D6), and SiteLocationName (NOT NULL) is still populated.
+// with all four fee fields nil round-trips as nil through the reverse pgtype helpers,
+// and SiteLocationName (NOT NULL) is still populated.
 func TestListSessionsByVehicleBetween_NullableFeeFieldsRoundTripAsNil(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, 940040)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -345,16 +125,16 @@ func TestListSessionsByVehicleBetween_NullableFeeFieldsRoundTripAsNil(t *testing
 	inWindowStop := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
 
 	noFees := charging.SessionMirror{
-		AccountID: accountID, VIN: "VNOFEE", TeslaID: ptrInt64(teslaID), SessionID: 940040,
+		VIN: "VNOFEE", TeslaID: teslaID, SessionID: 940040,
 		ChargeStartDateTime: inWindowStop.Add(-time.Hour), ChargeStopDateTime: inWindowStop,
 		SiteLocationName: "No Fees Site",
 		// EnergyKWh, TotalCost, Currency, IsPaid deliberately left nil.
 	}
-	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{noFees}); err != nil {
+	if err := w.MirrorSessions(ctx, []charging.SessionMirror{noFees}); err != nil {
 		t.Fatalf("MirrorSessions: %v", err)
 	}
 
-	sessions := fetchSessionsByVehicleBetween(t, pool, accountID, teslaID, from, to)
+	sessions := fetchSessionsByVehicleBetween(t, pool, teslaID, from, to)
 	if len(sessions) != 1 {
 		t.Fatalf("expected 1 session, got %d", len(sessions))
 	}
@@ -373,5 +153,70 @@ func TestListSessionsByVehicleBetween_NullableFeeFieldsRoundTripAsNil(t *testing
 	}
 	if s.SiteLocationName == "" {
 		t.Errorf("SiteLocationName: want non-empty, got empty")
+	}
+}
+
+// T-10: EXPLAIN the bounded per-vehicle read. The plan names
+// idx_supercharger_sessions_vehicle_stop and contains no Sort node — tesla_id
+// prunes to the vehicle and the index's own ASC order satisfies ORDER BY with no
+// separate sort step.
+func TestListSessionsByVehicleBetween_T10_ExplainConfirmsIndexNoSort(t *testing.T) {
+	pool := newTestPool(t)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, 9101, 9102, 9103, 9104)
+	ctx := context.Background()
+	w := charging.NewSessionWriter(pool)
+
+	sessions := []charging.SessionMirror{
+		{VIN: "V9101", TeslaID: 111, SessionID: 9101,
+			ChargeStartDateTime: time.Date(2026, 7, 31, 23, 0, 0, 0, time.UTC),
+			ChargeStopDateTime:  time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+			SiteLocationName:    "Site 9101"},
+		{VIN: "V9102", TeslaID: 111, SessionID: 9102,
+			ChargeStartDateTime: time.Date(2026, 8, 3, 23, 30, 0, 0, time.UTC),
+			ChargeStopDateTime:  time.Date(2026, 8, 3, 23, 59, 0, 0, time.UTC),
+			SiteLocationName:    "Site 9102"},
+	}
+	if err := w.MirrorSessions(ctx, sessions); err != nil {
+		t.Fatalf("MirrorSessions (seed): %v", err)
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, "SET LOCAL enable_seqscan = off"); err != nil {
+		t.Fatalf("SET LOCAL enable_seqscan = off: %v", err)
+	}
+
+	rows, err := tx.Query(ctx,
+		`EXPLAIN (FORMAT TEXT) SELECT * FROM charging.supercharger_sessions WHERE tesla_id = $1 AND charge_stop_date_time >= $2 AND charge_stop_date_time < $3 ORDER BY charge_stop_date_time ASC`,
+		int64(111), time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 8, 4, 0, 0, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("EXPLAIN query: %v", err)
+	}
+	defer rows.Close()
+
+	var plan strings.Builder
+	for rows.Next() {
+		var line string
+		if err := rows.Scan(&line); err != nil {
+			t.Fatalf("scanning EXPLAIN row: %v", err)
+		}
+		plan.WriteString(line)
+		plan.WriteString("\n")
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("EXPLAIN rows: %v", err)
+	}
+
+	planText := plan.String()
+	if !strings.Contains(planText, "idx_supercharger_sessions_vehicle_stop") {
+		t.Errorf("expected plan to name idx_supercharger_sessions_vehicle_stop, got:\n%s", planText)
+	}
+	if strings.Contains(planText, "Sort") {
+		t.Errorf("expected plan to NOT contain a Sort node, got:\n%s", planText)
 	}
 }

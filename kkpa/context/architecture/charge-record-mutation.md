@@ -133,7 +133,7 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   `WHERE energy_source = 'USER'`: it must never average a derived value back into itself.
   _Source: `charging/capacity.go`, `analytics/capacity.go`._
 - **Different ownership vocabulary** — the manual handlers call `acct.RegisteredVehicles` +
-  `vehicleOwned`; `SuperchargerRowUpdate` relies solely on the SQL `AND account_id` scope (a
+  `vehicleOwned`; `SuperchargerRowUpdate` relies solely on the SQL `AND tesla_id` scope (a
   documented deliberate divergence). Both are secure; the inconsistency is in the vocabulary and
   the extra read.
   _Source: `gateway/handlers/external_charges.go` `vehicleOwned`, `gateway/handlers/supercharger.go` D8._

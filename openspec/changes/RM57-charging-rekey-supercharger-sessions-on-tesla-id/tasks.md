@@ -183,52 +183,52 @@ Depends on: T3.
 
 Depends on: T4. May run in parallel with T6 — disjoint files.
 
-- [ ] 5.1 Delete `internal/charging/db_backfill_integration_test.go` entirely
+- [x] 5.1 Delete `internal/charging/db_backfill_integration_test.go` entirely
       (`design.md` D7). It re-executes a shipped migration's backfill, which
       this project does not test, and that statement names a column this change
       drops.
-- [ ] 5.2 `db_session_integration_test.go`: drop `account_id` from every seed
+- [x] 5.2 `db_session_integration_test.go`: drop `account_id` from every seed
       `INSERT` and every cleanup `DELETE`; re-key every call to the new
       signatures. Add T-1 and T-2's exact seeds and expectations — one row per
       session id, and a re-mirror under a different vehicle refreshing
       `tesla_id` instead of inserting a second row.
-- [ ] 5.3 `db_session_reader_integration_test.go` and
+- [x] 5.3 `db_session_reader_integration_test.go` and
       `db_session_reader_by_vehicle_integration_test.go`: re-key to T-3's and
       T-4's seeds and expected orders — `[9101, 9102]` for the bounded window,
       `[9203, 9202]` for the newest-first limited read, with the other
       vehicle's row present and never returned.
-- [ ] 5.4 `db_session_reader_updated_since_integration_test.go`: re-key to
+- [x] 5.4 `db_session_reader_updated_since_integration_test.go`: re-key to
       T-5 — the three `updated_at` values, the second-vehicle decoy, and the
       three `since` assertions (`t2 → [9302, 9303]`, `t3 → [9303]`,
       `t3 + 1µs → empty non-nil`).
-- [ ] 5.5 Add T-10 and T-11: `EXPLAIN` the bounded-window query and the
+- [x] 5.5 Add T-10 and T-11: `EXPLAIN` the bounded-window query and the
       newest-first query, assert both plans name
       `idx_supercharger_sessions_vehicle_stop`, that the second reports a
       backward scan, and that neither contains a `Sort` node.
-- [ ] 5.6 `db_session_verifier_integration_test.go`: re-key every seed and call.
+- [x] 5.6 `db_session_verifier_integration_test.go`: re-key every seed and call.
       Add T-6 — a verify naming the wrong vehicle returns an error wrapping
       `pgx.ErrNoRows` AND leaves the row's percentages and status untouched,
       proven by a direct `SELECT`, not only by the returned error. Add T-7 —
       the derived-start path storing `30` from `energy_kwh = 31.0` and
       `end = 80`, with `Status == DONE_CALCULATED`.
-- [ ] 5.7 `db_mirror_schema_selfcheck_integration_test.go`: remove `account_id`
+- [x] 5.7 `db_mirror_schema_selfcheck_integration_test.go`: remove `account_id`
       from the deny-list constant (13 entries left) and from its comment. Do not
       change the partition logic. T-8's numbers: 5 + 13 = 18.
-- [ ] 5.8 `db_session_mirror_change_detection_integration_test.go`: drop
+- [x] 5.8 `db_session_mirror_change_detection_integration_test.go`: drop
       `account_id` from every seed and from the "poke every settable
       deny-listed column" loop (T-9).
-- [ ] 5.9 `db_mirror_watermark_integration_test.go`: re-key every call to
+- [x] 5.9 `db_mirror_watermark_integration_test.go`: re-key every call to
       `teslaID`. Add T-12's full sequence, including the assertion that a second
       vehicle of the same account still reports the epoch.
-- [ ] 5.10 `db_inferred_capacity_sessions_integration_test.go`: drop
+- [x] 5.10 `db_inferred_capacity_sessions_integration_test.go`: drop
       `account_id` from every session seed. The generated-column assertions are
       unchanged.
-- [ ] 5.11 `db_monthly_capacity_integration_test.go`: drop `account_id` from
+- [x] 5.11 `db_monthly_capacity_integration_test.go`: drop `account_id` from
       every `supercharger_sessions` seed (leave the `manual_charge_entries`
       seeds alone). Add T-13's expectations — `VehiclesFound == 1`,
       `Measured == 0`, `Thin == 1`, `candidate_count = 1`, `sample_count = 1`,
       `effective_capacity_kwh` NULL.
-- [ ] 5.12 Assert `RowsAffected()` on every fixture `UPDATE`/`DELETE` this task
+- [x] 5.12 Assert `RowsAffected()` on every fixture `UPDATE`/`DELETE` this task
       touches — a fixture write that matches no row does not error, and the
       assertions after it then pass or fail for an unrelated reason
       (`design.md` §Risks).
@@ -237,20 +237,20 @@ Depends on: T4. May run in parallel with T6 — disjoint files.
 
 Depends on: T4. May run in parallel with T5.
 
-- [ ] 6.1 Grep every `_test.go` in `internal/charging` for
+- [x] 6.1 Grep every `_test.go` in `internal/charging` for
       `supercharger_sessions` and `mirror_watermarks` — **across line breaks**,
       not line by line: a table name and its column often sit on different
       lines, so a line-based grep finds some hits and misses others.
-- [ ] 6.2 `testdb_test.go` and any shared seed helper: drop `account_id` from
+- [x] 6.2 `testdb_test.go` and any shared seed helper: drop `account_id` from
       every `supercharger_sessions` / `mirror_watermarks` insert. Leave every
       `manual_charge_entries` helper untouched.
-- [ ] 6.3 `db_integration_test.go`, `db_entry_status_integration_test.go`,
+- [x] 6.3 `db_integration_test.go`, `db_entry_status_integration_test.go`,
       `db_promotion_price_source_integration_test.go`,
       `db_inferred_capacity_entries_integration_test.go`: these are
       `manual_charge_entries` suites and must keep `account_id`. Confirm each
       one compiles unchanged; change only a line that touches one of this
       change's two tables.
-- [ ] 6.4 `go vet ./internal/charging/...` — expect clean. `go vet` compiles
+- [x] 6.4 `go vet ./internal/charging/...` — expect clean. `go vet` compiles
       `_test.go` files, so this is what proves T5's signatures are right.
 
 ## T7 — Docs
@@ -258,7 +258,7 @@ Depends on: T4. May run in parallel with T5.
 Depends on: T3 (needs the final port shape). Touches no Go file — safe to run
 in parallel with T4–T8.
 
-- [ ] 7.1 `internal/charging/AGENTS.md` — six corrections, all named in
+- [x] 7.1 `internal/charging/AGENTS.md` — six corrections, all named in
       `design.md` §Docs: the `mirror_watermarks` section's "NO `tesla_id`
       column" paragraph and its per-account cursor description; the mirror
       section's deny-list, which names `account_id` as write-once mirrored; the
@@ -267,31 +267,31 @@ in parallel with T4–T8.
       `WHERE account_id = @account_id` tenant-scoping rule; the Testing Notes
       bullet describing `db_backfill_integration_test.go`, which no longer
       exists.
-- [ ] 7.2 `kkpa/context/architecture/charging-tables.md` — the
+- [x] 7.2 `kkpa/context/architecture/charging-tables.md` — the
       `supercharger_sessions` column list, the index entry, and the unique
       constraint. State the new key: `tesla_id NOT NULL`, no `account_id`,
       `UNIQUE (session_id)`.
-- [ ] 7.3 `kkpa/context/architecture/nightly-cycle.md` — the `MirrorSessions`
+- [x] 7.3 `kkpa/context/architecture/nightly-cycle.md` — the `MirrorSessions`
       row ("one transaction per account, rejects a mis-scoped `AccountID`"), the
       consumer table, and the per-table read/write table. The mirror runs one
       pass per vehicle now.
-- [ ] 7.4 `kkpa/context/architecture/gateway-reader-writer-ports.md` — the
+- [x] 7.4 `kkpa/context/architecture/gateway-reader-writer-ports.md` — the
       `VerifySession` row's `WHERE id = @id AND account_id = @account_id`
       statement and the "**No ownership check**" note.
-- [ ] 7.5 `kkpa/context/workflows/supercharger-stats-read.md` — the printed
+- [x] 7.5 `kkpa/context/workflows/supercharger-stats-read.md` — the printed
       `VerifySession` signature, the "(no `TeslaID` predicate)" clause, and the
       tenant-boundary bullet.
-- [ ] 7.6 `kkpa/context/use-case/charging/verify-session-battery.md` and
+- [x] 7.6 `kkpa/context/use-case/charging/verify-session-battery.md` and
       `kkpa/context/input-port/charging/supercharger-stats.md` — both describe
       the account-scoped verify call.
-- [ ] 7.7 `kkpa/context/architecture/charge-record-mutation.md` — the line
+- [x] 7.7 `kkpa/context/architecture/charge-record-mutation.md` — the line
       saying `SuperchargerRowUpdate` "relies solely on the SQL `AND account_id`
       scope".
-- [ ] 7.8 Do NOT edit anything under `openspec/changes/archive/`. A grep for
+- [x] 7.8 Do NOT edit anything under `openspec/changes/archive/`. A grep for
       `account_id` will hit archived designs; those hits are the record of what
       was decided then and are not yours to fix. `make archive-guard` enforces
       it.
-- [ ] 7.9 Do NOT edit anything under `kkpa/context/pending-spec-to-sync/applied/`.
+- [x] 7.9 Do NOT edit anything under `kkpa/context/pending-spec-to-sync/applied/`.
       Those are applied proposals, a record, not live guides.
 
 ## T8 — Cross-module bridge (leader-owned)
@@ -300,7 +300,7 @@ Depends on: T3 (needs the final port signatures). **Not this module's sandbox �
 `internal/charging` workers must not edit these files.** Must land in the same
 wave as T4, or `go build ./...` stays red (`design.md` D5).
 
-- [ ] 8.1 `internal/app/processor.go`, `processChargingData`: replace the
+- [x] 8.1 `internal/app/processor.go`, `processChargingData`: replace the
       per-account grouping with one pass per distinct `tesla_id`. For each
       vehicle: read `MirrorWatermark(ctx, teslaID)`, call
       `SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, cursor.Add(-mirrorOverlap))`,
@@ -308,56 +308,56 @@ wave as T4, or `go build ./...` stays red (`design.md` D5).
       `MirrorSessions(ctx, mirrored)`, then
       `AdvanceMirrorWatermark(ctx, teslaID, maxUpdated)`. The "never advance to
       `now()`" and "never advance on a zero-row read" rules are unchanged.
-- [ ] 8.2 Same file: `charging.SessionMirror` no longer has `AccountID`, and
+- [x] 8.2 Same file: `charging.SessionMirror` no longer has `AccountID`, and
       `TeslaID` is a plain `int64` — pass `s.TeslaID` directly, not its address.
-- [ ] 8.3 Same file: rewrite the function's doc comment. "Why per ACCOUNT and
+- [x] 8.3 Same file: rewrite the function's doc comment. "Why per ACCOUNT and
       not per vehicle" is now wrong, and so is the orphan-recovery paragraph it
       rests on. Say instead that the pass is per vehicle because the cursor is,
       and that a car registered to two accounts is mirrored once.
-- [ ] 8.4 `internal/app/processor_test.go`: the `charging.SessionWriter` and
+- [x] 8.4 `internal/app/processor_test.go`: the `charging.SessionWriter` and
       `charging.MirrorWatermarkStore` fakes must match the new signatures.
       Re-shape the two mirror tests for the per-vehicle loop and keep the
       watermark assertions (zero rows leaves the cursor untouched; the new
       cursor is the highest observed `updated_at`, never `now()`).
-- [ ] 8.5 `internal/analytics/reader.go:141`, `recalculate.go:158` and
+- [x] 8.5 `internal/analytics/reader.go:141`, `recalculate.go:158` and
       `recalculate.go:279`: drop the `accountID` argument from the three
       `ListSessionsByVehicle*` calls. Check whether `accountID` is still used
       elsewhere in each function before deleting the parameter that carries it.
-- [ ] 8.6 `internal/analytics` tests: every fake implementing
+- [x] 8.6 `internal/analytics` tests: every fake implementing
       `charging.SuperchargerSessionAnalyticsReader` re-signs its methods, and
       every raw `supercharger_sessions` seed drops `account_id`. Any fake that
       records a `gotAccountID` for these ports records the vehicle instead.
-- [ ] 8.7 `internal/gateway/handlers/supercharger.go`: the two
+- [x] 8.7 `internal/gateway/handlers/supercharger.go`: the two
       `ListSessionsByVehicleBetween` calls drop `uid`. The `VerifySession` call
       passes the resolved vehicle's `TeslaID` in place of `uid` — resolve it
       with the handler's existing `resolveSelectedVehicle` before the call.
       Tier 3 then replaces that resolve with `authorizeVehicle`.
-- [ ] 8.8 Same file: `updated.TeslaID` is a plain `int64`, so the
+- [x] 8.8 Same file: `updated.TeslaID` is a plain `int64`, so the
       `if updated.TeslaID != nil` branch and its "skipping recalculation" log
       line are deleted — `recalculateAfterSessionVerify` always runs.
-- [ ] 8.9 `internal/gateway/gateway.go` and `cmd/web/main.go`: update the two
+- [x] 8.9 `internal/gateway/gateway.go` and `cmd/web/main.go`: update the two
       doc comments that describe `VerifySession` as account-scoped.
-- [ ] 8.10 `go build ./internal/app/... ./internal/analytics/... ./internal/gateway/... ./cmd/...`
+- [x] 8.10 `go build ./internal/app/... ./internal/analytics/... ./internal/gateway/... ./cmd/...`
       and `go vet` the same packages — expect clean.
 
 ## T9 — Final verification
 
 Depends on: T0–T8.
 
-- [ ] 9.1 `go build ./...`
-- [ ] 9.2 `go vet ./...`
-- [ ] 9.3 `make migration-guard`
-- [ ] 9.4 `make boundary-guard`
-- [ ] 9.5 `make vehicleref-guard`
-- [ ] 9.6 `make archive-guard`
-- [ ] 9.7 `gofmt -l internal/ cmd/` — expect no output.
-- [ ] 9.8 Grep the whole repo for `account_id` within 3 lines of
+- [x] 9.1 `go build ./...`
+- [x] 9.2 `go vet ./...`
+- [x] 9.3 `make migration-guard`
+- [x] 9.4 `make boundary-guard`
+- [x] 9.5 `make vehicleref-guard`
+- [x] 9.6 `make archive-guard`
+- [x] 9.7 `gofmt -l internal/ cmd/` — expect no output.
+- [x] 9.8 Grep the whole repo for `account_id` within 3 lines of
       `supercharger_sessions` and of `mirror_watermarks`, and for
       `MirrorSessions(ctx, ` followed by a UUID argument. Expect zero hits
       outside `openspec/changes/archive/`,
       `kkpa/context/pending-spec-to-sync/applied/` and the untouched historic
       migration files.
-- [ ] 9.9 `openspec validate RM57-charging-rekey-supercharger-sessions-on-tesla-id --strict`
+- [x] 9.9 `openspec validate RM57-charging-rekey-supercharger-sessions-on-tesla-id --strict`
 - [ ] 9.10 Hand the owner the suite commands — this agent never runs them:
       `make test` (disposable container) and, for the DB-backed charging tests
       specifically,
