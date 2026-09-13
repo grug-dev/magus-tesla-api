@@ -7,9 +7,7 @@
   "request": "MAG-67 tier 2 \u2014 Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
   "status": "in-progress",
   "rollup": {
-    "current": [
-      "T1"
-    ],
+    "current": [],
     "pending": [
       "T5",
       "T6",
@@ -20,13 +18,14 @@
     "blocked": [],
     "done": [
       "T0",
+      "T1",
       "T2",
       "T3",
       "T4"
     ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T13:26:00Z",
+  "updated_at": "2026-09-13T14:15:36Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -70,13 +69,13 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-13T12:36:00Z",
-      "completed_at": "2026-09-13T12:38:00Z",
+      "completed_at": "2026-09-13T14:15:36Z",
       "duration_seconds": 120,
-      "notes": "Both migrations written as design.md gives them, Up and Down. make migration-guard clean. No migration test, per project rule. T1.0 stays open: its two pre-check queries need the owner and a live database.",
+      "notes": "Both migrations written as design.md gives them, Up and Down. make migration-guard clean. No migration test, per project rule. Owner ran the two pre-check queries: both return 0, so the DELETE guard removes nothing and UNIQUE (session_id) holds.",
       "budget": {
         "five_hour_pct_start": 65,
         "five_hour_pct_end": 71,
@@ -352,6 +351,11 @@
       "at": "2026-09-13T13:26:00Z",
       "agent": "leader",
       "event": "budget-checkpoint: five_hour_pct 87 (threshold 90), context_pct 12, five_hour_resets_at 1789315800. Stopped before wave 3 (T5, T6, T7) - the integration-test wave is the largest left. Resume with /kkpa-dev-harness-pipeline resume RM57-charging-rekey-supercharger-sessions-on-tesla-id"
+    },
+    {
+      "at": "2026-09-13T14:15:36Z",
+      "agent": "leader",
+      "event": "T1.0 cleared by the OWNER, not the assistant: they ran both pre-check queries against the live database and reported 0 rows with tesla_id IS NULL and 0 duplicate session_id. T1 moves to done."
     }
   ]
 }

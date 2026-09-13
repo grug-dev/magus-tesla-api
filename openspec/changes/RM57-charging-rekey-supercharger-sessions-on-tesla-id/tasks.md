@@ -50,15 +50,15 @@ Depends on: nothing.
 
 Depends on: nothing.
 
-- [ ] 1.0 **Owner pre-check, before the migration is applied** (`design.md` D2).
+- [x] 1.0 **Owner pre-check, before the migration is applied** (`design.md` D2).
       Hand the owner these two queries and record the answers in the change:
       `SELECT count(*) FROM charging.supercharger_sessions WHERE tesla_id IS NULL;`
       and
       `SELECT session_id, count(*) FROM charging.supercharger_sessions GROUP BY session_id HAVING count(*) > 1;`
       A non-empty second result means a duplicate pair exists, and the owner
       must confirm which copy to keep before the migration runs.
-      **Not run by this worker — needs a live database connection the owner
-      must check. See the final report.**
+      **Owner ran both on 2026-09-13: the first returns 0, the second returns
+      no rows. The DELETE guard removes nothing and `UNIQUE (session_id)` holds.**
 - [x] 1.1 Write `internal/charging/db/migrations/20260912000002_rekey_supercharger_sessions_on_tesla_id.sql`
       exactly as `design.md` §Schema gives it — Up and Down, comments included.
       Do not renumber: `20260912000002` is free across all four module
