@@ -6,7 +6,7 @@
   "request": "MAG-67 \u2014 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-13T12:35:00Z",
+  "updated_at": "2026-09-13T13:15:25Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -166,14 +166,14 @@
       "depends_on": [
         1
       ],
-      "status": "proposed",
+      "status": "in-progress",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-09-13T12:17:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Artifacts written, openspec validate --strict passes. Database design gate confirmed by the user (RD10-RD13)."
+      "notes": "Wave 1 (T0, T1) committed. T1 awaits the owner's two pre-check queries. Wave 2 (T2-T4) dispatched."
     },
     {
       "id": 3,
@@ -249,6 +249,11 @@
       "at": "2026-09-13T12:35:00Z",
       "what": "tier-2-artifacts",
       "detail": "Artifacts written, openspec validate --strict passes. Design gate confirmed: RD10 (DDL + index plan), RD11 (cursors deleted), RD12 (VerifySession re-keyed on tesla_id), RD13 (processor.go rewrite moved from tier 3 into tier 2). Roadmap md tier 2/3 scope cells updated to match."
+    },
+    {
+      "at": "2026-09-13T13:15:25Z",
+      "what": "resumed",
+      "detail": "Fresh session. Tier 2 status corrected proposed -> in-progress: its change progress.json already said in-progress with wave 1 committed. Wave 2 (T2, T3, T4) dispatched to one serial Sonnet worker. Budget five_hour_pct 72, context_pct 9."
     }
   ]
 }

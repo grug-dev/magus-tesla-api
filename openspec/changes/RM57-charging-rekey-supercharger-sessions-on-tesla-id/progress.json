@@ -11,9 +11,6 @@
       "T1"
     ],
     "pending": [
-      "T2",
-      "T3",
-      "T4",
       "T5",
       "T6",
       "T7",
@@ -22,11 +19,14 @@
     ],
     "blocked": [],
     "done": [
-      "T0"
+      "T0",
+      "T2",
+      "T3",
+      "T4"
     ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T12:38:00Z",
+  "updated_at": "2026-09-13T13:24:03Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -96,14 +96,23 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-13T13:15:25Z",
+      "completed_at": "2026-09-13T13:24:03Z",
+      "duration_seconds": 518,
+      "notes": "Rewrote the session and watermark queries as design.md gives them. make sqlc clean. Diff confirmed: SuperchargerSession lost AccountID, TeslaID is int64, GetMirrorWatermark takes int64, UpsertMirrorWatermarkParams carries TeslaID.",
+      "budget": {
+        "five_hour_pct_start": 72,
+        "five_hour_pct_end": 87,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.9,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T2, T3 and T4; the wave delta is copied onto all three."
+      }
     },
     {
       "id": "T3",
@@ -113,14 +122,23 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-13T13:15:25Z",
+      "completed_at": "2026-09-13T13:24:03Z",
+      "duration_seconds": 518,
+      "notes": "charging.go updated. SessionMirror and Session drop AccountID and carry TeslaID int64. MirrorSessions, the three vehicle reads and both watermark methods drop accountID. VerifySession is re-keyed on teslaID. Manual-entry ports untouched.",
+      "budget": {
+        "five_hour_pct_start": 72,
+        "five_hour_pct_end": 87,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.9,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T2, T3 and T4; the wave delta is copied onto all three."
+      }
     },
     {
       "id": "T4",
@@ -130,14 +148,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-13T13:15:25Z",
+      "completed_at": "2026-09-13T13:24:03Z",
+      "duration_seconds": 518,
+      "notes": "Five files rewritten to the new signatures. int64PtrToPgInt8 and pgInt8ToInt64Ptr deleted after a grep showed no call site. Leader re-verified: go build ./internal/charging/... and gofmt -l are clean.",
+      "budget": {
+        "five_hour_pct_start": 72,
+        "five_hour_pct_end": 87,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.9,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T2, T3 and T4; the wave delta is copied onto all three."
+      }
     },
     {
       "id": "T5",
@@ -275,6 +302,14 @@
       "decision": "The processor.go per-vehicle mirror rewrite lands here, not in tier 3",
       "why": "The re-keyed watermark leaves the account-grouped loop with no cursor to read.",
       "covered_by": "roadmap RD13"
+    },
+    {
+      "id": "D1",
+      "at": "2026-09-13T13:15:25Z",
+      "scope": "wave:2",
+      "made_by": "autopilot",
+      "decision": "T2, T3 and T4 go to ONE serial worker instead of three dispatches",
+      "why": "They form a hard compile chain and each is prescriptive. Three dispatches would re-read the ~12k-token doc pack twice more and leave two non-building states."
     }
   ],
   "events": [
@@ -297,6 +332,16 @@
       "at": "2026-09-13T12:38:00Z",
       "agent": "leader",
       "event": "wave 1 complete (T0 done, T1 awaiting-user-verification on the T1.0 pre-check). make migration-guard clean apart from a pre-existing unrelated 20260720000001 collision warning already in backlog.md. Budget five_hour_pct 65 -> 71."
+    },
+    {
+      "at": "2026-09-13T13:15:25Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; dispatched wave 2 (T2, T3, T4) to one serial charging worker on Sonnet; budget five_hour_pct 72, context_pct 9"
+    },
+    {
+      "at": "2026-09-13T13:24:03Z",
+      "agent": "leader",
+      "event": "wave 2 complete (T2, T3, T4 done). Leader re-verified go build ./internal/charging/... and gofmt -l clean. go vet on the module stays red in T5/T6 test files that still use AccountID - expected until those tasks run. Budget five_hour_pct 72 -> 87."
     }
   ]
 }

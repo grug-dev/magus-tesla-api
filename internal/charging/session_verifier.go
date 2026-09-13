@@ -119,10 +119,10 @@ func sessionStatusFor(startPct, endPct *int, derived bool) SessionStatus {
 //     endBatteryPct, and whether step 2 actually derived a value
 //     (RM41-charging-add-session-status design.md "Go-side call shape").
 //  4. Call VerifySuperchargerSession — against the open transaction when one exists,
-//     against v.q otherwise — scoped by id + accountID, and map the returned row via
+//     against v.q otherwise — scoped by id + teslaID, and map the returned row via
 //     the existing rowToSession (session_reader.go) — no new mapping code. Commit the
 //     transaction, when one was opened, only after VerifySuperchargerSession succeeds.
-func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error) {
+func (v *sessionVerifier) VerifySession(ctx context.Context, teslaID int64, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error) {
 	if startBatteryPct != nil && (*startBatteryPct < 0 || *startBatteryPct > 100) {
 		return Session{}, fmt.Errorf("charging: start_battery_pct %d out of range [0,100]", *startBatteryPct)
 	}
@@ -153,8 +153,8 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 		q = qtx
 
 		row, err := qtx.LockSessionForVerification(ctx, chargingdb.LockSessionForVerificationParams{
-			ID:        id,
-			AccountID: accountID,
+			ID:      id,
+			TeslaID: teslaID,
 		})
 		if err != nil {
 			// design.md D10: identical wrap to VerifySuperchargerSession's own
@@ -164,14 +164,12 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 			return Session{}, fmt.Errorf("charging: verify session: %w", err)
 		}
 
-		var capacityKWh float64
-		if teslaID := pgInt8ToInt64Ptr(row.TeslaID); teslaID != nil {
-			capacityKWh, err = packCapacityKWh(ctx, v, *teslaID)
-			if err != nil {
-				return Session{}, fmt.Errorf("charging: resolving pack capacity: %w", err)
-			}
-		} else {
-			capacityKWh = defaultPackCapacityKWh
+		// row.TeslaID is the locked row's own vehicle id, always the same value as
+		// the teslaID parameter above -- it is NOT NULL on this table now, so there
+		// is no unregistered-vehicle case left to fall back from.
+		capacityKWh, err := packCapacityKWh(ctx, v, row.TeslaID)
+		if err != nil {
+			return Session{}, fmt.Errorf("charging: resolving pack capacity: %w", err)
 		}
 
 		startToStore = derivedStartBatteryPct(capacityKWh, pgFloat8ToFloat64Ptr(row.EnergyKwh), endBatteryPct)
@@ -188,7 +186,7 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 
 	row, err := q.VerifySuperchargerSession(ctx, chargingdb.VerifySuperchargerSessionParams{
 		ID:               id,
-		AccountID:        accountID,
+		TeslaID:          teslaID,
 		StartBatteryPct:  intPtrToPgInt2(startToStore),
 		EndBatteryPct:    intPtrToPgInt2(endBatteryPct),
 		BatteryPctSource: stringPtrToPgText(source),

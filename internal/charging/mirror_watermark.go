@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -42,13 +41,13 @@ var _ MirrorWatermarkStore = (*mirrorWatermarkStore)(nil)
 // (time.Time{}, nil) -- design.md D3, copying
 // analytics.recalculator.watermark's identical translation rather than
 // re-deriving it.
-func (s *mirrorWatermarkStore) MirrorWatermark(ctx context.Context, accountID uuid.UUID) (time.Time, error) {
-	ts, err := s.q.GetMirrorWatermark(ctx, accountID)
+func (s *mirrorWatermarkStore) MirrorWatermark(ctx context.Context, teslaID int64) (time.Time, error) {
+	ts, err := s.q.GetMirrorWatermark(ctx, teslaID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return time.Time{}, nil
 		}
-		return time.Time{}, fmt.Errorf("charging: reading mirror watermark for account %s: %w", accountID, err)
+		return time.Time{}, fmt.Errorf("charging: reading mirror watermark for vehicle %d: %w", teslaID, err)
 	}
 	return ts.Time, nil
 }
@@ -59,12 +58,12 @@ func (s *mirrorWatermarkStore) MirrorWatermark(ctx context.Context, accountID uu
 // when the bounded telemetry read returned zero rows) lives in the caller
 // (internal/app.processChargingData), not here, mirroring
 // analytics.recalculator.advanceWatermark's identical division of labor.
-func (s *mirrorWatermarkStore) AdvanceMirrorWatermark(ctx context.Context, accountID uuid.UUID, observed time.Time) error {
+func (s *mirrorWatermarkStore) AdvanceMirrorWatermark(ctx context.Context, teslaID int64, observed time.Time) error {
 	if err := s.q.UpsertMirrorWatermark(ctx, chargingdb.UpsertMirrorWatermarkParams{
-		AccountID:       accountID,
+		TeslaID:         teslaID,
 		SourceUpdatedAt: pgtype.Timestamptz{Time: observed, Valid: true},
 	}); err != nil {
-		return fmt.Errorf("charging: advancing mirror watermark for account %s: %w", accountID, err)
+		return fmt.Errorf("charging: advancing mirror watermark for vehicle %d: %w", teslaID, err)
 	}
 	return nil
 }

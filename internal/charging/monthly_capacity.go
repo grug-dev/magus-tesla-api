@@ -148,14 +148,13 @@ func (c *monthlyCapacityCalculator) Calculate(ctx context.Context, period time.T
 		byVehicle[r.TeslaID] = append(byVehicle[r.TeslaID], capacitySample{CapacityKWh: *capacity, BatteryDeltaPct: *end - *start})
 	}
 	for _, r := range sessionRows {
-		tid := pgInt8ToInt64Ptr(r.TeslaID)
 		capacity := pgNumericToFloat64Ptr(r.InferredCapacityKwhCalc)
 		start := pgInt2ToIntPtr(r.StartBatteryPct)
 		end := pgInt2ToIntPtr(r.EndBatteryPct)
-		if tid == nil || capacity == nil || start == nil || end == nil {
-			continue // defensive; the query's own WHERE already guarantees this (RD5)
+		if capacity == nil || start == nil || end == nil {
+			continue // defensive; the query's own WHERE already guarantees this
 		}
-		byVehicle[*tid] = append(byVehicle[*tid], capacitySample{CapacityKWh: *capacity, BatteryDeltaPct: *end - *start})
+		byVehicle[r.TeslaID] = append(byVehicle[r.TeslaID], capacitySample{CapacityKWh: *capacity, BatteryDeltaPct: *end - *start})
 	}
 
 	report := MonthlyCapacityReport{Period: period}

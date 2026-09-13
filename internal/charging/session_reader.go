@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -42,14 +41,13 @@ var _ SessionReader = (*sessionReader)(nil)
 // inclusive of its entire day; endBound is computed HERE, in Go — never in SQL
 // (design.md D5) — exactly mirroring
 // telemetry.SuperchargerSessionsByVehicleBetween's own end-bound translation.
-func (r *sessionReader) ListSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Session, error) {
+func (r *sessionReader) ListSessionsByVehicleBetween(ctx context.Context, teslaID int64, from, to time.Time) ([]Session, error) {
 	endBound := to.AddDate(0, 0, 1)
 
 	rows, err := r.q.ListSessionsByVehicleBetween(ctx, chargingdb.ListSessionsByVehicleBetweenParams{
-		AccountID: accountID,
-		TeslaID:   teslaIDToPgInt8(teslaID),
-		FromTime:  pgtype.Timestamptz{Time: from, Valid: true},
-		EndBound:  pgtype.Timestamptz{Time: endBound, Valid: true},
+		TeslaID:  teslaID,
+		FromTime: pgtype.Timestamptz{Time: from, Valid: true},
+		EndBound: pgtype.Timestamptz{Time: endBound, Valid: true},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("charging: list sessions by vehicle between: %w", err)
@@ -65,11 +63,10 @@ func (r *sessionReader) ListSessionsByVehicleBetween(ctx context.Context, accoun
 // ListSessionsByVehicleUpdatedSince implements SessionReader. See the interface doc
 // comment (charging.go) for the full contract. since is used as-is — no endBound
 // translation, unlike ListSessionsByVehicleBetween (design.md D1).
-func (r *sessionReader) ListSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Session, error) {
+func (r *sessionReader) ListSessionsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Session, error) {
 	rows, err := r.q.ListSessionsByVehicleUpdatedSince(ctx, chargingdb.ListSessionsByVehicleUpdatedSinceParams{
-		AccountID: accountID,
-		TeslaID:   teslaIDToPgInt8(teslaID),
-		Since:     pgtype.Timestamptz{Time: since, Valid: true},
+		TeslaID: teslaID,
+		Since:   pgtype.Timestamptz{Time: since, Valid: true},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("charging: list sessions by vehicle updated since: %w", err)
@@ -86,14 +83,13 @@ func (r *sessionReader) ListSessionsByVehicleUpdatedSince(ctx context.Context, a
 // (charging.go) for the full contract. The limit <= 0 clamp runs in Go, before the query
 // is issued (design.md D3), reusing the module's existing defaultLimit constant
 // (service.go) — no new constant.
-func (r *sessionReader) ListSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Session, error) {
+func (r *sessionReader) ListSessionsByVehicle(ctx context.Context, teslaID int64, limit int) ([]Session, error) {
 	if limit <= 0 {
 		limit = defaultLimit
 	}
 
 	rows, err := r.q.ListSessionsByVehicle(ctx, chargingdb.ListSessionsByVehicleParams{
-		AccountID:  accountID,
-		TeslaID:    teslaIDToPgInt8(teslaID),
+		TeslaID:    teslaID,
 		LimitCount: int32(limit),
 	})
 	if err != nil {
@@ -107,23 +103,14 @@ func (r *sessionReader) ListSessionsByVehicle(ctx context.Context, accountID uui
 	return sessions, nil
 }
 
-// teslaIDToPgInt8 maps a plain int64 vehicle id to a valid pgtype.Int8 filter param.
-// Named and shaped after telemetry.teslaIDToPgInt8 (internal/telemetry/reader.go) — the
-// identical situation: a NOT NULL Go parameter filtering a nullable BIGINT column
-// (design.md D6).
-func teslaIDToPgInt8(teslaID int64) pgtype.Int8 {
-	return pgtype.Int8{Int64: teslaID, Valid: true}
-}
-
 // rowToSession converts a generated chargingdb.SuperchargerSession row into the domain
 // Session type. This is the DB→domain mapping boundary for supercharger_sessions reads: all
 // pgtype conversions are confined here so pgtype never appears in public types, method
 // signatures, or tests (ai/go-conventions.md §persistence).
 //
 // Mapping rules:
-//   - ID, AccountID, Vin, SessionID, SiteLocationName: direct (non-nullable,
+//   - ID, Vin, TeslaID, SessionID, SiteLocationName: direct (non-nullable,
 //     value-compatible).
-//   - TeslaID: pgtype.Int8 → *int64 via pgInt8ToInt64Ptr (session_writer.go).
 //   - ChargeStartDateTime, ChargeStopDateTime, CreatedAt, UpdatedAt: pgtype.Timestamptz
 //     → time.Time via .Time (required, non-null).
 //   - EnergyKwh, TotalCost: pgtype.Float8 → *float64 via pgFloat8ToFloat64Ptr
@@ -141,9 +128,8 @@ func teslaIDToPgInt8(teslaID int64) pgtype.Int8 {
 func rowToSession(r chargingdb.SuperchargerSession) Session {
 	return Session{
 		ID:        r.ID,
-		AccountID: r.AccountID,
 		VIN:       r.Vin,
-		TeslaID:   pgInt8ToInt64Ptr(r.TeslaID),
+		TeslaID:   r.TeslaID,
 		SessionID: r.SessionID,
 
 		ChargeStartDateTime: r.ChargeStartDateTime.Time,

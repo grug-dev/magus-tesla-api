@@ -77,39 +77,39 @@ Depends on: nothing.
 
 Depends on: T1.
 
-- [ ] 2.1 `internal/charging/db/query.sql`, `MirrorSuperchargerSession`: remove
+- [x] 2.1 `internal/charging/db/query.sql`, `MirrorSuperchargerSession`: remove
       `account_id` from the INSERT column list and from `VALUES`; change
       `ON CONFLICT (account_id, session_id)` to `ON CONFLICT (session_id)`;
       remove `account_id` from **both** `'{…}'::text[]` deny-list arrays. Leave
       the load-bearing comment about the human-owned battery-% trio word for
       word.
-- [ ] 2.2 Same query: rewrite the closing `tesla_id` paragraph. It stays inside
+- [x] 2.2 Same query: rewrite the closing `tesla_id` paragraph. It stays inside
       the change comparison because telemetry refreshes it and a mirrored column
       takes its source's write semantics — the old orphan-recovery reason no
       longer exists.
-- [ ] 2.3 `ListSessionsByVehicleBetween`, `ListSessionsByVehicleUpdatedSince`,
+- [x] 2.3 `ListSessionsByVehicleBetween`, `ListSessionsByVehicleUpdatedSince`,
       `ListSessionsByVehicle`: drop the `account_id` predicate from each. Update
       each index comment to `(tesla_id, charge_stop_date_time)`, and delete the
       closing paragraph in each about `tesla_id = @tesla_id` excluding NULL rows
       — the column is `NOT NULL` now.
-- [ ] 2.4 `ListSessionsByVehicleUpdatedSince`: keep the "no new index"
+- [x] 2.4 `ListSessionsByVehicleUpdatedSince`: keep the "no new index"
       paragraph and restate its reason — this query orders by
       `charge_stop_date_time`, so an `updated_at` index would force a sort
       (`design.md` D6).
-- [ ] 2.5 `LockSessionForVerification` and `VerifySuperchargerSession`:
+- [x] 2.5 `LockSessionForVerification` and `VerifySuperchargerSession`:
       `WHERE id = @id AND tesla_id = @tesla_id`. Update both comments — the
       scope is the vehicle now, and on `VerifySuperchargerSession` say plainly
       that this predicate is the write path's tenant boundary.
-- [ ] 2.6 `GetMirrorWatermark`: `WHERE tesla_id = @tesla_id`. Update the comment
+- [x] 2.6 `GetMirrorWatermark`: `WHERE tesla_id = @tesla_id`. Update the comment
       — one cursor per vehicle, served by `mirror_watermarks_vehicle_unique`.
-- [ ] 2.7 `UpsertMirrorWatermark`: `INSERT … (tesla_id, source_updated_at)` and
+- [x] 2.7 `UpsertMirrorWatermark`: `INSERT … (tesla_id, source_updated_at)` and
       `ON CONFLICT (tesla_id)`. `created_at` stays out of the SET clause.
-- [ ] 2.8 `ListValidSessionCapacitiesForPeriod`: delete `AND tesla_id IS NOT NULL`
+- [x] 2.8 `ListValidSessionCapacitiesForPeriod`: delete `AND tesla_id IS NOT NULL`
       and the sentence explaining it — the column is `NOT NULL`.
-- [ ] 2.9 Do NOT touch any `manual_charge_entries` query
+- [x] 2.9 Do NOT touch any `manual_charge_entries` query
       (`CreateEntry`, `UpdateEntry`, `DeleteEntry`, `ListEntries*`,
       `ListValidManualEntryCapacitiesForPeriod`). They keep `account_id`.
-- [ ] 2.10 `make sqlc`. Confirm in the diff that
+- [x] 2.10 `make sqlc`. Confirm in the diff that
       `chargingdb.SuperchargerSession` lost `AccountID` and that its `TeslaID`
       is `int64`, not `pgtype.Int8`; that `LockSessionForVerificationParams` and
       `VerifySuperchargerSessionParams` now carry `TeslaID int64`; that
@@ -121,62 +121,62 @@ Depends on: T1.
 
 Depends on: T2.
 
-- [ ] 3.1 `internal/charging/charging.go`: `SessionMirror` drops `AccountID`;
+- [x] 3.1 `internal/charging/charging.go`: `SessionMirror` drops `AccountID`;
       `TeslaID` becomes `int64`. Replace the field's "nil when the VIN is not a
       currently-registered vehicle" comment with the real reason — a session is
       only mirrored for a registered vehicle.
-- [ ] 3.2 Same file: `Session` drops `AccountID`; `TeslaID` becomes `int64`.
+- [x] 3.2 Same file: `Session` drops `AccountID`; `TeslaID` becomes `int64`.
       Update the type's doc comment — it says "nineteen fields, one per
       `supercharger_sessions` column"; there are eighteen columns now.
-- [ ] 3.3 `SessionWriter.MirrorSessions(ctx, sessions []SessionMirror) error`.
+- [x] 3.3 `SessionWriter.MirrorSessions(ctx, sessions []SessionMirror) error`.
       Delete the "every entry's `AccountID` must equal `accountID`" sentence from
       the doc comment — there is no scope argument left to match against.
-- [ ] 3.4 `SessionReader.ListSessionsByVehicleBetween`,
+- [x] 3.4 `SessionReader.ListSessionsByVehicleBetween`,
       `SuperchargerSessionAnalyticsReader.ListSessionsByVehicleUpdatedSince`
       and `…ListSessionsByVehicle`: drop `accountID` from each signature.
       Delete the doc-comment sentences promising that a session with a nil
       `TeslaID` is never returned — no such session can exist.
-- [ ] 3.5 `SessionVerifier.VerifySession(ctx, teslaID int64, id uuid.UUID, startBatteryPct, endBatteryPct *int)`.
+- [x] 3.5 `SessionVerifier.VerifySession(ctx, teslaID int64, id uuid.UUID, startBatteryPct, endBatteryPct *int)`.
       Replace `accountID` with `teslaID` — do NOT simply drop it. Document why
       in the doc comment, in plain words: this predicate is the only tenant
       boundary on the Supercharger write path, and a mismatched vehicle is
       reported exactly like an unknown id so the two cannot be told apart.
-- [ ] 3.6 `MirrorWatermarkStore.MirrorWatermark(ctx, teslaID int64)` and
+- [x] 3.6 `MirrorWatermarkStore.MirrorWatermark(ctx, teslaID int64)` and
       `AdvanceMirrorWatermark(ctx, teslaID int64, observed time.Time)`. Update
       the doc comments: one cursor per vehicle, an absent cursor still means
       epoch, and the "never advance to `now()`" rule is unchanged.
-- [ ] 3.7 Do NOT change `Writer`, `Reader`, `Entry`, or any
+- [x] 3.7 Do NOT change `Writer`, `Reader`, `Entry`, or any
       `manual_charge_entries` port. They keep `accountID`.
 
 ## T4 — Implementation
 
 Depends on: T3.
 
-- [ ] 4.1 `internal/charging/session_writer.go`: delete the loop that validated
+- [x] 4.1 `internal/charging/session_writer.go`: delete the loop that validated
       each entry's `AccountID` against the call scope. Keep the empty-slice
       short circuit and the single-transaction shape. Drop `AccountID` from the
       params literal and pass `TeslaID: s.TeslaID` directly.
-- [ ] 4.2 `internal/charging/session_reader.go`: the three methods drop
+- [x] 4.2 `internal/charging/session_reader.go`: the three methods drop
       `accountID` from their signature and their `…Params` literal.
       `rowToSession` drops `AccountID` and assigns `TeslaID: r.TeslaID`.
-- [ ] 4.3 `internal/charging/session_verifier.go`: `VerifySession` takes
+- [x] 4.3 `internal/charging/session_verifier.go`: `VerifySession` takes
       `teslaID int64` and passes it to both `LockSessionForVerification` and
       `VerifySuperchargerSession`.
-- [ ] 4.4 Same file: the derived-start branch loses its nil check.
+- [x] 4.4 Same file: the derived-start branch loses its nil check.
       `row.TeslaID` is a plain `int64`, so `packCapacityKWh(ctx, v, row.TeslaID)`
       always runs and the local `defaultPackCapacityKWh` fallback branch is
       deleted. The fallback still exists one level down inside `packCapacityKWh`
       — do not duplicate it here.
-- [ ] 4.5 `internal/charging/mirror_watermark.go`: both methods take
+- [x] 4.5 `internal/charging/mirror_watermark.go`: both methods take
       `teslaID int64`; the error messages say `vehicle %d` instead of
       `account %s`.
-- [ ] 4.6 `internal/charging/monthly_capacity.go`: the session branch drops the
+- [x] 4.6 `internal/charging/monthly_capacity.go`: the session branch drops the
       `pgInt8ToInt64Ptr` call and the `tid == nil` guard, and groups under
       `r.TeslaID` exactly like the manual-entry branch above it.
-- [ ] 4.7 Grep the module for `int64PtrToPgInt8` and `pgInt8ToInt64Ptr`. Delete
+- [x] 4.7 Grep the module for `int64PtrToPgInt8` and `pgInt8ToInt64Ptr`. Delete
       either helper only if it has no call site left; both are in
       `session_writer.go`. Confirm with the grep before deleting — do not assume.
-- [ ] 4.8 `go build ./internal/charging/...` and `go vet ./internal/charging/...`
+- [x] 4.8 `go build ./internal/charging/...` and `go vet ./internal/charging/...`
       — expect clean. The rest of the repo is still red until T8.
 
 ## T5 — Database-backed integration tests
