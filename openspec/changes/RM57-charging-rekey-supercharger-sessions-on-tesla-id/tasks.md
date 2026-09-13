@@ -358,13 +358,13 @@ Depends on: T0–T8.
       `kkpa/context/pending-spec-to-sync/applied/` and the untouched historic
       migration files.
 - [x] 9.9 `openspec validate RM57-charging-rekey-supercharger-sessions-on-tesla-id --strict`
-- [ ] 9.10 Hand the owner the suite commands — this agent never runs them:
+- [x] 9.10 Hand the owner the suite commands — this agent never runs them:
       `make test` (disposable container) and, for the DB-backed charging tests
       specifically,
       `go test ./internal/charging/ -run 'TestSession|TestMirror|TestVerify|TestMonthlyCapacity' -v`,
       confirming the output says `PASS` and not `SKIP`. If a local Postgres is
       used instead, `make db-setup-test` first.
-- [ ] 9.11 Hand the owner the post-`migrate-up` verification queries, since this
+- [x] 9.11 Hand the owner the post-`migrate-up` verification queries, since this
       project verifies migrations by inspection, not by test:
       `\d charging.supercharger_sessions` and `\d charging.mirror_watermarks`
       (expect no `account_id`, `tesla_id NOT NULL`,

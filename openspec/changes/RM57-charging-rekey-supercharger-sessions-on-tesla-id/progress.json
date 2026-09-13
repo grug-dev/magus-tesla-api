@@ -5,14 +5,9 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
   "request": "MAG-67 tier 2 — Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
-  "status": "applied",
+  "status": "in-review",
   "rollup": {
-    "current": [
-      "T5",
-      "T6",
-      "T8",
-      "T9"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
@@ -21,11 +16,15 @@
       "T2",
       "T3",
       "T4",
-      "T7"
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9"
     ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T19:54:00Z",
+  "updated_at": "2026-09-13T20:27:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -173,7 +172,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-13T19:30:00Z",
@@ -199,7 +198,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-13T19:30:00Z",
@@ -251,7 +250,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-13T19:30:00Z",
@@ -285,7 +284,7 @@
         "T8"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-13T19:48:00Z",
@@ -305,9 +304,9 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
+    "status": "in-review",
+    "agent": "charging-reviewer",
+    "brief": "Review tier 2 of RM57: charging.supercharger_sessions and charging.mirror_watermarks re-keyed on tesla_id. Read the branch diff against main, not the whole module. Validate: (1) every DB object matches the user-confirmed design in design.md - DDL, the UNIQUE (session_id) swap, tesla_id NOT NULL, the account_id drop, and the single index (tesla_id, charge_stop_date_time). Any mismatch is a blocker finding. (2) Module boundaries: no module reads another's DB; the gateway calls interfaces only; internal/app, internal/analytics and internal/gateway changes are leader-owned integration and must use charging's public ports. (3) Doc-pack conventions: km/C/PSI suffixes, internal/clock for time, bilingual i18n for any user-facing string. (4) Spec and tasks coverage: every requirement in specs/ is implemented; tasks.md matches what landed. (5) Tests assert the expectations design.md authored BEFORE implementation (its Test contract section), not whatever the code happens to do. Check T-1..T-13 specifically. (6) Three deletions need scrutiny, each claimed to be a design consequence rather than a weakened criterion: C7 and C11 in db_monthly_capacity_integration_test.go, and TestSuperchargerRowUpdate_NilTeslaIDSkipsRecalculationAndLogs in the gateway. All three needed a nil vehicle. Confirm a nil vehicle is now impossible, or raise it. (7) The per-vehicle mirror loop in internal/app/processor.go: confirm one car's cursor can never move past another car's unread rows, that a zero-row read never advances, and that the cursor never moves to now(). (8) VerifySession is re-keyed on tesla_id, not stripped. Confirm the gateway still proves ownership before the write. (9) Anti-gaming: no acceptance criterion weakened or deleted to finish, no self-approved status. Signals: the ASSISTANT ran go build ./..., go vet ./..., gofmt -l, migration-guard, boundary-guard, vehicleref-guard, archive-guard and openspec validate --strict - all clean. The OWNER ran make test and reported it passed. You must NOT run the suite. Judge test quality by reading the tests.",
     "rounds": []
   },
   "decisions": [
@@ -468,6 +467,16 @@
       "at": "2026-09-13T19:54:00Z",
       "agent": "leader",
       "event": "wave 3 committed as 878a055"
+    },
+    {
+      "at": "2026-09-13T20:26:00Z",
+      "agent": "leader",
+      "event": "SUITE VERIFIED BY THE OWNER, not by the assistant: they ran make test and reported it passed. T5, T6, T8 and T9 move to done. Change status -> verified. The assistant never ran the suite."
+    },
+    {
+      "at": "2026-09-13T20:27:00Z",
+      "agent": "leader",
+      "event": "review brief written; dispatching charging-reviewer on Sonnet with instruction to escalate on doubt. Budget five_hour_pct 56, context_pct 23."
     }
   ]
 }
