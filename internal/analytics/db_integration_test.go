@@ -449,11 +449,11 @@ func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.Super
 	}
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO telemetry.supercharger_history (
-			session_id, account_id, vin, tesla_id, site_location_name, country_code,
+			session_id, vin, tesla_id, site_location_name, country_code,
 			charge_start_date_time, charge_stop_date_time, billing_type, vehicle_make_type,
 			start_battery_pct, end_battery_pct, raw_data, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'{}'::jsonb,$13)`,
-		sessionID, s.AccountID, s.VIN, pgInt8FromPtr(s.TeslaID), s.SiteLocationName, s.CountryCode,
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'{}'::jsonb,$12)`,
+		sessionID, s.VIN, s.TeslaID, s.SiteLocationName, s.CountryCode,
 		pgtype.Timestamptz{Time: s.ChargeStartDateTime, Valid: true},
 		pgtype.Timestamptz{Time: s.ChargeStopDateTime, Valid: true},
 		s.BillingType, s.VehicleMakeType,
@@ -1540,9 +1540,8 @@ func TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy(t *testing.
 	// this tier's retype; seeded only to prove it is NOT what consumed_pct
 	// comes from.
 	seedSuperchargerSession(t, pool, telemetry.SuperchargerHistory{
-		AccountID:           accountID,
 		SessionID:           sessionID,
-		TeslaID:             &teslaIDCopy,
+		TeslaID:             teslaID,
 		ChargeStartDateTime: startAt,
 		ChargeStopDateTime:  stopAt,
 		StartBatteryPct:     intPtr(30),

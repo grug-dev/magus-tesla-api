@@ -128,34 +128,34 @@ Depends on: T2.
 
 Depends on: T3, and T0 must already be written.
 
-- [ ] 4.1 `internal/telemetry/reader.go`: the three surviving methods drop
+- [x] 4.1 `internal/telemetry/reader.go`: the three surviving methods drop
       `accountID` from the signature and from the `…Params` literal; assign
       `TeslaID: teslaID` directly. Delete the two removed method
       implementations.
-- [ ] 4.2 `internal/telemetry/service.go`: delete the `teslaIDToPgInt8` helper
+- [x] 4.2 `internal/telemetry/service.go`: delete the `teslaIDToPgInt8` helper
       — T4.1 removed its last three call sites. Confirm with a repo grep before
       deleting.
-- [ ] 4.3 `internal/telemetry/service.go`, `upsertSuperchargerHistory`: drop
+- [x] 4.3 `internal/telemetry/service.go`, `upsertSuperchargerHistory`: drop
       `AccountID` from the params literal and replace the nullable
       `pgtype.Int8` wrap with the plain `s.TeslaID`.
-- [ ] 4.4 `internal/telemetry/service.go`, `collectChargingHistory`: turn the
+- [x] 4.4 `internal/telemetry/service.go`, `collectChargingHistory`: turn the
       VIN lookup into a guard exactly as `design.md` §service.go shows —
       `continue` plus `report.ChargingSessionsSkippedUnregistered++` when the
       VIN is absent. Drop `AccountID` from the `domainSession` literal and
       assign `TeslaID: teslaID`. Update the function's doc comment: the
       sentence about storing a NULL `tesla_id` is now wrong.
-- [ ] 4.5 `internal/telemetry/mapping.go`, `rowToSuperchargerHistory`: delete
+- [x] 4.5 `internal/telemetry/mapping.go`, `rowToSuperchargerHistory`: delete
       the nullable `tesla_id` block, assign `TeslaID: r.TeslaID`, drop
       `AccountID`, and remove the `pgtype.Int8 → *int64` line from the mapping
       rules comment.
-- [ ] 4.6 `internal/telemetry/query_log.go`: delete the two removed decorator
+- [x] 4.6 `internal/telemetry/query_log.go`: delete the two removed decorator
       methods; drop `account=%s` from the three survivors' signatures and log
       lines; drop `account=%s` from the `upsertSuperchargerHistory` decorator
       and make its `tesla_id` a plain `%d`.
-- [ ] 4.7 `internal/telemetry/report.go`, `LogCycle`: add
+- [x] 4.7 `internal/telemetry/report.go`, `LogCycle`: add
       `charging_skipped_unregistered=%d` right after `charging_failures=%d`,
       and update the doc comment's list of what the line carries.
-- [ ] 4.8 `go build ./internal/telemetry/...` and
+- [x] 4.8 `go build ./internal/telemetry/...` and
       `go vet ./internal/telemetry/...` — expect clean. The rest of the repo is
       still red until T8.
 
@@ -223,25 +223,25 @@ Depends on: T4. May run in parallel with T5.
 Depends on: T3 (needs the final port shape). Touches no Go file — safe to run
 in parallel with T4–T8.
 
-- [ ] 7.1 `internal/telemetry/AGENTS.md` — five corrections, all named in
+- [x] 7.1 `internal/telemetry/AGENTS.md` — five corrections, all named in
       `design.md` §Docs: the "sessions for VINs no longer registered get
       `tesla_id = NULL`" sentence; the upsert's refreshed-column list; the
       data-ownership line saying `supercharger_history` "still carries
       `account_id` too"; the port table's method count; the note calling
       `SuperchargerHistoryByAccountUpdatedSince` the only method that can
       return a NULL `tesla_id`.
-- [ ] 7.2 `kkpa/context/architecture/telemetry-ingest-only.md` — its consumer
+- [x] 7.2 `kkpa/context/architecture/telemetry-ingest-only.md` — its consumer
       table names `SuperchargerHistoryByAccount` as `internal/app`'s call.
       Replace it with `SuperchargerHistoryByVehicleUpdatedSince`, and say the
       mirror reads per vehicle.
-- [ ] 7.3 `kkpa/context/architecture/telemetry-tables.md` — the closing
+- [x] 7.3 `kkpa/context/architecture/telemetry-tables.md` — the closing
       "`account_id`/`tesla_id` are plain columns" line, and the
       `supercharger_history` bullet, which must now state the key:
       `tesla_id NOT NULL`, no `account_id`.
-- [ ] 7.4 `kkpa/context/architecture/nightly-cycle.md` — both cells naming
+- [x] 7.4 `kkpa/context/architecture/nightly-cycle.md` — both cells naming
       `SuperchargerHistoryByAccount` (the consumer table and the per-table
       read/write table).
-- [ ] 7.5 Do NOT edit anything under `openspec/changes/archive/`. A grep for
+- [x] 7.5 Do NOT edit anything under `openspec/changes/archive/`. A grep for
       `account_id` will hit archived designs; those hits are the record of what
       was decided then and are not yours to fix. `make archive-guard` enforces
       it.
@@ -252,39 +252,39 @@ Depends on: T3 (needs the final port signatures). **Not this module's sandbox �
 `internal/telemetry` workers must not edit these files.** Must land in the same
 wave as T4, or `go build ./...` stays red (`design.md` D7).
 
-- [ ] 8.1 `internal/app/processor.go:223`: replace the single
+- [x] 8.1 `internal/app/processor.go:223`: replace the single
       `SuperchargerHistoryByAccountUpdatedSince(ctx, v.AccountID, cursor.Add(-mirrorOverlap))`
       call with a fan-out over the account's vehicles, calling
       `SuperchargerHistoryByVehicleUpdatedSince(ctx, tid, cursor.Add(-mirrorOverlap))`
       once per distinct `tesla_id` of that account and concatenating the
       results. `MirrorWatermark`, `AdvanceMirrorWatermark`, `MirrorSessions`
       and the per-account loop keep their current account-keyed shape.
-- [ ] 8.2 `internal/app/processor.go`: `charging.SessionMirror{AccountID: …}`
+- [x] 8.2 `internal/app/processor.go`: `charging.SessionMirror{AccountID: …}`
       takes the account from the loop variable, not from the session (the
       session no longer has one). `SessionMirror.TeslaID` is `*int64` until
       roadmap tier 2 — pass the address of the loop's `tesla_id`.
-- [ ] 8.3 `internal/app/processor.go`: update the loop's own comments. The
+- [x] 8.3 `internal/app/processor.go`: update the loop's own comments. The
       one explaining that the read is account-wide "so mirroring per vehicle
       would re-mirror the same sessions" is no longer true.
-- [ ] 8.4 `internal/app/app.go:96`: no signature change expected — confirm the
+- [x] 8.4 `internal/app/app.go:96`: no signature change expected — confirm the
       `telemetry.SuperchargerHistoryReader` parameter still compiles.
-- [ ] 8.5 `internal/app/processor_test.go`: `fakeSuperchargerHistoryReader` and
+- [x] 8.5 `internal/app/processor_test.go`: `fakeSuperchargerHistoryReader` and
       `stubSuperchargerHistoryReader` must match the three-method interface —
       delete the two removed methods, re-sign the survivors, and drop
       `AccountID` from the `session(...)` helper's
       `telemetry.SuperchargerHistory` literal.
-- [ ] 8.6 `internal/app/processor_test.go`: the two mirror tests seed sessions
+- [x] 8.6 `internal/app/processor_test.go`: the two mirror tests seed sessions
       per account today; re-shape them for the per-vehicle fan-out and keep
       the watermark assertions (zero rows leaves the cursor untouched; the new
       cursor is the highest observed `updated_at`, never `now()`).
-- [ ] 8.7 `internal/analytics/db_integration_test.go`,
+- [x] 8.7 `internal/analytics/db_integration_test.go`,
       `seedSuperchargerSession`: drop `account_id` from the raw `INSERT`
       column list and its parameter, and change `pgInt8FromPtr(s.TeslaID)` to
       the plain `s.TeslaID`.
-- [ ] 8.8 `internal/analytics/db_integration_test.go`: every
+- [x] 8.8 `internal/analytics/db_integration_test.go`: every
       `telemetry.SuperchargerHistory{AccountID: …, TeslaID: &teslaIDCopy}`
       literal drops `AccountID` and passes `TeslaID` by value.
-- [ ] 8.9 `go build ./internal/app/... ./internal/analytics/...` and
+- [x] 8.9 `go build ./internal/app/... ./internal/analytics/...` and
       `go vet` the same two packages — expect clean.
 
 ## T9 — Final verification

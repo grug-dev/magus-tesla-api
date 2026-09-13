@@ -68,7 +68,7 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 | Caller | Port | Callee | Methods used |
 |---|---|---|---|
 | `app` | `telemetry.Collector` | `telemetry` | `CollectAll` |
-| `app` | `telemetry.SuperchargerHistoryReader` | `telemetry` | `SuperchargerHistoryByAccount` — **the port's only remaining caller repo-wide** |
+| `app` | `telemetry.SuperchargerHistoryReader` | `telemetry` | `SuperchargerHistoryByVehicleUpdatedSince` (once per vehicle of the account, fanned out — RM57 D7, the table dropped `account_id`) — **the port's only remaining caller repo-wide** |
 | `app` | `charging.SessionWriter` | `charging` | `MirrorSessions` |
 | `app` | `analytics.Recalculator` | `analytics` | `Reconcile` |
 | `app` | `analytics.Reader` | `analytics` | `ConsumedByDay` |
@@ -90,7 +90,7 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 | `accounts` | account | — | untouched — OAuth and language are user paths |
 | `vehicle_snapshots` | telemetry | 1 write · 3 read | C+U (`InsertVehicleSnapshot`, on-conflict per `(account_id, tesla_id, captured_date)`), R by analytics |
 | `poll_attempts` | telemetry | 1 | C only, one row per vehicle per cycle, stamped `run_id`/`triggered_by` |
-| `supercharger_history` (schema `telemetry`; renamed from `supercharger_sessions` + moved out of `public`, RM39 tier 4) | telemetry | 1 write · 2 read | C+U (`UpsertSuperchargerHistory`), R by step 2's mirror (`SuperchargerHistoryByAccount` — the port was renamed to match the table by RM39 tier 5). **No longer read in step 3.** |
+| `supercharger_history` (schema `telemetry`; renamed from `supercharger_sessions` + moved out of `public`, RM39 tier 4; keyed on `tesla_id NOT NULL`, no `account_id`, RM57 tier 1) | telemetry | 1 write · 2 read | C+U (`UpsertSuperchargerHistory`), R by step 2's mirror, per vehicle (`SuperchargerHistoryByVehicleUpdatedSince`). **No longer read in step 3.** |
 | `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) | charging | 2 write · 3 read | C+U (`MirrorSuperchargerSession`), R by analytics (`ListSessionsByVehicle{Between,UpdatedSince}`) |
 | `manual_charge_entries` | charging | 3 read | R only — the nightly job never writes manual entries |
 | `vehicle_metrics` | analytics | 3 | C+R+U+D — the only table the cycle touches with all four, in one transaction |

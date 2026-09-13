@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -195,23 +196,32 @@ func (p *processor) processChargingData(ctx context.Context) {
 		return
 	}
 
-	// One account may hold several registered vehicles, and the read below is
-	// account-wide, so mirroring per vehicle would re-mirror the same sessions
-	// once per vehicle. Deduplicate to one pass per account. Order is not
-	// significant: accounts are independent and each pass is idempotent.
-	seen := make(map[uuid.UUID]struct{}, len(vehicles))
+	// The telemetry read is per vehicle, but the watermark is per account, so
+	// one pass must cover every vehicle of that account. Group the distinct
+	// tesla_ids per account here, then read them all inside one pass. Account
+	// order is not significant: accounts are independent and each pass is
+	// idempotent. The same car registered to two accounts is two pairs, and each
+	// account mirrors its own copy.
+	byAccount := make(map[uuid.UUID][]int64, len(vehicles))
+	accounts := make([]uuid.UUID, 0, len(vehicles))
 	for _, v := range vehicles {
-		if _, done := seen[v.AccountID]; done {
+		ids, known := byAccount[v.AccountID]
+		if !known {
+			accounts = append(accounts, v.AccountID)
+		}
+		if slices.Contains(ids, v.TeslaID) {
 			continue
 		}
-		seen[v.AccountID] = struct{}{}
+		byAccount[v.AccountID] = append(ids, v.TeslaID)
+	}
 
+	for _, accountID := range accounts {
 		// The watermark is the highest telemetry updated_at this account's mirror
 		// has already copied. A zero time means "never mirrored", so the read
 		// below starts at the epoch and copies the whole history once.
-		cursor, err := p.mirrorWatermarks.MirrorWatermark(ctx, v.AccountID)
+		cursor, err := p.mirrorWatermarks.MirrorWatermark(ctx, accountID)
 		if err != nil {
-			log.Printf("session mirror: account %s: reading watermark: %v", v.AccountID, err)
+			log.Printf("session mirror: account %s: reading watermark: %v", accountID, err)
 			continue
 		}
 
@@ -220,9 +230,23 @@ func (p *processor) processChargingData(ctx context.Context) {
 		// reason analytics keeps its own overlap: a row whose updated_at was
 		// assigned before the previous run committed can land in the table after
 		// that run read it. Re-reading it is free — MirrorSessions is idempotent.
-		sessions, err := p.superchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince(ctx, v.AccountID, cursor.Add(-mirrorOverlap))
-		if err != nil {
-			log.Printf("session mirror: account %s: reading sessions: %v", v.AccountID, err)
+		//
+		// One vehicle's read failure skips the whole account. The cursor covers
+		// every vehicle of the account at once, so advancing it after a partial
+		// read would push it past the missing vehicle's rows, and those rows
+		// would never be mirrored again.
+		var sessions []telemetry.SuperchargerHistory
+		readFailed := false
+		for _, teslaID := range byAccount[accountID] {
+			found, err := p.superchargerHistoryReader.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, cursor.Add(-mirrorOverlap))
+			if err != nil {
+				log.Printf("session mirror: account %s: vehicle %d: reading sessions: %v", accountID, teslaID, err)
+				readFailed = true
+				break
+			}
+			sessions = append(sessions, found...)
+		}
+		if readFailed {
 			continue
 		}
 		if len(sessions) == 0 {
@@ -241,10 +265,14 @@ func (p *processor) processChargingData(ctx context.Context) {
 			if s.UpdatedAt.After(maxUpdated) {
 				maxUpdated = s.UpdatedAt
 			}
+			// The session no longer carries an account, so it comes from the pass
+			// being run. SessionMirror.TeslaID is still a pointer because a
+			// mirrored row may predate vehicle registration.
+			teslaID := s.TeslaID
 			mirrored = append(mirrored, charging.SessionMirror{
-				AccountID:           s.AccountID,
+				AccountID:           accountID,
 				VIN:                 s.VIN,
-				TeslaID:             s.TeslaID,
+				TeslaID:             &teslaID,
 				SessionID:           s.SessionID,
 				ChargeStartDateTime: s.ChargeStartDateTime,
 				ChargeStopDateTime:  s.ChargeStopDateTime,
@@ -256,18 +284,18 @@ func (p *processor) processChargingData(ctx context.Context) {
 			})
 		}
 
-		if err := p.sessionWriter.MirrorSessions(ctx, v.AccountID, mirrored); err != nil {
-			log.Printf("session mirror: account %s: %v", v.AccountID, err)
+		if err := p.sessionWriter.MirrorSessions(ctx, accountID, mirrored); err != nil {
+			log.Printf("session mirror: account %s: %v", accountID, err)
 			continue
 		}
 		// Advance only after a successful mirror. A crash or an error between the
 		// two leaves the cursor behind, so the next run re-reads the same window.
 		// That repeats work; it never loses a row.
-		if err := p.mirrorWatermarks.AdvanceMirrorWatermark(ctx, v.AccountID, maxUpdated); err != nil {
-			log.Printf("session mirror: account %s: advancing watermark: %v", v.AccountID, err)
+		if err := p.mirrorWatermarks.AdvanceMirrorWatermark(ctx, accountID, maxUpdated); err != nil {
+			log.Printf("session mirror: account %s: advancing watermark: %v", accountID, err)
 			continue
 		}
-		log.Printf("session mirror: account %s: %d session(s)", v.AccountID, len(mirrored))
+		log.Printf("session mirror: account %s: %d session(s)", accountID, len(mirrored))
 	}
 }
 

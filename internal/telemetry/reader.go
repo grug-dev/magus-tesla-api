@@ -6,7 +6,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -144,33 +143,13 @@ func resolveLimit(limit int) int32 {
 	return int32(limit)
 }
 
-// SuperchargerHistoryByAccount implements SuperchargerHistoryReader. It returns all
-// Supercharger sessions for the given account, ordered by charge_start_date_time DESC,
-// limited to limit rows (0 = math.MaxInt32). Returns a non-nil empty slice when no
-// sessions exist (design DBS6 — non-nil so callers can safely range over the result).
-func (r *superchargerHistoryReader) SuperchargerHistoryByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerHistory, error) {
-	rows, err := r.q.SuperchargerHistoryByAccount(ctx, telemetrydb.SuperchargerHistoryByAccountParams{
-		AccountID:  accountID,
-		LimitCount: resolveLimit(limit),
-	})
-	if err != nil {
-		return nil, err
-	}
-	sessions := make([]SuperchargerHistory, 0, len(rows))
-	for _, row := range rows {
-		sessions = append(sessions, rowToSuperchargerHistory(row))
-	}
-	return sessions, nil
-}
-
 // SuperchargerHistoryByVehicle implements SuperchargerHistoryReader. It returns Supercharger
-// sessions for the given vehicle within the given account, ordered by
-// charge_start_date_time DESC, limited to limit rows (0 = math.MaxInt32). Returns a
-// non-nil empty slice when no sessions exist (design DBS6).
-func (r *superchargerHistoryReader) SuperchargerHistoryByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerHistory, error) {
+// sessions for the given vehicle, ordered by charge_start_date_time DESC, limited to
+// limit rows (0 = math.MaxInt32). Returns a non-nil empty slice when no sessions exist
+// (design DBS6).
+func (r *superchargerHistoryReader) SuperchargerHistoryByVehicle(ctx context.Context, teslaID int64, limit int) ([]SuperchargerHistory, error) {
 	rows, err := r.q.SuperchargerHistoryByVehicle(ctx, telemetrydb.SuperchargerHistoryByVehicleParams{
-		AccountID:  accountID,
-		TeslaID:    teslaIDToPgInt8(teslaID),
+		TeslaID:    teslaID,
 		LimitCount: resolveLimit(limit),
 	})
 	if err != nil {
@@ -184,41 +163,16 @@ func (r *superchargerHistoryReader) SuperchargerHistoryByVehicle(ctx context.Con
 }
 
 // SuperchargerHistoryByVehicleUpdatedSince implements SuperchargerHistoryReader. It
-// returns every Supercharger session for the given vehicle (within the given
-// account) whose updated_at is at or after since, ordered oldest-first by
-// updated_at (RM29-analytics-add-vehicle-metrics task 1.3). Reuses the existing
+// returns every Supercharger session for the given vehicle whose updated_at is at
+// or after since, ordered oldest-first by updated_at
+// (RM29-analytics-add-vehicle-metrics task 1.3). Reuses the existing
 // rowToSuperchargerHistory mapper (mapping.go) — no new field, no new mapper.
 // Returns a non-nil empty slice when no sessions have been updated in the
 // window (design DBS6 parity with every other method on this interface).
-func (r *superchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerHistory, error) {
+func (r *superchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]SuperchargerHistory, error) {
 	rows, err := r.q.SuperchargerHistoryByVehicleUpdatedSince(ctx, telemetrydb.SuperchargerHistoryByVehicleUpdatedSinceParams{
-		AccountID: accountID,
-		TeslaID:   teslaIDToPgInt8(teslaID),
-		Since:     timestamptzFrom(since),
-	})
-	if err != nil {
-		return nil, err
-	}
-	sessions := make([]SuperchargerHistory, 0, len(rows))
-	for _, row := range rows {
-		sessions = append(sessions, rowToSuperchargerHistory(row))
-	}
-	return sessions, nil
-}
-
-// SuperchargerHistoryByAccountUpdatedSince implements SuperchargerHistoryReader. It
-// returns every Supercharger session for the given account whose updated_at is at
-// or after since, ordered oldest-first by updated_at
-// (RM44-platform-add-mirror-watermark, roadmap D20). Unlike
-// SuperchargerHistoryByVehicleUpdatedSince, this has no tesla_id param or
-// predicate, so it can return a session whose tesla_id is NULL (the
-// orphan-recovery path — design.md D6). Reuses the existing
-// rowToSuperchargerHistory mapper (mapping.go). Returns a non-nil empty slice
-// when no sessions have been updated in the window (design DBS6 parity).
-func (r *superchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, accountID uuid.UUID, since time.Time) ([]SuperchargerHistory, error) {
-	rows, err := r.q.SuperchargerHistoryByAccountUpdatedSince(ctx, telemetrydb.SuperchargerHistoryByAccountUpdatedSinceParams{
-		AccountID: accountID,
-		Since:     timestamptzFrom(since),
+		TeslaID: teslaID,
+		Since:   timestamptzFrom(since),
 	})
 	if err != nil {
 		return nil, err
@@ -231,24 +185,22 @@ func (r *superchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(ctx
 }
 
 // SuperchargerHistoryByVehicleBetween implements SuperchargerHistoryReader. It returns
-// Supercharger sessions for the given vehicle (within the given account) whose
-// ChargeStopDateTime falls in the caller-supplied [start, end] window, inclusive
-// of the whole end calendar day, ordered oldest-first (RM28-telemetry-add-
-// charge-gap-storage, roadmap D9/D12). endBound = end + 1 calendar day
-// (Go-side day arithmetic, mirroring dbStore.snapshotsByVehicleBetween's own
-// precedent of doing bounds translation in Go, not SQL) makes the underlying
-// SQL's half-open `>= start AND < endBound` include every instant of the end
-// calendar day with no off-by-one. Reuses the existing rowToSuperchargerHistory
-// mapper (mapping.go) — SuperchargerHistory gains no new field for this query, so
-// no new mapping helper is needed. Returns a non-nil empty slice when no
-// sessions exist in the window (design DBS6 parity).
-func (r *superchargerHistoryReader) SuperchargerHistoryByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error) {
+// Supercharger sessions for the given vehicle whose ChargeStopDateTime falls in the
+// caller-supplied [start, end] window, inclusive of the whole end calendar day,
+// ordered oldest-first (RM28-telemetry-add-charge-gap-storage, roadmap D9/D12).
+// endBound = end + 1 calendar day (Go-side day arithmetic, mirroring
+// dbStore.snapshotsByVehicleBetween's own precedent of doing bounds translation in
+// Go, not SQL) makes the underlying SQL's half-open `>= start AND < endBound`
+// include every instant of the end calendar day with no off-by-one. Reuses the
+// existing rowToSuperchargerHistory mapper (mapping.go) — SuperchargerHistory gains
+// no new field for this query, so no new mapping helper is needed. Returns a
+// non-nil empty slice when no sessions exist in the window (design DBS6 parity).
+func (r *superchargerHistoryReader) SuperchargerHistoryByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error) {
 	endBound := end.AddDate(0, 0, 1)
 	rows, err := r.q.SuperchargerHistoryByVehicleBetween(ctx, telemetrydb.SuperchargerHistoryByVehicleBetweenParams{
-		AccountID: accountID,
-		TeslaID:   teslaIDToPgInt8(teslaID),
-		Start:     timestamptzFrom(start),
-		EndBound:  timestamptzFrom(endBound),
+		TeslaID:  teslaID,
+		Start:    timestamptzFrom(start),
+		EndBound: timestamptzFrom(endBound),
 	})
 	if err != nil {
 		return nil, err

@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -202,23 +204,15 @@ var _ account.Service = (*fakeAccountEmpty)(nil)
 // value (design D9).
 type fakeSuperchargerHistoryReader struct{}
 
-func (fakeSuperchargerHistoryReader) SuperchargerHistoryByAccount(_ context.Context, _ uuid.UUID, _ int) ([]telemetry.SuperchargerHistory, error) {
+func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicle(_ context.Context, _ int64, _ int) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicle(_ context.Context, _ uuid.UUID, _ int64, _ int) ([]telemetry.SuperchargerHistory, error) {
+func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleBetween(_ context.Context, _ int64, _, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
-	return nil, nil
-}
-
-func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
-	return nil, nil
-}
-
-func (fakeSuperchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(_ context.Context, _ uuid.UUID, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
+func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
@@ -468,18 +462,26 @@ func (f *fakeMirrorWatermarkStore) AdvanceMirrorWatermark(_ context.Context, _ u
 
 var _ charging.MirrorWatermarkStore = (*fakeMirrorWatermarkStore)(nil)
 
-// stubSuperchargerHistoryReader records the `since` bound it was called with and
-// returns a fixed session list, so a test can assert both the window the mirror
-// asked for and what it did with the answer.
+// stubSuperchargerHistoryReader answers per vehicle and records what it was
+// asked for, so a test can assert the window the mirror requested, which
+// vehicles it fanned out over, and what it did with the answers. A tesla_id
+// missing from byVehicle returns nothing, which is the normal "no new sessions"
+// case. failOn makes that one vehicle's read fail.
 type stubSuperchargerHistoryReader struct {
 	fakeSuperchargerHistoryReader
-	sessions  []telemetry.SuperchargerHistory
-	sinceSeen []time.Time
+	byVehicle    map[int64][]telemetry.SuperchargerHistory
+	failOn       int64
+	sinceSeen    []time.Time
+	vehiclesSeen []int64
 }
 
-func (s *stubSuperchargerHistoryReader) SuperchargerHistoryByAccountUpdatedSince(_ context.Context, _ uuid.UUID, since time.Time) ([]telemetry.SuperchargerHistory, error) {
+func (s *stubSuperchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(_ context.Context, teslaID int64, since time.Time) ([]telemetry.SuperchargerHistory, error) {
 	s.sinceSeen = append(s.sinceSeen, since)
-	return s.sessions, nil
+	s.vehiclesSeen = append(s.vehiclesSeen, teslaID)
+	if s.failOn != 0 && teslaID == s.failOn {
+		return nil, errors.New("read boom")
+	}
+	return s.byVehicle[teslaID], nil
 }
 
 var _ telemetry.SuperchargerHistoryReader = (*stubSuperchargerHistoryReader)(nil)
@@ -496,14 +498,28 @@ var _ charging.SessionWriter = failingSessionWriter{}
 
 // fakeAccountOneAccount reuses fakeAccountEmpty's eight unreachable methods and
 // overrides only AllRegisteredVehicles, so the mirror loop runs for exactly one
-// account.
+// account. teslaIDs are that account's registered cars; empty means one car, 1.
+// Several cars on one account is the case the fan-out exists for.
 type fakeAccountOneAccount struct {
 	*fakeAccountEmpty
 	accountID uuid.UUID
+	teslaIDs  []int64
 }
 
 func (f *fakeAccountOneAccount) AllRegisteredVehicles(_ context.Context) ([]account.OwnedVehicle, error) {
-	return []account.OwnedVehicle{{AccountID: f.accountID, TeslaID: 1, VIN: "VIN1"}}, nil
+	ids := f.teslaIDs
+	if len(ids) == 0 {
+		ids = []int64{1}
+	}
+	owned := make([]account.OwnedVehicle, 0, len(ids))
+	for _, id := range ids {
+		owned = append(owned, account.OwnedVehicle{
+			AccountID: f.accountID,
+			TeslaID:   id,
+			VIN:       fmt.Sprintf("VIN%d", id),
+		})
+	}
+	return owned, nil
 }
 
 var _ account.Service = (*fakeAccountOneAccount)(nil)
@@ -532,12 +548,13 @@ func newMirrorTestProcessor(
 }
 
 // session builds a telemetry.SuperchargerHistory carrying only the fields the
-// mirror maps plus the updated_at the watermark rule turns on.
-func session(accountID uuid.UUID, sessionID int64, updatedAt time.Time) telemetry.SuperchargerHistory {
+// mirror maps plus the updated_at the watermark rule turns on. It carries no
+// account: the mirror takes that from the pass being run.
+func session(sessionID, teslaID int64, updatedAt time.Time) telemetry.SuperchargerHistory {
 	return telemetry.SuperchargerHistory{
 		SessionID: sessionID,
-		AccountID: accountID,
-		VIN:       "VIN1",
+		TeslaID:   teslaID,
+		VIN:       fmt.Sprintf("VIN%d", teslaID),
 		UpdatedAt: updatedAt,
 	}
 }
@@ -551,9 +568,9 @@ func TestProcessChargingData_EmptyReadLeavesWatermarkUntouched(t *testing.T) {
 	x := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 
 	watermarks := &fakeMirrorWatermarkStore{cursor: x}
-	reader := &stubSuperchargerHistoryReader{sessions: nil}
+	reader := &stubSuperchargerHistoryReader{}
 	p := newMirrorTestProcessor(reader, fakeSessionWriter{}, watermarks,
-		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID})
+		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID, teslaIDs: []int64{11, 22}})
 
 	p.processChargingData(context.Background())
 
@@ -564,10 +581,20 @@ func TestProcessChargingData_EmptyReadLeavesWatermarkUntouched(t *testing.T) {
 		t.Errorf("watermark = %v, want it unchanged at %v", got, x)
 	}
 
-	// The read must also be bounded, not a full sweep: one overlap before X.
+	// Every car of the account is read, and the account's watermark is read once.
+	if got := reader.vehiclesSeen; !slices.Equal(got, []int64{11, 22}) {
+		t.Errorf("vehicles read = %v, want [11 22]", got)
+	}
+
+	// Each read must also be bounded, not a full sweep: one overlap before X.
 	wantSince := x.Add(-mirrorOverlap)
-	if len(reader.sinceSeen) != 1 || !reader.sinceSeen[0].Equal(wantSince) {
-		t.Errorf("read since = %v, want %v", reader.sinceSeen, wantSince)
+	for i, got := range reader.sinceSeen {
+		if !got.Equal(wantSince) {
+			t.Errorf("read %d since = %v, want %v", i, got, wantSince)
+		}
+	}
+	if len(reader.sinceSeen) != 2 {
+		t.Errorf("reads = %d, want 2 (one per car)", len(reader.sinceSeen))
 	}
 }
 
@@ -581,14 +608,15 @@ func TestProcessChargingData_AdvancesWatermarkToMaxObserved(t *testing.T) {
 	c := time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC)
 
 	watermarks := &fakeMirrorWatermarkStore{cursor: a}
-	// Deliberately out of order, so passing cannot depend on C arriving last.
-	reader := &stubSuperchargerHistoryReader{sessions: []telemetry.SuperchargerHistory{
-		session(accountID, 1, b),
-		session(accountID, 2, c),
-		session(accountID, 3, a),
+	// Two cars on one account, deliberately out of order, and the maximum sits on
+	// the second car. Passing cannot depend on C arriving last, nor on which car
+	// carries it. One cursor covers both cars, so it must advance exactly once.
+	reader := &stubSuperchargerHistoryReader{byVehicle: map[int64][]telemetry.SuperchargerHistory{
+		11: {session(1, 11, b), session(3, 11, a)},
+		22: {session(2, 22, c)},
 	}}
 	p := newMirrorTestProcessor(reader, fakeSessionWriter{}, watermarks,
-		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID})
+		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID, teslaIDs: []int64{11, 22}})
 
 	p.processChargingData(context.Background())
 
@@ -612,8 +640,8 @@ func TestProcessChargingData_FailedMirrorDoesNotAdvanceWatermark(t *testing.T) {
 	later := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
 
 	watermarks := &fakeMirrorWatermarkStore{cursor: x}
-	reader := &stubSuperchargerHistoryReader{sessions: []telemetry.SuperchargerHistory{
-		session(accountID, 1, later),
+	reader := &stubSuperchargerHistoryReader{byVehicle: map[int64][]telemetry.SuperchargerHistory{
+		1: {session(1, 1, later)},
 	}}
 	p := newMirrorTestProcessor(reader, failingSessionWriter{}, watermarks,
 		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID})
@@ -627,3 +655,49 @@ func TestProcessChargingData_FailedMirrorDoesNotAdvanceWatermark(t *testing.T) {
 		t.Errorf("watermark = %v, want it unchanged at %v", got, x)
 	}
 }
+
+// TestProcessChargingData_OneVehicleReadFailureSkipsAccount covers the fan-out's
+// own risk. The watermark covers every car of the account at once. If one car's
+// read fails and the account still advanced, the cursor would move past that
+// car's rows and they would never be mirrored again. So a single failed read
+// must abandon the whole account: no mirror write, no advance.
+func TestProcessChargingData_OneVehicleReadFailureSkipsAccount(t *testing.T) {
+	accountID := uuid.New()
+	x := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	later := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+
+	watermarks := &fakeMirrorWatermarkStore{cursor: x}
+	writer := &recordingSessionWriter{}
+	// Car 11 answers with a row; car 22 fails. The account must still be skipped.
+	reader := &stubSuperchargerHistoryReader{
+		byVehicle: map[int64][]telemetry.SuperchargerHistory{11: {session(1, 11, later)}},
+		failOn:    22,
+	}
+	p := newMirrorTestProcessor(reader, writer, watermarks,
+		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID, teslaIDs: []int64{11, 22}})
+
+	p.processChargingData(context.Background())
+
+	if writer.calls != 0 {
+		t.Errorf("MirrorSessions called %d time(s), want 0 after a failed read", writer.calls)
+	}
+	if watermarks.advanceCalls != 0 {
+		t.Errorf("AdvanceMirrorWatermark called %d time(s), want 0 after a failed read", watermarks.advanceCalls)
+	}
+	if got := watermarks.cursor; !got.Equal(x) {
+		t.Errorf("watermark = %v, want it unchanged at %v", got, x)
+	}
+}
+
+// recordingSessionWriter counts MirrorSessions calls, so a test can assert the
+// mirror wrote nothing.
+type recordingSessionWriter struct {
+	calls int
+}
+
+func (w *recordingSessionWriter) MirrorSessions(_ context.Context, _ uuid.UUID, _ []charging.SessionMirror) error {
+	w.calls++
+	return nil
+}
+
+var _ charging.SessionWriter = (*recordingSessionWriter)(nil)

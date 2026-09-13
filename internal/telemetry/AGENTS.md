@@ -56,10 +56,13 @@ constraint + `ON CONFLICT DO UPDATE` (refreshing only mutable columns — `raw_d
 "what's new since last run" logic. Re-upserting the full history every night is intentional:
 billing state (`is_paid`, invoice status) mutates post-session, so a session row is never "done"
 on first insert. `tesla_id` is resolved from a VIN→TeslaID map built from the account's currently
-registered vehicles; sessions for VINs no longer registered get `tesla_id = NULL` (row kept, VIN
-preserved). The three battery-% verification columns are deliberately excluded from the upsert —
-they are a human-owned channel that the nightly poller must never overwrite (see "Battery-%
-verification columns" below).
+registered vehicles; a session whose VIN is not in that map is **skipped and counted**
+(`CycleReport.ChargingSessionsSkippedUnregistered`), never stored — `supercharger_history` has
+no column that could hold one (`tesla_id NOT NULL`, no `account_id`, since
+`RM57-telemetry-rekey-supercharger-history-on-tesla-id` tier 1). The three battery-%
+verification columns are deliberately excluded from the upsert — they are a human-owned
+channel that the nightly poller must never overwrite (see "Battery-% verification columns"
+below).
 
 ## Public interface (the port)
 
@@ -71,7 +74,7 @@ them there.** They are deliberately not copied here.
 |---|---|---|
 | `Collector` | `CollectAll` — run one collection cycle over every registered vehicle, all accounts | — |
 | `Reader` | Four snapshot reads: latest-per-vehicle, since, between, and the single preceding day | `NewReader(pool)` |
-| `SuperchargerHistoryReader` | Four reads over `supercharger_history` | `NewSuperchargerHistoryReader(pool)` |
+| `SuperchargerHistoryReader` | Three reads over `supercharger_history`, all per-vehicle | `NewSuperchargerHistoryReader(pool)` |
 | `RunWriter` | `RecordRun` — one `poll_runs` row per cycle | — |
 
 Plus the domain types (no vendor suffix — `ai/architecture.md` §6): `Snapshot`,
@@ -89,11 +92,6 @@ What the source does not tell you:
 - **`Scheduler` / `NewScheduler` are NOT part of this module any more.** They relocated to
   `internal/app`, with their four tests. `LogCycle` / `formatFailures` stayed (`report.go`),
   and `LogCycle` remains exported because its caller is now `internal/app`'s `Scheduler.Run`.
-- **`SuperchargerHistoryByAccountUpdatedSince` is the ONLY method on that port that can
-  return a session with `tesla_id IS NULL`** — a session whose vehicle is no longer registered
-  to the account. That is deliberate, not a bug: a per-vehicle read can never see such a row,
-  so this account-wide method is how `internal/charging`'s mirror recovers a session once its
-  vehicle re-registers. It takes no `teslaID` for exactly that reason.
 - **Every caller depends on the interface, never on `telemetrydb`.**
 
 No HTTP/JSON surface in this module (`ai/architecture.md` §3).
@@ -140,9 +138,12 @@ Rules that bind across all four:
 - **`captured_date` is Go-computed**, from `captured_at` in the platform zone via
   `clock.CalendarDay` — never a DB expression. A UNIQUE index cannot depend on a runtime env
   var.
-- **`vehicle_snapshots` is keyed on `tesla_id` alone; `supercharger_history` still
-  carries `account_id` too.** Both are plain columns. No cross-module FK, in either
-  direction — the boundary is upheld by the flow, not by a constraint.
+- **`vehicle_snapshots` and `supercharger_history` are both keyed on `tesla_id` alone.**
+  `supercharger_history` has no `account_id` column at all — dropped by
+  `RM57-telemetry-rekey-supercharger-history-on-tesla-id` tier 1. `vehicle_snapshots` still
+  has one, but it is nullable and unused; dropping it is tracked separately (Linear MAG-76).
+  `tesla_id` is a plain column on both tables. No cross-module FK, in either direction — the
+  boundary is upheld by the flow, not by a constraint.
 - **`pgtype` never leaves the module.** Convert to and from plain domain types at the
   DB→domain mapping boundary, mirroring `internal/account`.
 - **`charge_gaps` is NOT owned here any more** — it moved to `internal/analytics` with its

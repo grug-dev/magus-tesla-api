@@ -158,7 +158,7 @@ func rowToSnapshot(r snapshotRow) Snapshot {
 // pgtype never appears in the domain type or any caller (ai/go-conventions.md
 // §persistence, design B6.1). Mapping rules:
 //
-//   - pgtype.Int8 → *int64: {Valid: false} → nil, {Valid: true} → &v
+//   - TeslaID: plain int64, no conversion — the column is NOT NULL.
 //   - pgtype.Timestamptz → *time.Time for nullable unlatch_date_time; .Time for non-null
 //   - pgtype.Float8 → *float64: {Valid: false} → nil
 //   - pgtype.Text → *string: {Valid: false} → nil
@@ -168,13 +168,6 @@ func rowToSnapshot(r snapshotRow) Snapshot {
 //     SMALLINT columns); pgtype.Text → *string via the existing pgNullableText for
 //     BatteryPctSource. NULL means no override exists.
 func rowToSuperchargerHistory(r telemetrydb.SuperchargerHistory) SuperchargerHistory {
-	// nullable tesla_id
-	var teslaID *int64
-	if r.TeslaID.Valid {
-		v := r.TeslaID.Int64
-		teslaID = &v
-	}
-
 	// nullable unlatch_date_time
 	var unlatchDT *time.Time
 	if r.UnlatchDateTime.Valid {
@@ -207,9 +200,8 @@ func rowToSuperchargerHistory(r telemetrydb.SuperchargerHistory) SuperchargerHis
 	return SuperchargerHistory{
 		ID:                  r.ID,
 		SessionID:           r.SessionID,
-		AccountID:           r.AccountID,
 		VIN:                 r.Vin,
-		TeslaID:             teslaID,
+		TeslaID:             r.TeslaID,
 		SiteLocationName:    r.SiteLocationName,
 		CountryCode:         r.CountryCode,
 		ChargeStartDateTime: r.ChargeStartDateTime.Time,
