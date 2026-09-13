@@ -4,7 +4,7 @@
   "change": "RM57-charging-rekey-supercharger-sessions-on-tesla-id",
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
-  "request": "MAG-67 tier 2 \u2014 Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
+  "request": "MAG-67 tier 2 — Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
   "status": "in-progress",
   "rollup": {
     "current": [],
@@ -25,7 +25,7 @@
     ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T14:15:36Z",
+  "updated_at": "2026-09-13T14:33:08Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -41,7 +41,7 @@
   "tasks": [
     {
       "id": "T0",
-      "title": "Offline check \u2014 grep the five offline test files, record that no new offline test is needed",
+      "title": "Offline check — grep the five offline test files, record that no new offline test is needed",
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
@@ -65,7 +65,7 @@
     },
     {
       "id": "T1",
-      "title": "Migrations \u2014 rekey supercharger_sessions and mirror_watermarks on tesla_id",
+      "title": "Migrations — rekey supercharger_sessions and mirror_watermarks on tesla_id",
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
@@ -89,7 +89,7 @@
     },
     {
       "id": "T2",
-      "title": "Queries and sqlc \u2014 rewrite 9 queries, regenerate types",
+      "title": "Queries and sqlc — rewrite 9 queries, regenerate types",
       "module": "charging",
       "depends_on": [
         "T1"
@@ -115,7 +115,7 @@
     },
     {
       "id": "T3",
-      "title": "Ports and domain types \u2014 drop/re-key accountID on 6 port methods",
+      "title": "Ports and domain types — drop/re-key accountID on 6 port methods",
       "module": "charging",
       "depends_on": [
         "T2"
@@ -141,7 +141,7 @@
     },
     {
       "id": "T4",
-      "title": "Implementation \u2014 session_writer, session_reader, session_verifier, mirror_watermark, monthly_capacity",
+      "title": "Implementation — session_writer, session_reader, session_verifier, mirror_watermark, monthly_capacity",
       "module": "charging",
       "depends_on": [
         "T3"
@@ -167,7 +167,7 @@
     },
     {
       "id": "T5",
-      "title": "Database-backed integration tests \u2014 re-key seeds, add the 13-case contract",
+      "title": "Database-backed integration tests — re-key seeds, add the 13-case contract",
       "module": "charging",
       "depends_on": [
         "T4"
@@ -201,7 +201,7 @@
     },
     {
       "id": "T7",
-      "title": "Docs \u2014 AGENTS.md plus six kkpa/context guides",
+      "title": "Docs — AGENTS.md plus six kkpa/context guides",
       "module": "charging",
       "depends_on": [
         "T3"
@@ -218,7 +218,7 @@
     },
     {
       "id": "T8",
-      "title": "Cross-module bridge (leader-owned) \u2014 app, analytics, gateway",
+      "title": "Cross-module bridge (leader-owned) — app, analytics, gateway",
       "module": "leader",
       "depends_on": [
         "T3"
@@ -235,7 +235,7 @@
     },
     {
       "id": "T9",
-      "title": "Final verification \u2014 build, vet, guards, gofmt, repo grep, openspec validate",
+      "title": "Final verification — build, vet, guards, gofmt, repo grep, openspec validate",
       "module": "charging",
       "depends_on": [
         "T0",
@@ -356,6 +356,11 @@
       "at": "2026-09-13T14:15:36Z",
       "agent": "leader",
       "event": "T1.0 cleared by the OWNER, not the assistant: they ran both pre-check queries against the live database and reported 0 rows with tesla_id IS NULL and 0 duplicate session_id. T1 moves to done."
+    },
+    {
+      "at": "2026-09-13T14:33:08Z",
+      "agent": "leader",
+      "event": "budget-checkpoint on resume: five_hour_pct 91 >= 90, context_pct 10, five_hour_resets_at 1789315800 (2026-09-13T16:10:00Z). Wave 3 (T5, T6, T7) NOT dispatched. User chose to wait for the reset. Resume with /kkpa-dev-harness-pipeline resume RM57-charging-rekey-supercharger-sessions-on-tesla-id"
     }
   ]
 }
