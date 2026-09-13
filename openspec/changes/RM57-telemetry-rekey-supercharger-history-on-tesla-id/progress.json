@@ -8,7 +8,7 @@
   "intention": "telemetry.supercharger_history is keyed on tesla_id NOT NULL, account_id is gone, and the write path skips a session whose VIN is not a registered vehicle.",
   "request": "MAG-67 tier 1. Re-key telemetry.supercharger_history on tesla_id.",
   "status": "applied",
-  "updated_at": "2026-09-13T03:11:00Z",
+  "updated_at": "2026-09-13T03:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -367,6 +367,11 @@
       "at": "2026-09-13T03:11:00Z",
       "what": "awaiting-user-verification",
       "detail": "All nine tasks are complete. T5 and T6 await the owner's suite run; the assistant never runs it. Change status applied, not verified - Step 6 needs the owner's reported pass before the reviewer gate."
+    },
+    {
+      "at": "2026-09-13T03:12:00Z",
+      "what": "budget-checkpoint",
+      "detail": "five_hour_pct 94 >= 90 (threshold tripped), context_pct 14. The user accepted this crossing before wave 3 to finish the tier's code. five_hour_resets_at 1789282200 = 2026-09-13T06:50:00Z. All nine tasks complete and committed (98b4be2). Next: the owner runs the suite, then Step 7's reviewer gate. Resume needs a fresh bucket."
     }
   ]
 }
