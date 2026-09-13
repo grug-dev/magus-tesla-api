@@ -6,7 +6,7 @@
   "request": "MAG-67 \u2014 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-13T12:05:00Z",
+  "updated_at": "2026-09-13T12:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -20,9 +20,10 @@
     "created_at": "2026-09-12T12:27:24Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      2
+    ],
     "pending": [
-      2,
       3
     ],
     "blocked": [],
@@ -94,6 +95,46 @@
       "at": "2026-09-13T02:12:00Z",
       "what": "SuperchargerHistoryByAccount and SuperchargerHistoryByAccountUpdatedSince are removed, not re-keyed.",
       "why": "Both filter on account_id alone. Dropping the parameter would leave a whole-table scan. The roadmap's 'drop accountID' line only fits the three per-vehicle methods."
+    },
+    {
+      "id": "RD9",
+      "scope": "tier:2",
+      "made_by": "autopilot",
+      "at": "2026-09-13T12:17:00Z",
+      "what": "Tier 2's artifact worker runs on Opus, not the Sonnet default.",
+      "why": "Two migrations, a unique-constraint swap and an index plan judged against live queries. Tier 1's equivalent dispatch also used Opus."
+    },
+    {
+      "id": "RD10",
+      "scope": "tier:2",
+      "made_by": "user",
+      "at": "2026-09-13T12:35:00Z",
+      "what": "Sessions DDL and index plan approved: UNIQUE (session_id), tesla_id NOT NULL, account_id dropped, one index (tesla_id, charge_stop_date_time).",
+      "why": "All three reads order by charge_stop_date_time. A btree walks backwards at the same cost, so the newest-first read needs no second index. No updated_at index."
+    },
+    {
+      "id": "RD11",
+      "scope": "tier:2",
+      "made_by": "user",
+      "at": "2026-09-13T12:35:00Z",
+      "what": "The migration deletes every charging.mirror_watermarks cursor instead of mapping it onto each vehicle.",
+      "why": "The table's own comment says an absent cursor means re-read the whole history once. The mirror is an idempotent upsert, so the cost is one longer nightly run."
+    },
+    {
+      "id": "RD12",
+      "scope": "tier:2",
+      "made_by": "user",
+      "at": "2026-09-13T12:35:00Z",
+      "what": "VerifySession is re-keyed on tesla_id, not stripped of its scope.",
+      "why": "Its account_id predicate is the only tenant check on the Supercharger write path; the handler does none. The gateway supplies the vehicle from resolveSelectedVehicle, which is account-scoped."
+    },
+    {
+      "id": "RD13",
+      "scope": "tier:2",
+      "made_by": "user",
+      "at": "2026-09-13T12:35:00Z",
+      "what": "The per-vehicle mirror rewrite in internal/app/processor.go moves from tier 3 into tier 2 (task T8).",
+      "why": "Re-keying the watermark leaves the account-grouped loop with no cursor to read. Splitting them would stop the nightly mirror between the two tiers."
     }
   ],
   "tiers": [
@@ -125,14 +166,14 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-13T12:17:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Artifacts written, openspec validate --strict passes. Database design gate confirmed by the user (RD10-RD13)."
     },
     {
       "id": 3,
@@ -198,6 +239,16 @@
       "at": "2026-09-13T12:05:00Z",
       "what": "contract-drift-noted",
       "detail": "openspec/config.yaml archive rule says 'never archive unless review.status is reviewer-approved'. The skill's schema spells the reviewer's verdict review.status: approved, with reviewer-approved being the CHANGE status. Same intent, different field spelling. The gate was met - the reviewer approved in round 2. The config wording should be corrected to match the schema."
+    },
+    {
+      "at": "2026-09-13T12:17:00Z",
+      "what": "resumed",
+      "detail": "Budget clear (five_hour_pct 35, context_pct 9). Tier 2 charging artifact worker dispatched on Opus."
+    },
+    {
+      "at": "2026-09-13T12:35:00Z",
+      "what": "tier-2-artifacts",
+      "detail": "Artifacts written, openspec validate --strict passes. Design gate confirmed: RD10 (DDL + index plan), RD11 (cursors deleted), RD12 (VerifySession re-keyed on tesla_id), RD13 (processor.go rewrite moved from tier 3 into tier 2). Roadmap md tier 2/3 scope cells updated to match."
     }
   ]
 }
