@@ -174,7 +174,7 @@ Depends on: T4. May run in parallel with T6 — disjoint files.
 - [x] 5.3 Add T-8 to the same file (or a new
       `db_supercharger_vehicle_updated_since_integration_test.go`): the three
       `updated_at` values, the `tesla_id=222` decoy, and the three `since`
-      assertions — `t2 → [7102, 7103]`, `t3 → [7103]`, `t3+1ns → empty
+      assertions — `t2 → [7102, 7103]`, `t3 → [7103]`, `t3+1us → empty
       non-nil`.
 - [x] 5.4 Add T-9: `EXPLAIN` the per-vehicle updated-since query, assert the
       plan names `idx_supercharger_history_vehicle_updated` and contains no

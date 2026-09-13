@@ -8,7 +8,7 @@
   "intention": "telemetry.supercharger_history is keyed on tesla_id NOT NULL, account_id is gone, and the write path skips a session whose VIN is not a registered vehicle.",
   "request": "MAG-67 tier 1. Re-key telemetry.supercharger_history on tesla_id.",
   "status": "applied",
-  "updated_at": "2026-09-13T03:12:00Z",
+  "updated_at": "2026-09-13T11:40:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -72,6 +72,14 @@
       "at": "2026-09-13T02:42:04Z",
       "what": "In the mirror fan-out, one vehicle's failed read skips the whole account: no mirror write, no watermark advance.",
       "why": "The cursor covers every car of the account at once. Advancing it after a partial read would push it past the missing car's rows, losing them silently."
+    },
+    {
+      "id": "RD10",
+      "scope": "test-contract",
+      "made_by": "user",
+      "at": "2026-09-13T11:40:00Z",
+      "what": "T-8's step past t3 is one microsecond, not one nanosecond. design.md, tasks.md and the test all corrected.",
+      "why": "Postgres timestamptz holds microseconds and pgx truncates finer values, so t3+1ns reached the database as t3 and the inclusive bound correctly returned 7103. The design authored an unrepresentable value."
     }
   ],
   "tasks": [
@@ -372,6 +380,21 @@
       "at": "2026-09-13T03:12:00Z",
       "what": "budget-checkpoint",
       "detail": "five_hour_pct 94 >= 90 (threshold tripped), context_pct 14. The user accepted this crossing before wave 3 to finish the tier's code. five_hour_resets_at 1789282200 = 2026-09-13T06:50:00Z. All nine tasks complete and committed (98b4be2). Next: the owner runs the suite, then Step 7's reviewer gate. Resume needs a fresh bucket."
+    },
+    {
+      "at": "2026-09-13T11:16:00Z",
+      "what": "resumed",
+      "detail": "5-hour bucket reset (five_hour_pct 0, context_pct 9). Tree clean, on ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id. Re-ran every cheap signal: build, vet, migration/boundary/archive/vehicleref/money/tz guards all clean. gofmt flags three files (account/testdb_test.go, config/quote_test.go, gateway/vehicle_image_test.go) that this branch never touched - pre-existing, left alone. Step 6: asked the owner to run make test."
+    },
+    {
+      "at": "2026-09-13T11:40:00Z",
+      "what": "user-suite-run-failed",
+      "detail": "Owner ran make test. One failure: TestSuperchargerHistoryByVehicleUpdatedSince_OrderingAndBoundary/since_t3_plus_1ns_returns_empty_non-nil. Returned row's updated_at was exactly t3. Root cause is design.md's expected value, not the implementation: pgx truncates nanoseconds encoding timestamptz. Production is unaffected - the only caller (processor.go:241) passes a DB-read cursor minus 24h, which never carries nanoseconds."
+    },
+    {
+      "at": "2026-09-13T11:40:00Z",
+      "what": "wave-4-leader-fix",
+      "detail": "Leader-owned one-line fix in three files: t3.Add(1) -> t3.Add(time.Microsecond) in the test, plus the corrected expected value and its reason in design.md T-8 and tasks.md 5.3. The assertion is not weakened - one microsecond is the finest step the column can represent, so the inclusive bound is still tested. go vet, gofmt and openspec validate --strict clean. Awaiting the owner's re-run."
     }
   ]
 }

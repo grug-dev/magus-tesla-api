@@ -463,8 +463,14 @@ Seed three rows for `tesla_id=111` with `updated_at` `t1 = 2026-08-01T00:00Z`,
 `t2 = 2026-08-02T00:00Z`, `t3 = 2026-08-03T00:00Z` (sessions 7101, 7102,
 7103), plus one row for `tesla_id=222` at `t2` (session 7104). Then:
 `since = t2` returns exactly `[7102, 7103]`, in that order (oldest first);
-`since = t3` returns exactly `[7103]`; `since = t3 + 1ns` returns an **empty,
+`since = t3` returns exactly `[7103]`; `since = t3 + 1us` returns an **empty,
 non-nil** slice and no error. Session 7104 never appears.
+
+The step past `t3` is one **microsecond**, not one nanosecond. Postgres stores
+`timestamptz` to microsecond resolution, and pgx truncates anything finer on
+encode, so `t3 + 1ns` would arrive as plain `t3` and the inclusive `>=` bound
+would correctly return 7103. One microsecond is the smallest step the column
+can represent, so it is the smallest step that tests the bound at all.
 
 **T-9 — the per-vehicle updated-since read uses its index and does not sort.**
 Run `EXPLAIN` on the same query. The plan names

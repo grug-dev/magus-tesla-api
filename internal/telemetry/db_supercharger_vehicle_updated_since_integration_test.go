@@ -104,8 +104,8 @@ func TestSuperchargerHistoryByVehicleUpdatedSince_OrderingAndBoundary(t *testing
 		}
 	})
 
-	t.Run("since t3 plus 1ns returns empty non-nil", func(t *testing.T) {
-		got, err := r.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, t3.Add(1))
+	t.Run("since t3 plus 1us returns empty non-nil", func(t *testing.T) {
+		got, err := r.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, t3.Add(time.Microsecond))
 		if err != nil {
 			t.Fatalf("SuperchargerHistoryByVehicleUpdatedSince: %v", err)
 		}
