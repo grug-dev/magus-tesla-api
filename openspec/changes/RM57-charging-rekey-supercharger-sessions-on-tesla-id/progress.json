@@ -5,9 +5,11 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
   "request": "MAG-67 tier 2 — Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
-  "status": "changes-requested",
+  "status": "reviewer-approved",
   "rollup": {
-    "current": [],
+    "current": [
+      "T8"
+    ],
     "pending": [],
     "blocked": [],
     "done": [
@@ -19,12 +21,11 @@
       "T5",
       "T6",
       "T7",
-      "T8",
       "T9"
     ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T21:10:00Z",
+  "updated_at": "2026-09-13T21:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -250,13 +251,13 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-13T19:30:00Z",
       "completed_at": "2026-09-13T19:47:00Z",
       "duration_seconds": 1020,
-      "notes": "processChargingData loops per tesla_id. Analytics and gateway call sites re-keyed; the dead TeslaID != nil branch removed. Deleted the gateway test for that branch; reshaped three nil-vehicle tests into other-vehicle ones.",
+      "notes": "processChargingData loops per tesla_id. Analytics and gateway call sites re-keyed; the dead TeslaID != nil branch removed. Review fix R3 then added two gateway tests. Those two have NOT been executed: the owner's suite run predates them.",
       "budget": {
         "five_hour_pct_start": 3,
         "five_hour_pct_end": 54,
@@ -304,7 +305,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "approved",
     "agent": "charging-reviewer",
     "brief": "Review tier 2 of RM57: charging.supercharger_sessions and charging.mirror_watermarks re-keyed on tesla_id. Read the branch diff against main, not the whole module. Validate: (1) every DB object matches the user-confirmed design in design.md - DDL, the UNIQUE (session_id) swap, tesla_id NOT NULL, the account_id drop, and the single index (tesla_id, charge_stop_date_time). Any mismatch is a blocker finding. (2) Module boundaries: no module reads another's DB; the gateway calls interfaces only; internal/app, internal/analytics and internal/gateway changes are leader-owned integration and must use charging's public ports. (3) Doc-pack conventions: km/C/PSI suffixes, internal/clock for time, bilingual i18n for any user-facing string. (4) Spec and tasks coverage: every requirement in specs/ is implemented; tasks.md matches what landed. (5) Tests assert the expectations design.md authored BEFORE implementation (its Test contract section), not whatever the code happens to do. Check T-1..T-13 specifically. (6) Three deletions need scrutiny, each claimed to be a design consequence rather than a weakened criterion: C7 and C11 in db_monthly_capacity_integration_test.go, and TestSuperchargerRowUpdate_NilTeslaIDSkipsRecalculationAndLogs in the gateway. All three needed a nil vehicle. Confirm a nil vehicle is now impossible, or raise it. (7) The per-vehicle mirror loop in internal/app/processor.go: confirm one car's cursor can never move past another car's unread rows, that a zero-row read never advances, and that the cursor never moves to now(). (8) VerifySession is re-keyed on tesla_id, not stripped. Confirm the gateway still proves ownership before the write. (9) Anti-gaming: no acceptance criterion weakened or deleted to finish, no self-approved status. Signals: the ASSISTANT ran go build ./..., go vet ./..., gofmt -l, migration-guard, boundary-guard, vehicleref-guard, archive-guard and openspec validate --strict - all clean. The OWNER ran make test and reported it passed. You must NOT run the suite. Judge test quality by reading the tests.",
     "rounds": [
@@ -333,6 +334,31 @@
             "note": "No gateway test covers the new 'if !selOK' 404 branch added to SuperchargerRowUpdate (internal/gateway/handlers/supercharger.go, T8.7), and no test asserts VerifySession's teslaID argument equals resolveSelectedVehicle's resolved vehicle (the fixtures give every test account exactly one vehicle, so the passed value can't be distinguished from a wrong one). The real tenant boundary is proven at the DB layer (T-6, db_session_verifier_integration_test.go), so this is a coverage gap, not a security gap.",
             "status": "fixed",
             "triage": "accepted"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-09-13T21:05:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Re-checked: fixed. kkpa/context/use-case/charging/verify-session-battery.md and kkpa/context/workflows/supercharger-stats-read.md no longer claim a nil-TeslaID recalculation skip anywhere (grepped both files for 'nil' and 'TeslaID' - the remaining hits are unrelated, about battery-percentage nils). The unnamed extra fix is also confirmed: supercharger-stats-read.md line 67 now prints ListSessionsByVehicleBetween(ctx, teslaID, start, end) with no uid argument.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Re-checked: fixed. Repo-wide grep of every + line in *.go/*.sql since the tier-2 base (18cbe25) for design.md/RM##/RD# citations returns zero hits. Spot-checked several rewrites (charging.go's Session doc, query.sql's LockSessionForVerification, db_monthly_capacity_integration_test.go's C7/C11/T13 comments, db_session_verifier_integration_test.go, testdb_test.go): each kept the actual reason in the sentence and only dropped the archived pointer, not the substance. Confirmed out of scope, correctly untouched: query.sql lines with design.md D5/D1 that pre-date this change (present unchanged since 18cbe25) - the owner's scope decision (this change's own lines only) was applied correctly.",
+            "status": "fixed"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "Re-checked: fixed, and this closes the gap I raised. TestSuperchargerRowUpdate_NoResolvableVehicleIs404 gives the account zero vehicles and asserts 404 plus zero VerifySession/Recalculate calls. TestSuperchargerRowUpdate_VerifyUsesResolvedVehicle gives the account two vehicles, makes the SECOND (index 1) the OWNER, and asserts VerifySession's teslaID argument is 22 (the resolved OWNER vehicle) - matches resolveSelectedVehicle's real selection logic (first OWNER wins over vehicles[0]) exactly, so an implementation passing the wrong vehicle would fail this test. Both tests are well-formed unit tests over fakes; no DB needed.",
+            "status": "fixed"
           }
         ]
       }
@@ -446,6 +472,14 @@
       "made_by": "leader",
       "decision": "R1 and R2 fixes went to one Sonnet worker; the leader took R3 in parallel",
       "why": "Disjoint files: charging plus two KB guides for the worker, the gateway test file for the leader."
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-13T21:20:00Z",
+      "scope": "task:T8",
+      "made_by": "leader",
+      "decision": "T8 moved back from done to awaiting-user-verification",
+      "why": "R3 added two gateway tests after the owner's suite pass. done requires the owner's report, and their run predates these tests."
     }
   ],
   "events": [
@@ -548,6 +582,11 @@
       "at": "2026-09-13T21:10:00Z",
       "agent": "leader",
       "event": "round 1 fixes complete. R1: five stale claims fixed across two KB guides, including the ListSessionsByVehicleBetween signature the reviewer did not name. R2: 57 comment lines rewritten across 13 charging files; make sqlc regenerated query.sql.go and the leader confirmed the generated diff is comment-only. R3: two gateway tests added. go build, go vet ./... , gofmt and archive-guard clean. Residual R2 search over the full working tree returns 0."
+    },
+    {
+      "at": "2026-09-13T21:20:00Z",
+      "agent": "leader",
+      "event": "reviewer set review.status approved and the change status reviewer-approved in round 2. Leader verified the diff touched only the reviewer's own fields. Archive is NOT started: T8 is awaiting-user-verification because R3's two new gateway tests have never been executed."
     }
   ]
 }
