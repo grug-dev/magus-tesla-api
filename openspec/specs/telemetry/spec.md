@@ -224,7 +224,7 @@ distinction from the stored value itself rather than re-deriving it per call.
 The telemetry capability SHALL, on each nightly collection cycle, fetch the complete
 Tesla-billed Supercharger and DC fast-charging session history for each connected account
 and persist it as a durable session ledger. For each session the ledger SHALL store the
-session identifier, the owning account id, the vehicle VIN, the site name, the country
+session identifier, the vehicle identifier, the vehicle VIN, the site name, the country
 code, the charge start and stop times, the billing type, the vehicle make type, the full
 raw session payload (fees and invoices), and the following derived summaries: total energy
 in kWh (derived from fees where unit of measure is kWh), total cost (sum of totalDue
@@ -232,8 +232,18 @@ across all fees), the session currency, and the overall paid status (true when a
 are paid, false when any fee is unpaid). Derived summaries SHALL be NULL when no relevant
 fees exist. A session that has already been stored SHALL be refreshed in place (upserted)
 rather than duplicated, so that billing state changes (e.g. an unpaid session later
-becomes paid) are reflected on the next nightly run. Sessions for VINs no longer
-registered to the account SHALL still be stored with a NULL vehicle id.
+becomes paid) are reflected on the next nightly run.
+
+Every stored session SHALL carry a vehicle identifier; the ledger SHALL NOT store a
+session without one. A session whose VIN is not a currently registered vehicle SHALL be
+skipped rather than stored, and each skip SHALL be counted in the cycle report.
+**This is a CHANGE from the prior revision of this requirement, under which the ledger
+also stored an owning account identifier on every session, and under which a session for
+an unrecognized VIN was stored with a NULL vehicle identifier.** The ledger no longer
+records an account: which vehicles a user may see is already recorded by the account
+capability's own vehicle registry, so repeating it on every session added nothing. With
+the account identifier gone, a session with no vehicle identifier could not be reached by
+any read the capability offers, so storing one would only keep rows nobody can read.
 
 The ledger SHALL also carry a human-owned battery-percentage verification/override trio for
 each session — a start battery percentage, an end battery percentage (each 0-100
@@ -244,18 +254,9 @@ nightly refresh of that session, even when the session's billing fields or raw p
 change on that same refresh. A source label, when set, SHALL be one of a closed, explicitly
 extensible set of values identifying a human-owned or measured origin; the ledger SHALL
 NEVER store a label identifying a computed estimate — an estimate is a different
-capability's read-time concern, never persisted here. **This is a CHANGE from the prior
-revision of this requirement, under which the ledger also carried a frozen
-verification-time snapshot pair — a start battery percentage estimate and an end battery
-percentage estimate, recording what a companion estimation capability's live computation
-produced at the moment the trio above was set. That snapshot pair is REMOVED by this
-revision (`RM41-telemetry-drop-estimate-columns`), because the companion estimation
-capability it was reserved for was descoped before it ever shipped, and the estimator
-MAG-36 eventually shipped instead writes the trio's own start percentage directly — there
-is no longer anything for a snapshot to capture.**
+capability's read-time concern, never persisted here.
 
 #### Scenario: A newly verified session records its battery-percentage verification trio
-
 - **GIVEN** a session whose battery-percentage verification/override trio is NULL
 - **WHEN** the trio is set to a specific start percentage, end percentage, and source label
 - **THEN** the ledger stores the verified start and end percentages and the source label
@@ -269,12 +270,15 @@ is no longer anything for a snapshot to capture.**
 
 #### Scenario: A new account's full Supercharger history is ingested on first run
 - **GIVEN** an account with a valid Tesla connection and several historical Supercharger
-  sessions not yet stored in the ledger
+  sessions not yet stored in the ledger, every one of them for a currently registered
+  vehicle
 - **WHEN** the nightly collection cycle runs
 - **THEN** every session returned by the Tesla charging-history endpoint is stored in the
   ledger
-- **AND** each stored session carries the account id, the VIN, the site name, the country
-  code, the charge start and stop times, the billing type, and the vehicle make type
+- **AND** each stored session carries the vehicle identifier, the VIN, the site name, the
+  country code, the charge start and stop times, the billing type, and the vehicle make
+  type
+- **AND** no stored session carries an account identifier
 - **AND** each stored session carries the full raw session payload including fees and
   invoices
 - **AND** each stored session carries derived energy kWh, total cost, currency, and paid
@@ -317,13 +321,13 @@ is no longer anything for a snapshot to capture.**
 - **THEN** energy_kwh, total_cost, currency, and is_paid are all NULL
 - **AND** the raw session payload is still stored
 
-#### Scenario: A session for an unrecognized VIN is stored with NULL vehicle id
-- **GIVEN** a session in the Tesla history whose VIN is no longer a registered vehicle
+#### Scenario: A session for an unrecognized VIN is skipped, not stored
+- **GIVEN** a session in the Tesla history whose VIN is not a currently registered vehicle
   on this account (e.g. the vehicle was sold)
-- **WHEN** the session is stored
-- **THEN** the session is persisted with the VIN set to the session's VIN
-- **AND** the vehicle id (tesla_id) is NULL
-- **AND** all other session fields are stored normally
+- **WHEN** the nightly cycle processes that session
+- **THEN** no ledger row is written for it
+- **AND** the skip is counted in the cycle report
+- **AND** the remaining sessions in the same history response are still stored normally
 
 #### Scenario: A charging-history fetch failure is isolated from snapshot collection
 - **GIVEN** an account for which the Tesla charging-history endpoint returns an error
@@ -334,21 +338,23 @@ is no longer anything for a snapshot to capture.**
 
 ### Requirement: Supercharger Session Read Port
 
-The telemetry capability SHALL expose a read port that allows callers (the gateway, other
-consumers) to retrieve Supercharger sessions without accessing the telemetry database
-directly. The port SHALL provide three read methods: one returning all sessions for a given
-account (scoped to the account, ordered newest-first, with a limit), one returning sessions
-for a specific vehicle within an account (also ordered newest-first, with a limit), and one
-returning sessions for a specific vehicle within an account whose charge stop time falls
-within a caller-supplied date window (ordered oldest-first, with no limit — the window
-itself bounds the result). Callers SHALL receive an empty non-nil result when no sessions
-exist for the given scope. Every returned session SHALL carry its battery-percentage
-verification trio (start percentage, end percentage, source label) exactly as stored — NULL
-when no override has been set for that session. **This is a CHANGE from the prior revision
-of this requirement, under which a retrieved session also carried its verification-time
-snapshot pair (start percentage estimate, end percentage estimate) exactly as stored — that
-snapshot pair is REMOVED by this revision (`RM41-telemetry-drop-estimate-columns`), because
-the capability no longer stores it (see "Supercharger Session Ledger" above).**
+The telemetry capability SHALL expose a read port that allows other modules to retrieve
+Supercharger sessions without accessing the telemetry database directly. The port SHALL
+provide two read methods, both scoped to a single vehicle and identifying that vehicle by
+its Tesla numeric identifier alone: one returning that vehicle's sessions ordered
+newest-first with a limit, and one returning that vehicle's sessions whose charge stop
+time falls within a caller-supplied date window, ordered oldest-first with no limit — the
+window itself bounds the result. Callers SHALL receive an empty non-nil result when no
+sessions exist for the given scope. Every returned session SHALL carry its
+battery-percentage verification trio (start percentage, end percentage, source label)
+exactly as stored — NULL when no override has been set for that session.
+
+**This is a CHANGE from the prior revision of this requirement, under which the port
+provided three methods and every method identified its scope by an account identifier
+first.** The account-scoped method returning all of an account's sessions is REMOVED: the
+ledger no longer stores an account identifier, so the method has nothing to filter on, and
+it had no caller. The two surviving methods identify their vehicle by its Tesla numeric
+identifier alone.
 
 The date-windowed method SHALL determine whether a session belongs to the requested window
 by comparing the session's charge stop time against the window, regardless of when the
@@ -357,106 +363,78 @@ it SHALL be included, because the charge stop time is what the session's energy 
 battery percentage are anchored to. The window's end boundary SHALL be treated as inclusive
 of the entire final calendar day, not merely its first instant.
 
-#### Scenario: Sessions are returned for an account ordered newest-first
-- **GIVEN** an account with multiple Supercharger sessions stored across different dates
-- **WHEN** the caller requests sessions for that account
-- **THEN** all sessions belonging to that account are returned
+#### Scenario: Sessions are returned for a specific vehicle ordered newest-first
+- **GIVEN** two vehicles, each having stored Supercharger sessions
+- **WHEN** the caller requests sessions for one specific vehicle by its Tesla numeric
+  identifier
+- **THEN** only sessions matching that vehicle identifier are returned
 - **AND** the sessions are ordered by charge start time, newest first
 - **AND** the result is limited to the requested number of rows
-
-#### Scenario: Sessions are returned for a specific vehicle ordered newest-first
-- **GIVEN** an account with two vehicles, each having stored Supercharger sessions
-- **WHEN** the caller requests sessions for one specific vehicle within that account
-- **THEN** only sessions matching both the account id and the vehicle's Tesla id are
-  returned
-- **AND** the sessions are ordered by charge start time, newest first
 - **AND** no sessions belonging to the other vehicle appear in the result
 
 #### Scenario: Empty result when no sessions exist
-- **GIVEN** an account with a valid Tesla connection but no stored Supercharger sessions
-- **WHEN** the caller requests sessions for that account
+- **GIVEN** a registered vehicle with no stored Supercharger sessions
+- **WHEN** the caller requests sessions for that vehicle
 - **THEN** an empty collection is returned
 - **AND** no error is returned
 
-#### Scenario: A returned session carries its battery-percentage verification trio
-- **GIVEN** a stored session whose battery-percentage verification trio has been set to a
-  specific start percentage, end percentage, and source label
-- **WHEN** the caller requests sessions for that session's account, or for that session's
-  specific vehicle
-- **THEN** the returned session's start percentage, end percentage, and source label match
-  the stored values exactly
-
-#### Scenario: A returned session with no override has a NULL battery-percentage verification trio
-- **GIVEN** a stored session whose battery-percentage verification trio has never been set
-- **WHEN** the caller requests sessions for that session's account, or for that session's
-  specific vehicle
-- **THEN** the returned session's start percentage, end percentage, and source label are
-  all NULL
-
-#### Scenario: Sessions within a date window are returned ordered oldest-first
-- **GIVEN** a vehicle with several stored Supercharger sessions whose charge stop times span
-  more than the requested window
-- **WHEN** the caller requests sessions for that vehicle within a specific start/end date
-  window
-- **THEN** only sessions whose charge stop time falls within the window are returned
-- **AND** the sessions are ordered by charge stop time, oldest first
-
-#### Scenario: A session stopping exactly at the window's start boundary is included
-- **GIVEN** a stored session whose charge stop time is exactly the first instant of the
-  window's start day
-- **WHEN** the caller requests sessions for that vehicle within that window
+#### Scenario: A session whose charging finished inside the window is included
+- **GIVEN** a session for a vehicle that started before the requested window and finished
+  charging inside it
+- **WHEN** the caller requests that vehicle's sessions for the window
 - **THEN** the session is included in the result
 
-#### Scenario: A session stopping anywhere within the window's end day is included
-- **GIVEN** a stored session whose charge stop time falls within the window's end calendar
-  day, including its final moments, not merely its first instant
-- **WHEN** the caller requests sessions for that vehicle within that window
-- **THEN** the session is included in the result
-
-#### Scenario: A session stopping the day after the window's end boundary is excluded
-- **GIVEN** a stored session whose charge stop time falls on the calendar day immediately
-  after the window's end day
-- **WHEN** the caller requests sessions for that vehicle within that window
-- **THEN** the session is NOT included in the result
-
-#### Scenario: A session spanning the window's start boundary is included based on its stop time
-- **GIVEN** a stored session whose charge start time is before the window's start day but
-  whose charge stop time falls within the window
-- **WHEN** the caller requests sessions for that vehicle within that window
-- **THEN** the session is included in the result, because its charge stop time — not its
-  charge start time — falls within the window
-
-#### Scenario: Date-windowed sessions are isolated to the requested vehicle and account
-- **GIVEN** two accounts, each with a vehicle having a Supercharger session whose charge
-  stop time falls within the same date window
-- **WHEN** the caller requests sessions for one specific account and vehicle within that
-  window
-- **THEN** only that account's vehicle's session is returned
-- **AND** the other account's session does not appear in the result
-
-#### Scenario: Callers never access the telemetry database directly
-- **GIVEN** any caller that needs to display Supercharger session data
-- **WHEN** it obtains that data
-- **THEN** it does so exclusively through the SuperchargerReader port interface
-- **AND** it imports no package from internal/telemetry/db
+#### Scenario: The window's final calendar day is inclusive
+- **GIVEN** a session for a vehicle that finished charging late on the window's final
+  calendar day, and another that finished on the first instant of the following day
+- **WHEN** the caller requests that vehicle's sessions for the window
+- **THEN** the session finishing on the final day is included
+- **AND** the session finishing on the following day is not
 
 ### Requirement: Cycle Report Charging Counters
+
 The telemetry capability's cycle report SHALL include a count of Supercharger sessions
-successfully upserted in the cycle and a count of accounts for which the charging-history
-fetch failed. Both counters SHALL be zero when no sessions were processed and no failures
-occurred.
+successfully upserted in the cycle, a count of accounts for which the charging-history
+fetch failed, and a count of sessions skipped because their VIN was not a currently
+registered vehicle. All three counters SHALL be zero when no sessions were processed, no
+sessions were skipped and no failures occurred. The three counters SHALL be independent: a
+skipped session SHALL NOT count as an upsert or as a fetch failure, and a fetch failure
+SHALL NOT count as a skip. The capability's per-cycle operational log line SHALL report all
+three.
+
+**This is a CHANGE from the prior revision of this requirement, which defined two counters.
+The skipped-session counter is ADDED**, because the ledger no longer stores a session whose
+VIN is not a registered vehicle (see "Supercharger Session Ledger"), and a silent skip would
+hide data the Tesla endpoint returned and the capability chose not to keep.
 
 #### Scenario: Cycle report reflects sessions upserted across all accounts
-- **GIVEN** two accounts each with three new or updated Supercharger sessions
+- **GIVEN** two accounts each with three new or updated Supercharger sessions, all for
+  registered vehicles
 - **WHEN** the collection cycle completes
-- **THEN** the cycle report's ChargingSessionsUpserted is six
-- **AND** the cycle report's ChargingFetchFailures is zero
+- **THEN** the cycle report's upserted count is six
+- **AND** the cycle report's charging fetch failure count is zero
+- **AND** the cycle report's skipped-session count is zero
 
 #### Scenario: Cycle report counts a charging fetch failure per account
 - **GIVEN** two accounts where one account's charging-history fetch fails
 - **WHEN** the collection cycle completes
-- **THEN** the cycle report's ChargingFetchFailures is one
+- **THEN** the cycle report's charging fetch failure count is one
+- **AND** the cycle report's skipped-session count is zero
 - **AND** snapshot collection succeeded normally for both accounts
+
+#### Scenario: Cycle report counts each skipped unregistered session
+- **GIVEN** an account whose charging history returns three sessions, one of them for a VIN
+  that is not a currently registered vehicle
+- **WHEN** the collection cycle completes
+- **THEN** the cycle report's skipped-session count is one
+- **AND** the cycle report's upserted count is two
+- **AND** the cycle report's charging fetch failure count is zero
+
+#### Scenario: The cycle log line reports the skipped-session count
+- **GIVEN** a completed cycle whose report holds a non-zero skipped-session count
+- **WHEN** the cycle's operational summary line is emitted
+- **THEN** the line reports the skipped-session count alongside the upserted count and the
+  charging fetch failure count
 
 ### Requirement: Snapshot History Read Port
 
@@ -702,9 +680,18 @@ snapshot for that vehicle has been updated at or after the given instant.
 The telemetry capability SHALL expose a read port through which other modules can retrieve every
 stored Supercharger session for a single vehicle whose `updated_at` is at or after a
 caller-supplied instant, without accessing the telemetry module's database tables directly. The
-port SHALL identify the vehicle by its account and its Tesla numeric id, and SHALL return the
-existing `SuperchargerSession` domain type. Callers SHALL receive an empty result (not an error)
-when no session for that vehicle has been updated at or after the given instant.
+port SHALL identify the vehicle by its Tesla numeric id alone, and SHALL return the existing
+`SuperchargerHistory` domain type, ordered oldest-first by `updated_at`. Callers SHALL receive an
+empty result (not an error) when no session for that vehicle has been updated at or after the
+given instant.
+
+**This is a CHANGE from the prior revision of this requirement, under which the port identified
+the vehicle by its account AND its Tesla numeric id.** The ledger no longer stores an account
+identifier, so the account is no longer part of the vehicle's identity for this read.
+
+This port is the capability's bounded "what changed recently" read, and the persistence layer
+SHALL keep an index matching it exactly, so that the vehicle filter, the instant predicate and
+the ordering are all satisfied by a single index scan with no separate sort step.
 
 #### Scenario: A revised session's billing state is detected by this port
 - **GIVEN** a Supercharger session originally stored weeks ago, whose billing fields are revised
@@ -712,6 +699,23 @@ when no session for that vehicle has been updated at or after the given instant.
 - **WHEN** the caller requests that vehicle's sessions updated since a recent instant
 - **THEN** the revised session is included in the result, even though its `ChargeStartDateTime`/
   `ChargeStopDateTime` are weeks in the past
+
+#### Scenario: A session updated at exactly the requested instant is included
+- **GIVEN** a Supercharger session last modified at a given instant
+- **WHEN** the caller requests that vehicle's sessions updated since that exact instant
+- **THEN** the session is included in the result
+
+#### Scenario: Results are ordered earliest-updated-first
+- **GIVEN** a vehicle with several Supercharger sessions modified at or after a given instant,
+  with different last-modified instants
+- **WHEN** the caller requests that vehicle's sessions updated since that instant
+- **THEN** the records are ordered by their last-modified instant, earliest first
+
+#### Scenario: Another vehicle's session does not appear
+- **GIVEN** two vehicles, each holding a Supercharger session modified at or after a given
+  instant
+- **WHEN** one vehicle's sessions are requested for modifications at or after that instant
+- **THEN** only that vehicle's session is included
 
 #### Scenario: Empty result when nothing has been updated in the window
 - **GIVEN** a vehicle with no Supercharger session updated at or after the requested instant
@@ -1209,74 +1213,6 @@ signal useless.
 - **WHEN** that column holds a value the nightly sync does not write
 - **THEN** the sync's own change-detection test fails, so the omission is caught
   before it reaches production
-
-### Requirement: Supercharger History Account-Wide Updated-Since Read Port
-
-The telemetry capability SHALL expose a read port through which other
-modules can retrieve every stored Supercharger session for a single account
-whose `updated_at` is at or after a caller-supplied instant, without
-accessing the telemetry module's database tables directly and without
-identifying any particular vehicle. The port SHALL return the existing
-`SuperchargerHistory` domain type, ordered oldest-first by `updated_at`.
-Callers SHALL receive an empty result (not an error) when nothing in the
-account has been updated at or after the given instant.
-
-Unlike the per-vehicle updated-since port, this port SHALL include a session
-whose registered vehicle identifier is absent — a session for a vehicle that
-is not currently registered to the account. This is a deliberate difference,
-not an omission: a per-vehicle read can never surface such a session, so a
-caller that needs to recover a session once its vehicle re-registers SHALL
-use this account-wide port instead.
-
-#### Scenario: Sessions for every vehicle in the account are included
-- **GIVEN** an account with two vehicles, each holding one Supercharger
-  session updated at or after a given instant
-- **WHEN** the account's sessions are retrieved for modifications at or
-  after that instant
-- **THEN** both sessions are included in the result
-
-#### Scenario: A session whose vehicle is not currently registered is included
-- **GIVEN** a Supercharger session whose vehicle identification number does
-  not belong to any vehicle currently registered to the account, last
-  modified at or after a given instant
-- **WHEN** the account's sessions are retrieved for modifications at or
-  after that instant
-- **THEN** the session is included in the result
-
-#### Scenario: A different account's session does not leak
-- **GIVEN** two accounts, each holding a Supercharger session last modified
-  at or after a given instant
-- **WHEN** one account's sessions are retrieved for modifications at or
-  after that instant
-- **THEN** only that account's session is included
-
-#### Scenario: Results are ordered earliest-updated-first
-- **GIVEN** an account with multiple Supercharger sessions modified at or
-  after a given instant, with different last-modified instants
-- **WHEN** the account's sessions are retrieved for modifications at or
-  after that instant
-- **THEN** the records are ordered by their last-modified instant, earliest
-  first
-
-#### Scenario: A session modified at exactly the requested instant is included
-- **GIVEN** a Supercharger session last modified at a given instant
-- **WHEN** the account's sessions are retrieved for modifications at or
-  after that exact instant
-- **THEN** the session is included in the result
-
-#### Scenario: Empty result when nothing has been updated in the window
-- **GIVEN** an account with no Supercharger session updated at or after the
-  requested instant
-- **WHEN** the account's sessions are retrieved for modifications at or
-  after that instant
-- **THEN** an empty collection is returned, and no error is returned
-
-#### Scenario: Callers never access the telemetry database directly for this port either
-- **GIVEN** any caller that needs to detect which of an account's
-  Supercharger sessions changed recently, across every vehicle
-- **WHEN** it obtains that data
-- **THEN** it does so exclusively through this read port
-- **AND** it imports no package from `internal/telemetry/db`
 
 ### Requirement: Poll Account Election
 

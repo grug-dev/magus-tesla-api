@@ -7,8 +7,8 @@
   "tier": 1,
   "intention": "telemetry.supercharger_history is keyed on tesla_id NOT NULL, account_id is gone, and the write path skips a session whose VIN is not a registered vehicle.",
   "request": "MAG-67 tier 1. Re-key telemetry.supercharger_history on tesla_id.",
-  "status": "verified",
-  "updated_at": "2026-09-13T11:58:00Z",
+  "status": "archived",
+  "updated_at": "2026-09-13T12:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -536,6 +536,16 @@
       "at": "2026-09-13T11:58:00Z",
       "what": "archive-held",
       "detail": "Step 8 is NOT started. Commit 8cfcc4d changed collectChargingHistory's signature and four test call sites AFTER the owner's passing suite run, so that pass is stale for those files. go vet compiles _test.go and is clean, which proves compilation but not behaviour. The archive waits on the owner's make test re-run. Nothing here is 'done' on the assistant's say-so."
+    },
+    {
+      "at": "2026-09-13T12:04:00Z",
+      "what": "user-verified-2",
+      "detail": "The owner ran make check/test after the round-1 fixes and reported it passing. This clears the reviewer's contingent approval. Second owner verification of this change; the assistant never ran the suite."
+    },
+    {
+      "at": "2026-09-13T12:05:00Z",
+      "what": "archived",
+      "detail": "openspec archive synced 4 MODIFIED + 1 REMOVED requirement into openspec/specs/telemetry/spec.md (30 -> 29). Folder moved from the CLI's archive root into archive/telemetry/ per config.yaml. Verified the KB's repointed requirement title still resolves in the synced main spec."
     }
   ]
 }
