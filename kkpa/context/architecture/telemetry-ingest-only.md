@@ -202,27 +202,30 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   column to the table and this test tells you what to decide.
   _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
 
-- **There are TWO updated-since read ports for Supercharger sessions, and the difference is
-  load-bearing.** The per-vehicle port filters on the vehicle identifier. The account-wide port
-  takes no vehicle at all. Only the account-wide one can return a session whose vehicle is not
-  currently registered, because a per-vehicle filter can never match a row with no vehicle
-  identity. A caller that must recover such a session once its vehicle re-registers has to use
-  the account-wide port. Picking the per-vehicle one there loses rows, silently.
-  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+- **There is ONE updated-since read port for Supercharger sessions, and it is per vehicle.**
+  It filters on the vehicle identifier. The account-wide port is gone: the table dropped
+  `account_id`, so no read can be scoped to an account any more. A caller that needs every
+  session of an account reads once per vehicle of that account and joins the results.
+  _Source: spec telemetry — Requirement: Supercharger History Per-Vehicle Updated-Since Read Port._
 
-- **The account-wide port returns oldest-first by `updated_at`, and an empty result is not an
-  error.** Nothing updated in the window returns an empty collection with no error, exactly like
+- **A session for an unregistered VIN is never stored, so no read can return one.** `tesla_id`
+  is `NOT NULL`. The nightly collector skips such a session and counts the skip in its cycle
+  report. There is no row to recover later if the vehicle re-registers.
+  _Source: spec telemetry — Requirement: Supercharger History Per-Vehicle Updated-Since Read Port._
+
+- **The port returns oldest-first by `updated_at`, and an empty result is not an error.**
+  Nothing updated in the window returns an empty collection with no error, exactly like
   every other read port on this module.
-  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+  _Source: spec telemetry — Requirement: Supercharger History Per-Vehicle Updated-Since Read Port._
 
-- **A session updated at exactly the requested instant is included.** The bound is inclusive at
-  both ports. A caller that treats it as exclusive will skip a row on every boundary.
-  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+- **A session updated at exactly the requested instant is included.** The bound is inclusive.
+  A caller that treats it as exclusive will skip a row on every boundary.
+  _Source: spec telemetry — Requirement: Supercharger History Per-Vehicle Updated-Since Read Port._
 
-- **No caller reaches these rows any other way.** Both updated-since ports are the only route to
+- **No caller reaches these rows any other way.** The updated-since port is the only route to
   this data for another module; nothing outside `internal/telemetry` imports
   `internal/telemetry/db`. `make boundary-guard` enforces it.
-  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+  _Source: spec telemetry — Requirement: Supercharger History Per-Vehicle Updated-Since Read Port._
 
 - **One car is polled once a night, not once per account.** A car can be registered to
   several accounts. Before the per-account collection loop runs, the module elects exactly

@@ -1128,51 +1128,6 @@ func TestCollectAll_ChargingHistory_FetchFailure_SnapshotUnaffected(t *testing.T
 	}
 }
 
-// TestCollectAll_ChargingHistory_VINResolution verifies that sessions for a
-// recognized VIN get the correct TeslaID, and sessions for an unknown VIN get
-// TeslaID == nil (design DBS7/B7.1c, orphan handling).
-func TestCollectAll_ChargingHistory_VINResolution(t *testing.T) {
-	acctID := uuid.New()
-	ft := newFakeTesla()
-	ft.set(30, &vehicleScript{state: "online", data: onlineData(30, nil)})
-
-	// Two sessions: one with a VIN matching the registered vehicle, one unknown.
-	knownVIN := "VIN_KNOWN"
-	unknownVIN := "VIN_UNKNOWN"
-	ft.chargingHistory = &tesla.ChargingHistoryTesla{
-		Data: []tesla.ChargingSessionTesla{
-			{SessionID: 2001, VIN: knownVIN, Raw: []byte(`{"sessionId":2001}`)},
-			{SessionID: 2002, VIN: unknownVIN, Raw: []byte(`{"sessionId":2002}`)},
-		},
-	}
-
-	fa := &fakeAccount{
-		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 30, VIN: knownVIN}},
-		tokens:   map[uuid.UUID]string{acctID: "tok"},
-	}
-	fs := &fakeStore{}
-	svc := newFakeService(fa, ft, fs)
-
-	if _, err := svc.CollectAll(context.Background(), testRun()); err != nil {
-		t.Fatalf("unexpected whole-cycle error: %v", err)
-	}
-	if len(fs.upsertedSessions) != 2 {
-		t.Fatalf("want 2 sessions upserted, got %d", len(fs.upsertedSessions))
-	}
-	bySessionID := map[int64]SuperchargerHistory{}
-	for _, s := range fs.upsertedSessions {
-		bySessionID[s.SessionID] = s
-	}
-	knownSess := bySessionID[2001]
-	if knownSess.TeslaID == nil || *knownSess.TeslaID != 30 {
-		t.Errorf("session 2001 (known VIN): want TeslaID=30, got %v", knownSess.TeslaID)
-	}
-	unknownSess := bySessionID[2002]
-	if unknownSess.TeslaID != nil {
-		t.Errorf("session 2002 (unknown VIN): want TeslaID=nil, got %v", unknownSess.TeslaID)
-	}
-}
-
 // --- Offline tests for the charging-history skip counter (roadmap tier 1) ---
 //
 // A session whose VIN is not a currently registered vehicle used to be stored

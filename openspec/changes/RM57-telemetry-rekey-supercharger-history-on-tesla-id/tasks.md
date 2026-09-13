@@ -163,37 +163,37 @@ Depends on: T3, and T0 must already be written.
 
 Depends on: T4. May run in parallel with T6 — disjoint files.
 
-- [ ] 5.1 Delete `internal/telemetry/db_supercharger_account_updated_since_integration_test.go`
+- [x] 5.1 Delete `internal/telemetry/db_supercharger_account_updated_since_integration_test.go`
       entirely (all seven tests go with the removed port, `design.md` D4).
-- [ ] 5.2 `db_supercharger_integration_test.go`: drop `account_id` from every
+- [x] 5.2 `db_supercharger_integration_test.go`: drop `account_id` from every
       seed `INSERT` and every `DELETE` cleanup; re-key every read to the
       per-vehicle methods. Delete the tests that only exercised
       `SuperchargerHistoryByAccount` account scoping; replace the per-vehicle
       scoping test with T-7's exact seeds and expected order
       (`[7002, 7001]`, session 7003 absent).
-- [ ] 5.3 Add T-8 to the same file (or a new
+- [x] 5.3 Add T-8 to the same file (or a new
       `db_supercharger_vehicle_updated_since_integration_test.go`): the three
       `updated_at` values, the `tesla_id=222` decoy, and the three `since`
       assertions — `t2 → [7102, 7103]`, `t3 → [7103]`, `t3+1ns → empty
       non-nil`.
-- [ ] 5.4 Add T-9: `EXPLAIN` the per-vehicle updated-since query, assert the
+- [x] 5.4 Add T-9: `EXPLAIN` the per-vehicle updated-since query, assert the
       plan names `idx_supercharger_history_vehicle_updated` and contains no
       `Sort` node.
-- [ ] 5.5 `db_supercharger_between_integration_test.go`: drop the `accountID`
+- [x] 5.5 `db_supercharger_between_integration_test.go`: drop the `accountID`
       argument and the `account_id` seed column; keep the stop-time semantics
       and re-assert them with T-10's seeds and expected order
       (`[7201, 7204, 7202]`).
-- [ ] 5.6 `db_supercharger_battery_pct_integration_test.go`: re-key every seed
+- [x] 5.6 `db_supercharger_battery_pct_integration_test.go`: re-key every seed
       and every read to `tesla_id`; the battery-% trio assertions are
       unchanged. Add T-11's round-trip assertion that `TeslaID` comes back as
       a plain `int64`.
-- [ ] 5.7 `db_change_detection_schema_test.go`: remove `account_id` from
+- [x] 5.7 `db_change_detection_schema_test.go`: remove `account_id` from
       `changeDetectDenyListColumns` (15 entries left, T-12) and from its
       bucket-(c) comment. Do not change the partition logic.
-- [ ] 5.8 `db_change_detection_integration_test.go`: drop `account_id` from
+- [x] 5.8 `db_change_detection_integration_test.go`: drop `account_id` from
       every seed and from the "poke every settable deny-listed column" loop
       (T-13).
-- [ ] 5.9 Assert `RowsAffected()` on every fixture `UPDATE`/`DELETE` this task
+- [x] 5.9 Assert `RowsAffected()` on every fixture `UPDATE`/`DELETE` this task
       touches — a fixture write that matches no row does not error, and the
       assertions after it then pass or fail for an unrelated reason
       (`design.md` §Risks).
@@ -202,19 +202,19 @@ Depends on: T4. May run in parallel with T6 — disjoint files.
 
 Depends on: T4. May run in parallel with T5.
 
-- [ ] 6.1 Grep every `_test.go` in `internal/telemetry` for
+- [x] 6.1 Grep every `_test.go` in `internal/telemetry` for
       `supercharger_history` and for `SuperchargerHistory{` — **across line
       breaks**, not line by line: a table name and its column often sit on
       different lines, so a line-based grep finds some hits and misses others.
-- [ ] 6.2 `reader_test.go`: drop `accountID` from every call and every fixture;
+- [x] 6.2 `reader_test.go`: drop `accountID` from every call and every fixture;
       drop `AccountID` from every `SuperchargerHistory` literal.
-- [ ] 6.3 `query_log_test.go`: remove the two removed methods from
+- [x] 6.3 `query_log_test.go`: remove the two removed methods from
       `fakeQueryLogSCHReader`; update the three surviving fakes' signatures;
       rewrite the expected log strings to T-6's shape (no `account=` field).
-- [ ] 6.4 `service_test.go`: any fake `store` implementation and any
+- [x] 6.4 `service_test.go`: any fake `store` implementation and any
       `SuperchargerHistory` literal drops `AccountID` and uses a plain
       `TeslaID`.
-- [ ] 6.5 `go vet ./internal/telemetry/...` — expect clean. `go vet` compiles
+- [x] 6.5 `go vet ./internal/telemetry/...` — expect clean. `go vet` compiles
       `_test.go` files, so this is what proves T0's and T5's signatures are
       right.
 
@@ -291,17 +291,17 @@ wave as T4, or `go build ./...` stays red (`design.md` D7).
 
 Depends on: T0–T8.
 
-- [ ] 9.1 `go build ./...`
-- [ ] 9.2 `go vet ./...`
-- [ ] 9.3 `make migration-guard`
-- [ ] 9.4 `make boundary-guard`
-- [ ] 9.5 `make archive-guard`
-- [ ] 9.6 `gofmt -l internal/ cmd/` — expect no output.
-- [ ] 9.7 Grep the whole repo for `account_id` within 3 lines of
+- [x] 9.1 `go build ./...`
+- [x] 9.2 `go vet ./...`
+- [x] 9.3 `make migration-guard`
+- [x] 9.4 `make boundary-guard`
+- [x] 9.5 `make archive-guard`
+- [x] 9.6 `gofmt -l internal/ cmd/` — expect no output.
+- [x] 9.7 Grep the whole repo for `account_id` within 3 lines of
       `supercharger_history`, and for `SuperchargerHistoryByAccount`. Expect
       zero hits outside `openspec/changes/archive/` and the untouched historic
       migration files.
-- [ ] 9.8 Hand the owner the suite commands — this agent never runs them:
+- [x] 9.8 Hand the owner the suite commands — this agent never runs them:
       `make test` (disposable container) and, for the DB-backed telemetry
       tests specifically,
       `go test ./internal/telemetry/ -run 'TestSupercharger|TestUpsertSupercharger' -v`

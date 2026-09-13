@@ -10,7 +10,7 @@
 // inside the query's updated_at comparison stays correct as the schema
 // evolves. The governing rule (design.md D2): the comparison covers EXACTLY
 // the columns the SET clause writes (6) and nothing else; every other live
-// column is deny-listed (16 today). Under that rule the live schema is a
+// column is deny-listed (15 today). Under that rule the live schema is a
 // total partition of the two sets, with no leftover bucket. Check 1 below
 // asserts that partition against information_schema at runtime, so a future
 // migration that adds a column makes this test fail on its own, by name,
@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -37,20 +36,20 @@ var changeDetectSetColumns = []string{
 	"raw_data", "energy_kwh", "total_cost", "currency", "is_paid", "tesla_id",
 }
 
-// changeDetectDenyListColumns is the 16-column deny-list from db/query.sql's
-// UpsertSuperchargerHistory, grouped by design.md D2's three buckets:
+// changeDetectDenyListColumns is the 15-column deny-list from db/query.sql's
+// UpsertSuperchargerHistory, grouped into three buckets:
 //
 //	(a) bookkeeping, not session data: id, created_at, updated_at
 //	(b) human-owned, never touched by the poller: start_battery_pct,
 //	    end_battery_pct, battery_pct_source
 //	(c) write-once columns the SET clause never refreshes: session_id,
-//	    account_id, vin, site_location_name, country_code,
-//	    charge_start_date_time, charge_stop_date_time, unlatch_date_time,
-//	    billing_type, vehicle_make_type
+//	    vin, site_location_name, country_code, charge_start_date_time,
+//	    charge_stop_date_time, unlatch_date_time, billing_type,
+//	    vehicle_make_type
 var changeDetectDenyListColumns = []string{
 	"id", "created_at", "updated_at",
 	"start_battery_pct", "end_battery_pct", "battery_pct_source",
-	"session_id", "account_id", "vin", "site_location_name", "country_code",
+	"session_id", "vin", "site_location_name", "country_code",
 	"charge_start_date_time", "charge_stop_date_time", "unlatch_date_time",
 	"billing_type", "vehicle_make_type",
 }
@@ -177,7 +176,6 @@ func TestUpsertSuperchargerHistory_UndenylistedColumnBreaksChangeDetection(t *te
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
-	accountID := uuid.New()
 	const sessionID = int64(61100)
 	teslaID := int64(810100)
 	start := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)
@@ -188,9 +186,8 @@ func TestUpsertSuperchargerHistory_UndenylistedColumnBreaksChangeDetection(t *te
 
 	sess := SuperchargerHistory{
 		SessionID:           sessionID,
-		AccountID:           accountID,
 		VIN:                 "VIN_POKE_ORIGINAL",
-		TeslaID:             &teslaID,
+		TeslaID:             teslaID,
 		SiteLocationName:    "Original Site",
 		CountryCode:         "US",
 		ChargeStartDateTime: start,
@@ -212,26 +209,28 @@ func TestUpsertSuperchargerHistory_UndenylistedColumnBreaksChangeDetection(t *te
 	// Poke every bucket-(a)/(c) column this design's SET clause never
 	// refreshes with a sentinel value distinguishable from what the identical
 	// re-upsert below supplies.
-	sentinelAccountID := uuid.New()
 	sentinelTime := time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC)
-	if _, err := pool.Exec(ctx,
+	tag, err := pool.Exec(ctx,
 		`UPDATE telemetry.supercharger_history SET
 		    created_at             = $1,
-		    account_id             = $2,
-		    vin                    = $3,
-		    site_location_name     = $4,
-		    country_code           = $5,
-		    charge_start_date_time = $6,
-		    charge_stop_date_time  = $7,
-		    unlatch_date_time      = $8,
-		    billing_type           = $9,
-		    vehicle_make_type      = $10
-		  WHERE session_id = $11`,
-		sentinelTime, sentinelAccountID, "SENTINEL_VIN", "SENTINEL_SITE", "ZZ",
+		    vin                    = $2,
+		    site_location_name     = $3,
+		    country_code           = $4,
+		    charge_start_date_time = $5,
+		    charge_stop_date_time  = $6,
+		    unlatch_date_time      = $7,
+		    billing_type           = $8,
+		    vehicle_make_type      = $9
+		  WHERE session_id = $10`,
+		sentinelTime, "SENTINEL_VIN", "SENTINEL_SITE", "ZZ",
 		sentinelTime, sentinelTime, sentinelTime, "SENTINEL_BILLING", "SENTINEL_MAKE",
 		sessionID,
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatalf("poking deny-listed columns: %v", err)
+	}
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("poking deny-listed columns: want 1 row affected, got %d — the fixture matched no row", tag.RowsAffected())
 	}
 
 	time.Sleep(changeDetectSleep)

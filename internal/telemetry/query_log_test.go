@@ -103,19 +103,13 @@ type fakeQueryLogSCHReader struct {
 	history []SuperchargerHistory
 }
 
-func (f *fakeQueryLogSCHReader) SuperchargerHistoryByAccount(context.Context, uuid.UUID, int) ([]SuperchargerHistory, error) {
+func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicle(context.Context, int64, int) ([]SuperchargerHistory, error) {
 	return f.history, nil
 }
-func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicle(context.Context, uuid.UUID, int64, int) ([]SuperchargerHistory, error) {
+func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicleBetween(context.Context, int64, time.Time, time.Time) ([]SuperchargerHistory, error) {
 	return f.history, nil
 }
-func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicleBetween(context.Context, uuid.UUID, int64, time.Time, time.Time) ([]SuperchargerHistory, error) {
-	return f.history, nil
-}
-func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicleUpdatedSince(context.Context, uuid.UUID, int64, time.Time) ([]SuperchargerHistory, error) {
-	return f.history, nil
-}
-func (f *fakeQueryLogSCHReader) SuperchargerHistoryByAccountUpdatedSince(context.Context, uuid.UUID, time.Time) ([]SuperchargerHistory, error) {
+func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicleUpdatedSince(context.Context, int64, time.Time) ([]SuperchargerHistory, error) {
 	return f.history, nil
 }
 
@@ -198,11 +192,9 @@ func TestLoggingStore_UpsertSuperchargerHistory_LogsExpectedLine(t *testing.T) {
 	start := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
 	stop := time.Date(2026, 3, 1, 10, 45, 0, 0, time.UTC)
 	rawData := []byte("SESSIONRAW") // len 10
-	teslaID := qlTeslaID
 
 	if err := l.upsertSuperchargerHistory(context.Background(), SuperchargerHistory{
-		AccountID:           qlAccountID,
-		TeslaID:             &teslaID,
+		TeslaID:             qlTeslaID,
 		SessionID:           987654,
 		ChargeStartDateTime: start,
 		ChargeStopDateTime:  stop,
@@ -212,8 +204,8 @@ func TestLoggingStore_UpsertSuperchargerHistory_LogsExpectedLine(t *testing.T) {
 	}
 
 	want := fmt.Sprintf(
-		"telemetry query: upsertSuperchargerHistory account=%s tesla_id=%s session_id=%d charge_start=%s charge_stop=%s raw_data_bytes=%d\n",
-		qlAccountID, "42", int64(987654), start.Format(time.RFC3339), stop.Format(time.RFC3339), len(rawData))
+		"telemetry query: upsertSuperchargerHistory tesla_id=%d session_id=%d charge_start=%s charge_stop=%s raw_data_bytes=%d\n",
+		qlTeslaID, int64(987654), start.Format(time.RFC3339), stop.Format(time.RFC3339), len(rawData))
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -369,43 +361,11 @@ func TestLoggingReader_SnapshotPrecedingDay_LogsExpectedLine(t *testing.T) {
 }
 
 // ============================================================
-// Group A / A.2 — loggingSuperchargerHistoryReader's 5 methods
+// Group A / A.2 — loggingSuperchargerHistoryReader's 3 methods
 // ============================================================
 
-// Group A.2: SuperchargerHistoryByAccount logs the RESOLVED limit
-// (resolveLimit(0) == math.MaxInt32), not the caller's raw 0, and the
-// literal date_bound=none.
-func TestLoggingSuperchargerHistoryReader_ByAccount_LogsResolvedLimit(t *testing.T) {
-	cases := []struct {
-		name      string
-		rawLimit  int
-		wantLimit int64
-	}{
-		{name: "unbounded (limit=0 resolves to math.MaxInt32)", rawLimit: 0, wantLimit: math.MaxInt32},
-		{name: "bounded (limit=25 stays 25)", rawLimit: 25, wantLimit: 25},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			buf := captureLog(t)
-			l := newLoggingSuperchargerHistoryReader(&fakeQueryLogSCHReader{history: twoSCHRows()})
-
-			if _, err := l.SuperchargerHistoryByAccount(context.Background(), qlAccountID, tc.rawLimit); err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			want := fmt.Sprintf("telemetry query: SuperchargerHistoryByAccount account=%s limit=%d date_bound=none rows=%d\n",
-				qlAccountID, tc.wantLimit, 2)
-			if got := buf.String(); got != want {
-				t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
-			}
-		})
-	}
-}
-
-// Group A.2 (continued): SuperchargerHistoryByVehicle also logs the resolved
-// limit, without the date_bound field (design D6's table has no date_bound
-// column for this method).
+// Group A.2: SuperchargerHistoryByVehicle logs the RESOLVED limit
+// (resolveLimit(0) == math.MaxInt32), not the caller's raw 0.
 func TestLoggingSuperchargerHistoryReader_ByVehicle_LogsResolvedLimit(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -421,12 +381,12 @@ func TestLoggingSuperchargerHistoryReader_ByVehicle_LogsResolvedLimit(t *testing
 			buf := captureLog(t)
 			l := newLoggingSuperchargerHistoryReader(&fakeQueryLogSCHReader{history: twoSCHRows()})
 
-			if _, err := l.SuperchargerHistoryByVehicle(context.Background(), qlAccountID, qlTeslaID, tc.rawLimit); err != nil {
+			if _, err := l.SuperchargerHistoryByVehicle(context.Background(), qlTeslaID, tc.rawLimit); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicle account=%s tesla_id=%d limit=%d rows=%d\n",
-				qlAccountID, qlTeslaID, tc.wantLimit, 2)
+			want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicle tesla_id=%d limit=%d rows=%d\n",
+				qlTeslaID, tc.wantLimit, 2)
 			if got := buf.String(); got != want {
 				t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 			}
@@ -439,32 +399,12 @@ func TestLoggingSuperchargerHistoryReader_ByVehicleUpdatedSince_LogsExpectedLine
 	l := newLoggingSuperchargerHistoryReader(&fakeQueryLogSCHReader{history: twoSCHRows()})
 
 	since := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
-	if _, err := l.SuperchargerHistoryByVehicleUpdatedSince(context.Background(), qlAccountID, qlTeslaID, since); err != nil {
+	if _, err := l.SuperchargerHistoryByVehicleUpdatedSince(context.Background(), qlTeslaID, since); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicleUpdatedSince account=%s tesla_id=%d since=%s rows=%d\n",
-		qlAccountID, qlTeslaID, since.Format(time.RFC3339), 2)
-	if got := buf.String(); got != want {
-		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
-	}
-}
-
-// TestLoggingSuperchargerHistoryReader_ByAccountUpdatedSince_LogsExpectedLine
-// covers task 1a.5's new decorator method
-// (RM44-platform-add-mirror-watermark). No tesla_id field is logged — this
-// method has none, unlike its per-vehicle sibling above.
-func TestLoggingSuperchargerHistoryReader_ByAccountUpdatedSince_LogsExpectedLine(t *testing.T) {
-	buf := captureLog(t)
-	l := newLoggingSuperchargerHistoryReader(&fakeQueryLogSCHReader{history: twoSCHRows()})
-
-	since := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
-	if _, err := l.SuperchargerHistoryByAccountUpdatedSince(context.Background(), qlAccountID, since); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByAccountUpdatedSince account=%s since=%s rows=%d\n",
-		qlAccountID, since.UTC().Format(time.RFC3339), 2)
+	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicleUpdatedSince tesla_id=%d since=%s rows=%d\n",
+		qlTeslaID, since.Format(time.RFC3339), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -476,12 +416,12 @@ func TestLoggingSuperchargerHistoryReader_ByVehicleBetween_LogsExpectedLine(t *t
 
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
-	if _, err := l.SuperchargerHistoryByVehicleBetween(context.Background(), qlAccountID, qlTeslaID, start, end); err != nil {
+	if _, err := l.SuperchargerHistoryByVehicleBetween(context.Background(), qlTeslaID, start, end); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicleBetween account=%s tesla_id=%d start=%s end=%s rows=%d\n",
-		qlAccountID, qlTeslaID, start.Format("2006-01-02"), end.Format("2006-01-02"), 2)
+	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicleBetween tesla_id=%d start=%s end=%s rows=%d\n",
+		qlTeslaID, start.Format("2006-01-02"), end.Format("2006-01-02"), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -523,7 +463,6 @@ func TestQueryLog_NeverLogsRawDataContent(t *testing.T) {
 	const marker = "MARKER_RAW_DATA_MUST_NOT_APPEAR_IN_LOG"
 	rawData := []byte(marker)
 	now := time.Date(2026, 3, 1, 3, 30, 0, 0, time.UTC)
-	teslaID := qlTeslaID
 
 	if err := l.insertSnapshot(context.Background(), Snapshot{
 		TeslaID:    qlTeslaID,
@@ -534,8 +473,7 @@ func TestQueryLog_NeverLogsRawDataContent(t *testing.T) {
 	}
 
 	if err := l.upsertSuperchargerHistory(context.Background(), SuperchargerHistory{
-		AccountID:           qlAccountID,
-		TeslaID:             &teslaID,
+		TeslaID:             qlTeslaID,
 		SessionID:           1,
 		ChargeStartDateTime: now,
 		ChargeStopDateTime:  now,

@@ -7,8 +7,8 @@
   "tier": 1,
   "intention": "telemetry.supercharger_history is keyed on tesla_id NOT NULL, account_id is gone, and the write path skips a session whose VIN is not a registered vehicle.",
   "request": "MAG-67 tier 1. Re-key telemetry.supercharger_history on tesla_id.",
-  "status": "in-progress",
-  "updated_at": "2026-09-13T02:44:00Z",
+  "status": "applied",
+  "updated_at": "2026-09-13T03:11:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,11 +23,7 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "T5",
-      "T6",
-      "T9"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "T0",
@@ -36,7 +32,12 @@
       "T3",
       "T4",
       "T7",
-      "T8"
+      "T8",
+      "T9"
+    ],
+    "awaiting_user_verification": [
+      "T5",
+      "T6"
     ]
   },
   "decisions": [
@@ -177,14 +178,19 @@
       "depends_on": [
         "T4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:53:00Z",
+      "completed_at": "2026-09-13T03:04:20Z",
+      "duration_seconds": 680,
+      "budget": {
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 7.69,
+        "approx": true,
+        "note": "One wave delta shared across T5 and T6; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "Deleted the account-updated-since test file. Re-keyed every supercharger integration test on tesla_id. Added T-8 and T-9 in a new file, matching design.md's contract exactly. Also deleted the tesla_id-NULL-to-real test: NOT NULL makes that state impossible."
     },
     {
       "id": "T6",
@@ -192,14 +198,19 @@
       "depends_on": [
         "T4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:53:00Z",
+      "completed_at": "2026-09-13T03:04:20Z",
+      "duration_seconds": 680,
+      "budget": {
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 7.69,
+        "approx": true,
+        "note": "One wave delta shared across T5 and T6; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "reader_test.go needed no change - it has no SuperchargerHistoryReader coverage. Fixed query_log_test.go fakes. Deleted the stale TestCollectAll_ChargingHistory_VINResolution, which asserted the removed behaviour. go vet clean."
     },
     {
       "id": "T7",
@@ -255,14 +266,19 @@
         "T7",
         "T8"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-13T03:04:30Z",
+      "completed_at": "2026-09-13T03:11:00Z",
+      "duration_seconds": 390,
+      "budget": {
+        "five_hour_pct_delta": 0,
+        "cost_usd_delta": 0.0,
+        "approx": true,
+        "note": "Leader-run guards inside the wave-3 bracket; not separable from it."
+      },
+      "notes": "Every cheap signal clean: build, vet, migration-guard, boundary-guard, archive-guard, gofmt. 9.7 found the KB still naming the deleted port - fixed INDEX.md and the guide's gotchas block, which T7 missed."
     }
   ],
   "review": {
@@ -326,6 +342,31 @@
       "at": "2026-09-13T02:44:00Z",
       "what": "checkpoint",
       "detail": "User chose to checkpoint at the wave-2/wave-3 boundary. five_hour_pct 72 (threshold 90), context_pct 17 (threshold 40). Not tripped, but wave 2 cost 18 points and wave 3 is the largest remaining, so it was projected to cross. five_hour_resets_at 1789282200. Resume at wave 3: T5 and T6, then T9. Waves 1 and 2 are committed (1de0d1d, a8f8551)."
+    },
+    {
+      "at": "2026-09-13T02:53:00Z",
+      "what": "wave-3-dispatch",
+      "detail": "T5+T6 to one serial telemetry worker on Sonnet. User accepted crossing the 90pct threshold to finish the tier's code tonight. No stale worker running (ListAgents checked - the wave-1 incident lesson). budget_start five_hour_pct 77, context_pct 11, cost 1.33."
+    },
+    {
+      "at": "2026-09-13T03:04:20Z",
+      "what": "wave-3-complete",
+      "detail": "T5+T6 by the telemetry worker on Sonnet. budget_end five_hour_pct 94, context_pct 14, cost 9.03 (wave delta +17pct, +7.69 USD). Decision enumeration cross-checked against design.md: D1,D3,D4,D5,D8 honoured; D2,D6,D7 are not T5/T6's. T-8 and T-9 verified line by line against design.md's contract - session ids, t1/t2/t3 bounds, the decoy, the index name and the no-Sort assertion all match."
+    },
+    {
+      "at": "2026-09-13T03:06:00Z",
+      "what": "leader-fix",
+      "detail": "The worker wrote a new code comment citing decision id D7.4, which the B2 rule forbids. Rewrote it as the reason itself. Also restored the header's 'expected values are binding' warning, which the rewrite dropped - that sentence is an anti-gaming guard, not a doc pointer."
+    },
+    {
+      "at": "2026-09-13T03:11:00Z",
+      "what": "T9-docs-gap",
+      "detail": "9.7's grep found the KB still naming SuperchargerHistoryByAccountUpdatedSince: kkpa/context/INDEX.md had two stale rows and telemetry-ingest-only.md had a four-bullet gotchas block describing the deleted account-wide port. T7 fixed the consumer map but missed both. Leader fixed them. The charging models.go hit is a table COMMENT copied by sqlc - not a finding, and tier 2's module anyway."
+    },
+    {
+      "at": "2026-09-13T03:11:00Z",
+      "what": "awaiting-user-verification",
+      "detail": "All nine tasks are complete. T5 and T6 await the owner's suite run; the assistant never runs it. Change status applied, not verified - Step 6 needs the owner's reported pass before the reviewer gate."
     }
   ]
 }

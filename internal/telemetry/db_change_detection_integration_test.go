@@ -1,10 +1,12 @@
 // db_change_detection_integration_test.go proves the change-detecting
-// updated_at CASE expression added to UpsertSuperchargerHistory by
-// RM44-telemetry-add-change-detecting-upsert (design.md D1/D2). The six
-// scenarios below are design.md's test contract D7.1-D7.6, authored before
-// this file existed (ai/go-conventions.md "contract-first authoring") — the
-// expected values here are binding; do not adjust them to match whatever the
-// SQL happens to do.
+// updated_at CASE expression in UpsertSuperchargerHistory: it advances
+// updated_at only when a column the SET clause actually refreshes changes,
+// never for a write-once column or the human-owned battery-% trio. The
+// scenario that moved tesla_id from NULL to a real value was removed — a row
+// can no longer start with a NULL tesla_id, so that case cannot happen.
+//
+// The expected values below were authored before the SQL was written. They are
+// binding: never adjust one to match whatever the SQL happens to do.
 //
 // All tests are TEST_DATABASE_URL-gated integration tests, following the existing
 // pattern in db_integration_test.go (internal/testdb provisioning, TestMain
@@ -19,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -76,7 +77,6 @@ func TestUpsertSuperchargerHistory_UnchangedResync_LeavesUpdatedAtUntouched(t *t
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
-	accountID := uuid.New()
 	const sessionID = int64(61001)
 	teslaID := int64(810001)
 	start := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)
@@ -88,9 +88,8 @@ func TestUpsertSuperchargerHistory_UnchangedResync_LeavesUpdatedAtUntouched(t *t
 	energy := 10.0
 	sess := SuperchargerHistory{
 		SessionID:           sessionID,
-		AccountID:           accountID,
 		VIN:                 "VIN_CD_001",
-		TeslaID:             &teslaID,
+		TeslaID:             teslaID,
 		SiteLocationName:    "Site",
 		CountryCode:         "US",
 		ChargeStartDateTime: start,
@@ -129,7 +128,6 @@ func TestUpsertSuperchargerHistory_EnergyChange_AdvancesUpdatedAt(t *testing.T) 
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
-	accountID := uuid.New()
 	const sessionID = int64(61002)
 	teslaID := int64(810002)
 	start := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)
@@ -141,9 +139,8 @@ func TestUpsertSuperchargerHistory_EnergyChange_AdvancesUpdatedAt(t *testing.T) 
 	energy1 := 10.0
 	sess := SuperchargerHistory{
 		SessionID:           sessionID,
-		AccountID:           accountID,
 		VIN:                 "VIN_CD_002",
-		TeslaID:             &teslaID,
+		TeslaID:             teslaID,
 		SiteLocationName:    "Site",
 		CountryCode:         "US",
 		ChargeStartDateTime: start,
@@ -184,7 +181,6 @@ func TestUpsertSuperchargerHistory_IsPaidChange_AdvancesUpdatedAt(t *testing.T) 
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
-	accountID := uuid.New()
 	const sessionID = int64(61003)
 	teslaID := int64(810003)
 	start := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)
@@ -196,9 +192,8 @@ func TestUpsertSuperchargerHistory_IsPaidChange_AdvancesUpdatedAt(t *testing.T) 
 	notPaid := false
 	sess := SuperchargerHistory{
 		SessionID:           sessionID,
-		AccountID:           accountID,
 		VIN:                 "VIN_CD_003",
-		TeslaID:             &teslaID,
+		TeslaID:             teslaID,
 		SiteLocationName:    "Site",
 		CountryCode:         "US",
 		ChargeStartDateTime: start,
@@ -233,58 +228,9 @@ func TestUpsertSuperchargerHistory_IsPaidChange_AdvancesUpdatedAt(t *testing.T) 
 	}
 }
 
-// TestUpsertSuperchargerHistory_TeslaIDRecovered_AdvancesUpdatedAt is D7.4: a
-// tesla_id moving from NULL to a real value (orphan recovery) must advance
-// updated_at — the path roadmap D3 calls out by name.
-func TestUpsertSuperchargerHistory_TeslaIDRecovered_AdvancesUpdatedAt(t *testing.T) {
-	st, pool := newTestStore(t)
-	ctx := context.Background()
-
-	accountID := uuid.New()
-	const sessionID = int64(61004)
-	start := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)
-
-	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = $1", sessionID)
-	})
-
-	sess := SuperchargerHistory{
-		SessionID:           sessionID,
-		AccountID:           accountID,
-		VIN:                 "VIN_CD_004",
-		TeslaID:             nil, // orphan: VIN not a currently registered vehicle
-		SiteLocationName:    "Site",
-		CountryCode:         "US",
-		ChargeStartDateTime: start,
-		ChargeStopDateTime:  start.Add(30 * time.Minute),
-		BillingType:         "PAYMENT",
-		VehicleMakeType:     "MODEL_3",
-		RawData:             []byte(`{"sessionId":61004}`),
-	}
-	if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
-		t.Fatalf("first upsert: %v", err)
-	}
-
-	before, err := queryChangeDetectUpdatedAt(ctx, pool, sessionID)
-	if err != nil {
-		t.Fatalf("reading updated_at: %v", err)
-	}
-
-	time.Sleep(changeDetectSleep)
-	teslaID := int64(810004)
-	sess.TeslaID = &teslaID
-	if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
-		t.Fatalf("second upsert (orphan recovery): %v", err)
-	}
-
-	after, err := queryChangeDetectUpdatedAt(ctx, pool, sessionID)
-	if err != nil {
-		t.Fatalf("reading updated_at after re-upsert: %v", err)
-	}
-	if !after.After(before) {
-		t.Errorf("updated_at did not advance when tesla_id recovered from NULL: before=%v after=%v", before, after)
-	}
-}
+// There is no test for tesla_id moving from NULL to a real value. A session for
+// an unregistered VIN is never stored any more, because tesla_id is NOT NULL.
+// So a row can no longer start with a NULL tesla_id.
 
 // TestUpsertSuperchargerHistory_HumanBatteryPctSet_UnchangedResyncStillLeavesUpdatedAtUntouched
 // is D7.5: a human-set battery-% trio must survive an otherwise-unchanged
@@ -295,7 +241,6 @@ func TestUpsertSuperchargerHistory_HumanBatteryPctSet_UnchangedResyncStillLeaves
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
-	accountID := uuid.New()
 	const sessionID = int64(61005)
 	teslaID := int64(810005)
 	start := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)
@@ -307,9 +252,8 @@ func TestUpsertSuperchargerHistory_HumanBatteryPctSet_UnchangedResyncStillLeaves
 	energy := 15.0
 	sess := SuperchargerHistory{
 		SessionID:           sessionID,
-		AccountID:           accountID,
 		VIN:                 "VIN_CD_005",
-		TeslaID:             &teslaID,
+		TeslaID:             teslaID,
 		SiteLocationName:    "Site",
 		CountryCode:         "US",
 		ChargeStartDateTime: start,
@@ -324,14 +268,18 @@ func TestUpsertSuperchargerHistory_HumanBatteryPctSet_UnchangedResyncStillLeaves
 	}
 
 	// Simulate a human verification: set the trio by raw SQL, never through
-	// the upsert (there is no writer for it — R3/D3).
-	if _, err := pool.Exec(ctx,
+	// the upsert (there is no writer for it).
+	tag, err := pool.Exec(ctx,
 		`UPDATE telemetry.supercharger_history
 		    SET start_battery_pct = $1, end_battery_pct = $2, battery_pct_source = $3
 		  WHERE session_id = $4`,
 		55, 80, "user_verified", sessionID,
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatalf("simulating human verification: %v", err)
+	}
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("simulating human verification: want 1 row affected, got %d — the fixture matched no row", tag.RowsAffected())
 	}
 
 	before, err := queryChangeDetectUpdatedAt(ctx, pool, sessionID)
@@ -377,7 +325,6 @@ func TestUpsertSuperchargerHistory_WriteOnceColumnMismatch_NeverAdvancesUpdatedA
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
-	accountID := uuid.New()
 	const sessionID = int64(61006)
 	teslaID := int64(810006)
 	start := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)
@@ -389,9 +336,8 @@ func TestUpsertSuperchargerHistory_WriteOnceColumnMismatch_NeverAdvancesUpdatedA
 	energy := 12.0
 	sess := SuperchargerHistory{
 		SessionID:           sessionID,
-		AccountID:           accountID,
 		VIN:                 "VIN_CD_006",
-		TeslaID:             &teslaID,
+		TeslaID:             teslaID,
 		SiteLocationName:    "Site",
 		CountryCode:         "US",
 		ChargeStartDateTime: start,

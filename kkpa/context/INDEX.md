@@ -52,8 +52,8 @@
 | `vocabulary migration` | retiring a watermark source value when another module renames its table → `entities/vehicle-metrics/guide.md` |
 | `supercharger history change detection` | when a nightly sync counts as a change to a `telemetry.supercharger_history` row (`updated_at`) | entity | `architecture/telemetry-ingest-only.md` |
 | `why does updated_at change every night` | the MAG-48 symptom, at the telemetry layer | entity | `architecture/telemetry-ingest-only.md` |
-| `account-wide updated-since read` | `telemetry.SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince` — the only updated-since port that returns sessions with no registered vehicle | entity | `architecture/telemetry-ingest-only.md` |
-| `orphaned supercharger session` | a session whose vehicle is not currently registered; reachable only through the account-wide updated-since port | entity | `architecture/telemetry-ingest-only.md` |
+| `per-vehicle updated-since read` | `telemetry.SuperchargerHistoryReader.SuperchargerHistoryByVehicleUpdatedSince` — the only updated-since port; the account-wide one was removed when the table dropped `account_id` | entity | `architecture/telemetry-ingest-only.md` |
+| `orphaned supercharger session` | a session whose VIN is not a registered vehicle; it is never stored, and the nightly cycle counts the skip | entity | `architecture/telemetry-ingest-only.md` |
 | `session change detection` | when a nightly sync counts as a modification of a charge session record (`updated_at`) | entity | `workflows/supercharger-stats-read.md` |
 | `why did every session recalculate` | the MAG-48 symptom — `updated_at` used to advance on every sync pass | entity | `workflows/supercharger-stats-read.md` |
 | `bounded mirror read` | the watermark-bounded Supercharger sync (RM44 tier 4); replaced the full-history read | entity | `workflows/supercharger-stats-read.md` |
