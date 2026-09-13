@@ -1,11 +1,10 @@
 // Package charging_test — database-backed integration tests for the
 // change-detecting ON CONFLICT DO UPDATE SET clause in MirrorSuperchargerSession
-// (db/query.sql). Re-keyed on tesla_id, not account_id
-// (RM57-charging-rekey-supercharger-sessions-on-tesla-id, MAG-67).
+// (db/query.sql). Re-keyed on tesla_id, not account_id.
 //
 // updated_at advances only when one of the five refreshed columns (energy_kwh,
 // total_cost, currency, is_paid, tesla_id) actually differs from what is already
-// stored. These tests assert the values design.md's Test Contract (T-9) states.
+// stored. These tests assert the values Test Contract T-9 states.
 //
 // T7 (a genuine SessionVerifier.VerifySession edit still advances updated_at) is
 // NOT here — VerifySession is unchanged by this design, and an existing test

@@ -1,15 +1,14 @@
 // Package charging_test — database-backed integration tests for
 // MirrorWatermarkStore (mirror_watermark.go) and its GetMirrorWatermark /
 // UpsertMirrorWatermark queries (db/query.sql). Re-keyed on tesla_id, not
-// account_id (RM57-charging-rekey-supercharger-sessions-on-tesla-id, MAG-67):
-// the cursor is now one per vehicle, not one per account.
+// account_id: the cursor is now one per vehicle, not one per account.
 //
 // Assertions are against charging.MirrorWatermarkStore's returned time.Time
 // values, and — for the created_at bookkeeping column the port does not
 // expose — direct SQL reads. pgtype NEVER appears in this file
 // (internal/charging/AGENTS.md §Testing Notes).
 //
-// Test → Test Contract case mapping (design.md §"Test contract"):
+// Test → Test Contract case mapping:
 //
 //	T-12  TestMirrorWatermark_T12_PerVehicleCursor
 //	      TestMirrorWatermark_NoRowReturnsEpoch

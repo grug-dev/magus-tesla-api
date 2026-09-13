@@ -1,8 +1,7 @@
 // Package charging_test — database-backed integration tests for
 // SuperchargerSessionAnalyticsReader.ListSessionsByVehicleUpdatedSince
 // (session_reader.go) and its ListSessionsByVehicleUpdatedSince query
-// (db/query.sql). Re-keyed on tesla_id, not account_id
-// (RM57-charging-rekey-supercharger-sessions-on-tesla-id, MAG-67): the query has
+// (db/query.sql). Re-keyed on tesla_id, not account_id: the query has
 // no account_id predicate left, and there is no tenant to isolate.
 //
 // Fixtures are seeded through SessionWriter.MirrorSessions (the only writer this
@@ -13,7 +12,7 @@
 // domain fields — pgtype NEVER appears in this file
 // (internal/charging/AGENTS.md §Testing Notes).
 //
-// Test → Test Contract case mapping (design.md §"Test contract"):
+// Test → Test Contract case mapping:
 //
 //	T-5  TestListSessionsByVehicleUpdatedSince_T5_OrderingAndBoundary
 //	     TestListSessionsByVehicleUpdatedSince_T1_VerifySessionEditBecomesVisible

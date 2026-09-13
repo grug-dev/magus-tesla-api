@@ -1,8 +1,7 @@
 // Package charging_test — database-backed integration tests for
 // SuperchargerSessionAnalyticsReader.ListSessionsByVehicle (session_reader.go) and
 // its ListSessionsByVehicle query (db/query.sql). Re-keyed on tesla_id, not
-// account_id (RM57-charging-rekey-supercharger-sessions-on-tesla-id, MAG-67): the
-// query has no account_id predicate left, and there is no tenant to isolate — a
+// account_id: the query has no account_id predicate left, and there is no tenant to isolate — a
 // read is scoped by vehicle alone.
 //
 // Fixtures are seeded through SessionWriter.MirrorSessions (the only writer this
@@ -15,7 +14,7 @@
 // Sort-absence half of the assertion keeps full force under the setting; do not
 // drop it and do not delete the Sort assertion instead.
 //
-// Test → Test Contract case mapping (design.md §"Test contract"):
+// Test → Test Contract case mapping:
 //
 //	T-4   TestListSessionsByVehicle_T4_NewestFirstLimited
 //	T-11  TestListSessionsByVehicle_T11_ExplainConfirmsBackwardIndexScanNoSort
@@ -51,7 +50,7 @@ func fetchSessionsByVehicle(t *testing.T, pool *pgxpool.Pool, teslaID int64, lim
 	return sessions
 }
 
-// seedT4 seeds design.md's T-4 fixture: three sessions for tesla_id 111
+// seedT4 seeds the T-4 fixture: three sessions for tesla_id 111
 // (9201/9202/9203, strictly increasing ChargeStopDateTime), plus a decoy session
 // 9204 for a different vehicle (tesla_id 222), stopping later than all three.
 func seedT4(t *testing.T, pool *pgxpool.Pool) {

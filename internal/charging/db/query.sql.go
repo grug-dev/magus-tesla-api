@@ -497,14 +497,13 @@ type ListSessionsByVehicleParams struct {
 // telemetry.SuperchargerSessionsByVehicle already applies to supercharger_sessions.
 //
 // idx_supercharger_sessions_vehicle_stop (tesla_id, charge_stop_date_time) was built ASC,
-// not DESC (RM30 D1, for ListSessionsByVehicleBetween's own bounded-window read). This
+// not DESC (for ListSessionsByVehicleBetween's own bounded-window read). This
 // query still needs NO new index: Postgres serves
 // ORDER BY charge_stop_date_time DESC LIMIT @limit_count from the SAME ascending btree
 // via a backward index scan -- a B-tree index is traversable in either direction at
 // identical cost, so tesla_id still prunes the scan to a single contiguous leaf-page
-// range and only the walk direction (and hence the row order handed up) differs
-// (design.md D3, "Index proof" below). Confirmed by EXPLAIN in the integration test
-// (Test Contract T-11), not merely asserted.
+// range and only the walk direction (and hence the row order handed up) differs.
+// Confirmed by EXPLAIN in the integration test (Test Contract T-11), not merely asserted.
 //
 // limit_count is always a positive int32 by the time this query runs: the Go caller
 // clamps a non-positive limit to the module's existing defaultLimit (100) before
@@ -566,8 +565,8 @@ type ListSessionsByVehicleBetweenParams struct {
 
 // Return charge sessions for a specific vehicle whose charge_stop_date_time falls
 // within the whole UTC calendar-day window [@from_time, @to_time], @to_time inclusive
-// of its entire day, ordered oldest-first (ascending charge_stop_date_time, design.md
-// D3 — deliberately UNLIKE ListEntriesByVehicleBetween's charged_on DESC, but matching
+// of its entire day, ordered oldest-first (ascending charge_stop_date_time —
+// deliberately UNLIKE ListEntriesByVehicleBetween's charged_on DESC, but matching
 // telemetry.SuperchargerSessionsByVehicleBetween's ordering exactly).
 //
 // @end_bound is @to_time + 1 calendar day, COMPUTED IN GO (design.md D5), exactly
@@ -582,10 +581,10 @@ type ListSessionsByVehicleBetweenParams struct {
 // single ascending index range scan: tesla_id prunes to the vehicle as the leading
 // equality predicate, the half-open charge_stop_date_time range walks the trailing
 // column, and the index's own ASC order satisfies ORDER BY with no separate sort step
-// and no backward scan (design.md D1). A half-open range is exactly as scannable as a
+// and no backward scan. A half-open range is exactly as scannable as a
 // closed BETWEEN on a B-tree index — both are a single contiguous leaf-page walk
-// bounded on two sides; only the boundary comparison operator differs (design.md
-// §"Index proof"). No LIMIT: the caller-supplied [from_time, end_bound) window is the
+// bounded on two sides; only the boundary comparison operator differs.
+// No LIMIT: the caller-supplied [from_time, end_bound) window is the
 // safety bound, matching ListEntriesByVehicleBetween's precedent.
 func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSessionsByVehicleBetweenParams) ([]SuperchargerSession, error) {
 	rows, err := q.db.Query(ctx, listSessionsByVehicleBetween, arg.TeslaID, arg.FromTime, arg.EndBound)
@@ -639,15 +638,15 @@ type ListSessionsByVehicleUpdatedSinceParams struct {
 }
 
 // Return charge sessions for a specific vehicle whose updated_at is at or after @since,
-// ordered oldest-first by charge_stop_date_time (design.md D1) — NOT by updated_at
+// ordered oldest-first by charge_stop_date_time — NOT by updated_at
 // itself, and NOT ListEntriesByVehicleUpdatedSince's DESC: this table's index is built
-// ASC (RM30 D1), so ascending on the index's own trailing column is the order that
+// ASC, so ascending on the index's own trailing column is the order that
 // needs no sort step. Reuses idx_supercharger_sessions_vehicle_stop (tesla_id,
 // charge_stop_date_time) as a single ascending index range scan: tesla_id prunes to the
 // vehicle as the leading equality predicate in the same scan every other vehicle-scoped
 // query on this table already uses; updated_at >= @since is a RESIDUAL filter evaluated
-// per matching row within that scan, not a separately-indexed predicate (design.md D6)
-// -- this query orders by charge_stop_date_time, so a dedicated updated_at index would
+// per matching row within that scan, not a separately-indexed predicate --
+// this query orders by charge_stop_date_time, so a dedicated updated_at index would
 // serve the predicate and then force a sort, strictly worse than the current plan. No
 // new index: this table receives roughly one row per Supercharger session per vehicle,
 // written nightly, a low-volume, write-driven profile.
@@ -655,7 +654,7 @@ type ListSessionsByVehicleUpdatedSinceParams struct {
 // THIS QUERY IS THE ONLY MECHANISM (design.md D1) that carries a
 // SessionVerifier.VerifySession edit into analytics.Recalculator.Reconcile: VerifySession
 // sets updated_at = now() and touches no other timestamp column, and
-// charge_start_date_time/charge_stop_date_time are write-once (RM29 D1), so updated_at
+// charge_start_date_time/charge_stop_date_time are write-once, so updated_at
 // is the only column that moves when a human verifies a session.
 //
 // No LIMIT: @since itself bounds the result, matching ListEntriesByVehicleUpdatedSince's
@@ -849,8 +848,8 @@ type LockSessionForVerificationRow struct {
 //
 // WHERE id = @id AND tesla_id = @tesla_id mirrors VerifySuperchargerSession's own scoping
 // exactly; zero rows matched surfaces as pgx.ErrNoRows, wrapped by the caller identically to
-// VerifySuperchargerSession's own not-found case (design.md D10). The vehicle it names is
-// the whole tenant boundary on this write path now (design.md D3).
+// VerifySuperchargerSession's own not-found case. The vehicle it names is
+// the whole tenant boundary on this write path now.
 //
 // tesla_id is also selected: packCapacityKWh needs it to look up the vehicle's own
 // measured capacity before falling back to the default.

@@ -50,8 +50,9 @@ write channel is correcting the two human-owned battery percentages.
    sole tenant boundary on this write), maps the returned row via `rowToSession`.
 4. `Handler.recalculateAfterSessionVerify` →
    `analytics.Recalculator.Recalculate(uid, teslaID, day−1, day+1)` where `day` is the **UTC**
-   calendar day of `charge_stop_date_time`. **Skipped entirely when `updated.TeslaID` is nil**
-   (the VIN is not a currently-registered vehicle) — logged, and the write still stands.
+   calendar day of `charge_stop_date_time`. **Always runs.** `Session.TeslaID` is a plain
+   `int64`, never nil — `tesla_id` is `NOT NULL` on `supercharger_sessions`, so a session
+   always names a registered vehicle.
 5. `superchargerRowVMFromSession` — maps `VerifySession`'s own returned `Session`, so the success
    path costs no extra read.
 
@@ -99,9 +100,9 @@ On the error branches, `fetchSuperchargerRowVM` additionally READs `supercharger
   into, so a single-day window is provably wrong here. This is why the two flows' windows
   legitimately differ.
   _Source: `recalculateAfterSessionVerify` doc comment (design D4/D5)._
-- **A nil `TeslaID` silently skips recalculation.** The write succeeds and the skip is logged.
-  Any change here must preserve "the write still stands".
-  _Source: `SuperchargerRowUpdate` (design D6)._
+- **Recalculation always runs.** `tesla_id` is `NOT NULL` on `supercharger_sessions`, so
+  `Session.TeslaID` can never be nil. There is no skip branch to preserve.
+  _Source: `SuperchargerRowUpdate`._
 - **The error branches re-resolve via `fetchSuperchargerRowVM` rather than inspecting the
   error** — that is how a 404 is told apart from a 500 without importing pgx into the gateway.
   _Source: `SuperchargerRowUpdate` (design D9)._

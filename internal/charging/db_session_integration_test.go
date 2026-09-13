@@ -1,8 +1,7 @@
 // Package charging_test — database-backed integration tests for SessionWriter
 // (session_writer.go) and its MirrorSuperchargerSession query (db/query.sql).
-// Re-keyed on tesla_id, not account_id (RM57-charging-rekey-supercharger-
-// sessions-on-tesla-id, MAG-67): the table has no account_id column left, and
-// MirrorSessions no longer takes a scoping argument — the mirror's own upsert
+// Re-keyed on tesla_id, not account_id: the table has no account_id column
+// left, and MirrorSessions no longer takes a scoping argument — the mirror's own upsert
 // key is now session_id alone, with no vehicle-scoped check in Go at all.
 //
 // There is no reader port exercising these fixtures — every assertion here
@@ -11,7 +10,7 @@
 // SQL column values); pgtype NEVER appears in this file
 // (internal/charging/AGENTS.md §Testing Notes).
 //
-// Test → Test Contract case mapping (design.md §"Test contract"):
+// Test → Test Contract case mapping:
 //
 //	T-1 TestMirrorSessions_UpsertsOnSessionIDAlone
 //	T-2 TestMirrorSessions_SessionIDUniqueAcrossVehicles
@@ -56,7 +55,7 @@ const mirrorGap = 15 * time.Millisecond
 // cleanupChargingSuperchargerSessionsBySessionIDs registers a cleanup that deletes
 // supercharger_sessions rows for the given session ids so a shared DB stays tidy
 // across test runs. session_id is now the table's own global identity — the table
-// carries no account_id to scope a cleanup by (design.md D1/D2).
+// carries no account_id to scope a cleanup by.
 func cleanupChargingSuperchargerSessionsBySessionIDs(t *testing.T, pool *pgxpool.Pool, sessionIDs ...int64) {
 	t.Helper()
 	t.Cleanup(func() {
@@ -80,7 +79,7 @@ func countSuperchargerSessionsBySessionIDs(t *testing.T, pool *pgxpool.Pool, ses
 
 // superchargerSessionRow is the subset of supercharger_sessions columns these tests read back
 // directly (no Reader port exercises these fixtures). TeslaID is now a plain int64 — the
-// column is NOT NULL (design.md D1). Every other nullable column stays a plain Go pointer
+// column is NOT NULL. Every other nullable column stays a plain Go pointer
 // (**T at Scan time), never pgtype — pgx v5 natively supports NULL-into-pointer-to-pointer
 // scanning.
 type superchargerSessionRow struct {
@@ -244,7 +243,7 @@ func TestMirrorSessions_UpsertsOnSessionIDAlone(t *testing.T) {
 
 // T-2: one session id can exist only once, whatever the vehicle. Before this change
 // the same call inserted a second row, one per account; this test is the behaviour
-// change design.md D2 introduces.
+// change this migration introduces.
 func TestMirrorSessions_SessionIDUniqueAcrossVehicles(t *testing.T) {
 	pool := newTestPool(t)
 	const sessionID = int64(9001)
@@ -343,7 +342,7 @@ func TestMirrorSessions_NewSessionInsertsTenColumns(t *testing.T) {
 }
 
 // B2: re-mirroring an unchanged session does not duplicate it, and LEAVES
-// updated_at untouched (RM44-charging-add-change-detecting-mirror, MAG-48).
+// updated_at untouched.
 func TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_LeavesUpdatedAtUntouched(t *testing.T) {
 	pool := newTestPool(t)
 	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, 920001)
@@ -482,7 +481,7 @@ func TestMirrorSessions_WriteOnceColumnsNotRefreshed(t *testing.T) {
 
 // B5: tesla_id is refreshed to a different vehicle; vin is unaffected; created_at
 // stays unchanged and updated_at advances. Unlike before this change, tesla_id can
-// no longer be reassigned to NULL — the column is NOT NULL (design.md D1) and
+// no longer be reassigned to NULL — the column is NOT NULL and
 // SessionMirror.TeslaID is a plain int64 with no nil state left to express.
 func TestMirrorSessions_TeslaIDRefreshed(t *testing.T) {
 	pool := newTestPool(t)
@@ -814,7 +813,7 @@ func TestConstraint_ProvenanceEnum(t *testing.T) {
 
 // C5: session_id uniqueness is global, and enforced —
 // supercharger_sessions_session_id_unique. Replaces the old account-scoped
-// uniqueness test: the table has no account_id left to scope by (design.md D2).
+// uniqueness test: the table has no account_id left to scope by.
 func TestConstraint_SessionIDUniqueness(t *testing.T) {
 	pool := newTestPool(t)
 	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, 920051)

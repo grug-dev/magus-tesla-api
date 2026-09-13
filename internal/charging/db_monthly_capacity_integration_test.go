@@ -27,8 +27,8 @@
 // before this file was written) -- this is what keeps one test's
 // monthly_effective_capacity row invisible to another test's assertions even
 // though the table itself is shared, unscoped, package-wide state.
-// TestCalculate_T13_SessionAttributedToVehicle is the one exception: design.md's
-// own Test Contract fixes its tesla_id at 111, the same reference vehicle several
+// TestCalculate_T13_SessionAttributedToVehicle is the one exception: it fixes
+// its tesla_id at 111, the same reference vehicle several
 // other integration test files also use for supercharger_sessions rows. This is
 // safe because Go runs this package's tests sequentially (no t.Parallel() call
 // anywhere in it) and every test's own t.Cleanup deletes its rows before the next
@@ -42,10 +42,9 @@
 // pgtype NEVER appears in this file (internal/charging/AGENTS.md §Testing Notes).
 //
 // C7 and C11 (both required a session with tesla_id IS NULL) are REMOVED, not
-// adapted, by RM57-charging-rekey-supercharger-sessions-on-tesla-id: tesla_id
-// is NOT NULL now and SessionMirror.TeslaID is a plain int64, so neither
-// fixture can be constructed any more. See the note left at each former
-// location.
+// adapted: tesla_id is NOT NULL now and SessionMirror.TeslaID is a plain
+// int64, so neither fixture can be constructed any more. See the note left
+// at each former location.
 //
 // Test -> Test Contract case mapping:
 //
@@ -410,9 +409,9 @@ func TestCalculate_C5_EvenValidCountAveragesMiddleTwo(t *testing.T) {
 
 // TestCalculate_C6_PoolsAcrossAccounts implements design.md Test Contract C6:
 // a manual entry (account-scoped) and a supercharger session (vehicle-scoped,
-// no account at all since RM57-charging-rekey-supercharger-sessions-on-tesla-id)
-// for the same tesla_id are pooled into one row (RD5) -- GROUP BY tesla_id (in
-// Go) pools automatically, whatever each record's own scoping shape.
+// no account at all now) for the same tesla_id are pooled into one row --
+// GROUP BY tesla_id (in Go) pools automatically, whatever each record's own
+// scoping shape.
 func TestCalculate_C6_PoolsAcrossAccounts(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
@@ -475,10 +474,9 @@ func TestCalculate_C6_PoolsAcrossAccounts(t *testing.T) {
 	}
 }
 
-// C7 (design.md Test Contract, pre-RM57: "a session row with tesla_id IS NULL
-// is skipped") is REMOVED, not adapted. RM57-charging-rekey-supercharger-
-// sessions-on-tesla-id (D1) made tesla_id NOT NULL and SessionMirror.TeslaID a
-// plain int64 -- a session with no registered vehicle can no longer be
+// C7 (a session row with tesla_id IS NULL is skipped) is REMOVED, not
+// adapted: tesla_id is NOT NULL now and SessionMirror.TeslaID is a plain
+// int64 -- a session with no registered vehicle can no longer be
 // constructed at all, so the scenario this case tested is now structurally
 // impossible rather than merely untested.
 
@@ -648,10 +646,10 @@ func TestPackCapacityKWh_C10_UnchangedUntilFirstMonthComputed(t *testing.T) {
 	}
 }
 
-// C11 (design.md Test Contract, pre-RM57: "a session whose tesla_id is NULL
-// never reaches packCapacityKWh's DB read at all") is REMOVED for the same
-// reason as C7 above: tesla_id is NOT NULL now, and SessionMirror.TeslaID is a
-// plain int64, so this fixture can no longer be constructed.
+// C11 (a session whose tesla_id is NULL never reaches packCapacityKWh's DB
+// read at all) is REMOVED for the same reason as C7 above: tesla_id is NOT
+// NULL now, and SessionMirror.TeslaID is a plain int64, so this fixture can
+// no longer be constructed.
 
 // TestCalculate_C12_UpsertIsIdempotent implements design.md Test Contract
 // C12: the upsert is idempotent (RD9's re-run path) -- ON CONFLICT (tesla_id,
@@ -753,9 +751,8 @@ func TestCalculate_C13_CandidateCountExistsForAllGated(t *testing.T) {
 	}
 }
 
-// TestCalculate_T13_SessionAttributedToVehicle implements design.md's Test
-// Contract T-13 (RM57-charging-rekey-supercharger-sessions-on-tesla-id): the
-// monthly capacity batch attributes a session to its vehicle, tesla_id alone —
+// TestCalculate_T13_SessionAttributedToVehicle proves the monthly capacity
+// batch attributes a session to its vehicle, tesla_id alone —
 // no account plays any part in this query any more. Three sessions for
 // tesla_id 111, one of each lifecycle status: DONE (the only one
 // ListValidSessionCapacitiesForPeriod ever reads), DONE_CALCULATED and

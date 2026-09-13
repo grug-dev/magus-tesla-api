@@ -7,8 +7,7 @@
 // inside the query's updated_at comparison stays correct as the schema evolves.
 // The governing rule (design.md): the comparison covers EXACTLY the columns the
 // SET clause writes (5) and nothing else; every other live column is deny-listed
-// (13 today, since RM57-charging-rekey-supercharger-sessions-on-tesla-id dropped
-// account_id from the table). Under that rule the live schema is a total
+// (13 today, since account_id was dropped from the table). Under that rule the live schema is a total
 // partition of the two sets, with no leftover bucket — 5 + 13 = 18 live columns.
 // Part 1 below asserts that partition against information_schema at runtime, so
 // a future migration that adds a column makes this test fail on its own, by
@@ -46,9 +45,8 @@ var writtenColumns = []string{
 //	    session_id, charge_start_date_time, charge_stop_date_time,
 //	    site_location_name
 //
-// account_id left this list when the column itself was dropped from the table
-// (RM57-charging-rekey-supercharger-sessions-on-tesla-id): there is no longer a
-// column here to guard.
+// account_id left this list when the column itself was dropped from the table:
+// there is no longer a column here to guard.
 var denyListColumns = []string{
 	"id", "created_at", "updated_at",
 	"start_battery_pct", "end_battery_pct", "battery_pct_source", "status", "inferred_capacity_kwh_calc",

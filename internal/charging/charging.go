@@ -355,8 +355,8 @@ const (
 // module's existing conventions exactly: *T for every nullable column (matching Entry's
 // pattern), time.Time for every TIMESTAMPTZ, int64 for BIGINT NOT NULL, *int for
 // nullable SMALLINT (matching Entry.StartBatteryPct's identical type), *string for
-// nullable TEXT. No pgtype anywhere in this type (ai/architecture.md §2, RM29 D6's own
-// rule applied to the read side).
+// nullable TEXT. No pgtype anywhere in this type: ai/architecture.md §2 keeps pgtype
+// confined to the files that talk to the database directly, and this type is not one.
 type Session struct {
 	ID        uuid.UUID
 	VIN       string
@@ -478,11 +478,10 @@ type SuperchargerSessionAnalyticsReader interface {
 
 	// ListSessionsByVehicleUpdatedSince returns every session for a specific vehicle
 	// whose updated_at is at or after since. Ordered ASCENDING by ChargeStopDateTime —
-	// NOT by updated_at itself (RM31 design.md D1, Context fact 2: this mirrors
-	// Reader.ListEntriesByVehicleUpdatedSince's index reasoning in this module, not
-	// telemetry.SuperchargerHistoryReader's updated_at-ordering choice). No limit
-	// parameter — since itself bounds the result. Always returns a non-nil empty slice
-	// when no rows match.
+	// NOT by updated_at itself: this mirrors Reader.ListEntriesByVehicleUpdatedSince's
+	// index reasoning in this module, not telemetry.SuperchargerHistoryReader's
+	// updated_at-ordering choice. No limit parameter — since itself bounds the result.
+	// Always returns a non-nil empty slice when no rows match.
 	//
 	// This is the mechanism by which a SessionVerifier.VerifySession edit becomes
 	// visible to analytics.Recalculator.Reconcile: VerifySession sets updated_at =
@@ -494,7 +493,7 @@ type SuperchargerSessionAnalyticsReader interface {
 
 	// ListSessionsByVehicle returns the limit most recent sessions for a specific
 	// vehicle, ordered DESCENDING by ChargeStopDateTime — the opposite of
-	// ListSessionsByVehicleBetween's ASC. This divergence is deliberate (design.md D3)
+	// ListSessionsByVehicleBetween's ASC. This divergence is deliberate
 	// and must not be "corrected" to match the sibling method: a "most recent N"
 	// limit-bounded read needs newest-first by construction. limit <= 0 uses the
 	// server default (defaultLimit, 100), mirroring Reader.ListEntriesByVehicle's
@@ -548,7 +547,7 @@ type SessionVerifier interface {
 	// wanting to add endBatteryPct to a session that already has startBatteryPct
 	// verified must re-supply the existing startBatteryPct value (read via
 	// SessionReader) alongside the new endBatteryPct, or that column is overwritten to
-	// NULL (design.md D6). Calling VerifySession(ctx, teslaID, id, nil, nil) clears
+	// NULL. Calling VerifySession(ctx, teslaID, id, nil, nil) clears
 	// both percentages AND battery_pct_source to NULL in the same statement (design.md
 	// D7).
 	//
@@ -581,9 +580,9 @@ type SessionVerifier interface {
 	// ONLY tenant boundary left on the Supercharger write path — the gateway resolves
 	// which vehicle it believes owns the session and passes it here, so a mismatched
 	// vehicle matches zero rows exactly like an unknown id, and a caller cannot tell
-	// "not yours" from "does not exist" (design.md D3). Zero rows matched surfaces as
+	// "not yours" from "does not exist". Zero rows matched surfaces as
 	// an error wrapping pgx.ErrNoRows, exactly mirroring Writer.Update's own not-found
-	// semantics (design.md D5).
+	// semantics.
 	VerifySession(ctx context.Context, teslaID int64, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)
 }
 

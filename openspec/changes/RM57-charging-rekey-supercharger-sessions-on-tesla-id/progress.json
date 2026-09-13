@@ -5,7 +5,7 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
   "request": "MAG-67 tier 2 — Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
-  "status": "in-review",
+  "status": "changes-requested",
   "rollup": {
     "current": [],
     "pending": [],
@@ -24,7 +24,7 @@
     ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T20:27:00Z",
+  "updated_at": "2026-09-13T21:10:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -304,10 +304,39 @@
     }
   ],
   "review": {
-    "status": "in-review",
+    "status": "changes-requested",
     "agent": "charging-reviewer",
     "brief": "Review tier 2 of RM57: charging.supercharger_sessions and charging.mirror_watermarks re-keyed on tesla_id. Read the branch diff against main, not the whole module. Validate: (1) every DB object matches the user-confirmed design in design.md - DDL, the UNIQUE (session_id) swap, tesla_id NOT NULL, the account_id drop, and the single index (tesla_id, charge_stop_date_time). Any mismatch is a blocker finding. (2) Module boundaries: no module reads another's DB; the gateway calls interfaces only; internal/app, internal/analytics and internal/gateway changes are leader-owned integration and must use charging's public ports. (3) Doc-pack conventions: km/C/PSI suffixes, internal/clock for time, bilingual i18n for any user-facing string. (4) Spec and tasks coverage: every requirement in specs/ is implemented; tasks.md matches what landed. (5) Tests assert the expectations design.md authored BEFORE implementation (its Test contract section), not whatever the code happens to do. Check T-1..T-13 specifically. (6) Three deletions need scrutiny, each claimed to be a design consequence rather than a weakened criterion: C7 and C11 in db_monthly_capacity_integration_test.go, and TestSuperchargerRowUpdate_NilTeslaIDSkipsRecalculationAndLogs in the gateway. All three needed a nil vehicle. Confirm a nil vehicle is now impossible, or raise it. (7) The per-vehicle mirror loop in internal/app/processor.go: confirm one car's cursor can never move past another car's unread rows, that a zero-row read never advances, and that the cursor never moves to now(). (8) VerifySession is re-keyed on tesla_id, not stripped. Confirm the gateway still proves ownership before the write. (9) Anti-gaming: no acceptance criterion weakened or deleted to finish, no self-approved status. Signals: the ASSISTANT ran go build ./..., go vet ./..., gofmt -l, migration-guard, boundary-guard, vehicleref-guard, archive-guard and openspec validate --strict - all clean. The OWNER ran make test and reported it passed. You must NOT run the suite. Judge test quality by reading the tests.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-13T20:45:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "kkpa/context/use-case/charging/verify-session-battery.md (step 4, line 53, and the 'A nil TeslaID silently skips recalculation' bullet, lines 102-104) and kkpa/context/workflows/supercharger-stats-read.md (lines 81 and 83) still say recalculateAfterSessionVerify is skipped when Session.TeslaID is nil. T8.8 deleted that branch in internal/gateway/handlers/supercharger.go: recalculation now always runs, since tesla_id is NOT NULL. design.md's own 'Docs this change invalidates' table named both files for correction, but the nil-TeslaID claim in each survived.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "New/changed comment lines cite design.md/RM/RD decision ids, e.g. internal/charging/charging.go's VerifySession doc ('...cannot tell not yours from does not exist (design.md D3)') and internal/charging/db/query.sql's LockSessionForVerification comment (new sentence: 'the whole tenant boundary on this write path now (design.md D3)'), plus several _test.go file headers ('Test -> Test Contract case mapping (design.md Test contract)'). The writing rule forbids this because design.md is archived and frozen. This mirrors a pervasive pre-existing codebase convention already used throughout this module (not invented by this change), flagged only because the rule is binding for lines this change added or changed.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "No gateway test covers the new 'if !selOK' 404 branch added to SuperchargerRowUpdate (internal/gateway/handlers/supercharger.go, T8.7), and no test asserts VerifySession's teslaID argument equals resolveSelectedVehicle's resolved vehicle (the fixtures give every test account exactly one vehicle, so the passed value can't be distinguished from a wrong one). The real tenant boundary is proven at the DB layer (T-6, db_session_verifier_integration_test.go), so this is a coverage gap, not a security gap.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -385,6 +414,38 @@
       "made_by": "leader",
       "decision": "T9's verification ran in the same wave as T5-T8 rather than a fourth wave",
       "why": "T9 edits no code. A separate wave would re-read the doc pack to run commands the leader had already run."
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-13T20:55:00Z",
+      "scope": "review:R1",
+      "made_by": "leader",
+      "decision": "R1 accepted. Also fixing a fifth stale line the reviewer did not name",
+      "why": "supercharger-stats-read.md line 67 still prints ListSessionsByVehicleBetween with uid. Same class of staleness, same file."
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-13T20:55:00Z",
+      "scope": "review:R2",
+      "made_by": "user",
+      "decision": "R2 accepted, scoped to the comment lines this change added inside internal/charging",
+      "why": "User chose this over deferring to a ticket or sweeping the whole module. Comment-only, no behaviour change."
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-13T20:55:00Z",
+      "scope": "review:R3",
+      "made_by": "leader",
+      "decision": "R3 accepted; leader added two gateway tests rather than re-dispatching",
+      "why": "The 404 branch is leader-owned T8 code. A fresh worker would re-read the doc pack to add two tests."
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-13T20:55:00Z",
+      "scope": "review:R2",
+      "made_by": "leader",
+      "decision": "R1 and R2 fixes went to one Sonnet worker; the leader took R3 in parallel",
+      "why": "Disjoint files: charging plus two KB guides for the worker, the gateway test file for the leader."
     }
   ],
   "events": [
@@ -477,6 +538,16 @@
       "at": "2026-09-13T20:27:00Z",
       "agent": "leader",
       "event": "review brief written; dispatching charging-reviewer on Sonnet with instruction to escalate on doubt. Budget five_hour_pct 56, context_pct 23."
+    },
+    {
+      "at": "2026-09-13T20:55:00Z",
+      "agent": "leader",
+      "event": "review round 1 returned changes-requested with R1 (major), R2 (minor), R3 (minor). All three triaged as accepted, none rejected. R2's scope was the user's call. R3 fixed by the leader: two gateway tests, one for the no-vehicle 404 branch, one proving VerifySession gets the RESOLVED vehicle and not the first on the account."
+    },
+    {
+      "at": "2026-09-13T21:10:00Z",
+      "agent": "leader",
+      "event": "round 1 fixes complete. R1: five stale claims fixed across two KB guides, including the ListSessionsByVehicleBetween signature the reviewer did not name. R2: 57 comment lines rewritten across 13 charging files; make sqlc regenerated query.sql.go and the leader confirmed the generated diff is comment-only. R3: two gateway tests added. go build, go vet ./... , gofmt and archive-guard clean. Residual R2 search over the full working tree returns 0."
     }
   ]
 }

@@ -1,8 +1,7 @@
 // Package charging_test — database-backed integration tests for SessionVerifier
 // (session_verifier.go) and its VerifySuperchargerSession query (db/query.sql).
-// Re-keyed on tesla_id, not account_id (RM57-charging-rekey-supercharger-
-// sessions-on-tesla-id, MAG-67): VerifySession's tenant boundary is now the
-// vehicle, not the account (design.md D3).
+// Re-keyed on tesla_id, not account_id: VerifySession's tenant boundary is now the
+// vehicle, not the account.
 //
 // Fixtures are seeded through SessionWriter.MirrorSessions (the only writer this
 // table has), verified through SessionVerifier.VerifySession, and read back either
@@ -10,8 +9,8 @@
 // direct-SQL helper (db_session_integration_test.go, same package) — never through
 // chargingdb.SuperchargerSession. pgtype NEVER appears in this file
 // (internal/charging/AGENTS.md §Testing Notes). session_ids are in the 950001-950099
-// range, disjoint from RM29 tier 6's 920001-920099, RM30/RM31 tier 1's 940001-960099,
-// and the real backfilled 734860294. This change's own T-6/T-7 fixtures use 9401/9501,
+// range, disjoint from other integration test files' 920001-920099 and 940001-960099
+// ranges, and the real backfilled 734860294. This change's own T-6/T-7 fixtures use 9401/9501,
 // disjoint from every range above.
 //
 // Test -> Test Contract case mapping:
@@ -20,8 +19,7 @@
 //	T-7  TestVerifySession_T7_DerivedStartNoNilVehicleBranch
 //	     TestVerifySession_T1_T4_T9_SetThenClearAdvancesUpdatedAt
 //	     TestVerifySession_PartialStartOnlyStillSetsSource
-//	     TestVerifySession_PartialEndOnlyStillSetsSource (updated by MAG-36,
-//	     charging-add-derived-start-battery-pct: the expected StartBatteryPct
+//	     TestVerifySession_PartialEndOnlyStillSetsSource (the expected StartBatteryPct
 //	     is now the derived 41, not nil -- see the test's own doc comment)
 //	     TestVerifySession_OutOfRangeRejectedBeforeQuery
 //	     TestVerifySession_UnknownIDSameErrorShapeAsWrongVehicle
@@ -410,7 +408,7 @@ func TestVerifySession_OutOfRangeRejectedBeforeQuery(t *testing.T) {
 
 // TestVerifySession_UnknownIDSameErrorShapeAsWrongVehicle: an id belonging to no
 // session at all produces the identical error shape as a wrong-vehicle call —
-// not-found and wrong-vehicle are indistinguishable (design.md D3).
+// not-found and wrong-vehicle are indistinguishable.
 func TestVerifySession_UnknownIDSameErrorShapeAsWrongVehicle(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()

@@ -1,7 +1,6 @@
 // Package charging_test — database-backed integration tests for SessionReader
 // (session_reader.go) and its ListSessionsByVehicleBetween query (db/query.sql).
-// Re-keyed on tesla_id, not account_id (RM57-charging-rekey-supercharger-
-// sessions-on-tesla-id, MAG-67): the query has no account_id predicate left, and
+// Re-keyed on tesla_id, not account_id: the query has no account_id predicate left, and
 // there is no tenant to isolate — every read is scoped by vehicle alone.
 //
 // Fixtures are seeded through SessionWriter.MirrorSessions (the only writer this
@@ -12,7 +11,7 @@
 // load-bearing, not a workaround: the small fixture is otherwise cheap enough that
 // the planner would prefer a Seq Scan, which would fail a correct design.
 //
-// Test → Test Contract case mapping (design.md §"Test contract"):
+// Test → Test Contract case mapping:
 //
 //	T-3   TestListSessionsByVehicleBetween_ScopesByVehicleAlone
 //	T-10  TestListSessionsByVehicleBetween_T10_ExplainConfirmsIndexNoSort

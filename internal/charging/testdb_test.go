@@ -7,9 +7,8 @@
 //
 // TWO migration DIRECTORIES are applied, in this order: internal/telemetry's
 // first, then this module's own. Telemetry must go first because one of this
-// module's migrations (20260823000001, since RM39 tier 4 renamed the source
-// table) ships a backfill reading telemetry's supercharger_history table, so
-// that table must exist first. testdb.ProvisionDirs is the sanctioned form for
+// module's migrations (20260823000001) ships a backfill reading telemetry's
+// supercharger_history table, so that table must exist first. testdb.ProvisionDirs is the sanctioned form for
 // a package whose fixtures span more than one module's schema
 // (ai/go-conventions.md §Testing: "more than one module's tables →
 // ProvisionDirs"); internal/analytics already does the same. This is a path

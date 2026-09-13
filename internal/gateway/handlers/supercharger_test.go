@@ -1448,6 +1448,108 @@ func TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422(t *testing.T) {
 
 // --- T6 ---
 
+// newHandlerForSuperchargerRowVehicles is newHandlerForSuperchargerRow with an
+// explicit vehicle list, so a test can give the account no vehicle at all, or
+// more than one.
+func newHandlerForSuperchargerRowVehicles(reader *fakeSessionReader, verifier *fakeSessionVerifier, recalc *fakeRecalculator, vehicles []account.Vehicle) *Handler {
+	return New(Deps{
+		Account:               &fakeAccount{registered: vehicles},
+		Tesla:                 &fakeTesla{},
+		SuperchargerReader:    reader,
+		SuperchargerVerifier:  verifier,
+		AnalyticsRecalculator: recalc,
+	})
+}
+
+// TestSuperchargerRowUpdate_NoResolvableVehicleIs404 covers the branch that
+// keeps the write scoped. VerifySession is keyed on a vehicle, so the handler
+// must resolve one from the signed-in account first. With no registered
+// vehicle there is nothing to resolve, and the write must not happen at all.
+func TestSuperchargerRowUpdate_NoResolvableVehicleIs404(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRowVehicles(&fakeSessionReader{}, verifier, recalc, nil)
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"20"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("want 404 when no vehicle resolves, got %d body=%q", w.Code, w.Body.String())
+	}
+	// The important half: an unscoped write must never reach the port.
+	if len(verifier.calls) != 0 {
+		t.Errorf("want 0 VerifySession calls, got %d — the write ran without a resolved vehicle", len(verifier.calls))
+	}
+	if len(recalc.calls) != 0 {
+		t.Errorf("want 0 Recalculate calls, got %d", len(recalc.calls))
+	}
+}
+
+// TestSuperchargerRowUpdate_VerifyUsesResolvedVehicle proves the handler passes
+// the vehicle it actually resolved, not just the first one on the account. The
+// account holds two cars and the SECOND is the OWNER, so the resolve picks it.
+// An implementation that passed vehicles[0] would fail here.
+func TestSuperchargerRowUpdate_VerifyUsesResolvedVehicle(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	owner := "OWNER"
+	driver := "DRIVER"
+	vehicles := []account.Vehicle{
+		{TeslaID: 11, VIN: "VIN11", DisplayName: "Shared car", AccessType: &driver},
+		{TeslaID: 22, VIN: "VIN22", DisplayName: "Own car", AccessType: &owner},
+	}
+	verifier := &fakeSessionVerifier{result: charging.Session{
+		ID:                  id,
+		TeslaID:             22,
+		SiteLocationName:    "Resolved Site",
+		ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
+		StartBatteryPct:     ptrInt(20),
+		EndBatteryPct:       ptrInt(80),
+	}}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRowVehicles(&fakeSessionReader{}, verifier, recalc, vehicles)
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"20"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(verifier.calls) != 1 {
+		t.Fatalf("want exactly 1 VerifySession call, got %d", len(verifier.calls))
+	}
+	if got := verifier.calls[0].teslaID; got != 22 {
+		t.Errorf("VerifySession teslaID = %d, want 22 — the resolved OWNER vehicle, not the first on the account", got)
+	}
+}
+
 // TestSuperchargerRowUpdate_NoTokenEverIssuedIs403 is Test Contract T6: a
 // session that never had csrf_supercharger set at all (a client that reached
 // PATCH without first loading GET /supercharger-stats or
