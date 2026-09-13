@@ -28,7 +28,7 @@ func setUpdatedAt(t *testing.T, pool *pgxpool.Pool, sessionID int64, at time.Tim
 // TestSuperchargerHistoryByVehicleUpdatedSince_OrderingAndBoundary implements
 // T-8: three sessions for one vehicle at three updated_at instants, plus a
 // decoy session for another vehicle at the middle instant. `since` at each of
-// the three instants (and one nanosecond past the last) proves both the
+// the three instants (and one microsecond past the last) proves both the
 // ascending order and the inclusive lower bound, and that the decoy vehicle
 // never appears.
 func TestSuperchargerHistoryByVehicleUpdatedSince_OrderingAndBoundary(t *testing.T) {

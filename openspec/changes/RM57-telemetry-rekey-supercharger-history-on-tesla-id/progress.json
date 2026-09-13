@@ -7,8 +7,8 @@
   "tier": 1,
   "intention": "telemetry.supercharger_history is keyed on tesla_id NOT NULL, account_id is gone, and the write path skips a session whose VIN is not a registered vehicle.",
   "request": "MAG-67 tier 1. Re-key telemetry.supercharger_history on tesla_id.",
-  "status": "applied",
-  "updated_at": "2026-09-13T11:40:00Z",
+  "status": "verified",
+  "updated_at": "2026-09-13T11:57:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -31,14 +31,13 @@
       "T2",
       "T3",
       "T4",
+      "T5",
+      "T6",
       "T7",
       "T8",
       "T9"
     ],
-    "awaiting_user_verification": [
-      "T5",
-      "T6"
-    ]
+    "awaiting_user_verification": []
   },
   "decisions": [
     {
@@ -186,7 +185,7 @@
       "depends_on": [
         "T4"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-13T02:53:00Z",
@@ -206,7 +205,7 @@
       "depends_on": [
         "T4"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-13T02:53:00Z",
@@ -290,10 +289,77 @@
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Review RM57 tier 1: telemetry.supercharger_history re-keyed on tesla_id NOT NULL, account_id dropped, unregistered VINs skipped and counted. Read the branch diff against main, not the whole module. Gate items: (1) module boundaries - the worker touched only internal/telemetry; internal/app and internal/analytics are leader-owned integration, check they call ports only, never a telemetry table. (2) Every DB object matches the user-confirmed design gate RD6 - two tesla_id indexes created, the three old ones dropped, account_time replaced by nothing. A mismatch is a blocker. (3) Integration tests assert design.md's up-front expected values (T-1..T-10), not whatever the implementation happens to do. (4) SCRUTINIZE RD10: a design-authored expected value was corrected after a red test (t3+1ns -> t3+1us). Judge independently whether that is a legitimate correction of an unrepresentable value or a relaxed assertion. (5) Deleted tests - D3/D4 drop the account-wide port and 7 tests with it; confirm the lost coverage is genuinely obsolete and T-8/T-9 carry forward what survives. (6) Docs: AGENTS.md, the four kkpa/context guides, nothing edited under openspec/changes/archive/. (7) Read-heavy Performance-Profile compliance. (8) Anti-gaming: no weakened criteria, no self-approved statuses, tasks.md append-only. Signals: assistant ran build, vet, gofmt, migration/boundary/archive/vehicleref/money/tz guards - all clean. The OWNER ran make test and reported it passing; the assistant never ran the suite. Judge test quality by reading the tests, never by running them.",
+    "agent": "telemetry-reviewer",
+    "status": "changes-requested",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "telemetry-reviewer",
+        "model": "sonnet",
+        "verdict": "changes-requested",
+        "started_at": "2026-09-13T11:50:00Z",
+        "completed_at": "2026-09-13T11:57:00Z",
+        "duration_seconds": 403,
+        "budget": {
+          "five_hour_pct_delta": 13,
+          "cost_usd_delta": 5.55,
+          "approx": true,
+          "note": "Bracketed round: five_hour_pct 7 -> 20, cost 2.96 -> 8.51. Includes the leader's triage and fixes in the same span."
+        },
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "where": "kkpa/context/architecture/telemetry-ingest-only.md:209,214,219,223,228",
+            "what": "Five _Source: lines cite 'Requirement: Supercharger History Per-Vehicle Updated-Since Read Port', a title that exists in no spec. Introduced by this change's own docs task.",
+            "triage": "accepted",
+            "fix": "Repointed all five to the real title, 'Supercharger Session Updated-Since Read Port' (main spec line 700, delta line 175)."
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "where": "internal/telemetry/db_supercharger_between_integration_test.go:17",
+            "what": "New comment cites design.md's test contract.",
+            "triage": "accepted",
+            "fix": "Rewritten to state the reason itself: the window is inclusive at both ends."
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "where": "internal/telemetry/report_test.go:98, internal/telemetry/service_test.go:1131",
+            "what": "Two new comments cite '(roadmap tier 1)'.",
+            "triage": "accepted",
+            "fix": "Tier numbers removed. report_test.go now explains why the red compile is the point."
+          },
+          {
+            "id": "F4",
+            "severity": "minor",
+            "where": "internal/telemetry/db_supercharger_vehicle_updated_since_integration_test.go:31",
+            "what": "File-header comment still said 'one nanosecond past the last' after the RD10 fix changed the step to a microsecond. Leader's own miss in cbe2691.",
+            "triage": "accepted",
+            "fix": "Header now says microsecond."
+          },
+          {
+            "id": "F5",
+            "severity": "minor",
+            "where": "internal/telemetry/service.go collectChargingHistory",
+            "what": "The accountID uuid.UUID parameter is dead after the re-key; go vet does not catch unused parameters.",
+            "triage": "accepted",
+            "fix": "Parameter dropped from the signature, the one caller and four test call sites. go vet then caught an orphaned acctID local in service_test.go, also removed."
+          }
+        ],
+        "leader_found_beyond_the_review": [
+          {
+            "id": "L1",
+            "where": "internal/telemetry/db/query.sql (copied by sqlc into db/query.sql.go)",
+            "what": "A new comment pointed at design.md's Index Plan for why no (tesla_id, charge_stop_date_time) index exists. Same violation as F2, in a .sql file the reviewer's comment sweep did not cover.",
+            "fix": "Rewritten as the reason itself: no production caller, caller-bounded window, so a residual filter over one vehicle's rows is cheap. make sqlc re-run."
+          }
+        ],
+        "reviewer_rd10_judgment": "Independently verified against the pinned pgx v5.10.0 source: timestamptz binary encode computes ts.Unix()*1000000 + Nanosecond()/1000, and 1/1000 truncates to 0, so t3+1ns is bit-identical to t3 on the wire. Ruled a legitimate correction of an unrepresentable value, not a weakened assertion. Confirmed RD10 is made_by user, not self-approved."
+      }
+    ]
   },
   "events": [
     {
@@ -395,6 +461,21 @@
       "at": "2026-09-13T11:40:00Z",
       "what": "wave-4-leader-fix",
       "detail": "Leader-owned one-line fix in three files: t3.Add(1) -> t3.Add(time.Microsecond) in the test, plus the corrected expected value and its reason in design.md T-8 and tasks.md 5.3. The assertion is not weakened - one microsecond is the finest step the column can represent, so the inclusive bound is still tested. go vet, gofmt and openspec validate --strict clean. Awaiting the owner's re-run."
+    },
+    {
+      "at": "2026-09-13T11:48:00Z",
+      "what": "user-verified",
+      "detail": "The owner ran make test and reported it passing after the wave-4 fix. This is the owner's verification, not the assistant's - the assistant never ran the suite. T5 and T6 go done; change status verified. Assistant-run signals were build, vet, gofmt and the migration/boundary/archive/vehicleref/money/tz guards."
+    },
+    {
+      "at": "2026-09-13T11:50:00Z",
+      "what": "review-round-1-dispatch",
+      "detail": "telemetry-reviewer on Sonnet. Brief stored. budget_start five_hour_pct 7, context_pct 13, cost 2.96."
+    },
+    {
+      "at": "2026-09-13T11:57:00Z",
+      "what": "review-round-1-complete",
+      "detail": "changes-requested: 1 major, 4 minor, no blockers. All five triaged as accepted and fixed by the leader - each was real and verified before fixing. Reviewer independently confirmed RD10 against pgx v5.10.0 source. It also confirmed the migration matches design.md byte-for-byte, the RD6 index plan, the 9 deleted tests, and ran every cheap guard itself. Leader found one more of the same class the reviewer's sweep missed (L1, in query.sql). budget_end five_hour_pct 20, context_pct 16, cost 8.51."
     }
   ]
 }

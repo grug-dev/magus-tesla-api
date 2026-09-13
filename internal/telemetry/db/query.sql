@@ -402,10 +402,11 @@ LIMIT @limit_count;
 -- it is sorted on charge_start_date_time, not charge_stop_date_time, so the
 -- stop-time predicate cannot be satisfied as a pure index range scan. It
 -- STILL prunes the scan to this one vehicle's rows via the tesla_id leading
--- column before the stop-time filter is applied in-memory -- see design.md's
--- Index Plan for why no second, dedicated (tesla_id, charge_stop_date_time)
--- index is added in this change, and the documented fallback if per-vehicle
--- session volume ever grows enough to make that decision wrong.
+-- column before the stop-time filter is applied in-memory. No second,
+-- dedicated (tesla_id, charge_stop_date_time) index exists because this method
+-- has no production caller and its window is caller-bounded, so a residual
+-- filter over one vehicle's rows is cheap. Add that index only if a real caller
+-- appears and per-vehicle session volume grows enough to make the scan hurt.
 --
 -- No LIMIT: this is a bounded date-range query, not an unbounded "most
 -- recent N" query -- the caller-supplied window is the safety bound, exactly

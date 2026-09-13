@@ -14,7 +14,7 @@ import (
 // db_supercharger_integration_test.go already exercises — plus the itoa helper
 // defined there (same package, no re-declaration needed).
 //
-// T-10 (design.md's test contract): a session stopping on `start`, one stopping
+// The window is inclusive at both ends: a session stopping on `start`, one stopping
 // exactly on `end`, one late in the end calendar day, and one starting the day
 // before `start` but stopping inside the window are all included, ordered
 // oldest-first by stop time; a session stopping one day past `end` is excluded.

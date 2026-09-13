@@ -1128,7 +1128,7 @@ func TestCollectAll_ChargingHistory_FetchFailure_SnapshotUnaffected(t *testing.T
 	}
 }
 
-// --- Offline tests for the charging-history skip counter (roadmap tier 1) ---
+// --- Offline tests for the charging-history skip counter ---
 //
 // A session whose VIN is not a currently registered vehicle used to be stored
 // with TeslaID nil. It is now skipped and counted instead, because the
@@ -1160,7 +1160,7 @@ func TestCollectAll_ChargingHistory_UnregisteredVIN_SkippedAndCounted(t *testing
 	acctID := uuid.New()
 	owned := []account.OwnedVehicle{{AccountID: acctID, TeslaID: 111, VIN: "VIN_A"}}
 	report := CycleReport{}
-	svc.collectChargingHistory(context.Background(), ft, acctID, owned, tesla.Credentials{}, &report)
+	svc.collectChargingHistory(context.Background(), ft, owned, tesla.Credentials{}, &report)
 
 	if len(fs.upsertedSessions) != 2 {
 		t.Fatalf("want 2 sessions upserted (1 and 3), got %d: %+v", len(fs.upsertedSessions), fs.upsertedSessions)
@@ -1206,9 +1206,8 @@ func TestCollectAll_ChargingHistory_AllVINsUnregistered_AllSkippedNoUpserts(t *t
 	fs := &fakeStore{}
 	svc := newFakeService(nil, ft, fs)
 
-	acctID := uuid.New()
 	report := CycleReport{}
-	svc.collectChargingHistory(context.Background(), ft, acctID, nil, tesla.Credentials{}, &report)
+	svc.collectChargingHistory(context.Background(), ft, nil, tesla.Credentials{}, &report)
 
 	if len(fs.upsertedSessions) != 0 {
 		t.Fatalf("want 0 sessions upserted, got %d: %+v", len(fs.upsertedSessions), fs.upsertedSessions)
@@ -1236,7 +1235,7 @@ func TestCollectAll_ChargingHistory_FetchFailure_SkipCounterUntouched(t *testing
 	acctID := uuid.New()
 	owned := []account.OwnedVehicle{{AccountID: acctID, TeslaID: 111, VIN: "VIN_A"}}
 	report := CycleReport{}
-	svc.collectChargingHistory(context.Background(), ft, acctID, owned, tesla.Credentials{}, &report)
+	svc.collectChargingHistory(context.Background(), ft, owned, tesla.Credentials{}, &report)
 
 	if report.ChargingFetchFailures != 1 {
 		t.Errorf("want ChargingFetchFailures=1, got %d", report.ChargingFetchFailures)
@@ -1267,7 +1266,7 @@ func TestCollectAll_ChargingHistory_PerSessionIsolation_AlongsideSkip(t *testing
 	acctID := uuid.New()
 	owned := []account.OwnedVehicle{{AccountID: acctID, TeslaID: 111, VIN: "VIN_A"}}
 	report := CycleReport{}
-	svc.collectChargingHistory(context.Background(), ft, acctID, owned, tesla.Credentials{}, &report)
+	svc.collectChargingHistory(context.Background(), ft, owned, tesla.Credentials{}, &report)
 
 	if report.ChargingSessionsUpserted != 1 {
 		t.Errorf("want ChargingSessionsUpserted=1 (session 3), got %d", report.ChargingSessionsUpserted)

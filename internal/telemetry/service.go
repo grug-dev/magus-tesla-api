@@ -315,7 +315,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla
 	// Source B: fetch Supercharger session history for this account (design DBS7).
 	// Zero params = full fetch, no vehicle wake. This call is per-account (not per
 	// vehicle): one HTTP call returns all sessions for all vehicles in the account.
-	s.collectChargingHistory(ctx, tsla, accountID, owned, creds, report)
+	s.collectChargingHistory(ctx, tsla, owned, creds, report)
 }
 
 // collectChargingHistory fetches the account's Supercharger session history and
@@ -328,7 +328,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla
 //
 // tsla is the tesla.VehicleService to use — passed down from CollectAll's
 // callCounter (design D10) so this call is counted too.
-func (s *service) collectChargingHistory(ctx context.Context, tsla tesla.VehicleService, accountID uuid.UUID, owned []account.OwnedVehicle, creds tesla.Credentials, report *CycleReport) {
+func (s *service) collectChargingHistory(ctx context.Context, tsla tesla.VehicleService, owned []account.OwnedVehicle, creds tesla.Credentials, report *CycleReport) {
 	history, err := tsla.ChargingHistory(ctx, creds, tesla.ChargingHistoryParams{})
 	if err != nil {
 		// Charging-history fetch failure is isolated: never aborts the cycle and

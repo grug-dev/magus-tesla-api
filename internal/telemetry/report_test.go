@@ -95,7 +95,7 @@ func TestLogCycle_RelabeledLine(t *testing.T) {
 // contract's T-5: the new skip counter prints right after charging_failures,
 // in that exact order. References CycleReport.ChargingSessionsSkippedUnregistered,
 // which does not exist yet — this file fails to compile until that field is
-// added (roadmap tier 1).
+// added. The red compile is the point: it proves the test came first.
 func TestLogCycle_ChargingSkippedUnregisteredCounter(t *testing.T) {
 	var buf bytes.Buffer
 	prevOut := log.Writer()
