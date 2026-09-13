@@ -38,26 +38,26 @@ Sequencing rules that are not optional:
 Depends on: nothing. Author these from `design.md`'s test contract **before**
 writing T4's implementation.
 
-- [ ] 0.1 In `internal/telemetry/service_test.go`, add T-1: `owned` holds only
+- [x] 0.1 In `internal/telemetry/service_test.go`, add T-1: `owned` holds only
       `VIN_A → 111`; the history holds `(VIN_A, 1)`, `(VIN_B, 2)`,
       `(VIN_A, 3)`. Assert the fake store received exactly 2 upserts (sessions
       1 and 3, both `TeslaID == 111`), `ChargingSessionsUpserted == 2`,
       `ChargingSessionsSkippedUnregistered == 1`, `ChargingFetchFailures == 0`.
-- [ ] 0.2 Add T-2: `owned` empty, 2 sessions in the history. Assert 0 upserts,
+- [x] 0.2 Add T-2: `owned` empty, 2 sessions in the history. Assert 0 upserts,
       `ChargingSessionsUpserted == 0`,
       `ChargingSessionsSkippedUnregistered == 2`, no error.
-- [ ] 0.3 Add T-3: `ChargingHistory` returns an error. Assert
+- [x] 0.3 Add T-3: `ChargingHistory` returns an error. Assert
       `ChargingFetchFailures == 1` and
       `ChargingSessionsSkippedUnregistered == 0` — the skip counter must not
       absorb a fetch failure.
-- [ ] 0.4 Add T-4: registered sessions 1 and 3, unregistered session 2, store
+- [x] 0.4 Add T-4: registered sessions 1 and 3, unregistered session 2, store
       fails on session 1. Assert `ChargingSessionsUpserted == 1`,
       `ChargingSessionsSkippedUnregistered == 1`, no error returned.
-- [ ] 0.5 In `internal/telemetry/report_test.go`, add T-5: a `CycleReport` with
+- [x] 0.5 In `internal/telemetry/report_test.go`, add T-5: a `CycleReport` with
       upserted 4, fetch failures 1, skipped 2 produces a line containing
       `charging_upserted=4 charging_failures=1 charging_skipped_unregistered=2`
       in that order.
-- [ ] 0.6 `go vet ./internal/telemetry/...` — expect it to FAIL until T3/T4
+- [x] 0.6 `go vet ./internal/telemetry/...` — expect it to FAIL until T3/T4
       add the field and the guard. That failure is the signal the tests are
       real; do not weaken them to make it pass.
 
@@ -65,41 +65,41 @@ writing T4's implementation.
 
 Depends on: nothing.
 
-- [ ] 1.1 Write `internal/telemetry/db/migrations/20260912000001_rekey_supercharger_history_on_tesla_id.sql`
+- [x] 1.1 Write `internal/telemetry/db/migrations/20260912000001_rekey_supercharger_history_on_tesla_id.sql`
       exactly as `design.md` §Schema gives it — Up and Down, comments included.
       Do not renumber: `20260912000001` is free across all four module
       directories (`design.md` §Makefile).
-- [ ] 1.2 Do NOT touch `COMMENT ON TABLE telemetry.supercharger_history`
+- [x] 1.2 Do NOT touch `COMMENT ON TABLE telemetry.supercharger_history`
       (`design.md` D8), the primary key, `UNIQUE (session_id)`, or any CHECK
       constraint.
-- [ ] 1.3 `make migration-guard` — expect clean.
-- [ ] 1.4 Do NOT write a test for this migration. This project does not test
+- [x] 1.3 `make migration-guard` — expect clean.
+- [x] 1.4 Do NOT write a test for this migration. This project does not test
       migrations; the owner verifies them against the database directly.
 
 ## T2 — Queries and sqlc
 
 Depends on: T1.
 
-- [ ] 2.1 `internal/telemetry/db/query.sql`, `UpsertSuperchargerHistory`:
+- [x] 2.1 `internal/telemetry/db/query.sql`, `UpsertSuperchargerHistory`:
       remove `account_id` from the INSERT column list and from `VALUES`, and
       remove `account_id` from **both** `'{…}'::text[]` deny-list arrays in the
       `updated_at` CASE. Leave the load-bearing comment about the human-owned
       battery-% trio word for word. Update the comment's deny-list bucket (c)
       to stop naming `account_id`.
-- [ ] 2.2 Delete the `SuperchargerHistoryByAccount` query (`design.md` D3).
-- [ ] 2.3 Delete the `SuperchargerHistoryByAccountUpdatedSince` query
+- [x] 2.2 Delete the `SuperchargerHistoryByAccount` query (`design.md` D3).
+- [x] 2.3 Delete the `SuperchargerHistoryByAccountUpdatedSince` query
       (`design.md` D4).
-- [ ] 2.4 `SuperchargerHistoryByVehicle`: `WHERE tesla_id = @tesla_id` only.
+- [x] 2.4 `SuperchargerHistoryByVehicle`: `WHERE tesla_id = @tesla_id` only.
       Update its index comment to name
       `idx_supercharger_history_vehicle_time (tesla_id, charge_start_date_time DESC)`.
-- [ ] 2.5 `SuperchargerHistoryByVehicleBetween`: drop the `account_id`
+- [x] 2.5 `SuperchargerHistoryByVehicleBetween`: drop the `account_id`
       predicate. Keep the stop-time filter, the bounds explanation and the
       "no LIMIT" note. Update the index-reuse comment to the new index shape.
-- [ ] 2.6 `SuperchargerHistoryByVehicleUpdatedSince`: drop the `account_id`
+- [x] 2.6 `SuperchargerHistoryByVehicleUpdatedSince`: drop the `account_id`
       predicate. Rewrite its "Index reuse" comment — it now has an exactly
       matching index (`idx_supercharger_history_vehicle_updated`) and is no
       longer a residual-filter scan.
-- [ ] 2.7 `make sqlc`. Confirm in the diff that
+- [x] 2.7 `make sqlc`. Confirm in the diff that
       `telemetrydb.SuperchargerHistory` lost `AccountID` and that its `TeslaID`
       is `int64`, not `pgtype.Int8`; and that the two deleted queries and their
       `…Params` types are gone.
@@ -108,19 +108,19 @@ Depends on: T1.
 
 Depends on: T2.
 
-- [ ] 3.1 `internal/telemetry/telemetry.go`: `SuperchargerHistory` drops
+- [x] 3.1 `internal/telemetry/telemetry.go`: `SuperchargerHistory` drops
       `AccountID`; `TeslaID` becomes `int64`. Replace the field's
       "NULL when VIN not a current registered vehicle" comment with the real
       reason: a session is only stored for a registered vehicle.
-- [ ] 3.2 Update the `SuperchargerHistory` type's doc comment: its nullable-field
+- [x] 3.2 Update the `SuperchargerHistory` type's doc comment: its nullable-field
       list must stop naming `tesla_id`.
-- [ ] 3.3 `SuperchargerHistoryReader`: delete `SuperchargerHistoryByAccount` and
+- [x] 3.3 `SuperchargerHistoryReader`: delete `SuperchargerHistoryByAccount` and
       `SuperchargerHistoryByAccountUpdatedSince`. The three survivors drop
       their `accountID` parameter.
-- [ ] 3.4 Delete the doc-comment sentences that contrast the per-vehicle
+- [x] 3.4 Delete the doc-comment sentences that contrast the per-vehicle
       updated-since method with the removed account-wide one, and the claim
       that the account-wide method is the only one returning a NULL `tesla_id`.
-- [ ] 3.5 `CycleReport`: add `ChargingSessionsSkippedUnregistered int` directly
+- [x] 3.5 `CycleReport`: add `ChargingSessionsSkippedUnregistered int` directly
       after `ChargingFetchFailures`, with a doc comment saying what it counts
       and why the session is not stored.
 

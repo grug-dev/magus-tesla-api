@@ -240,6 +240,11 @@ type CycleReport struct {
 	// ChargingHistory call failed (network error, 401, etc.). A non-zero value
 	// signals partial data for those accounts.
 	ChargingFetchFailures int
+	// ChargingSessionsSkippedUnregistered is the number of Supercharger sessions
+	// Tesla returned for a VIN that is not a currently registered vehicle on the
+	// account. The ledger has no column to hold such a session, so it is dropped
+	// rather than stored with a hole; this counter makes the drop visible.
+	ChargingSessionsSkippedUnregistered int
 	// ConfigCaptureFailures is the number of vehicle_config write-back attempts that failed
 	// (the account port's SetVehicleConfigIfEmpty call returned an error). A failed write-back
 	// never changes the vehicle's Reason and never writes a poll_attempts row — it is retried
@@ -412,14 +417,13 @@ type Reader interface {
 // — our own domain model (no vendor suffix, ai/architecture.md §6). It is distinct from
 // tesla.ChargingSessionTesla: that is the vendor DTO; this is the mapped, stored
 // domain record. Nullable fields use *T where the column allows NULL (energy, cost,
-// currency, is_paid, tesla_id, unlatch_date_time). No Km()/Kmh() companions — none
+// currency, is_paid, unlatch_date_time). No Km()/Kmh() companions — none
 // of these fields are distances or speeds (design DBS5).
 type SuperchargerHistory struct {
 	ID                  uuid.UUID
 	SessionID           int64 // Tesla's globally-unique session id
-	AccountID           uuid.UUID
 	VIN                 string
-	TeslaID             *int64 // NULL when VIN not a current registered vehicle
+	TeslaID             int64 // the session's vehicle; always a registered one — an unregistered VIN is never stored (see collectChargingHistory)
 	SiteLocationName    string
 	CountryCode         string
 	ChargeStartDateTime time.Time
@@ -522,25 +526,19 @@ func deriveIsPaid(fees []tesla.ChargingFeeTesla) *bool {
 // and to allow the gateway to depend on only the port it needs. Callers MUST NOT
 // import telemetrydb (design DBS6).
 type SuperchargerHistoryReader interface {
-	// SuperchargerHistoryByAccount returns all Supercharger sessions for the
-	// given account, ordered by charge_start_date_time DESC, limited to limit
+	// SuperchargerHistoryByVehicle returns Supercharger sessions for the given
+	// vehicle, ordered by charge_start_date_time DESC, limited to limit
 	// rows (0 = server default of math.MaxInt32). Returns an empty non-nil
 	// slice when no sessions exist.
-	SuperchargerHistoryByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerHistory, error)
-
-	// SuperchargerHistoryByVehicle returns Supercharger sessions for the given
-	// vehicle within the given account, ordered by charge_start_date_time DESC,
-	// limited to limit rows (0 = server default of math.MaxInt32). Returns an
-	// empty non-nil slice when no sessions exist.
-	SuperchargerHistoryByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerHistory, error)
+	SuperchargerHistoryByVehicle(ctx context.Context, teslaID int64, limit int) ([]SuperchargerHistory, error)
 
 	// SuperchargerHistoryByVehicleBetween returns Supercharger sessions for
-	// the given vehicle (within the given account) whose ChargeStopDateTime
-	// falls in the caller-supplied [start, end] window, inclusive of the
-	// whole end calendar day, ordered oldest-first (ascending by
-	// ChargeStopDateTime). start/end are whole UTC-midnight-bounded calendar
-	// days, matching this project's platform-wide HTTP date-filter
-	// convention (ai/go-conventions.md §"Read optimization").
+	// the given vehicle whose ChargeStopDateTime falls in the caller-supplied
+	// [start, end] window, inclusive of the whole end calendar day, ordered
+	// oldest-first (ascending by ChargeStopDateTime). start/end are whole
+	// UTC-midnight-bounded calendar days, matching this project's
+	// platform-wide HTTP date-filter convention (ai/go-conventions.md
+	// §"Read optimization").
 	//
 	// Filters on ChargeStopDateTime, NOT ChargeStartDateTime (roadmap D12):
 	// energy is fully delivered at session stop, which is what
@@ -553,56 +551,34 @@ type SuperchargerHistoryReader interface {
 	// answers "which sessions' energy finished landing in this window."
 	//
 	// Returns a non-nil empty slice and nil error when no sessions exist in
-	// the window (parity with SuperchargerHistoryByAccount/ByVehicle's
-	// existing empty-result contract, and with Reader.SnapshotsByVehicleBetween's
-	// identical convention -- no nil-slice footgun for callers). The
-	// account_id AND tesla_id filter provides defense-in-depth tenant
-	// isolation, mirroring every other bounded-window method in this module.
+	// the window (parity with SuperchargerHistoryByVehicle's existing
+	// empty-result contract, and with Reader.SnapshotsByVehicleBetween's
+	// identical convention -- no nil-slice footgun for callers).
 	//
-	// Purely additive alongside SuperchargerHistoryByAccount/ByVehicle
-	// (both unchanged, both remain limit-based for their own "most recent N"
-	// access pattern). This method has no limit parameter and no LIMIT-N
-	// contract -- the caller-supplied window is the bound, exactly like
+	// Purely additive alongside SuperchargerHistoryByVehicle (unchanged,
+	// still limit-based for its own "most recent N" access pattern). This
+	// method has no limit parameter and no LIMIT-N contract -- the
+	// caller-supplied window is the bound, exactly like
 	// Reader.SnapshotsByVehicleBetween's own reasoning for why a bounded
 	// window makes an unbounded-N limit the caller's job, not this query's.
-	SuperchargerHistoryByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)
+	SuperchargerHistoryByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)
 
 	// SuperchargerHistoryByVehicleUpdatedSince returns every stored Supercharger
-	// session for the given vehicle (within the given account) whose updated_at
-	// is at or after `since`, ordered oldest-first by updated_at. It exists so
-	// other modules (internal/analytics' Recalculator,
-	// RM29-analytics-add-vehicle-metrics) can detect which sessions changed
-	// recently — including a billing-state revision on a session weeks old,
-	// whose ChargeStartDateTime/ChargeStopDateTime stay unchanged while
-	// updated_at refreshes (design DBS3: supercharger_history is not
-	// append-only) — without importing telemetrydb directly. Returns a non-nil
-	// empty slice and nil error when no session for the vehicle has been
-	// updated at or after `since` (parity with every other SuperchargerHistoryReader
-	// method's empty-result contract). The account_id AND tesla_id filter
-	// provides defense-in-depth tenant isolation, mirroring every other
-	// per-vehicle method on this interface. No new index — updated_at is a
-	// residual filter within the existing (account_id, tesla_id) scan prefix
-	// (verified via EXPLAIN in the DB-integration test, Wave 6 of that
-	// change). Reuses the existing rowToSuperchargerHistory mapper — no new
-	// field, no new mapper.
-	SuperchargerHistoryByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerHistory, error)
-
-	// SuperchargerHistoryByAccountUpdatedSince returns every stored Supercharger
-	// session for the given account whose updated_at is at or after `since`,
-	// ordered oldest-first by updated_at. Unlike
-	// SuperchargerHistoryByVehicleUpdatedSince, this method takes no teslaID and
-	// so is the only updated-since method that CAN return a session whose
-	// TeslaID is nil -- deliberately, so a bounded per-account mirror read
-	// still recovers a session once its vehicle re-registers
-	// (RM44-platform-add-mirror-watermark, roadmap D3/D20). Returns a non-nil
-	// empty slice and nil error when nothing for the account has been updated
-	// at or after `since` (parity with every other SuperchargerHistoryReader
-	// method's empty-result contract). Served by
-	// idx_supercharger_history_account_updated (account_id, updated_at), added
-	// by this change: account_id prunes and updated_at both bounds the range and
-	// gives the ordering, so the read needs no sort step (design.md Index Plan).
-	// Reuses the existing rowToSuperchargerHistory mapper.
-	SuperchargerHistoryByAccountUpdatedSince(ctx context.Context, accountID uuid.UUID, since time.Time) ([]SuperchargerHistory, error)
+	// session for the given vehicle whose updated_at is at or after `since`,
+	// ordered oldest-first by updated_at. It exists so other modules
+	// (internal/analytics' Recalculator, RM29-analytics-add-vehicle-metrics,
+	// and internal/app's nightly Supercharger mirror) can detect which
+	// sessions changed recently — including a billing-state revision on a
+	// session weeks old, whose ChargeStartDateTime/ChargeStopDateTime stay
+	// unchanged while updated_at refreshes (design DBS3: supercharger_history
+	// is not append-only) — without importing telemetrydb directly. Returns a
+	// non-nil empty slice and nil error when no session for the vehicle has
+	// been updated at or after `since` (parity with every other
+	// SuperchargerHistoryReader method's empty-result contract). Served by
+	// idx_supercharger_history_vehicle_updated (tesla_id, updated_at) — an
+	// exact match, so the read needs no sort step. Reuses the existing
+	// rowToSuperchargerHistory mapper — no new field, no new mapper.
+	SuperchargerHistoryByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]SuperchargerHistory, error)
 }
 
 // NewSuperchargerHistoryReader constructs a SuperchargerHistoryReader backed by the telemetry DB pool.

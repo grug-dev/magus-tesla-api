@@ -252,8 +252,13 @@ type fakeStore struct {
 	snapInserts int
 	// upsertedSessions records all SuperchargerHistory upserts (B7 tests inspect this).
 	upsertedSessions []SuperchargerHistory
-	// upsertErr, when set, is returned by every upsertSuperchargerHistory call.
-	upsertErr error
+	// upsertErr, when set, is returned by upsertSuperchargerHistory. If
+	// upsertErrSessionID is also set (non-zero), upsertErr is returned ONLY for
+	// the session with that SessionID — every other session still succeeds.
+	// This is what lets a test fail one session without failing them all
+	// (per-session isolation, T-4).
+	upsertErr          error
+	upsertErrSessionID int64
 }
 
 func (s *fakeStore) insertSnapshot(_ context.Context, snap Snapshot) error {
@@ -317,7 +322,7 @@ func (s *fakeStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ int64, _
 func (s *fakeStore) upsertSuperchargerHistory(_ context.Context, session SuperchargerHistory) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.upsertErr != nil {
+	if s.upsertErr != nil && (s.upsertErrSessionID == 0 || session.SessionID == s.upsertErrSessionID) {
 		return s.upsertErr
 	}
 	s.upsertedSessions = append(s.upsertedSessions, session)
@@ -1165,6 +1170,158 @@ func TestCollectAll_ChargingHistory_VINResolution(t *testing.T) {
 	unknownSess := bySessionID[2002]
 	if unknownSess.TeslaID != nil {
 		t.Errorf("session 2002 (unknown VIN): want TeslaID=nil, got %v", unknownSess.TeslaID)
+	}
+}
+
+// --- Offline tests for the charging-history skip counter (roadmap tier 1) ---
+//
+// A session whose VIN is not a currently registered vehicle used to be stored
+// with TeslaID nil. It is now skipped and counted instead, because the
+// column that used to hold that state is gone from the table. These tests
+// call collectChargingHistory directly (not through CollectAll) — the
+// skip/count behaviour lives entirely inside that one function and needs no
+// wake/fetch machinery to exercise.
+//
+// They reference CycleReport.ChargingSessionsSkippedUnregistered, which does
+// not exist yet: go vet fails to compile this file until that field is added.
+// That failure is the point — it proves these assertions are real, written
+// before the implementation, not fitted to it afterward.
+
+// TestCollectAll_ChargingHistory_UnregisteredVIN_SkippedAndCounted covers T-1:
+// a session for a VIN that is not a registered vehicle is skipped and
+// counted; the other two sessions for a known VIN still reach the store.
+func TestCollectAll_ChargingHistory_UnregisteredVIN_SkippedAndCounted(t *testing.T) {
+	ft := newFakeTesla()
+	ft.chargingHistory = &tesla.ChargingHistoryTesla{
+		Data: []tesla.ChargingSessionTesla{
+			{SessionID: 1, VIN: "VIN_A", Raw: []byte(`{"sessionId":1}`)},
+			{SessionID: 2, VIN: "VIN_B", Raw: []byte(`{"sessionId":2}`)},
+			{SessionID: 3, VIN: "VIN_A", Raw: []byte(`{"sessionId":3}`)},
+		},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(nil, ft, fs)
+
+	acctID := uuid.New()
+	owned := []account.OwnedVehicle{{AccountID: acctID, TeslaID: 111, VIN: "VIN_A"}}
+	report := CycleReport{}
+	svc.collectChargingHistory(context.Background(), ft, acctID, owned, tesla.Credentials{}, &report)
+
+	if len(fs.upsertedSessions) != 2 {
+		t.Fatalf("want 2 sessions upserted (1 and 3), got %d: %+v", len(fs.upsertedSessions), fs.upsertedSessions)
+	}
+	bySessionID := map[int64]SuperchargerHistory{}
+	for _, s := range fs.upsertedSessions {
+		bySessionID[s.SessionID] = s
+	}
+	if _, ok := bySessionID[2]; ok {
+		t.Error("session 2 (unregistered VIN) must never reach the store")
+	}
+	for _, id := range []int64{1, 3} {
+		s, ok := bySessionID[id]
+		if !ok {
+			t.Fatalf("want session %d upserted, it is missing", id)
+		}
+		if s.TeslaID != 111 {
+			t.Errorf("session %d: want TeslaID=111, got %v", id, s.TeslaID)
+		}
+	}
+	if report.ChargingSessionsUpserted != 2 {
+		t.Errorf("want ChargingSessionsUpserted=2, got %d", report.ChargingSessionsUpserted)
+	}
+	if report.ChargingSessionsSkippedUnregistered != 1 {
+		t.Errorf("want ChargingSessionsSkippedUnregistered=1, got %d", report.ChargingSessionsSkippedUnregistered)
+	}
+	if report.ChargingFetchFailures != 0 {
+		t.Errorf("want ChargingFetchFailures=0, got %d", report.ChargingFetchFailures)
+	}
+}
+
+// TestCollectAll_ChargingHistory_AllVINsUnregistered_AllSkippedNoUpserts
+// covers T-2: every session's VIN is unregistered, so nothing reaches the
+// store and every session is counted as skipped.
+func TestCollectAll_ChargingHistory_AllVINsUnregistered_AllSkippedNoUpserts(t *testing.T) {
+	ft := newFakeTesla()
+	ft.chargingHistory = &tesla.ChargingHistoryTesla{
+		Data: []tesla.ChargingSessionTesla{
+			{SessionID: 1, VIN: "VIN_X", Raw: []byte(`{"sessionId":1}`)},
+			{SessionID: 2, VIN: "VIN_Y", Raw: []byte(`{"sessionId":2}`)},
+		},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(nil, ft, fs)
+
+	acctID := uuid.New()
+	report := CycleReport{}
+	svc.collectChargingHistory(context.Background(), ft, acctID, nil, tesla.Credentials{}, &report)
+
+	if len(fs.upsertedSessions) != 0 {
+		t.Fatalf("want 0 sessions upserted, got %d: %+v", len(fs.upsertedSessions), fs.upsertedSessions)
+	}
+	if report.ChargingSessionsUpserted != 0 {
+		t.Errorf("want ChargingSessionsUpserted=0, got %d", report.ChargingSessionsUpserted)
+	}
+	if report.ChargingSessionsSkippedUnregistered != 2 {
+		t.Errorf("want ChargingSessionsSkippedUnregistered=2, got %d", report.ChargingSessionsSkippedUnregistered)
+	}
+	if report.ChargingFetchFailures != 0 {
+		t.Errorf("want ChargingFetchFailures=0, got %d", report.ChargingFetchFailures)
+	}
+}
+
+// TestCollectAll_ChargingHistory_FetchFailure_SkipCounterUntouched covers
+// T-3: a ChargingHistory fetch failure still only counts as a fetch failure
+// — the skip counter must not absorb it.
+func TestCollectAll_ChargingHistory_FetchFailure_SkipCounterUntouched(t *testing.T) {
+	ft := newFakeTesla()
+	ft.chargingHistoryErr = errors.New("tesla: 503 upstream")
+	fs := &fakeStore{}
+	svc := newFakeService(nil, ft, fs)
+
+	acctID := uuid.New()
+	owned := []account.OwnedVehicle{{AccountID: acctID, TeslaID: 111, VIN: "VIN_A"}}
+	report := CycleReport{}
+	svc.collectChargingHistory(context.Background(), ft, acctID, owned, tesla.Credentials{}, &report)
+
+	if report.ChargingFetchFailures != 1 {
+		t.Errorf("want ChargingFetchFailures=1, got %d", report.ChargingFetchFailures)
+	}
+	if report.ChargingSessionsSkippedUnregistered != 0 {
+		t.Errorf("want ChargingSessionsSkippedUnregistered=0 (must not absorb a fetch failure), got %d", report.ChargingSessionsSkippedUnregistered)
+	}
+	if report.ChargingSessionsUpserted != 0 {
+		t.Errorf("want ChargingSessionsUpserted=0, got %d", report.ChargingSessionsUpserted)
+	}
+}
+
+// TestCollectAll_ChargingHistory_PerSessionIsolation_AlongsideSkip covers
+// T-4: a store failure on one session, an unregistered VIN on another, and a
+// clean success on the third all resolve independently in the same pass.
+func TestCollectAll_ChargingHistory_PerSessionIsolation_AlongsideSkip(t *testing.T) {
+	ft := newFakeTesla()
+	ft.chargingHistory = &tesla.ChargingHistoryTesla{
+		Data: []tesla.ChargingSessionTesla{
+			{SessionID: 1, VIN: "VIN_A", Raw: []byte(`{"sessionId":1}`)},
+			{SessionID: 2, VIN: "VIN_B", Raw: []byte(`{"sessionId":2}`)},
+			{SessionID: 3, VIN: "VIN_A", Raw: []byte(`{"sessionId":3}`)},
+		},
+	}
+	fs := &fakeStore{upsertErr: errors.New("db: deadlock"), upsertErrSessionID: 1}
+	svc := newFakeService(nil, ft, fs)
+
+	acctID := uuid.New()
+	owned := []account.OwnedVehicle{{AccountID: acctID, TeslaID: 111, VIN: "VIN_A"}}
+	report := CycleReport{}
+	svc.collectChargingHistory(context.Background(), ft, acctID, owned, tesla.Credentials{}, &report)
+
+	if report.ChargingSessionsUpserted != 1 {
+		t.Errorf("want ChargingSessionsUpserted=1 (session 3), got %d", report.ChargingSessionsUpserted)
+	}
+	if report.ChargingSessionsSkippedUnregistered != 1 {
+		t.Errorf("want ChargingSessionsSkippedUnregistered=1 (session 2), got %d", report.ChargingSessionsSkippedUnregistered)
+	}
+	if len(fs.upsertedSessions) != 1 || fs.upsertedSessions[0].SessionID != 3 {
+		t.Errorf("want only session 3 stored, got %+v", fs.upsertedSessions)
 	}
 }
 

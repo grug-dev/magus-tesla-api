@@ -7,8 +7,8 @@
   "tier": 1,
   "intention": "telemetry.supercharger_history is keyed on tesla_id NOT NULL, account_id is gone, and the write path skips a session whose VIN is not a registered vehicle.",
   "request": "MAG-67 tier 1. Re-key telemetry.supercharger_history on tesla_id.",
-  "status": "proposed",
-  "updated_at": "2026-09-13T02:12:00Z",
+  "status": "in-progress",
+  "updated_at": "2026-09-13T02:33:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,10 +24,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T0",
-      "T1",
-      "T2",
-      "T3",
       "T4",
       "T5",
       "T6",
@@ -36,7 +32,12 @@
       "T9"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T0",
+      "T1",
+      "T2",
+      "T3"
+    ]
   },
   "decisions": [
     {
@@ -69,27 +70,37 @@
       "id": "T0",
       "title": "Offline tests for the skip counter",
       "depends_on": [],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:21:00Z",
+      "completed_at": "2026-09-13T02:29:56Z",
+      "duration_seconds": 536,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 5.29,
+        "approx": true,
+        "note": "One wave delta shared across T0-T3; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "0.1-0.4 were already on disk from the crashed run. Added T-5 in report_test.go. go vet fails on the missing CycleReport field, which is the signal 0.6 wants."
     },
     {
       "id": "T1",
       "title": "Migration",
       "depends_on": [],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:26:00Z",
+      "completed_at": "2026-09-13T02:29:56Z",
+      "duration_seconds": 236,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 5.29,
+        "approx": true,
+        "note": "One wave delta shared across T0-T3; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "Migration 20260912000001 written: delete NULL tesla_id rows, SET NOT NULL, drop account_id, drop the three old indexes, create the two tesla_id ones. make migration-guard clean. No migration test, by project rule."
     },
     {
       "id": "T2",
@@ -97,14 +108,19 @@
       "depends_on": [
         "T1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:26:00Z",
+      "completed_at": "2026-09-13T02:29:56Z",
+      "duration_seconds": 236,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 5.29,
+        "approx": true,
+        "note": "One wave delta shared across T0-T3; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "Both account-wide queries deleted. The three survivors drop the account_id predicate. Deny-list arrays down to 15 columns. make sqlc run: SuperchargerHistory lost AccountID, TeslaID is now a plain int64."
     },
     {
       "id": "T3",
@@ -112,14 +128,19 @@
       "depends_on": [
         "T2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:26:00Z",
+      "completed_at": "2026-09-13T02:29:56Z",
+      "duration_seconds": 236,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 5.29,
+        "approx": true,
+        "note": "One wave delta shared across T0-T3; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "SuperchargerHistory drops AccountID, TeslaID is int64. SuperchargerHistoryReader keeps three methods, all without accountID. CycleReport gains ChargingSessionsSkippedUnregistered. Leader rewrote one index comment that pointed at the change docs."
     },
     {
       "id": "T4",
@@ -237,6 +258,31 @@
       "at": "2026-09-13T02:12:00Z",
       "what": "design-gate-passed",
       "detail": "User confirmed the index plan (RD6) and the processor bridge (RD7) before any code was written."
+    },
+    {
+      "at": "2026-09-13T02:21:00Z",
+      "what": "wave-1-dispatch",
+      "detail": "T0,T1,T2,T3 to one serial telemetry worker on Sonnet. budget_start five_hour_pct 29, context_pct 14, cost 10.94."
+    },
+    {
+      "at": "2026-09-13T02:26:00Z",
+      "what": "resume",
+      "detail": "Wave 1 worker died mid-task. On disk: T0.1-T0.4 written in service_test.go; T0.5 (report_test.go), T1, T2, T3 not started. Re-dispatching the wave-1 remainder."
+    },
+    {
+      "at": "2026-09-13T02:26:00Z",
+      "what": "wave-1-redispatch",
+      "detail": "T0 (finish 0.5-0.6), T1, T2, T3 to one serial telemetry worker on Sonnet. budget_start five_hour_pct 42, context_pct 9, cost 1.19."
+    },
+    {
+      "at": "2026-09-13T02:29:56Z",
+      "what": "wave-1-complete",
+      "detail": "T0-T3 done by the telemetry worker on Sonnet. budget_end five_hour_pct 53, context_pct 11, cost 6.47 (wave delta +11pct, +5.29 USD). Worker's decision enumeration cross-checked against design.md: D1,D2,D3,D4,D5,D8 all honoured. go build ./internal/telemetry/ is red only in reader.go, mapping.go, query_log.go - T4's files, expected."
+    },
+    {
+      "at": "2026-09-13T02:33:00Z",
+      "what": "incident-concurrent-workers",
+      "detail": "The original wave-1 worker survived the session break and was still running. The resume read the file set as untouched and dispatched a second worker, so two telemetry workers wrote T0-T3 concurrently. Both reported done. Leader re-verified after both stopped: one set of tests, no duplicate funcs, sqlc output correct, every cheap guard clean. No work lost. Lesson for resume: a dispatched-but-unreconciled wave may still be live - check for running agents before re-dispatching."
     }
   ]
 }

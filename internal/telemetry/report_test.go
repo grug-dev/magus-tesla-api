@@ -90,3 +90,32 @@ func TestLogCycle_RelabeledLine(t *testing.T) {
 		t.Errorf("want duration=42s in the log line, got %q", out)
 	}
 }
+
+// TestLogCycle_ChargingSkippedUnregisteredCounter implements the test
+// contract's T-5: the new skip counter prints right after charging_failures,
+// in that exact order. References CycleReport.ChargingSessionsSkippedUnregistered,
+// which does not exist yet — this file fails to compile until that field is
+// added (roadmap tier 1).
+func TestLogCycle_ChargingSkippedUnregisteredCounter(t *testing.T) {
+	var buf bytes.Buffer
+	prevOut := log.Writer()
+	prevFlags := log.Flags()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(prevOut)
+		log.SetFlags(prevFlags)
+	}()
+
+	report := CycleReport{
+		ChargingSessionsUpserted:            4,
+		ChargingFetchFailures:               1,
+		ChargingSessionsSkippedUnregistered: 2,
+	}
+	LogCycle(report, nil)
+
+	out := buf.String()
+	if !strings.Contains(out, "charging_upserted=4 charging_failures=1 charging_skipped_unregistered=2") {
+		t.Errorf("want the new counter right after charging_failures, in that order, got %q", out)
+	}
+}
