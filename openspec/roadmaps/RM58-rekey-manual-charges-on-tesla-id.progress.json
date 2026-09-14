@@ -3,11 +3,11 @@
   "kind": "roadmap",
   "roadmap": "RM58-rekey-manual-charges-on-tesla-id",
   "intention": "charging.manual_charge_entries is keyed on tesla_id, account_id is demoted to created_by_account_id and never read as a filter, and no manual-charge write can run without a vehicleref.Ref.",
-  "request": "MAG-68 \u2014 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Step 5 of MAG-63.",
+  "request": "MAG-68 — 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Step 5 of MAG-63.",
   "status": "in-progress",
   "autopilot": false,
   "created_at": "2026-09-14T10:13:34Z",
-  "updated_at": "2026-09-14T15:50:00Z",
+  "updated_at": "2026-09-14T16:00:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -79,6 +79,30 @@
       "at": "2026-09-14T10:32:00Z",
       "what": "Database design confirmed: rename the column, drop idx_manual_charge_entries_account_time, replace the vehicle-time index with (tesla_id, charged_on DESC).",
       "why": "No row is deleted and no value rewritten, so Down is a true undo. Two indexes become one and it serves all four reads."
+    },
+    {
+      "id": "D7",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "Tier 2 does the minimal gateway wiring: authorizeVehicle on the entry's tesla_id, Ref passed to the write ports. Tier 3 keeps the rest.",
+      "why": "Tier 1 used the same pattern. The alternative merges tier 2 into the riskiest tier and makes one big review."
+    },
+    {
+      "id": "D8",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "Update overwrites e.TeslaID from the Ref before any work, so resolveEnergy reads the proven car.",
+      "why": "The module already overwrites caller values it owns (EnergySource, PriceSource). Without it, energy can be derived from an unproven car."
+    },
+    {
+      "id": "D9",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "DeleteEntry becomes :execrows and Delete returns pgx.ErrNoRows on zero rows.",
+      "why": "Update is :one and already reports not-found. The gateway maps a Delete error to a message, so a miss stops looking like success."
     }
   ],
   "tiers": [
@@ -167,6 +191,11 @@
       "at": "2026-09-14T15:50:00Z",
       "what": "tier-1-archived",
       "detail": "Reviewer approved with two minor comment findings, both fixed and re-verified by the reviewer. Owner ran make test and reported it passed. Archived to openspec/changes/archive/charging/. autopilot is false, so tier 2 does NOT start automatically."
+    },
+    {
+      "at": "2026-09-14T16:00:00Z",
+      "what": "tier-2-interview",
+      "detail": "Resumed for tier 2. Three new decisions taken (D7-D9); roadmap D1-D6 remain binding. No database design gate: tier 2 changes query text and Go signatures only, no schema object. Budget at resume: five_hour_pct 43, context_pct 9."
     }
   ]
 }
