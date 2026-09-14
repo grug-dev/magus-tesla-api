@@ -5,7 +5,7 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
   "request": "MAG-68 \u2014 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Tier 1 of RM58: the migration, the queries, the four Reader ports, and the cross-module bridge.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
@@ -16,16 +16,14 @@
       "T2",
       "T3",
       "T4",
+      "T5",
       "T6",
       "T7",
       "T8"
-    ],
-    "awaiting-user-verification": [
-      "T5"
     ]
   },
   "created_at": "2026-09-14T10:40:00Z",
-  "updated_at": "2026-09-14T15:00:00Z",
+  "updated_at": "2026-09-14T15:33:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -158,7 +156,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T14:42:00Z",
@@ -171,7 +169,7 @@
         "approx": true,
         "note": "One wave-2 delta shared across T5 and T7 (one Sonnet worker)."
       },
-      "notes": "All charging _test.go files re-keyed. Both cross-account tests kept unweakened. Also fixed 3 stale 4-arg ListEntriesByVehicle calls and a raw-SQL account_id column list the design missed. go vet ./... clean. DB-backed, so unrun."
+      "notes": "All charging _test.go files re-keyed. Both cross-account tests kept unweakened. Also fixed 3 stale 4-arg ListEntriesByVehicle calls and a raw-SQL account_id column list the design missed. go vet ./... clean. Owner ran make test and reported it passed."
     },
     {
       "id": "T6",
@@ -317,8 +315,8 @@
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
+    "brief": "Review RM58 tier 1: manual_charge_entries.account_id demoted to created_by_account_id. Read the branch diff (git diff main...HEAD), not the whole module. Validate: (1) every DB object matches the user-confirmed design in design.md Schema and D-GATE-1 - any mismatch is a blocker; (2) the integration tests assert the expectations design.md Test contract authored up front, not what the code happens to do; (3) TestUpdate_CrossAccountIsNoOp and TestDelete_CrossAccountGuard are present and NOT weakened - they prove no commit has an unauthorized write path; (4) module boundaries - no charging edit outside its sandbox, no vehicleref import in charging, gateway and analytics changes were leader-owned; (5) doc-pack conventions, including km/C/PSI units, clock, i18n where they apply; (6) docs track the change - AGENTS.md and the five kkpa/context guides; nothing under openspec/changes/archive/ touched; (7) anti-gaming - no criterion weakened, no task self-approved. Signals: the ASSISTANT ran go build, go vet, gofmt and four guards, all clean. The OWNER ran make test and reported it passed - the assistant never ran the suite and claims no test result. Judge test quality by reading the tests. Four leader decisions need your judgment: D-LEADER-1 (kept two analytics test names, swapped only the assertion), D-LEADER-2 (removed stale decision IDs from a doc comment), D-LEADER-3 (accepted a deviation from task T5.2 - cleanupAccount logs RowsAffected instead of asserting it), D-LEADER-4 (leader ran T8 instead of a worker). Known and accepted, not a finding: until roadmap tier 3, a car with two registered accounts shows each account the other's entries with edit and delete controls that fail. The owner decided to merge the whole roadmap at once.",
+    "agent": "charging-reviewer",
     "status": null,
     "rounds": []
   },
@@ -382,6 +380,11 @@
       "at": "2026-09-14T15:00:00Z",
       "what": "awaiting-user-test-run",
       "detail": "Owner chose to run the suite now, before the reviewer gate. Handed over: make migrate-up, the schema inspection queries, make test, the charging -run filter, and the analytics + gateway packages. T5 stays awaiting-user-verification until the owner reports."
+    },
+    {
+      "at": "2026-09-14T15:05:00Z",
+      "what": "user-verified",
+      "detail": "The OWNER ran make test and reported it passed. The assistant did not run the suite and does not claim this result. make test covers every package, including the DB-backed charging integration tests. T5 moves from awaiting-user-verification to done on this report."
     }
   ]
 }
