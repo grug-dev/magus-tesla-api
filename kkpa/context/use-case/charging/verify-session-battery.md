@@ -44,7 +44,7 @@ write channel is correcting the two human-owned battery percentages.
    — a deliberate divergence from the manual path.
 2. `c.GetPostForm` × 2 — strict presence check, then range-validate each non-empty value to
    `[0, 100]` before any port call.
-3. `charging.SessionVerifier.VerifySession(ctx, teslaID, id, startBatteryPct, endBatteryPct)` —
+3. `charging.SessionVerifier.VerifySession(ctx, ref, id, startBatteryPct, endBatteryPct)` —
    `internal/charging/session_verifier.go` — re-validates the range, computes
    `battery_pct_source`, calls `VerifySuperchargerSession` (scoped by `id` AND `tesla_id` — the
    sole tenant boundary on this write), maps the returned row via `rowToSession`.

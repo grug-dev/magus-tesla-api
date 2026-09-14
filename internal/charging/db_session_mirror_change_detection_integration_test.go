@@ -239,7 +239,7 @@ func TestMirrorSessions_T5_HumanOwnedColumnsSurviveUnchangedRemirror(t *testing.
 	id := fetchSuperchargerSessionID(t, pool, m1.SessionID)
 
 	// Human edit: both percentages supplied directly -> status DONE (not derived).
-	if _, err := v.VerifySession(ctx, m1.TeslaID, id, ptrIntV(20), ptrIntV(80)); err != nil {
+	if _, err := v.VerifySession(ctx, refFor(m1.TeslaID), id, ptrIntV(20), ptrIntV(80)); err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
 	tPrev, ok := fetchSuperchargerSession(t, pool, m1.SessionID)
@@ -298,7 +298,7 @@ func TestMirrorSessions_T6_InferredCapacityPopulatedUnchangedRemirror(t *testing
 	}
 	id := fetchSuperchargerSessionID(t, pool, m1.SessionID)
 
-	if _, err := v.VerifySession(ctx, m1.TeslaID, id, ptrIntV(20), ptrIntV(80)); err != nil {
+	if _, err := v.VerifySession(ctx, refFor(m1.TeslaID), id, ptrIntV(20), ptrIntV(80)); err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
 	_, capacityBefore := fetchStatusAndCapacity(t, pool, m1.SessionID)

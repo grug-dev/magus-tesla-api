@@ -134,7 +134,7 @@ func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 
 			if tc.startPct != nil || tc.endPct != nil {
 				id := fetchSuperchargerSessionID(t, pool, sessionID)
-				if _, err := v.VerifySession(ctx, teslaID, id, tc.startPct, tc.endPct); err != nil {
+				if _, err := v.VerifySession(ctx, refFor(teslaID), id, tc.startPct, tc.endPct); err != nil {
 					t.Fatalf("%s: VerifySession: %v", tc.id, err)
 				}
 			}
@@ -207,7 +207,7 @@ func TestVerifyThenRemirror_InferredCapacity_RecomputesBothWays(t *testing.T) {
 
 	// T20, second half: verify sets the percentages; the value the engine computes
 	// must appear on VerifySession's OWN returned Session (RETURNING * freshness).
-	verified, err := verifier.VerifySession(ctx, teslaID, id, ptrIntV(18), ptrIntV(80))
+	verified, err := verifier.VerifySession(ctx, refFor(teslaID), id, ptrIntV(18), ptrIntV(80))
 	if err != nil {
 		t.Fatalf("T20: VerifySession: %v", err)
 	}

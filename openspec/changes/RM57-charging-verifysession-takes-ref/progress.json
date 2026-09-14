@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM57-charging-verifysession-takes-ref",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
+  "request": "MAG-67 tier 3. Retype charging.SessionVerifier.VerifySession to require a vehicleref.Ref instead of a bare teslaID, so a caller that skipped the ownership check fails to compile. The three read ports keep int64.",
+  "status": "applied",
+  "rollup": {
+    "current": [
+      "T3",
+      "T4",
+      "T6"
+    ],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T5"
+    ]
+  },
+  "created_at": "2026-09-14T02:45:00Z",
+  "updated_at": "2026-09-14T02:58:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-67",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-67/4-re-key-the-supercharger-pair-on-tesla-id-reshape-the-mirror",
+    "created_at": "2026-09-12T12:27:24Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Retype SessionVerifier.VerifySession to take vehicleref.Ref",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T02:50:00Z",
+      "completed_at": "2026-09-14T02:58:00Z",
+      "duration_seconds": null,
+      "notes": "Retyped VerifySession to take vehicleref.Ref. Added the import. Rewrote the two doc-comment passages. Read ports untouched.",
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 47,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.11,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T6; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Unwrap ref.TeslaID() in session_verifier.go",
+      "module": "charging",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T02:50:00Z",
+      "completed_at": "2026-09-14T02:58:00Z",
+      "duration_seconds": null,
+      "notes": "Added teslaID := ref.TeslaID() as the first line. Fixed the stale 'parameter' wording. Method body otherwise unchanged.",
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 47,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.11,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T6; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Add the shared refFor test helper",
+      "module": "charging",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T02:50:00Z",
+      "completed_at": "2026-09-14T02:58:00Z",
+      "duration_seconds": null,
+      "notes": "Added the shared refFor helper next to ptrIntV. No vehicleref:allow marker anywhere. Compiles, but no test was run.",
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 47,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.11,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T6; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Replace the bare teslaID argument at 30 test call sites",
+      "module": "charging",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T02:50:00Z",
+      "completed_at": "2026-09-14T02:58:00Z",
+      "duration_seconds": null,
+      "notes": "30 call sites across 5 files converted to refFor(...). Leader verified the diff adds nothing but the import, the helper and the substitutions.",
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 47,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.11,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T6; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Update charging AGENTS.md and the two KB guides",
+      "module": "charging",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T02:50:00Z",
+      "completed_at": "2026-09-14T02:58:00Z",
+      "duration_seconds": null,
+      "notes": "charging AGENTS.md Allowed Imports and the verification-port note updated. Both KB guides' printed signatures corrected.",
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 47,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.11,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T6; the wave delta is copied onto each task."
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Final verification: build, vet, gofmt, guards",
+      "module": "charging",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T02:50:00Z",
+      "completed_at": "2026-09-14T02:58:00Z",
+      "duration_seconds": null,
+      "notes": "build, vet, gofmt, vehicleref-guard, boundary-guard, archive-guard and openspec validate all clean. The suite itself is the owner's to run.",
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 47,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.11,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One serial worker ran T1-T6; the wave delta is copied onto each task."
+      }
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-lead-1",
+      "at": "2026-09-14T02:45:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "make vehicleref-guard exempts _test.go; the leader made the Makefile and vehicleref/AGENTS.md edits",
+      "why": "MAG-66's design described the exemption but the target lacked it. Both files are outside the charging sandbox.",
+      "covered_by": "roadmap RD18"
+    },
+    {
+      "id": "D-lead-2",
+      "at": "2026-09-14T02:45:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "This change deliberately leaves go build ./... red at one gateway call site until tier 4 lands",
+      "why": "RD17 split the port retype from the gateway wiring, because one change may not span two modules.",
+      "covered_by": "roadmap RD17"
+    },
+    {
+      "id": "D-lead-3",
+      "at": "2026-09-14T02:58:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "T3, T4 and T6 are awaiting-user-verification, not done as the worker reported",
+      "why": "The worker argued clean build/vet/guards make them done. The policy is explicit: work complete but unexecuted awaits the owner.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-14T02:45:00Z",
+      "agent": "leader",
+      "event": "artifacts committed 2d308b7; guard fix 9b39034. No database change, so the design gate did not fire. progress.json seeded from tasks.md."
+    },
+    {
+      "at": "2026-09-14T02:50:00Z",
+      "agent": "leader",
+      "event": "dispatched wave 1 (T1-T6) to one serial charging worker on Sonnet. Budget start: five_hour_pct 40, context_pct 18, cost_usd 9.62."
+    },
+    {
+      "at": "2026-09-14T02:58:00Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled. Leader re-ran every signal independently: build, vet, gofmt, vehicleref-guard, boundary-guard, archive-guard, openspec validate - all clean. Diff audit confirmed the test files gained only an import, the refFor helper and 30 argument substitutions, so no expected value changed. Budget delta: five_hour_pct +7, cost_usd +3.11."
+    }
+  ]
+}

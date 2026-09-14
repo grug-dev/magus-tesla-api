@@ -151,7 +151,7 @@ func TestListSessionsByVehicleUpdatedSince_T1_VerifySessionEditBecomesVisible(t 
 
 	id := fetchSuperchargerSessionID(t, pool, sessionID)
 	v := charging.NewSessionVerifier(pool)
-	if _, err := v.VerifySession(ctx, teslaID, id, ptrIntV(50), ptrIntV(90)); err != nil {
+	if _, err := v.VerifySession(ctx, refFor(teslaID), id, ptrIntV(50), ptrIntV(90)); err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
 

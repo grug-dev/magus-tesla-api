@@ -221,6 +221,10 @@ any other future caller never import `chargingdb` directly, exactly as for
 in this tier — `cmd/web`/`internal/gateway` wiring is deferred to
 `RM31-gateway-add-session-battery-edit` (tier 4).
 
+`VerifySession` now requires a `vehicleref.Ref` instead of a bare vehicle id
+(RM57-charging-verifysession-takes-ref), so a caller must already have proven
+ownership through `internal/vehicleref`.
+
 ### Derived start battery percentage (MAG-36, charging-add-derived-start-battery-pct)
 
 `SessionVerifier.VerifySession` can now derive `start_battery_pct` instead of leaving it
@@ -352,6 +356,10 @@ This module may import:
   `session_verifier.go`, `mirror_watermark.go`, and `monthly_capacity.go`. The generated
   package is module-private by convention; no other module imports it, and no `_test.go`
   file does either.
+- `internal/vehicleref` — ONLY inside `charging.go` and `session_verifier.go`
+  (RM57-charging-verifysession-takes-ref). `SessionVerifier.VerifySession` takes a
+  `vehicleref.Ref` instead of a bare vehicle id, so a caller must already have proven
+  ownership through `internal/vehicleref` before it can call this port.
 
   Both lists above have gone stale before. MAG-36 corrected the `chargingdb` list, which had
   named only `service.go` and `session_writer.go` while `session_reader.go` and

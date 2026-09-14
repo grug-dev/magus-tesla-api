@@ -46,6 +46,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // --- session-verifier-specific test helpers ---
@@ -95,6 +96,14 @@ func fetchSuperchargerSessionID(t *testing.T, pool *pgxpool.Pool, sessionID int6
 // this file — distinct from db_session_integration_test.go's *float64/*bool
 // helpers (ptrFloat64/ptrBool), which this file also reuses directly.
 func ptrIntV(v int) *int { return &v }
+
+// refFor builds a vehicleref.Ref for teslaID for a direct port test. These tests
+// call VerifySession without going through a gateway request, so there is no
+// account or RegisteredVehicles list to authorize against — the Ref only needs to
+// carry the same vehicle id VerifySession's old bare-int64 parameter carried.
+func refFor(teslaID int64) vehicleref.Ref {
+	return vehicleref.All([]int64{teslaID})[0]
+}
 
 // assertVerifierColumnsUnchanged fails the test unless every column
 // TestVerifySession_OutOfRangeRejectedBeforeQuery/T6 cares about (start_battery_pct,
@@ -164,7 +173,7 @@ func TestVerifySession_T6_WrongVehicleIsNoOp(t *testing.T) {
 		t.Fatalf("expected baseline row for session %d", sessionID)
 	}
 
-	_, err := v.VerifySession(ctx, 222, id, ptrIntV(20), ptrIntV(80))
+	_, err := v.VerifySession(ctx, refFor(222), id, ptrIntV(20), ptrIntV(80))
 	if err == nil {
 		t.Fatal("VerifySession with wrong vehicle: expected error, got nil")
 	}
@@ -181,7 +190,7 @@ func TestVerifySession_T6_WrongVehicleIsNoOp(t *testing.T) {
 		t.Errorf("percentages must still be NULL: start=%v end=%v", after.StartBatteryPct, after.EndBatteryPct)
 	}
 
-	got, err := v.VerifySession(ctx, 111, id, ptrIntV(20), ptrIntV(80))
+	got, err := v.VerifySession(ctx, refFor(111), id, ptrIntV(20), ptrIntV(80))
 	if err != nil {
 		t.Fatalf("VerifySession with the right vehicle: expected success, got %v", err)
 	}
@@ -217,7 +226,7 @@ func TestVerifySession_T7_DerivedStartNoNilVehicleBranch(t *testing.T) {
 
 	id := seedVerifierSessionEnergy(t, pool, 111, sessionID, ptrFloat64(31.0))
 
-	got, err := v.VerifySession(ctx, 111, id, nil, ptrIntV(80))
+	got, err := v.VerifySession(ctx, refFor(111), id, nil, ptrIntV(80))
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
@@ -253,7 +262,7 @@ func TestVerifySession_T1_T4_T9_SetThenClearAdvancesUpdatedAt(t *testing.T) {
 	time.Sleep(mirrorGap)
 
 	// T1: a normal verify sets both percentages and the source, and returns them.
-	s1, err := v.VerifySession(ctx, 950001, v1ID, ptrIntV(20), ptrIntV(80))
+	s1, err := v.VerifySession(ctx, refFor(950001), v1ID, ptrIntV(20), ptrIntV(80))
 	if err != nil {
 		t.Fatalf("T1: VerifySession: %v", err)
 	}
@@ -273,7 +282,7 @@ func TestVerifySession_T1_T4_T9_SetThenClearAdvancesUpdatedAt(t *testing.T) {
 	time.Sleep(mirrorGap)
 
 	// T4: clearing both previously-set percentages also clears the source.
-	s4, err := v.VerifySession(ctx, 950001, v1ID, nil, nil)
+	s4, err := v.VerifySession(ctx, refFor(950001), v1ID, nil, nil)
 	if err != nil {
 		t.Fatalf("T4: VerifySession: %v", err)
 	}
@@ -307,7 +316,7 @@ func TestVerifySession_PartialStartOnlyStillSetsSource(t *testing.T) {
 
 	v2ID := seedVerifierSession(t, pool, 950002, 950002)
 
-	s2, err := v.VerifySession(ctx, 950002, v2ID, ptrIntV(35), nil)
+	s2, err := v.VerifySession(ctx, refFor(950002), v2ID, ptrIntV(35), nil)
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
@@ -343,7 +352,7 @@ func TestVerifySession_PartialEndOnlyStillSetsSource(t *testing.T) {
 
 	v3ID := seedVerifierSession(t, pool, 950003, 950003)
 
-	s3, err := v.VerifySession(ctx, 950003, v3ID, nil, ptrIntV(90))
+	s3, err := v.VerifySession(ctx, refFor(950003), v3ID, nil, ptrIntV(90))
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
@@ -376,7 +385,7 @@ func TestVerifySession_OutOfRangeRejectedBeforeQuery(t *testing.T) {
 	}
 
 	// Sub-case 1: start_battery_pct out of range (101 > 100).
-	_, err := v.VerifySession(ctx, 950005, v5ID, ptrIntV(101), ptrIntV(50))
+	_, err := v.VerifySession(ctx, refFor(950005), v5ID, ptrIntV(101), ptrIntV(50))
 	if err == nil {
 		t.Fatal("expected error for start_battery_pct=101, got nil")
 	}
@@ -390,7 +399,7 @@ func TestVerifySession_OutOfRangeRejectedBeforeQuery(t *testing.T) {
 	assertVerifierColumnsUnchanged(t, before, after1, "after start_battery_pct=101 rejection")
 
 	// Sub-case 2: end_battery_pct out of range (-1 < 0).
-	_, err = v.VerifySession(ctx, 950005, v5ID, ptrIntV(50), ptrIntV(-1))
+	_, err = v.VerifySession(ctx, refFor(950005), v5ID, ptrIntV(50), ptrIntV(-1))
 	if err == nil {
 		t.Fatal("expected error for end_battery_pct=-1, got nil")
 	}
@@ -414,7 +423,7 @@ func TestVerifySession_UnknownIDSameErrorShapeAsWrongVehicle(t *testing.T) {
 	ctx := context.Background()
 	v := charging.NewSessionVerifier(pool)
 
-	_, err := v.VerifySession(ctx, 950007, uuid.New(), ptrIntV(10), ptrIntV(20))
+	_, err := v.VerifySession(ctx, refFor(950007), uuid.New(), ptrIntV(10), ptrIntV(20))
 	if err == nil {
 		t.Fatal("VerifySession with unknown id: expected error, got nil")
 	}
@@ -444,7 +453,7 @@ func TestVerifySession_OnlyTargetColumnsChange(t *testing.T) {
 		t.Fatalf("expected baseline row for session 950008")
 	}
 
-	got, err := v.VerifySession(ctx, 950008, v8ID, ptrIntV(15), ptrIntV(95))
+	got, err := v.VerifySession(ctx, refFor(950008), v8ID, ptrIntV(15), ptrIntV(95))
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
@@ -570,7 +579,7 @@ func TestVerifySession_S2_StartOnlyIsInProgress(t *testing.T) {
 
 	id := seedVerifierSession(t, pool, 950011, 950011)
 
-	got, err := v.VerifySession(ctx, 950011, id, ptrIntV(30), nil)
+	got, err := v.VerifySession(ctx, refFor(950011), id, ptrIntV(30), nil)
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
@@ -595,7 +604,7 @@ func TestVerifySession_S3_EndOnlyNoEnergyStaysInProgress(t *testing.T) {
 
 	id := seedVerifierSessionEnergy(t, pool, 950012, 950012, nil)
 
-	got, err := v.VerifySession(ctx, 950012, id, nil, ptrIntV(80))
+	got, err := v.VerifySession(ctx, refFor(950012), id, nil, ptrIntV(80))
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
@@ -622,7 +631,7 @@ func TestVerifySession_S4_EndOnlyDerivedIsDoneCalculated(t *testing.T) {
 
 	id := seedVerifierSession(t, pool, 950013, 950013)
 
-	got, err := v.VerifySession(ctx, 950013, id, nil, ptrIntV(90))
+	got, err := v.VerifySession(ctx, refFor(950013), id, nil, ptrIntV(90))
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
@@ -644,7 +653,7 @@ func TestVerifySession_S5_BothSuppliedIsDone(t *testing.T) {
 
 	id := seedVerifierSession(t, pool, 950014, 950014)
 
-	got, err := v.VerifySession(ctx, 950014, id, ptrIntV(20), ptrIntV(80))
+	got, err := v.VerifySession(ctx, refFor(950014), id, ptrIntV(20), ptrIntV(80))
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
@@ -665,7 +674,7 @@ func TestVerifySession_S6_ReverificationFlipsCalculatedToDone(t *testing.T) {
 
 	id := seedVerifierSession(t, pool, 950015, 950015)
 
-	first, err := v.VerifySession(ctx, 950015, id, nil, ptrIntV(90))
+	first, err := v.VerifySession(ctx, refFor(950015), id, nil, ptrIntV(90))
 	if err != nil {
 		t.Fatalf("VerifySession (first): %v", err)
 	}
@@ -673,7 +682,7 @@ func TestVerifySession_S6_ReverificationFlipsCalculatedToDone(t *testing.T) {
 		t.Fatalf("first Status = %q, want %q", first.Status, charging.SessionStatusDoneCalculated)
 	}
 
-	second, err := v.VerifySession(ctx, 950015, id, ptrIntV(45), ptrIntV(90))
+	second, err := v.VerifySession(ctx, refFor(950015), id, ptrIntV(45), ptrIntV(90))
 	if err != nil {
 		t.Fatalf("VerifySession (second): %v", err)
 	}
@@ -695,11 +704,11 @@ func TestVerifySession_S7_ClearingBothResetsToInProgress(t *testing.T) {
 
 	id := seedVerifierSession(t, pool, 950016, 950016)
 
-	if _, err := v.VerifySession(ctx, 950016, id, ptrIntV(20), ptrIntV(80)); err != nil {
+	if _, err := v.VerifySession(ctx, refFor(950016), id, ptrIntV(20), ptrIntV(80)); err != nil {
 		t.Fatalf("VerifySession (set): %v", err)
 	}
 
-	got, err := v.VerifySession(ctx, 950016, id, nil, nil)
+	got, err := v.VerifySession(ctx, refFor(950016), id, nil, nil)
 	if err != nil {
 		t.Fatalf("VerifySession (clear): %v", err)
 	}
@@ -723,7 +732,7 @@ func TestVerifySession_S8_DerivedOutOfRangeStaysInProgress(t *testing.T) {
 
 	id := seedVerifierSessionEnergy(t, pool, 950017, 950017, ptrFloat64(100.0))
 
-	got, err := v.VerifySession(ctx, 950017, id, nil, ptrIntV(10))
+	got, err := v.VerifySession(ctx, refFor(950017), id, nil, ptrIntV(10))
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}

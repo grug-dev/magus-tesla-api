@@ -271,7 +271,7 @@ func TestCalculate_C2_DoneCalculatedSessionsExcluded(t *testing.T) {
 	}
 	id := fetchSuperchargerSessionID(t, pool, teslaID)
 	// start nil, end 100 -> derives using 62.0: 100 - 31.0/62.0*100 = 50 (in range).
-	verified, err := sv.VerifySession(ctx, teslaID, id, nil, ptrIntV(100))
+	verified, err := sv.VerifySession(ctx, refFor(teslaID), id, nil, ptrIntV(100))
 	if err != nil {
 		t.Fatalf("C2 setup: VerifySession: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestCalculate_C6_PoolsAcrossAccounts(t *testing.T) {
 	}
 	id := fetchSuperchargerSessionID(t, pool, teslaID)
 	// Both percentages supplied directly -> status DONE (not DONE_CALCULATED).
-	verified, err := sv.VerifySession(ctx, teslaID, id, ptrIntV(10), ptrIntV(30))
+	verified, err := sv.VerifySession(ctx, refFor(teslaID), id, ptrIntV(10), ptrIntV(30))
 	if err != nil {
 		t.Fatalf("C6 setup: VerifySession: %v", err)
 	}
@@ -636,7 +636,7 @@ func TestPackCapacityKWh_C10_UnchangedUntilFirstMonthComputed(t *testing.T) {
 		t.Fatalf("C10: MirrorSessions: %v", err)
 	}
 	id := fetchSuperchargerSessionID(t, pool, sessionTeslaID)
-	verified, err := sv.VerifySession(ctx, sessionTeslaID, id, nil, ptrIntV(80))
+	verified, err := sv.VerifySession(ctx, refFor(sessionTeslaID), id, nil, ptrIntV(80))
 	if err != nil {
 		t.Fatalf("C10: VerifySession: %v", err)
 	}
@@ -782,7 +782,7 @@ func TestCalculate_T13_SessionAttributedToVehicle(t *testing.T) {
 		t.Fatalf("T13: MirrorSessions (DONE): %v", err)
 	}
 	doneID := fetchSuperchargerSessionID(t, pool, 991101)
-	doneVerified, err := sv.VerifySession(ctx, teslaID, doneID, ptrIntV(20), ptrIntV(70))
+	doneVerified, err := sv.VerifySession(ctx, refFor(teslaID), doneID, ptrIntV(20), ptrIntV(70))
 	if err != nil {
 		t.Fatalf("T13: VerifySession (DONE): %v", err)
 	}
@@ -800,7 +800,7 @@ func TestCalculate_T13_SessionAttributedToVehicle(t *testing.T) {
 		t.Fatalf("T13: MirrorSessions (DONE_CALCULATED): %v", err)
 	}
 	calcID := fetchSuperchargerSessionID(t, pool, 991102)
-	calcVerified, err := sv.VerifySession(ctx, teslaID, calcID, nil, ptrIntV(80))
+	calcVerified, err := sv.VerifySession(ctx, refFor(teslaID), calcID, nil, ptrIntV(80))
 	if err != nil {
 		t.Fatalf("T13: VerifySession (DONE_CALCULATED): %v", err)
 	}

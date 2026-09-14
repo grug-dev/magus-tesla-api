@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	chargingdb "github.com/cristianpena/magus-tesla-api/internal/charging/db"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // batteryPctSourceUserVerified is the single literal this port ever writes into
@@ -122,7 +123,8 @@ func sessionStatusFor(startPct, endPct *int, derived bool) SessionStatus {
 //     against v.q otherwise — scoped by id + teslaID, and map the returned row via
 //     the existing rowToSession (session_reader.go) — no new mapping code. Commit the
 //     transaction, when one was opened, only after VerifySuperchargerSession succeeds.
-func (v *sessionVerifier) VerifySession(ctx context.Context, teslaID int64, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error) {
+func (v *sessionVerifier) VerifySession(ctx context.Context, ref vehicleref.Ref, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error) {
+	teslaID := ref.TeslaID()
 	if startBatteryPct != nil && (*startBatteryPct < 0 || *startBatteryPct > 100) {
 		return Session{}, fmt.Errorf("charging: start_battery_pct %d out of range [0,100]", *startBatteryPct)
 	}
@@ -165,8 +167,8 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, teslaID int64, id u
 		}
 
 		// row.TeslaID is the locked row's own vehicle id, always the same value as
-		// the teslaID parameter above -- it is NOT NULL on this table now, so there
-		// is no unregistered-vehicle case left to fall back from.
+		// the teslaID local variable above -- it is NOT NULL on this table now, so
+		// there is no unregistered-vehicle case left to fall back from.
 		capacityKWh, err := packCapacityKWh(ctx, v, row.TeslaID)
 		if err != nil {
 			return Session{}, fmt.Errorf("charging: resolving pack capacity: %w", err)

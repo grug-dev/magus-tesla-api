@@ -23,6 +23,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -547,7 +548,7 @@ type SessionVerifier interface {
 	// wanting to add endBatteryPct to a session that already has startBatteryPct
 	// verified must re-supply the existing startBatteryPct value (read via
 	// SessionReader) alongside the new endBatteryPct, or that column is overwritten to
-	// NULL. Calling VerifySession(ctx, teslaID, id, nil, nil) clears
+	// NULL. Calling VerifySession(ctx, ref, id, nil, nil) clears
 	// both percentages AND battery_pct_source to NULL in the same statement (design.md
 	// D7).
 	//
@@ -576,14 +577,16 @@ type SessionVerifier interface {
 	// derived) start or the end percentage is non-nil, still no new source value
 	// (design.md D1).
 	//
-	// id/teslaID scope the update: WHERE id = @id AND tesla_id = @tesla_id. This is the
-	// ONLY tenant boundary left on the Supercharger write path — the gateway resolves
-	// which vehicle it believes owns the session and passes it here, so a mismatched
-	// vehicle matches zero rows exactly like an unknown id, and a caller cannot tell
-	// "not yours" from "does not exist". Zero rows matched surfaces as
-	// an error wrapping pgx.ErrNoRows, exactly mirroring Writer.Update's own not-found
-	// semantics.
-	VerifySession(ctx context.Context, teslaID int64, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)
+	// id/ref scope the update: WHERE id = @id AND tesla_id = @tesla_id, using
+	// ref.TeslaID(). This is the ONLY tenant boundary left on the Supercharger write
+	// path. The caller no longer passes a bare id it merely believes is correct — it
+	// must hold a vehicleref.Ref, which only internal/vehicleref can construct, and only
+	// from a caller-owned vehicle list. A mismatched vehicle still matches zero rows
+	// exactly like an unknown id, and a caller still cannot tell "not yours" from "does
+	// not exist" — this change moves the ownership proof earlier, it does not change
+	// what a mismatch looks like. Zero rows matched surfaces as an error wrapping
+	// pgx.ErrNoRows, exactly mirroring Writer.Update's own not-found semantics.
+	VerifySession(ctx context.Context, ref vehicleref.Ref, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)
 }
 
 // NewSessionVerifier constructs a SessionVerifier backed by the given pgxpool. The
