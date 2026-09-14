@@ -9,7 +9,7 @@
 Target guide: `workflows/manual-charge-crud.md`
 Source spec:  `openspec/specs/manual-charge-log/spec.md`
 Generated:    2026-09-14
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-14
 
 ---
 
