@@ -161,7 +161,7 @@
 | `nightly batch` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `monthly capacity step` | synonym of the nightly cycle's step 4 → `architecture/nightly-cycle.md` |
 | `step 4` | the nightly cycle's monthly-capacity step → `architecture/nightly-cycle.md` |
-| `client-side JS` (the gateway's zero-JS rule RD8 and its six sanctioned exceptions) | `architecture/gateway-client-side-js.md` |
+| `client-side JS` (the gateway's zero-JS rule RD8 and its numbered sanctioned exceptions) | `architecture/gateway-client-side-js.md` |
 | `zero-JS rule` | synonym of `client-side JS` → `architecture/gateway-client-side-js.md` |
 | `app.js` | `internal/gateway/static/app.js` → `architecture/gateway-client-side-js.md` |
 | `sanctioned exception` | synonym of `client-side JS` → `architecture/gateway-client-side-js.md` |
@@ -170,6 +170,8 @@
 | `browser_tz cookie` | RD9 — the inline script in `layouts.BaseAuth` → `architecture/gateway-client-side-js.md` |
 | `timezone cookie` | synonym of `browser_tz cookie` → `architecture/gateway-client-side-js.md` |
 | `theme instant apply` | RD15 — the `click` + `htmx:afterRequest` listener pair → `architecture/gateway-client-side-js.md` |
+| `install hint` | RD16 — `ui.InstallHint`, the iOS-only "Add to Home Screen" hint → `architecture/gateway-client-side-js.md` |
+| `iOS install hint` | synonym of `install hint` → `architecture/gateway-client-side-js.md` |
 | `gateway theming` (the palettes, the self-hosted fonts, and the `static/themes/` file layout) | `architecture/gateway-theming.md` |
 | `palette` | synonym of `gateway theming` → `architecture/gateway-theming.md` |
 | `theme file` | synonym of `gateway theming` → `architecture/gateway-theming.md` |
@@ -240,7 +242,7 @@
 | `web app manifest` | `handlers.WebManifest` (`/site.webmanifest`) — generated, so the install prompt is translated → `architecture/seo-metadata.md` |
 | `site.webmanifest` | synonym of `web app manifest` → `architecture/seo-metadata.md` |
 | `PWA` | synonym of `web app manifest` → `architecture/seo-metadata.md` |
-| `add to home screen` | synonym of `web app manifest` → `architecture/seo-metadata.md` |
+| `add to home screen` | RD16 — the iOS hint that names this Share-sheet row → `architecture/gateway-client-side-js.md`; for the manifest that makes the app installable see `architecture/seo-metadata.md` |
 | `run duration` | `ProcessVehicleData`'s clock-measured start-to-finish span → `architecture/nightly-cycle.md` |
 | `poll run` (one `poll_runs` row per collection-cycle invocation: trigger, timing, account/vehicle outcome counts, Tesla API call count) | `architecture/telemetry-ingest-only.md` |
 | `run summary` | synonym of `poll run` → `architecture/telemetry-ingest-only.md` |

@@ -8,7 +8,7 @@
 
 - **Known as:** `client-side JS`, `zero-JS rule`, `app.js`, `RD8`, `sanctioned exception`,
   `confirm modal`, `confirmation dialog`, `browser_tz cookie`, `timezone cookie`,
-  `theme instant apply`, `htmx listener`, `install hint`, `add to home screen`, `PWA install`
+  `theme instant apply`, `htmx listener`, `install hint`, `iOS install hint`, `add to home screen`
 - **Internal name:** `internal/gateway/static/app.js` — the gateway's only hand-written
   client script. Plus one inline `<script>` in `layouts.BaseAuth`.
 
@@ -245,17 +245,22 @@ key. There is no other reset.
   guarded — a throw on read means "show it", a throw on write means "cannot remember".
   _Source: `internal/gateway/static/app.js` — `dismissed`, `rememberDismissal`._
 
-- **`app.js` has SEVEN listeners, but `AGENTS.md` names only six exceptions.** The
-  seventh is the `htmx:beforeSwap` handler that honours the `HX-Error-Fragment` header.
-  It has no RD number. It is described under `AGENTS.md` §"Non-2xx error fragments"
-  instead. **This is a known contradiction, not a fact to copy.** Do not "fix" the count
-  by deleting a listener. Raise it as its own decision: give it an RD number, or write
-  down why it does not need one. (RD16 added two more listeners and its own RD number, so
-  the counts are now NINE listeners against SEVEN exceptions; the un-numbered one is still
-  the same `htmx:beforeSwap` handler.)
+- **One listener in `app.js` has no RD number: the `htmx:beforeSwap` handler that honours
+  `HX-Error-Fragment`.** Every other listener in the file belongs to a numbered RD. This one
+  is described under `AGENTS.md` §"Non-2xx error fragments" instead. **This is a known gap,
+  not a fact to copy.** Do not "fix" it by deleting the listener. Raise it as its own
+  decision: give it an RD number, or write down why it does not need one.
   _Source: `internal/gateway/static/app.js`; `internal/gateway/AGENTS.md`._
 
-- **Why the seventh listener matters.** htmx never swaps a 4xx or 5xx response body by
+- **Counts are deliberately NOT stated here, and must not be added back.** An RD is one
+  BEHAVIOUR and may own several listeners — RD13, RD14 and RD15 own two each, and RD10 owns
+  four (one delegated, plus three bound per opened dialog). So "N listeners against M
+  exceptions" never compared like with like, and the two numbers drifted apart on every
+  change that added a listener. Both numbers written here before were wrong. If you need a
+  live count, grep `addEventListener` in the file — do not write the answer down.
+  _Source: `internal/gateway/static/app.js`._
+
+- **Why that un-numbered listener matters.** htmx never swaps a 4xx or 5xx response body by
   default. That default would throw away every validation form the handlers render. The
   handlers opt a response in with `HX-Error-Fragment: true`, and this listener honours it.
   It is opt-in per response, never a blanket "swap all 4xx".

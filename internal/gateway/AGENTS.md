@@ -903,7 +903,8 @@ long entry about a single route is the signal that it belongs in the KB.
 
 The gateway's DaisyUI foundation is **zero-JS** (`ai/htmx-conventions.md` §"Styling").
 There are exactly **seven** sanctioned exceptions. All but RD9 live in `static/app.js`, and
-all but RD16's show step delegate on `document.body`.
+they delegate on `document.body` — with two deliberate exceptions: RD10 binds three listeners
+on the dialog itself once it is open, and RD16's show step is not a listener at all.
 
 | RD | What it does |
 |---|---|
