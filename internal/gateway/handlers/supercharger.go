@@ -634,8 +634,8 @@ func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
 		return
 	}
 
-	// D7c — range/type validation BEFORE calling VerifySession. A present,
-	// empty (or whitespace-only) value is a valid explicit clear (D7a), not a
+	// Range and type validation runs BEFORE calling VerifySession. A present,
+	// empty (or whitespace-only) value is a valid explicit clear, not a
 	// validation error; it stays nil and is NOT range-checked.
 	validationErrors := make(map[string]string)
 	var startPct, endPct *int
