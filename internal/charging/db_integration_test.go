@@ -9,8 +9,7 @@
 // Coverage:
 //   - Writer.Create: required-only, all-optional, CHECK constraint violations.
 //   - Writer.Update: mutation of mutable fields, created_at unchanged, cross-account guard
-//     (the guard still matches the authoring account — a transitional scope, see
-//     design.md D4).
+//     (the guard still matches the authoring account — a transitional scope).
 //   - Writer.Delete: own entry, cross-account guard (same transitional scope).
 //   - Reader.ListEntriesByVehicle: reads are car-wide now — every account's entries for
 //     that vehicle come back, newest-first ordering, limit, empty slice.
@@ -395,9 +394,9 @@ func TestUpdate_MutatesFieldsAndAdvancesUpdatedAt(t *testing.T) {
 
 // TestUpdate_CrossAccountIsNoOp asserts that updating an entry while naming a
 // different account is a no-op — the WHERE id=X AND created_by_account_id=Y finds
-// zero rows and returns a not-found / zero-rows error. This guard is transitional
-// (design.md D4): it matches the account that TYPED the entry, narrower than the
-// car it belongs to, until it is re-keyed onto the vehicle in a later tier. It
+// zero rows and returns a not-found / zero-rows error. This guard is transitional:
+// it matches the account that TYPED the entry, narrower than the car it belongs
+// to, until it is re-keyed onto the vehicle. It
 // stays and keeps passing across that move — it is the proof that no commit on
 // this branch has an unauthorized write path.
 func TestUpdate_CrossAccountIsNoOp(t *testing.T) {
@@ -476,7 +475,7 @@ func TestDelete_OwnEntry(t *testing.T) {
 
 // TestDelete_CrossAccountGuard attempts to delete an entry while naming the wrong
 // account and asserts the row survives. Same transitional guard as
-// TestUpdate_CrossAccountIsNoOp (design.md D4): it stays and keeps passing.
+// TestUpdate_CrossAccountIsNoOp: it stays and keeps passing.
 func TestDelete_CrossAccountGuard(t *testing.T) {
 	pool := newTestPool(t)
 	ownerID := uuid.New()
@@ -814,7 +813,7 @@ func TestListByVehicles_EmptyNonNil(t *testing.T) {
 // before this change: both entries come back on every read for that vehicle, each
 // still carrying the CreatedByAccountID of whoever typed it. A charge happened to
 // a car — the demoted column is still stored and still read back, it just does
-// not filter a read (design.md D1).
+// not filter a read.
 func TestSharedVehicle_ReadsAreCarWide(t *testing.T) {
 	pool := newTestPool(t)
 	alice := uuid.New()
@@ -1223,10 +1222,10 @@ func TestListByVehicleBetween_EmptyNonNil(t *testing.T) {
 	}
 }
 
-// TestListByVehicleBetween_ReturnsBothAccountsEntries — design.md Test Contract (e),
-// reversed: two accounts share the same teslaID and the same charged_on inside the
-// window. Before this change the scoped call returned only the requesting account's
-// entry; now the read is car-wide, so both come back, in charged_on DESC order.
+// TestListByVehicleBetween_ReturnsBothAccountsEntries: two accounts share the same
+// teslaID and the same charged_on inside the window. The read is car-wide, so both
+// entries come back, in charged_on DESC order. The scoped call this replaced
+// returned only the requesting account's entry.
 func TestListByVehicleBetween_ReturnsBothAccountsEntries(t *testing.T) {
 	pool := newTestPool(t)
 	accountA := uuid.New()

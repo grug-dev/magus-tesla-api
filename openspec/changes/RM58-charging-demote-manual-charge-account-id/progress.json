@@ -23,7 +23,7 @@
     ]
   },
   "created_at": "2026-09-14T10:40:00Z",
-  "updated_at": "2026-09-14T15:33:00Z",
+  "updated_at": "2026-09-14T15:40:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -317,8 +317,64 @@
   "review": {
     "brief": "Review RM58 tier 1: manual_charge_entries.account_id demoted to created_by_account_id. Read the branch diff (git diff main...HEAD), not the whole module. Validate: (1) every DB object matches the user-confirmed design in design.md Schema and D-GATE-1 - any mismatch is a blocker; (2) the integration tests assert the expectations design.md Test contract authored up front, not what the code happens to do; (3) TestUpdate_CrossAccountIsNoOp and TestDelete_CrossAccountGuard are present and NOT weakened - they prove no commit has an unauthorized write path; (4) module boundaries - no charging edit outside its sandbox, no vehicleref import in charging, gateway and analytics changes were leader-owned; (5) doc-pack conventions, including km/C/PSI units, clock, i18n where they apply; (6) docs track the change - AGENTS.md and the five kkpa/context guides; nothing under openspec/changes/archive/ touched; (7) anti-gaming - no criterion weakened, no task self-approved. Signals: the ASSISTANT ran go build, go vet, gofmt and four guards, all clean. The OWNER ran make test and reported it passed - the assistant never ran the suite and claims no test result. Judge test quality by reading the tests. Four leader decisions need your judgment: D-LEADER-1 (kept two analytics test names, swapped only the assertion), D-LEADER-2 (removed stale decision IDs from a doc comment), D-LEADER-3 (accepted a deviation from task T5.2 - cleanupAccount logs RowsAffected instead of asserting it), D-LEADER-4 (leader ran T8 instead of a worker). Known and accepted, not a finding: until roadmap tier 3, a car with two registered accounts shows each account the other's entries with edit and delete controls that fail. The owner decided to merge the whole roadmap at once.",
     "agent": "charging-reviewer",
-    "status": null,
-    "rounds": []
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "charging-reviewer",
+        "at": "2026-09-14T16:10:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/charging/AGENTS.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/design.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/tasks.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/proposal.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/specs/manual-charge-log/spec.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/progress.json"
+        ],
+        "summary": "Migration, queries, ports, service.go and every generated sqlc type match design.md's Schema, Index plan and sqlc-prediction tables exactly, Up and Down. The two cross-account guard tests are present and unweakened. Test contract matches design.md's pre-authored expectations, not back-fitted values. No boundary violation: no vehicleref import in charging, gateway/analytics edits are mechanical, all four guards and go build/vet/gofmt pass clean as claimed. Docs (AGENTS.md + 5 KB guides) are accurate and complete. Archive folders untouched. Two minor comment-citation findings only; nothing blocking.",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/charging/db_integration_test.go:13, 399, 479, 817 and ~1226 (TestListByVehicleBetween_ReturnsBothAccountsEntries doc comment) all cite 'design.md D4' / 'design.md D1' / 'design.md Test Contract (e)' in comment lines this change added or rewrote. design.md is an OpenSpec change artifact that gets archived and frozen, so the pointer will die and the project forbids fixing it there. Write the reason itself instead, the way the sibling comments in charging.go and query.sql already do.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/charging/charging.go and internal/charging/service.go: ListEntriesByVehicleUpdatedSince's doc comment was edited by this change (accountID dropped from the parameter list description) but still ends '...watermark (RM29-analytics-add-vehicle-metrics design D3).' D-LEADER-2 correctly stripped the equivalent legacy citations from the sibling ListEntriesByVehicleBetween's comment in both files, in the same change. This one function was missed, so the same edited-function rule was applied inconsistently.",
+            "status": "open"
+          }
+        ],
+        "leader_decisions_judged": [
+          {
+            "id": "D-LEADER-1",
+            "judgment": "acceptable",
+            "note": "Task T6.2 asked only for the assertion swap, not a rename, and both test names' own docstrings now say plainly that telemetry, supercharger and manual charges are keyed on the vehicle. The name is slightly less precise than before (it no longer literally describes what every port receives), but it is not misleading given the docstring right above it, and renaming was out of the task's scope."
+          },
+          {
+            "id": "D-LEADER-2",
+            "judgment": "correct, but incomplete",
+            "note": "The cleanup on ListEntriesByVehicleBetween's comment was done right and is exactly what the opportunistic-cleanup rule asks for. See F2: the same rule should also have caught ListEntriesByVehicleUpdatedSince, whose comment was edited in the same change."
+          },
+          {
+            "id": "D-LEADER-3",
+            "judgment": "acceptable",
+            "note": "Read cleanupAccount and its 84 call sites' shape: the two cross-account guard tests deliberately clean up an attacker account that wrote no row, so a non-zero RowsAffected assertion would fail those two for an unrelated reason. Checking the exec error still catches a renamed or missing column (Postgres errors on it), which was the real hazard T5.2 existed to guard against. The deviation does not lose the coverage that mattered."
+          },
+          {
+            "id": "D-LEADER-4",
+            "judgment": "acceptable",
+            "note": "T8 is guard/grep/hand-off execution with no design judgment call in it. Verified independently: go build, go vet, gofmt, all four guards and openspec validate --strict all reproduce clean, matching what T8's notes claim."
+          }
+        ]
+      }
+    ]
   },
   "events": [
     {
@@ -385,6 +441,11 @@
       "at": "2026-09-14T15:05:00Z",
       "what": "user-verified",
       "detail": "The OWNER ran make test and reported it passed. The assistant did not run the suite and does not claim this result. make test covers every package, including the DB-backed charging integration tests. T5 moves from awaiting-user-verification to done on this report."
+    },
+    {
+      "at": "2026-09-14T15:40:00Z",
+      "what": "review-findings-fixed",
+      "detail": "Reviewer returned approved with two minor comment-hygiene findings. Leader fixed both after approval: F1 removed design.md and decision-ID citations from five comments in db_integration_test.go; F2 removed the RM29 citation the earlier cleanup missed, in charging.go and service.go. Comments only, no behaviour change. go build and go vet clean. No re-review needed: the verdict was already approved and neither finding gated it."
     }
   ]
 }

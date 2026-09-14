@@ -265,8 +265,7 @@ type Reader interface {
 	// itself limits the result. This port exists for the analytics module's
 	// incremental recompute watermark: manual_charge_entries is the one source a
 	// user can edit at an arbitrary hour (rather than only at the nightly poll),
-	// which is why it gets its own updated-since cursor read
-	// (RM29-analytics-add-vehicle-metrics design D3,
+	// which is why it gets its own updated-since cursor read (see
 	// specs/manual-charge-log/spec.md "List entries by vehicle updated since a given
 	// instant").
 	ListEntriesByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Entry, error)

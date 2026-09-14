@@ -444,7 +444,8 @@ func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, teslaID
 // empty slice when no rows exist. No limit parameter — since itself bounds the
 // result. The read is car-wide: it returns entries typed by any account registered
 // to that car. Backs the analytics module's per-source incremental recompute
-// watermark (RM29-analytics-add-vehicle-metrics design D3).
+// watermark: a user can edit a manual entry at any hour, so the nightly poll is
+// not a reliable cursor for this source.
 func (r *readerService) ListEntriesByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Entry, error) {
 	params := chargingdb.ListEntriesByVehicleUpdatedSinceParams{
 		TeslaID: teslaID,
