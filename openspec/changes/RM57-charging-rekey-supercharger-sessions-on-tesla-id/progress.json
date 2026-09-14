@@ -4,12 +4,10 @@
   "change": "RM57-charging-rekey-supercharger-sessions-on-tesla-id",
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
-  "request": "MAG-67 tier 2 — Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
+  "request": "MAG-67 tier 2 \u2014 Re-key charging.supercharger_sessions and charging.mirror_watermarks on tesla_id. Replace UNIQUE (account_id, session_id) with UNIQUE (session_id), delete tesla_id IS NULL rows, SET NOT NULL, DROP COLUMN account_id, replace idx_supercharger_sessions_vehicle_stop. Ports MirrorSessions, ListSessionsByVehicle*, VerifySession, MirrorWatermark, AdvanceMirrorWatermark drop accountID. Tests re-keyed. Leave charging.manual_charge_entries alone; MAG-68 owns it.",
   "status": "reviewer-approved",
   "rollup": {
-    "current": [
-      "T8"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
@@ -21,11 +19,12 @@
       "T5",
       "T6",
       "T7",
+      "T8",
       "T9"
     ]
   },
   "created_at": "2026-09-13T12:35:00Z",
-  "updated_at": "2026-09-13T21:38:00Z",
+  "updated_at": "2026-09-14T01:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -41,7 +40,7 @@
   "tasks": [
     {
       "id": "T0",
-      "title": "Offline check — grep the five offline test files, record that no new offline test is needed",
+      "title": "Offline check \u2014 grep the five offline test files, record that no new offline test is needed",
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
@@ -65,7 +64,7 @@
     },
     {
       "id": "T1",
-      "title": "Migrations — rekey supercharger_sessions and mirror_watermarks on tesla_id",
+      "title": "Migrations \u2014 rekey supercharger_sessions and mirror_watermarks on tesla_id",
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
@@ -89,7 +88,7 @@
     },
     {
       "id": "T2",
-      "title": "Queries and sqlc — rewrite 9 queries, regenerate types",
+      "title": "Queries and sqlc \u2014 rewrite 9 queries, regenerate types",
       "module": "charging",
       "depends_on": [
         "T1"
@@ -115,7 +114,7 @@
     },
     {
       "id": "T3",
-      "title": "Ports and domain types — drop/re-key accountID on 6 port methods",
+      "title": "Ports and domain types \u2014 drop/re-key accountID on 6 port methods",
       "module": "charging",
       "depends_on": [
         "T2"
@@ -141,7 +140,7 @@
     },
     {
       "id": "T4",
-      "title": "Implementation — session_writer, session_reader, session_verifier, mirror_watermark, monthly_capacity",
+      "title": "Implementation \u2014 session_writer, session_reader, session_verifier, mirror_watermark, monthly_capacity",
       "module": "charging",
       "depends_on": [
         "T3"
@@ -167,7 +166,7 @@
     },
     {
       "id": "T5",
-      "title": "Database-backed integration tests — re-key seeds, add the 13-case contract",
+      "title": "Database-backed integration tests \u2014 re-key seeds, add the 13-case contract",
       "module": "charging",
       "depends_on": [
         "T4"
@@ -219,7 +218,7 @@
     },
     {
       "id": "T7",
-      "title": "Docs — AGENTS.md plus six kkpa/context guides",
+      "title": "Docs \u2014 AGENTS.md plus six kkpa/context guides",
       "module": "charging",
       "depends_on": [
         "T3"
@@ -245,19 +244,19 @@
     },
     {
       "id": "T8",
-      "title": "Cross-module bridge (leader-owned) — app, analytics, gateway",
+      "title": "Cross-module bridge (leader-owned) \u2014 app, analytics, gateway",
       "module": "leader",
       "depends_on": [
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-13T19:30:00Z",
-      "completed_at": "2026-09-13T19:47:00Z",
-      "duration_seconds": 1020,
-      "notes": "processChargingData loops per tesla_id. Analytics and gateway call sites re-keyed; the dead TeslaID != nil branch removed. Review fix R3 then added two gateway tests. Those two have NOT been executed: the owner's suite run predates them.",
+      "completed_at": "2026-09-14T01:05:00Z",
+      "duration_seconds": 20100,
+      "notes": "processChargingData loops per tesla_id. Analytics and gateway call sites re-keyed; the dead TeslaID != nil branch removed. Review fix R3 then added two gateway tests. Those two have NOT been executed: the owner's suite run predates them. Owner ran make test after the R3 fix and reported it passed; the two new gateway tests are now executed.",
       "budget": {
         "five_hour_pct_start": 3,
         "five_hour_pct_end": 54,
@@ -271,7 +270,7 @@
     },
     {
       "id": "T9",
-      "title": "Final verification — build, vet, guards, gofmt, repo grep, openspec validate",
+      "title": "Final verification \u2014 build, vet, guards, gofmt, repo grep, openspec validate",
       "module": "charging",
       "depends_on": [
         "T0",
@@ -592,6 +591,11 @@
       "at": "2026-09-13T21:38:00Z",
       "agent": "leader",
       "event": "budget-checkpoint: five_hour_pct 94 >= 90, context_pct 29, seven_day_pct 87. five_hour_resets_at 1789345200 = 2026-09-14T00:20:00Z. Stopped BEFORE archiving tier 2. The change is reviewer-approved and every task is done except T8, which awaits the owner re-running make test against R3's two new gateway tests. Resume with /kkpa-dev-harness-pipeline resume RM57-charging-rekey-supercharger-sessions-on-tesla-id"
+    },
+    {
+      "at": "2026-09-14T01:05:00Z",
+      "agent": "leader",
+      "event": "SUITE VERIFIED BY THE OWNER, not by the assistant: they ran make test after the round-1 fixes and reported it passed. That run covers R3's two gateway tests, which the earlier pass predated. T8 -> done; every task is now done. Assistant-run signals before the ask: go vet ./... clean, gofmt -l clean for this branch."
     }
   ]
 }
