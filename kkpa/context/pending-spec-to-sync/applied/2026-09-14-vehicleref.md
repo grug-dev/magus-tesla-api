@@ -9,7 +9,7 @@
 Target guide: `architecture/vehicle-ownership-proof.md`
 Source spec:  `openspec/specs/vehicleref/spec.md`
 Generated:    2026-09-14
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-14
 
 ---
 

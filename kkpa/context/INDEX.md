@@ -319,3 +319,5 @@ Notes for the curator:
 - `Internal name` is the actual symbol/table behind the term — the thing CodeGraph knows.
 - Keep paths relative to kkpa/context/.
 -->
+| `bulk ownership proof` | synonym of `vehicle ownership proof` → `architecture/vehicle-ownership-proof.md` |
+| `fleet-wide read` | a read scoped to every vehicle the caller owns → `architecture/vehicle-ownership-proof.md` |
