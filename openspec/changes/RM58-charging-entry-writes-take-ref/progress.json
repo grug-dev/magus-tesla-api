@@ -27,7 +27,7 @@
     ]
   },
   "created_at": "2026-09-14T16:05:00Z",
-  "updated_at": "2026-09-14T17:00:00Z",
+  "updated_at": "2026-09-14T17:02:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -331,6 +331,11 @@
       "at": "2026-09-14T17:00:00Z",
       "what": "wave-1-reconciled",
       "detail": "T0-T6.7 complete. go build ./... and go vet ./... clean. All seven guards pass: vehicleref, boundary, archive, i18n, money, tz, migration. No test was executed, so every code task is awaiting the owner's verification. Budget after the wave: five_hour_pct 86, context_pct 18."
+    },
+    {
+      "at": "2026-09-14T17:02:00Z",
+      "what": "budget-checkpoint",
+      "detail": "Stopped cleanly after wave 1. five_hour_pct 86 against a 90 threshold; wave 2 (T7 KB docs, T8 final verification) would cross it. context_pct 18. five_hour_resets_at 1789414800. Resume with: /kkpa-dev-harness-pipeline resume RM58-charging-entry-writes-take-ref"
     }
   ]
 }
