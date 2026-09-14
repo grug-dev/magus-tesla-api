@@ -444,15 +444,29 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 	entry.ID = id
 	entry.CreatedByAccountID = uid
 
-	// Resolve the PRE-update ChargedOn BEFORE calling Update — once Update
-	// commits, the old date is gone; there is no other way to recover it
-	// (design.md D5, "Manual Charge Write Path Triggers Analytics
-	// Recalculation"). A lookup miss (e.g. the id no longer exists) just
-	// means there is no old date to additionally recalculate — the write
-	// itself still proceeds and is validated on its own terms below.
-	_, oldChargedOn, hadOld := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
+	// Resolve the entry's stored vehicle and its PRE-update ChargedOn before
+	// calling Update. Once Update commits the old date is gone, and analytics
+	// has to recalculate the old day as well as the new one.
+	//
+	// The lookup reads only over this account's registered vehicles, so a miss
+	// means the entry is not this account's to edit. Answer 404, never 403: a
+	// 403 would confirm that a probed id is real.
+	entryTeslaID, oldChargedOn, hadOld := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
+	if !hadOld {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
+		return
+	}
 
-	updated, err := h.chargingWriter.Update(c.Request.Context(), entry)
+	// Authorize the vehicle stored ON THE ENTRY, not one named by the request.
+	// Update accepts nothing but the Ref this call returns, so an unproven
+	// caller cannot reach the row at all.
+	ref, err := h.authorizeVehicle(c.Request.Context(), uid, entryTeslaID)
+	if err != nil {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
+		return
+	}
+
+	updated, err := h.chargingWriter.Update(c.Request.Context(), ref, entry)
 	if err != nil {
 		log.Printf("gateway: ExternalChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
 		// Same value-preservation treatment on the 500 (writer-error) branch as
@@ -469,7 +483,7 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 		return
 	}
 	h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, updated.TeslaID, updated.ChargedOn)
-	if hadOld && !oldChargedOn.Equal(updated.ChargedOn) {
+	if !oldChargedOn.Equal(updated.ChargedOn) {
 		h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, updated.TeslaID, oldChargedOn)
 	}
 	// A SUCCESSFUL edit re-renders the WHOLE #external-charges-list region, retargeted
@@ -564,14 +578,27 @@ func (h *Handler) ExternalChargeRowDelete(c *gin.Context) {
 		filterTeslaID = sel.TeslaID
 	}
 
-	// Resolve the entry's ChargedOn (and TeslaID) BEFORE calling Delete — the
-	// Delete port does not return the deleted entry, so this is the only
-	// chance to learn which day needs recalculating (design.md D5). A lookup
-	// miss just means there is no day to recalculate; the delete still
-	// proceeds.
+	// Resolve the entry's vehicle and ChargedOn before calling Delete. The
+	// Delete port does not return the deleted entry, so this is the only chance
+	// to learn which day needs recalculating.
+	//
+	// The lookup reads only over this account's registered vehicles, so a miss
+	// means the entry is not this account's to delete. Answer 404, never 403: a
+	// 403 would confirm that a probed id is real.
 	entryTeslaID, entryChargedOn, hadEntry := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
+	if !hadEntry {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
+		return
+	}
 
-	err = h.chargingWriter.Delete(c.Request.Context(), uid, id)
+	// Authorize the vehicle stored ON THE ENTRY, not one named by the request.
+	ref, err := h.authorizeVehicle(c.Request.Context(), uid, entryTeslaID)
+	if err != nil {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
+		return
+	}
+
+	err = h.chargingWriter.Delete(c.Request.Context(), ref, id)
 	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	if err != nil {
 		log.Printf("gateway: ExternalChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
@@ -579,9 +606,7 @@ func (h *Handler) ExternalChargeRowDelete(c *gin.Context) {
 		renderFragmentError(c, http.StatusInternalServerError, pages.ExternalChargesPage(d), "external-charges-list")
 		return
 	}
-	if hadEntry {
-		h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, entryTeslaID, entryChargedOn)
-	}
+	h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, entryTeslaID, entryChargedOn)
 	renderFragment(c, http.StatusOK, pages.ExternalChargesPage(d), "external-charges-list")
 }
 

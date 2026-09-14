@@ -5,25 +5,29 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
   "request": "MAG-68 — Tier 2 of RM58: Writer.Update and Writer.Delete require a vehicleref.Ref, the SQL guard becomes id AND tesla_id, and a delete that matches nothing stops looking like success.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "T0",
-      "T1",
-      "T2",
-      "T3",
-      "T4",
-      "T5",
-      "T6",
       "T7",
       "T8"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T0",
+      "T5"
+    ],
+    "awaiting-user-verification": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T6",
+      "T6.7"
+    ]
   },
   "created_at": "2026-09-14T16:05:00Z",
-  "updated_at": "2026-09-14T16:05:00Z",
+  "updated_at": "2026-09-14T17:00:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -43,14 +47,20 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "Grep counts matched design.md: 12 Update and 2 Delete call sites across four files. Offline test files clean, zero hits."
     },
     {
       "id": "T1",
@@ -58,14 +68,20 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "query.sql rewritten: tesla_id predicate on both writes, DeleteEntry is :execrows. make sqlc output matched design.md point by point."
     },
     {
       "id": "T2",
@@ -75,14 +91,20 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "Writer.Update and Writer.Delete retyped to take a vehicleref.Ref, mirroring VerifySession's parameter order. Interface and field doc comments rewritten."
     },
     {
       "id": "T3",
@@ -92,14 +114,20 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "service.go: e.TeslaID overwritten from the Ref first, before resolveEnergy. store.deleteEntry returns rows; Delete wraps pgx.ErrNoRows on zero."
     },
     {
       "id": "T4",
@@ -109,14 +137,20 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "12 Update and 2 Delete call sites updated. Both guard tests renamed onto the vehicle; the delete guard's assertion inverted. Reused RM57's existing refFor helper."
     },
     {
       "id": "T5",
@@ -126,14 +160,20 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "internal/charging/AGENTS.md updated across four sections. kkpa/context/workflows/manual-charge-crud.md updated. charging-tables.md needed no edit."
     },
     {
       "id": "T6",
@@ -143,14 +183,20 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T16:20:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "Both handlers authorize the entry's own tesla_id and pass the Ref. A lookup miss now answers 404. Grep found no write call site beyond the two handlers and the one fake."
     },
     {
       "id": "T7",
@@ -187,6 +233,29 @@
       "duration_seconds": null,
       "budget": null,
       "notes": null
+    },
+    {
+      "id": "T6.7",
+      "title": "Gateway tests broken by the new 404-on-miss behaviour (LEADER-OWNED)",
+      "module": "gateway",
+      "depends_on": [
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:20:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "Three tests reseeded with a matching entry on TeslaID 1001. D4 needed more: the fake writer gained an opt-in linkedReader so one request can show both states."
     }
   ],
   "decisions": [
@@ -213,6 +282,22 @@
       "at": "2026-09-14T16:00:00Z",
       "what": "DeleteEntry becomes :execrows and Delete returns pgx.ErrNoRows on zero rows.",
       "why": "Update is :one and already reports not-found. The gateway maps a Delete error to a message, so a miss stops looking like success."
+    },
+    {
+      "id": "D10",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:35:00Z",
+      "what": "A manual-charge update or delete whose entry lookup misses answers 404, for both handlers.",
+      "why": "A miss leaves no vehicle to authorize, and the ports accept only a Ref. design.md D8 claimed Delete is unreachable on a miss; the code proved otherwise."
+    },
+    {
+      "id": "D11",
+      "scope": "tier-2",
+      "made_by": "autopilot",
+      "at": "2026-09-14T17:00:00Z",
+      "what": "fakeChargeWriter gained an opt-in linkedReader field so a successful Delete drops the row from the linked fake reader.",
+      "why": "The D4 test asserts the entry present for the lookup and absent in the re-render, within one request. The alternatives weakened an assertion or rewrote the test."
     }
   ],
   "review": {
@@ -231,6 +316,21 @@
       "at": "2026-09-14T16:05:00Z",
       "what": "worker-flag",
       "detail": "TestDelete_CrossVehicleGuard inverts its own assertion: it asserts err == nil today and must assert a non-nil error wrapping pgx.ErrNoRows after D9. Easy to miss during implementation."
+    },
+    {
+      "at": "2026-09-14T16:15:00Z",
+      "what": "wave-1-dispatched",
+      "detail": "One serial Sonnet worker for T0-T5 (charging module). T6 is leader-owned and lands right after, in the same wave commit, because go build ./... is red outside internal/charging until it does. Budget at dispatch: five_hour_pct 63, context_pct 13."
+    },
+    {
+      "at": "2026-09-14T16:35:00Z",
+      "what": "design-doc-corrected",
+      "detail": "design.md D8 states that on an entry-lookup miss chargingWriter.Delete is never reached. False: ExternalChargeRowDelete called Delete unconditionally and its own comment said the delete still proceeds. The owner chose 404-on-miss (D10). design.md D8 is corrected in place; the sentence was wrong when written, not made stale by this work."
+    },
+    {
+      "at": "2026-09-14T17:00:00Z",
+      "what": "wave-1-reconciled",
+      "detail": "T0-T6.7 complete. go build ./... and go vet ./... clean. All seven guards pass: vehicleref, boundary, archive, i18n, money, tz, migration. No test was executed, so every code task is awaiting the owner's verification. Budget after the wave: five_hour_pct 86, context_pct 18."
     }
   ]
 }

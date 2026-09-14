@@ -48,17 +48,17 @@ Sequencing rules that are not optional:
 
 Depends on: nothing.
 
-- [ ] 0.1 Grep the module's five offline test files (`charging_test.go`,
+- [x] 0.1 Grep the module's five offline test files (`charging_test.go`,
       `entry_status_test.go`, `monthly_capacity_estimator_test.go`,
       `price_source_test.go`, `session_verifier_derivation_test.go`) for
       `.Update(` and `.Delete(`. Expect **zero** hits. If a hit appears, that
       file is not offline-only and belongs to T4 instead.
-- [ ] 0.2 Grep every `_test.go` file in `internal/charging` for `.Update(ctx`
+- [x] 0.2 Grep every `_test.go` file in `internal/charging` for `.Update(ctx`
       and `.Delete(ctx`. Confirm the count matches `design.md` §Test
       contract's table exactly (12 `Update` calls across four files, 2
       `Delete` calls, all in `db_integration_test.go`). If the count differs,
       `design.md` is out of date — stop and reconcile before continuing.
-- [ ] 0.3 Record in the change's notes that this change adds no new test
+- [x] 0.3 Record in the change's notes that this change adds no new test
       function except the two renamed guard tests, and why: the ticket
       excludes unit tests, and every other call site's behaviour is unchanged
       by this tier — only which value the guard checks moves.
@@ -67,20 +67,20 @@ Depends on: nothing.
 
 Depends on: nothing (no migration in this tier, so no schema dependency).
 
-- [ ] 1.1 `internal/charging/db/query.sql`, `UpdateEntry`: change `WHERE id =
+- [x] 1.1 `internal/charging/db/query.sql`, `UpdateEntry`: change `WHERE id =
       @id AND created_by_account_id = @created_by_account_id` to `WHERE id =
       @id AND tesla_id = @tesla_id`. `:one` annotation and `RETURNING *`
       unchanged. Rewrite the comment per `design.md` §Queries: the `Ref` is
       the real check, this clause is the second line of defence against a
       right-`Ref`-wrong-row mistake. Do not name a tier, a change id, or a
       decision id in the comment — write the reason itself.
-- [ ] 1.2 `DeleteEntry`: change the annotation from `:exec` to `:execrows`.
+- [x] 1.2 `DeleteEntry`: change the annotation from `:exec` to `:execrows`.
       Change the `WHERE` clause the same way as 1.1. Same comment-rewrite
       rule.
-- [ ] 1.3 Do NOT touch any other query in this file — no read query, no
+- [x] 1.3 Do NOT touch any other query in this file — no read query, no
       `supercharger_sessions`/`mirror_watermarks`/`monthly_effective_capacity`
       query, and not `CreateEntry`.
-- [ ] 1.4 `make sqlc`. Confirm the diff against `design.md` §What `make sqlc`
+- [x] 1.4 `make sqlc`. Confirm the diff against `design.md` §What `make sqlc`
       will produce, point by point: `chargingdb.ManualChargeEntry` is
       **byte-for-byte unchanged**; `UpdateEntryParams` loses
       `CreatedByAccountID`, gains `TeslaID int64`, and survives as a struct;
@@ -88,7 +88,7 @@ Depends on: nothing (no migration in this tier, so no schema dependency).
       int64` and survives as a two-field struct; `func (q *Queries)
       DeleteEntry(...)` returns `(int64, error)` instead of `error`; no new
       `Row` type appears anywhere.
-- [ ] 1.5 Do NOT write a test for this query change beyond what T4 already
+- [x] 1.5 Do NOT write a test for this query change beyond what T4 already
       covers through the service layer — there is nothing migration-shaped
       here to separately verify.
 
@@ -98,29 +98,29 @@ Depends on: T1 (needs the final generated param shapes to know the service
 layer compiles against, even though this file itself does not import
 `chargingdb`).
 
-- [ ] 2.1 Confirm `internal/vehicleref` is already imported in this file
+- [x] 2.1 Confirm `internal/vehicleref` is already imported in this file
       (`RM57-charging-verifysession-takes-ref` added it for
       `SessionVerifier.VerifySession`) — do not add a second import line.
-- [ ] 2.2 Change `Writer.Update`'s signature to `Update(ctx context.Context,
+- [x] 2.2 Change `Writer.Update`'s signature to `Update(ctx context.Context,
       ref vehicleref.Ref, e Entry) (Entry, error)`.
-- [ ] 2.3 Change `Writer.Delete`'s signature to `Delete(ctx context.Context,
+- [x] 2.3 Change `Writer.Delete`'s signature to `Delete(ctx context.Context,
       ref vehicleref.Ref, id uuid.UUID) error`. `uuid.UUID` stays imported for
       `id`'s type and for `Entry.ID`/`CreatedByAccountID` — do not remove the
       `github.com/google/uuid` import.
-- [ ] 2.4 Rewrite the `Writer` interface's doc comment exactly as `design.md`
+- [x] 2.4 Rewrite the `Writer` interface's doc comment exactly as `design.md`
       §Ports and implementation gives it. Do NOT leave the old sentence about
       "Delete takes accountID as a required argument so the SQL WHERE clause
       scopes to the account that typed the entry."
-- [ ] 2.5 Add the doc comment to `Entry.TeslaID` exactly as `design.md` gives
+- [x] 2.5 Add the doc comment to `Entry.TeslaID` exactly as `design.md` gives
       it. This field has no comment today — confirm that before writing, so
       the new comment is added, not appended to a comment that does not
       exist.
-- [ ] 2.6 `Entry.CreatedByAccountID`'s existing comment says "Update and
+- [x] 2.6 `Entry.CreatedByAccountID`'s existing comment says "Update and
       Delete still match on it, as the only guard they have until they can
       name the vehicle instead." Remove that sentence — it is no longer true.
       State instead that it is authorship only, recorded on create, never
       touched or checked again.
-- [ ] 2.7 Do NOT touch `Reader`, `SessionWriter`, `SessionReader`,
+- [x] 2.7 Do NOT touch `Reader`, `SessionWriter`, `SessionReader`,
       `SessionVerifier`, or `MirrorWatermarkStore` in this file.
 
 ## T3 — Service (`service.go`)
@@ -128,13 +128,13 @@ layer compiles against, even though this file itself does not import
 Depends on: T2 (needs the final port signatures to implement against) and T1
 (needs the final generated param/return shapes).
 
-- [ ] 3.1 Add the import `"github.com/cristianpena/magus-tesla-api/internal/vehicleref"`.
-- [ ] 3.2 Change the `store` interface's `deleteEntry` method to return
+- [x] 3.1 Add the import `"github.com/cristianpena/magus-tesla-api/internal/vehicleref"`.
+- [x] 3.2 Change the `store` interface's `deleteEntry` method to return
       `(int64, error)` instead of `error`.
-- [ ] 3.3 Change `dbStore.deleteEntry` to return `d.q.DeleteEntry(ctx, params)`
+- [x] 3.3 Change `dbStore.deleteEntry` to return `d.q.DeleteEntry(ctx, params)`
       directly — no wrapping, since the generated method already returns
       `(int64, error)` after T1.4.
-- [ ] 3.4 Rewrite `writerService.Update` exactly as `design.md` §Ports and
+- [x] 3.4 Rewrite `writerService.Update` exactly as `design.md` §Ports and
       implementation gives it: signature gains `ref vehicleref.Ref` as the
       second parameter; the FIRST line of the function body is `e.TeslaID =
       ref.TeslaID()`, before `normalizeStatus` and everything after it;
@@ -142,41 +142,41 @@ Depends on: T2 (needs the final port signatures to implement against) and T1
       `TeslaID: e.TeslaID`. Every other line — `promoteIfComplete`,
       `missingFields`, `resolveEnergy`, numeric encoding, the rest of the
       params literal, `rowToEntry` — is unchanged.
-- [ ] 3.5 Rewrite `writerService.Delete` exactly as `design.md` gives it:
+- [x] 3.5 Rewrite `writerService.Delete` exactly as `design.md` gives it:
       signature's `accountID uuid.UUID` becomes `ref vehicleref.Ref`;
       `DeleteEntryParams`'s literal drops `CreatedByAccountID` and gains
       `TeslaID: ref.TeslaID()`; after the call, check the returned row count
       — zero becomes `fmt.Errorf("charging: delete entry: %w", pgx.ErrNoRows)`.
       `pgx` is already imported in this file — do not add a second import.
-- [ ] 3.6 Rewrite both methods' doc comments per `design.md` — the account
+- [x] 3.6 Rewrite both methods' doc comments per `design.md` — the account
       language ("scoped to the account that typed it", "double-scope (id AND
       created_by_account_id)") is replaced with the `Ref`-pinned guard
       description.
-- [ ] 3.7 Do NOT touch `writerService.Create`, `resolvePriceSource`,
+- [x] 3.7 Do NOT touch `writerService.Create`, `resolvePriceSource`,
       `missingFieldsError`, `readerService`, or any of the four `list*`
       store methods.
-- [ ] 3.8 `go build ./internal/charging/...` — expect failures ONLY in this
+- [x] 3.8 `go build ./internal/charging/...` — expect failures ONLY in this
       module's own `_test.go` files (T4's job), not in any non-test file.
 
 ## T4 — Tests (module-owned)
 
 Depends on: T3 (needs the final signatures to compile against).
 
-- [ ] 4.1 Add the `refFor` helper to `db_integration_test.go`, next to
+- [x] 4.1 Add the `refFor` helper to `db_integration_test.go`, next to
       `minEntry`, exactly as `design.md` §Test contract gives it. Add the
       `vehicleref` import to this file's import block.
-- [ ] 4.2 Update the 12 mechanical `Update`/`Delete` call sites listed in
+- [x] 4.2 Update the 12 mechanical `Update`/`Delete` call sites listed in
       `design.md` §Test contract's table — insert `refFor(<teslaID>)` as the
       argument right after `ctx`, using the `teslaID` the test already has in
       scope for that entry. Do NOT change any assertion in these tests.
-- [ ] 4.3 Rename `TestUpdate_CrossAccountIsNoOp` to
+- [x] 4.3 Rename `TestUpdate_CrossAccountIsNoOp` to
       `TestUpdate_CrossVehicleIsNoOp` exactly as `design.md` §Test contract
       specifies: entry created for `teslaID = 333`, call
       `w.Update(ctx, refFor(999), tampered)`, expect a non-nil error, assert
       the owner's row (read via `ListEntriesByVehicle(ctx, 333, 10)`) is
       unchanged. Update the doc comment above the test to describe a vehicle
       mismatch, not an account mismatch.
-- [ ] 4.4 Rename `TestDelete_CrossAccountGuard` to
+- [x] 4.4 Rename `TestDelete_CrossAccountGuard` to
       `TestDelete_CrossVehicleGuard` exactly as `design.md` §Test contract
       specifies: entry created for `teslaID = 555`, call
       `w.Delete(ctx, refFor(998), created.ID)`. **This assertion inverts**:
@@ -186,48 +186,48 @@ Depends on: T3 (needs the final signatures to compile against).
       exists. Update the doc comment above the test to state the behaviour
       change plainly — a mismatched delete now errors instead of silently
       doing nothing.
-- [ ] 4.5 `go build ./internal/charging/...` and `go vet ./internal/charging/...`
+- [x] 4.5 `go build ./internal/charging/...` and `go vet ./internal/charging/...`
       — expect clean. `go vet` compiles every `_test.go` file, so a missed
       call site or a wrong `refFor` argument type fails here, not later.
-- [ ] 4.6 `gofmt -l internal/charging` — expect no output.
+- [x] 4.6 `gofmt -l internal/charging` — expect no output.
 
 ## T5 — Docs (module-owned, no gateway dependency)
 
 Depends on: T3 (needs the final port shape and doc comments). Touches no Go
 file — safe to run in parallel with T6.
 
-- [ ] 5.1 `internal/charging/AGENTS.md` §Public Interface — replace the
+- [x] 5.1 `internal/charging/AGENTS.md` §Public Interface — replace the
       paragraph describing `Writer.Update`/`Delete` as scoped by
       `CreatedByAccountID`, "transitionally," with the `vehicleref.Ref`
       guard description. State plainly that the transitional period named in
       tier 1's own note has ended.
-- [ ] 5.2 `internal/charging/AGENTS.md` §Allowed Imports — add `service.go` to
+- [x] 5.2 `internal/charging/AGENTS.md` §Allowed Imports — add `service.go` to
       the `internal/vehicleref` bullet's file list (today it names only
       `charging.go` and `session_verifier.go`).
-- [ ] 5.3 `internal/charging/AGENTS.md` §Data Ownership — the
+- [x] 5.3 `internal/charging/AGENTS.md` §Data Ownership — the
       `manual_charge_entries` row's "writes ... are the one exception: they
       still predicate on `created_by_account_id`, transitionally" sentence.
       Replace it with the `tesla_id` guard, and remove the "until a later
       tier" framing — this tier is that later tier.
-- [ ] 5.4 Apply the four spec-delta requirement changes from
+- [x] 5.4 Apply the four spec-delta requirement changes from
       `openspec/changes/RM58-charging-entry-writes-take-ref/specs/manual-charge-log/spec.md`
       to `openspec/specs/manual-charge-log/spec.md` if the project's archive
       step does not do this automatically — confirm with the leader which
       convention this project uses before hand-editing the main spec (this
       project's OpenSpec workflow may sync deltas on archive rather than on
       apply; do not duplicate that step).
-- [ ] 5.5 `kkpa/context/architecture/charging-tables.md` — confirm by reading
+- [x] 5.5 `kkpa/context/architecture/charging-tables.md` — confirm by reading
       it that no edit is needed (`design.md` says this file is already
       correct after tier 1). If it turns out to need one, that is a finding
       to report, not something to silently skip.
-- [ ] 5.6 `kkpa/context/workflows/manual-charge-crud.md` — three edits per
+- [x] 5.6 `kkpa/context/workflows/manual-charge-crud.md` — three edits per
       `design.md` §Docs: the `query.sql` row's "transitional" language, the
       Update flow bullet's `WHERE id AND created_by_account_id` text, and the
       "write guard is transitional" gotcha. State the guard is now
       `tesla_id`/`Ref`-keyed and no longer transitional. Also extend the
       authorship paragraph's "No read may filter... by it" to "No read or
       write".
-- [ ] 5.7 Do NOT edit anything under `openspec/changes/archive/`. A grep for
+- [x] 5.7 Do NOT edit anything under `openspec/changes/archive/`. A grep for
       `created_by_account_id` will hit tier 1's archived design; that hit is
       the record of what was true then, and `make archive-guard` enforces
       leaving it alone.
@@ -275,6 +275,17 @@ outside `internal/charging` until this lands.
       since anything beyond this list was not scoped by this change.
 - [ ] 6.5 `go build ./...` — expect clean across the whole repository.
 - [ ] 6.6 `go vet ./...` — expect clean.
+- [x] 6.7 **Appended after 6.1/6.2 landed.** Both handlers now answer 404
+      when the entry lookup misses, because a miss leaves no vehicle to
+      authorize and `Update`/`Delete` accept nothing but a `Ref`. Existing
+      gateway tests were written against the old behaviour: they call the
+      update/delete route with an empty `fakeChargeReader{}` and expect the
+      write to proceed. Seed the reader with an entry whose `ID` matches the
+      one the request names and whose `TeslaID` is `1001` — the id
+      `newHandlerForExternalCharges`'s `fakeAccount` already registers — so
+      the lookup hits and `authorizeVehicle` succeeds. Fix only the tests the
+      new behaviour breaks. Do NOT weaken an assertion to make a test pass,
+      and do NOT change handler code to suit a test.
 
 ## T7 — Cross-module-aware docs (module-owned, depends on T6)
 

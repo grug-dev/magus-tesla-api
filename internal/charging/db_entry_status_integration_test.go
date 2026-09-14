@@ -649,7 +649,7 @@ func TestEntryStatus_C13_UpdateDerivesIdenticallyToCreate(t *testing.T) {
 	updated := created
 	updated.EnergyAddedKWh = nil // percentages (50/100) carry over from created
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(320015), updated)
 	if err != nil {
 		t.Fatalf("C13: Update: unexpected error: %v", err)
 	}
@@ -686,7 +686,7 @@ func TestEntryStatus_C14_UpdateProvenanceRecomputedNeverSticky(t *testing.T) {
 	updated := created
 	updated.EnergyAddedKWh = ptrFloat64(25.0)
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(320016), updated)
 	if err != nil {
 		t.Fatalf("C14: Update: unexpected error: %v", err)
 	}
@@ -722,7 +722,7 @@ func TestEntryStatus_C15_UpdateEnforcesRequiredFieldsAndWritesNothing(t *testing
 	tampered.Status = charging.StatusDone
 	tampered.EndedAt = nil // still missing -- and end_battery_pct is also nil
 
-	_, err = w.Update(ctx, tampered)
+	_, err = w.Update(ctx, refFor(320017), tampered)
 	if err == nil {
 		t.Fatal("C15: Update to DONE without ended_at/end_battery_pct: expected error, got nil")
 	}
@@ -764,7 +764,7 @@ func TestEntryStatus_C16_DoneToInProgressIsAllowed(t *testing.T) {
 	updated.EndedAt = nil
 	updated.EndBatteryPct = nil
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(320018), updated)
 	if err != nil {
 		t.Fatalf("C16: Update DONE -> IN_PROGRESS: unexpected error: %v", err)
 	}

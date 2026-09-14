@@ -24,8 +24,9 @@ types, in two separate tables with two separate vocabularies (see §Data Ownersh
   entries, and computes derived values (cost-per-kWh, battery delta, session duration) on
   read as value-receiver methods on `charging.Entry`. Reads are car-wide, not tenant-scoped:
   a read for a vehicle returns every entry for it, whoever typed it
-  (`RM58-charging-demote-manual-charge-account-id`, MAG-68). Only `Writer.Update` and
-  `Writer.Delete` still scope by account, and only transitionally — see §Public Interface.
+  (`RM58-charging-demote-manual-charge-account-id`, MAG-68). `Writer.Update` and
+  `Writer.Delete` are scoped by vehicle, proven through a `vehicleref.Ref` — see
+  §Public Interface.
 - **Mirrored Supercharger charge sessions** (`supercharger_sessions`, renamed from
   `charge_sessions` in RM39 tier 3, RM29 tier 6,
   RM29-charging-add-charge-sessions) — a dense, one-row-per-session nightly mirror of
@@ -76,10 +77,14 @@ replaced by `ListEntriesByVehicles(ctx, teslaIDs []int64, limit int) ([]Entry, e
 returns entries for a caller-supplied set of vehicles. A vehicle registered to two accounts
 returns the same entries to both. `Entry.CreatedByAccountID` (renamed from `AccountID`)
 records who typed the entry — it is authorship, not a tenant key, and no read filters on it.
-`Writer.Update` and `Writer.Delete` still scope by `CreatedByAccountID`, but only
-transitionally: it is the only guard they have until a later tier re-keys them onto the
-entry's vehicle. This means a co-owner of a shared car can currently read another account's
-entry for it but cannot yet edit or delete it.
+`Writer.Update` and `Writer.Delete` now require a `vehicleref.Ref` instead of an account id
+(`RM58-charging-entry-writes-take-ref`) — proof, built only by `internal/gateway`'s
+`authorizeVehicle`, that the caller's account owns the entry's vehicle. `Update` overwrites
+`Entry.TeslaID` from the `Ref` before anything else runs, so energy derivation always reads
+the proven car. A `Ref` naming the wrong vehicle for a given id matches no row: both methods
+return an error wrapping `pgx.ErrNoRows`. This closes the transitional gap: a co-owner of a
+shared car can now edit and delete another account's entry for that car, same as it could
+already read it.
 
 **`Entry.InferredCapacityKWhCalc *float64`** (MAG-25, charging-add-inferred-capacity)
 is reachable through both `Writer` and `Reader` above — it is a field on `Entry`, not
@@ -370,10 +375,12 @@ This module may import:
   `session_verifier.go`, `mirror_watermark.go`, and `monthly_capacity.go`. The generated
   package is module-private by convention; no other module imports it, and no `_test.go`
   file does either.
-- `internal/vehicleref` — ONLY inside `charging.go` and `session_verifier.go`
-  (RM57-charging-verifysession-takes-ref). `SessionVerifier.VerifySession` takes a
-  `vehicleref.Ref` instead of a bare vehicle id, so a caller must already have proven
-  ownership through `internal/vehicleref` before it can call this port.
+- `internal/vehicleref` — ONLY inside `charging.go`, `session_verifier.go`
+  (RM57-charging-verifysession-takes-ref) and `service.go`
+  (RM58-charging-entry-writes-take-ref). `SessionVerifier.VerifySession` and now
+  `Writer.Update`/`Writer.Delete` take a `vehicleref.Ref` instead of a bare vehicle id or
+  account id, so a caller must already have proven ownership through `internal/vehicleref`
+  before it can call any of these ports.
 
   Both lists above have gone stale before. MAG-36 corrected the `chargingdb` list, which had
   named only `service.go` and `session_writer.go` while `session_reader.go` and
@@ -467,10 +474,12 @@ Rules that hold for all four:
 - **sqlc generates `package chargingdb` from `query.sql`.** Only the files listed in
   §Allowed Imports may import it.
 - **No cross-module FK.** Scoping is enforced by each query's own predicate — `tesla_id`
-  for `manual_charge_entries` reads, `supercharger_sessions` and `mirror_watermarks` —
-  never by the database. `manual_charge_entries` writes (`Update`/`Delete`) are the one
-  exception: they still predicate on `created_by_account_id`, transitionally, until a
-  later tier re-keys them onto `tesla_id` too (`RM58-charging-demote-manual-charge-account-id`).
+  for `manual_charge_entries` reads and writes alike, `supercharger_sessions` and
+  `mirror_watermarks` — never by the database. `manual_charge_entries` writes
+  (`Update`/`Delete`) now predicate on `tesla_id` too
+  (`RM58-charging-entry-writes-take-ref`): the caller supplies a `vehicleref.Ref`, and the
+  SQL predicate is the second line of defence against a proven-vehicle `Ref` applied to
+  the wrong row.
 - **Renames must cover the catalog, not a list.** When `charge_sessions` became
   `supercharger_sessions`, every index, constraint and auto-named CHECK went with it. The
   criterion is that no relation, index or constraint owned by this module may still carry

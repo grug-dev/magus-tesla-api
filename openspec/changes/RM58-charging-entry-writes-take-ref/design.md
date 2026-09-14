@@ -213,14 +213,23 @@ and a car shared between two accounts is registered to both.
 `fetchEntryVM`/`fetchEntryTeslaIDAndChargedOn` through `vehicleref.All` /
 `vehicleref.TeslaIDs` — they keep reading over
 `acct.RegisteredVehicles(ctx, uid)` exactly as tier 1 left them. It does not
-change what happens when the entry lookup misses (today `ExternalChargeRowDelete`'s
-delete still proceeds on a miss; that stays true here, because it stays true
-whether or not a `Ref` is required — a miss means `h.chargingWriter.Delete` is
-never even reached). It does not touch `external_charges_tiles.go`. Those
+touch `external_charges_tiles.go`. Those
 three are roadmap tier 3's job
 (`RM58-gateway-authorize-manual-charge-writes`), because they are about
 *how* the gateway resolves the vehicle set it authorizes against, not about
 whether a write is authorized at all — which this tier already settles.
+
+**Correction, made while implementing.** An earlier draft of this section said
+the entry-lookup miss path was unaffected, because `h.chargingWriter.Delete`
+was never reached on a miss. That was wrong. `ExternalChargeRowDelete` called
+`Delete` unconditionally, and its own comment said the delete still proceeded.
+Once `Delete` requires a `Ref`, a miss leaves no vehicle to authorize, so the
+old behaviour cannot continue. The owner chose 404 on a miss, for both
+handlers: the lookup reads only over the account's registered vehicles, so a
+miss means the entry is not this account's to touch. 404 and never 403, so a
+probed id cannot be confirmed as real. This closes the silent no-op instead of
+carrying it to tier 3. It broke existing gateway tests written against the old
+behaviour — see `tasks.md` T6.7.
 
 **Not this worker's sandbox.** `internal/gateway` is a different module. The
 exact edit, file by file, is in `tasks.md` T6, marked leader-owned.

@@ -30,6 +30,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	chargingdb "github.com/cristianpena/magus-tesla-api/internal/charging/db"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // Compile-time assertions: writerService must satisfy Writer and readerService must
@@ -53,7 +54,7 @@ const defaultLimit = 100
 type store interface {
 	createEntry(ctx context.Context, params chargingdb.CreateEntryParams) (chargingdb.ManualChargeEntry, error)
 	updateEntry(ctx context.Context, params chargingdb.UpdateEntryParams) (chargingdb.ManualChargeEntry, error)
-	deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) error
+	deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) (int64, error)
 	listEntriesByVehicle(ctx context.Context, params chargingdb.ListEntriesByVehicleParams) ([]chargingdb.ManualChargeEntry, error)
 	listEntriesByVehicles(ctx context.Context, params chargingdb.ListEntriesByVehiclesParams) ([]chargingdb.ManualChargeEntry, error)
 	listEntriesByVehicleBetween(ctx context.Context, params chargingdb.ListEntriesByVehicleBetweenParams) ([]chargingdb.ManualChargeEntry, error)
@@ -82,7 +83,7 @@ func (d *dbStore) updateEntry(ctx context.Context, params chargingdb.UpdateEntry
 	return d.q.UpdateEntry(ctx, params)
 }
 
-func (d *dbStore) deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) error {
+func (d *dbStore) deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) (int64, error) {
 	return d.q.DeleteEntry(ctx, params)
 }
 
@@ -197,16 +198,19 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 	return rowToEntry(row)
 }
 
-// Update replaces the mutable fields of an existing entry, scoped to the account that
-// typed it (WHERE id = @id AND created_by_account_id = @created_by_account_id) — the
-// only guard this write path has until it can name the entry's vehicle instead.
-// Returns the stored Entry. Immutable columns (id, created_by_account_id, tesla_id,
-// vin, created_at) are never touched.
+// Update replaces the mutable fields of an existing entry, scoped to the vehicle ref
+// proves ownership of (WHERE id = @id AND tesla_id = @tesla_id). The Ref is the real
+// guard — only internal/gateway's authorizeVehicle can build one — and the WHERE
+// clause is the second line of defence against a proven-vehicle Ref applied to the
+// wrong row. Returns the stored Entry. A Ref naming the wrong vehicle for this id
+// matches no row: the error wraps pgx.ErrNoRows. Immutable columns (id,
+// created_by_account_id, tesla_id, vin, created_at) are never touched.
 //
 // Same order as Create above, and for the same reason (MAG-18/RM33 design.md D3):
 // normalize + validate status, enforce RequiredFieldsFor, THEN derive energy. A
 // rejected update writes nothing — the row it targets is left unchanged.
-func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
+func (w *writerService) Update(ctx context.Context, ref vehicleref.Ref, e Entry) (Entry, error) {
+	e.TeslaID = ref.TeslaID() // the proven car wins over whatever the caller sent
 	status, err := normalizeStatus(e.Status)
 	if err != nil {
 		return Entry{}, err
@@ -234,17 +238,17 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 	priceSource := resolvePriceSource(e) // RD3/RD4 (design.md D3)
 
 	params := chargingdb.UpdateEntryParams{
-		ID:                 e.ID,
-		CreatedByAccountID: e.CreatedByAccountID,
-		ChargedOn:          dateFromTime(e.ChargedOn),
-		EnergyAddedKwh:     energyParam,
-		Price:              price,
-		Currency:           e.Currency,
-		StartedAt:          timestamptzPtrToPg(e.StartedAt),
-		EndedAt:            timestamptzPtrToPg(e.EndedAt),
-		StartBatteryPct:    intPtrToPgInt2(e.StartBatteryPct),
-		EndBatteryPct:      intPtrToPgInt2(e.EndBatteryPct),
-		ChargingType:       stringPtrToPgText(e.ChargingType),
+		ID:              e.ID,
+		TeslaID:         e.TeslaID,
+		ChargedOn:       dateFromTime(e.ChargedOn),
+		EnergyAddedKwh:  energyParam,
+		Price:           price,
+		Currency:        e.Currency,
+		StartedAt:       timestamptzPtrToPg(e.StartedAt),
+		EndedAt:         timestamptzPtrToPg(e.EndedAt),
+		StartBatteryPct: intPtrToPgInt2(e.StartBatteryPct),
+		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
+		ChargingType:    stringPtrToPgText(e.ChargingType),
 		// location_kind is now enforced via RequiredFieldsFor/missingFields above
 		// (design.md D5), not the ad-hoc nil/empty check this replaced.
 		LocationKind:  stringPtrToRequired(e.LocationKind),
@@ -321,17 +325,24 @@ func resolvePriceSource(e Entry) PriceSource {
 	return PriceSourceUnconfirmed
 }
 
-// Delete removes the entry identified by id, scoped to the account that typed it.
-// The double-scope (id AND created_by_account_id) at the SQL level means a caller
-// naming the wrong account deletes nothing, even with a valid UUID — the only guard
-// this write path has until it can name the entry's vehicle instead.
-func (w *writerService) Delete(ctx context.Context, accountID uuid.UUID, id uuid.UUID) error {
+// Delete removes the entry identified by id, scoped to the vehicle ref proves
+// ownership of (WHERE id = @id AND tesla_id = @tesla_id). The Ref is the real guard —
+// only internal/gateway's authorizeVehicle can build one — and the WHERE clause is the
+// second line of defence against a proven-vehicle Ref applied to the wrong row. A Ref
+// naming the wrong vehicle for this id deletes nothing, and the caller learns it: the
+// returned error wraps pgx.ErrNoRows, so a rejected delete can never be mistaken for a
+// successful one by omission.
+func (w *writerService) Delete(ctx context.Context, ref vehicleref.Ref, id uuid.UUID) error {
 	params := chargingdb.DeleteEntryParams{
-		ID:                 id,
-		CreatedByAccountID: accountID,
+		ID:      id,
+		TeslaID: ref.TeslaID(),
 	}
-	if err := w.store.deleteEntry(ctx, params); err != nil {
+	rows, err := w.store.deleteEntry(ctx, params)
+	if err != nil {
 		return fmt.Errorf("charging: delete entry: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("charging: delete entry: %w", pgx.ErrNoRows)
 	}
 	return nil
 }

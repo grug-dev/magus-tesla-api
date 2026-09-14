@@ -180,7 +180,7 @@ func TestUpdate_InferredCapacity_RecomputesOnEndBatteryPctChange(t *testing.T) {
 	updated := created
 	updated.EndBatteryPct = ptrInt(84)
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(teslaID), updated)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}

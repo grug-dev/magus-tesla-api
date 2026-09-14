@@ -96,13 +96,19 @@ const (
 // Timestamps map to time.Time; DATE maps to time.Time (midnight UTC).
 type Entry struct {
 	ID uuid.UUID
-	// CreatedByAccountID records which account typed this entry. No read
-	// filters on it: an entry is visible to every account registered to its
-	// vehicle. Update and Delete still match on it, as the only guard they
-	// have until they can name the vehicle instead.
+	// CreatedByAccountID records which account typed this entry. It is
+	// authorship only, recorded once on Create and never touched or checked
+	// again: no read filters on it, and no write matches on it.
 	CreatedByAccountID uuid.UUID
-	TeslaID            int64
-	VIN                string
+	// TeslaID is the vehicle this entry belongs to. On Create it is
+	// caller-supplied and trusted -- the gateway already checked the vehicle
+	// against the account before calling. On Update it is IGNORED: the
+	// module overwrites it from the caller's vehicleref.Ref before anything
+	// else runs, the same "module owns this value" rule EnergySource and
+	// PriceSource already follow -- so a stale or mismatched caller value can
+	// never leak into energy derivation or the stored row.
+	TeslaID int64
+	VIN     string
 
 	// Status is this entry's lifecycle state. The required-field set for
 	// Create/Update is a function of Status — see RequiredFieldsFor. An empty
@@ -219,19 +225,22 @@ func (e Entry) SessionDuration() *time.Duration {
 	return &d
 }
 
-// Writer is the full CRUD port for manual charge entries. The gateway calls this after
-// validating that the user owns the vehicle (resolved via account.Service — outside
-// this module's scope). Create and Update return the stored Entry (with server-assigned
-// id, created_at, updated_at) so the gateway can display the result without a second
-// round-trip. Delete takes accountID as a required argument so the SQL WHERE clause
-// scopes to the account that typed the entry — a caller naming the wrong account
-// deletes nothing, even with a valid UUID. This guard matches the account that TYPED
-// the entry, which is narrower than the car the entry belongs to, until Delete can
-// name the vehicle instead.
+// Writer is the full CRUD port for manual charge entries. Create keeps the account
+// argument on Entry.CreatedByAccountID -- authorship, not a guard: no existing row can
+// collide with a new one, so nothing needs proving before a create. Update and Delete
+// instead require a vehicleref.Ref, proving the caller's account owns the entry's OWN
+// vehicle -- only internal/gateway's authorizeVehicle can build one. Update overwrites
+// Entry.TeslaID from the Ref before doing anything else (see the field's own comment),
+// so every downstream derivation reads the proven car, never the caller's value.
+// Create and Update return the stored Entry (with server-assigned id, created_at,
+// updated_at) so the gateway can display the result without a second round-trip. A Ref
+// naming the wrong vehicle for a given id matches no row: Update returns an error
+// wrapping pgx.ErrNoRows (from RETURNING * finding nothing), and Delete reports the
+// same, from a zero row count.
 type Writer interface {
 	Create(ctx context.Context, e Entry) (Entry, error)
-	Update(ctx context.Context, e Entry) (Entry, error)
-	Delete(ctx context.Context, accountID uuid.UUID, id uuid.UUID) error
+	Update(ctx context.Context, ref vehicleref.Ref, e Entry) (Entry, error)
+	Delete(ctx context.Context, ref vehicleref.Ref, id uuid.UUID) error
 }
 
 // Reader is the read port shaped for dashboard access patterns. All methods return a

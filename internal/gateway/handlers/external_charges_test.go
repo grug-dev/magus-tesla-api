@@ -22,6 +22,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // fakeRecalculator is a test double for analytics.Recalculator
@@ -68,6 +69,13 @@ type fakeChargeWriter struct {
 	deleteCalls int // count of Delete invocations — lets tests assert a rejected write never reached the port
 	createCalls int // count of Create invocations — mirrors deleteCalls (RM33 Group A "Writer.Create never called" assertions)
 	updateCalls int // count of Update invocations — mirrors deleteCalls
+
+	// linkedReader, when set, makes a successful Delete drop the entry from
+	// that reader's slice. The handler looks the entry up, deletes it, then
+	// re-renders the list from the reader in ONE request, so a static fake
+	// cannot show both states. Opt-in: a test that leaves this nil keeps the
+	// old, stateless fake.
+	linkedReader *fakeChargeReader
 }
 
 func (f *fakeChargeWriter) Create(_ context.Context, e charging.Entry) (charging.Entry, error) {
@@ -82,7 +90,7 @@ func (f *fakeChargeWriter) Create(_ context.Context, e charging.Entry) (charging
 	return e, nil
 }
 
-func (f *fakeChargeWriter) Update(_ context.Context, e charging.Entry) (charging.Entry, error) {
+func (f *fakeChargeWriter) Update(_ context.Context, _ vehicleref.Ref, e charging.Entry) (charging.Entry, error) {
 	f.updateCalls++
 	if f.updateErr != nil {
 		return charging.Entry{}, f.updateErr
@@ -92,9 +100,21 @@ func (f *fakeChargeWriter) Update(_ context.Context, e charging.Entry) (charging
 	return e, nil
 }
 
-func (f *fakeChargeWriter) Delete(_ context.Context, _ uuid.UUID, _ uuid.UUID) error {
+func (f *fakeChargeWriter) Delete(_ context.Context, _ vehicleref.Ref, id uuid.UUID) error {
 	f.deleteCalls++
-	return f.deleteErr
+	if f.deleteErr != nil {
+		return f.deleteErr
+	}
+	if f.linkedReader != nil {
+		kept := f.linkedReader.entries[:0]
+		for _, e := range f.linkedReader.entries {
+			if e.ID != id {
+				kept = append(kept, e)
+			}
+		}
+		f.linkedReader.entries = kept
+	}
+	return nil
 }
 
 type fakeChargeReader struct {
@@ -806,7 +826,11 @@ func TestExternalChargeRowUpdate_ValidInput(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
+	// The handler now looks up the entry's own vehicle before it may call
+	// Update, so the reader must carry a row with this id — TeslaID 1001
+	// matches the vehicle newHandlerForExternalCharges registers.
+	reader := &fakeChargeReader{entries: []charging.Entry{{ID: id, TeslaID: 1001}}}
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -892,7 +916,11 @@ func TestExternalChargeRowDelete_ValidInput_RendersChargesListFragment(t *testin
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForExternalCharges(writer, &fakeChargeReader{})
+	// Delete now looks up the entry's own vehicle before it may proceed, so
+	// the reader must carry a row with this id — TeslaID 1001 matches the
+	// vehicle newHandlerForExternalCharges registers.
+	reader := &fakeChargeReader{entries: []charging.Entry{{ID: id, TeslaID: 1001}}}
+	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -2958,7 +2986,10 @@ func TestExternalChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
-	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+	// Update now looks up the entry's own vehicle before it may proceed, so
+	// the reader must carry a row with this id — TeslaID 1001 matches the
+	// vehicle newHandlerForExternalCharges registers.
+	h := newHandlerForExternalCharges(writer, &fakeChargeReader{entries: []charging.Entry{{ID: id, TeslaID: 1001}}})
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
@@ -3059,8 +3090,11 @@ func TestExternalChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow(t *te
 // id is absent from it. The fake Reader has no relationship to the fake
 // Writer's Delete call, so reader.entries is pre-set to already exclude the
 // deleted id — simulating the read a real charging.Reader would return after
-// the write committed (the same convention
-// TestExternalChargeRowDelete_ThenListReflectsRemoval uses for its own later GET).
+// the write committed.
+//
+// The handler looks the entry up, deletes it, then re-renders the list, all in
+// one request. So the reader must hold the entry at the start and not hold it
+// at the end. linkedReader gives the fake writer that one behaviour.
 func TestExternalChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(t *testing.T) {
 	uid := uuid.New()
 	keptID := uuid.New()
@@ -3068,8 +3102,10 @@ func TestExternalChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(
 	reader := &fakeChargeReader{entries: []charging.Entry{
 		{ID: keptID, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
 			EnergyAddedKWh: ptrF64(10.0), Price: 5000.0, Currency: "COP"},
+		{ID: deletedID, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
+			EnergyAddedKWh: ptrF64(8.0), Price: 4000.0, Currency: "COP"},
 	}}
-	writer := &fakeChargeWriter{}
+	writer := &fakeChargeWriter{linkedReader: reader}
 	h := newHandlerForExternalCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")

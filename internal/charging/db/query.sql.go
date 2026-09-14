@@ -155,24 +155,28 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Manua
 	return i, err
 }
 
-const deleteEntry = `-- name: DeleteEntry :exec
+const deleteEntry = `-- name: DeleteEntry :execrows
 DELETE FROM charging.manual_charge_entries
 WHERE id = $1
-  AND created_by_account_id = $2
+  AND tesla_id = $2
 `
 
 type DeleteEntryParams struct {
-	ID                 uuid.UUID
-	CreatedByAccountID uuid.UUID
+	ID      uuid.UUID
+	TeslaID int64
 }
 
-// Delete a charge entry. WHERE (id, created_by_account_id) is the only guard left on
-// this write path: it matches the account that TYPED the entry, which is narrower
-// than the car the entry belongs to, so a co-owner of a shared car cannot yet delete
-// it. It is replaced by a tesla_id guard as soon as the port can carry a vehicle.
-func (q *Queries) DeleteEntry(ctx context.Context, arg DeleteEntryParams) error {
-	_, err := q.db.Exec(ctx, deleteEntry, arg.ID, arg.CreatedByAccountID)
-	return err
+// Delete a charge entry. Same guard as UpdateEntry: the caller already proved vehicle
+// ownership to obtain a Ref, and WHERE (id, tesla_id) is the second line of defence
+// against a proven-vehicle Ref applied to the wrong row. Returns the row count so the
+// caller can tell a real delete from a no-op instead of a silent no-op looking like
+// success.
+func (q *Queries) DeleteEntry(ctx context.Context, arg DeleteEntryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEntry, arg.ID, arg.TeslaID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getMirrorWatermark = `-- name: GetMirrorWatermark :one
@@ -979,36 +983,36 @@ SET
     price_source      = $16,
     updated_at        = now()
 WHERE id = $17
-  AND created_by_account_id = $18
+  AND tesla_id = $18
 RETURNING id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source
 `
 
 type UpdateEntryParams struct {
-	ChargedOn          pgtype.Date
-	EnergyAddedKwh     pgtype.Numeric
-	Price              pgtype.Numeric
-	Currency           string
-	StartedAt          pgtype.Timestamptz
-	EndedAt            pgtype.Timestamptz
-	StartBatteryPct    pgtype.Int2
-	EndBatteryPct      pgtype.Int2
-	ChargingType       pgtype.Text
-	LocationKind       string
-	LocationLabel      pgtype.Text
-	Notes              pgtype.Text
-	Status             string
-	EnergySource       string
-	OdometerKm         pgtype.Int4
-	PriceSource        string
-	ID                 uuid.UUID
-	CreatedByAccountID uuid.UUID
+	ChargedOn       pgtype.Date
+	EnergyAddedKwh  pgtype.Numeric
+	Price           pgtype.Numeric
+	Currency        string
+	StartedAt       pgtype.Timestamptz
+	EndedAt         pgtype.Timestamptz
+	StartBatteryPct pgtype.Int2
+	EndBatteryPct   pgtype.Int2
+	ChargingType    pgtype.Text
+	LocationKind    string
+	LocationLabel   pgtype.Text
+	Notes           pgtype.Text
+	Status          string
+	EnergySource    string
+	OdometerKm      pgtype.Int4
+	PriceSource     string
+	ID              uuid.UUID
+	TeslaID         int64
 }
 
-// Update mutable fields of an existing charge entry. WHERE (id, created_by_account_id)
-// is the only guard left on this write path: it matches the account that TYPED the
-// entry, which is narrower than the car the entry belongs to, so a co-owner of a
-// shared car cannot yet edit it. It is replaced by a tesla_id guard as soon as the
-// port can carry a vehicle.
+// Update mutable fields of an existing charge entry. The real check is the caller
+// proving vehicle ownership before this query ever runs (a vehicleref.Ref cannot be
+// built without it). WHERE (id, tesla_id) is the second line of defence: it catches a
+// proven-vehicle Ref applied to the wrong row (id typo, stale id, a race), so a right
+// vehicle can never collide with another vehicle's row even by accident.
 // Immutable columns (id, created_by_account_id, tesla_id, vin, created_at) are never
 // touched. updated_at is refreshed to now() on every successful update.
 //
@@ -1041,7 +1045,7 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 		arg.OdometerKm,
 		arg.PriceSource,
 		arg.ID,
-		arg.CreatedByAccountID,
+		arg.TeslaID,
 	)
 	var i ManualChargeEntry
 	err := row.Scan(

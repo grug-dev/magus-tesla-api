@@ -8,9 +8,9 @@
 //
 // Coverage:
 //   - Writer.Create: required-only, all-optional, CHECK constraint violations.
-//   - Writer.Update: mutation of mutable fields, created_at unchanged, cross-account guard
-//     (the guard still matches the authoring account — a transitional scope).
-//   - Writer.Delete: own entry, cross-account guard (same transitional scope).
+//   - Writer.Update: mutation of mutable fields, created_at unchanged, cross-vehicle guard
+//     (a caller proving ownership of the wrong vehicle mutates nothing).
+//   - Writer.Delete: own entry, cross-vehicle guard (same shape, now an error on a miss).
 //   - Reader.ListEntriesByVehicle: reads are car-wide now — every account's entries for
 //     that vehicle come back, newest-first ordering, limit, empty slice.
 //   - Reader.ListEntriesByVehicles: reads for a caller-supplied set of vehicles.
@@ -22,11 +22,13 @@ package charging_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
@@ -84,6 +86,10 @@ func minEntry(accountID uuid.UUID, teslaID int64) charging.Entry {
 		LocationKind:       &lk,
 	}
 }
+
+// refFor is declared in db_session_verifier_integration_test.go (added by
+// RM57 for VerifySession) and reused here -- same package, same shape this
+// file would otherwise duplicate.
 
 func ptrString(s string) *string { return &s }
 func ptrInt(i int) *int          { return &i }
@@ -359,7 +365,7 @@ func TestUpdate_MutatesFieldsAndAdvancesUpdatedAt(t *testing.T) {
 	updated.Price = 99999.99
 	updated.Notes = ptrString("corrected price")
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(teslaID), updated)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -392,14 +398,13 @@ func TestUpdate_MutatesFieldsAndAdvancesUpdatedAt(t *testing.T) {
 	}
 }
 
-// TestUpdate_CrossAccountIsNoOp asserts that updating an entry while naming a
-// different account is a no-op — the WHERE id=X AND created_by_account_id=Y finds
-// zero rows and returns a not-found / zero-rows error. This guard is transitional:
-// it matches the account that TYPED the entry, narrower than the car it belongs
-// to, until it is re-keyed onto the vehicle. It
-// stays and keeps passing across that move — it is the proof that no commit on
-// this branch has an unauthorized write path.
-func TestUpdate_CrossAccountIsNoOp(t *testing.T) {
+// TestUpdate_CrossVehicleIsNoOp asserts that updating an entry while proving
+// ownership of a DIFFERENT vehicle than the entry's own is a no-op — the WHERE
+// id=X AND tesla_id=Y finds zero rows and returns a not-found / zero-rows
+// error. This is the proof that no commit on this branch has an unauthorized
+// write path: a caller cannot mutate an entry by proving ownership of some
+// other car.
+func TestUpdate_CrossVehicleIsNoOp(t *testing.T) {
 	pool := newTestPool(t)
 	ownerID := uuid.New()
 	attackerID := uuid.New()
@@ -408,7 +413,7 @@ func TestUpdate_CrossAccountIsNoOp(t *testing.T) {
 	ctx := context.Background()
 	w := charging.NewWriter(pool)
 
-	// Create entry under ownerID.
+	// Create entry under ownerID, for vehicle 333.
 	const teslaID = int64(333)
 	e := minEntry(ownerID, teslaID)
 	created, err := w.Create(ctx, e)
@@ -416,15 +421,14 @@ func TestUpdate_CrossAccountIsNoOp(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	// Attempt to update it using attackerID as the account scope.
+	// Attempt to update it while proving ownership of a different vehicle (999).
 	tampered := created
-	tampered.CreatedByAccountID = attackerID // wrong account
 	tampered.Price = 1.0
 
-	_, err = w.Update(ctx, tampered)
+	_, err = w.Update(ctx, refFor(999), tampered)
 	// Expected: error (pgx returns pgx.ErrNoRows when RETURNING * finds 0 rows).
 	if err == nil {
-		t.Fatal("Update with wrong created_by_account_id: expected error (no rows), got nil")
+		t.Fatal("Update with wrong vehicle Ref: expected error (no rows), got nil")
 	}
 
 	// Owner's row must be unchanged.
@@ -460,7 +464,7 @@ func TestDelete_OwnEntry(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if err := w.Delete(ctx, accountID, created.ID); err != nil {
+	if err := w.Delete(ctx, refFor(teslaID), created.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
@@ -473,10 +477,12 @@ func TestDelete_OwnEntry(t *testing.T) {
 	}
 }
 
-// TestDelete_CrossAccountGuard attempts to delete an entry while naming the wrong
-// account and asserts the row survives. Same transitional guard as
-// TestUpdate_CrossAccountIsNoOp: it stays and keeps passing.
-func TestDelete_CrossAccountGuard(t *testing.T) {
+// TestDelete_CrossVehicleGuard attempts to delete an entry while proving
+// ownership of a DIFFERENT vehicle than the entry's own, and asserts the row
+// survives. Behaviour change from the prior account-keyed guard: a mismatched
+// delete now reports an error instead of silently doing nothing, so a caller
+// can no longer mistake a rejected delete for a successful one.
+func TestDelete_CrossVehicleGuard(t *testing.T) {
 	pool := newTestPool(t)
 	ownerID := uuid.New()
 	attackerID := uuid.New()
@@ -486,7 +492,7 @@ func TestDelete_CrossAccountGuard(t *testing.T) {
 	w := charging.NewWriter(pool)
 	r := charging.NewReader(pool)
 
-	// Create entry under ownerID.
+	// Create entry under ownerID, for vehicle 555.
 	const teslaID = int64(555)
 	e := minEntry(ownerID, teslaID)
 	created, err := w.Create(ctx, e)
@@ -494,10 +500,11 @@ func TestDelete_CrossAccountGuard(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	// Delete with wrong account — :exec does not return an error for zero rows deleted;
-	// the row simply survives.
-	if err := w.Delete(ctx, attackerID, created.ID); err != nil {
-		t.Fatalf("Delete with wrong account returned unexpected error: %v", err)
+	// Delete while proving ownership of a different vehicle (998) — :execrows
+	// now reports the zero-row match as an error wrapping pgx.ErrNoRows.
+	err = w.Delete(ctx, refFor(998), created.ID)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("Delete with wrong vehicle Ref: got err=%v, want error wrapping pgx.ErrNoRows", err)
 	}
 
 	// Owner's row must still exist.
@@ -1030,7 +1037,7 @@ func TestUpdate_RejectsNilLocationKind(t *testing.T) {
 	tampered := created
 	tampered.LocationKind = nil
 
-	_, err = w.Update(ctx, tampered)
+	_, err = w.Update(ctx, refFor(1006), tampered)
 	if err == nil {
 		t.Fatal("Update with nil LocationKind: expected non-nil error, got nil")
 	}
@@ -1353,7 +1360,7 @@ func TestUpdate_AcceptsLocationKindChange(t *testing.T) {
 	updated := created
 	updated.LocationKind = ptrString("WORK")
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(1007), updated)
 	if err != nil {
 		t.Fatalf("Update LocationKind HOME→WORK: unexpected error: %v", err)
 	}

@@ -68,11 +68,11 @@ INSERT INTO charging.manual_charge_entries (
 RETURNING *;
 
 -- name: UpdateEntry :one
--- Update mutable fields of an existing charge entry. WHERE (id, created_by_account_id)
--- is the only guard left on this write path: it matches the account that TYPED the
--- entry, which is narrower than the car the entry belongs to, so a co-owner of a
--- shared car cannot yet edit it. It is replaced by a tesla_id guard as soon as the
--- port can carry a vehicle.
+-- Update mutable fields of an existing charge entry. The real check is the caller
+-- proving vehicle ownership before this query ever runs (a vehicleref.Ref cannot be
+-- built without it). WHERE (id, tesla_id) is the second line of defence: it catches a
+-- proven-vehicle Ref applied to the wrong row (id typo, stale id, a race), so a right
+-- vehicle can never collide with another vehicle's row even by accident.
 -- Immutable columns (id, created_by_account_id, tesla_id, vin, created_at) are never
 -- touched. updated_at is refreshed to now() on every successful update.
 --
@@ -106,17 +106,18 @@ SET
     price_source      = @price_source,
     updated_at        = now()
 WHERE id = @id
-  AND created_by_account_id = @created_by_account_id
+  AND tesla_id = @tesla_id
 RETURNING *;
 
--- name: DeleteEntry :exec
--- Delete a charge entry. WHERE (id, created_by_account_id) is the only guard left on
--- this write path: it matches the account that TYPED the entry, which is narrower
--- than the car the entry belongs to, so a co-owner of a shared car cannot yet delete
--- it. It is replaced by a tesla_id guard as soon as the port can carry a vehicle.
+-- name: DeleteEntry :execrows
+-- Delete a charge entry. Same guard as UpdateEntry: the caller already proved vehicle
+-- ownership to obtain a Ref, and WHERE (id, tesla_id) is the second line of defence
+-- against a proven-vehicle Ref applied to the wrong row. Returns the row count so the
+-- caller can tell a real delete from a no-op instead of a silent no-op looking like
+-- success.
 DELETE FROM charging.manual_charge_entries
 WHERE id = @id
-  AND created_by_account_id = @created_by_account_id;
+  AND tesla_id = @tesla_id;
 
 -- name: ListEntriesByVehicle :many
 -- Return entries for a specific vehicle, ordered newest charged day first, limited
