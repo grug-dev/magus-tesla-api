@@ -21,6 +21,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // --- fakes for the Supercharger Stats handler tests ---
@@ -1133,8 +1134,8 @@ type fakeSessionVerifier struct {
 // fakeRecalculator's own compile-time assertion documents (external_charges_test.go).
 var _ charging.SessionVerifier = (*fakeSessionVerifier)(nil)
 
-func (f *fakeSessionVerifier) VerifySession(_ context.Context, teslaID int64, id uuid.UUID, startBatteryPct, endBatteryPct *int) (charging.Session, error) {
-	f.calls = append(f.calls, verifySessionCall{teslaID: teslaID, id: id, startPct: startBatteryPct, endPct: endBatteryPct})
+func (f *fakeSessionVerifier) VerifySession(_ context.Context, ref vehicleref.Ref, id uuid.UUID, startBatteryPct, endBatteryPct *int) (charging.Session, error) {
+	f.calls = append(f.calls, verifySessionCall{teslaID: ref.TeslaID(), id: id, startPct: startBatteryPct, endPct: endBatteryPct})
 	if f.err != nil {
 		return charging.Session{}, f.err
 	}
@@ -1169,7 +1170,16 @@ func newHandlerForSuperchargerRow(reader *fakeSessionReader, verifier *fakeSessi
 // not a string, because T6 needs a session where csrf_supercharger was NEVER
 // set at all — distinct from an issued-but-empty value — so the /_session
 // helper must be able to skip the sess.Set call entirely, not just set "".
-func superchargerRowEngine(h *Handler, uid uuid.UUID, csrfToken string, issueCSRF bool) *gin.Engine {
+//
+// selTeslaID/selVIN seed the session's selected-vehicle keys, mirroring what
+// a real GET /supercharger-stats render already stored before any PATCH is
+// ever sent — SuperchargerRowUpdate reads the vehicle from the session
+// directly (currentVehicle), not from resolveSelectedVehicle's auto-select,
+// so a test whose PATCH must reach VerifySession needs this set. Pass 0, ""
+// for a test where either no vehicle should resolve, or where the outcome is
+// decided before the vehicle is ever read (a malformed body, a validation
+// error, or a CSRF rejection).
+func superchargerRowEngine(h *Handler, uid uuid.UUID, csrfToken string, issueCSRF bool, selTeslaID int64, selVIN string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	store := cookie.NewStore([]byte("test-secret"))
@@ -1179,6 +1189,10 @@ func superchargerRowEngine(h *Handler, uid uuid.UUID, csrfToken string, issueCSR
 		sess.Set("uid", uid.String())
 		if issueCSRF {
 			sess.Set(csrfSuperchargerKey, csrfToken)
+		}
+		if selTeslaID != 0 {
+			sess.Set(sessionTeslaIDKey, selTeslaID)
+			sess.Set(sessionVINKey, selVIN)
 		}
 		_ = sess.Save()
 		c.String(http.StatusOK, "ok")
@@ -1201,7 +1215,7 @@ func TestSuperchargerRowUpdate_AbsentKeyIs400(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1253,7 +1267,7 @@ func TestSuperchargerRowUpdate_BothEmptyClearsBothPercentages(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1304,7 +1318,7 @@ func TestSuperchargerRowUpdate_DecreasingOrderAccepted(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1356,7 +1370,7 @@ func TestSuperchargerRowUpdate_RecalculateWindowFromChargeStopDateTime(t *testin
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1403,7 +1417,7 @@ func TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1463,15 +1477,16 @@ func newHandlerForSuperchargerRowVehicles(reader *fakeSessionReader, verifier *f
 
 // TestSuperchargerRowUpdate_NoResolvableVehicleIs404 covers the branch that
 // keeps the write scoped. VerifySession is keyed on a vehicle, so the handler
-// must resolve one from the signed-in account first. With no registered
-// vehicle there is nothing to resolve, and the write must not happen at all.
+// needs one selected in the session first. With no vehicle registered (and
+// so none selected), there is nothing to read, and the write must not happen
+// at all.
 func TestSuperchargerRowUpdate_NoResolvableVehicleIs404(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	verifier := &fakeSessionVerifier{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRowVehicles(&fakeSessionReader{}, verifier, recalc, nil)
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 0, "")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1500,9 +1515,10 @@ func TestSuperchargerRowUpdate_NoResolvableVehicleIs404(t *testing.T) {
 }
 
 // TestSuperchargerRowUpdate_VerifyUsesResolvedVehicle proves the handler passes
-// the vehicle it actually resolved, not just the first one on the account. The
-// account holds two cars and the SECOND is the OWNER, so the resolve picks it.
-// An implementation that passed vehicles[0] would fail here.
+// the SESSION-selected vehicle, never the account's first vehicle. The account
+// holds two cars; the session has the SECOND (the OWNER) selected, mirroring
+// what a real page render already stored. An implementation that read
+// vehicles[0] instead of the session would fail here.
 func TestSuperchargerRowUpdate_VerifyUsesResolvedVehicle(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
@@ -1523,7 +1539,7 @@ func TestSuperchargerRowUpdate_VerifyUsesResolvedVehicle(t *testing.T) {
 	}}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRowVehicles(&fakeSessionReader{}, verifier, recalc, vehicles)
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 22, "VIN22")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1562,7 +1578,7 @@ func TestSuperchargerRowUpdate_NoTokenEverIssuedIs403(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "", false) // issueCSRF=false — key never set
+	r := superchargerRowEngine(h, uid, "", false, 42, "VIN42") // issueCSRF=false — key never set
 	c := sessionCookie(r, uid, "")
 
 	form := url.Values{
@@ -1598,7 +1614,7 @@ func TestSuperchargerRowUpdate_StaleTokenRejected(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "freshtoken", true)
+	r := superchargerRowEngine(h, uid, "freshtoken", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "freshtoken")
 
 	form := url.Values{
@@ -1642,7 +1658,7 @@ func TestSuperchargerRowEditFragment_NotInWindowIs404(t *testing.T) {
 	verifier := &fakeSessionVerifier{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	start := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)

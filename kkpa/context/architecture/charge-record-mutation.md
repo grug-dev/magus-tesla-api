@@ -132,11 +132,15 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   information. That is why the monthly job in `charging/monthly_capacity.go` filters
   `WHERE energy_source = 'USER'`: it must never average a derived value back into itself.
   _Source: `charging/capacity.go`, `analytics/capacity.go`._
-- **Different ownership vocabulary** — the manual handlers call `acct.RegisteredVehicles` +
-  `vehicleOwned`; `SuperchargerRowUpdate` relies solely on the SQL `AND tesla_id` scope (a
-  documented deliberate divergence). Both are secure; the inconsistency is in the vocabulary and
-  the extra read.
-  _Source: `gateway/handlers/external_charges.go` `vehicleOwned`, `gateway/handlers/supercharger.go` D8._
+- **Different ownership vocabulary, same shape now** — the manual handlers call
+  `acct.RegisteredVehicles` + `vehicleOwned`; `SuperchargerRowUpdate` calls
+  `acct.RegisteredVehicles` through `h.authorizeVehicle`, which turns the result into a
+  `vehicleref.Ref` `VerifySession` requires. Both now prove ownership with one
+  `RegisteredVehicles` read before writing — the remaining difference is `vehicleOwned`'s bool
+  vs. `authorizeVehicle`'s typed `Ref`, and where in the handler each check runs (Supercharger
+  proves ownership after body validation, not before CSRF).
+  _Source: `gateway/handlers/external_charges.go` `vehicleOwned`, `gateway/handlers/handlers.go`
+  `authorizeVehicle`, `gateway/handlers/supercharger.go` `SuperchargerRowUpdate`._
 - **Different post-write refresh** — the manual update returns an OOB `#external-charges-list` refresh so
   tiles follow the edit; the Supercharger update swaps only the row. Harmless today (a battery-%
   correction changes no tile), a defect the moment that page surfaces anything derived from the

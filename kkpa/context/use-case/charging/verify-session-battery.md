@@ -40,8 +40,10 @@ write channel is correcting the two human-owned battery percentages.
 ## Flow
 
 1. `Handler.SuperchargerRowUpdate` — `internal/gateway/handlers/supercharger.go` — auth guard,
-   `checkCSRFKey(csrfSuperchargerKey)`, parse the id. **No `RegisteredVehicles` ownership check**
-   — a deliberate divergence from the manual path.
+   `checkCSRFKey(csrfSuperchargerKey)`, parse the id. After body validation, reads the vehicle
+   the session already selected (`currentVehicle`) and proves ownership with
+   `h.authorizeVehicle`, producing the `vehicleref.Ref` step 3 needs. This reuses
+   `RegisteredVehicles` the same way `resolveSelectedVehicle` does — one query, not two.
 2. `c.GetPostForm` × 2 — strict presence check, then range-validate each non-empty value to
    `[0, 100]` before any port call.
 3. `charging.SessionVerifier.VerifySession(ctx, ref, id, startBatteryPct, endBatteryPct)` —

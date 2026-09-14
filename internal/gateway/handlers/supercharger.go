@@ -142,6 +142,9 @@ func (h *Handler) superchargerStatsViewFor(c *gin.Context, uid uuid.UUID, csrfTo
 		}, http.StatusBadRequest
 	}
 
+	// A read, not a write: resolveSelectedVehicle only ever returns a vehicle
+	// this account's own RegisteredVehicles list contains, so ownership is
+	// already proven here. No separate authorizeVehicle call is needed.
 	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
 	if !sOK {
 		return fragments.SuperchargerStatsView{
@@ -172,6 +175,9 @@ func (h *Handler) fetchSuperchargerRowVM(c *gin.Context, uid uuid.UUID, id uuid.
 		return fragments.SuperchargerRowVM{}, false
 	}
 
+	// A read, not a write: resolveSelectedVehicle only ever returns a vehicle
+	// this account's own RegisteredVehicles list contains, so ownership is
+	// already proven here. No separate authorizeVehicle call is needed.
 	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
 	if !sOK {
 		return fragments.SuperchargerRowVM{}, false
@@ -586,16 +592,18 @@ func (h *Handler) SuperchargerRowEditFragment(c *gin.Context) {
 // SuperchargerRowUpdate handles PATCH /ui/supercharger-stats/row/:id. Saves
 // the verified battery percentages via charging.SessionVerifier.VerifySession
 // and swaps back to the static row on success, or re-renders the edit form
-// with validation errors / a top-of-form save error. See design.md D3
-// (strict body — an absent key is 400, an empty value clears), D6 (nil
-// TeslaID skips recalculation but the write still succeeds), D7 (blanks
-// clear, no ordering validation, [0,100] range validated first), D8
-// (CSRF via csrfSuperchargerKey; no separate RegisteredVehicles ownership
-// check — VerifySession's own account-scoped WHERE clause is the sole tenant
-// boundary, a deliberate divergence from ExternalChargeRowUpdate/D4), and D9
-// (writer-error branching re-resolves via fetchSuperchargerRowVM instead of
-// inspecting the wrapped pgx error, keeping pgx out of the gateway's import
-// graph).
+// with validation errors / a top-of-form save error.
+//
+// The body is strict: an absent key is 400, an empty value clears that
+// percentage. Values are range-checked [0,100] before any port call, with no
+// ordering check between start and end. A nil TeslaID on the returned session
+// skips recalculation but the write still succeeds. CSRF uses
+// csrfSuperchargerKey; vehicle ownership is proved by authorizeVehicle right
+// before the port call, over the vehicle the session already selected — a
+// single RegisteredVehicles query, not the two a resolve-then-authorize shape
+// would cost. A writer error re-resolves the row via fetchSuperchargerRowVM
+// instead of inspecting the wrapped pgx error, keeping pgx out of the
+// gateway's import graph.
 func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -616,7 +624,7 @@ func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
 	csrfToken, _ := sess.Get(csrfSuperchargerKey).(string)
 	windowStartStr, windowEndStr := superchargerWindowStrs(c)
 
-	// D3 — STRICT body: c.GetPostForm distinguishes "absent" (ok=false) from
+	// STRICT body: c.GetPostForm distinguishes "absent" (ok=false) from
 	// "present but empty" (ok=true, value==""), unlike c.PostForm. Either key
 	// absent -> 400, VerifySession never called, no fragment rendered.
 	startRaw, startPresent := c.GetPostForm("start_battery_pct")
@@ -654,7 +662,7 @@ func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
 		// cost/estimates — not submitted by this form's two-input body) via
 		// the same list-and-match helper the GET routes use, then override
 		// ONLY the two raw values with what the user actually submitted
-		// (design.md T5 — echoed unmodified, not reset to the old stored
+		// (echoed unmodified, not reset to the old stored
 		// values). A resolve failure here (rare: the session vanished mid-
 		// edit) falls back to just the id + submitted raw values rather than
 		// escalating a validation error into a 404.
@@ -668,20 +676,27 @@ func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
 		return
 	}
 
-	// The port is scoped by vehicle, not by account, so the handler must supply
-	// the vehicle. resolveSelectedVehicle only ever returns a vehicle of the
-	// signed-in account, which is what keeps one account from writing another's
-	// session.
-	selected, selOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
+	// The write reads the vehicle straight from the session, not
+	// resolveSelectedVehicle's auto-select: a save always follows a page
+	// render that already picked one, so a missing selection means a stale
+	// session or a hand-crafted request — 404 either way, never an auto-pick.
+	// authorizeVehicle re-proves the id still belongs to this account and
+	// returns a Ref the port can only accept from a proven caller.
+	teslaID, _, selOK := currentVehicle(c)
 	if !selOK {
 		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorSessionNotFound))
 		return
 	}
+	ref, err := h.authorizeVehicle(c.Request.Context(), uid, teslaID)
+	if err != nil {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorSessionNotFound))
+		return
+	}
 
-	updated, err := h.superchargerVerifier.VerifySession(c.Request.Context(), selected.TeslaID, id, startPct, endPct)
+	updated, err := h.superchargerVerifier.VerifySession(c.Request.Context(), ref, id, startPct, endPct)
 	if err != nil {
 		log.Printf("gateway: SuperchargerRowUpdate writer error for account %s, id %s: %v", uid, id, err)
-		// D9 — distinguish 404 from 500 by RE-RESOLVING via
+		// Distinguish 404 from 500 by RE-RESOLVING via
 		// fetchSuperchargerRowVM rather than inspecting the (possibly
 		// pgx.ErrNoRows-wrapping) error — the gateway does not import pgx.
 		vm, vmOK := h.fetchSuperchargerRowVM(c, uid, id)

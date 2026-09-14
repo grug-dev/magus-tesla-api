@@ -24,7 +24,7 @@ and are not.
 | Aperture | Handler / file | Route | Port called | Guards, in order |
 |---|---|---|---|---|
 | manual charge write (D4) | `ExternalChargeCreate`, `ExternalChargeRowUpdate`, `ExternalChargeRowDelete` — `internal/gateway/handlers/external_charges.go` | `POST` / `PUT` / `DELETE` under `/external-charges` | `charging.Writer` — `Create` / `Update` / `Delete` | auth → `RegisteredVehicles` ownership → `checkCSRF` (`csrf_externalcharge`) |
-| session battery verify (D8) | `SuperchargerRowUpdate` — `internal/gateway/handlers/supercharger.go` | `PATCH /ui/supercharger-stats/row/:id` | `charging.SessionVerifier.VerifySession` | auth → `checkCSRFKey(csrf_supercharger)`. **No separate ownership check — `VerifySession`'s own `tesla_id` predicate is the boundary** |
+| session battery verify (D8) | `SuperchargerRowUpdate` — `internal/gateway/handlers/supercharger.go` | `PATCH /ui/supercharger-stats/row/:id` | `charging.SessionVerifier.VerifySession` | auth → `checkCSRFKey(csrf_supercharger)` → `authorizeVehicle` (over the session-selected vehicle) |
 | theme switch (D3/D8) | `handlers.ThemeSwitch` — `internal/gateway/handlers/preferences.go` | `POST /ui/theme/switch` | `account.Service.SetTheme` | auth → `checkCSRFKey(csrf_theme)`. No ownership check |
 | language switch (D-lang) | `handlers.LangSwitch` — `internal/gateway/handlers/lang.go` | `POST /ui/lang/switch` | `account.Service.SetLanguage` | **none** — no auth, no ownership, no CSRF |
 | login language sync | `syncLoginLanguageCookie` — `internal/gateway/handlers/lang.go` | none (runs inside `GoogleCallback`) | `account.Service.SetLanguage` | none — best-effort, inside the login flow |
@@ -85,16 +85,25 @@ through this aperture. `SessionVerifier` is a **different port** from D4's `char
 this amendment names its own aperture rather than stretching D4's language, and it changes
 nothing about D4.
 
-Auth guard first, then `checkCSRFKey(c, csrfSuperchargerKey)`.
+Auth guard first, then `checkCSRFKey(c, csrfSuperchargerKey)`, then `authorizeVehicle`.
 
-**The one divergence you must not "fix": there is deliberately NO separate
-`RegisteredVehicles` ownership check here.** `VerifySession`'s own `WHERE id = @id AND
-tesla_id = @tesla_id` is the sole tenant boundary — the caller names the vehicle it
-believes the session belongs to. A mismatched vehicle matches zero rows and surfaces the
-same as an unknown id, so the caller cannot tell "not yours" from "does not exist." The
-gateway already resolves the selected vehicle on this route and passes its `tesla_id`; a
-session on a *different* vehicle — even one on the same account — is not writable through
-this route unless that vehicle is the one currently selected.
+**This aperture now DOES carry a separate ownership check, unlike when D8 was first
+written.** `VerifySession` no longer accepts a bare `int64` — it requires an
+`internal/vehicleref.Ref`, which only exists once a caller has proven ownership. The
+handler reads the session-selected vehicle (`currentVehicle`), not
+`resolveSelectedVehicle`'s auto-select — a save always follows a page render that already
+picked one, so a missing selection means a stale session or a hand-crafted request, and
+404 is correct either way — then proves it with `authorizeVehicle` before calling
+`VerifySession`. This is the same `account.RegisteredVehicles` call `resolveSelectedVehicle`
+already makes, so the write costs one query, not two.
+
+`VerifySession`'s own `WHERE id = @id AND tesla_id = @tesla_id` is still there and still the
+thing that ultimately matches the row — a mismatched vehicle still matches zero rows and
+surfaces the same as an unknown id, so the caller still cannot tell "not yours" from "does
+not exist" from the write's own result. What changed is that the `tesla_id` fed into that
+`WHERE` clause can no longer be an unproven `int64`. A session on a *different* vehicle —
+even one on the same account — is still not writable through this route unless that vehicle
+is the one currently selected.
 
 Full flow, DB effects and the recalculation window: `use-case/charging/verify-session-battery.md`.
 

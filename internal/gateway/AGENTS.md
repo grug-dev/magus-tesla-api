@@ -679,7 +679,7 @@ HTML) stays cheap and predictable.
 | Handler | Port it may call | Guards, in order |
 |---|---|---|
 | `ExternalChargeCreate` / `ExternalChargeRowUpdate` / `ExternalChargeRowDelete` | `charging.Writer` | auth → vehicle ownership → CSRF `csrf_externalcharge` |
-| `SuperchargerRowUpdate` | `charging.SessionVerifier` | auth → CSRF `csrf_supercharger`. **No ownership check** |
+| `SuperchargerRowUpdate` | `charging.SessionVerifier` | auth → CSRF `csrf_supercharger` → vehicle ownership (`authorizeVehicle`) |
 | `ThemeSwitch` | `account.Service.SetTheme` | auth → CSRF `csrf_theme` |
 | `LangSwitch` | `account.Service.SetLanguage` | **none** — it must serve anonymous callers |
 | `syncLoginLanguageCookie` | `account.Service.SetLanguage` | none — best-effort, inside `GoogleCallback` |
@@ -689,13 +689,17 @@ HTML) stays cheap and predictable.
 **That table is the whole aperture list. Every other handler is Reader-only.** Adding a row
 is never a worker's call — each one was put to the user and approved. Stop and ask.
 
-**Do not copy one row's guard set onto another.** Three of them diverge on purpose: the
-language switch has no CSRF, the Supercharger write has no ownership check, and the theme
-cookie is written only *after* its database write succeeds. Each divergence is a settled,
-user-approved decision whose reasoning does not transfer, and each has been "simplified"
-by a well-meaning agent before. Read
+**Do not copy one row's guard set onto another.** Two of them diverge on purpose: the
+language switch has no CSRF, and the theme cookie is written only *after* its database write
+succeeds. Each divergence is a settled, user-approved decision whose reasoning does not
+transfer, and each has been "simplified" by a well-meaning agent before. Read
 `kkpa/context/architecture/gateway-reader-writer-ports.md` — the guards, the reasons, and the
 per-aperture mechanism — before you touch any of them.
+
+The Supercharger write also checks CSRF before vehicle ownership — the reverse of the manual
+charge path's auth → ownership → CSRF order. That order is a consequence of when each check
+has what it needs: `authorizeVehicle` needs the vehicle the session already selected, which
+the handler reads only after the request body passes validation, well after the CSRF check.
 
 One line is repeated here rather than left to the guide, because dropping it is silent and
 the only thing that catches it is a test: **`setLangCookie` MUST call
@@ -743,9 +747,11 @@ gateway already proved ownership before calling it.
 - **A miss and a lookup failure look the same to the caller.** Both return one
   unexported error, rendered as HTTP **404**, never 403 — a 403 would confirm the
   vehicle id is real, just not the caller's.
-- **No handler calls it yet.** Every existing read still filters by account id the same
-  way it does today. `authorizeVehicle` is wired into a handler only when that handler's
-  own module port is changed to require a `Ref` instead of a bare account id — read
+- **`SuperchargerRowUpdate` is its first caller** (`supercharger.go`), wired in once
+  `charging.SessionVerifier.VerifySession` required a `vehicleref.Ref` instead of a bare
+  `TeslaID`. Every read still filters by account id the same way it did before —
+  `authorizeVehicle` is wired into a handler only when that handler's own module port is
+  changed to require a `Ref` instead of a bare account id — read
   `internal/vehicleref/AGENTS.md` before adding a new call site.
 
 ## HTTP date-filter convention

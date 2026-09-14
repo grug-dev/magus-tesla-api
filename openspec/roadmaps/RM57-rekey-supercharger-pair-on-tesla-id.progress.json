@@ -6,7 +6,7 @@
   "request": "MAG-67 — 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-14T03:25:00Z",
+  "updated_at": "2026-09-14T03:45:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,11 +21,10 @@
   },
   "rollup": {
     "current": [
-      3
-    ],
-    "pending": [
+      3,
       4
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1,
@@ -265,10 +264,10 @@
         2,
         3
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T03:45:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,

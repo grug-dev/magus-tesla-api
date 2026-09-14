@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM57-gateway-authorize-supercharger-reads",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM57-rekey-supercharger-pair-on-tesla-id.md",
+  "request": "MAG-67 tier 4. Make the Supercharger write path prove vehicle ownership with authorizeVehicle and hand VerifySession a vehicleref.Ref. Leave the two read sites on resolveSelectedVehicle.",
+  "status": "applied",
+  "rollup": {
+    "current": [
+      "T4"
+    ],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T5",
+      "T6"
+    ]
+  },
+  "created_at": "2026-09-14T03:45:00Z",
+  "updated_at": "2026-09-14T03:45:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-67",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-67/4-re-key-the-supercharger-pair-on-tesla-id-reshape-the-mirror",
+    "created_at": "2026-09-12T12:27:24Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Write the OpenSpec artifacts",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T03:45:00Z",
+      "completed_at": "2026-09-14T03:45:00Z",
+      "duration_seconds": null,
+      "notes": "Artifacts written, openspec validate --strict passes. No database change, so no design gate.",
+      "budget": {
+        "five_hour_pct_end": 25,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One worker wrote artifacts and code in a single dispatch; the delta is shared."
+      }
+    },
+    {
+      "id": "T2",
+      "title": "SuperchargerRowUpdate uses currentVehicle + authorizeVehicle",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T03:45:00Z",
+      "completed_at": "2026-09-14T03:45:00Z",
+      "duration_seconds": null,
+      "notes": "Reads the id from the session, proves it, passes the Ref. One RegisteredVehicles query. Both failure branches return 404, never 403.",
+      "budget": {
+        "five_hour_pct_end": 25,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One worker wrote artifacts and code in a single dispatch; the delta is shared."
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Comment the two read sites",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T03:45:00Z",
+      "completed_at": "2026-09-14T03:45:00Z",
+      "duration_seconds": null,
+      "notes": "Both keep resolveSelectedVehicle. A comment at each says its RegisteredVehicles filter is already the ownership proof.",
+      "budget": {
+        "five_hour_pct_end": 25,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One worker wrote artifacts and code in a single dispatch; the delta is shared."
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Retype the test double and seed the session vehicle",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T03:45:00Z",
+      "completed_at": "2026-09-14T03:45:00Z",
+      "duration_seconds": null,
+      "notes": "fakeSessionVerifier takes a Ref. superchargerRowEngine gained two params to seed the session. Leader confirmed no assertion, status or call count changed.",
+      "budget": {
+        "five_hour_pct_end": 25,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One worker wrote artifacts and code in a single dispatch; the delta is shared."
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Docs sweep",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T03:45:00Z",
+      "completed_at": "2026-09-14T03:45:00Z",
+      "duration_seconds": null,
+      "notes": "gateway AGENTS.md plus five KB guides and INDEX.md updated for the new ownership proof.",
+      "budget": {
+        "five_hour_pct_end": 25,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One worker wrote artifacts and code in a single dispatch; the delta is shared."
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Remove the three remaining doc citations",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T03:45:00Z",
+      "completed_at": "2026-09-14T03:45:00Z",
+      "duration_seconds": null,
+      "notes": "Leader removed D3, T5 and D9 prefixes from SuperchargerRowUpdate's body. Each comment already carried its own reason.",
+      "budget": {
+        "five_hour_pct_end": 25,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One worker wrote artifacts and code in a single dispatch; the delta is shared."
+      }
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-lead-1",
+      "at": "2026-09-14T03:45:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Tier 4 was built before tier 3 was reviewed and archived",
+      "why": "make test could not build at all while the gateway call site was broken.",
+      "covered_by": "roadmap RD19"
+    },
+    {
+      "id": "D-lead-2",
+      "at": "2026-09-14T03:45:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "gofmt reports internal/gateway/vehicle_image_test.go; left untouched",
+      "why": "It is pre-existing from commit 33716e6 and unrelated to this change. Fixing it would mix someone else's work into this diff.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-14T03:45:00Z",
+      "agent": "leader",
+      "event": "Wave 1 (artifacts + code in one dispatch). Leader independently verified: go build ./... GREEN for the whole repo, go vet clean, i18n-guard, vehicleref-guard, boundary-guard, archive-guard all clean. Test diff audited line by line - no assertion, expected status or call count changed; only the fake's signature, two new engine params and comments. Budget: five_hour_pct 25, context_pct 24."
+    }
+  ]
+}
