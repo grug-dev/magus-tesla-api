@@ -9,7 +9,7 @@
 Target guide: `workflows/manual-charge-crud.md`
 Source spec:  `openspec/specs/manual-charge-log/spec.md`
 Generated:    2026-09-14
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-14
 
 Context for the reviewer: the guide was already updated by hand in the same change
 (`RM58-charging-demote-manual-charge-account-id`, tier 1). Its `## Component map` and
