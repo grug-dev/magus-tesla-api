@@ -523,23 +523,24 @@ func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessi
 type SessionVerifier interface {
 	// VerifySession updates exactly four columns on one vehicle-scoped
 	// supercharger_sessions row — start_battery_pct, end_battery_pct,
-	// battery_pct_source, status — plus updated_at (RM41-charging-add-session-status,
-	// MAG-45, added the fourth). No other column is reachable through this method: the
-	// underlying query's SET clause names only these four plus updated_at (RM31 design.md
-	// D1, extended by RM41 tier 4). status is ALWAYS COMPUTED by this method from the
-	// same startToStore/endBatteryPct/derivation-outcome values used to compute
-	// battery_pct_source — never accepted as a parameter; VerifySession's own signature
-	// is unchanged by this addition.
+	// battery_pct_source, status — plus updated_at. status was added later, alongside
+	// the original three columns. No other column is reachable through this method:
+	// the underlying query's SET clause names only these four plus updated_at, on
+	// purpose, so a future edit that wanted to also touch another column would have
+	// to add it to that clause explicitly, as a visible diff. status is ALWAYS
+	// COMPUTED by this method from the same startToStore/endBatteryPct/
+	// derivation-outcome values used to compute battery_pct_source — never accepted
+	// as a parameter; VerifySession's own signature is unchanged by this addition.
 	//
 	// The two frozen estimate columns formerly named here as columns this
-	// method could never reach were dropped from the table entirely by
-	// RM41-charging-drop-estimate-columns — there is no longer a column to be unreachable from.
+	// method could never reach were later dropped from the table entirely — there is
+	// no longer a column to be unreachable from.
 	//
 	// battery_pct_source is always computed by this method, never supplied by the
 	// caller: "user_verified" when either startBatteryPct or endBatteryPct is non-nil,
 	// NULL when both are nil. The method takes no source parameter, so "polled" — a
-	// documented future value for a measured-SOC path — cannot be written by any caller
-	// of this port (design.md D2/D7).
+	// documented future value for a measured-SOC path — cannot be written by any
+	// caller of this port: there is no parameter to carry it.
 	//
 	// A partial call (one percentage non-nil, the other nil) is legal — a human
 	// correcting a session mid-charge is a real, expected use. Every call supplies both
@@ -548,34 +549,42 @@ type SessionVerifier interface {
 	// wanting to add endBatteryPct to a session that already has startBatteryPct
 	// verified must re-supply the existing startBatteryPct value (read via
 	// SessionReader) alongside the new endBatteryPct, or that column is overwritten to
-	// NULL. Calling VerifySession(ctx, ref, id, nil, nil) clears
-	// both percentages AND battery_pct_source to NULL in the same statement (design.md
-	// D7).
+	// NULL. Calling VerifySession(ctx, ref, id, nil, nil) clears both percentages AND
+	// battery_pct_source to NULL in the same statement: the table's own CHECK allows a
+	// null source only when both percentages are null, so this method must clear the
+	// source itself, in one statement, or leave the row violating that CHECK.
 	//
 	// Each non-nil percentage is validated to [0, 100] before the query runs; the
-	// database's own SMALLINT CHECK is the backstop, not the error message (design.md
-	// D3).
+	// database's own SMALLINT CHECK is the backstop, not the error message: this way
+	// a caller sees a clear Go error naming the field and value, not a raw Postgres
+	// CHECK-violation error.
 	//
-	// No ordering between startBatteryPct and endBatteryPct is enforced by this method —
-	// deliberately, matching the table's own deliberate absence of such a CHECK
-	// (design.md D8).
+	// No ordering between startBatteryPct and endBatteryPct is enforced by this
+	// method — deliberately, matching the table's own deliberate absence of such a
+	// CHECK. A human fixing a mistake corrects one field at a time across two calls,
+	// so an intermediate "inverted" pair is a normal step in that workflow, not
+	// invalid data. Tesla's own session data does not guarantee the end reading is
+	// higher than the start reading either.
 	//
-	// Derivation of a missing start percentage (MAG-36, charging-add-derived-
-	// start-battery-pct design.md D2/D3/D5/D7/D9): when the caller submits
+	// Derivation of a missing start percentage: when the caller submits
 	// startBatteryPct == nil and endBatteryPct != nil, and the session row's
 	// energy_kwh is non-NULL, and the algebraic result — start = end -
-	// energy_kwh/packCapacityKWh*100, rounded half away from zero (design.md D4) —
-	// lands in [0, 100], this method now stores the DERIVED value instead of NULL. A
-	// caller-supplied startBatteryPct is NEVER recomputed or overridden, under any
-	// condition — this is unconditional, not merely the common case (design.md D2).
-	// When energy_kwh is SQL NULL (design.md D5) or the derived result falls outside
-	// [0, 100] (design.md D3), start_battery_pct is left NULL, silently — no error,
-	// no clamp. Every other call shape (both percentages supplied, only start
-	// supplied, both nil, an out-of-range caller-supplied value) is unaffected. The
-	// battery_pct_source computation above is otherwise unaffected by this
-	// derivation: still batteryPctSourceUserVerified when either the (possibly
-	// derived) start or the end percentage is non-nil, still no new source value
-	// (design.md D1).
+	// energy_kwh/packCapacityKWh*100, rounded half away from zero (matching both Go's
+	// math.Round and PostgreSQL's own numeric rounding mode) — lands in [0, 100],
+	// this method now stores the DERIVED value instead of NULL. A caller-supplied
+	// startBatteryPct is NEVER recomputed or overridden, under any condition — this
+	// is unconditional, not merely the common case, so a person's own typed reading
+	// is never silently replaced by a computed guess. When energy_kwh is SQL NULL —
+	// a session can legitimately have no kWh fee recorded at all — or the derived
+	// result falls outside [0, 100] — the assumed pack capacity does not match every
+	// real vehicle, so the maths can legitimately miss the valid range —
+	// start_battery_pct is left NULL, silently — no error, no clamp. Every other call
+	// shape (both percentages supplied, only start supplied, both nil, an
+	// out-of-range caller-supplied value) is unaffected. The battery_pct_source
+	// computation above is otherwise unaffected by this derivation: still
+	// batteryPctSourceUserVerified when either the (possibly derived) start or the
+	// end percentage is non-nil — a derived value is stored under the same
+	// provenance as a typed one, not a new source value.
 	//
 	// id/ref scope the update: WHERE id = @id AND tesla_id = @tesla_id, using
 	// ref.TeslaID(). This is the ONLY tenant boundary left on the Supercharger write

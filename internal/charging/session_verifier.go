@@ -99,26 +99,27 @@ func sessionStatusFor(startPct, endPct *int, derived bool) SessionStatus {
 }
 
 // VerifySession implements SessionVerifier. See the interface doc comment (charging.go)
-// for the full contract. Implementation shape is validate-then-derive-then-query
-// (design.md §"Go-side call shape", D8/D9, MAG-36
-// charging-add-derived-start-battery-pct):
+// for the full contract. Implementation shape is validate-then-derive-then-query:
 //
 //  1. Range-validate each non-nil percentage against [0, 100] BEFORE any database call
-//     (design.md D3) — the DB's own SMALLINT CHECK is the backstop, not the error
-//     message.
+//     — the DB's own SMALLINT CHECK is the backstop, not the error message, so a
+//     caller sees a clear Go error instead of a raw CHECK-violation error.
 //  2. If needsDerivedStartBatteryPct(startBatteryPct, endBatteryPct) is true (the
 //     caller left start nil and supplied end): open a transaction, lock the row via
-//     the new LockSessionForVerification query (FOR UPDATE — design.md D9), resolve
-//     the vehicle's pack capacity via packCapacityKWh, and compute the start percentage
-//     to store via derivedStartBatteryPct. Otherwise the value to store is exactly the
-//     caller's startBatteryPct, unchanged — today's single-statement, non-transactional
-//     path, untouched in cost or shape (design.md D9).
+//     the new LockSessionForVerification query (FOR UPDATE — this blocks a
+//     concurrent nightly mirror refresh of energy_kwh from landing mid-derivation,
+//     which would make the derived percentage silently wrong), resolve the
+//     vehicle's pack capacity via packCapacityKWh, and compute the start percentage
+//     to store via derivedStartBatteryPct. Otherwise the value to store is exactly
+//     the caller's startBatteryPct, unchanged — today's single-statement,
+//     non-transactional path, untouched in cost or shape: most calls have no
+//     derivation to protect, so only the calls that need the transaction pay for it.
 //  3. Compute battery_pct_source: batteryPctSourceUserVerified when either the
 //     (possibly derived) start or the end percentage is non-nil, nil (SQL NULL) when
-//     both are nil (design.md D1/D2/D7 — unchanged: no new source value).
+//     both are nil — unchanged by derivation: a derived value is stored under the
+//     same provenance as a typed one, not a new source value.
 //     3.5. Compute status via sessionStatusFor from startToStore, the caller's
-//     endBatteryPct, and whether step 2 actually derived a value
-//     (RM41-charging-add-session-status design.md "Go-side call shape").
+//     endBatteryPct, and whether step 2 actually derived a value.
 //  4. Call VerifySuperchargerSession — against the open transaction when one exists,
 //     against v.q otherwise — scoped by id + teslaID, and map the returned row via
 //     the existing rowToSession (session_reader.go) — no new mapping code. Commit the
@@ -138,7 +139,7 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, ref vehicleref.Ref,
 	var tx pgx.Tx
 
 	if needsDerivedStartBatteryPct(startBatteryPct, endBatteryPct) {
-		// design.md D9: the row is locked FOR UPDATE for the remainder of this
+		// The row is locked FOR UPDATE for the remainder of this
 		// transaction, mirroring internal/account's AccessTokenFor and this
 		// module's own SessionWriter.MirrorSessions, so a concurrent
 		// SessionWriter.MirrorSessions refresh of energy_kwh cannot land between
@@ -159,7 +160,7 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, ref vehicleref.Ref,
 			TeslaID: teslaID,
 		})
 		if err != nil {
-			// design.md D10: identical wrap to VerifySuperchargerSession's own
+			// Identical wrap to VerifySuperchargerSession's own
 			// not-found case — a caller of VerifySession cannot observe, and
 			// must not need to care, which of the two internal queries
 			// produced a given not-found error.

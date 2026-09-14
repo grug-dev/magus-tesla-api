@@ -17,11 +17,12 @@
     "done": [
       "T1",
       "T2",
-      "T5"
+      "T5",
+      "T7"
     ]
   },
   "created_at": "2026-09-14T02:45:00Z",
-  "updated_at": "2026-09-14T02:58:00Z",
+  "updated_at": "2026-09-14T03:08:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -192,6 +193,30 @@
         "approx": true,
         "note": "One serial worker ran T1-T6; the wave delta is copied onto each task."
       }
+    },
+    {
+      "id": "T7",
+      "title": "Replace stale design.md citations with reasons in the two edited doc comments",
+      "module": "charging",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T03:00:00Z",
+      "completed_at": "2026-09-14T03:08:00Z",
+      "duration_seconds": null,
+      "notes": "19 citations replaced with their reasons, resolved against four archived designs. Comments only, no code. Leader removed two more the worker left inside the function body.",
+      "budget": {
+        "five_hour_pct_end": 55.00000000000001,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true
+      }
     }
   ],
   "review": {
@@ -227,6 +252,15 @@
       "decision": "T3, T4 and T6 are awaiting-user-verification, not done as the worker reported",
       "why": "The worker argued clean build/vet/guards make them done. The policy is explicit: work complete but unexecuted awaits the owner.",
       "covered_by": null
+    },
+    {
+      "id": "D-lead-4",
+      "at": "2026-09-14T03:00:00Z",
+      "scope": "task:T7",
+      "made_by": "user",
+      "decision": "Clean the 19 stale design.md citations in the two edited doc comments now, rather than deferring them to MAG-70",
+      "why": "The rule calls the cleanup opportunistic. The user chose to do it here anyway, so the reasons land with the change that touched the code.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -244,6 +278,16 @@
       "at": "2026-09-14T02:58:00Z",
       "agent": "leader",
       "event": "wave 1 reconciled. Leader re-ran every signal independently: build, vet, gofmt, vehicleref-guard, boundary-guard, archive-guard, openspec validate - all clean. Diff audit confirmed the test files gained only an import, the refFor helper and 30 argument substitutions, so no expected value changed. Budget delta: five_hour_pct +7, cost_usd +3.11."
+    },
+    {
+      "at": "2026-09-14T03:00:00Z",
+      "agent": "leader",
+      "event": "dispatched wave 2 (T7) to the charging worker on Sonnet. It must resolve each citation against the archived design it names, and state the fact without a reason where the reason is not recoverable."
+    },
+    {
+      "at": "2026-09-14T03:08:00Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled. Leader verified the diff touches comments only - zero code lines changed. Both target doc comments are free of citations. The worker left two design.md labels inside the function body; the leader removed them, losing nothing because each comment already stated its own reason. build, vet, gofmt, archive-guard, vehicleref-guard all clean."
     }
   ]
 }
