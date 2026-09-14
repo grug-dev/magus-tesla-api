@@ -5,7 +5,7 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
   "request": "MAG-68 — Tier 2 of RM58: Writer.Update and Writer.Delete require a vehicleref.Ref, the SQL guard becomes id AND tesla_id, and a delete that matches nothing stops looking like success.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -25,7 +25,7 @@
     "awaiting-user-verification": []
   },
   "created_at": "2026-09-14T16:05:00Z",
-  "updated_at": "2026-09-14T17:45:44Z",
+  "updated_at": "2026-09-14T19:46:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -319,10 +319,18 @@
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Review scope: git diff 9c33a8d..HEAD (tier 2 only; tier 1 archived at 9c33a8d). Read the diff, not the whole module. Validate: (1) every binding decision holds in the code - D2/D5 from the roadmap, D7-D12 in this file; (2) Writer.Update and Writer.Delete accept only a vehicleref.Ref and no call site bypasses it; (3) UpdateEntry/DeleteEntry SQL guards on id AND tesla_id, DeleteEntry is :execrows, Delete wraps pgx.ErrNoRows on zero rows; (4) service.Update overwrites e.TeslaID from the Ref BEFORE resolveEnergy (D8) - order matters, a later overwrite is a blocker; (5) both gateway handlers call authorizeVehicle on the entry's own tesla_id and answer 404 on a lookup miss (D10); (6) only authorizeVehicle constructs a Ref (vehicleref-guard); (7) module boundaries - charging owns no HTML and reads no other module's DB; (8) the integration tests assert the expected values design.md authored up front, not whatever the implementation happens to do - in particular TestDelete_CrossVehicleGuard must now assert a non-nil error wrapping pgx.ErrNoRows, the inverted assertion the worker flagged as easy to miss; (9) docs track the change - internal/charging/AGENTS.md, the three KB guides, openspec specs; (10) openspec/changes/archive/ is untouched (archive-guard); (11) anti-gaming - no acceptance criterion weakened or deleted, no self-approved status. Performance-Profile compliance: read-heavy; the write path may cost more if reads do not. Signals: go build ./..., go vet ./..., openspec validate --strict and all eight guards were ASSISTANT-run and clean. The test suite was USER-run and the owner reported it passed; the only change since that pass is three markdown files. You judge test quality by READING the tests - never run the suite.",
+    "agent": "charging-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-14T19:45:43Z",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Scope: git diff 9c33a8d..HEAD. Read charging.go, service.go, query.sql, query.sql.go, all four integration test diffs, external_charges.go, external_charges_test.go, AGENTS.md, KB guides, roadmap/change progress.json, specs delta. D2/D5 (roadmap) and D7-D12 (this change) all hold in code. Writer.Update/Delete take only vehicleref.Ref; grep confirms no other call site in the repo. UpdateEntry/DeleteEntry guard on id AND tesla_id; DeleteEntry is :execrows; Delete wraps pgx.ErrNoRows on a zero-row match. service.Update sets e.TeslaID = ref.TeslaID() as the first line, before normalizeStatus/resolveEnergy (D8 order confirmed). Both gateway handlers call authorizeVehicle on the entry's own tesla_id and return 404 (never 403) on a lookup miss or an authorization miss (D10). make vehicleref-guard confirms only authorizeVehicle/tests/vehicleref itself construct a Ref. TestDelete_CrossVehicleGuard now asserts errors.Is(err, pgx.ErrNoRows) — the inverted assertion the worker flagged, correctly applied. Docs updated: internal/charging/AGENTS.md (3 sections), 3 KB guides, INDEX.md; openspec/specs/manual-charge-log/spec.md intentionally left for archive-time sync per this project's own convention (task 5.4), and the change's own delta spec has the 4 modified requirements. openspec/changes/archive/ untouched (archive-guard clean). go build, go vet, gofmt (on touched files), openspec validate --strict, boundary-guard, archive-guard, i18n-guard, vehicleref-guard all clean (assistant-run per Test-Execution-Policy). No code comment in the diff cites design.md, a decision ID, RM58, or a tier number. No task/criterion edited or weakened; progress.json task statuses match the diff. One observation, not a finding: two early commits on this branch (514d7b9, abb8fa6) apply tier 1's own already-approved KB sync proposal under kkpa/context/pending-spec-to-sync/applied/ — housekeeping from the prior tier, not tier-2 work, and it touches no code."
+      }
+    ]
   },
   "events": [
     {
@@ -379,6 +387,16 @@
       "at": "2026-09-14T17:45:44Z",
       "what": "resume-deferred",
       "detail": "Resume attempted before the 5-hour bucket reset. five_hour_pct 97 (worse than the 94 at checkpoint), resets_at 1789414800 (14:40 local, ~1h55m away). context_pct 10. The reviewer gate is the only work left and it is a full dispatch, so nothing was started. State unchanged: status verified, all tasks done."
+    },
+    {
+      "at": "2026-09-14T19:42:30Z",
+      "what": "reviewer-dispatched",
+      "detail": "charging-reviewer (Sonnet) dispatched for review round 1, scope git diff 9c33a8d..HEAD. Doc pack: base + ai/agentic-workflow.md + internal/charging/AGENTS.md + internal/gateway/AGENTS.md (the change edits two gateway handlers). Budget at dispatch: five_hour bucket freshly reset, context_pct 11."
+    },
+    {
+      "at": "2026-09-14T19:46:00Z",
+      "what": "reviewer-approved",
+      "detail": "charging-reviewer approved round 1 with zero findings. It ran build, vet, openspec validate --strict, vehicleref/boundary/archive/i18n guards itself, and read the tests rather than running them. It noted one non-finding: the branch's first two commits apply tier 1's KB sync, leftover housekeeping from the prior tier."
     }
   ]
 }

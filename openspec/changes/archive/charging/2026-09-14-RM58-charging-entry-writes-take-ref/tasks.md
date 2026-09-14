@@ -239,7 +239,7 @@ sandbox — `internal/charging` workers must not edit these files.** Must land
 in the same wave as T3/T4, per `design.md` §Risks: `go build ./...` is red
 outside `internal/charging` until this lands.
 
-- [ ] 6.1 `internal/gateway/handlers/external_charges.go`,
+- [x] 6.1 `internal/gateway/handlers/external_charges.go`,
       `ExternalChargeRowUpdate`: after `h.fetchEntryTeslaIDAndChargedOn`
       resolves `_, oldChargedOn, hadOld` (today's shape captures only two of
       its three return values — this task needs the first one too, the
@@ -250,7 +250,7 @@ outside `internal/charging` until this lands.
       `handlers.go`'s doc comment on `authorizeVehicle` states). On success,
       pass the returned `Ref` as `h.chargingWriter.Update`'s new second
       argument, ahead of `entry`.
-- [ ] 6.2 `ExternalChargeRowDelete`: same shape. `entryTeslaID` is already
+- [x] 6.2 `ExternalChargeRowDelete`: same shape. `entryTeslaID` is already
       captured (`entryTeslaID, entryChargedOn, hadEntry :=
       h.fetchEntryTeslaIDAndChargedOn(...)`). Call `h.authorizeVehicle(ctx,
       uid, entryTeslaID)` **only when `hadEntry` is true** — when the lookup
@@ -260,21 +260,21 @@ outside `internal/charging` until this lands.
       D8). When `hadEntry` is true and `authorizeVehicle` fails, render the
       same not-authorized handling as 6.1. When it succeeds, pass the `Ref`
       as `h.chargingWriter.Delete`'s new second argument.
-- [ ] 6.3 `internal/gateway/handlers/external_charges_test.go`:
+- [x] 6.3 `internal/gateway/handlers/external_charges_test.go`:
       `fakeChargeWriter.Update` and `fakeChargeWriter.Delete` re-sign to
       match `charging.Writer`'s new method signatures (add the
       `vehicleref.Ref` parameter to both; the fake does not need to inspect
       it — it is a fake, not the real guard). Add the `vehicleref` import if
       not already present.
-- [ ] 6.4 Grep `internal/gateway` for every other `.chargingWriter.Update(` and
+- [x] 6.4 Grep `internal/gateway` for every other `.chargingWriter.Update(` and
       `.chargingWriter.Delete(` call and every other type asserting
       `charging.Writer`. `design.md` §Modules affected states the full known
       list is `external_charges.go`'s two handlers and
       `external_charges_test.go`'s one fake — confirm the grep agrees, and
       flag anything it finds beyond that list rather than silently fixing it,
       since anything beyond this list was not scoped by this change.
-- [ ] 6.5 `go build ./...` — expect clean across the whole repository.
-- [ ] 6.6 `go vet ./...` — expect clean.
+- [x] 6.5 `go build ./...` — expect clean across the whole repository.
+- [x] 6.6 `go vet ./...` — expect clean.
 - [x] 6.7 **Appended after 6.1/6.2 landed.** Both handlers now answer 404
       when the entry lookup misses, because a miss leaves no vehicle to
       authorize and `Update`/`Delete` accept nothing but a `Ref`. Existing
@@ -319,25 +319,25 @@ them before T6 exists would describe code that is not there).
 
 Depends on: T0–T7.
 
-- [ ] 8.1 `go build ./...` — clean.
-- [ ] 8.2 `go vet ./...` — clean.
-- [ ] 8.3 `gofmt -l .` — no output.
-- [ ] 8.4 `make vehicleref-guard` — clean, and confirm the output does not
+- [x] 8.1 `go build ./...` — clean.
+- [x] 8.2 `go vet ./...` — clean.
+- [x] 8.3 `gofmt -l .` — no output.
+- [x] 8.4 `make vehicleref-guard` — clean, and confirm the output does not
       list any new call to `vehicleref.Authorize`/`vehicleref.All` in a
       non-`_test.go`, non-`internal/vehicleref`, non-`authorizeVehicle` file.
-- [ ] 8.5 `make boundary-guard`, `make tz-guard`, `make money-guard`, `make
+- [x] 8.5 `make boundary-guard`, `make tz-guard`, `make money-guard`, `make
       i18n-guard`, `make ui-guard` — clean (all unaffected by this change,
       per `design.md` §Makefile).
-- [ ] 8.6 `make archive-guard` — clean.
-- [ ] 8.7 Grep the whole repository for `.Update(ctx` and `.Delete(ctx`
+- [x] 8.6 `make archive-guard` — clean.
+- [x] 8.7 Grep the whole repository for `.Update(ctx` and `.Delete(ctx`
       resolving to `charging.Writer` outside `internal/charging` and
       `internal/gateway`. Expect zero hits — confirms `design.md` §Modules
       affected's claim that `internal/analytics` is untouched.
-- [ ] 8.8 Re-read `design.md` §Docs this change invalidates top to bottom and
+- [x] 8.8 Re-read `design.md` §Docs this change invalidates top to bottom and
       confirm every row was actually done (T5, T7) or explicitly found
       unnecessary and stated why (5.5).
-- [ ] 8.9 `openspec validate --strict` on this change — clean.
-- [ ] 8.10 Do NOT run `go test ./...`, `make test`, `make test-with-db`, or
+- [x] 8.9 `openspec validate --strict` on this change — clean.
+- [x] 8.10 Do NOT run `go test ./...`, `make test`, `make test-with-db`, or
       `make check` — owner-only, per the Test-Execution-Policy. Hand the
       owner these exact commands to run:
       - `go test ./internal/charging/...`

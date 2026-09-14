@@ -92,23 +92,24 @@ independently.
 The manual-charge-log capability SHALL let a user correct an existing entry, applying the
 supplied changes, advancing `updated_at`, and leaving `created_at` unchanged. Update SHALL
 enforce the same field constraints as create — including that `location_kind` is required
-(non-nil, non-empty, one of `HOME`/`WORK`/`OTHER`) — and SHALL NOT permit mutating an entry
-created by a different account. `created_by_account_id`, `tesla_id`, `vin` and `created_at`
-SHALL remain immutable.
+(non-nil, non-empty, one of `HOME`/`WORK`/`OTHER`) — and SHALL require proof that the caller's
+account owns the entry's vehicle, and SHALL NOT permit mutating an entry whose id does not
+belong to that vehicle. `created_by_account_id`, `tesla_id`, `vin` and `created_at` SHALL
+remain immutable, and `created_by_account_id` is never re-derived from the proof of vehicle
+ownership — it keeps recording whoever originally created the entry.
 
-**This requirement is CHANGED from its prior revision only in which value carries the
-guard.** The guard itself is unchanged in strength: an update must still name the account
-the entry belongs to, and an update naming a different one mutates nothing. What changed is
-that the value is now `created_by_account_id` — authorship — rather than a tenant key.
+**This requirement is CHANGED from its prior revision in which value carries the guard.**
+The guard is no longer the account that typed the entry; it is the vehicle the entry
+belongs to, proven before the call is made. An update naming a vehicle other than the
+entry's own mutates nothing — the same strength the account-keyed guard had, now checking
+the fact that actually matters: whose car this is, not who typed it.
 
-**This scoping is transitional and deliberate.** Reads of this capability are already
-car-wide, so an account registered to a shared vehicle can see an entry it cannot yet edit.
-The end state replaces this guard with one on the entry's own vehicle, so that any account
-registered to a car may correct that car's entries. The guard is swapped, never dropped:
-there is no revision of this capability in which an update is unscoped.
+**This closes the roadmap's transitional gap.** A prior revision of this capability kept
+the account-keyed guard as the only check available until a vehicle-keyed one could be
+built. That state has ended: every write is now scoped by vehicle, matching every read.
 
 #### Scenario: Update supplied fields and advance updated_at
-- **GIVEN** an authenticated user with an existing entry `id = X` they created
+- **GIVEN** an authenticated user with an existing entry `id = X` for a vehicle they own
 - **WHEN** they submit an update for entry `X` with a corrected `price` and `notes` and a
   valid `location_kind`
 - **THEN** the system updates the supplied fields, advances `updated_at` to now, leaves
@@ -130,39 +131,59 @@ there is no revision of this capability in which an update is unscoped.
 - **WHEN** a caller submits an update with `location_kind = 'WORK'`
 - **THEN** the system persists `location_kind = 'WORK'` and returns the updated entry
 
-#### Scenario: Update naming the wrong account mutates nothing
-- **GIVEN** an entry created by account `A`
-- **WHEN** a caller submits an update for that entry naming account `B`
+#### Scenario: Update naming the wrong vehicle mutates nothing
+- **GIVEN** an entry belonging to vehicle `V1`
+- **WHEN** a caller submits an update for that entry proving ownership of a different
+  vehicle `V2`
 - **THEN** the system mutates nothing (zero rows / "not found")
+- **AND** the owner's row, read back for `V1`, is unchanged
 
 #### Scenario: The authoring account is never rewritten by an update
 - **GIVEN** an entry created by account `A`
-- **WHEN** any update is applied to that entry
+- **WHEN** any update is applied to that entry, whichever account performs it
 - **THEN** the stored `created_by_account_id` is still account `A`
 
+#### Scenario: A co-owner of a shared vehicle may now edit the other account's entry
+- **GIVEN** accounts `A` and `B` both registered to the same vehicle `V`, and an entry for
+  `V` created by account `A`
+- **WHEN** account `B` submits an update for that entry, proving ownership of `V`
+- **THEN** the system applies the update
+- **AND** the stored `created_by_account_id` remains `A`
+
 ### Requirement: Delete an entry
-The manual-charge-log capability SHALL let a user delete an entry they created, scoping
-every delete to the caller's own account identifier so that a valid entry identifier from
-another account deletes nothing and does not leak the entry's existence.
+The manual-charge-log capability SHALL let a user delete an entry belonging to a vehicle
+they own, requiring proof of that ownership before the delete runs. A delete naming a
+vehicle the entry does not belong to SHALL remove nothing and SHALL report that no row was
+affected, so a caller can distinguish a real delete from a rejected one.
 
-**This requirement is CHANGED from its prior revision only in which value carries the
-guard**: `created_by_account_id` — authorship — in place of a tenant key. The guard's
-strength is unchanged.
+**This requirement is CHANGED from its prior revision in two ways.** First, which value
+carries the guard: the vehicle the entry belongs to, proven before the call, in place of
+the account that typed it. Second, how a rejected delete is reported: a prior revision
+reported success (zero rows affected, no error) indistinguishably from an accepted delete
+unless the caller separately inspected a row count; this revision SHALL report a rejected
+delete as an error, so a caller cannot mistake it for success by omission.
 
-**This scoping is transitional and deliberate**, for the same reason given under "Edit an
-existing entry": the end state scopes a delete by the entry's own vehicle, so a shared car's
-co-owner may delete that car's entries. The guard is swapped, never dropped.
+**This closes the roadmap's transitional gap**, the same way "Edit an existing entry" does:
+every write is now scoped by vehicle, matching every read.
 
-#### Scenario: Delete an entry the caller created
-- **GIVEN** an authenticated user with an existing entry `id = X` they created
-- **WHEN** they submit a delete for entry `X` scoped to their own account
+#### Scenario: Delete an entry belonging to the caller's vehicle
+- **GIVEN** an authenticated user with an existing entry `id = X` belonging to a vehicle
+  they own
+- **WHEN** they submit a delete for entry `X`, proving ownership of that vehicle
 - **THEN** the system removes the entry and subsequent reads for that `id` return not found
 
-#### Scenario: Delete naming another account removes nothing
-- **GIVEN** an entry created by account `A`
-- **WHEN** a caller submits a delete for that entry naming account `B`
-- **THEN** the system deletes nothing and the caller receives zero rows affected, not an
-  error that leaks entry existence
+#### Scenario: Delete naming the wrong vehicle removes nothing and reports it
+- **GIVEN** an entry belonging to vehicle `V1`
+- **WHEN** a caller submits a delete for that entry, proving ownership of a different
+  vehicle `V2`
+- **THEN** the system deletes nothing
+- **AND** the caller receives an error indicating no row was affected, not a silent success
+
+#### Scenario: A co-owner of a shared vehicle may now delete the other account's entry
+- **GIVEN** accounts `A` and `B` both registered to the same vehicle `V`, and an entry for
+  `V` created by account `A`
+- **WHEN** account `B` submits a delete for that entry, proving ownership of `V`
+- **THEN** the system removes the entry
 
 ### Requirement: List entries by vehicle
 The manual-charge-log capability SHALL return a vehicle's entries, ordered by `charged_on`
@@ -238,16 +259,17 @@ vehicle can never return another vehicle's entries. For reads it SHALL NOT perfo
 check of its own: which vehicles a caller may see is decided before this capability is
 reached, and this capability trusts the vehicle identifiers it is given.
 
-Every write SHALL remain scoped, so that no revision of this capability permits an update or
-delete that names only an entry identifier.
+Every write SHALL remain scoped by vehicle, so that no revision of this capability permits
+an update or delete that names only an entry identifier. Proof of vehicle ownership for a
+write SHALL be a value this capability cannot construct on its own — supplied by the
+caller, already proven — not a raw identifier this capability would have to re-check
+itself.
 
-**This requirement is CHANGED from its prior revision, under which every read was also
-scoped by `account_id` inside this capability.** Reads are now car-wide: two accounts
-registered to the same vehicle see the same entries for it, deliberately, because the
-entries describe the car. Isolation between users on the read path is upheld by the vehicle
-registry the caller resolves against, not by a predicate here. The write path keeps a
-predicate of its own, on the authoring account, until it can be re-keyed onto the entry's
-vehicle.
+**This requirement is CHANGED from its prior revision, under which the write-path proof was
+an account identifier rather than a proven vehicle.** Reads were already car-wide, scoped
+by the vehicle registry the caller resolves against, not by a predicate here (unchanged
+from the prior revision). The write path now matches: it is scoped by the entry's own
+vehicle, proven by the caller, instead of by the account that typed the entry.
 
 #### Scenario: A read never crosses to another vehicle
 - **GIVEN** entries exist for vehicles `V1` and `V2`
@@ -262,8 +284,8 @@ vehicle.
 #### Scenario: A write is never reachable by entry identifier alone
 - **GIVEN** a stored entry
 - **WHEN** a caller attempts to update or delete it
-- **THEN** the capability requires a second value identifying who may write it
-- **AND** a caller supplying the wrong value changes nothing
+- **THEN** the capability requires proof that the caller's account owns the entry's vehicle
+- **AND** a caller supplying proof for the wrong vehicle changes nothing
 
 #### Scenario: Callers never reach the table directly
 - **GIVEN** any caller that needs to read or write a manual charge entry
@@ -795,19 +817,20 @@ zero price SHALL be recorded as unconfirmed.
 ### Requirement: Charge entry authorship is recorded but never scopes a read
 
 The manual-charge-log capability SHALL record, on every stored entry, which account typed
-it. The value SHALL be required on create and SHALL be returned on every read. No read
-SHALL filter, order, group or join by it.
+it. The value SHALL be required on create and SHALL be returned on every read. No read or
+write SHALL filter, order, group or join by it.
 
 Authorship cannot be re-derived from anything else the platform stores: a vehicle may be
 registered to more than one account, and the account vehicle registry records registration
 rather than authorship. That is why the value is kept at all, rather than removed the way
 the Supercharger session store removed its own account identifier.
 
-**Transitional, and deliberate:** update and delete DO still match on this value, as the
-only guard they have until they can name the entry's vehicle instead (see "Edit an existing
-entry" and "Delete an entry"). The end state — authorship that nothing predicates on at all
-— is reached when those two writes are re-keyed onto the vehicle. Until then the rule above
-binds every read, and only reads.
+**This requirement is CHANGED from its prior revision, which stated the rule above bound
+only reads.** A prior revision of this capability kept update and delete matching on this
+value, as the only guard those two writes had until they could name the entry's vehicle
+instead. That transitional period has ended: update and delete are now scoped by vehicle
+(see "Edit an existing entry" and "Delete an entry"), so `created_by_account_id` is
+authorship only, in both directions, with nothing left that predicates on it anywhere.
 
 #### Scenario: No read decides its result from the authoring account
 
@@ -830,3 +853,12 @@ binds every read, and only reads.
 - **WHEN** a caller requests vehicle `V`'s entries
 - **THEN** both entries are returned
 - **AND** each carries the account that created it
+
+#### Scenario: Authorship does not decide whether a write succeeds
+
+- **GIVEN** accounts `A` and `B` both registered to the same vehicle `V`, and an entry for
+  `V` created by account `A`
+- **WHEN** account `B` submits an update or delete for that entry, proving ownership of `V`
+- **THEN** the write succeeds
+- **AND** which account created the entry played no part in that decision
+
