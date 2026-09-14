@@ -46,7 +46,8 @@ Legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, 
 | --- | --- | --- | --- | --- | --- |
 | `[x]` | `RM57-telemetry-rekey-supercharger-history-on-tesla-id` | `telemetry` | Migration on `telemetry.supercharger_history`: delete `tesla_id IS NULL` rows, `SET NOT NULL`, `DROP COLUMN account_id`, replace the three `account_id` indexes. Domain type `SuperchargerHistory` drops `AccountID` and `TeslaID` becomes `int64`. Every `SuperchargerHistoryReader` method drops its `accountID` parameter. `collectChargingHistory` skips a session whose VIN is not a registered vehicle and counts it. Tests re-keyed. | — | Re-key `telemetry.supercharger_history` on `tesla_id`. Keep `UNIQUE (session_id)`. Replace `idx_supercharger_history_vehicle_time`, `idx_supercharger_history_account_time` and `idx_supercharger_history_account_updated` with only the indexes a query that exists today actually reads — justify each one. Drop `account_id`. Make `tesla_id NOT NULL`, deleting NULL rows first. Change the write path to skip a session whose VIN is not registered. |
 | `[x]` | `RM57-charging-rekey-supercharger-sessions-on-tesla-id` | `charging` | Two migrations. `charging.supercharger_sessions`: replace `UNIQUE (account_id, session_id)` with `UNIQUE (session_id)`, delete `tesla_id IS NULL` rows, `SET NOT NULL`, `DROP COLUMN account_id`, replace `idx_supercharger_sessions_vehicle_stop`. `charging.mirror_watermarks`: re-key the cursor from `account_id` to `tesla_id`. Ports `MirrorSessions`, `ListSessionsByVehicle*`, `MirrorWatermark`, `AdvanceMirrorWatermark` drop `accountID`; `VerifySession` is re-keyed on `tesla_id` rather than stripped — its `account_id` predicate is the write path's only tenant check. Leader-owned integration in the same tier (moved here from tier 3): the mirror loop in `internal/app/processor.go` becomes one pass per `tesla_id`, plus the call-site updates in `internal/analytics/reader.go`, `internal/analytics/recalculate.go` and `internal/gateway/handlers/supercharger.go`. Tests re-keyed. | 1 | Re-key `charging.supercharger_sessions` and `charging.mirror_watermarks` on `tesla_id`. Read the current DDL first — the sessions table gained `status` and `inferred_capacity_kwh_calc` after its first migration, and the index is named `idx_supercharger_sessions_vehicle_stop` today, not `idx_charge_sessions_vehicle_stop`. Leave `charging.manual_charge_entries` alone; MAG-68 owns it. |
-| `[ ]` | `RM57-gateway-authorize-supercharger-reads` | `gateway` | The Supercharger Stats page routes its per-vehicle reads through `authorizeVehicle`, which MAG-66 built and nothing calls yet. `internal/gateway/handlers/supercharger.go` (11 call sites), `handlers.go`, `gateway.go`. The per-vehicle mirror rewrite moved to tier 2 — re-keying the watermark left the account-grouped loop with no cursor to read. | 1, 2 | Make the gateway prove vehicle ownership before every Supercharger read, using `authorizeVehicle`. Replace tier 2's `resolveSelectedVehicle` call in front of `VerifySession` with `authorizeVehicle`. The mirror loop is already per vehicle — tier 2 did it. |
+| `[ ]` | `RM57-charging-verifysession-takes-ref` | `charging` | `charging.SessionVerifier.VerifySession` takes a `vehicleref.Ref` instead of `teslaID int64`; `session_verifier.go` unwraps it with `ref.TeslaID()`. The three `ListSessionsByVehicle*` read ports keep `int64` — `internal/analytics` calls them and `make vehicleref-guard` forbids building a `Ref` outside the gateway's `authorizeVehicle`. Tests re-keyed. | 1, 2 | Retype `VerifySession` to require a `vehicleref.Ref`. Do not touch the read ports. Cite MAG-66's design.md for why the type itself is the guarantee. |
+| `[ ]` | `RM57-gateway-authorize-supercharger-reads` | `gateway` | `SuperchargerRowUpdate` reads the selected id from `currentVehicle(c)`, proves it with `authorizeVehicle`, and hands the `Ref` to `VerifySession`. The two read sites (`supercharger.go:145`, `:175`) keep `resolveSelectedVehicle` — its `RegisteredVehicles` filter already proves ownership. Files: `internal/gateway/handlers/supercharger.go`, `handlers.go`. | 1, 2, 3 | Make the Supercharger write path prove ownership with `authorizeVehicle` and hand `VerifySession` a `vehicleref.Ref`. Leave the two read sites on `resolveSelectedVehicle` and say in design.md why that is already an ownership proof. |
 
 ## Facts already checked — do not re-derive
 
@@ -54,7 +55,14 @@ Legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, 
   `SuperchargerHistoryByVehicleUpdatedSince` (`internal/telemetry/telemetry.go:588`,
   `reader.go:193`). Tier 3 drops its `accountID` parameter. It does not need a new method.
 - `authorizeVehicle` exists at `internal/gateway/handlers/handlers.go:1061` and has no
-  caller. Tier 3 is its first user.
+  caller. Tier 4 is its first user.
+- The "11 call sites" this roadmap first claimed for `supercharger.go` is **stale**. Tier 2
+  collapsed them. Today there are three port calls — `supercharger.go:180`, `:305`, `:681` —
+  fed by three `resolveSelectedVehicle` calls at `:145`, `:175`, `:675`.
+- `internal/analytics` cannot build a `vehicleref.Ref`. `make vehicleref-guard` allows
+  `vehicleref.Authorize`/`.All` only inside the gateway's `authorizeVehicle`. So the three
+  `ListSessionsByVehicle*` read ports, which analytics calls at `recalculate.go:158`, `:279`
+  and `reader.go:141`, cannot be retyped. `VerifySession` can — the gateway is its only caller.
 - The charging index is `idx_supercharger_sessions_vehicle_stop` today, renamed by
   `internal/charging/db/migrations/20260902000003_move_charging_to_own_schema.sql:32`.
   The telemetry index names in the ticket are correct.
@@ -80,4 +88,5 @@ Legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, 
 ## Done when
 
 Neither Supercharger table has `account_id`. `tesla_id` is `NOT NULL` on both. The mirror
-runs one pass per `tesla_id`. The gateway proves ownership before every Supercharger read.
+runs one pass per `tesla_id`. `VerifySession` cannot be called without a `vehicleref.Ref`,
+so the Supercharger write path proves ownership at compile time, not only at run time.
