@@ -34,8 +34,9 @@
    validation gate** in either direction.
 4. `Handler.parseExternalChargeForm` — validates; delegates the required-field rule to
    `charging.RequiredFieldsFor(status)` rather than hardcoding it; runs `vehicleOwned`.
-5. `Handler.fetchEntryTeslaIDAndChargedOn` → `charging.Reader.ListEntriesByAccount` — reads the
-   **pre-update** `charged_on`. Once the UPDATE commits the old date is unrecoverable.
+5. `Handler.fetchEntryTeslaIDAndChargedOn` → `charging.Reader.ListEntriesByVehicles` (over the
+   account's `RegisteredVehicles`, since `RM58-charging-demote-manual-charge-account-id`) — reads
+   the **pre-update** `charged_on`. Once the UPDATE commits the old date is unrecoverable.
    ⚠ capped at 100 rows — see `architecture/charge-record-mutation.md`.
 6. `charging.Writer.Update` — `internal/charging/service.go` — `normalizeStatus` →
    `missingFields` → `resolveEnergy` → `UpdateEntry`. A rejected update writes nothing.
@@ -49,7 +50,7 @@
 | # | Op | Table / entity | Where |
 |---|---|---|---|
 | 1 | READ | `vehicles` | `account.Service.RegisteredVehicles` |
-| 2 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByAccount` (pre-update date) |
+| 2 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByVehicles` (pre-update date) |
 | 3 | WRITE | `manual_charge_entries` | `UpdateEntry` — sets `updated_at = now()`; Postgres recomputes `inferred_capacity_kwh_calc` in the same statement |
 | 4 | READ | `vehicle_snapshots` | `telemetry.Reader.SnapshotsByVehicleBetween` + `SnapshotPrecedingDay` |
 | 5 | READ | `supercharger_sessions` | `charging.SuperchargerSessionAnalyticsReader.ListSessionsByVehicleBetween` |

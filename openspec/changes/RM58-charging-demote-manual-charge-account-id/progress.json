@@ -9,8 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T5",
-      "T7",
       "T8"
     ],
     "blocked": [],
@@ -20,11 +18,15 @@
       "T2",
       "T3",
       "T4",
-      "T6"
+      "T6",
+      "T7"
+    ],
+    "awaiting-user-verification": [
+      "T5"
     ]
   },
   "created_at": "2026-09-14T10:40:00Z",
-  "updated_at": "2026-09-14T10:54:00Z",
+  "updated_at": "2026-09-14T14:53:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -157,14 +159,20 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "The two cross-account tests STAY and keep passing, renamed column only. They are re-keyed onto tesla_id in tier 2. No new test file."
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T14:42:00Z",
+      "completed_at": "2026-09-14T14:53:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 18,
+        "cost_usd_delta": 8.53,
+        "approx": true,
+        "note": "One wave-2 delta shared across T5 and T7 (one Sonnet worker)."
+      },
+      "notes": "All charging _test.go files re-keyed. Both cross-account tests kept unweakened. Also fixed 3 stale 4-arg ListEntriesByVehicle calls and a raw-SQL account_id column list the design missed. go vet ./... clean. DB-backed, so unrun."
     },
     {
       "id": "T6",
@@ -197,14 +205,20 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Touches no Go file. May run in parallel with T4-T6."
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T14:42:00Z",
+      "completed_at": "2026-09-14T14:53:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 18,
+        "cost_usd_delta": 8.53,
+        "approx": true,
+        "note": "One wave-2 delta shared across T5 and T7 (one Sonnet worker)."
+      },
+      "notes": "AGENTS.md plus five kkpa/context guides updated: car-wide reads, created_by_account_id as authorship, transitional write guard, new index. make archive-guard clean."
     },
     {
       "id": "T8",
@@ -271,6 +285,14 @@
       "at": "2026-09-14T10:52:00Z",
       "what": "Removed the stale design/roadmap decision IDs from Reader.ListEntriesByVehicleBetween's doc comment in charging.go.",
       "why": "The worker rewrote that comment and carried the pointers forward. They name archived docs a later reader cannot open. The opportunistic legacy-cleanup rule covers it."
+    },
+    {
+      "id": "D-LEADER-3",
+      "scope": "implementation",
+      "made_by": "autopilot",
+      "at": "2026-09-14T14:53:00Z",
+      "what": "Accepted the worker's deviation on T5.2: cleanupAccount logs RowsAffected instead of asserting it.",
+      "why": "84 callers; some clean an account that wrote no row, so a non-zero assert fails for the right reason. The checked exec error catches the rename hazard. Flagged to the reviewer."
     }
   ],
   "review": {
@@ -314,6 +336,16 @@
       "at": "2026-09-14T10:54:00Z",
       "what": "budget-checkpoint",
       "detail": "Stopped at the wave-1 boundary. five_hour_pct 87 (threshold 90, resets 2026-09-14T14:40:00Z), context_pct 16. Owner chose to /clear and resume immediately rather than wait for the reset. Next: wave 2 = T5 (test fixups in charging) + T7 (docs), then T6 is already done, then T8."
+    },
+    {
+      "at": "2026-09-14T14:42:00Z",
+      "what": "wave-2-dispatched",
+      "detail": "charging worker on Sonnet, T5 (test fixups) + T7 (docs) batched in one serial dispatch. Disjoint files, one doc-pack read. Budget at dispatch: five_hour_pct 3 (bucket reset), context_pct 9, cost_usd 0.93."
+    },
+    {
+      "at": "2026-09-14T14:53:00Z",
+      "what": "wave-2-complete",
+      "detail": "T5 + T7 by the charging worker on Sonnet. go build ./... and go vet ./... both clean repo-wide for the first time in this change. gofmt clean (three pre-existing unformatted files are not this change's). Worker's own timestamps were before its dispatch and were replaced with the leader's bracket times. Budget: five_hour_pct 3 -> 18, cost_usd 0.93 -> 9.46."
     }
   ]
 }

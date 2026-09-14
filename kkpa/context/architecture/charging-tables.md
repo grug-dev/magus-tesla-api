@@ -82,8 +82,12 @@ owned by this module may have a name beginning `charge_sessions`. Verify with
     predicated on by any read query in this tier; an index on a column nothing
     filters/orders/joins by is pure write and storage cost for no read benefit
     (design.md §Index Plan, D9). If a future change needs to filter by `status`,
-    the design's revisit trigger is a **partial**, `account_id`-leading index
-    over `WHERE status = 'IN_PROGRESS'` — not a standalone `(status)` index.
+    the revisit trigger is a **partial**, `tesla_id`-leading index over `WHERE
+    status = 'IN_PROGRESS'` — not a standalone `(status)` index. The table's key
+    became `tesla_id` in `RM58-charging-demote-manual-charge-account-id`: the
+    column that led every index used to be `account_id`; the sole index on this
+    table is now `idx_manual_charge_entries_vehicle_time` on `(tesla_id,
+    charged_on DESC)`.
   - Energy may be **derived on write** via the unexported `packCapacityKWh(ctx, lookup,
     teslaID) (float64, error)` seam in `capacity.go`. Since RM52 tier 1 (MAG-32,
     RM52-charging-add-monthly-effective-capacity), it no longer returns a hardcoded `62.0`
@@ -102,8 +106,10 @@ owned by this module may have a name beginning `charge_sessions`. Verify with
     accepted from a caller.
   - **Not indexed.** Nothing filters, orders, joins, or groups by this column, in this
     tier or any planned one (design.md D4/§Index Plan). If a future change needs to
-    filter by `price_source`, the revisit trigger is a **partial**, `account_id`-leading
-    index — not a standalone `(price_source)` index.
+    filter by `price_source`, the revisit trigger is a **partial**, `tesla_id`-leading
+    index — not a standalone `(price_source)` index. See the `status` bullet above:
+    the table's key is `tesla_id`, not `account_id`, since
+    `RM58-charging-demote-manual-charge-account-id`.
   - **The `DEFAULT` alone does not implement the price-based rule.** A raw `INSERT` at
     the SQL level that omits `price_source` always lands on `'UNCONFIRMED'`, even for a
     positive `price` — a column `DEFAULT` cannot see another column's value. The

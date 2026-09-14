@@ -375,7 +375,7 @@ func TestPromotion_C10_IncompleteExplicitDoneStillRejected(t *testing.T) {
 	_, err := w.Create(ctx, e)
 	assertErrorNamesField(t, err, string(charging.FieldEndBatteryPct))
 
-	entries, listErr := r.ListEntriesByVehicle(ctx, accountID, 340010, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if listErr != nil {
 		t.Fatalf("C10: ListEntriesByVehicle: %v", listErr)
 	}

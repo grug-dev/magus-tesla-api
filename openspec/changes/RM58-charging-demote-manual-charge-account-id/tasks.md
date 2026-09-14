@@ -181,16 +181,23 @@ Depends on: T3.
 
 Depends on: T4. May run in parallel with T6 — disjoint modules.
 
-- [ ] 5.1 Grep every `_test.go` in `internal/charging` for
+- [x] 5.1 Grep every `_test.go` in `internal/charging` for
       `manual_charge_entries` **across line breaks**, not line by line: a table
       name and its column routinely sit on different lines, so a line-based grep
       finds some hits and misses others.
-- [ ] 5.2 `db_integration_test.go` helpers: `cleanupAccount`'s
+- [x] 5.2 `db_integration_test.go` helpers: `cleanupAccount`'s
       `DELETE ... WHERE account_id = $1` must name the new column, and `minEntry`
       must set `CreatedByAccountID`. Assert `RowsAffected()` on that fixture
       `DELETE` — a fixture write that matches no row does not error, and every
       assertion after it would then pass or fail for an unrelated reason.
-- [ ] 5.3 **Keep** `TestUpdate_CrossAccountIsNoOp` and
+      - **Leader note (deviation, accepted).** `RowsAffected()` is logged, not
+        asserted. The helper has 84 callers and some clean an account that never
+        wrote a row — `cleanupAccount(t, pool, ownerID, attackerID)` in the two
+        cross-account tests, where the attacker is blocked by design. A non-zero
+        assertion would fail those for the right reason. The checkbox's real aim,
+        catching a `DELETE` that matches nothing after a rename, is met by checking
+        the exec error: Postgres errors on an unknown column. Flagged to the reviewer.
+- [x] 5.3 **Keep** `TestUpdate_CrossAccountIsNoOp` and
       `TestDelete_CrossAccountGuard`, and keep them passing (`design.md` §Test
       contract). The guard they protect survives this tier. Change only what the
       rename and the port change force: `tampered.AccountID` becomes
@@ -202,7 +209,7 @@ Depends on: T4. May run in parallel with T6 — disjoint modules.
       branch has an unauthorized write path. Record in the change's notes that
       **tier 2 owns re-keying them onto `tesla_id`**, in the same change that
       moves the predicate.
-- [ ] 5.4 Rename and re-key the four account-wide list tests, keeping their
+- [x] 5.4 Rename and re-key the four account-wide list tests, keeping their
       assertions: `TestListByAccount_AccountIsolation` →
       `TestListByVehicles_VehicleIsolation`; `…_NewestFirst` →
       `TestListByVehicles_NewestFirst`; `…_Limit` → `TestListByVehicles_Limit`;
@@ -210,28 +217,28 @@ Depends on: T4. May run in parallel with T6 — disjoint modules.
       in `design.md` §Test contract. `TestListByVehicles_EmptyNonNil` must also
       assert that an **empty** `[]int64{}` returns a non-nil, zero-length slice —
       never every row.
-- [ ] 5.5 `TestMultiTenantIsolation_NeverLeaks` becomes
+- [x] 5.5 `TestMultiTenantIsolation_NeverLeaks` becomes
       `TestSharedVehicle_ReadsAreCarWide` and asserts the opposite of what it
       asserts today: with one entry by `alice` and one by `bob` on the same
       `sharedTeslaID`, both `ListEntriesByVehicle` and `ListEntriesByVehicles`
       return **both** entries, each still carrying the `CreatedByAccountID` of
       whoever typed it.
-- [ ] 5.6 `TestListByVehicleBetween_AccountIsolation` becomes
+- [x] 5.6 `TestListByVehicleBetween_AccountIsolation` becomes
       `TestListByVehicleBetween_ReturnsBothAccountsEntries`: both entries come
       back, in `charged_on DESC` order.
       `TestListByVehicleBetween_VehicleIsolation` is unchanged apart from the
       call signature.
-- [ ] 5.7 `db_entry_status_integration_test.go`,
+- [x] 5.7 `db_entry_status_integration_test.go`,
       `db_promotion_price_source_integration_test.go` and
       `db_inferred_capacity_entries_integration_test.go`: mechanical only —
       re-key the `ListEntries*` calls, rename the `Entry` field. No expectation
       changes; each seeds exactly one account.
-- [ ] 5.8 `db_monthly_capacity_integration_test.go`: rename `account_id` in every
+- [x] 5.8 `db_monthly_capacity_integration_test.go`: rename `account_id` in every
       raw `manual_charge_entries` seed. Leave the `supercharger_sessions` seeds
       alone. No capacity expectation changes.
-- [ ] 5.9 `go vet ./internal/charging/...` — expect clean. `go vet` compiles
+- [x] 5.9 `go vet ./internal/charging/...` — expect clean. `go vet` compiles
       `_test.go` files, so this is what proves the test signatures are right.
-- [ ] 5.10 Do NOT add a new test file or a new test function. Unit tests are
+- [x] 5.10 Do NOT add a new test file or a new test function. Unit tests are
       excluded by the ticket.
 
 ## T6 — Cross-module bridge (leader-owned)
@@ -278,31 +285,31 @@ wave as T4, or `go build ./...` stays red (`design.md` D5).
 Depends on: T3 (needs the final port shape). Touches no Go file — safe to run in
 parallel with T4–T6.
 
-- [ ] 7.1 `internal/charging/AGENTS.md` — three corrections, all named in
+- [x] 7.1 `internal/charging/AGENTS.md` — three corrections, all named in
       `design.md` §Docs: §Responsibility's "enforces multi-tenant data isolation"
       claim for manual entries; §Data Ownership's rule that tenant scoping is
       "`account_id` for `manual_charge_entries`"; and §Public Interface, which
       must now state the car-wide read rule and that `created_by_account_id` is
       authorship only.
-- [ ] 7.2 `kkpa/context/architecture/charging-tables.md` — the
+- [x] 7.2 `kkpa/context/architecture/charging-tables.md` — the
       `manual_charge_entries` section's two revisit triggers both propose an
       "`account_id`-leading index", a shape this table can no longer have. State
       the new key and the single `(tesla_id, charged_on DESC)` index.
-- [ ] 7.3 `kkpa/context/workflows/manual-charge-crud.md` — the `query.sql` row and
+- [x] 7.3 `kkpa/context/workflows/manual-charge-crud.md` — the `query.sql` row and
       the Update bullet name the write scope `account_id`. The scope survives this
       tier, so do not delete it: rename it to `created_by_account_id` and add that
       it is transitional, replaced by a `tesla_id` guard. Also correct the read
       side, which is car-wide now.
-- [ ] 7.4 `kkpa/context/architecture/charge-record-mutation.md` — the line saying
+- [x] 7.4 `kkpa/context/architecture/charge-record-mutation.md` — the line saying
       `fetchEntryVM` calls `ListEntriesByAccount(ctx, uid, 0)`.
-- [ ] 7.5 `kkpa/context/use-case/charging/update-manual-charge.md` and
+- [x] 7.5 `kkpa/context/use-case/charging/update-manual-charge.md` and
       `kkpa/context/use-case/charging/delete-manual-charge.md` — the call-chain
       steps, the read/write tables, and the delete guide's "100-row lookup cap"
       note, all of which name `ListEntriesByAccount`.
-- [ ] 7.6 Do NOT edit anything under `openspec/changes/archive/`. A grep for
+- [x] 7.6 Do NOT edit anything under `openspec/changes/archive/`. A grep for
       `account_id` will hit archived designs; those hits are the record of what
       was decided then and are not yours to fix. `make archive-guard` enforces it.
-- [ ] 7.7 Do NOT edit anything under `kkpa/context/pending-spec-to-sync/applied/`.
+- [x] 7.7 Do NOT edit anything under `kkpa/context/pending-spec-to-sync/applied/`.
       Those are applied proposals, a record, not live guides.
 
 ## T8 — Final verification
