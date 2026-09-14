@@ -250,7 +250,11 @@
       "started_at": "2026-09-14T02:45:00Z",
       "completed_at": "2026-09-14T04:25:00Z",
       "duration_seconds": null,
-      "budget": null,
+      "budget": {
+        "cost_usd_delta": 3.11,
+        "approx": true,
+        "note": "Wave 1 (T1-T6) ran as one serial worker; its delta is counted once, not six times. T7's wave and the review round were not measured, so this figure is a floor, not the tier's full cost."
+      },
       "notes": "Archived to openspec/changes/archive/charging/2026-09-14-RM57-charging-verifysession-takes-ref. Reviewer approved in round 1 with one minor finding (tasks.md missing T7), fixed by appending T7. Owner verified the suite with make test."
     },
     {
@@ -368,6 +372,11 @@
       "at": "2026-09-14T04:25:00Z",
       "what": "roadmap-complete",
       "detail": "All four tiers archived. Done-when met: neither Supercharger table has account_id, tesla_id is NOT NULL on both, the mirror runs one pass per tesla_id, and VerifySession cannot be called without a vehicleref.Ref. The work-counter is untouched - RM57 keeps its number."
+    },
+    {
+      "at": "2026-09-14T04:30:00Z",
+      "what": "budget-rollup",
+      "detail": "Tier budgets rolled up at close - the leader skipped this at archive time. Tier 3 = $3.11 from its deduped wave 1; T7 and its review round carry no reading. Tier 4 recorded no cost at all: its budget objects were written without cost_usd_delta. So 3 of 4 tiers reported and tier 3's own figure is partial."
     }
   ]
 }
