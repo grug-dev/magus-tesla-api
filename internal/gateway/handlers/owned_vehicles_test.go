@@ -12,7 +12,9 @@ import (
 
 // TestOwnedVehicles_ReturnsRefsAndVehicles: an account with registered
 // vehicles gets one Ref per vehicle, in the same order, plus the plain vehicle
-// list. Order matters -- a caller pairs the two slices by index.
+// list. Both slices are two views of one read. No caller pairs them by index --
+// the label lookup matches on TeslaID -- but the order is asserted so a future
+// caller may rely on it.
 func TestOwnedVehicles_ReturnsRefsAndVehicles(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 111}, {TeslaID: 222},
