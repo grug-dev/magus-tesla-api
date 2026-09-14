@@ -10,9 +10,9 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 )
 
-// TestOwnedVehicles_ReturnsRefsAndVehicles covers the design's Test Contract
-// case 1: an account with registered vehicles gets a Ref per vehicle, in the
-// same order, plus the plain vehicle list.
+// TestOwnedVehicles_ReturnsRefsAndVehicles: an account with registered
+// vehicles gets one Ref per vehicle, in the same order, plus the plain vehicle
+// list. Order matters -- a caller pairs the two slices by index.
 func TestOwnedVehicles_ReturnsRefsAndVehicles(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 111}, {TeslaID: 222},
@@ -34,9 +34,9 @@ func TestOwnedVehicles_ReturnsRefsAndVehicles(t *testing.T) {
 	}
 }
 
-// TestOwnedVehicles_NoRegisteredVehicles covers Test Contract case 2: an
-// account with no registered vehicles (no error) is not "no filter" -- ok
-// must be false with empty refs and vehicles.
+// TestOwnedVehicles_NoRegisteredVehicles: an account with no registered
+// vehicles is not "no filter". ok must be false, so a caller stops instead of
+// reading every vehicle's rows.
 func TestOwnedVehicles_NoRegisteredVehicles(t *testing.T) {
 	acct := &fakeAccount{registered: nil}
 	h := newHandler(acct, fakeTesla{})
@@ -53,9 +53,9 @@ func TestOwnedVehicles_NoRegisteredVehicles(t *testing.T) {
 	}
 }
 
-// TestOwnedVehicles_RegisteredVehiclesError covers Test Contract case 3: a
-// lookup failure renders the same result as an empty list -- ok is false, so
-// a transient read failure cannot be distinguished from owning nothing.
+// TestOwnedVehicles_RegisteredVehiclesError: a lookup failure gives the same
+// result as an empty list. ok is false, so a read error can never widen what
+// the caller sees.
 func TestOwnedVehicles_RegisteredVehiclesError(t *testing.T) {
 	acct := &fakeAccount{regErr: errors.New("db unavailable")}
 	h := newHandler(acct, fakeTesla{})

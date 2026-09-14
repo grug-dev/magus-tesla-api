@@ -5,26 +5,25 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
   "request": "MAG-68 — Tier 3 of RM58: the gateway gets ONE seam that produces the caller's owned vehicle set, and every fleet-wide read uses it. No behaviour change.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       "T0",
+      "T1",
+      "T2",
+      "T3",
       "T4",
       "T5",
       "T6",
       "T7"
     ],
-    "awaiting-user-verification": [
-      "T1",
-      "T2",
-      "T3"
-    ]
+    "awaiting-user-verification": []
   },
   "created_at": "2026-09-14T20:50:00Z",
-  "updated_at": "2026-09-14T21:03:00Z",
+  "updated_at": "2026-09-14T21:18:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -65,7 +64,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T20:52:00Z",
@@ -88,7 +87,7 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T20:52:00Z",
@@ -111,7 +110,7 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T20:52:00Z",
@@ -261,10 +260,24 @@
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Review scope: git diff 1c92a4e..HEAD, plus the artifacts committed at 1c92a4e. Tier 2 archived at 4f1c6b4; anything before it is approved work. Read the diff, not the whole module. Validate: (1) the binding decisions hold - D13, D14, D15, D16 in this file, and D1-D6 in design.md; (2) ownedVehicles does ONE RegisteredVehicles read and returns both shapes, with ok false on an error OR an empty list - the 'an empty vehicle list is not no-filter' rule must be exactly as strong as before; (3) vehicleref.All is called only from handlers.go and external_charges.go calls only vehicleref.TeslaIDs; (4) teslaIDsOf is gone and no caller rebuilds an owned-id list beside a call; (5) the delta spec requirement is behavioural - it must name no function, type or file - AND it must be TRUE and COMPLETE after this tier: check every fleet-wide owned-set read in the gateway, not just the two helpers, and say whether you found any the requirement would make false; (6) owned_vehicles_test.go asserts the values design.md pinned up front, not what the implementation happens to return - the three cases are vehicles present, empty list, and lookup error; (7) module boundaries - this change must stay inside internal/gateway plus the three granted KB files; (8) docs track the change - internal/gateway/AGENTS.md and the three KB guides; (9) openspec/changes/archive/ untouched; (10) anti-gaming - no criterion weakened, no self-approved status. LEADER OBSERVATION for you to judge, not a finding: ownedVehicles repeats the four-line owned-id loop that authorizeVehicle also has, in the same file. The leader left it, reasoning that extracting a helper for two short loops adds indirection the project's AI-efficiency rule warns against. Say whether you agree. Performance-Profile: read-heavy. This tier must not add a read; confirm the read count is unchanged. Signals: go build, go vet, openspec validate --strict and all eight guards were ASSISTANT-run and clean. The suite was USER-run: the owner ran make test and reported it passed. You judge test quality by READING the tests - never run the suite.",
+    "agent": "gateway-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-14T21:25:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-F1",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/owned_vehicles_test.go:12,29,48 - each test's doc comment says it \"covers the design's Test Contract case N\". This points at design.md's own section name. design.md is archived and frozen with the change, so the pointer cannot be resolved by a later reader. State the rule the test checks instead (e.g. \"case 2: an account with no registered vehicles is not 'no filter'\"), not that it matches a design document section.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
   },
   "events": [
     {
@@ -291,6 +304,21 @@
       "at": "2026-09-14T21:03:00Z",
       "what": "leader-observation",
       "detail": "ownedVehicles repeats the four-line owned-id loop that authorizeVehicle also has, in the same file. Left as is: extracting a helper for two short loops adds indirection the project's own AI-efficiency rule warns against. Flagged for the reviewer to judge, not hidden."
+    },
+    {
+      "at": "2026-09-14T21:10:00Z",
+      "what": "owner-verified",
+      "detail": "The OWNER ran make test and reported it passed. T1, T2 and T3 move from awaiting-user-verification to done. The assistant executed no test; this pass is the owner's report, not the assistant's claim."
+    },
+    {
+      "at": "2026-09-14T21:10:00Z",
+      "what": "reviewer-dispatched",
+      "detail": "gateway-reviewer (Sonnet) dispatched for review round 1, scope git diff 1c92a4e..HEAD. Doc pack: base + ai/agentic-workflow.md + the gateway module pack + internal/gateway/AGENTS.md. Budget at dispatch: five_hour_pct 56, context_pct 25."
+    },
+    {
+      "at": "2026-09-14T21:18:00Z",
+      "what": "review-round-1-triaged",
+      "detail": "One minor finding, R1-F1, accepted and fixed by the leader. The three test doc comments cited the design's Test Contract cases; the B2 rule forbids citing change docs because they are archived and frozen. Each comment now states the rule itself. go vet clean, gofmt clean. Reviewer signalled to re-verify."
     }
   ]
 }
