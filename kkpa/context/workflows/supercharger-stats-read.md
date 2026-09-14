@@ -96,7 +96,6 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **400 rules (closed set):** missing partner, malformed non-ISO date, `end` before `start`, `end` after today, or a window wider than **400 days**. On a 400 the region renders its empty state with **no window selector**, and **no read is performed**. _Source: spec gateway — Requirement: Supercharger Stats month-window selector._
 - **`end` = today is ACCEPTED here — unlike the dashboard history endpoint, which rejects it.** Charge sessions are readable the day they end; history has a nightly capture lag. This endpoint also frames "today" as plain UTC (`startOfDay(time.Now().UTC())`) and does not use the `browser_tz` cookie. Do not copy history's boundary by reflex. _Source: spec gateway — Requirement: Supercharger Stats month-window selector._
 - **The 400-day cap is this endpoint's own, not a platform constant.** Caps are per-endpoint, sized by the source table's row density: `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) is sparse (400 days), `vehicle_snapshots` is dense (90 days). A new date-filtered endpoint measures its own density rather than copying either number. _Source: spec gateway — Requirement: Supercharger Stats month-window selector._
-- **Sessions with a `NULL` `TeslaID` are invisible here, by construction and by design** — the single read is scoped by `TeslaID`, so they can never match. Never add a second account-wide read to discover or disclose them, and show no "N sessions hidden" notice. _Source: spec gateway — Requirement: Unattributed Supercharger sessions are out of scope._
 - **Multi-currency costs are NEVER summed across currencies** — one pre-formatted cost line per currency; sessions missing cost or currency still count toward Sessions/Energy but are excluded from cost. _Source: spec gateway — Requirement: Supercharger Stats cost aggregation never sums across currencies._
 - **Reader errors degrade to the empty state, never a 500.** _Source: spec gateway — Requirement: Supercharger Stats page._
 - **The window drives tiles, chart and table identically** — all three reflect the same filtered slice; changing a preset re-fetches the whole region without a full page reload. _Source: spec gateway — Requirement: Supercharger Stats month-window selector._
@@ -242,15 +241,49 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   That repeats work; it never loses a row. Prefer that trade every time.
   _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
 
-- **An account with no watermark backfills its whole history once**, then advances normally.
+- **A vehicle with no watermark backfills its whole history once**, then advances normally.
   So the bounded read costs nothing on first deploy and needs no migration or manual seeding.
+  The cursor is per vehicle, so a car with two registered drivers still backfills once, not twice.
   _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
 
-- **A session whose vehicle is not currently registered is still recovered under the bounded
-  read.** This works only because the mirror uses telemetry's ACCOUNT-wide updated-since port,
-  which applies no vehicle filter. Switching it to the per-vehicle port would drop those rows
-  and break orphan recovery without any visible error.
-  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+- **A session whose vehicle is not registered is NEVER stored — it is skipped and counted.**
+  `tesla_id` is `NOT NULL`, so there is no row to write. The nightly cycle reports the skip in
+  its `CycleReport` rather than swallowing it. The older advice here said the opposite: it told
+  you to keep an account-wide updated-since port so such sessions could be recovered. That port
+  no longer exists, and recovery through it is not a behaviour to restore.
+  _Source: spec charging — Requirement: Supercharger Session Vehicle Keying._
+
+- **A session is keyed on the vehicle, never on an account.** `charging.supercharger_sessions`
+  carries `tesla_id NOT NULL` and no `account_id` column. Which cars a user may see is recorded
+  once, by the account module's vehicle registry. Do not add an account column back to scope a
+  read — scope it by `tesla_id`.
+  _Source: spec charging — Requirement: Supercharger Session Vehicle Keying._
+
+- **One `session_id` is one stored row, store-wide.** Uniqueness is `UNIQUE (session_id)`, not a
+  pair. A Supercharger session happened to exactly one car, so two rows for one `session_id`
+  would be two records of one event. Re-mirroring the same `session_id` under a different
+  vehicle updates the row to the newest vehicle; it never inserts a second one.
+  _Source: spec charging — Requirement: Supercharger Session Vehicle Keying._
+
+- **When the re-key had to collapse a duplicated pair, the copy with human-entered percentages
+  wins.** Every other column is re-derived from the mirrored source on the next sync, so the
+  hand-entered battery percentages are the only value a delete could destroy.
+  _Source: spec charging — Requirement: Supercharger Session Vehicle Keying._
+
+- **Every public Supercharger port takes `teslaID int64` and no account id.** This covers the
+  mirror write, the three session reads, and the verification write. A port that still asks for
+  an account id is stale code, not a second scoping style.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping._
+
+- **`VerifySession` keeps a scope — it did not lose one.** It matches on BOTH `id` AND
+  `tesla_id`. Naming a vehicle the session does not belong to changes nothing and returns the
+  same error an unknown id returns, so "not yours" and "does not exist" stay indistinguishable
+  from outside. Never replace that predicate with an id-only match.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping._
+
+- **The mirror write validates no owning account, and an empty set stays a successful no-op.**
+  No session carries an account, so there is nothing to check across the batch.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping._
 
 ## Related KB
 
