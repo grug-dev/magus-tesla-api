@@ -59,6 +59,10 @@ imports nothing project-local.
   `internal/gateway/handlers/handlers.go`) calls `Authorize` or `All` outside this
   package's own code. `make vehicleref-guard` enforces this — read its grep pattern in
   the `Makefile` before adding a `vehicleref:allow` marker.
+- `_test.go` files are exempt from that guard. A test has no account to check an id
+  against, so it must build a `Ref` directly to call a port that needs one. A `Ref` built
+  in a test never reaches a running server, so it cannot weaken what the guard protects.
+  Build one with `vehicleref.All([]int64{teslaID})[0]` and do **not** add a marker.
 
 ## Testing
 

@@ -727,23 +727,28 @@ theme-guard: ## Fail if ui.Themes, account's Theme* constants, and input.css's r
 
 # vehicleref-guard mirrors boundary-guard's grep-based shape and escape-hatch convention.
 # It enforces that vehicleref.Authorize and vehicleref.All are only ever called from
-# internal/vehicleref itself (its own package and its own test) and from the gateway's
-# authorizeVehicle helper in internal/gateway/handlers/handlers.go. A Ref proves a vehicle
+# internal/vehicleref itself, from any _test.go file, and from the gateway's
+# authorizeVehicle helper in internal/gateway/handlers/handlers.go.
+#
+# Test files are exempt because a test has no account to check an id against. It must
+# build a Ref directly to call a port that requires one. The guard protects production
+# code: a Ref built in a test never reaches a running server. A Ref proves a vehicle
 # id was checked against a caller's own ownership list; a second, unreviewed construction
 # site would let a future handler build a "checked" Ref without the check ever running.
 #
 # Escape hatch: a trailing `// vehicleref:allow: <reason>` comment on the same line as the
 # call. Never widen the pattern to silence a true positive.
-vehicleref-guard: ## Fail if vehicleref.Authorize/.All are called outside internal/vehicleref and the gateway's authorizeVehicle helper (escape hatch: // vehicleref:allow: <reason>)
+vehicleref-guard: ## Fail if vehicleref.Authorize/.All are called outside internal/vehicleref, _test.go files and the gateway's authorizeVehicle helper (escape hatch: // vehicleref:allow: <reason>)
 	@hits=$$(grep -rnE 'vehicleref\.(Authorize|All)\(' internal --include='*.go' \
 		| grep -v '^internal/vehicleref/' \
+		| grep -v '_test\.go:' \
 		| grep -v '^internal/gateway/handlers/handlers\.go:' \
 		| grep -v 'vehicleref:allow' || true); \
 	if [ -n "$$hits" ]; then \
 		echo "$$hits"; \
 		echo ""; \
-		echo "ERROR: vehicleref.Authorize/.All called outside internal/vehicleref and"; \
-		echo "internal/gateway/handlers/handlers.go above."; \
+		echo "ERROR: vehicleref.Authorize/.All called outside internal/vehicleref,"; \
+		echo "_test.go files, and internal/gateway/handlers/handlers.go above."; \
 		echo "A Ref must only ever be built by internal/vehicleref itself or by the"; \
 		echo "gateway's authorizeVehicle helper. A second construction site defeats the"; \
 		echo "compile-time guarantee: a handler could build its own 'checked' Ref without"; \
@@ -753,7 +758,7 @@ vehicleref-guard: ## Fail if vehicleref.Authorize/.All are called outside intern
 		echo "a true positive."; \
 		exit 1; \
 	else \
-		echo "vehicleref-guard: vehicleref.Authorize/.All called only from internal/vehicleref and authorizeVehicle"; \
+		echo "vehicleref-guard: vehicleref.Authorize/.All called only from internal/vehicleref, tests and authorizeVehicle"; \
 	fi
 
 # archive-guard is the one guard that reads git history instead of the working tree,
