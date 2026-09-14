@@ -217,13 +217,14 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
 - **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
-  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **six**
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **seven**
   standing exceptions, each with its own recorded decision below: **RD9** (the `browser_tz`
   cookie script in `layouts.BaseAuth`), **RD10** (`ui.ConfirmDialog`, whose JS lives in
   the shared `static/app.js`), **RD12** (date→time-preserving sync on the charge forms), and
   **RD13** (status-driven required toggle on the charge forms) plus **RD14** (location-kind
-  driven label toggle) plus **RD15** (the theme-switch instant-apply listener pair) — the
-  last four also live in `static/app.js`. Adding a seventh needs its own RD entry per RD8.
+  driven label toggle) plus **RD15** (the theme-switch instant-apply listener pair) plus
+  **RD16** (the iOS install hint's show/dismiss pair) — the last five also live in
+  `static/app.js`. Adding an eighth needs its own RD entry per RD8.
 - **Confirmations: never write a modal, never call `window.confirm`.** Put `hx-confirm`
   (plus optional `data-confirm-title` / `data-confirm-label` / `data-confirm-variant="danger"`)
   on the triggering control and the shared `ui.ConfirmDialog` — mounted once in
@@ -898,11 +899,11 @@ decision reaches, and this split is mandatory:**
 gateway dispatch, so one page's detail parked here is a tax on every other page's work. A
 long entry about a single route is the signal that it belongs in the KB.
 
-## Client-side JS — the zero-JS rule and its six exceptions (RD9-RD15)
+## Client-side JS — the zero-JS rule and its seven exceptions (RD9-RD16)
 
 The gateway's DaisyUI foundation is **zero-JS** (`ai/htmx-conventions.md` §"Styling").
-There are exactly **six** sanctioned exceptions. All but RD9 live in `static/app.js` and
-delegate on `document.body`.
+There are exactly **seven** sanctioned exceptions. All but RD9 live in `static/app.js`, and
+all but RD16's show step delegate on `document.body`.
 
 | RD | What it does |
 |---|---|
@@ -910,8 +911,9 @@ delegate on `document.body`.
 | **RD10** | Intercepts `htmx:confirm` and drives `ui.ConfirmDialog`. |
 | **RD12/13/14** | The three `/external-charges` form listeners. |
 | **RD15** | Applies a theme to the DOM at once, closes the dropdown, reverts if the save fails. |
+| **RD16** | Unhides `ui.InstallHint` on iOS only, and remembers a dismissal in `localStorage`. |
 
-**Four rules bind you even when you are not working on these**, so they stay here:
+**Five rules bind you even when you are not working on these**, so they stay here:
 
 - **Adding any client-side JS needs its own RD entry first**, per RD8 above — the rule,
   the reason, and the option you rejected. None of the six grandfathers in a seventh.
@@ -921,6 +923,11 @@ delegate on `document.body`.
   never be able to replace a dialog while it is open.
 - **Never delete the inline script in `BaseAuth`.** Without the `browser_tz` cookie the
   dashboard's date math falls back to `clock.Zone()`, not the user's own day.
+- **Never render an install prompt for Android, and never sniff iOS in Go.** Android Chrome
+  raises its own prompt from `/site.webmanifest`; a second one of ours would be a duplicate.
+  And the three facts that gate `ui.InstallHint` — iOS, not already running standalone, not
+  already dismissed — are client state no request header carries, so the decision cannot
+  move server-side even if the User-Agent were trusted.
 
 **To add a confirmation to any page: put `hx-confirm` on the control. Nothing else.**
 

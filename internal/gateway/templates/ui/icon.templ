@@ -5,7 +5,7 @@ package ui
 // never a color class, since the SVG uses fill="currentColor" driven by the
 // surrounding text color semantic token (text-base-content / text-primary / …).
 type IconProps struct {
-	Name  string // "dashboard"|"ev_station"|"analytics"|"settings"|"menu"|"battery"|"logout"|"car"|"globe"|"speed"|"groups"|"chevron_down"|"edit"|"delete"|"trending_up"|"trending_down"
+	Name  string // "dashboard"|"ev_station"|"analytics"|"settings"|"menu"|"battery"|"logout"|"car"|"globe"|"speed"|"groups"|"chevron_down"|"edit"|"delete"|"trending_up"|"trending_down"|"ios_share"
 	Class string
 }
 
@@ -86,6 +86,19 @@ templ iconMarkup(p IconProps) {
 	case "trending_down":
 		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
 			<path d="M16 18l2.29-2.29-4.88-4.88-4 4L2 7.41 3.41 6l6 6 4-4 6.3 6.29L22 12v6z"/>
+		</svg>
+	case "ios_share":
+		// iOS's own Share glyph — a box with an arrow leaving it through the top.
+		// ui.InstallHint draws it so the hint shows the button it is naming, which
+		// is the part of "tap Share" a user actually has to find on the toolbar.
+		//
+		// This is the ONE glyph on a 960 viewBox rather than 24: it is Material's
+		// ios_share path, taken as authored. Re-tracing it at 24 units to match its
+		// neighbours would redraw a shape whose whole value is being the EXACT mark
+		// iOS puts on the toolbar. The viewBox is per-<svg>, so p.Class still sizes
+		// it exactly like every other icon here.
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">
+			<path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h80v80h-80v400h480v-400h-80v-80h80q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm200-280v-447l-64 64-56-57 160-160 160 160-56 57-64-64v447h-80Z"/>
 		</svg>
 	default:
 		// Unknown glyph: render nothing (closed-vocabulary contract — pages pass a

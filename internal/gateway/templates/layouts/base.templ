@@ -155,6 +155,12 @@ templ baseShell(title string, indexable bool) {
 			// control. It lives OUTSIDE the swappable regions on purpose — a swap must
 			// never replace the open dialog. See ui/confirm_dialog.templ.
 		@ui.ConfirmDialog()
+		// The iOS "Add to Home Screen" hint (RD16). Renders hidden on EVERY request
+		// and is unhidden by app.js only on an iOS browser that is not already
+		// running the installed app. Android gets nothing here by design — Chrome
+		// raises its own install prompt from /site.webmanifest. Mounted beside the
+		// dialog above for the same reason: one copy, outside every swap region.
+		@ui.InstallHint()
 	</body>
 	</html>
 }

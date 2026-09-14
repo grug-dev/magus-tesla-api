@@ -35,6 +35,7 @@ Every SEO tag in the app comes from one component. There is no second place.
 | icons | `internal/gateway/templates/layouts/base.templ` | `faviconLinks` renders the three icon `<link>` tags. |
 | icons | `internal/gateway/static/img/favicon/` | Linked from the page: `favicon-32x32.png`, `favicon-16x16.png`, `favicon.ico`, `apple-touch-icon.png`. Used by the manifest: the 192 and 512 PNGs. Unused: `favicon-180x180.png`, `favicon-48x48.png`. |
 | routes | `internal/gateway/gateway.go` | `/robots.txt`, `/sitemap.xml`, `/site.webmanifest`, and a 301 from `/favicon.ico`. |
+| install hint | `internal/gateway/templates/ui/install_hint.templ` | `ui.InstallHint` — the iOS-only "Add to Home Screen" hint the manifest cannot raise on its own (RD16). |
 | tests | `internal/gateway/seo_test.go` | Pins the tags, the absolute URLs, the ES/EN switch, robots, sitemap, and the JSON-LD. |
 | docs | `internal/gateway/AGENTS.md` §"SEO & social-share metadata" | Two page-author rules only: no page-level `<meta>` tag, and the shell decides indexing. It points here for everything else. **This guide is the full rule set.** |
 
@@ -65,6 +66,9 @@ this project has real data for.
 
 **To change the install prompt** (the name a phone shows on the home screen), edit
 `WebManifest` in `handlers/site.go`. The strings come from the i18n catalog.
+
+**To change what iOS visitors are TOLD about installing**, edit the `KeyInstallHint*` catalog
+keys, not this file's surfaces. The hint itself is `ui.InstallHint` + RD16 in `app.js`.
 
 **To change the favicon**, replace the files in `internal/gateway/static/img/favicon/`. Keep
 the names `faviconLinks` uses. No code change is needed. To add a new icon format, add both
@@ -197,10 +201,21 @@ the file and its `<link>` tag. The test `os.Stat`s every href, so a tag with no 
   any HTML. The `<link>` tags alone are not enough. `gateway.go` 301s it to the real asset.
   _Source: `internal/gateway/gateway.go`._
 
-- **Not built, and that is a decision:** `hreflang` and a web app manifest. `hreflang` has
-  no meaning here. Language is a cookie on the SAME URL. There is no per-language URL to
-  point at.
+- **Not built, and that is a decision:** `hreflang`. It has no meaning here. Language is a
+  cookie on the SAME URL. There is no per-language URL to point at. (This entry once also
+  listed the web app manifest as unbuilt — `WebManifest` shipped in the same MAG-seo work
+  and the sentence was left behind.)
   _Source: this guide — decision recorded at MAG-seo, 2026-09-07._
+
+- **The manifest installs the app on Android by itself; iOS needs `ui.InstallHint` (RD16).**
+  Android Chrome reads `/site.webmanifest`, sees `display: standalone` plus the 192/512
+  icons, and raises its OWN install prompt — so there is nothing to render for Android, and
+  a prompt of ours would be a duplicate. Safari never fires `beforeinstallprompt` and offers
+  nothing, so on iOS the only path is Share -> "Add to Home Screen", which the user cannot
+  discover. That hint is client-side JS and lives in the RD16 entry of
+  `architecture/gateway-client-side-js.md`, not here — this guide owns the manifest document,
+  not the install experience.
+  _Source: `internal/gateway/templates/ui/install_hint.templ`; `static/app.js` — RD16._
 
 - **`make i18n-guard` does not cover these strings.** It scans text nodes, not attributes. A
   hardcoded `content="..."` would pass the guard. The bilingual rule still binds.

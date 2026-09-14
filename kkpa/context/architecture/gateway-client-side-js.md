@@ -8,7 +8,7 @@
 
 - **Known as:** `client-side JS`, `zero-JS rule`, `app.js`, `RD8`, `sanctioned exception`,
   `confirm modal`, `confirmation dialog`, `browser_tz cookie`, `timezone cookie`,
-  `theme instant apply`, `htmx listener`
+  `theme instant apply`, `htmx listener`, `install hint`, `add to home screen`, `PWA install`
 - **Internal name:** `internal/gateway/static/app.js` — the gateway's only hand-written
   client script. Plus one inline `<script>` in `layouts.BaseAuth`.
 
@@ -23,6 +23,8 @@ named exception with a written reason.
 | layout | `internal/gateway/templates/layouts/base.templ` | `BaseAuth` holds the inline `browser_tz` script (RD9). `Base` mounts the dialog once (RD10). |
 | component | `internal/gateway/templates/ui/confirm_dialog.templ` | `ui.ConfirmDialog` — the native `<dialog>` RD10 drives. |
 | component | `internal/gateway/templates/ui/theme_switcher.templ` | The buttons RD15 matches. Each carries the `hx-vals` RD15 reads. |
+| component | `internal/gateway/templates/ui/install_hint.templ` | `ui.InstallHint` — the hidden iOS install hint RD16 unhides. Mounted once in `baseShell`. |
+| handlers | `internal/gateway/handlers/site.go` | `WebManifest` — what makes the app installable at all. Android needs only this; RD16 exists for iOS. |
 | handlers | `internal/gateway/handlers/handlers.go` | `renderError` / `renderFragmentError` set the `HX-Error-Fragment` header. |
 | fallback | `internal/clock` | `clock.Zone()` — the zone used when the `browser_tz` cookie is missing. |
 | docs | `internal/gateway/AGENTS.md` §RD8 | The standing convention that requires this split. Keeps the rules only. |
@@ -38,6 +40,7 @@ named exception with a written reason.
 | **RD13** | `app.js` | Toggles `required` on `ended_at` / `end_battery_pct` from the status. |
 | **RD14** | `app.js` | Toggles `disabled` on `location_label` from the location kind. |
 | **RD15** | `app.js` | Applies a theme to the DOM at once, and reverts if the save fails. |
+| **RD16** | `app.js` | Unhides `ui.InstallHint` on iOS only, and remembers a dismissal in `localStorage`. |
 
 RD12, RD13 and RD14 belong to `/external-charges`. Their full detail lives in
 `input-port/charging/external-charges.md` §"Client-side JS on this page".
@@ -104,6 +107,31 @@ written.
 
 **To change a theme option**, edit `theme_switcher.templ`. The theme value the server
 receives and the value the DOM applies both come from one `hx-vals` literal per option.
+
+### RD16 — the iOS install hint
+
+Two parts, both in `app.js`, inside one IIFE.
+
+1. **The show step runs once at load.** It is the only listener-free exception in this file:
+   it reads `#ios-install-hint` and unhides it when all three are true — the browser is iOS,
+   the page is not already running standalone, and the hint was not dismissed before.
+2. **The dismiss step is a delegated `click` listener**, like every other listener here. It
+   hides the element and writes `magus.install-hint.dismissed.v1` to `localStorage`.
+
+```
+iOS?            /iPhone|iPad|iPod/ on the UA, OR /Macintosh/ with maxTouchPoints > 1
+installed?      navigator.standalone === true, OR matchMedia("(display-mode: standalone)")
+dismissed?      localStorage["magus.install-hint.dismissed.v1"] === "1"
+```
+
+The hint renders on EVERY page in both shells (mounted in `baseShell`), always with the
+`hidden` attribute set. A non-iOS visitor is served the markup and never sees it.
+
+**To change the copy**, edit the `KeyInstallHint*` keys in the i18n catalog. Both languages
+name the iOS Share-sheet rows verbatim as iOS spells them — do not "improve" that wording.
+
+**To show the hint again to people who dismissed it**, bump the `v1` suffix on the storage
+key. There is no other reset.
 
 ## Conventions & gotchas
 
@@ -188,12 +216,43 @@ receives and the value the DOM applies both come from one `hx-vals` literal per 
   the next full page load. Only the instant part is lost.
   _Source: `PreferencesMiddleware`; `internal/gateway/templates/layouts/base.templ`._
 
+- **RD16 is iOS-only on purpose — Android gets no code at all.** Android Chrome reads
+  `/site.webmanifest` and raises its own install prompt, in the OS language. A prompt of
+  ours would be a second one saying the same thing, worse.
+  _Source: `internal/gateway/handlers/site.go` — `WebManifest`._
+
+- **RD16's rejected option: detect iOS in Go and render the hint server-side.** That puts
+  User-Agent sniffing in a handler, and still gets the two cases that matter wrong: no
+  request header says "already installed" or "already dismissed", so an installed user would
+  be told to install. All three facts are client state; the decision has to be client-side.
+  _Source: `internal/gateway/static/app.js` — RD16._
+
+- **RD16's second rejected option: store the dismissal in `account.settings`.** "I have seen
+  this hint" is a fact about one BROWSER, not about the user — the same person on a desktop
+  must not inherit a dismissal made on their iPhone. A cookie was rejected for a second
+  reason: it would ride on every request, `/static` included, to tell the server something
+  the server never reads. This is NOT a precedent for storing preferences client-side; theme
+  and language stay in the DB.
+  _Source: `internal/gateway/static/app.js` — RD16; `entities/account-settings/guide.md`._
+
+- **RD16 toggles the `hidden` ATTRIBUTE, never a class.** Tailwind's preflight ships
+  `[hidden]{display:none!important}`, which beats the layout utilities on that same element.
+  A `hidden` class would have to be traded for `flex` on every show, in the right order.
+  _Source: `internal/gateway/templates/ui/install_hint.templ`; `static/app.css`._
+
+- **RD16 degrades to silence.** Without JS the hint stays hidden and nothing breaks; the app
+  is still installable by hand. Private mode can throw on `localStorage`, so both calls are
+  guarded — a throw on read means "show it", a throw on write means "cannot remember".
+  _Source: `internal/gateway/static/app.js` — `dismissed`, `rememberDismissal`._
+
 - **`app.js` has SEVEN listeners, but `AGENTS.md` names only six exceptions.** The
   seventh is the `htmx:beforeSwap` handler that honours the `HX-Error-Fragment` header.
   It has no RD number. It is described under `AGENTS.md` §"Non-2xx error fragments"
   instead. **This is a known contradiction, not a fact to copy.** Do not "fix" the count
   by deleting a listener. Raise it as its own decision: give it an RD number, or write
-  down why it does not need one.
+  down why it does not need one. (RD16 added two more listeners and its own RD number, so
+  the counts are now NINE listeners against SEVEN exceptions; the un-numbered one is still
+  the same `htmx:beforeSwap` handler.)
   _Source: `internal/gateway/static/app.js`; `internal/gateway/AGENTS.md`._
 
 - **Why the seventh listener matters.** htmx never swaps a 4xx or 5xx response body by
@@ -206,3 +265,4 @@ receives and the value the DOM applies both come from one `hx-vals` literal per 
 
 - `input-port/charging/external-charges.md` — RD12 / RD13 / RD14 in full.
 - `entities/account-settings/guide.md` — where the theme RD15 applies is stored.
+- `architecture/seo-metadata.md` — the web app manifest that makes the app installable.

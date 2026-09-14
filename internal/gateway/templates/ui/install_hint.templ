@@ -1,0 +1,51 @@
+package ui
+
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+
+// InstallHint is the iOS-only "add Magus to your home screen" hint (RD16).
+//
+// WHY IT EXISTS: /site.webmanifest already makes this app installable. On
+// Android that is the whole story — Chrome reads the manifest and raises its
+// own install prompt, so there is nothing for us to render. Safari never fires
+// `beforeinstallprompt` and never offers anything, so on iOS the only install
+// path is Share -> "Add to Home Screen", buried below the sharing apps. An
+// iPhone user cannot discover it, and no JavaScript can open that sheet for
+// them. Telling them where it is, once, is the only move available.
+//
+// IT RENDERS HIDDEN AND STAYS HIDDEN unless app.js unhides it (RD16): the three
+// facts that decide whether this is worth showing — iOS, not already installed,
+// not already dismissed — are all client state. None of them reaches the server:
+// there is no header for "running standalone", and deciding it from the
+// User-Agent would put browser sniffing in a Go handler AND still get the
+// already-installed case wrong.
+//
+// MOUNTED ONCE, IN baseShell, like ui.ConfirmDialog: outside every htmx swap
+// region (a swap must never replace it mid-read) and on both shells on purpose —
+// /login is the most likely page for a first-time visitor to install from, and
+// the dashboard is the most likely for a returning one.
+//
+// The `hidden` ATTRIBUTE is the toggle, never a class: Tailwind's preflight
+// carries `[hidden]{display:none!important}`, so it beats the layout utilities
+// on this same element. A `hidden` CLASS would have to be swapped for `flex`
+// on every show, in the right order — two ways to say one thing.
+templ InstallHint() {
+	<div id="ios-install-hint" class="fixed inset-x-0 bottom-0 z-50 flex justify-center p-3" hidden>
+		<div class="alert alert-soft alert-info w-full max-w-sm flex-col items-stretch gap-3 shadow-lg" role="status">
+			<div class="flex items-start gap-3">
+				@Icon(IconProps{Name: "ios_share", Class: "h-6 w-6 shrink-0"})
+				<div class="flex-1">
+					<p class="font-semibold">{ i18n.T(ctx, i18n.KeyInstallHintTitle) }</p>
+					<p class="text-sm opacity-80">{ i18n.T(ctx, i18n.KeyInstallHintBody) }</p>
+				</div>
+			</div>
+			<div class="flex justify-end">
+				// data-install-hint-dismiss is what app.js matches on. It is an
+				// attribute rather than a second id because the id already names the
+				// container, and one delegated listener resolves both from it.
+				<button type="button" data-install-hint-dismiss class="btn btn-ghost btn-sm">
+					{ i18n.T(ctx, i18n.KeyInstallHintDismiss) }
+				</button>
+			</div>
+		</div>
+	</div>
+}

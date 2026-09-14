@@ -452,6 +452,20 @@ const (
 	// an account whose status is not Active (design.md D6/D20).
 	KeyAccountBlockedTitle   Key = "account_blocked.title"
 	KeyAccountBlockedMessage Key = "account_blocked.message"
+
+	// --- iOS install hint (ui.InstallHint, RD16) ---
+	// The three strings of the "add this to your home screen" hint shown to
+	// iOS visitors only. Android needs no copy at all: Chrome reads
+	// /site.webmanifest and raises its own install prompt, in the OS
+	// language. Safari never fires beforeinstallprompt, so on iOS the only
+	// install path is the Share sheet — a path the user has to be told about.
+	// The body names the two Share-sheet entries VERBATIM as iOS spells them
+	// in each language ("Añadir a pantalla de inicio" / "Add to Home Screen");
+	// a prettier translation would send the user looking for a row that does
+	// not exist.
+	KeyInstallHintTitle   Key = "install_hint.title"
+	KeyInstallHintBody    Key = "install_hint.body"
+	KeyInstallHintDismiss Key = "install_hint.dismiss"
 )
 
 // catalog is the entire translation vocabulary. TestCatalog_AllKeysHaveBothLanguages
@@ -771,6 +785,10 @@ var catalog = map[Key]entry{
 
 	KeyAccountBlockedTitle:   {ES: "Cuenta desactivada", EN: "Account deactivated"},
 	KeyAccountBlockedMessage: {ES: "Tu cuenta está desactivada. Escribe a cristiancamilopena@gmail.com para solicitar acceso.", EN: "Your account is deactivated. Contact cristiancamilopena@gmail.com to request access."},
+
+	KeyInstallHintTitle:   {ES: "Instala Magus en tu iPhone", EN: "Install Magus on your iPhone"},
+	KeyInstallHintBody:    {ES: "Toca Compartir y luego «Añadir a pantalla de inicio».", EN: "Tap Share, then “Add to Home Screen”."},
+	KeyInstallHintDismiss: {ES: "Entendido", EN: "Got it"},
 }
 
 // translate resolves key in lang. Two distinct failure modes, two distinct

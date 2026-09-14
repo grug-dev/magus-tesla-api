@@ -305,3 +305,78 @@ document.body.addEventListener("htmx:afterRequest", function (evt) {
     delete current.dataset.previousLabel;
   }
 });
+
+// --- iOS install hint: show ui.InstallHint on iOS only (RD16) ----------------
+//
+// See internal/gateway/AGENTS.md RD16 and
+// kkpa/context/architecture/gateway-client-side-js.md for the full rationale and
+// the rejected alternatives.
+//
+// /site.webmanifest makes the app installable. Android Chrome reads it and
+// raises its own install prompt, so Android needs NO code here. Safari never
+// fires `beforeinstallprompt` and offers nothing, so on iOS the only install
+// path is Share -> "Add to Home Screen" — a row buried under the sharing apps
+// that a user cannot discover. No API can open that sheet, so pointing at it is
+// the only thing a page can do.
+//
+// This is the one listener in this file that is NOT purely delegated: it runs
+// once at load to decide whether to unhide the hint. The dismiss click IS
+// delegated, like every other listener here.
+(function () {
+  var HINT_ID = "ios-install-hint";
+  // Versioned key: if the copy is ever rewritten into a different hint, bump the
+  // suffix to show it again to people who dismissed the old one.
+  var DISMISSED_KEY = "magus.install-hint.dismissed.v1";
+
+  // iPadOS 13+ reports itself as "Macintosh" and is indistinguishable from a
+  // real Mac by User-Agent alone; multi-touch is the tell. A desktop Safari has
+  // maxTouchPoints 0.
+  function isIOS() {
+    var ua = navigator.userAgent || "";
+    if (/iPhone|iPad|iPod/.test(ua)) return true;
+    return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  }
+
+  // Already installed: iOS sets the legacy navigator.standalone inside a
+  // home-screen app; display-mode covers every other engine and future Safari.
+  // Showing "install this" inside the installed app is the worst failure this
+  // hint has, so both are checked.
+  function isInstalled() {
+    if (window.navigator.standalone === true) return true;
+    return !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  }
+
+  // localStorage, not a cookie and not the account settings table: "I have seen
+  // this hint" is a per-BROWSER fact about a device, not a preference that
+  // belongs to the user's account — the same person on a desktop must never
+  // inherit a dismissal made on their iPhone. A cookie would also ride along on
+  // every request, including /static, to tell the server something the server
+  // never reads. Private mode can throw on access, so both calls are guarded and
+  // a failure degrades to "show it" / "cannot remember", never to a broken page.
+  function dismissed() {
+    try {
+      return localStorage.getItem(DISMISSED_KEY) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+  function rememberDismissal() {
+    try {
+      localStorage.setItem(DISMISSED_KEY, "1");
+    } catch (e) {}
+  }
+
+  var hint = document.getElementById(HINT_ID);
+  if (hint && isIOS() && !isInstalled() && !dismissed()) {
+    hint.hidden = false;
+  }
+
+  // Delegated so the button works whatever re-renders around it.
+  document.body.addEventListener("click", function (evt) {
+    if (!evt.target.closest) return;
+    if (!evt.target.closest("[data-install-hint-dismiss]")) return;
+    var el = document.getElementById(HINT_ID);
+    if (el) el.hidden = true;
+    rememberDismissal();
+  });
+})();
