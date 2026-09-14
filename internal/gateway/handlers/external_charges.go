@@ -25,6 +25,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // csrfExternalChargeKey is the session key for the manual charge CSRF token.
@@ -796,17 +797,6 @@ func windowFromQuery(c *gin.Context, today time.Time) (start, end time.Time) {
 	return bestEffortWindow(c.Query("start"), c.Query("end"), today)
 }
 
-// teslaIDsOf pulls the Tesla ids out of an account's registered vehicles. The
-// manual-charge reads are keyed on vehicles, so this is what bounds them to
-// what the account may see.
-func teslaIDsOf(vehicles []account.Vehicle) []int64 {
-	ids := make([]int64, 0, len(vehicles))
-	for _, v := range vehicles {
-		ids = append(ids, v.TeslaID)
-	}
-	return ids
-}
-
 // fetchEntryVM fetches a single entry by listing the account's entries and
 // finding the one matching id. The port has no GetEntry, so a list is the only
 // way in. Returns false if not found.
@@ -814,13 +804,13 @@ func teslaIDsOf(vehicles []account.Vehicle) []int64 {
 // The read is keyed on vehicles, so the account's registered vehicles decide
 // what it can see. An error or an empty list must return false: an empty set of
 // vehicles is not "no filter", and reading every entry would leak other
-// accounts' data.
+// accounts' data. ownedVehicles enforces that rule one level down.
 func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID) (fragments.ExternalChargeEntryVM, bool) {
-	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
-	if err != nil || len(vehicles) == 0 {
+	refs, vehicles, ok := h.ownedVehicles(ctx, uid)
+	if !ok {
 		return fragments.ExternalChargeEntryVM{}, false
 	}
-	entries, err := h.chargingReader.ListEntriesByVehicles(ctx, teslaIDsOf(vehicles), 0)
+	entries, err := h.chargingReader.ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)
 	if err != nil {
 		return fragments.ExternalChargeEntryVM{}, false
 	}
@@ -843,13 +833,14 @@ func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID)
 // recalculateAfterExternalChargeWrite, which needs the affected date.
 //
 // Same vehicle rule as fetchEntryVM: an error or an empty vehicle list returns
-// false, never an unfiltered read.
+// false, never an unfiltered read. ownedVehicles enforces that rule one level
+// down; this helper only needs the id list, so it discards the vehicle list.
 func (h *Handler) fetchEntryTeslaIDAndChargedOn(ctx context.Context, uid uuid.UUID, id uuid.UUID) (teslaID int64, chargedOn time.Time, ok bool) {
-	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
-	if err != nil || len(vehicles) == 0 {
+	refs, _, ok := h.ownedVehicles(ctx, uid)
+	if !ok {
 		return 0, time.Time{}, false
 	}
-	entries, err := h.chargingReader.ListEntriesByVehicles(ctx, teslaIDsOf(vehicles), 0)
+	entries, err := h.chargingReader.ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)
 	if err != nil {
 		return 0, time.Time{}, false
 	}

@@ -754,6 +754,16 @@ gateway already proved ownership before calling it.
   `authorizeVehicle` is wired into a handler only when that handler's own module port is
   changed to require a `Ref` instead of a bare account id — read
   `internal/vehicleref/AGENTS.md` before adding a new call site.
+- **`ownedVehicles`** (`handlers.go`, next to `authorizeVehicle`) answers a different
+  question: not "does the caller own THIS one vehicle" but "which vehicles does the
+  caller own at all." It calls `account.RegisteredVehicles` once and returns both the
+  plain `[]account.Vehicle` list and the same set as `[]vehicleref.Ref`, so a caller that
+  needs a fleet-wide `[]int64` (via `vehicleref.TeslaIDs`) and a caller that needs the
+  vehicle structs (for a display label) share one read. `ok` is `false` on a lookup error
+  or an empty list — an empty list is never "no filter." It is the seam
+  `external_charges.go`'s `fetchEntryVM` and `fetchEntryTeslaIDAndChargedOn` use instead
+  of the old free helper `teslaIDsOf`, which read `RegisteredVehicles` directly and has
+  been deleted.
 
 ## HTTP date-filter convention
 

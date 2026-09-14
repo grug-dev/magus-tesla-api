@@ -107,8 +107,9 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   the only reason the blast radius is small today.
   _Source: `analytics/gap_writer.go`, `app/processor.go`, `gateway/handlers/handlers.go`._
 - **The manual pre-write lookup is capped at 100 rows** — `fetchEntryTeslaIDAndChargedOn` and
-  `fetchEntryVM` call `ListEntriesByVehicles(ctx, teslaIDsOf(vehicles), 0)`, where `vehicles` is
-  `acct.RegisteredVehicles(ctx, uid)`, and `limit <= 0` becomes `defaultLimit = 100`,
+  `fetchEntryVM` call `ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)`, where `refs`
+  and `vehicles` both come from one `h.ownedVehicles(ctx, uid)` call (itself backed by
+  `acct.RegisteredVehicles(ctx, uid)`), and `limit <= 0` becomes `defaultLimit = 100`,
   ordered `charged_on DESC` across the account's vehicles. An error from
   `RegisteredVehicles`, or an empty vehicle list, returns not-found — it never reads unfiltered. There is no `GetEntry` on the
   `charging.Reader` port. A miss is indistinguishable from "not found" and is not logged. On

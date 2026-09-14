@@ -1074,6 +1074,24 @@ func (h *Handler) authorizeVehicle(ctx context.Context, uid uuid.UUID, teslaID i
 	return ref, nil
 }
 
+// ownedVehicles resolves uid's registered vehicles once and returns both the plain
+// account.Vehicle list and their proofs as vehicleref.Ref. Two callers need two
+// different shapes of the same one read -- a display label needs the vehicle struct, a
+// Reader-port call needs a plain []int64 -- so this returns both instead of making each
+// caller re-derive one from the other. ok is false on a lookup error or an empty list: an
+// empty vehicle list is never "no filter", it is "this account has nothing to see."
+func (h *Handler) ownedVehicles(ctx context.Context, uid uuid.UUID) (refs []vehicleref.Ref, vehicles []account.Vehicle, ok bool) {
+	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
+	if err != nil || len(vehicles) == 0 {
+		return nil, nil, false
+	}
+	owned := make([]int64, 0, len(vehicles))
+	for _, v := range vehicles {
+		owned = append(owned, v.TeslaID)
+	}
+	return vehicleref.All(owned), vehicles, true
+}
+
 // ConnectTesla starts the Tesla OAuth connect flow for the signed-in user.
 func (h *Handler) ConnectTesla(c *gin.Context) {
 	if _, ok := currentUID(c); !ok {

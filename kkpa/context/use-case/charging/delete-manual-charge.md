@@ -77,11 +77,11 @@ Steps 4–5 are skipped entirely when step 1 did not find the row. **Not touched
   forever. The `Recalculate` call in step 7 is not a fast path, it is the *only* path — and its
   error is logged and swallowed. Treat any change to that call as safety-critical.
   _Source: `analytics/recalculate.go` `Reconcile`; `architecture/charge-record-mutation.md`._
-- **The 100-row lookup cap is worst here.** `ListEntriesByVehicles(ctx, teslaIDsOf(vehicles), 0)`
+- **The 100-row lookup cap is worst here.** `ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)`
   resolves to `defaultLimit = 100`, ordered `charged_on DESC` across the account's registered
-  vehicles. Deleting an entry outside that set means `hadEntry == false` and **no recalculation
-  at all** — silently, with nothing logged. Fixing this needs a `GetEntry` on the
-  `charging.Reader` port.
+  vehicles (`refs` from one `h.ownedVehicles(ctx, uid)` call). Deleting an entry outside that set
+  means `hadEntry == false` and **no recalculation at all** — silently, with nothing logged.
+  Fixing this needs a `GetEntry` on the `charging.Reader` port.
   _Source: `charging/service.go` `defaultLimit`, `fetchEntryTeslaIDAndChargedOn`._
 - **CSRF travels on the header for this route, by necessity.** The delete button uses htmx
   `hx-headers` to set `X-CSRF-Token`; a hidden body input would never be parsed and would 403.

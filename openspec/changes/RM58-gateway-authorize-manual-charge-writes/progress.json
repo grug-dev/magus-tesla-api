@@ -5,25 +5,26 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
   "request": "MAG-68 — Tier 3 of RM58: the gateway gets ONE seam that produces the caller's owned vehicle set, and every fleet-wide read uses it. No behaviour change.",
-  "status": "proposed",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [],
+    "done": [
       "T0",
-      "T1",
-      "T2",
-      "T3",
       "T4",
       "T5",
       "T6",
       "T7"
     ],
-    "blocked": [],
-    "done": [],
-    "awaiting-user-verification": []
+    "awaiting-user-verification": [
+      "T1",
+      "T2",
+      "T3"
+    ]
   },
   "created_at": "2026-09-14T20:50:00Z",
-  "updated_at": "2026-09-14T20:50:00Z",
+  "updated_at": "2026-09-14T21:03:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -43,14 +44,20 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "All three greps matched design.md: 3 teslaIDsOf hits, no vehicleref import in external_charges.go, zero test call sites."
     },
     {
       "id": "T1",
@@ -58,14 +65,20 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "ownedVehicles added to handlers.go after authorizeVehicle. One RegisteredVehicles read returns both shapes. No new import needed."
     },
     {
       "id": "T2",
@@ -75,14 +88,20 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "owned_vehicles_test.go covers the three pinned cases: vehicles, empty list, lookup error. Written, not executed."
     },
     {
       "id": "T3",
@@ -92,14 +111,20 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "Both helpers route through ownedVehicles and unwrap with vehicleref.TeslaIDs. teslaIDsOf deleted. The three other call sites untouched."
     },
     {
       "id": "T4",
@@ -110,14 +135,20 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "go build ./... and go vet ./... clean. gofmt flags three files, all pre-existing on main and untouched by this branch."
     },
     {
       "id": "T5",
@@ -127,14 +158,20 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "internal/gateway/AGENTS.md gained an ownedVehicles bullet beside authorizeVehicle, in the vehicle-ownership section."
     },
     {
       "id": "T6",
@@ -144,14 +181,20 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "Three KB guides updated: two literal quotes re-pointed at vehicleref.TeslaIDs(refs), and update-manual-charge step 5 names the seam."
     },
     {
       "id": "T7",
@@ -167,14 +210,20 @@
         "T6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:03:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "Leader-run. build, vet, validate --strict and all eight guards clean. teslaIDsOf gone from Go; vehicleref.All only in handlers.go."
     }
   ],
   "decisions": [
@@ -227,6 +276,21 @@
       "at": "2026-09-14T20:50:00Z",
       "what": "artifacts-created",
       "detail": "Sonnet worker wrote proposal/design/tasks. It refused to invent a delta spec and flagged that openspec validate hard-fails on a zero-delta change. Leader verified an honest requirement exists and is complete: ListEntriesByVehicles has exactly two gateway call sites, both in this tier; buildExternalChargesPage reads one vehicle, not the fleet. Owner chose to add it (D16). Worker re-dispatched; openspec validate --strict now passes. No design gate: design.md states no database object changes."
+    },
+    {
+      "at": "2026-09-14T20:52:00Z",
+      "what": "wave-1-dispatched",
+      "detail": "One serial Sonnet worker for T0-T6 (gateway). Serial order respects every depends_on, and one dispatch reads the doc pack once. T7 is leader-owned. T6 needs kkpa/context/, granted explicitly beyond the module sandbox. Budget at dispatch: five_hour_pct 48, context_pct 24."
+    },
+    {
+      "at": "2026-09-14T21:03:00Z",
+      "what": "wave-1-reconciled",
+      "detail": "T0-T7 complete. The worker reported fabricated timestamps (00:00-00:33Z); the real wave window is 20:52-21:03Z and is what this file records. go build, go vet, openspec validate --strict and all eight guards clean. tz-guard passes: its message wraps two lines and a tail -1 read clipped it into looking like a failure. No test was executed, so T1-T3 await the owner's verification. Budget after the wave: five_hour_pct 56, context_pct 25."
+    },
+    {
+      "at": "2026-09-14T21:03:00Z",
+      "what": "leader-observation",
+      "detail": "ownedVehicles repeats the four-line owned-id loop that authorizeVehicle also has, in the same file. Left as is: extracting a helper for two short loops adds indirection the project's own AI-efficiency rule warns against. Flagged for the reviewer to judge, not hidden."
     }
   ]
 }

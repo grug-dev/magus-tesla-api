@@ -36,7 +36,8 @@
 4. `Handler.parseExternalChargeForm` — validates; delegates the required-field rule to
    `charging.RequiredFieldsFor(status)` rather than hardcoding it; runs `vehicleOwned`.
 5. `Handler.fetchEntryTeslaIDAndChargedOn` → `charging.Reader.ListEntriesByVehicles` (over the
-   account's `RegisteredVehicles`, since `RM58-charging-demote-manual-charge-account-id`) — reads
+   account's `RegisteredVehicles`, since `RM58-charging-demote-manual-charge-account-id`, now
+   through the shared `h.ownedVehicles` seam) — reads
    the **pre-update** `charged_on`. Once the UPDATE commits the old date is unrecoverable. A miss
    answers `404` and returns — never `403`, so a probed id cannot be confirmed as real.
    ⚠ capped at 100 rows — see `architecture/charge-record-mutation.md`.

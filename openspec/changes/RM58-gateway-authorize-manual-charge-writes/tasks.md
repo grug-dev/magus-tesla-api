@@ -42,14 +42,14 @@ Sequencing rules:
 
 Depends on: nothing.
 
-- [ ] 0.1 Grep `internal/gateway` for `teslaIDsOf`. Expect exactly 3 hits before this
+- [x] 0.1 Grep `internal/gateway` for `teslaIDsOf`. Expect exactly 3 hits before this
       change starts: the definition (`external_charges.go:802`) and its two call sites
       (`external_charges.go:823`, `:852`). If the count differs, `design.md` is
       out of date — stop and reconcile before continuing.
-- [ ] 0.2 Grep `internal/gateway/handlers/external_charges.go` for
+- [x] 0.2 Grep `internal/gateway/handlers/external_charges.go` for
       `"github.com/cristianpena/magus-tesla-api/internal/vehicleref"`. Expect **zero**
       hits — confirms the import needs adding in T3, not already present.
-- [ ] 0.3 Grep `internal/gateway/handlers` for `func.*fetchEntryVM\|func.*
+- [x] 0.3 Grep `internal/gateway/handlers` for `func.*fetchEntryVM\|func.*
       fetchEntryTeslaIDAndChargedOn` in any `_test.go` file, and separately for
       `teslaIDsOf` in any `_test.go` file. Expect **zero** hits both times — confirms no
       test calls either function or the free helper directly, so T3's rewrite needs no
@@ -60,52 +60,52 @@ Depends on: nothing.
 
 Depends on: nothing (uses only imports already present in `handlers.go`).
 
-- [ ] 1.1 Add `ownedVehicles` to `internal/gateway/handlers/handlers.go`, immediately after
+- [x] 1.1 Add `ownedVehicles` to `internal/gateway/handlers/handlers.go`, immediately after
       `authorizeVehicle` (today ending around line 1075) and before `ConnectTesla`, exactly
       as `design.md` §Ports and implementation gives it: signature
       `func (h *Handler) ownedVehicles(ctx context.Context, uid uuid.UUID) (refs
       []vehicleref.Ref, vehicles []account.Vehicle, ok bool)`.
-- [ ] 1.2 Confirm no new import is needed — `account` and `vehicleref` are both already
+- [x] 1.2 Confirm no new import is needed — `account` and `vehicleref` are both already
       imported in this file (used by `resolveSelectedVehicle` and `authorizeVehicle`
       respectively).
-- [ ] 1.3 Do NOT change `authorizeVehicle`, `resolveSelectedVehicle`, or
+- [x] 1.3 Do NOT change `authorizeVehicle`, `resolveSelectedVehicle`, or
       `errVehicleNotAuthorized` in this task. They are untouched by this tier
       (`design.md` §D6).
-- [ ] 1.4 `go build ./internal/gateway/...` — expect clean (the new function compiles; no
+- [x] 1.4 `go build ./internal/gateway/...` — expect clean (the new function compiles; no
       caller references it yet).
 
 ## T2 — Test `ownedVehicles` directly
 
 Depends on: T1 (the function must exist to test).
 
-- [ ] 2.1 Add the three cases from `design.md` §Test contract's table, in a new
+- [x] 2.1 Add the three cases from `design.md` §Test contract's table, in a new
       `owned_vehicles_test.go` next to `authorize_vehicle_test.go`, or appended to that
       same file (implementer's choice) — both live in package `handlers` and already share
       the `fakeAccount` double defined in `handlers_test.go`.
-- [ ] 2.2 `TestOwnedVehicles_ReturnsRefsAndVehicles` — case 1: `fakeAccount{registered:
+- [x] 2.2 `TestOwnedVehicles_ReturnsRefsAndVehicles` — case 1: `fakeAccount{registered:
       []account.Vehicle{{TeslaID: 111}, {TeslaID: 222}}}`; assert `ok == true`, `len(refs)
       == 2`, `refs[0].TeslaID() == 111`, `refs[1].TeslaID() == 222`, `len(vehicles) == 2`
       and `vehicles` equals the fake's `registered` slice in order.
-- [ ] 2.3 `TestOwnedVehicles_NoRegisteredVehicles` — case 2: `fakeAccount{registered:
+- [x] 2.3 `TestOwnedVehicles_NoRegisteredVehicles` — case 2: `fakeAccount{registered:
       nil}`; assert `ok == false`, `len(refs) == 0`, `len(vehicles) == 0`.
-- [ ] 2.4 `TestOwnedVehicles_RegisteredVehiclesError` — case 3: `fakeAccount{regErr:
+- [x] 2.4 `TestOwnedVehicles_RegisteredVehiclesError` — case 3: `fakeAccount{regErr:
       errors.New("db unavailable")}`; assert `ok == false`, `len(refs) == 0`,
       `len(vehicles) == 0`. Mirrors `TestAuthorizeVehicle_RegisteredVehiclesError`'s shape.
-- [ ] 2.5 Do NOT add a fourth test asserting anything about `ListEntriesByVehicles` or
+- [x] 2.5 Do NOT add a fourth test asserting anything about `ListEntriesByVehicles` or
       HTTP behaviour here — that is T3/T4's job, exercised through the existing handler
       tests, not a new `ownedVehicles`-specific one.
-- [ ] 2.6 `go vet ./internal/gateway/...` — expect clean (vet compiles the new test file).
+- [x] 2.6 `go vet ./internal/gateway/...` — expect clean (vet compiles the new test file).
 
 ## T3 — Route the lookup helpers through `ownedVehicles`; delete `teslaIDsOf`
 
 Depends on: T1 (needs `ownedVehicles` to exist).
 
-- [ ] 3.1 Add the import
+- [x] 3.1 Add the import
       `"github.com/cristianpena/magus-tesla-api/internal/vehicleref"` to
       `internal/gateway/handlers/external_charges.go`'s import block.
-- [ ] 3.2 Delete `teslaIDsOf` in full — definition and doc comment
+- [x] 3.2 Delete `teslaIDsOf` in full — definition and doc comment
       (`external_charges.go:799-808` today).
-- [ ] 3.3 Rewrite `fetchEntryVM` exactly as `design.md` §Ports and implementation gives
+- [x] 3.3 Rewrite `fetchEntryVM` exactly as `design.md` §Ports and implementation gives
       it: replace `vehicles, err := h.acct.RegisteredVehicles(ctx, uid); if err != nil ||
       len(vehicles) == 0 { return ..., false }` with `refs, vehicles, ok :=
       h.ownedVehicles(ctx, uid); if !ok { return ..., false }`, and replace
@@ -113,27 +113,27 @@ Depends on: T1 (needs `ownedVehicles` to exist).
       `ListEntriesByVehicles` call. Keep the doc comment's "error or empty list ⇒ false"
       sentence — it still describes the rule, now enforced one level down inside
       `ownedVehicles`.
-- [ ] 3.4 Rewrite `fetchEntryTeslaIDAndChargedOn` the same way. It discards the `vehicles`
+- [x] 3.4 Rewrite `fetchEntryTeslaIDAndChargedOn` the same way. It discards the `vehicles`
       return with `_` — it never used the vehicle list, only the ids.
-- [ ] 3.5 Do NOT touch the three other `RegisteredVehicles` call sites in this file (around
+- [x] 3.5 Do NOT touch the three other `RegisteredVehicles` call sites in this file (around
       lines 256, 384, 664) — explicitly out of scope (`design.md` §D3).
-- [ ] 3.6 Do NOT change how `ExternalChargeRowUpdate` or `ExternalChargeRowDelete` call
+- [x] 3.6 Do NOT change how `ExternalChargeRowUpdate` or `ExternalChargeRowDelete` call
       `fetchEntryTeslaIDAndChargedOn`, and do NOT touch their own `authorizeVehicle` calls
       (wired in tier 2). Both handlers already call `fetchEntryTeslaIDAndChargedOn` for
       the pre-write old-date lookup — that call site is unchanged; only what happens
       INSIDE the function changes (3.4).
-- [ ] 3.7 `go build ./internal/gateway/...` — expect clean.
+- [x] 3.7 `go build ./internal/gateway/...` — expect clean.
 
 ## T4 — Build, vet, format across the change
 
 Depends on: T2, T3.
 
-- [ ] 4.1 `go build ./...` — expect clean across the whole repository (this change touches
+- [x] 4.1 `go build ./...` — expect clean across the whole repository (this change touches
       only `internal/gateway`, so nothing outside it should be affected, but the full
       build is the check that confirms it).
-- [ ] 4.2 `go vet ./...` — expect clean.
-- [ ] 4.3 `gofmt -l internal/gateway` — expect no output.
-- [ ] 4.4 Confirm zero existing test in `internal/gateway/handlers` needed an assertion
+- [x] 4.2 `go vet ./...` — expect clean.
+- [x] 4.3 `gofmt -l internal/gateway` — expect no output.
+- [x] 4.4 Confirm zero existing test in `internal/gateway/handlers` needed an assertion
       change (only new test additions from T2). If any existing assertion needed changing,
       that is a signal this "no behaviour change" tier actually changed behaviour — STOP
       and report it rather than adjusting the test to match.
@@ -142,11 +142,11 @@ Depends on: T2, T3.
 
 Depends on: T3 (describes the finished call sites).
 
-- [ ] 5.1 "Vehicle ownership — proved once, at the gateway" section: add a bullet for
+- [x] 5.1 "Vehicle ownership — proved once, at the gateway" section: add a bullet for
       `ownedVehicles` alongside the existing `authorizeVehicle` bullet, stating it is the
       seam `fetchEntryVM`/`fetchEntryTeslaIDAndChargedOn` now use instead of the deleted
       `teslaIDsOf`, per `design.md` §Docs.
-- [ ] 5.2 Do not restate the base Doc-Pack list or name reviewer-only docs in this
+- [x] 5.2 Do not restate the base Doc-Pack list or name reviewer-only docs in this
       section — the project's own "Module Doc-Pack lives in CLAUDE.md only" convention
       applies to the Doc-Pack section specifically; this edit is to a different section
       ("Vehicle ownership"), so it is unaffected, but do not let the edit drift into
@@ -157,24 +157,24 @@ Depends on: T3 (describes the finished call sites).
 Depends on: T3 (describes the finished call sites; quoting code that does not exist yet
 would describe something untrue).
 
-- [ ] 6.1 `kkpa/context/architecture/charge-record-mutation.md` — the "100-row lookup cap"
+- [x] 6.1 `kkpa/context/architecture/charge-record-mutation.md` — the "100-row lookup cap"
       bullet's literal `ListEntriesByVehicles(ctx, teslaIDsOf(vehicles), 0)` quote:
       replace with `ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)`, and note
       `refs`/`vehicles` both come from one `h.ownedVehicles(ctx, uid)` call. Leave the rest
       of the bullet (the 100-row cap, the no-`GetEntry`-port gap) unchanged — this tier
       does not touch either.
-- [ ] 6.2 `kkpa/context/use-case/charging/delete-manual-charge.md` — the "100-row lookup
+- [x] 6.2 `kkpa/context/use-case/charging/delete-manual-charge.md` — the "100-row lookup
       cap is worst here" gotcha has the same literal quote. Same edit.
-- [ ] 6.3 `kkpa/context/use-case/charging/update-manual-charge.md` — flow step 5's "over
+- [x] 6.3 `kkpa/context/use-case/charging/update-manual-charge.md` — flow step 5's "over
       the account's `RegisteredVehicles`" phrasing is still accurate (the underlying call
       is unchanged); add a short clause naming `ownedVehicles` as the seam it now goes
       through, per `design.md` §Docs. This is an addition for discoverability, not a
       factual correction.
-- [ ] 6.4 Confirm — do not edit — `openspec/specs/manual-charge-log/spec.md` and
+- [x] 6.4 Confirm — do not edit — `openspec/specs/manual-charge-log/spec.md` and
       `openspec/specs/vehicleref/spec.md`. Neither needs a change (`proposal.md`
       §"Is a spec delta needed?"); this task is to VERIFY that by reading both files
       after T3 lands, not to skip reading them.
-- [ ] 6.5 Do NOT edit anything under `openspec/changes/archive/` — nothing there
+- [x] 6.5 Do NOT edit anything under `openspec/changes/archive/` — nothing there
       describes `ownedVehicles` (it postdates every archived change), so there is nothing
       stale to find there. `make archive-guard` enforces leaving it alone regardless.
 
