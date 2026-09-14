@@ -3,11 +3,11 @@
   "kind": "roadmap",
   "roadmap": "RM58-rekey-manual-charges-on-tesla-id",
   "intention": "charging.manual_charge_entries is keyed on tesla_id, account_id is demoted to created_by_account_id and never read as a filter, and no manual-charge write can run without a vehicleref.Ref.",
-  "request": "MAG-68 — 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Step 5 of MAG-63.",
+  "request": "MAG-68 \u2014 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Step 5 of MAG-63.",
   "status": "in-progress",
   "autopilot": false,
   "created_at": "2026-09-14T10:13:34Z",
-  "updated_at": "2026-09-14T10:40:00Z",
+  "updated_at": "2026-09-14T15:50:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,15 +21,15 @@
     "created_at": "2026-09-14T10:13:34Z"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
-      2,
-      3
+      "RM58-charging-entry-writes-take-ref",
+      "RM58-gateway-authorize-manual-charge-writes"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "RM58-charging-demote-manual-charge-account-id"
+    ]
   },
   "decisions": [
     {
@@ -88,13 +88,17 @@
       "module": "charging",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-09-14T10:05:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-14T15:50:00Z",
       "duration_seconds": null,
-      "budget": null,
+      "budget": {
+        "cost_usd_delta": 22.3,
+        "approx": true,
+        "note": "Artifacts wave, wave 1, wave 2, T8, review round 1 and the archive, across two sessions."
+      },
       "notes": "Migration, queries and the four Reader ports. Leader-owned integration: the three internal/analytics call sites plus the mechanical internal/gateway call-site updates that keep the build green."
     },
     {
@@ -158,6 +162,11 @@
       "at": "2026-09-14T10:40:00Z",
       "what": "tier-1-artifacts-created",
       "detail": "Artifacts written and revised for D5. openspec validate --strict passes. Worker surfaced a user-visible consequence of D1+D5 combined: for tiers 1-2 a shared car's co-owner entries are listed with working-looking edit/delete controls, but the delete is a silent no-op because DeleteEntry is :exec and writerService.Delete never checks rows affected. Verified in code. Tier 3 removes the cause."
+    },
+    {
+      "at": "2026-09-14T15:50:00Z",
+      "what": "tier-1-archived",
+      "detail": "Reviewer approved with two minor comment findings, both fixed and re-verified by the reviewer. Owner ran make test and reported it passed. Archived to openspec/changes/archive/charging/. autopilot is false, so tier 2 does NOT start automatically."
     }
   ]
 }
