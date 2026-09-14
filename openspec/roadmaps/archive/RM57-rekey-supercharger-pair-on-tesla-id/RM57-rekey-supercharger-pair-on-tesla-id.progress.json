@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM57-rekey-supercharger-pair-on-tesla-id",
+  "intention": "Both Supercharger tables are keyed on tesla_id, account_id is gone, the mirror runs one pass per vehicle, and VerifySession cannot be called without a vehicleref.Ref.",
+  "request": "MAG-67 — 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
+  "status": "complete",
+  "autopilot": false,
+  "updated_at": "2026-09-14T04:25:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-67",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-67/4-re-key-the-supercharger-pair-on-tesla-id-reshape-the-mirror",
+    "created_at": "2026-09-12T12:27:24Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "tesla_id becomes NOT NULL on both Supercharger tables; account_id is dropped from both.",
+      "why": "Nothing but account_id ties a supercharger_history row to an account. After the drop an orphan row (tesla_id IS NULL) is unreachable by any query, so keeping the column nullable saves nothing."
+    },
+    {
+      "id": "RD2",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "The migration deletes rows where tesla_id IS NULL before SET NOT NULL.",
+      "why": "Owner confirmed after checking: both tables hold 0 such rows today, so the DELETE is a guard, not a data loss. The down-migration cannot restore a deleted row."
+    },
+    {
+      "id": "RD3",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "Run as roadmap RM57 with three tiers (telemetry, charging, gateway) instead of one standalone change.",
+      "why": "Two modules each own a migration and the mirror between them is reshaped. Three smaller proposals are easier to review than one large one."
+    },
+    {
+      "id": "RD4",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "Tier 3 is owned by gateway; the internal/app and internal/analytics call-site updates inside it are leader-owned integration work.",
+      "why": "A worker is sandboxed to one module. Port signature changes ripple into app and analytics, which is cross-module integration the leader owns by contract."
+    },
+    {
+      "id": "RD5",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-12T12:27:24Z",
+      "what": "collectChargingHistory skips a session whose VIN is not a registered vehicle, and counts the skip in CycleReport.",
+      "why": "RD1 makes tesla_id NOT NULL, so the row cannot be written. A silent skip would hide it; counting it mirrors the existing ChargingFetchFailures shape."
+    },
+    {
+      "id": "RD6",
+      "scope": "tier:1",
+      "made_by": "user",
+      "at": "2026-09-13T02:12:00Z",
+      "what": "Index plan approved: vehicle_time and account_updated re-keyed on tesla_id, account_time dropped with no replacement.",
+      "why": "account_time's only reader was SuperchargerHistoryByAccount, which this change removes. The new (tesla_id, updated_at) index also removes a sort the mirror read pays today."
+    },
+    {
+      "id": "RD7",
+      "scope": "tier:1",
+      "made_by": "user",
+      "at": "2026-09-13T02:12:00Z",
+      "what": "processor.go fans out over each account's vehicles now, keeping the account-keyed watermark. Tier 3 still does the per-vehicle rewrite.",
+      "why": "SuperchargerHistoryByAccountUpdatedSince cannot survive the column drop, and it has a production caller. The fan-out uses a port that already exists, so tier 3 undoes nothing."
+    },
+    {
+      "id": "RD8",
+      "scope": "tier:1",
+      "made_by": "autopilot",
+      "at": "2026-09-13T02:12:00Z",
+      "what": "SuperchargerHistoryByAccount and SuperchargerHistoryByAccountUpdatedSince are removed, not re-keyed.",
+      "why": "Both filter on account_id alone. Dropping the parameter would leave a whole-table scan. The roadmap's 'drop accountID' line only fits the three per-vehicle methods."
+    },
+    {
+      "id": "RD9",
+      "scope": "tier:2",
+      "made_by": "autopilot",
+      "at": "2026-09-13T12:17:00Z",
+      "what": "Tier 2's artifact worker runs on Opus, not the Sonnet default.",
+      "why": "Two migrations, a unique-constraint swap and an index plan judged against live queries. Tier 1's equivalent dispatch also used Opus."
+    },
+    {
+      "id": "RD10",
+      "scope": "tier:2",
+      "made_by": "user",
+      "at": "2026-09-13T12:35:00Z",
+      "what": "Sessions DDL and index plan approved: UNIQUE (session_id), tesla_id NOT NULL, account_id dropped, one index (tesla_id, charge_stop_date_time).",
+      "why": "All three reads order by charge_stop_date_time. A btree walks backwards at the same cost, so the newest-first read needs no second index. No updated_at index."
+    },
+    {
+      "id": "RD11",
+      "scope": "tier:2",
+      "made_by": "user",
+      "at": "2026-09-13T12:35:00Z",
+      "what": "The migration deletes every charging.mirror_watermarks cursor instead of mapping it onto each vehicle.",
+      "why": "The table's own comment says an absent cursor means re-read the whole history once. The mirror is an idempotent upsert, so the cost is one longer nightly run."
+    },
+    {
+      "id": "RD12",
+      "scope": "tier:2",
+      "made_by": "user",
+      "at": "2026-09-13T12:35:00Z",
+      "what": "VerifySession is re-keyed on tesla_id, not stripped of its scope.",
+      "why": "Its account_id predicate is the only tenant check on the Supercharger write path; the handler does none. The gateway supplies the vehicle from resolveSelectedVehicle, which is account-scoped."
+    },
+    {
+      "id": "RD13",
+      "scope": "tier:2",
+      "made_by": "user",
+      "at": "2026-09-13T12:35:00Z",
+      "what": "The per-vehicle mirror rewrite in internal/app/processor.go moves from tier 3 into tier 2 (task T8).",
+      "why": "Re-keying the watermark leaves the account-grouped loop with no cursor to read. Splitting them would stop the nightly mirror between the two tiers."
+    },
+    {
+      "id": "RD14",
+      "scope": "tier:3",
+      "made_by": "user",
+      "at": "2026-09-14T01:20:00Z",
+      "what": "VerifySession is retyped to take a vehicleref.Ref. The three ListSessionsByVehicle* read ports keep int64.",
+      "why": "internal/analytics calls the read ports and vehicleref-guard forbids building a Ref outside the gateway's authorizeVehicle. Only the gateway-only write port can be retyped without holing the guard."
+    },
+    {
+      "id": "RD15",
+      "scope": "tier:4",
+      "made_by": "user",
+      "at": "2026-09-14T01:20:00Z",
+      "what": "The two Supercharger read sites keep resolveSelectedVehicle; a comment and design.md record that its RegisteredVehicles filter is the ownership proof.",
+      "why": "Adding authorizeVehicle there runs a second account query per render and discards the Ref, since the read ports keep int64. No new guarantee for a real cost."
+    },
+    {
+      "id": "RD16",
+      "scope": "tier:4",
+      "made_by": "user",
+      "at": "2026-09-14T01:20:00Z",
+      "what": "SuperchargerRowUpdate takes the vehicle id from currentVehicle(c), not resolveSelectedVehicle, then proves it with authorizeVehicle.",
+      "why": "One account query instead of two. A save always follows a render that set the cookie, so no selection means a stale or hand-crafted POST, where 404 is the right answer."
+    },
+    {
+      "id": "RD17",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-14T01:20:00Z",
+      "what": "The old tier 3 splits into tier 3 (charging, retype VerifySession) and tier 4 (gateway, call authorizeVehicle).",
+      "why": "RD14 pulls a port definition into internal/charging. A worker is sandboxed to one module and config.yaml forbids one change spanning two."
+    },
+    {
+      "id": "RD18",
+      "scope": "tier:3",
+      "made_by": "user",
+      "at": "2026-09-14T02:45:00Z",
+      "what": "make vehicleref-guard now exempts _test.go files. The leader made the Makefile and internal/vehicleref/AGENTS.md edits, not the worker.",
+      "why": "MAG-66's design always described that exemption; the target was built without it. Both files sit outside internal/charging, so a sandboxed worker cannot touch them."
+    },
+    {
+      "id": "RD19",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-14T03:25:00Z",
+      "what": "Tier 4 is built before tier 3 is reviewed and archived, reversing the roadmap's own depends_on order.",
+      "why": "make test cannot build while the gateway call site is broken, so the owner had no way to run the suite. Tier 4 restores the build; both tiers are then reviewed together."
+    },
+    {
+      "id": "RD20",
+      "scope": "tier:4",
+      "made_by": "autopilot",
+      "at": "2026-09-14T03:25:00Z",
+      "what": "One worker writes tier 4's artifacts and implements them in the same dispatch.",
+      "why": "No database object changes, so no design gate fires, and RD15 and RD16 already settled every design choice. A separate artifact round would decide nothing."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM57-telemetry-rekey-supercharger-history-on-tesla-id",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-13T01:57:00Z",
+      "completed_at": "2026-09-13T12:05:00Z",
+      "duration_seconds": 36480,
+      "budget": {
+        "five_hour_pct_delta": 75,
+        "cost_usd_delta": 34.5,
+        "approx": true,
+        "note": "Sum of tier 1's wave and review deltas across three sessions: waves 1-3 (+11,+18,+17), review round 1 + its fixes (+13), plus the wave-4 fix and archive. Spans two 5-hour buckets, so the pct is additive within buckets only."
+      },
+      "notes": "Archived to openspec/changes/archive/telemetry/2026-09-13-RM57-.... Reviewer approved in round 2. Owner verified the suite twice - once after wave 3, once after the round-1 fixes. RD10 corrected a design-authored expected value that Postgres cannot represent."
+    },
+    {
+      "id": 2,
+      "change": "RM57-charging-rekey-supercharger-sessions-on-tesla-id",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-13T12:17:00Z",
+      "completed_at": "2026-09-14T01:10:00Z",
+      "duration_seconds": 46380,
+      "budget": {
+        "five_hour_pct_delta": 146,
+        "cost_usd_delta": 48.0,
+        "approx": true,
+        "note": "Sum of tier 2's wave and review deltas across four sessions: wave 1 (+6), wave 2 (+15), wave 3 (+51), the review round and its fixes, plus the archive. Spans three 5-hour buckets, so the pct is additive within buckets only."
+      },
+      "notes": "Archived to openspec/changes/archive/charging/2026-09-14-RM57-charging-rekey-supercharger-sessions-on-tesla-id. Reviewer approved in round 2. Owner verified the suite twice - once after wave 3, once after the round-1 fixes. RD13 moved the processor.go rewrite here from tier 3."
+    },
+    {
+      "id": 3,
+      "change": "RM57-charging-verifysession-takes-ref",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        1,
+        2
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T02:45:00Z",
+      "completed_at": "2026-09-14T04:25:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "cost_usd_delta": 3.11,
+        "approx": true,
+        "note": "Wave 1 (T1-T6) ran as one serial worker; its delta is counted once, not six times. T7's wave and the review round were not measured, so this figure is a floor, not the tier's full cost."
+      },
+      "notes": "Archived to openspec/changes/archive/charging/2026-09-14-RM57-charging-verifysession-takes-ref. Reviewer approved in round 1 with one minor finding (tasks.md missing T7), fixed by appending T7. Owner verified the suite with make test."
+    },
+    {
+      "id": 4,
+      "change": "RM57-gateway-authorize-supercharger-reads",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1,
+        2,
+        3
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T03:45:00Z",
+      "completed_at": "2026-09-14T04:25:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Archived to openspec/changes/archive/gateway/2026-09-14-RM57-gateway-authorize-supercharger-reads. Reviewer approved in round 1 with zero findings. It spotted a D7c comment the leader's own D[0-9]\\b sweep could not match; removed. Owner verified the suite with make test."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-12T12:27:24Z",
+      "what": "roadmap-created",
+      "detail": "RM57 from MAG-67. Branch ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id off main 6676da8. Work counter 57 -> 58."
+    },
+    {
+      "at": "2026-09-12T12:27:24Z",
+      "what": "contract-note",
+      "detail": "openspec/config.yaml proposal rule says multi-module work must become a roadmap; followed. Budget at roadmap creation: five_hour_pct 85, context_pct 15."
+    },
+    {
+      "at": "2026-09-12T12:28:05Z",
+      "what": "budget-checkpoint",
+      "detail": "Stopped before the tier-1 artifact dispatch. five_hour_pct 91 >= 90, context_pct 18. five_hour_resets_at 1789227000. No tier started; roadmap files are committed."
+    },
+    {
+      "at": "2026-09-12T12:30:30Z",
+      "what": "resume-deferred",
+      "detail": "Resume attempted. five_hour_pct 95 (was 91 at checkpoint), bucket not reset; resets_at 1789227000 = 2026-09-12T15:30:00Z. User chose to wait. No tier started."
+    },
+    {
+      "at": "2026-09-13T01:57:00Z",
+      "what": "resumed",
+      "detail": "5-hour bucket reset (five_hour_pct 3, context_pct 9). Tier 1 telemetry artifact worker dispatched on Opus."
+    },
+    {
+      "at": "2026-09-13T02:12:00Z",
+      "what": "tier-1-artifacts",
+      "detail": "Artifacts written, openspec validate --strict passes. Database design gate confirmed by the user (RD6). Mirror bridge confirmed by the user (RD7)."
+    },
+    {
+      "at": "2026-09-13T02:52:00Z",
+      "what": "rollup-fix",
+      "detail": "Tier 1 status was still 'proposed' while its change progress.json said 'in-progress' with waves 1-2 committed. Per contract the task/change status wins; tier corrected."
+    },
+    {
+      "at": "2026-09-13T12:05:00Z",
+      "what": "tier-1-archived",
+      "detail": "openspec archive synced 4 MODIFIED and 1 REMOVED requirement into openspec/specs/telemetry/spec.md (30 -> 29 requirements). No RENAMED requirement, so no end-of-file reordering to undo. Folder moved from the CLI's archive root into archive/telemetry/ per config.yaml's group-by-domain rule. Tier 2 (charging) is now unblocked."
+    },
+    {
+      "at": "2026-09-13T12:05:00Z",
+      "what": "contract-drift-noted",
+      "detail": "openspec/config.yaml archive rule says 'never archive unless review.status is reviewer-approved'. The skill's schema spells the reviewer's verdict review.status: approved, with reviewer-approved being the CHANGE status. Same intent, different field spelling. The gate was met - the reviewer approved in round 2. The config wording should be corrected to match the schema."
+    },
+    {
+      "at": "2026-09-13T12:17:00Z",
+      "what": "resumed",
+      "detail": "Budget clear (five_hour_pct 35, context_pct 9). Tier 2 charging artifact worker dispatched on Opus."
+    },
+    {
+      "at": "2026-09-13T12:35:00Z",
+      "what": "tier-2-artifacts",
+      "detail": "Artifacts written, openspec validate --strict passes. Design gate confirmed: RD10 (DDL + index plan), RD11 (cursors deleted), RD12 (VerifySession re-keyed on tesla_id), RD13 (processor.go rewrite moved from tier 3 into tier 2). Roadmap md tier 2/3 scope cells updated to match."
+    },
+    {
+      "at": "2026-09-13T13:15:25Z",
+      "what": "resumed",
+      "detail": "Fresh session. Tier 2 status corrected proposed -> in-progress: its change progress.json already said in-progress with wave 1 committed. Wave 2 (T2, T3, T4) dispatched to one serial Sonnet worker. Budget five_hour_pct 72, context_pct 9."
+    },
+    {
+      "at": "2026-09-14T01:10:00Z",
+      "what": "tier-2-archived",
+      "detail": "openspec archive synced 2 ADDED and 2 MODIFIED requirements into openspec/specs/charging/spec.md. No RENAMED requirement, so no end-of-file reordering to undo. Folder moved from the CLI's archive root into archive/charging/ per config.yaml's group-by-domain rule. Tier 3 (gateway) is now unblocked."
+    },
+    {
+      "at": "2026-09-14T01:20:00Z",
+      "what": "resumed",
+      "detail": "Fresh session. Budget five_hour_pct 15, context_pct 10, seven_day_pct 89. Tier 3 interview run with the user before any artifact."
+    },
+    {
+      "at": "2026-09-14T01:20:00Z",
+      "what": "roadmap-restructured",
+      "detail": "Old tier 3 split into tier 3 (charging, RD14/RD17) and tier 4 (gateway, RD15/RD16). Roadmap md tier table, Facts and Done-when updated. Two stale facts corrected: the '11 call sites' figure is 3 after tier 2, and internal/analytics cannot build a vehicleref.Ref because vehicleref-guard allows Authorize/All only inside the gateway's authorizeVehicle."
+    },
+    {
+      "at": "2026-09-14T02:45:00Z",
+      "what": "tier-3-artifacts",
+      "detail": "Artifacts written, openspec validate --strict passes. No database object changes, so the built-in design gate did not fire. boundary-guard confirmed charging may import vehicleref. Guard fix committed separately as 9b39034. Worker corrected its own count: 30 real call sites in charging, not 33; the other 3 are comments and a fake in the gateway test, which is tier 4's."
+    },
+    {
+      "at": "2026-09-14T03:25:00Z",
+      "what": "tier-order-changed",
+      "detail": "Owner hit the deliberate red build twice running make test. Chose to build tier 4 now rather than verify tier 3 with a scoped command. Tier 3 stays applied and unreviewed; both tiers get reviewed after the build is whole again."
+    },
+    {
+      "at": "2026-09-14T04:25:00Z",
+      "what": "tiers-3-and-4-archived",
+      "detail": "Both synced one MODIFIED requirement into their main specs (charging, gateway). No RENAMED requirement in either, so no end-of-file reordering to undo. Both folders moved from the CLI's archive root into archive/<domain>/ per config.yaml's group-by-domain rule."
+    },
+    {
+      "at": "2026-09-14T04:25:00Z",
+      "what": "roadmap-complete",
+      "detail": "All four tiers archived. Done-when met: neither Supercharger table has account_id, tesla_id is NOT NULL on both, the mirror runs one pass per tesla_id, and VerifySession cannot be called without a vehicleref.Ref. The work-counter is untouched - RM57 keeps its number."
+    },
+    {
+      "at": "2026-09-14T04:30:00Z",
+      "what": "budget-rollup",
+      "detail": "Tier budgets rolled up at close - the leader skipped this at archive time. Tier 3 = $3.11 from its deduped wave 1; T7 and its review round carry no reading. Tier 4 recorded no cost at all: its budget objects were written without cost_usd_delta. So 3 of 4 tiers reported and tier 3's own figure is partial."
+    }
+  ]
+}

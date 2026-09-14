@@ -27,29 +27,41 @@
 // before this file was written) -- this is what keeps one test's
 // monthly_effective_capacity row invisible to another test's assertions even
 // though the table itself is shared, unscoped, package-wide state.
+// TestCalculate_T13_SessionAttributedToVehicle is the one exception: it fixes
+// its tesla_id at 111, the same reference vehicle several
+// other integration test files also use for supercharger_sessions rows. This is
+// safe because Go runs this package's tests sequentially (no t.Parallel() call
+// anywhere in it) and every test's own t.Cleanup deletes its rows before the next
+// test starts, so no two tests ever observe each other's rows — but it does mean
+// this test's own session ids (991101-991103) must stay reserved and unique, even
+// though its tesla_id is not.
 //
 // Assertions read the new table back with direct SQL into plain Go fields
 // (never chargingdb.MonthlyEffectiveCapacity, which is all pgtype) and, for
 // Group C, through charging.Entry/charging.Session's own exported fields.
 // pgtype NEVER appears in this file (internal/charging/AGENTS.md §Testing Notes).
 //
+// C7 and C11 (both required a session with tesla_id IS NULL) are REMOVED, not
+// adapted: tesla_id is NOT NULL now and SessionMirror.TeslaID is a plain
+// int64, so neither fixture can be constructed any more. See the note left
+// at each former location.
+//
 // Test -> Test Contract case mapping:
 //
-//	B1  TestMonthlyEffectiveCapacity_PeriodMustBeMonthStart
-//	B2  TestMonthlyEffectiveCapacity_UniqueTeslaIDPeriod
-//	C1  TestCalculate_C1_EstimatedEntriesExcluded
-//	C2  TestCalculate_C2_DoneCalculatedSessionsExcluded
-//	C3  TestCalculate_C3_InProgressSessionsExcluded
-//	C4  TestCalculate_C4_TwoValidRowsBelowMinSamples
-//	C5  TestCalculate_C5_EvenValidCountAveragesMiddleTwo
-//	C6  TestCalculate_C6_PoolsAcrossAccounts
-//	C7  TestCalculate_C7_NullTeslaIDSessionSkipped
-//	C8  TestPackCapacityKWh_C8_NoMeasuredRowUsesDefault
-//	C9  TestPackCapacityKWh_C9_ThinCurrentMonthSkipsToEarlierMeasured
-//	C10 TestPackCapacityKWh_C10_UnchangedUntilFirstMonthComputed
-//	C11 TestVerifySession_C11_NullTeslaIDShortCircuitsToDefault
-//	C12 TestCalculate_C12_UpsertIsIdempotent
-//	C13 TestCalculate_C13_CandidateCountExistsForAllGated
+//	B1    TestMonthlyEffectiveCapacity_PeriodMustBeMonthStart
+//	B2    TestMonthlyEffectiveCapacity_UniqueTeslaIDPeriod
+//	C1    TestCalculate_C1_EstimatedEntriesExcluded
+//	C2    TestCalculate_C2_DoneCalculatedSessionsExcluded
+//	C3    TestCalculate_C3_InProgressSessionsExcluded
+//	C4    TestCalculate_C4_TwoValidRowsBelowMinSamples
+//	C5    TestCalculate_C5_EvenValidCountAveragesMiddleTwo
+//	C6    TestCalculate_C6_PoolsAcrossAccounts
+//	C8    TestPackCapacityKWh_C8_NoMeasuredRowUsesDefault
+//	C9    TestPackCapacityKWh_C9_ThinCurrentMonthSkipsToEarlierMeasured
+//	C10   TestPackCapacityKWh_C10_UnchangedUntilFirstMonthComputed
+//	C12   TestCalculate_C12_UpsertIsIdempotent
+//	C13   TestCalculate_C13_CandidateCountExistsForAllGated
+//	T-13  TestCalculate_T13_SessionAttributedToVehicle
 package charging_test
 
 import (
@@ -239,29 +251,27 @@ func TestCalculate_C1_EstimatedEntriesExcluded(t *testing.T) {
 func TestCalculate_C2_DoneCalculatedSessionsExcluded(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	teslaID := int64(990002)
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, teslaID)
 	cleanupMonthlyEffectiveCapacity(t, pool, teslaID)
 
 	sw := charging.NewSessionWriter(pool)
 	sv := charging.NewSessionVerifier(pool)
 	m := charging.SessionMirror{
-		AccountID:           accountID,
 		VIN:                 "VC02CAP",
-		TeslaID:             ptrInt64(teslaID),
+		TeslaID:             teslaID,
 		SessionID:           teslaID,
 		ChargeStartDateTime: time.Date(2026, 8, 5, 11, 0, 0, 0, time.UTC),
 		ChargeStopDateTime:  time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC),
 		SiteLocationName:    "C2 Site",
 		EnergyKWh:           ptrFloat64(31.0),
 	}
-	if err := sw.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
+	if err := sw.MirrorSessions(ctx, []charging.SessionMirror{m}); err != nil {
 		t.Fatalf("C2 setup: MirrorSessions: %v", err)
 	}
-	id := fetchSuperchargerSessionID(t, pool, accountID, teslaID)
+	id := fetchSuperchargerSessionID(t, pool, teslaID)
 	// start nil, end 100 -> derives using 62.0: 100 - 31.0/62.0*100 = 50 (in range).
-	verified, err := sv.VerifySession(ctx, accountID, id, nil, ptrIntV(100))
+	verified, err := sv.VerifySession(ctx, refFor(teslaID), id, nil, ptrIntV(100))
 	if err != nil {
 		t.Fatalf("C2 setup: VerifySession: %v", err)
 	}
@@ -287,23 +297,21 @@ func TestCalculate_C2_DoneCalculatedSessionsExcluded(t *testing.T) {
 func TestCalculate_C3_InProgressSessionsExcluded(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	teslaID := int64(990003)
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, teslaID)
 	cleanupMonthlyEffectiveCapacity(t, pool, teslaID)
 
 	sw := charging.NewSessionWriter(pool)
 	m := charging.SessionMirror{
-		AccountID:           accountID,
 		VIN:                 "VC03CAP",
-		TeslaID:             ptrInt64(teslaID),
+		TeslaID:             teslaID,
 		SessionID:           teslaID,
 		ChargeStartDateTime: time.Date(2026, 8, 6, 11, 0, 0, 0, time.UTC),
 		ChargeStopDateTime:  time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC),
 		SiteLocationName:    "C3 Site",
 		EnergyKWh:           ptrFloat64(30.0),
 	}
-	if err := sw.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
+	if err := sw.MirrorSessions(ctx, []charging.SessionMirror{m}); err != nil {
 		t.Fatalf("C3 setup: MirrorSessions: %v", err)
 	}
 	// No VerifySession call -- status stays the column DEFAULT, IN_PROGRESS.
@@ -400,16 +408,17 @@ func TestCalculate_C5_EvenValidCountAveragesMiddleTwo(t *testing.T) {
 }
 
 // TestCalculate_C6_PoolsAcrossAccounts implements design.md Test Contract C6:
-// two accounts with the same tesla_id are pooled into one row (RD5) -- no
-// account_id on the table, GROUP BY tesla_id (in Go) pools automatically.
+// a manual entry (account-scoped) and a supercharger session (vehicle-scoped,
+// no account at all now) for the same tesla_id are pooled into one row --
+// GROUP BY tesla_id (in Go) pools automatically, whatever each record's own
+// scoping shape.
 func TestCalculate_C6_PoolsAcrossAccounts(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
 	accountA := uuid.New()
-	accountB := uuid.New()
 	teslaID := int64(990006)
 	cleanupAccount(t, pool, accountA)
-	cleanupChargingSuperchargerSessions(t, pool, accountB)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, teslaID)
 	cleanupMonthlyEffectiveCapacity(t, pool, teslaID)
 
 	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
@@ -424,21 +433,20 @@ func TestCalculate_C6_PoolsAcrossAccounts(t *testing.T) {
 	sw := charging.NewSessionWriter(pool)
 	sv := charging.NewSessionVerifier(pool)
 	m := charging.SessionMirror{
-		AccountID:           accountB,
 		VIN:                 "VC06CAP",
-		TeslaID:             ptrInt64(teslaID),
+		TeslaID:             teslaID,
 		SessionID:           teslaID,
 		ChargeStartDateTime: time.Date(2026, 8, 10, 11, 0, 0, 0, time.UTC),
 		ChargeStopDateTime:  time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC),
 		SiteLocationName:    "C6 Site",
 		EnergyKWh:           ptrFloat64(12.40), // implied capacity 62.0 at delta 20
 	}
-	if err := sw.MirrorSessions(ctx, accountB, []charging.SessionMirror{m}); err != nil {
+	if err := sw.MirrorSessions(ctx, []charging.SessionMirror{m}); err != nil {
 		t.Fatalf("C6 setup: MirrorSessions: %v", err)
 	}
-	id := fetchSuperchargerSessionID(t, pool, accountB, teslaID)
+	id := fetchSuperchargerSessionID(t, pool, teslaID)
 	// Both percentages supplied directly -> status DONE (not DONE_CALCULATED).
-	verified, err := sv.VerifySession(ctx, accountB, id, ptrIntV(10), ptrIntV(30))
+	verified, err := sv.VerifySession(ctx, refFor(teslaID), id, ptrIntV(10), ptrIntV(30))
 	if err != nil {
 		t.Fatalf("C6 setup: VerifySession: %v", err)
 	}
@@ -466,50 +474,11 @@ func TestCalculate_C6_PoolsAcrossAccounts(t *testing.T) {
 	}
 }
 
-// TestCalculate_C7_NullTeslaIDSessionSkipped implements design.md Test
-// Contract C7: a session row with tesla_id IS NULL is skipped (RD5) -- a
-// capacity cannot be attributed to a car nobody has registered. There is no
-// tesla_id group for a NULL-tesla_id session to appear under at all; this
-// test additionally guards against a hypothetical bug that fell back to using
-// session_id as a stand-in tesla_id.
-func TestCalculate_C7_NullTeslaIDSessionSkipped(t *testing.T) {
-	pool := newTestPool(t)
-	ctx := context.Background()
-	accountID := uuid.New()
-	sessionID := int64(990007)
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
-	cleanupMonthlyEffectiveCapacity(t, pool, sessionID)
-
-	sw := charging.NewSessionWriter(pool)
-	sv := charging.NewSessionVerifier(pool)
-	m := charging.SessionMirror{
-		AccountID:           accountID,
-		VIN:                 "VNOTREG1",
-		TeslaID:             nil, // VIN not currently registered to any vehicle
-		SessionID:           sessionID,
-		ChargeStartDateTime: time.Date(2026, 8, 11, 11, 0, 0, 0, time.UTC),
-		ChargeStopDateTime:  time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC),
-		SiteLocationName:    "C7 Site",
-		EnergyKWh:           ptrFloat64(12.40),
-	}
-	if err := sw.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
-		t.Fatalf("C7 setup: MirrorSessions: %v", err)
-	}
-	id := fetchSuperchargerSessionID(t, pool, accountID, sessionID)
-	if _, err := sv.VerifySession(ctx, accountID, id, ptrIntV(10), ptrIntV(30)); err != nil {
-		t.Fatalf("C7 setup: VerifySession: %v", err)
-	}
-
-	calc := charging.NewMonthlyCapacityCalculator(pool)
-	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	if _, err := calc.Calculate(ctx, period, nil); err != nil {
-		t.Fatalf("C7: Calculate: %v", err)
-	}
-
-	if n := countMonthlyEffectiveCapacityRows(t, pool, sessionID); n != 0 {
-		t.Errorf("C7: expected no monthly_effective_capacity row keyed by this session's id, got %d", n)
-	}
-}
+// C7 (a session row with tesla_id IS NULL is skipped) is REMOVED, not
+// adapted: tesla_id is NOT NULL now and SessionMirror.TeslaID is a plain
+// int64 -- a session with no registered vehicle can no longer be
+// constructed at all, so the scenario this case tested is now structurally
+// impossible rather than merely untested.
 
 // TestPackCapacityKWh_C8_NoMeasuredRowUsesDefault implements design.md Test
 // Contract C8: packCapacityKWh with no measured row -> returns
@@ -624,7 +593,7 @@ func TestPackCapacityKWh_C10_UnchangedUntilFirstMonthComputed(t *testing.T) {
 	entryTeslaID := int64(990010)
 	sessionTeslaID := int64(990011)
 	cleanupAccount(t, pool, accountID)
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, sessionTeslaID)
 	cleanupMonthlyEffectiveCapacity(t, pool, entryTeslaID, sessionTeslaID)
 
 	if n := countMonthlyEffectiveCapacityRows(t, pool, entryTeslaID); n != 0 {
@@ -655,20 +624,19 @@ func TestPackCapacityKWh_C10_UnchangedUntilFirstMonthComputed(t *testing.T) {
 	sw := charging.NewSessionWriter(pool)
 	sv := charging.NewSessionVerifier(pool)
 	m := charging.SessionMirror{
-		AccountID:           accountID,
 		VIN:                 "VC10CAP",
-		TeslaID:             ptrInt64(sessionTeslaID),
+		TeslaID:             sessionTeslaID,
 		SessionID:           sessionTeslaID,
 		ChargeStartDateTime: time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC),
 		ChargeStopDateTime:  time.Date(2026, 8, 13, 11, 0, 0, 0, time.UTC),
 		SiteLocationName:    "C10 Site",
 		EnergyKWh:           ptrFloat64(31.0),
 	}
-	if err := sw.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
+	if err := sw.MirrorSessions(ctx, []charging.SessionMirror{m}); err != nil {
 		t.Fatalf("C10: MirrorSessions: %v", err)
 	}
-	id := fetchSuperchargerSessionID(t, pool, accountID, sessionTeslaID)
-	verified, err := sv.VerifySession(ctx, accountID, id, nil, ptrIntV(80))
+	id := fetchSuperchargerSessionID(t, pool, sessionTeslaID)
+	verified, err := sv.VerifySession(ctx, refFor(sessionTeslaID), id, nil, ptrIntV(80))
 	if err != nil {
 		t.Fatalf("C10: VerifySession: %v", err)
 	}
@@ -678,51 +646,10 @@ func TestPackCapacityKWh_C10_UnchangedUntilFirstMonthComputed(t *testing.T) {
 	}
 }
 
-// TestVerifySession_C11_NullTeslaIDShortCircuitsToDefault implements
-// design.md Test Contract C11: a session whose tesla_id is NULL never reaches
-// packCapacityKWh's DB read at all -- derivation succeeds using
-// defaultPackCapacityKWh directly. No monthly_effective_capacity row is
-// seeded for this id anywhere, so a hypothetical bug that DID reach the read
-// would observe the identical "no row" outcome -- the weaker assertion the
-// Test Contract itself allows for this case ("or by a call-count fake
-// substituted only for this one case").
-func TestVerifySession_C11_NullTeslaIDShortCircuitsToDefault(t *testing.T) {
-	pool := newTestPool(t)
-	ctx := context.Background()
-	accountID := uuid.New()
-	sessionID := int64(990012)
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
-	cleanupMonthlyEffectiveCapacity(t, pool, sessionID)
-
-	sw := charging.NewSessionWriter(pool)
-	sv := charging.NewSessionVerifier(pool)
-	m := charging.SessionMirror{
-		AccountID:           accountID,
-		VIN:                 "VNOTREG2",
-		TeslaID:             nil,
-		SessionID:           sessionID,
-		ChargeStartDateTime: time.Date(2026, 8, 12, 11, 0, 0, 0, time.UTC),
-		ChargeStopDateTime:  time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC),
-		SiteLocationName:    "C11 Site",
-		EnergyKWh:           ptrFloat64(31.0),
-	}
-	if err := sw.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
-		t.Fatalf("C11: MirrorSessions: %v", err)
-	}
-	id := fetchSuperchargerSessionID(t, pool, accountID, sessionID)
-
-	verified, err := sv.VerifySession(ctx, accountID, id, nil, ptrIntV(100))
-	if err != nil {
-		t.Fatalf("C11: VerifySession: %v", err)
-	}
-	// defaultPackCapacityKWh(62.0): 100 - 31.0/62.0*100 = 50.
-	if verified.StartBatteryPct == nil || *verified.StartBatteryPct != 50 {
-		t.Errorf("C11: StartBatteryPct = %v, want 50 (derived using defaultPackCapacityKWh directly)", verified.StartBatteryPct)
-	}
-	if verified.Status != charging.SessionStatusDoneCalculated {
-		t.Errorf("C11: Status = %v, want DONE_CALCULATED", verified.Status)
-	}
-}
+// C11 (a session whose tesla_id is NULL never reaches packCapacityKWh's DB
+// read at all) is REMOVED for the same reason as C7 above: tesla_id is NOT
+// NULL now, and SessionMirror.TeslaID is a plain int64, so this fixture can
+// no longer be constructed.
 
 // TestCalculate_C12_UpsertIsIdempotent implements design.md Test Contract
 // C12: the upsert is idempotent (RD9's re-run path) -- ON CONFLICT (tesla_id,
@@ -821,5 +748,102 @@ func TestCalculate_C13_CandidateCountExistsForAllGated(t *testing.T) {
 	}
 	if row.SampleCount != 0 {
 		t.Errorf("C13: SampleCount = %d, want 0", row.SampleCount)
+	}
+}
+
+// TestCalculate_T13_SessionAttributedToVehicle proves the monthly capacity
+// batch attributes a session to its vehicle, tesla_id alone —
+// no account plays any part in this query any more. Three sessions for
+// tesla_id 111, one of each lifecycle status: DONE (the only one
+// ListValidSessionCapacitiesForPeriod ever reads), DONE_CALCULATED and
+// IN_PROGRESS (both excluded by the query's own WHERE status = 'DONE', so they
+// must not move CandidateCount at all). The DONE session's inferred capacity
+// is 31.0 / 0.50 = 62.000 (delta 50, passes the 15-point gate) but minSamples
+// is 3, so the vehicle is Thin, not Measured.
+func TestCalculate_T13_SessionAttributedToVehicle(t *testing.T) {
+	pool := newTestPool(t)
+	teslaID := int64(111)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, 991101, 991102, 991103)
+	cleanupMonthlyEffectiveCapacity(t, pool, teslaID)
+	ctx := context.Background()
+	sw := charging.NewSessionWriter(pool)
+	sv := charging.NewSessionVerifier(pool)
+
+	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	stop := period.AddDate(0, 0, 10)
+
+	// DONE: both percentages supplied directly.
+	doneMirror := charging.SessionMirror{
+		VIN: "VT13DONE", TeslaID: teslaID, SessionID: 991101,
+		ChargeStartDateTime: stop.Add(-time.Hour), ChargeStopDateTime: stop,
+		SiteLocationName: "T13 Done Site", EnergyKWh: ptrFloat64(31.0),
+	}
+	if err := sw.MirrorSessions(ctx, []charging.SessionMirror{doneMirror}); err != nil {
+		t.Fatalf("T13: MirrorSessions (DONE): %v", err)
+	}
+	doneID := fetchSuperchargerSessionID(t, pool, 991101)
+	doneVerified, err := sv.VerifySession(ctx, refFor(teslaID), doneID, ptrIntV(20), ptrIntV(70))
+	if err != nil {
+		t.Fatalf("T13: VerifySession (DONE): %v", err)
+	}
+	if doneVerified.Status != charging.SessionStatusDone {
+		t.Fatalf("T13 setup precondition: DONE session Status = %v, want DONE", doneVerified.Status)
+	}
+
+	// DONE_CALCULATED: end only, energy present, derivation succeeds.
+	calcMirror := charging.SessionMirror{
+		VIN: "VT13CALC", TeslaID: teslaID, SessionID: 991102,
+		ChargeStartDateTime: stop.Add(-time.Hour), ChargeStopDateTime: stop,
+		SiteLocationName: "T13 DoneCalculated Site", EnergyKWh: ptrFloat64(31.0),
+	}
+	if err := sw.MirrorSessions(ctx, []charging.SessionMirror{calcMirror}); err != nil {
+		t.Fatalf("T13: MirrorSessions (DONE_CALCULATED): %v", err)
+	}
+	calcID := fetchSuperchargerSessionID(t, pool, 991102)
+	calcVerified, err := sv.VerifySession(ctx, refFor(teslaID), calcID, nil, ptrIntV(80))
+	if err != nil {
+		t.Fatalf("T13: VerifySession (DONE_CALCULATED): %v", err)
+	}
+	if calcVerified.Status != charging.SessionStatusDoneCalculated {
+		t.Fatalf("T13 setup precondition: DONE_CALCULATED session Status = %v, want DONE_CALCULATED", calcVerified.Status)
+	}
+
+	// IN_PROGRESS: freshly mirrored, never verified.
+	inProgressMirror := charging.SessionMirror{
+		VIN: "VT13PROG", TeslaID: teslaID, SessionID: 991103,
+		ChargeStartDateTime: stop.Add(-time.Hour), ChargeStopDateTime: stop,
+		SiteLocationName: "T13 InProgress Site", EnergyKWh: ptrFloat64(31.0),
+	}
+	if err := sw.MirrorSessions(ctx, []charging.SessionMirror{inProgressMirror}); err != nil {
+		t.Fatalf("T13: MirrorSessions (IN_PROGRESS): %v", err)
+	}
+
+	calc := charging.NewMonthlyCapacityCalculator(pool)
+	report, err := calc.Calculate(ctx, period, &teslaID)
+	if err != nil {
+		t.Fatalf("T13: Calculate: %v", err)
+	}
+	if report.VehiclesFound != 1 {
+		t.Errorf("T13: VehiclesFound = %d, want 1", report.VehiclesFound)
+	}
+	if report.Measured != 0 {
+		t.Errorf("T13: Measured = %d, want 0", report.Measured)
+	}
+	if report.Thin != 1 {
+		t.Errorf("T13: Thin = %d, want 1", report.Thin)
+	}
+
+	row, ok := fetchMonthlyEffectiveCapacity(t, pool, teslaID, period)
+	if !ok {
+		t.Fatalf("T13: expected a row")
+	}
+	if row.CandidateCount != 1 {
+		t.Errorf("T13: CandidateCount = %d, want 1 (only the DONE session)", row.CandidateCount)
+	}
+	if row.SampleCount != 1 {
+		t.Errorf("T13: SampleCount = %d, want 1", row.SampleCount)
+	}
+	if row.EffectiveCapacityKWh != nil {
+		t.Errorf("T13: EffectiveCapacityKWh = %v, want nil (1 sample, below minSamples=3)", *row.EffectiveCapacityKWh)
 	}
 }

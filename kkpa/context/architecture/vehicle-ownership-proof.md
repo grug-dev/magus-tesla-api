@@ -58,5 +58,6 @@ All KB links are relative to `kkpa/context/`, never to this file — so a guide 
 without recounting `../..` segments.
 
 - Architecture: `architecture/gateway-reader-writer-ports.md` — the tenant ownership check as
-  it works **today**, on `account_id`. That guide is still correct: this capability added the
-  seam but rewired no reader or writer port yet.
+  it works today, on `tesla_id`. This capability's proof value now has a real caller:
+  `SuperchargerRowUpdate` calls `authorizeVehicle` before `charging.SessionVerifier.VerifySession`,
+  the seam's first port rewired to require a `Ref` instead of a bare id.

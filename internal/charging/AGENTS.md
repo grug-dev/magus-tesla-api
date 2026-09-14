@@ -185,7 +185,7 @@ writes. The comparison is a `to_jsonb` deny-list, not a hand-picked `WHERE`: it 
 every column this query never refreshes — bookkeeping (`id`, `created_at`, `updated_at`
 itself), human-owned columns (`start_battery_pct`, `end_battery_pct`,
 `battery_pct_source`, `status`, `inferred_capacity_kwh_calc`), and write-once mirrored
-columns (`account_id`, `vin`, `session_id`, `charge_start_date_time`,
+columns (`vin`, `session_id`, `charge_start_date_time`,
 `charge_stop_date_time`, `site_location_name`) — so the comparison covers exactly the
 five refreshed columns and nothing else. This keeps working even as the table grows:
 `db_mirror_schema_selfcheck_integration_test.go` fails the moment a new column belongs to
@@ -220,6 +220,10 @@ any other future caller never import `chargingdb` directly, exactly as for
 `Writer`/`Reader`/`SessionWriter`/`SessionReader` above. This port ships with no caller
 in this tier — `cmd/web`/`internal/gateway` wiring is deferred to
 `RM31-gateway-add-session-battery-edit` (tier 4).
+
+`VerifySession` now requires a `vehicleref.Ref` instead of a bare vehicle id
+(RM57-charging-verifysession-takes-ref), so a caller must already have proven
+ownership through `internal/vehicleref`.
 
 ### Derived start battery percentage (MAG-36, charging-add-derived-start-battery-pct)
 
@@ -273,14 +277,14 @@ against their actual values (design.md "Rationale").
 
 ### The Supercharger mirror watermark (RM44-platform-add-mirror-watermark, MAG-48)
 
-`charging.mirror_watermarks` is a new table, one row per account, holding the
-highest `telemetry.supercharger_history.updated_at` this module's nightly
-mirror has already synchronized. It has no `tesla_id` column: the read it
-bounds is account-wide, not per vehicle, so a per-vehicle cursor would miss
-the orphan-recovery case (a session whose vehicle re-registers). It has no
-`source` column either: this table mirrors exactly one upstream table, so a
-second source column would be speculative, not something a caller needs
-today.
+`charging.mirror_watermarks` holds the highest
+`telemetry.supercharger_history.updated_at` this module's nightly mirror has
+already synchronized, one row per **vehicle** (`tesla_id NOT NULL`, `UNIQUE
+(tesla_id)`) — not per account. An account with two cars needs two cursors:
+one shared instant cannot say how far each car got, so a per-account cursor
+risked skipping one car's rows forever. It has no `source` column: this
+table mirrors exactly one upstream table, so a second source column would be
+speculative, not something a caller needs today.
 
 **Port:** `MirrorWatermarkStore` (`MirrorWatermark` / `AdvanceMirrorWatermark`). See `internal/charging/charging.go`.
 
@@ -295,10 +299,13 @@ row-count check; the caller (`internal/app.processChargingData`) must call
 it only after a non-empty read, exactly mirroring
 `analytics.recalculator`'s own `watermark`/`advanceWatermark` split.
 
-No row yet for an account means "epoch" — `MirrorWatermark` returns the zero
+No row yet for a vehicle means "epoch" — `MirrorWatermark` returns the zero
 `time.Time`, not an error, translating `pgx.ErrNoRows` the same way
 `analytics.recalculator.watermark` does. A missing cursor backfills that
-account's whole Supercharger history once, on its first-ever mirror run.
+vehicle's whole Supercharger history once, on its first-ever mirror run.
+The migration that re-keyed this table deleted every existing cursor row, so
+every vehicle backfills once on the first nightly run after it applies —
+expected, since the mirror is an idempotent upsert and writes nothing new.
 
 Implementation lives in `mirror_watermark.go` (`mirrorWatermarkStore`,
 mirroring `session_writer.go`'s exact concrete-type pattern). `pgtype` stays
@@ -349,6 +356,10 @@ This module may import:
   `session_verifier.go`, `mirror_watermark.go`, and `monthly_capacity.go`. The generated
   package is module-private by convention; no other module imports it, and no `_test.go`
   file does either.
+- `internal/vehicleref` — ONLY inside `charging.go` and `session_verifier.go`
+  (RM57-charging-verifysession-takes-ref). `SessionVerifier.VerifySession` takes a
+  `vehicleref.Ref` instead of a bare vehicle id, so a caller must already have proven
+  ownership through `internal/vehicleref` before it can call this port.
 
   Both lists above have gone stale before. MAG-36 corrected the `chargingdb` list, which had
   named only `service.go` and `session_writer.go` while `session_reader.go` and
@@ -433,7 +444,7 @@ Postgres schema. No other module may read or write any of them directly
 | `manual_charge_entries` | User-asserted home/work/third-party charges | `Writer.Create` / `Update` / `Delete` |
 | `supercharger_sessions` | The nightly Supercharger mirror + the human-owned battery percentages | `SessionWriter.MirrorSessions` (mirror), `SessionVerifier.VerifySession` (percentages) |
 | `monthly_effective_capacity` | Measured pack capacity per vehicle per month | `MonthlyCapacityCalculator.Calculate` |
-| `mirror_watermarks` | One mirror cursor per account | `AdvanceMirrorWatermark` |
+| `mirror_watermarks` | One mirror cursor per vehicle | `AdvanceMirrorWatermark` |
 
 Rules that hold for all four:
 
@@ -441,8 +452,9 @@ Rules that hold for all four:
   (`ai/go-conventions.md` §persistence).
 - **sqlc generates `package chargingdb` from `query.sql`.** Only the files listed in
   §Allowed Imports may import it.
-- **No cross-module FK.** Tenant scoping is enforced by the query's own
-  `WHERE account_id = @account_id`, never by the database.
+- **No cross-module FK.** Tenant scoping is enforced by each query's own predicate —
+  `account_id` for `manual_charge_entries`, `tesla_id` for `supercharger_sessions` and
+  `mirror_watermarks` — never by the database.
 - **Renames must cover the catalog, not a list.** When `charge_sessions` became
   `supercharger_sessions`, every index, constraint and auto-named CHECK went with it. The
   criterion is that no relation, index or constraint owned by this module may still carry
@@ -481,10 +493,6 @@ re-argue a settled decision.
   `createdb` and no `make migrate-up` step is needed** — the suite runs green with zero
   manual DB setup as long as Docker is running. None of it compiles into the deployed
   binary.
-- **The backfill test extracts its statement from the shipped migration at runtime**
-  (`db_backfill_integration_test.go`), slicing between the `-- BACKFILL-BEGIN` /
-  `-- BACKFILL-END` sentinels rather than copying the SQL into a Go const — so it cannot
-  drift from what ships.
 - **Backfill of rows that existed before a migration is deliberately NOT integration-tested.**
   The test database is provisioned fresh with every migration applied before any row exists,
   so there is nothing to backfill there. The real check is the owner's post-`migrate-up`

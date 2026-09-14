@@ -50,9 +50,13 @@ two-field correction above.
 
 - **CSRF token key:** `csrf_supercharger` — a *different* session key from the manual page's
   `csrf_externalcharge`. Issued by `SuperchargerStatsPage`.
-- **No `RegisteredVehicles` ownership check on the write.** `VerifySession`'s own account-scoped
-  `WHERE` clause is the sole tenant boundary here — a documented, deliberate divergence from the
-  manual page. Do not add one without reading `architecture/charge-record-mutation.md`.
+- **The write now carries an ownership check** — `authorizeVehicle`, run over the
+  session-selected vehicle (`currentVehicle`), right before calling `VerifySession`. It reuses
+  the same `RegisteredVehicles` call `resolveSelectedVehicle` already makes, so the write costs
+  one query, not two. `VerifySession`'s own `WHERE` clause (`id` AND `tesla_id`) is still the
+  clause that matches the row — the check only makes sure the `tesla_id` fed into it was
+  proven, not an unverified value. Read `architecture/charge-record-mutation.md` before
+  changing either side of this.
 - **"Today" is plain UTC on this page**, not `browserToday(c)` — `startOfDay(time.Now().UTC())`.
   The window is month-anchored and capped at 400 days by `parseSuperchargerRange`.
 - **Window threading:** `superchargerWindowStrs` re-parses `?start=&end=` and echoes it onto every

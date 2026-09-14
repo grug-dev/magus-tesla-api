@@ -108,17 +108,14 @@ func (f *fakeTelemetryReader) SnapshotPrecedingDay(_ context.Context, teslaID in
 // ListSessionsByVehicleUpdatedSince are not called from any Reader path today
 // and remain defensive panics — both share the sessions/err fixture fields
 // with ListSessionsByVehicle (safe: no existing RecentEfficiency test calls
-// the Between/UpdatedSince paths). The old telemetry.SuperchargerReader
-// SuperchargerSessionsByAccount stub is dropped entirely: it has no
-// equivalent on charging.SuperchargerSessionAnalyticsReader, which this type
-// now implements.
+// the Between/UpdatedSince paths). These three ports are keyed on tesla_id
+// alone, so the fake records the vehicle and no account.
 type fakeSuperchargerReader struct {
 	sessions []charging.Session
 	err      error
 
-	gotAccountID uuid.UUID
-	gotTeslaID   int64
-	gotLimit     int
+	gotTeslaID int64
+	gotLimit   int
 
 	gotBetweenStart time.Time
 	gotBetweenEnd   time.Time
@@ -129,8 +126,7 @@ type fakeSuperchargerReader struct {
 // today (ConsumedByDay reads precomputed vehicle_metrics rows instead, per
 // AGENTS.md D-precompute) — recorded here defensively, matching the sibling
 // panics below for the paths RecentEfficiency truly never calls.
-func (f *fakeSuperchargerReader) ListSessionsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]charging.Session, error) {
-	f.gotAccountID = accountID
+func (f *fakeSuperchargerReader) ListSessionsByVehicleBetween(_ context.Context, teslaID int64, start, end time.Time) ([]charging.Session, error) {
 	f.gotTeslaID = teslaID
 	f.gotBetweenStart = start
 	f.gotBetweenEnd = end
@@ -144,12 +140,11 @@ func (f *fakeSuperchargerReader) ListSessionsByVehicleBetween(_ context.Context,
 // charging.SuperchargerSessionAnalyticsReader (Recalculator's Reconcile path
 // calls this, not Reader). Panics for the same reason as
 // fakeTelemetryReader's sibling above.
-func (f *fakeSuperchargerReader) ListSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]charging.Session, error) {
+func (f *fakeSuperchargerReader) ListSessionsByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]charging.Session, error) {
 	panic("fakeSuperchargerReader: ListSessionsByVehicleUpdatedSince must not be called from a Reader path")
 }
 
-func (f *fakeSuperchargerReader) ListSessionsByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]charging.Session, error) {
-	f.gotAccountID = accountID
+func (f *fakeSuperchargerReader) ListSessionsByVehicle(_ context.Context, teslaID int64, limit int) ([]charging.Session, error) {
 	f.gotTeslaID = teslaID
 	f.gotLimit = limit
 	if f.err != nil {
@@ -494,9 +489,8 @@ func TestRecentEfficiency_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 	if telemetryFake.gotTeslaID != teslaID {
 		t.Errorf("telemetry: teslaID not passed through: want %d, got %d", teslaID, telemetryFake.gotTeslaID)
 	}
-	if superchargerFake.gotAccountID != accountID {
-		t.Errorf("supercharger: accountID not passed through: want %v, got %v", accountID, superchargerFake.gotAccountID)
-	}
+	// The supercharger port is keyed on tesla_id alone now, so it has no
+	// accountID to check. superchargerFake.gotTeslaID below covers it.
 	if manualFake.gotAccountID != accountID {
 		t.Errorf("charging: accountID not passed through: want %v, got %v", accountID, manualFake.gotAccountID)
 	}

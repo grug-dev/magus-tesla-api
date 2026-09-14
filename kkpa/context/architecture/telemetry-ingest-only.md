@@ -60,7 +60,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 | ~~`internal/gateway/**`~~ — **NO LONGER A CONSUMER, and now forbidden** | — | The gateway's four snapshot call sites were repointed onto `analytics.Reader` by **RM38** (`LatestMetricsByAccount` — dashboard, vehicle cards, nav header, charges battery suggestion) and **RM40** (`BatteryLevelByDay` — the history battery chart). The supercharger page had already moved to `charging.SessionReader` in RM30. `make boundary-guard` now fails the build on any `internal/telemetry` import under `internal/gateway/`, with **zero** `// boundary:allow:` escape hatches. See the boundary gotcha below. |
 | `internal/analytics/analytics.go` + `reader.go` | `SnapshotsByVehicleSince` | Derived metrics: `ConsumedByDay`, `OdometerDeltaByDay` over `vehicle_metrics`. Telemetry supplies **snapshots only** — `NewReader`'s `supercharger` argument is `charging.SuperchargerSessionAnalyticsReader`, not a telemetry port (**changed by RM31**). Verified: no file under `internal/analytics/` names `telemetry.SuperchargerHistoryReader`. |
 | `internal/analytics/recalculate.go` | `SnapshotPrecedingDay`, `SnapshotsByVehicleUpdatedSince`, `SnapshotsByVehicleBetween` | `Recalculator` re-derives `vehicle_metrics` rows (nightly + after manual-charge writes — see `entities/vehicle-metrics/guide.md`). **Snapshot reads only since RM31** — its Supercharger source moved to `charging.SuperchargerSessionAnalyticsReader` over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3). |
-| `internal/app/processor.go` | `SuperchargerHistoryByAccount` (limit 0 = every row) | Step 2 of `ProcessVehicleData`: mirrors Supercharger sessions into `charging.supercharger_sessions` (renamed from `charging.charge_sessions`, RM39 tier 3) via `charging.SessionWriter` — what the Supercharger Stats page reads (RM30) **and, since RM31, what `internal/analytics` derives from**. This is now the **only remaining caller of `telemetry.SuperchargerHistoryReader` repo-wide**. See `architecture/nightly-cycle.md`. |
+| `internal/app/processor.go` | `SuperchargerHistoryByVehicleUpdatedSince` (once per vehicle of the account, fanned out and concatenated) | Step 2 of `ProcessVehicleData`: mirrors Supercharger sessions into `charging.supercharger_sessions` (renamed from `charging.charge_sessions`, RM39 tier 3) via `charging.SessionWriter` — what the Supercharger Stats page reads (RM30) **and, since RM31, what `internal/analytics` derives from**. The read is per vehicle, not per account (RM57 D7) — the table dropped `account_id`, so no account-wide read remains. This is now the **only remaining caller of `telemetry.SuperchargerHistoryReader` repo-wide**. See `architecture/nightly-cycle.md`. |
 
 ### Driving adapters (the write side's callers)
 
@@ -202,27 +202,30 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   column to the table and this test tells you what to decide.
   _Source: spec telemetry — Requirement: Change-Detecting Supercharger-History Upsert._
 
-- **There are TWO updated-since read ports for Supercharger sessions, and the difference is
-  load-bearing.** The per-vehicle port filters on the vehicle identifier. The account-wide port
-  takes no vehicle at all. Only the account-wide one can return a session whose vehicle is not
-  currently registered, because a per-vehicle filter can never match a row with no vehicle
-  identity. A caller that must recover such a session once its vehicle re-registers has to use
-  the account-wide port. Picking the per-vehicle one there loses rows, silently.
-  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+- **There is ONE updated-since read port for Supercharger sessions, and it is per vehicle.**
+  It filters on the vehicle identifier. The account-wide port is gone: the table dropped
+  `account_id`, so no read can be scoped to an account any more. A caller that needs every
+  session of an account reads once per vehicle of that account and joins the results.
+  _Source: spec telemetry — Requirement: Supercharger Session Updated-Since Read Port._
 
-- **The account-wide port returns oldest-first by `updated_at`, and an empty result is not an
-  error.** Nothing updated in the window returns an empty collection with no error, exactly like
+- **A session for an unregistered VIN is never stored, so no read can return one.** `tesla_id`
+  is `NOT NULL`. The nightly collector skips such a session and counts the skip in its cycle
+  report. There is no row to recover later if the vehicle re-registers.
+  _Source: spec telemetry — Requirement: Supercharger Session Updated-Since Read Port._
+
+- **The port returns oldest-first by `updated_at`, and an empty result is not an error.**
+  Nothing updated in the window returns an empty collection with no error, exactly like
   every other read port on this module.
-  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+  _Source: spec telemetry — Requirement: Supercharger Session Updated-Since Read Port._
 
-- **A session updated at exactly the requested instant is included.** The bound is inclusive at
-  both ports. A caller that treats it as exclusive will skip a row on every boundary.
-  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+- **A session updated at exactly the requested instant is included.** The bound is inclusive.
+  A caller that treats it as exclusive will skip a row on every boundary.
+  _Source: spec telemetry — Requirement: Supercharger Session Updated-Since Read Port._
 
-- **No caller reaches these rows any other way.** Both updated-since ports are the only route to
+- **No caller reaches these rows any other way.** The updated-since port is the only route to
   this data for another module; nothing outside `internal/telemetry` imports
   `internal/telemetry/db`. `make boundary-guard` enforces it.
-  _Source: spec telemetry — Requirement: Supercharger History Account-Wide Updated-Since Read Port._
+  _Source: spec telemetry — Requirement: Supercharger Session Updated-Since Read Port._
 
 - **One car is polled once a night, not once per account.** A car can be registered to
   several accounts. Before the per-account collection loop runs, the module elects exactly
@@ -247,6 +250,37 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   updated-since and preceding-day ports identify vehicles by their Tesla numeric id. No
   caller passes an account id to read snapshots.
   _Source: spec telemetry — Requirements: Latest Snapshot Read Port; Snapshot History Read Port; Snapshot Updated-Since Read Port; Preceding-Snapshot Read Port._
+
+- **The charging counters are three, and they are independent.** A cycle counts sessions
+  upserted, accounts whose charging-history fetch failed, and sessions skipped because the VIN
+  was not a registered vehicle. A skip is never also an upsert or a fetch failure, and a fetch
+  failure is never a skip. All three appear on the per-cycle log line, so a run that stored
+  nothing still says whether it skipped or failed.
+  _Source: spec telemetry — Requirement: Cycle Report Charging Counters._
+
+- **The Supercharger read port has exactly two methods, and both take a Tesla id alone.** One
+  returns a vehicle's sessions newest-first with a limit; one returns the sessions whose charge
+  stop time falls in a caller-supplied window, oldest-first with no limit, because the window
+  itself bounds the result. The old account-scoped "all of an account's sessions" method is gone
+  — the ledger stores no account to filter on, and nothing called it.
+  _Source: spec telemetry — Requirement: Supercharger Session Read Port._
+
+- **The date-windowed read judges a session by its stop time, not its start time.** A session
+  that starts before the window and stops inside it belongs to the window. Filtering on start
+  time instead silently drops every session that crosses a window edge.
+  _Source: spec telemetry — Requirement: Supercharger Session Read Port._
+
+- **The updated-since read must stay a single index scan with no sort step.** The spec puts this
+  obligation on the persistence layer, not just on the query: the index has to satisfy the
+  vehicle filter, the instant predicate and the ordering together. Adding a column to the
+  `ORDER BY`, or reordering the index, reintroduces a sort that the mirror pays on every
+  nightly run.
+  _Source: spec telemetry — Requirement: Supercharger Session Updated-Since Read Port._
+
+- **Every stored session carries a vehicle identifier — the ledger refuses to store one without.**
+  This is the ledger's own rule, not a side effect of a read port. It is why an unregistered VIN
+  is skipped at write time rather than stored and filtered later.
+  _Source: spec telemetry — Requirement: Supercharger Session Ledger._
 
 ## Related KB
 

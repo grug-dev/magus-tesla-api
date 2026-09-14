@@ -155,7 +155,7 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 		}
 	}
 
-	sessions, err := r.supercharger.ListSessionsByVehicleBetween(ctx, accountID, teslaID, chargeStart, end.AddDate(0, 0, 2))
+	sessions, err := r.supercharger.ListSessionsByVehicleBetween(ctx, teslaID, chargeStart, end.AddDate(0, 0, 2))
 	if err != nil {
 		return fmt.Errorf("fetching supercharger sessions: %w", err)
 	}
@@ -276,7 +276,7 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 	if err != nil {
 		return fmt.Errorf("fetching updated snapshots: %w", err)
 	}
-	sessions, err := r.supercharger.ListSessionsByVehicleUpdatedSince(ctx, accountID, teslaID, scsCursor.Add(-recalcOverlap))
+	sessions, err := r.supercharger.ListSessionsByVehicleUpdatedSince(ctx, teslaID, scsCursor.Add(-recalcOverlap))
 	if err != nil {
 		return fmt.Errorf("fetching updated supercharger sessions: %w", err)
 	}

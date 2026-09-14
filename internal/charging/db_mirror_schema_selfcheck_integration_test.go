@@ -7,12 +7,13 @@
 // inside the query's updated_at comparison stays correct as the schema evolves.
 // The governing rule (design.md): the comparison covers EXACTLY the columns the
 // SET clause writes (5) and nothing else; every other live column is deny-listed
-// (14 today). Under that rule the live schema is a total partition of the two
-// sets, with no leftover bucket. Part 1 below asserts that partition against
-// information_schema at runtime, so a future migration that adds a column makes
-// this test fail on its own, by name, with no code review needed to catch it.
-// Part 2 is the behavioral proof: poke every settable deny-listed column with a
-// sentinel, re-mirror with identical values, and assert nothing moved.
+// (13 today, since account_id was dropped from the table). Under that rule the live schema is a total
+// partition of the two sets, with no leftover bucket — 5 + 13 = 18 live columns.
+// Part 1 below asserts that partition against information_schema at runtime, so
+// a future migration that adds a column makes this test fail on its own, by
+// name, with no code review needed to catch it. Part 2 is the behavioral proof:
+// poke every settable deny-listed column with a sentinel, re-mirror with
+// identical values, and assert nothing moved.
 package charging_test
 
 import (
@@ -21,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
@@ -34,20 +34,23 @@ var writtenColumns = []string{
 	"energy_kwh", "total_cost", "currency", "is_paid", "tesla_id",
 }
 
-// denyListColumns is the 14-column deny-list — every column this query never
+// denyListColumns is the 13-column deny-list — every column this query never
 // refreshes, grouped by design.md's three buckets:
 //
 //	(a) bookkeeping, not row data: id, created_at, updated_at
 //	(b) human-owned / derived from human-owned, never touched by the poller:
 //	    start_battery_pct, end_battery_pct, battery_pct_source, status,
 //	    inferred_capacity_kwh_calc
-//	(c) write-once mirrored columns the SET clause never refreshes: account_id,
-//	    vin, session_id, charge_start_date_time, charge_stop_date_time,
+//	(c) write-once mirrored columns the SET clause never refreshes: vin,
+//	    session_id, charge_start_date_time, charge_stop_date_time,
 //	    site_location_name
+//
+// account_id left this list when the column itself was dropped from the table:
+// there is no longer a column here to guard.
 var denyListColumns = []string{
 	"id", "created_at", "updated_at",
 	"start_battery_pct", "end_battery_pct", "battery_pct_source", "status", "inferred_capacity_kwh_calc",
-	"account_id", "vin", "session_id", "charge_start_date_time", "charge_stop_date_time", "site_location_name",
+	"vin", "session_id", "charge_start_date_time", "charge_stop_date_time", "site_location_name",
 }
 
 // fetchLiveColumnNames queries information_schema.columns at runtime for
@@ -161,26 +164,24 @@ var selfCheckSentinelTime = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 // used to seed, and assert every sentinel — including updated_at — is unchanged.
 //
 // Exemptions, both documented at the point they are skipped below:
-//   - id, account_id, vin, session_id: these identify the row and form the
-//     ON CONFLICT target. Poking them would make the re-mirror insert a NEW row
-//     instead of updating this one, which would pass this test for the wrong
-//     reason (it would prove nothing about the deny-list).
+//   - id, session_id: these identify the row and form the ON CONFLICT target.
+//     Poking them would make the re-mirror insert a NEW row instead of updating
+//     this one, which would pass this test for the wrong reason (it would prove
+//     nothing about the deny-list).
 //   - inferred_capacity_kwh_calc: GENERATED ALWAYS, so it cannot be set directly
 //     (Postgres rejects the write). It is still exercised indirectly: poking
 //     start_battery_pct/end_battery_pct below recomputes it to a real value, and
 //     this test asserts that value is unchanged after the re-mirror too.
 func TestMirrorSchemaSelfCheck_PokedDenyListColumnsSurviveRemirror(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
+	const sessionID = int64(970100)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, sessionID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
-	const sessionID = int64(970100)
 	seed := charging.SessionMirror{
-		AccountID:           accountID,
 		VIN:                 "VSELFCHECK",
-		TeslaID:             ptrInt64(sessionID),
+		TeslaID:             sessionID,
 		SessionID:           sessionID,
 		ChargeStartDateTime: time.Date(2026, 8, 12, 9, 0, 0, 0, time.UTC),
 		ChargeStopDateTime:  time.Date(2026, 8, 12, 9, 30, 0, 0, time.UTC),
@@ -190,7 +191,7 @@ func TestMirrorSchemaSelfCheck_PokedDenyListColumnsSurviveRemirror(t *testing.T)
 		Currency:            ptrString("USD"),
 		IsPaid:              ptrBool(true),
 	}
-	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{seed}); err != nil {
+	if err := w.MirrorSessions(ctx, []charging.SessionMirror{seed}); err != nil {
 		t.Fatalf("MirrorSessions (seed): %v", err)
 	}
 
@@ -199,43 +200,47 @@ func TestMirrorSchemaSelfCheck_PokedDenyListColumnsSurviveRemirror(t *testing.T)
 	pokedStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	pokedStop := time.Date(2026, 1, 1, 1, 0, 0, 0, time.UTC)
 	pokedSite := "Self-Check POKED Site (must not survive as this)"
-	if _, err := pool.Exec(ctx, `
+	tag, err := pool.Exec(ctx, `
 		UPDATE charging.supercharger_sessions
-		SET created_at = $3,
-		    updated_at = $3,
+		SET created_at = $2,
+		    updated_at = $2,
 		    start_battery_pct = 55,
 		    end_battery_pct = 90,
 		    battery_pct_source = 'user_verified',
 		    status = 'DONE',
-		    charge_start_date_time = $4,
-		    charge_stop_date_time = $5,
-		    site_location_name = $6
-		WHERE account_id = $1 AND session_id = $2`,
-		accountID, sessionID, selfCheckSentinelTime, pokedStart, pokedStop, pokedSite,
-	); err != nil {
+		    charge_start_date_time = $3,
+		    charge_stop_date_time = $4,
+		    site_location_name = $5
+		WHERE session_id = $1`,
+		sessionID, selfCheckSentinelTime, pokedStart, pokedStop, pokedSite,
+	)
+	if err != nil {
 		t.Fatalf("direct-SQL poke of deny-listed columns: %v", err)
 	}
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("direct-SQL poke: expected 1 row affected, got %d", tag.RowsAffected())
+	}
 
-	before, ok := fetchSuperchargerSession(t, pool, accountID, sessionID)
+	before, ok := fetchSuperchargerSession(t, pool, sessionID)
 	if !ok {
 		t.Fatalf("expected row after poke")
 	}
-	statusBefore, capacityBefore := fetchStatusAndCapacity(t, pool, accountID, sessionID)
+	statusBefore, capacityBefore := fetchStatusAndCapacity(t, pool, sessionID)
 	if capacityBefore == nil {
 		t.Fatalf("setup: expected inferred_capacity_kwh_calc to be non-NULL after poking both percentages (energy_kwh is present)")
 	}
 
 	// Re-mirror with the SAME SessionMirror values used to seed — nothing about
 	// the source has changed.
-	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{seed}); err != nil {
+	if err := w.MirrorSessions(ctx, []charging.SessionMirror{seed}); err != nil {
 		t.Fatalf("MirrorSessions (re-mirror over poked row): %v", err)
 	}
 
-	after, ok := fetchSuperchargerSession(t, pool, accountID, sessionID)
+	after, ok := fetchSuperchargerSession(t, pool, sessionID)
 	if !ok {
 		t.Fatalf("expected row after re-mirror")
 	}
-	statusAfter, capacityAfter := fetchStatusAndCapacity(t, pool, accountID, sessionID)
+	statusAfter, capacityAfter := fetchStatusAndCapacity(t, pool, sessionID)
 
 	if !after.CreatedAt.Equal(selfCheckSentinelTime) {
 		t.Errorf("CreatedAt: want still the poked sentinel %v, got %v", selfCheckSentinelTime, after.CreatedAt)

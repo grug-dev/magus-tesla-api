@@ -41,8 +41,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 )
 
@@ -69,8 +67,8 @@ type sessionCapacityCase struct {
 // T14 seeds BOTH percentages (29, 100) via VerifySession even though it also
 // expects NULL — the case exists specifically to isolate D4's "no kWh fee" guard
 // from D3's "missing percentage" guards, so the fixture must not conflate the two
-// by leaving the percentages unset. Each subtest gets a fresh uuid.New() account id
-// (Test Contract "Fixture hygiene").
+// by leaving the percentages unset. Each subtest gets its own session id, which is
+// also this table's global identity key (Test Contract "Fixture hygiene").
 func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 	cases := []sessionCapacityCase{
 		// T13: ticket worked example 1, the Supercharger row, at full DOUBLE PRECISION
@@ -117,33 +115,31 @@ func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 
 	for i, tc := range cases {
 		t.Run(tc.id, func(t *testing.T) {
-			accountID := uuid.New()
-			cleanupChargingSuperchargerSessions(t, pool, accountID)
 			sessionID := int64(960013 + i) // T13->960013 ... T19->960019
 			teslaID := sessionID
+			cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, sessionID)
 
 			m := charging.SessionMirror{
-				AccountID:           accountID,
 				VIN:                 "VCAP",
-				TeslaID:             ptrInt64(teslaID),
+				TeslaID:             teslaID,
 				SessionID:           sessionID,
 				ChargeStartDateTime: baseStop.Add(-time.Hour),
 				ChargeStopDateTime:  baseStop,
 				SiteLocationName:    "Capacity Test Site",
 				EnergyKWh:           tc.energyKWh,
 			}
-			if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
+			if err := w.MirrorSessions(ctx, []charging.SessionMirror{m}); err != nil {
 				t.Fatalf("%s: MirrorSessions: expected success, got error: %v", tc.id, err)
 			}
 
 			if tc.startPct != nil || tc.endPct != nil {
-				id := fetchSuperchargerSessionID(t, pool, accountID, sessionID)
-				if _, err := v.VerifySession(ctx, accountID, id, tc.startPct, tc.endPct); err != nil {
+				id := fetchSuperchargerSessionID(t, pool, sessionID)
+				if _, err := v.VerifySession(ctx, refFor(teslaID), id, tc.startPct, tc.endPct); err != nil {
 					t.Fatalf("%s: VerifySession: %v", tc.id, err)
 				}
 			}
 
-			sessions := fetchSessionsByVehicleBetween(t, pool, accountID, teslaID, from, to)
+			sessions := fetchSessionsByVehicleBetween(t, pool, teslaID, from, to)
 			if len(sessions) != 1 {
 				t.Fatalf("%s: expected 1 session, got %d", tc.id, len(sessions))
 			}
@@ -161,59 +157,57 @@ func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 //
 // T20 is the load-bearing case of the whole change: MirrorSessions a session with
 // EnergyKWh = 41.31 and no percentages -> InferredCapacityKWhCalc is nil. Then
-// SessionVerifier.VerifySession(ctx, accountID, id, ptr(18), ptr(80)) -> expect
+// SessionVerifier.VerifySession(ctx, teslaID, id, ptr(18), ptr(80)) -> expect
 // 66.629, asserted on VerifySession's OWN returned charging.Session so the
 // RETURNING * freshness is proven too. VerifySuperchargerSession's SET clause names only
 // start_battery_pct, end_battery_pct, battery_pct_source and updated_at — no Go
 // code anywhere computes capacity, so the value appears purely because the engine
 // recomputed it (direct proof of design.md D2).
 //
-// T21 re-mirrors the SAME (account_id, session_id) with EnergyKWh = 44.64 (the
-// nightly ON CONFLICT DO UPDATE SET refresh path). Expect 72.000 (44.64 / 0.62).
+// T21 re-mirrors the SAME session_id with EnergyKWh = 44.64 (the nightly ON
+// CONFLICT DO UPDATE SET refresh path). Expect 72.000 (44.64 / 0.62).
 // Proves the value tracks the nightly fee-settlement refresh, and — together with
 // T20 — that both write paths touching the three inputs from opposite directions
 // keep the column correct.
 func TestVerifyThenRemirror_InferredCapacity_RecomputesBothWays(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
+	const sessionID = int64(960020)
+	const teslaID = sessionID
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, sessionID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 	verifier := charging.NewSessionVerifier(pool)
 
-	const sessionID = int64(960020)
-	const teslaID = sessionID
 	stop := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 
 	m := charging.SessionMirror{
-		AccountID:           accountID,
 		VIN:                 "VVERIFYCAP",
-		TeslaID:             ptrInt64(teslaID),
+		TeslaID:             teslaID,
 		SessionID:           sessionID,
 		ChargeStartDateTime: stop.Add(-time.Hour),
 		ChargeStopDateTime:  stop,
 		SiteLocationName:    "T20/T21 Site",
 		EnergyKWh:           ptrFloat64(41.31),
 	}
-	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
+	if err := w.MirrorSessions(ctx, []charging.SessionMirror{m}); err != nil {
 		t.Fatalf("initial MirrorSessions: %v", err)
 	}
 
 	// T20, first half: no percentages yet -> nil.
-	sessions := fetchSessionsByVehicleBetween(t, pool, accountID, teslaID, from, to)
+	sessions := fetchSessionsByVehicleBetween(t, pool, teslaID, from, to)
 	if len(sessions) != 1 {
 		t.Fatalf("T20: expected 1 session, got %d", len(sessions))
 	}
 	assertFloatPtrApprox(t, "T20: InferredCapacityKWhCalc before verification", sessions[0].InferredCapacityKWhCalc, nil)
 
-	id := fetchSuperchargerSessionID(t, pool, accountID, sessionID)
+	id := fetchSuperchargerSessionID(t, pool, sessionID)
 	time.Sleep(mirrorGap)
 
 	// T20, second half: verify sets the percentages; the value the engine computes
 	// must appear on VerifySession's OWN returned Session (RETURNING * freshness).
-	verified, err := verifier.VerifySession(ctx, accountID, id, ptrIntV(18), ptrIntV(80))
+	verified, err := verifier.VerifySession(ctx, refFor(teslaID), id, ptrIntV(18), ptrIntV(80))
 	if err != nil {
 		t.Fatalf("T20: VerifySession: %v", err)
 	}
@@ -225,11 +219,11 @@ func TestVerifyThenRemirror_InferredCapacity_RecomputesBothWays(t *testing.T) {
 	// recomputes the column again — the opposite write path from T20.
 	remirror := m
 	remirror.EnergyKWh = ptrFloat64(44.64)
-	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{remirror}); err != nil {
+	if err := w.MirrorSessions(ctx, []charging.SessionMirror{remirror}); err != nil {
 		t.Fatalf("T21: re-mirror: %v", err)
 	}
 
-	sessions = fetchSessionsByVehicleBetween(t, pool, accountID, teslaID, from, to)
+	sessions = fetchSessionsByVehicleBetween(t, pool, teslaID, from, to)
 	if len(sessions) != 1 {
 		t.Fatalf("T21: expected 1 session, got %d", len(sessions))
 	}
@@ -244,27 +238,25 @@ func TestVerifyThenRemirror_InferredCapacity_RecomputesBothWays(t *testing.T) {
 // (design.md D8).
 func TestInferredCapacity_Sessions_ColumnUnwritable(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
-	cleanupChargingSuperchargerSessions(t, pool, accountID)
+	const sessionID = int64(960022)
+	cleanupChargingSuperchargerSessionsBySessionIDs(t, pool, sessionID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
-	const sessionID = int64(960022)
 	stop := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	m := charging.SessionMirror{
-		AccountID:           accountID,
 		VIN:                 "VUNWRITABLE",
-		TeslaID:             ptrInt64(sessionID),
+		TeslaID:             sessionID,
 		SessionID:           sessionID,
 		ChargeStartDateTime: stop.Add(-time.Hour),
 		ChargeStopDateTime:  stop,
 		SiteLocationName:    "T22 Site",
 		EnergyKWh:           ptrFloat64(10.0),
 	}
-	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
+	if err := w.MirrorSessions(ctx, []charging.SessionMirror{m}); err != nil {
 		t.Fatalf("MirrorSessions: %v", err)
 	}
-	id := fetchSuperchargerSessionID(t, pool, accountID, sessionID)
+	id := fetchSuperchargerSessionID(t, pool, sessionID)
 
 	_, err := pool.Exec(ctx,
 		"UPDATE charging.supercharger_sessions SET inferred_capacity_kwh_calc = 1 WHERE id = $1",

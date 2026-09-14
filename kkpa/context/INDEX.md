@@ -52,8 +52,8 @@
 | `vocabulary migration` | retiring a watermark source value when another module renames its table → `entities/vehicle-metrics/guide.md` |
 | `supercharger history change detection` | when a nightly sync counts as a change to a `telemetry.supercharger_history` row (`updated_at`) | entity | `architecture/telemetry-ingest-only.md` |
 | `why does updated_at change every night` | the MAG-48 symptom, at the telemetry layer | entity | `architecture/telemetry-ingest-only.md` |
-| `account-wide updated-since read` | `telemetry.SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince` — the only updated-since port that returns sessions with no registered vehicle | entity | `architecture/telemetry-ingest-only.md` |
-| `orphaned supercharger session` | a session whose vehicle is not currently registered; reachable only through the account-wide updated-since port | entity | `architecture/telemetry-ingest-only.md` |
+| `per-vehicle updated-since read` | `telemetry.SuperchargerHistoryReader.SuperchargerHistoryByVehicleUpdatedSince` — the only updated-since port; the account-wide one was removed when the table dropped `account_id` | entity | `architecture/telemetry-ingest-only.md` |
+| `orphaned supercharger session` | a session whose VIN is not a registered vehicle; it is never stored, and the nightly cycle counts the skip | entity | `architecture/telemetry-ingest-only.md` |
 | `session change detection` | when a nightly sync counts as a modification of a charge session record (`updated_at`) | entity | `workflows/supercharger-stats-read.md` |
 | `why did every session recalculate` | the MAG-48 symptom — `updated_at` used to advance on every sync pass | entity | `workflows/supercharger-stats-read.md` |
 | `bounded mirror read` | the watermark-bounded Supercharger sync (RM44 tier 4); replaced the full-history read | entity | `workflows/supercharger-stats-read.md` |
@@ -118,6 +118,7 @@
 | `force a collection cycle` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
 | `on-demand poll` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
 | `POLLER_RERUN_TOKEN` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
+| `why can't I edit this session` | the write is scoped to the session-selected vehicle; select that vehicle first | `charging` | `use-case/charging/verify-session-battery.md` |
 
 ## Workflows
 
@@ -212,7 +213,7 @@
 | `write aperture` | synonym of `gateway write exceptions` → `architecture/gateway-reader-writer-ports.md` |
 | `CSRF` | the four session keys + `checkCSRFKey`'s fail-closed contract → `architecture/gateway-reader-writer-ports.md` |
 | `csrf_theme` / `csrf_supercharger` / `csrf_externalcharge` / `csrf_vehicle_select` | the four CSRF session keys, one per form → `architecture/gateway-reader-writer-ports.md` |
-| `tenant ownership check` | `RegisteredVehicles` on the submitted `(TeslaID, VIN)` — and the two apertures that deliberately skip it → `architecture/gateway-reader-writer-ports.md` |
+| `tenant ownership check` | `RegisteredVehicles` on the submitted `(TeslaID, VIN)` — and the one aperture (theme switch) that deliberately skips it → `architecture/gateway-reader-writer-ports.md` |
 | `language switch` | `LangSwitch` — no CSRF by user-approved decision; `SameSite=Lax` is the defence → `architecture/gateway-reader-writer-ports.md` |
 | `theme switch` | `ThemeSwitch` — auth + CSRF, cookie written only after the persist → `architecture/gateway-reader-writer-ports.md` |
 | `SameSite` | why the `lang` cookie's `SameSite=Lax` is mandatory → `architecture/gateway-reader-writer-ports.md` |
@@ -264,7 +265,7 @@
 | `manual_charge_entries` | the user-asserted charge table — columns, CHECKs, the Go-side required-field set → `architecture/charging-tables.md` |
 | `supercharger_sessions` | the Supercharger mirror + the human-owned percentage columns → `architecture/charging-tables.md` |
 | `monthly_effective_capacity` | the measured per-vehicle pack capacity, one row per month → `architecture/charging-tables.md` |
-| `mirror_watermarks` | the per-account mirror cursor; never advances to `now()` → `architecture/charging-tables.md` |
+| `mirror_watermarks` | the per-vehicle mirror cursor (`tesla_id`); never advances to `now()` → `architecture/charging-tables.md` |
 | `inferred_capacity_kwh_calc` | the `GENERATED ALWAYS AS … STORED` capacity column on both charge tables → `architecture/charging-tables.md` |
 | `energy_source` / `price_source` | module-computed provenance columns, ignored when supplied by a caller → `architecture/charging-tables.md` |
 | `_calc` suffix | the `<what>_<unit>_calc` naming rule for a stored derived column → `architecture/charging-tables.md` |
@@ -282,7 +283,7 @@
 | `telemetry query logging` (every live query + Fleet API call logs its arguments; credentials and raw payloads never logged) | `architecture/telemetry-ingest-only.md` |
 | `fleet api logging` | synonym of `telemetry query logging` → `architecture/telemetry-ingest-only.md` |
 | `why is my query not logged` | the four decorated ports + the callCounter seam → `architecture/telemetry-ingest-only.md` |
-| `mirror watermark` (the per-account cursor bounding step 2 of the nightly cycle; holds telemetry's `updated_at`, owned by `internal/charging`) | `architecture/nightly-cycle.md` |
+| `mirror watermark` (the per-vehicle cursor bounding step 2 of the nightly cycle; holds telemetry's `updated_at`, owned by `internal/charging`) | `architecture/nightly-cycle.md` |
 | `mirror cursor` | synonym of `mirror watermark` → `architecture/nightly-cycle.md` |
 | `charging.mirror_watermarks` | the table behind `mirror watermark` → `architecture/nightly-cycle.md` |
 | `who owns the mirror cursor` | the module that READS, not the one that is read → `architecture/nightly-cycle.md` |
@@ -296,6 +297,13 @@
 | `authorization seam` | synonym of `vehicle ownership proof` → `architecture/vehicle-ownership-proof.md` |
 | `vehicleref` | `internal/vehicleref` (`Ref` / `Authorize` / `All` / `TeslaIDs`) → `architecture/vehicle-ownership-proof.md` |
 | `can a module check tenancy itself` | no — the gateway proves ownership, modules trust it → `architecture/vehicle-ownership-proof.md` |
+| `charging_skipped_unregistered` | the cycle-log label for a session skipped because its VIN is not a registered vehicle → `architecture/telemetry-ingest-only.md` |
+| `cycle report charging counters` | the three independent charging counters (upserted · fetch failures · skipped unregistered) → `architecture/telemetry-ingest-only.md` |
+| `session vehicle keying` | why a Supercharger session carries `tesla_id` and no `account_id`, and why `session_id` is unique store-wide → `architecture/charging-tables.md` |
+| `supercharger port scoping` | the mirror write and the three reads take `teslaID` alone; `VerifySession` takes a proof value and matches id AND vehicle → `workflows/supercharger-stats-read.md` |
+| `wrong vehicle on a session write` | returns the same error an unknown id returns, on purpose → `workflows/supercharger-stats-read.md` |
+| `which supercharger ports need a proof` | only the verification write; the mirror write and the three reads take a bare `teslaID` → `use-case/charging/verify-session-battery.md` |
+| `why not retype the session read ports` | `internal/analytics` calls them and cannot legally build a `Ref` → `use-case/charging/verify-session-battery.md` |
 
 <!--
 Notes for the curator:

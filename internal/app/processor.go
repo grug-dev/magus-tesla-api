@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -140,28 +141,28 @@ func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, rep
 	}
 }
 
-// processChargingData is the "process charging data" step (design.md D6), relocated
-// wholesale from cmd/poller/main.go's newSessionMirrorer, which ran BEFORE
-// reconciliation inside the same post-cycle work.
+// processChargingData is the "process charging data" step, relocated wholesale
+// from cmd/poller/main.go's newSessionMirrorer, which ran BEFORE reconciliation
+// inside the same post-cycle work.
 //
-// What it does: for each distinct account holding a registered vehicle, read that
-// account's Supercharger sessions from internal/telemetry and mirror them into
-// internal/charging's charge_sessions, so charging owns a queryable record of how a
-// vehicle was charged — the window, the site, the energy, the cost — without any
-// caller having to compose two modules' ports.
+// What it does: for each registered vehicle, read that vehicle's Supercharger
+// sessions from internal/telemetry and mirror them into internal/charging's
+// supercharger_sessions, so charging owns a queryable record of how a vehicle was
+// charged — the window, the site, the energy, the cost — without any caller having
+// to compose two modules' ports.
 //
 // The read is BOUNDED by a watermark, not a full sweep. charging owns a
-// mirror_watermarks row per account holding the highest telemetry updated_at it has
+// mirror_watermarks row per vehicle holding the highest telemetry updated_at it has
 // already copied; this step reads only sessions updated at or after that cursor
 // minus mirrorOverlap, and moves the cursor to the highest updated_at it actually
-// saw (RM44-platform-add-mirror-watermark). The cursor never moves to now(), and
-// never moves at all on a read that returns nothing — roadmap D5. Before RM44 this
-// step re-read the entire history every night, which kept every downstream
-// recalculation permanently unbounded.
+// saw. The cursor never moves to now(), and never moves at all on a read that
+// returns nothing. Before the watermark existed this step re-read the entire
+// history every night, which kept every downstream recalculation permanently
+// unbounded.
 //
-// The mapping is field-name-for-field-name with no renames and no derivation (T6
-// D7). That is deliberate: it keeps the mirror auditable by inspection, and it is
-// why charge_sessions kept telemetry's column names rather than aligning with
+// The mapping is field-name-for-field-name with no renames and no derivation. That
+// is deliberate: it keeps the mirror auditable by inspection, and it is why
+// supercharger_sessions kept telemetry's column names rather than aligning with
 // internal/charging's own manual_charge_entries vocabulary.
 //
 // It CANNOT carry a verified battery percentage, and that is structural rather than
@@ -169,24 +170,21 @@ func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, rep
 // overwriting a human's verified reading would not compile. telemetry protects the
 // same five columns with a comment; here the type does it.
 //
-// Why per ACCOUNT and not per vehicle: a Supercharger session is keyed by VIN and
-// carries a tesla_id that telemetry re-resolves — NULL when the VIN is not currently
-// registered. Enumerating per account mirrors those sessions too, so a vehicle that
-// is unregistered and later re-registered does not leave a hole in the ledger.
+// Why per VEHICLE: the cursor is per vehicle, so the pass that advances it must be
+// too. One pass per account would move one car's cursor past another car's unread
+// rows, and those rows would never be mirrored again — a silent, unrecoverable
+// loss. A consequence worth knowing: a car registered to two accounts is mirrored
+// once, not once per account, because the loop runs over distinct tesla_ids.
 //
 // Why BEFORE reconciliation: reconciliation is the step that reads derived state, so
-// this composition refreshes owned records first and derives second. Nothing reads
-// charge_sessions yet (T6 D9), so the order is not yet load-bearing — but the moment
-// a reader exists it is, and the cheap time to establish it is now rather than in
-// the change that adds the reader.
+// this composition refreshes owned records first and derives second.
 //
-// Errors are logged, never fatal, with per-account isolation mirroring the
-// reconciler: one account's failure never aborts another's, and a missed mirror
+// Errors are logged, never fatal, with per-vehicle isolation mirroring the
+// reconciler: one vehicle's failure never aborts another's, and a missed mirror
 // self-heals next cycle because MirrorSessions is idempotent — it upserts, rather
 // than accumulating, and a failed run leaves the watermark unadvanced, so the next
-// run re-reads the same window. Log lines are prefixed
-// "session mirror:" so they stay greppable alongside "metrics reconciliation:" and
-// "gap reconciliation:".
+// run re-reads the same window. Log lines are prefixed "session mirror:" so they
+// stay greppable alongside "metrics reconciliation:" and "gap reconciliation:".
 func (p *processor) processChargingData(ctx context.Context) {
 	vehicles, err := p.acct.AllRegisteredVehicles(ctx)
 	if err != nil {
@@ -195,23 +193,25 @@ func (p *processor) processChargingData(ctx context.Context) {
 		return
 	}
 
-	// One account may hold several registered vehicles, and the read below is
-	// account-wide, so mirroring per vehicle would re-mirror the same sessions
-	// once per vehicle. Deduplicate to one pass per account. Order is not
-	// significant: accounts are independent and each pass is idempotent.
-	seen := make(map[uuid.UUID]struct{}, len(vehicles))
+	// One pass per distinct tesla_id. The same car registered to two accounts
+	// appears twice in vehicles, and mirroring it twice would do the same upsert
+	// work for the same rows. Vehicle order is not significant: vehicles are
+	// independent and each pass is idempotent.
+	teslaIDs := make([]int64, 0, len(vehicles))
 	for _, v := range vehicles {
-		if _, done := seen[v.AccountID]; done {
+		if slices.Contains(teslaIDs, v.TeslaID) {
 			continue
 		}
-		seen[v.AccountID] = struct{}{}
+		teslaIDs = append(teslaIDs, v.TeslaID)
+	}
 
-		// The watermark is the highest telemetry updated_at this account's mirror
+	for _, teslaID := range teslaIDs {
+		// The watermark is the highest telemetry updated_at this vehicle's mirror
 		// has already copied. A zero time means "never mirrored", so the read
 		// below starts at the epoch and copies the whole history once.
-		cursor, err := p.mirrorWatermarks.MirrorWatermark(ctx, v.AccountID)
+		cursor, err := p.mirrorWatermarks.MirrorWatermark(ctx, teslaID)
 		if err != nil {
-			log.Printf("session mirror: account %s: reading watermark: %v", v.AccountID, err)
+			log.Printf("session mirror: vehicle %d: reading watermark: %v", teslaID, err)
 			continue
 		}
 
@@ -220,16 +220,16 @@ func (p *processor) processChargingData(ctx context.Context) {
 		// reason analytics keeps its own overlap: a row whose updated_at was
 		// assigned before the previous run committed can land in the table after
 		// that run read it. Re-reading it is free — MirrorSessions is idempotent.
-		sessions, err := p.superchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince(ctx, v.AccountID, cursor.Add(-mirrorOverlap))
+		sessions, err := p.superchargerHistoryReader.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, cursor.Add(-mirrorOverlap))
 		if err != nil {
-			log.Printf("session mirror: account %s: reading sessions: %v", v.AccountID, err)
+			log.Printf("session mirror: vehicle %d: reading sessions: %v", teslaID, err)
 			continue
 		}
 		if len(sessions) == 0 {
-			// Roadmap D5: zero rows leaves the watermark exactly where it was.
-			// Advancing it here — to now(), or to anything else — would push the
-			// cursor past a row that commits a moment later, and that row would
-			// never be mirrored again. The loss is silent and undetectable.
+			// Zero rows leaves the watermark exactly where it was. Advancing it
+			// here — to now(), or to anything else — would push the cursor past a
+			// row that commits a moment later, and that row would never be
+			// mirrored again. The loss is silent and undetectable.
 			continue
 		}
 
@@ -242,7 +242,6 @@ func (p *processor) processChargingData(ctx context.Context) {
 				maxUpdated = s.UpdatedAt
 			}
 			mirrored = append(mirrored, charging.SessionMirror{
-				AccountID:           s.AccountID,
 				VIN:                 s.VIN,
 				TeslaID:             s.TeslaID,
 				SessionID:           s.SessionID,
@@ -256,18 +255,18 @@ func (p *processor) processChargingData(ctx context.Context) {
 			})
 		}
 
-		if err := p.sessionWriter.MirrorSessions(ctx, v.AccountID, mirrored); err != nil {
-			log.Printf("session mirror: account %s: %v", v.AccountID, err)
+		if err := p.sessionWriter.MirrorSessions(ctx, mirrored); err != nil {
+			log.Printf("session mirror: vehicle %d: %v", teslaID, err)
 			continue
 		}
 		// Advance only after a successful mirror. A crash or an error between the
 		// two leaves the cursor behind, so the next run re-reads the same window.
 		// That repeats work; it never loses a row.
-		if err := p.mirrorWatermarks.AdvanceMirrorWatermark(ctx, v.AccountID, maxUpdated); err != nil {
-			log.Printf("session mirror: account %s: advancing watermark: %v", v.AccountID, err)
+		if err := p.mirrorWatermarks.AdvanceMirrorWatermark(ctx, teslaID, maxUpdated); err != nil {
+			log.Printf("session mirror: vehicle %d: advancing watermark: %v", teslaID, err)
 			continue
 		}
-		log.Printf("session mirror: account %s: %d session(s)", v.AccountID, len(mirrored))
+		log.Printf("session mirror: vehicle %d: %d session(s)", teslaID, len(mirrored))
 	}
 }
 

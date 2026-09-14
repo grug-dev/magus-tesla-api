@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -22,6 +21,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // --- fakes for the Supercharger Stats handler tests ---
@@ -30,23 +30,19 @@ import (
 // fakeSuperchargerReader — RM30-gateway-read-supercharger-stats-from-charging,
 // design.md D2). ListSessionsByVehicleBetween mirrors the REAL port's
 // contract: it only ever returns sessions whose TeslaID matches the requested
-// filter, so a session with a nil TeslaID (unattributed — the VIN doesn't
-// match any registered vehicle) can never be returned to any teslaID filter,
-// exactly like the real SQL WHERE tesla_id = $2 clause excludes a NULL
-// column (design.md D8, carrying forward tier 1 D6's NULL-exclusion contract
-// into this test double — do not drop this filtering).
+// filter, exactly like the real SQL WHERE tesla_id = $1 clause. Do not drop
+// this filtering — it is what proves another vehicle's session never reaches
+// the view.
 type fakeSessionReader struct {
 	sessions []charging.Session
 	err      error
 
-	capturedAccountID uuid.UUID
-	capturedTeslaID   int64
-	capturedStart     time.Time
-	capturedEnd       time.Time
+	capturedTeslaID int64
+	capturedStart   time.Time
+	capturedEnd     time.Time
 }
 
-func (f *fakeSessionReader) ListSessionsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]charging.Session, error) {
-	f.capturedAccountID = accountID
+func (f *fakeSessionReader) ListSessionsByVehicleBetween(_ context.Context, teslaID int64, start, end time.Time) ([]charging.Session, error) {
 	f.capturedTeslaID = teslaID
 	f.capturedStart = start
 	f.capturedEnd = end
@@ -55,7 +51,7 @@ func (f *fakeSessionReader) ListSessionsByVehicleBetween(_ context.Context, acco
 	}
 	out := make([]charging.Session, 0, len(f.sessions))
 	for _, s := range f.sessions {
-		if s.TeslaID != nil && *s.TeslaID == teslaID {
+		if s.TeslaID == teslaID {
 			out = append(out, s)
 		}
 	}
@@ -102,11 +98,10 @@ func superchargerEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN stri
 	return r
 }
 
-// ptrF64 / ptrInt64 are small pointer helpers for building nullable session
+// ptrF64 is a small pointer helper for building nullable session
 // fields. ptrStr already exists in external_charges_test.go — reused here.
 func ptrF64(f float64) *float64 { return &f }
 func ptrInt(i int) *int         { return &i }
-func ptrInt64(i int64) *int64   { return &i }
 
 // parseSuperchargerRangeAt builds a gin.Context with the given start/end query
 // params and runs parseSuperchargerRange against the given explicit today —
@@ -305,9 +300,9 @@ func TestBuildSuperchargerStatsView_ReaderErrorDegradesEmpty(t *testing.T) {
 // fake's input order, not a hardcoded expectation that happens to coincide.
 func TestBuildSuperchargerStatsView_NewestFirstDisplayOrder(t *testing.T) {
 	reader := &fakeSessionReader{sessions: []charging.Session{
-		{SessionID: 1, TeslaID: ptrInt64(42), SiteLocationName: "S1-Jan", ChargeStartDateTime: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 1, 15, 1, 0, 0, 0, time.UTC)},
-		{SessionID: 2, TeslaID: ptrInt64(42), SiteLocationName: "S2-Feb", ChargeStartDateTime: time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 2, 15, 1, 0, 0, 0, time.UTC)},
-		{SessionID: 3, TeslaID: ptrInt64(42), SiteLocationName: "S3-Mar", ChargeStartDateTime: time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 3, 15, 1, 0, 0, 0, time.UTC)},
+		{SessionID: 1, TeslaID: 42, SiteLocationName: "S1-Jan", ChargeStartDateTime: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 1, 15, 1, 0, 0, 0, time.UTC)},
+		{SessionID: 2, TeslaID: 42, SiteLocationName: "S2-Feb", ChargeStartDateTime: time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 2, 15, 1, 0, 0, 0, time.UTC)},
+		{SessionID: 3, TeslaID: 42, SiteLocationName: "S3-Mar", ChargeStartDateTime: time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 3, 15, 1, 0, 0, 0, time.UTC)},
 	}}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -325,24 +320,24 @@ func TestBuildSuperchargerStatsView_NewestFirstDisplayOrder(t *testing.T) {
 	}
 }
 
-// TestBuildSuperchargerStatsView_UnattributedSessionsNeverAppear is Test
-// Contract T10 (design.md D8): a session with TeslaID==nil never appears —
-// the fake filters exactly like the real port's SQL WHERE tesla_id = $2
-// clause would.
-func TestBuildSuperchargerStatsView_UnattributedSessionsNeverAppear(t *testing.T) {
+// TestBuildSuperchargerStatsView_OtherVehicleSessionsNeverAppear proves the
+// view shows one vehicle only: the fake filters exactly like the real port's
+// SQL WHERE tesla_id = $1 clause. A session can no longer be unattributed —
+// tesla_id is NOT NULL — so another vehicle is the case that remains.
+func TestBuildSuperchargerStatsView_OtherVehicleSessionsNeverAppear(t *testing.T) {
 	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
 	reader := &fakeSessionReader{sessions: []charging.Session{
-		{ // unattributed — TeslaID nil, VIN not matched to a registered vehicle.
+		{ // another registered vehicle's session.
 			SessionID:           1,
-			TeslaID:             nil,
-			SiteLocationName:    "Ghost Site",
+			TeslaID:             43,
+			SiteLocationName:    "Other Vehicle Site",
 			ChargeStartDateTime: start.AddDate(0, 0, 5),
 			EnergyKWh:           ptrF64(50),
 		},
 		{ // attributed to the selected vehicle.
 			SessionID:           2,
-			TeslaID:             ptrInt64(42),
+			TeslaID:             42,
 			SiteLocationName:    "Real Site",
 			ChargeStartDateTime: start.AddDate(0, 0, 6),
 			EnergyKWh:           ptrF64(10),
@@ -355,7 +350,7 @@ func TestBuildSuperchargerStatsView_UnattributedSessionsNeverAppear(t *testing.T
 		t.Fatal("want a non-empty view — the attributed session is in the window")
 	}
 	if len(v.Sessions) != 1 {
-		t.Fatalf("want exactly 1 row (unattributed session excluded), got %d", len(v.Sessions))
+		t.Fatalf("want exactly 1 row (the other vehicle's session excluded), got %d", len(v.Sessions))
 	}
 	if v.Sessions[0].SiteLabel != "Real Site" {
 		t.Errorf("want only the attributed session's site, got %q", v.Sessions[0].SiteLabel)
@@ -780,7 +775,7 @@ func TestSuperchargerStatsFragment_ReaderErrorDegradesNo500(t *testing.T) {
 func TestSuperchargerStatsFragment_RendersBatteryValues(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeSessionReader{sessions: []charging.Session{{
-		TeslaID:             ptrInt64(42),
+		TeslaID:             42,
 		SiteLocationName:    "Battery Site",
 		ChargeStartDateTime: time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC),
 		ChargeStopDateTime:  time.Date(2026, 8, 1, 11, 0, 0, 0, time.UTC),
@@ -976,9 +971,9 @@ func TestSuperchargerStatsFragment_ChartAndSelectorAndTable(t *testing.T) {
 	today := startOfDay(time.Now().UTC())
 	start := monthsBackFrom(today, superchargerRangeDefaultMonths)
 	reader := &fakeSessionReader{sessions: []charging.Session{
-		{SessionID: 1, TeslaID: ptrInt64(42), SiteLocationName: "Site A", ChargeStartDateTime: start.AddDate(0, 0, 2), EnergyKWh: ptrF64(10)},
-		{SessionID: 2, TeslaID: ptrInt64(42), SiteLocationName: "Site B", ChargeStartDateTime: start.AddDate(0, 1, 2), EnergyKWh: ptrF64(20)},
-		{SessionID: 3, TeslaID: ptrInt64(42), SiteLocationName: "Site C", ChargeStartDateTime: start.AddDate(0, 2, 2), EnergyKWh: ptrF64(30)},
+		{SessionID: 1, TeslaID: 42, SiteLocationName: "Site A", ChargeStartDateTime: start.AddDate(0, 0, 2), EnergyKWh: ptrF64(10)},
+		{SessionID: 2, TeslaID: 42, SiteLocationName: "Site B", ChargeStartDateTime: start.AddDate(0, 1, 2), EnergyKWh: ptrF64(20)},
+		{SessionID: 3, TeslaID: 42, SiteLocationName: "Site C", ChargeStartDateTime: start.AddDate(0, 2, 2), EnergyKWh: ptrF64(30)},
 	}}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	eng := superchargerEngine(h, uid, 42, "VIN42")
@@ -1046,27 +1041,26 @@ func TestSuperchargerStatsFragment_ChartAndSelectorAndTable(t *testing.T) {
 
 // --- F.2: render test — D2/D8 unattributed sessions never appear in the rendered output ---
 
-// TestSuperchargerStatsFragment_UnattributedSessionNeverRendered covers F.2:
+// TestSuperchargerStatsFragment_OtherVehicleSessionNeverRendered covers F.2:
 // with a fake reader whose ListSessionsByVehicleBetween honors the real
 // port's contract (a session is only returned when its TeslaID matches the
-// requested filter — an unattributed, TeslaID == nil session is simply never
-// returned to any filter), the rendered fragment must not show that session
-// anywhere: not in the table, not in the Sessions/Energy tiles.
-func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T) {
+// requested filter), the rendered fragment must not show another vehicle's
+// session anywhere: not in the table, not in the Sessions/Energy tiles.
+func TestSuperchargerStatsFragment_OtherVehicleSessionNeverRendered(t *testing.T) {
 	uid := uuid.New()
 	today := startOfDay(time.Now().UTC())
 	start := monthsBackFrom(today, superchargerRangeDefaultMonths)
 	reader := &fakeSessionReader{sessions: []charging.Session{
-		{ // unattributed — TeslaID nil, VIN not matched to a registered vehicle.
+		{ // another registered vehicle's session.
 			SessionID:           1,
-			TeslaID:             nil,
-			SiteLocationName:    "Ghost Site",
+			TeslaID:             43,
+			SiteLocationName:    "Other Vehicle Site",
 			ChargeStartDateTime: start.AddDate(0, 0, 5),
 			EnergyKWh:           ptrF64(999),
 		},
 		{ // attributed to the selected vehicle.
 			SessionID:           2,
-			TeslaID:             ptrInt64(42),
+			TeslaID:             42,
 			SiteLocationName:    "Real Site",
 			ChargeStartDateTime: start.AddDate(0, 0, 6),
 			EnergyKWh:           ptrF64(10),
@@ -1088,7 +1082,7 @@ func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T
 	}
 	body := w.Body.String()
 
-	if strings.Contains(body, "Ghost Site") {
+	if strings.Contains(body, "Other Vehicle Site") {
 		t.Error("unattributed session's site must never appear in the rendered table")
 	}
 	if !strings.Contains(body, "Real Site") {
@@ -1119,7 +1113,7 @@ func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T
 // tests can assert both the call COUNT and the exact percentages passed
 // through (design.md T1/T2/T5's "VerifySession is/is not called" assertions).
 type verifySessionCall struct {
-	accountID        uuid.UUID
+	teslaID          int64
 	id               uuid.UUID
 	startPct, endPct *int
 }
@@ -1140,8 +1134,8 @@ type fakeSessionVerifier struct {
 // fakeRecalculator's own compile-time assertion documents (external_charges_test.go).
 var _ charging.SessionVerifier = (*fakeSessionVerifier)(nil)
 
-func (f *fakeSessionVerifier) VerifySession(_ context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (charging.Session, error) {
-	f.calls = append(f.calls, verifySessionCall{accountID: accountID, id: id, startPct: startBatteryPct, endPct: endBatteryPct})
+func (f *fakeSessionVerifier) VerifySession(_ context.Context, ref vehicleref.Ref, id uuid.UUID, startBatteryPct, endBatteryPct *int) (charging.Session, error) {
+	f.calls = append(f.calls, verifySessionCall{teslaID: ref.TeslaID(), id: id, startPct: startBatteryPct, endPct: endBatteryPct})
 	if f.err != nil {
 		return charging.Session{}, f.err
 	}
@@ -1176,7 +1170,16 @@ func newHandlerForSuperchargerRow(reader *fakeSessionReader, verifier *fakeSessi
 // not a string, because T6 needs a session where csrf_supercharger was NEVER
 // set at all — distinct from an issued-but-empty value — so the /_session
 // helper must be able to skip the sess.Set call entirely, not just set "".
-func superchargerRowEngine(h *Handler, uid uuid.UUID, csrfToken string, issueCSRF bool) *gin.Engine {
+//
+// selTeslaID/selVIN seed the session's selected-vehicle keys, mirroring what
+// a real GET /supercharger-stats render already stored before any PATCH is
+// ever sent — SuperchargerRowUpdate reads the vehicle from the session
+// directly (currentVehicle), not from resolveSelectedVehicle's auto-select,
+// so a test whose PATCH must reach VerifySession needs this set. Pass 0, ""
+// for a test where either no vehicle should resolve, or where the outcome is
+// decided before the vehicle is ever read (a malformed body, a validation
+// error, or a CSRF rejection).
+func superchargerRowEngine(h *Handler, uid uuid.UUID, csrfToken string, issueCSRF bool, selTeslaID int64, selVIN string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	store := cookie.NewStore([]byte("test-secret"))
@@ -1186,6 +1189,10 @@ func superchargerRowEngine(h *Handler, uid uuid.UUID, csrfToken string, issueCSR
 		sess.Set("uid", uid.String())
 		if issueCSRF {
 			sess.Set(csrfSuperchargerKey, csrfToken)
+		}
+		if selTeslaID != 0 {
+			sess.Set(sessionTeslaIDKey, selTeslaID)
+			sess.Set(sessionVINKey, selVIN)
 		}
 		_ = sess.Save()
 		c.String(http.StatusOK, "ok")
@@ -1208,7 +1215,7 @@ func TestSuperchargerRowUpdate_AbsentKeyIs400(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1246,7 +1253,7 @@ func TestSuperchargerRowUpdate_BothEmptyClearsBothPercentages(t *testing.T) {
 	id := uuid.New()
 	verifier := &fakeSessionVerifier{result: charging.Session{
 		ID:                  id,
-		TeslaID:             ptrInt64(42),
+		TeslaID:             42,
 		SiteLocationName:    "Clear Site",
 		ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
 		ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
@@ -1260,7 +1267,7 @@ func TestSuperchargerRowUpdate_BothEmptyClearsBothPercentages(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1302,7 +1309,7 @@ func TestSuperchargerRowUpdate_DecreasingOrderAccepted(t *testing.T) {
 	id := uuid.New()
 	verifier := &fakeSessionVerifier{result: charging.Session{
 		ID:                  id,
-		TeslaID:             ptrInt64(42),
+		TeslaID:             42,
 		ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
 		ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
 		StartBatteryPct:     ptrInt(80),
@@ -1311,7 +1318,7 @@ func TestSuperchargerRowUpdate_DecreasingOrderAccepted(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1354,7 +1361,7 @@ func TestSuperchargerRowUpdate_RecalculateWindowFromChargeStopDateTime(t *testin
 	start := time.Date(2026, 3, 14, 23, 0, 0, 0, time.UTC) // different calendar day than stop
 	verifier := &fakeSessionVerifier{result: charging.Session{
 		ID:                  id,
-		TeslaID:             ptrInt64(42),
+		TeslaID:             42,
 		ChargeStartDateTime: start,
 		ChargeStopDateTime:  stop,
 		StartBatteryPct:     ptrInt(40),
@@ -1363,7 +1370,7 @@ func TestSuperchargerRowUpdate_RecalculateWindowFromChargeStopDateTime(t *testin
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1396,66 +1403,6 @@ func TestSuperchargerRowUpdate_RecalculateWindowFromChargeStopDateTime(t *testin
 	}
 }
 
-// --- T4 ---
-
-// TestSuperchargerRowUpdate_NilTeslaIDSkipsRecalculationAndLogs is Test
-// Contract T4: a successful VerifySession whose returned Session.TeslaID is
-// nil records ZERO Recalculate calls, the response is still 200 rendering
-// the static row with the verified values, and a log line is emitted.
-func TestSuperchargerRowUpdate_NilTeslaIDSkipsRecalculationAndLogs(t *testing.T) {
-	uid := uuid.New()
-	id := uuid.New()
-	verifier := &fakeSessionVerifier{result: charging.Session{
-		ID:                  id,
-		TeslaID:             nil, // orphaned — VIN not (or no longer) a registered vehicle
-		ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
-		StartBatteryPct:     ptrInt(40),
-		EndBatteryPct:       ptrInt(80),
-	}}
-	reader := &fakeSessionReader{}
-	recalc := &fakeRecalculator{}
-	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
-	c := sessionCookie(r, uid, "tok")
-
-	var logBuf bytes.Buffer
-	prevOut := log.Writer()
-	prevFlags := log.Flags()
-	log.SetOutput(&logBuf)
-	defer func() {
-		log.SetOutput(prevOut)
-		log.SetFlags(prevFlags)
-	}()
-
-	form := url.Values{
-		"csrf_token":        {"tok"},
-		"start_battery_pct": {"40"},
-		"end_battery_pct":   {"80"},
-	}
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if c != nil {
-		req.AddCookie(c)
-	}
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200 (write still succeeds on nil TeslaID), got %d body=%q", w.Code, w.Body.String())
-	}
-	if len(recalc.calls) != 0 {
-		t.Errorf("want zero Recalculate calls when TeslaID is nil, got %d", len(recalc.calls))
-	}
-	if !strings.Contains(logBuf.String(), "nil TeslaID") {
-		t.Errorf("want a log line noting the nil-TeslaID recalculation skip, got log=%q", logBuf.String())
-	}
-	body := w.Body.String()
-	if !strings.Contains(body, "40%") || !strings.Contains(body, "80%") {
-		t.Errorf("want the static row rendering the verified values, body=%q", body)
-	}
-}
-
 // --- T5 ---
 
 // TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422 is Test Contract T5: an
@@ -1470,7 +1417,7 @@ func TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
@@ -1515,6 +1462,110 @@ func TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422(t *testing.T) {
 
 // --- T6 ---
 
+// newHandlerForSuperchargerRowVehicles is newHandlerForSuperchargerRow with an
+// explicit vehicle list, so a test can give the account no vehicle at all, or
+// more than one.
+func newHandlerForSuperchargerRowVehicles(reader *fakeSessionReader, verifier *fakeSessionVerifier, recalc *fakeRecalculator, vehicles []account.Vehicle) *Handler {
+	return New(Deps{
+		Account:               &fakeAccount{registered: vehicles},
+		Tesla:                 &fakeTesla{},
+		SuperchargerReader:    reader,
+		SuperchargerVerifier:  verifier,
+		AnalyticsRecalculator: recalc,
+	})
+}
+
+// TestSuperchargerRowUpdate_NoResolvableVehicleIs404 covers the branch that
+// keeps the write scoped. VerifySession is keyed on a vehicle, so the handler
+// needs one selected in the session first. With no vehicle registered (and
+// so none selected), there is nothing to read, and the write must not happen
+// at all.
+func TestSuperchargerRowUpdate_NoResolvableVehicleIs404(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRowVehicles(&fakeSessionReader{}, verifier, recalc, nil)
+	r := superchargerRowEngine(h, uid, "tok", true, 0, "")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"20"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("want 404 when no vehicle resolves, got %d body=%q", w.Code, w.Body.String())
+	}
+	// The important half: an unscoped write must never reach the port.
+	if len(verifier.calls) != 0 {
+		t.Errorf("want 0 VerifySession calls, got %d — the write ran without a resolved vehicle", len(verifier.calls))
+	}
+	if len(recalc.calls) != 0 {
+		t.Errorf("want 0 Recalculate calls, got %d", len(recalc.calls))
+	}
+}
+
+// TestSuperchargerRowUpdate_VerifyUsesResolvedVehicle proves the handler passes
+// the SESSION-selected vehicle, never the account's first vehicle. The account
+// holds two cars; the session has the SECOND (the OWNER) selected, mirroring
+// what a real page render already stored. An implementation that read
+// vehicles[0] instead of the session would fail here.
+func TestSuperchargerRowUpdate_VerifyUsesResolvedVehicle(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	owner := "OWNER"
+	driver := "DRIVER"
+	vehicles := []account.Vehicle{
+		{TeslaID: 11, VIN: "VIN11", DisplayName: "Shared car", AccessType: &driver},
+		{TeslaID: 22, VIN: "VIN22", DisplayName: "Own car", AccessType: &owner},
+	}
+	verifier := &fakeSessionVerifier{result: charging.Session{
+		ID:                  id,
+		TeslaID:             22,
+		SiteLocationName:    "Resolved Site",
+		ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
+		StartBatteryPct:     ptrInt(20),
+		EndBatteryPct:       ptrInt(80),
+	}}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRowVehicles(&fakeSessionReader{}, verifier, recalc, vehicles)
+	r := superchargerRowEngine(h, uid, "tok", true, 22, "VIN22")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"20"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(verifier.calls) != 1 {
+		t.Fatalf("want exactly 1 VerifySession call, got %d", len(verifier.calls))
+	}
+	if got := verifier.calls[0].teslaID; got != 22 {
+		t.Errorf("VerifySession teslaID = %d, want 22 — the resolved OWNER vehicle, not the first on the account", got)
+	}
+}
+
 // TestSuperchargerRowUpdate_NoTokenEverIssuedIs403 is Test Contract T6: a
 // session that never had csrf_supercharger set at all (a client that reached
 // PATCH without first loading GET /supercharger-stats or
@@ -1527,7 +1578,7 @@ func TestSuperchargerRowUpdate_NoTokenEverIssuedIs403(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "", false) // issueCSRF=false — key never set
+	r := superchargerRowEngine(h, uid, "", false, 42, "VIN42") // issueCSRF=false — key never set
 	c := sessionCookie(r, uid, "")
 
 	form := url.Values{
@@ -1563,7 +1614,7 @@ func TestSuperchargerRowUpdate_StaleTokenRejected(t *testing.T) {
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "freshtoken", true)
+	r := superchargerRowEngine(h, uid, "freshtoken", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "freshtoken")
 
 	form := url.Values{
@@ -1598,7 +1649,7 @@ func TestSuperchargerRowEditFragment_NotInWindowIs404(t *testing.T) {
 	reader := &fakeSessionReader{sessions: []charging.Session{
 		{
 			ID:                  uuid.New(),
-			TeslaID:             ptrInt64(42),
+			TeslaID:             42,
 			SiteLocationName:    "Other Session",
 			ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
 			ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
@@ -1607,7 +1658,7 @@ func TestSuperchargerRowEditFragment_NotInWindowIs404(t *testing.T) {
 	verifier := &fakeSessionVerifier{}
 	recalc := &fakeRecalculator{}
 	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
-	r := superchargerRowEngine(h, uid, "tok", true)
+	r := superchargerRowEngine(h, uid, "tok", true, 42, "VIN42")
 	c := sessionCookie(r, uid, "tok")
 
 	start := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)

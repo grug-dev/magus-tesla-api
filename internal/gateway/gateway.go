@@ -36,20 +36,21 @@ type Deps struct {
 	Google  *googleauth.Client
 	Tesla   tesla.VehicleService
 	// SuperchargerReader is the charging module's SessionReader port over
-	// charge_sessions. The gateway calls ListSessionsByVehicleBetween once per
+	// supercharger_sessions. The gateway calls ListSessionsByVehicleBetween once per
 	// Supercharger Stats page/fragment render, bounded by the requested
 	// ?start=&end= window. Injected from cmd/web via
 	// charging.NewSessionReader(pool). NEVER import internal/charging/db
 	// (chargingdb) for this path — all access through this interface only.
 	SuperchargerReader charging.SessionReader
 	// SuperchargerVerifier is the charging module's SessionVerifier write
-	// port over charge_sessions. Injected from cmd/web via
+	// port over supercharger_sessions. Injected from cmd/web via
 	// charging.NewSessionVerifier(pool) and passed straight through to
 	// handlers.Deps. Called ONLY by SuperchargerRowUpdate on an explicit
-	// user-initiated row save. See the aperture table in
-	// internal/gateway/AGENTS.md §"Read-only at request time". NEVER import
-	// internal/charging/db (chargingdb) for this path. Added by
-	// RM31-gateway-add-session-battery-edit.
+	// user-initiated row save. VerifySession is scoped by VEHICLE, not by
+	// account: the handler resolves the vehicle from the signed-in account
+	// first, and that resolve is the tenant boundary for the route. See the
+	// aperture table in internal/gateway/AGENTS.md §"Read-only at request
+	// time". NEVER import internal/charging/db (chargingdb) for this path.
 	SuperchargerVerifier charging.SessionVerifier
 	// ChargingWriter is the charging write port. Called by write handlers
 	// (create/update/delete) on explicit user-initiated form submissions only.

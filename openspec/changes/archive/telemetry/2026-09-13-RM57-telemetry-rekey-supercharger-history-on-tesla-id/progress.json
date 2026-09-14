@@ -1,0 +1,551 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM57-telemetry-rekey-supercharger-history-on-tesla-id",
+  "module": "telemetry",
+  "roadmap": "RM57-rekey-supercharger-pair-on-tesla-id",
+  "tier": 1,
+  "intention": "telemetry.supercharger_history is keyed on tesla_id NOT NULL, account_id is gone, and the write path skips a session whose VIN is not a registered vehicle.",
+  "request": "MAG-67 tier 1. Re-key telemetry.supercharger_history on tesla_id.",
+  "status": "archived",
+  "updated_at": "2026-09-13T12:05:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-67",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-67/4-re-key-the-supercharger-pair-on-tesla-id-reshape-the-mirror",
+    "created_at": "2026-09-13T02:12:00Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9"
+    ],
+    "awaiting_user_verification": []
+  },
+  "decisions": [
+    {
+      "id": "RD6",
+      "scope": "database",
+      "made_by": "user",
+      "at": "2026-09-13T02:12:00Z",
+      "what": "Index plan approved: vehicle_time and account_updated re-keyed on tesla_id, account_time dropped with no replacement.",
+      "why": "account_time's only reader was SuperchargerHistoryByAccount, removed here. The new (tesla_id, updated_at) index also removes a sort the mirror read pays today."
+    },
+    {
+      "id": "RD7",
+      "scope": "integration",
+      "made_by": "user",
+      "at": "2026-09-13T02:12:00Z",
+      "what": "processor.go fans out over each account's vehicles now, keeping the account-keyed watermark.",
+      "why": "The account-wide read cannot survive the column drop and has a production caller. The fan-out uses a port that already exists, so tier 3 undoes nothing."
+    },
+    {
+      "id": "RD8",
+      "scope": "ports",
+      "made_by": "autopilot",
+      "at": "2026-09-13T02:12:00Z",
+      "what": "SuperchargerHistoryByAccount and SuperchargerHistoryByAccountUpdatedSince are removed, not re-keyed.",
+      "why": "Both filter on account_id alone. Dropping the parameter would leave a whole-table scan."
+    },
+    {
+      "id": "RD9",
+      "scope": "integration",
+      "made_by": "autopilot",
+      "at": "2026-09-13T02:42:04Z",
+      "what": "In the mirror fan-out, one vehicle's failed read skips the whole account: no mirror write, no watermark advance.",
+      "why": "The cursor covers every car of the account at once. Advancing it after a partial read would push it past the missing car's rows, losing them silently."
+    },
+    {
+      "id": "RD10",
+      "scope": "test-contract",
+      "made_by": "user",
+      "at": "2026-09-13T11:40:00Z",
+      "what": "T-8's step past t3 is one microsecond, not one nanosecond. design.md, tasks.md and the test all corrected.",
+      "why": "Postgres timestamptz holds microseconds and pgx truncates finer values, so t3+1ns reached the database as t3 and the inclusive bound correctly returned 7103. The design authored an unrepresentable value."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Offline tests for the skip counter",
+      "depends_on": [],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:21:00Z",
+      "completed_at": "2026-09-13T02:29:56Z",
+      "duration_seconds": 536,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 5.29,
+        "approx": true,
+        "note": "One wave delta shared across T0-T3; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "0.1-0.4 were already on disk from the crashed run. Added T-5 in report_test.go. go vet fails on the missing CycleReport field, which is the signal 0.6 wants."
+    },
+    {
+      "id": "T1",
+      "title": "Migration",
+      "depends_on": [],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:26:00Z",
+      "completed_at": "2026-09-13T02:29:56Z",
+      "duration_seconds": 236,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 5.29,
+        "approx": true,
+        "note": "One wave delta shared across T0-T3; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "Migration 20260912000001 written: delete NULL tesla_id rows, SET NOT NULL, drop account_id, drop the three old indexes, create the two tesla_id ones. make migration-guard clean. No migration test, by project rule."
+    },
+    {
+      "id": "T2",
+      "title": "Queries and sqlc",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:26:00Z",
+      "completed_at": "2026-09-13T02:29:56Z",
+      "duration_seconds": 236,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 5.29,
+        "approx": true,
+        "note": "One wave delta shared across T0-T3; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "Both account-wide queries deleted. The three survivors drop the account_id predicate. Deny-list arrays down to 15 columns. make sqlc run: SuperchargerHistory lost AccountID, TeslaID is now a plain int64."
+    },
+    {
+      "id": "T3",
+      "title": "Ports and domain type",
+      "depends_on": [
+        "T2"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:26:00Z",
+      "completed_at": "2026-09-13T02:29:56Z",
+      "duration_seconds": 236,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 5.29,
+        "approx": true,
+        "note": "One wave delta shared across T0-T3; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "SuperchargerHistory drops AccountID, TeslaID is int64. SuperchargerHistoryReader keeps three methods, all without accountID. CycleReport gains ChargingSessionsSkippedUnregistered. Leader rewrote one index comment that pointed at the change docs."
+    },
+    {
+      "id": "T4",
+      "title": "Implementation",
+      "depends_on": [
+        "T3",
+        "T0"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:35:00Z",
+      "completed_at": "2026-09-13T02:42:04Z",
+      "duration_seconds": 424,
+      "budget": {
+        "five_hour_pct_delta": 18,
+        "cost_usd_delta": 8.11,
+        "approx": true,
+        "note": "One wave delta shared across T4, T7 and T8. T4+T7 ran in a worker while the leader did T8, so the costs are not separable."
+      },
+      "notes": "reader.go, mapping.go, query_log.go, service.go and report.go re-keyed on tesla_id. The two account-wide methods and teslaIDToPgInt8 are gone. collectChargingHistory now skips an unregistered VIN and counts it. go build ./internal/telemetry/... clean."
+    },
+    {
+      "id": "T5",
+      "title": "Database-backed integration tests",
+      "depends_on": [
+        "T4"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:53:00Z",
+      "completed_at": "2026-09-13T03:04:20Z",
+      "duration_seconds": 680,
+      "budget": {
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 7.69,
+        "approx": true,
+        "note": "One wave delta shared across T5 and T6; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "Deleted the account-updated-since test file. Re-keyed every supercharger integration test on tesla_id. Added T-8 and T-9 in a new file, matching design.md's contract exactly. Also deleted the tesla_id-NULL-to-real test: NOT NULL makes that state impossible."
+    },
+    {
+      "id": "T6",
+      "title": "Remaining test fixups inside telemetry",
+      "depends_on": [
+        "T4"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:53:00Z",
+      "completed_at": "2026-09-13T03:04:20Z",
+      "duration_seconds": 680,
+      "budget": {
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 7.69,
+        "approx": true,
+        "note": "One wave delta shared across T5 and T6; the wave ran as one serial worker, so per-task cost is not separable."
+      },
+      "notes": "reader_test.go needed no change - it has no SuperchargerHistoryReader coverage. Fixed query_log_test.go fakes. Deleted the stale TestCollectAll_ChargingHistory_VINResolution, which asserted the removed behaviour. go vet clean."
+    },
+    {
+      "id": "T7",
+      "title": "Docs",
+      "depends_on": [
+        "T3"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "sonnet",
+      "started_at": "2026-09-13T02:35:00Z",
+      "completed_at": "2026-09-13T02:42:04Z",
+      "duration_seconds": 424,
+      "budget": {
+        "five_hour_pct_delta": 18,
+        "cost_usd_delta": 8.11,
+        "approx": true,
+        "note": "One wave delta shared across T4, T7 and T8. T4+T7 ran in a worker while the leader did T8, so the costs are not separable."
+      },
+      "notes": "AGENTS.md: five corrections. Three kkpa/context guides updated - the consumer row, the table bullet and both nightly-cycle cells. Nothing under openspec/changes/archive/ touched; make archive-guard clean."
+    },
+    {
+      "id": "T8",
+      "title": "Cross-module bridge (leader-owned: app + analytics)",
+      "depends_on": [
+        "T3"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-13T02:35:00Z",
+      "completed_at": "2026-09-13T02:42:04Z",
+      "duration_seconds": 424,
+      "budget": {
+        "five_hour_pct_delta": 18,
+        "cost_usd_delta": 8.11,
+        "approx": true,
+        "note": "One wave delta shared across T4, T7 and T8. T4+T7 ran in a worker while the leader did T8, so the costs are not separable."
+      },
+      "notes": "processor.go groups each account's distinct tesla_ids and reads per vehicle inside one account pass; watermark read, mirror write and advance stay account-keyed. One vehicle's read failure skips the whole account. Tests re-shaped, one added. app.go needed no change."
+    },
+    {
+      "id": "T9",
+      "title": "Final verification",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8"
+      ],
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-13T03:04:30Z",
+      "completed_at": "2026-09-13T03:11:00Z",
+      "duration_seconds": 390,
+      "budget": {
+        "five_hour_pct_delta": 0,
+        "cost_usd_delta": 0.0,
+        "approx": true,
+        "note": "Leader-run guards inside the wave-3 bracket; not separable from it."
+      },
+      "notes": "Every cheap signal clean: build, vet, migration-guard, boundary-guard, archive-guard, gofmt. 9.7 found the KB still naming the deleted port - fixed INDEX.md and the guide's gotchas block, which T7 missed."
+    }
+  ],
+  "review": {
+    "brief": "Review RM57 tier 1: telemetry.supercharger_history re-keyed on tesla_id NOT NULL, account_id dropped, unregistered VINs skipped and counted. Read the branch diff against main, not the whole module. Gate items: (1) module boundaries - the worker touched only internal/telemetry; internal/app and internal/analytics are leader-owned integration, check they call ports only, never a telemetry table. (2) Every DB object matches the user-confirmed design gate RD6 - two tesla_id indexes created, the three old ones dropped, account_time replaced by nothing. A mismatch is a blocker. (3) Integration tests assert design.md's up-front expected values (T-1..T-10), not whatever the implementation happens to do. (4) SCRUTINIZE RD10: a design-authored expected value was corrected after a red test (t3+1ns -> t3+1us). Judge independently whether that is a legitimate correction of an unrepresentable value or a relaxed assertion. (5) Deleted tests - D3/D4 drop the account-wide port and 7 tests with it; confirm the lost coverage is genuinely obsolete and T-8/T-9 carry forward what survives. (6) Docs: AGENTS.md, the four kkpa/context guides, nothing edited under openspec/changes/archive/. (7) Read-heavy Performance-Profile compliance. (8) Anti-gaming: no weakened criteria, no self-approved statuses, tasks.md append-only. Signals: assistant ran build, vet, gofmt, migration/boundary/archive/vehicleref/money/tz guards - all clean. The OWNER ran make test and reported it passing; the assistant never ran the suite. Judge test quality by reading the tests, never by running them.",
+    "agent": "telemetry-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "telemetry-reviewer",
+        "model": "sonnet",
+        "verdict": "changes-requested",
+        "started_at": "2026-09-13T11:50:00Z",
+        "completed_at": "2026-09-13T11:57:00Z",
+        "duration_seconds": 403,
+        "budget": {
+          "five_hour_pct_delta": 13,
+          "cost_usd_delta": 5.55,
+          "approx": true,
+          "note": "Bracketed round: five_hour_pct 7 -> 20, cost 2.96 -> 8.51. Includes the leader's triage and fixes in the same span."
+        },
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "where": "kkpa/context/architecture/telemetry-ingest-only.md:209,214,219,223,228",
+            "what": "Five _Source: lines cite 'Requirement: Supercharger History Per-Vehicle Updated-Since Read Port', a title that exists in no spec. Introduced by this change's own docs task.",
+            "triage": "accepted",
+            "fix": "Repointed all five to the real title, 'Supercharger Session Updated-Since Read Port' (main spec line 700, delta line 175)."
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "where": "internal/telemetry/db_supercharger_between_integration_test.go:17",
+            "what": "New comment cites design.md's test contract.",
+            "triage": "accepted",
+            "fix": "Rewritten to state the reason itself: the window is inclusive at both ends."
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "where": "internal/telemetry/report_test.go:98, internal/telemetry/service_test.go:1131",
+            "what": "Two new comments cite '(roadmap tier 1)'.",
+            "triage": "accepted",
+            "fix": "Tier numbers removed. report_test.go now explains why the red compile is the point."
+          },
+          {
+            "id": "F4",
+            "severity": "minor",
+            "where": "internal/telemetry/db_supercharger_vehicle_updated_since_integration_test.go:31",
+            "what": "File-header comment still said 'one nanosecond past the last' after the RD10 fix changed the step to a microsecond. Leader's own miss in cbe2691.",
+            "triage": "accepted",
+            "fix": "Header now says microsecond."
+          },
+          {
+            "id": "F5",
+            "severity": "minor",
+            "where": "internal/telemetry/service.go collectChargingHistory",
+            "what": "The accountID uuid.UUID parameter is dead after the re-key; go vet does not catch unused parameters.",
+            "triage": "accepted",
+            "fix": "Parameter dropped from the signature, the one caller and four test call sites. go vet then caught an orphaned acctID local in service_test.go, also removed."
+          }
+        ],
+        "leader_found_beyond_the_review": [
+          {
+            "id": "L1",
+            "where": "internal/telemetry/db/query.sql (copied by sqlc into db/query.sql.go)",
+            "what": "A new comment pointed at design.md's Index Plan for why no (tesla_id, charge_stop_date_time) index exists. Same violation as F2, in a .sql file the reviewer's comment sweep did not cover.",
+            "fix": "Rewritten as the reason itself: no production caller, caller-bounded window, so a residual filter over one vehicle's rows is cheap. make sqlc re-run."
+          }
+        ],
+        "reviewer_rd10_judgment": "Independently verified against the pinned pgx v5.10.0 source: timestamptz binary encode computes ts.Unix()*1000000 + Nanosecond()/1000, and 1/1000 truncates to 0, so t3+1ns is bit-identical to t3 on the wire. Ruled a legitimate correction of an unrepresentable value, not a weakened assertion. Confirmed RD10 is made_by user, not self-approved."
+      },
+      {
+        "round": 2,
+        "agent": "telemetry-reviewer",
+        "model": "sonnet",
+        "verdict": "approved",
+        "scope": "Re-verification only, per instruction: round-1 findings F1-F5 plus every file touched by commit 8cfcc4d. Did not re-review the rest of the change.",
+        "findings": [
+          {
+            "id": "F1",
+            "status": "fixed",
+            "note": "All five _Source: lines in telemetry-ingest-only.md now cite 'Supercharger Session Updated-Since Read Port', which exists at main spec line 700 and delta spec line 175 - confirmed by direct grep, not by trusting the commit message. Content check on all five bullets: four are exact matches to that requirement's own text (single per-vehicle port, oldest-first empty-not-error, inclusive-instant scenario, no-direct-DB-access scenario). The second bullet ('a session for an unregistered VIN is never stored') is a corollary of the Ledger requirement more than this one's own text - a defensible but not perfectly precise attribution. Not re-opening: the defect I raised was a citation to a title that resolves nowhere, which is fully fixed, and the residual imprecision is a matter of degree, not a broken pointer."
+          },
+          {
+            "id": "F2",
+            "status": "fixed",
+            "note": "db_supercharger_between_integration_test.go:17 no longer names design.md; reads 'The window is inclusive at both ends: ...' - the reason, not the pointer."
+          },
+          {
+            "id": "F3",
+            "status": "fixed",
+            "note": "report_test.go:98 and service_test.go:1131 no longer say '(roadmap tier 1)'. Verified by grep across both files - zero remaining tier-number citations."
+          },
+          {
+            "id": "F4",
+            "status": "fixed",
+            "note": "db_supercharger_vehicle_updated_since_integration_test.go:31 now says 'one microsecond past the last', matching the actual t3.Add(time.Microsecond) in the test body below it."
+          },
+          {
+            "id": "F5",
+            "status": "fixed",
+            "note": "accountID dropped from collectChargingHistory's signature, its one production call site (service.go:318) and all four test call sites (service_test.go:1163,1210,1238,1269). Grepped the whole module for collectChargingHistory - no other caller or fake exists. The orphaned acctID local the leader found (service_test.go, AllVINsUnregistered test) was confirmed dead: used only as the removed argument, asserted on nothing."
+          }
+        ],
+        "leader_found_beyond_the_review": [
+          {
+            "id": "L1",
+            "status": "fixed",
+            "note": "query.sql's index-plan comment no longer cites design.md; states the reason (no production caller, caller-bounded window). Verified query.sql.go matches by running `sqlc generate` myself and diffing against the committed file: byte-identical, and no query text changed anywhere in the branch diff beyond this comment and the account_id removals already reviewed in round 1."
+          }
+        ],
+        "independent_checks": [
+          "go build ./... - clean",
+          "go vet ./... - clean",
+          "gofmt -l internal/ cmd/ - only the three pre-existing, out-of-scope files (account/testdb_test.go, config/quote_test.go, gateway/vehicle_image_test.go)",
+          "make migration-guard, boundary-guard, archive-guard, vehicleref-guard, money-guard, tz-guard - all clean",
+          "sqlc generate re-run - output byte-identical to committed query.sql.go"
+        ],
+        "open_suite_question": "The owner's last passing make test run predates commit 8cfcc4d. Everything that commit changed is one of: (a) doc/comment-only (F1-F4, L1 - zero runtime code touched), or (b) a parameter removed from collectChargingHistory that round 1 already established was dead in the function body, propagated to its one caller and four test call sites, all under the compiler's enforcement (go build and go vet both clean). A dead, unread parameter cannot change what a function computes; removing it and its call-site arguments in lockstep is a mechanically safe rewrite, not new or altered logic. The specific T-1..T-4 assertions I verified in round 1 are byte-for-byte unchanged in this commit - only their call syntax moved. On that basis I approve without waiting for a fresh make test: there is no plausible code path introduced since the owner's last green run that a suite run could catch and go vet did not. This judgment is contingent - if the owner's pending re-run comes back red, that overrides it immediately and the leader should re-open this round rather than treat the change as verified.",
+        "verdict_reasoning": "All five round-1 findings and the leader's own L1 finding are genuinely fixed, independently re-verified against the files rather than the commit message. No new violation introduced by the fix commit. No blocker or major remains. Approved."
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-13T02:12:00Z",
+      "what": "artifacts-created",
+      "detail": "proposal, design, specs delta, tasks by the telemetry worker on Opus. openspec validate --strict passes."
+    },
+    {
+      "at": "2026-09-13T02:12:00Z",
+      "what": "design-gate-passed",
+      "detail": "User confirmed the index plan (RD6) and the processor bridge (RD7) before any code was written."
+    },
+    {
+      "at": "2026-09-13T02:21:00Z",
+      "what": "wave-1-dispatch",
+      "detail": "T0,T1,T2,T3 to one serial telemetry worker on Sonnet. budget_start five_hour_pct 29, context_pct 14, cost 10.94."
+    },
+    {
+      "at": "2026-09-13T02:26:00Z",
+      "what": "resume",
+      "detail": "Wave 1 worker died mid-task. On disk: T0.1-T0.4 written in service_test.go; T0.5 (report_test.go), T1, T2, T3 not started. Re-dispatching the wave-1 remainder."
+    },
+    {
+      "at": "2026-09-13T02:26:00Z",
+      "what": "wave-1-redispatch",
+      "detail": "T0 (finish 0.5-0.6), T1, T2, T3 to one serial telemetry worker on Sonnet. budget_start five_hour_pct 42, context_pct 9, cost 1.19."
+    },
+    {
+      "at": "2026-09-13T02:29:56Z",
+      "what": "wave-1-complete",
+      "detail": "T0-T3 done by the telemetry worker on Sonnet. budget_end five_hour_pct 53, context_pct 11, cost 6.47 (wave delta +11pct, +5.29 USD). Worker's decision enumeration cross-checked against design.md: D1,D2,D3,D4,D5,D8 all honoured. go build ./internal/telemetry/ is red only in reader.go, mapping.go, query_log.go - T4's files, expected."
+    },
+    {
+      "at": "2026-09-13T02:33:00Z",
+      "what": "incident-concurrent-workers",
+      "detail": "The original wave-1 worker survived the session break and was still running. The resume read the file set as untouched and dispatched a second worker, so two telemetry workers wrote T0-T3 concurrently. Both reported done. Leader re-verified after both stopped: one set of tests, no duplicate funcs, sqlc output correct, every cheap guard clean. No work lost. Lesson for resume: a dispatched-but-unreconciled wave may still be live - check for running agents before re-dispatching."
+    },
+    {
+      "at": "2026-09-13T02:35:00Z",
+      "what": "wave-2-dispatch",
+      "detail": "T4+T7 to one serial telemetry worker on Sonnet. T8 is leader-owned (internal/app, internal/analytics) and runs alongside it on disjoint files. T4 and T8 must land together or go build ./... stays red. budget_start five_hour_pct 54, context_pct 12, cost 7.22."
+    },
+    {
+      "at": "2026-09-13T02:42:04Z",
+      "what": "wave-2-complete",
+      "detail": "T4+T7 by the telemetry worker on Sonnet; T8 by the leader. go build ./... and go vet ./internal/app/... ./internal/analytics/... are clean. go vet ./internal/telemetry/... still red in test files only - that is T5/T6. Worker decision enumeration cross-checked against design.md: D1,D3,D4,D5,D6,D7,D8 honoured. budget_end five_hour_pct 72, context_pct 17, cost 15.33 (wave delta +18pct, +8.11 USD)."
+    },
+    {
+      "at": "2026-09-13T02:42:04Z",
+      "what": "finding-for-T6",
+      "detail": "service_test.go's pre-existing TestCollectAll_ChargingHistory_VINResolution asserts the removed behaviour: both sessions upserted, unknown VIN stored with TeslaID nil. Delete it, do not re-sign it. Its coverage is replaced by T-1, which asserts the known-VIN mapping and the skip."
+    },
+    {
+      "at": "2026-09-13T02:44:00Z",
+      "what": "checkpoint",
+      "detail": "User chose to checkpoint at the wave-2/wave-3 boundary. five_hour_pct 72 (threshold 90), context_pct 17 (threshold 40). Not tripped, but wave 2 cost 18 points and wave 3 is the largest remaining, so it was projected to cross. five_hour_resets_at 1789282200. Resume at wave 3: T5 and T6, then T9. Waves 1 and 2 are committed (1de0d1d, a8f8551)."
+    },
+    {
+      "at": "2026-09-13T02:53:00Z",
+      "what": "wave-3-dispatch",
+      "detail": "T5+T6 to one serial telemetry worker on Sonnet. User accepted crossing the 90pct threshold to finish the tier's code tonight. No stale worker running (ListAgents checked - the wave-1 incident lesson). budget_start five_hour_pct 77, context_pct 11, cost 1.33."
+    },
+    {
+      "at": "2026-09-13T03:04:20Z",
+      "what": "wave-3-complete",
+      "detail": "T5+T6 by the telemetry worker on Sonnet. budget_end five_hour_pct 94, context_pct 14, cost 9.03 (wave delta +17pct, +7.69 USD). Decision enumeration cross-checked against design.md: D1,D3,D4,D5,D8 honoured; D2,D6,D7 are not T5/T6's. T-8 and T-9 verified line by line against design.md's contract - session ids, t1/t2/t3 bounds, the decoy, the index name and the no-Sort assertion all match."
+    },
+    {
+      "at": "2026-09-13T03:06:00Z",
+      "what": "leader-fix",
+      "detail": "The worker wrote a new code comment citing decision id D7.4, which the B2 rule forbids. Rewrote it as the reason itself. Also restored the header's 'expected values are binding' warning, which the rewrite dropped - that sentence is an anti-gaming guard, not a doc pointer."
+    },
+    {
+      "at": "2026-09-13T03:11:00Z",
+      "what": "T9-docs-gap",
+      "detail": "9.7's grep found the KB still naming SuperchargerHistoryByAccountUpdatedSince: kkpa/context/INDEX.md had two stale rows and telemetry-ingest-only.md had a four-bullet gotchas block describing the deleted account-wide port. T7 fixed the consumer map but missed both. Leader fixed them. The charging models.go hit is a table COMMENT copied by sqlc - not a finding, and tier 2's module anyway."
+    },
+    {
+      "at": "2026-09-13T03:11:00Z",
+      "what": "awaiting-user-verification",
+      "detail": "All nine tasks are complete. T5 and T6 await the owner's suite run; the assistant never runs it. Change status applied, not verified - Step 6 needs the owner's reported pass before the reviewer gate."
+    },
+    {
+      "at": "2026-09-13T03:12:00Z",
+      "what": "budget-checkpoint",
+      "detail": "five_hour_pct 94 >= 90 (threshold tripped), context_pct 14. The user accepted this crossing before wave 3 to finish the tier's code. five_hour_resets_at 1789282200 = 2026-09-13T06:50:00Z. All nine tasks complete and committed (98b4be2). Next: the owner runs the suite, then Step 7's reviewer gate. Resume needs a fresh bucket."
+    },
+    {
+      "at": "2026-09-13T11:16:00Z",
+      "what": "resumed",
+      "detail": "5-hour bucket reset (five_hour_pct 0, context_pct 9). Tree clean, on ft/RM57-MAG-67-rekey-supercharger-pair-on-tesla-id. Re-ran every cheap signal: build, vet, migration/boundary/archive/vehicleref/money/tz guards all clean. gofmt flags three files (account/testdb_test.go, config/quote_test.go, gateway/vehicle_image_test.go) that this branch never touched - pre-existing, left alone. Step 6: asked the owner to run make test."
+    },
+    {
+      "at": "2026-09-13T11:40:00Z",
+      "what": "user-suite-run-failed",
+      "detail": "Owner ran make test. One failure: TestSuperchargerHistoryByVehicleUpdatedSince_OrderingAndBoundary/since_t3_plus_1ns_returns_empty_non-nil. Returned row's updated_at was exactly t3. Root cause is design.md's expected value, not the implementation: pgx truncates nanoseconds encoding timestamptz. Production is unaffected - the only caller (processor.go:241) passes a DB-read cursor minus 24h, which never carries nanoseconds."
+    },
+    {
+      "at": "2026-09-13T11:40:00Z",
+      "what": "wave-4-leader-fix",
+      "detail": "Leader-owned one-line fix in three files: t3.Add(1) -> t3.Add(time.Microsecond) in the test, plus the corrected expected value and its reason in design.md T-8 and tasks.md 5.3. The assertion is not weakened - one microsecond is the finest step the column can represent, so the inclusive bound is still tested. go vet, gofmt and openspec validate --strict clean. Awaiting the owner's re-run."
+    },
+    {
+      "at": "2026-09-13T11:48:00Z",
+      "what": "user-verified",
+      "detail": "The owner ran make test and reported it passing after the wave-4 fix. This is the owner's verification, not the assistant's - the assistant never ran the suite. T5 and T6 go done; change status verified. Assistant-run signals were build, vet, gofmt and the migration/boundary/archive/vehicleref/money/tz guards."
+    },
+    {
+      "at": "2026-09-13T11:50:00Z",
+      "what": "review-round-1-dispatch",
+      "detail": "telemetry-reviewer on Sonnet. Brief stored. budget_start five_hour_pct 7, context_pct 13, cost 2.96."
+    },
+    {
+      "at": "2026-09-13T11:57:00Z",
+      "what": "review-round-1-complete",
+      "detail": "changes-requested: 1 major, 4 minor, no blockers. All five triaged as accepted and fixed by the leader - each was real and verified before fixing. Reviewer independently confirmed RD10 against pgx v5.10.0 source. It also confirmed the migration matches design.md byte-for-byte, the RD6 index plan, the 9 deleted tests, and ran every cheap guard itself. Leader found one more of the same class the reviewer's sweep missed (L1, in query.sql). budget_end five_hour_pct 20, context_pct 16, cost 8.51."
+    },
+    {
+      "at": "2026-09-13T11:58:00Z",
+      "what": "review-round-2-approved",
+      "detail": "telemetry-reviewer returned approved. It re-verified all five round-1 fixes plus L1, re-ran sqlc generate itself and diffed query.sql.go byte-identical, and re-ran every cheap guard. Its approval is EXPLICITLY CONTINGENT on the owner's pending make test re-run: a red result overrides it and the reviewer must be brought back. Reviewer set review.status approved; it left change status at verified, so the leader did not touch it - the leader never writes reviewer-approved. budget five_hour_pct 25, context_pct 17, cost 10.85."
+    },
+    {
+      "at": "2026-09-13T11:58:00Z",
+      "what": "archive-held",
+      "detail": "Step 8 is NOT started. Commit 8cfcc4d changed collectChargingHistory's signature and four test call sites AFTER the owner's passing suite run, so that pass is stale for those files. go vet compiles _test.go and is clean, which proves compilation but not behaviour. The archive waits on the owner's make test re-run. Nothing here is 'done' on the assistant's say-so."
+    },
+    {
+      "at": "2026-09-13T12:04:00Z",
+      "what": "user-verified-2",
+      "detail": "The owner ran make check/test after the round-1 fixes and reported it passing. This clears the reviewer's contingent approval. Second owner verification of this change; the assistant never ran the suite."
+    },
+    {
+      "at": "2026-09-13T12:05:00Z",
+      "what": "archived",
+      "detail": "openspec archive synced 4 MODIFIED + 1 REMOVED requirement into openspec/specs/telemetry/spec.md (30 -> 29). Folder moved from the CLI's archive root into archive/telemetry/ per config.yaml. Verified the KB's repointed requirement title still resolves in the synced main spec."
+    }
+  ]
+}

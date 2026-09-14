@@ -313,28 +313,28 @@ LIMIT 1;
 --      EXCLUDED always has them NULL. Without this exclusion, a poller re-sync
 --      would see "set on disk" vs "NULL incoming" and wrongly call that a
 --      change, overwriting the human's work.
---   3. Write-once (session_id, account_id, vin, site_location_name,
---      country_code, charge_start_date_time, charge_stop_date_time,
---      unlatch_date_time, billing_type, vehicle_make_type) -- written once on
---      INSERT, never refreshed by this SET clause. If Tesla later sends a
---      different value for one of these, the stored value stays as-is by
---      design, and EXCLUDED can differ from it forever. Comparing these
---      columns would make updated_at advance every single night, forever,
---      for any row with such a gap -- the exact bug this query exists to fix,
---      just moved to a different set of columns.
+--   3. Write-once (session_id, vin, site_location_name, country_code,
+--      charge_start_date_time, charge_stop_date_time, unlatch_date_time,
+--      billing_type, vehicle_make_type) -- written once on INSERT, never
+--      refreshed by this SET clause. If Tesla later sends a different value
+--      for one of these, the stored value stays as-is by design, and
+--      EXCLUDED can differ from it forever. Comparing these columns would
+--      make updated_at advance every single night, forever, for any row with
+--      such a gap -- the exact bug this query exists to fix, just moved to a
+--      different set of columns.
 --
 -- Design DBS3: supercharger_history is NOT append-only; billing state mutates
 -- post-session (is_paid, invoice status change after midnight). Full rationale:
 -- openspec/changes/RM44-telemetry-add-change-detecting-upsert/design.md D1/D2.
 INSERT INTO telemetry.supercharger_history (
-    session_id, account_id, vin, tesla_id,
+    session_id, vin, tesla_id,
     site_location_name, country_code,
     charge_start_date_time, charge_stop_date_time, unlatch_date_time,
     billing_type, vehicle_make_type,
     energy_kwh, total_cost, currency, is_paid,
     raw_data
 ) VALUES (
-    @session_id, @account_id, @vin, @tesla_id,
+    @session_id, @vin, @tesla_id,
     @site_location_name, @country_code,
     @charge_start_date_time, @charge_stop_date_time, @unlatch_date_time,
     @billing_type, @vehicle_make_type,
@@ -349,44 +349,31 @@ ON CONFLICT (session_id) DO UPDATE SET
     is_paid    = EXCLUDED.is_paid,
     tesla_id   = EXCLUDED.tesla_id,
     updated_at = CASE
-        WHEN to_jsonb(supercharger_history.*) - '{id,session_id,account_id,vin,site_location_name,country_code,charge_start_date_time,charge_stop_date_time,unlatch_date_time,billing_type,vehicle_make_type,created_at,updated_at,start_battery_pct,end_battery_pct,battery_pct_source}'::text[]
+        WHEN to_jsonb(supercharger_history.*) - '{id,session_id,vin,site_location_name,country_code,charge_start_date_time,charge_stop_date_time,unlatch_date_time,billing_type,vehicle_make_type,created_at,updated_at,start_battery_pct,end_battery_pct,battery_pct_source}'::text[]
              IS DISTINCT FROM
-             to_jsonb(EXCLUDED.*) - '{id,session_id,account_id,vin,site_location_name,country_code,charge_start_date_time,charge_stop_date_time,unlatch_date_time,billing_type,vehicle_make_type,created_at,updated_at,start_battery_pct,end_battery_pct,battery_pct_source}'::text[]
+             to_jsonb(EXCLUDED.*) - '{id,session_id,vin,site_location_name,country_code,charge_start_date_time,charge_stop_date_time,unlatch_date_time,billing_type,vehicle_make_type,created_at,updated_at,start_battery_pct,end_battery_pct,battery_pct_source}'::text[]
         THEN now()
         ELSE supercharger_history.updated_at
     END;
 
--- name: SuperchargerHistoryByAccount :many
--- Return all Supercharger sessions for the given account, newest first, up to
--- limit_count rows. Uses idx_supercharger_history_account_time
--- (account_id, charge_start_date_time DESC) — the account_id prefix prunes to
--- the tenant; DESC order matches the ORDER BY so no sort step is needed.
--- Design DBS4 / DBS6: account-wide spend/energy dashboard access pattern.
-SELECT * FROM telemetry.supercharger_history
-WHERE account_id = @account_id
-ORDER BY charge_start_date_time DESC
-LIMIT @limit_count;
-
 -- name: SuperchargerHistoryByVehicle :many
--- Return Supercharger sessions for one vehicle within an account, newest first,
--- up to limit_count rows. Uses idx_supercharger_history_vehicle_time
--- (account_id, tesla_id, charge_start_date_time DESC) — both WHERE columns are
--- the leading index columns so the planner satisfies the filter and the ORDER BY
--- in a single range scan without a sort step.
+-- Return Supercharger sessions for one vehicle, newest first, up to
+-- limit_count rows. Uses idx_supercharger_history_vehicle_time
+-- (tesla_id, charge_start_date_time DESC) — tesla_id equality and the DESC
+-- order together satisfy the WHERE and the ORDER BY in one range scan, with
+-- no sort step.
 -- Design DBS4 / DBS6: per-vehicle charging history dashboard access pattern.
 SELECT * FROM telemetry.supercharger_history
-WHERE account_id = @account_id
-  AND tesla_id = @tesla_id
+WHERE tesla_id = @tesla_id
 ORDER BY charge_start_date_time DESC
 LIMIT @limit_count;
 
 -- name: SuperchargerHistoryByVehicleBetween :many
--- Return Supercharger sessions for one vehicle within an account whose
--- charge_stop_date_time falls in the caller-supplied [start, end] window,
--- inclusive of the whole end calendar day, ordered oldest-first (ascending
--- by charge_stop_date_time). Used by
--- SuperchargerHistoryReader.SuperchargerHistoryByVehicleBetween to power RM28's
--- battery-consumed-per-day derivation (roadmap D9/D12).
+-- Return Supercharger sessions for one vehicle whose charge_stop_date_time
+-- falls in the caller-supplied [start, end] window, inclusive of the whole
+-- end calendar day, ordered oldest-first (ascending by charge_stop_date_time).
+-- Used by SuperchargerHistoryReader.SuperchargerHistoryByVehicleBetween to
+-- power RM28's battery-consumed-per-day derivation (roadmap D9/D12).
 --
 -- Filters on charge_stop_date_time, NOT charge_start_date_time (D12): energy
 -- is fully delivered at session stop, which is what end_battery_pct
@@ -411,15 +398,15 @@ LIMIT @limit_count;
 -- compensate for, so only the upper bound needs translating.
 --
 -- Index reuse: idx_supercharger_history_vehicle_time
--- (account_id, tesla_id, charge_start_date_time DESC) does NOT fully serve
--- this query -- it is sorted on charge_start_date_time, not
--- charge_stop_date_time, so the stop-time predicate cannot be satisfied as a
--- pure index range scan. It STILL prunes the scan to this one vehicle's rows
--- via its (account_id, tesla_id) leading-column prefix before the
--- stop-time filter is applied in-memory -- see design.md's Index Plan for
--- why no third, dedicated (account_id, tesla_id, charge_stop_date_time)
--- index is added in this change, and the documented fallback if per-vehicle
--- session volume ever grows enough to make that decision wrong.
+-- (tesla_id, charge_start_date_time DESC) does NOT fully serve this query --
+-- it is sorted on charge_start_date_time, not charge_stop_date_time, so the
+-- stop-time predicate cannot be satisfied as a pure index range scan. It
+-- STILL prunes the scan to this one vehicle's rows via the tesla_id leading
+-- column before the stop-time filter is applied in-memory. No second,
+-- dedicated (tesla_id, charge_stop_date_time) index exists because this method
+-- has no production caller and its window is caller-bounded, so a residual
+-- filter over one vehicle's rows is cheap. Add that index only if a real caller
+-- appears and per-vehicle session volume grows enough to make the scan hurt.
 --
 -- No LIMIT: this is a bounded date-range query, not an unbounded "most
 -- recent N" query -- the caller-supplied window is the safety bound, exactly
@@ -428,62 +415,28 @@ LIMIT @limit_count;
 -- query does not add an equivalent cap -- see design.md's Index Plan for why
 -- that asymmetry is deliberate, not an oversight).
 SELECT * FROM telemetry.supercharger_history
-WHERE account_id = @account_id
-  AND tesla_id   = @tesla_id
+WHERE tesla_id = @tesla_id
   AND charge_stop_date_time >= @start
   AND charge_stop_date_time <  @end_bound
 ORDER BY charge_stop_date_time ASC;
 
 -- name: SuperchargerHistoryByVehicleUpdatedSince :many
--- Return every Supercharger session for one vehicle within an account whose
--- updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
+-- Return every Supercharger session for one vehicle whose updated_at is at
+-- or after `since`, ordered oldest-first by updated_at. Used by
 -- SuperchargerHistoryReader.SuperchargerHistoryByVehicleUpdatedSince to let
--- internal/analytics' Recalculator (RM29-analytics-add-vehicle-metrics) detect
--- which sessions changed recently -- including a billing-state revision on a
--- session weeks old (design DBS3: supercharger_history is not append-only;
--- is_paid / invoice status mutates post-session), whose charge_start_date_time /
+-- internal/analytics' Recalculator (RM29-analytics-add-vehicle-metrics) and
+-- internal/app's nightly Supercharger mirror detect which sessions changed
+-- recently -- including a billing-state revision on a session weeks old
+-- (design DBS3: supercharger_history is not append-only; is_paid / invoice
+-- status mutates post-session), whose charge_start_date_time /
 -- charge_stop_date_time stay unchanged while updated_at refreshes.
 --
--- Index reuse: idx_supercharger_history_vehicle_time
--- (account_id, tesla_id, charge_start_date_time DESC) is not sorted on
--- updated_at, so this query cannot use it as a pure ORDER BY-satisfying range
--- scan. It STILL prunes the scan to this one vehicle's rows via its
--- (account_id, tesla_id) leading-column prefix before the updated_at predicate
--- and sort are applied -- updated_at is a residual filter within that scan, per
--- this change's explicit design call (no new index; verified via EXPLAIN in the
--- DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
+-- Index: idx_supercharger_history_vehicle_updated (tesla_id, updated_at).
+-- It matches this query exactly -- tesla_id prunes to the vehicle, and
+-- updated_at ASC satisfies both the range predicate and the ORDER BY in one
+-- index scan, with no sort step. No residual filter, and no sort node.
 SELECT * FROM telemetry.supercharger_history
-WHERE account_id = @account_id
-  AND tesla_id   = @tesla_id
-  AND updated_at >= @since
-ORDER BY updated_at ASC;
-
--- name: SuperchargerHistoryByAccountUpdatedSince :many
--- Return every Supercharger session for one account whose updated_at is at
--- or after @since, ordered oldest-first by updated_at. Used by
--- SuperchargerHistoryReader.SuperchargerHistoryByAccountUpdatedSince
--- (RM44-platform-add-mirror-watermark, roadmap D20) to bound
--- internal/app's nightly Supercharger mirror read.
---
--- UNLIKE SuperchargerHistoryByVehicleUpdatedSince, this query takes no
--- tesla_id and filters on account_id alone -- so it is the only
--- updated-since query that CAN return a row whose tesla_id IS NULL (a
--- session for a vehicle that is not currently registered). That is
--- deliberate: the mirror this bounds reads per account precisely because a
--- per-vehicle read can never surface such a row, breaking the
--- orphan-recovery path that lets a session get mirrored once its vehicle
--- re-registers (roadmap D3, carried into this tier by D20).
---
--- Index: idx_supercharger_history_account_updated (account_id,
--- updated_at), added by this change's own telemetry migration. It matches
--- this query exactly -- account_id prunes to the tenant, and updated_at
--- ASC satisfies both the range predicate and the ORDER BY in one index
--- scan, with no sort step. Do NOT confuse it with the pre-existing
--- idx_supercharger_history_account_time (account_id,
--- charge_start_date_time DESC), which shares only the account_id prefix
--- and would leave updated_at as a residual filter plus an in-memory sort.
-SELECT * FROM telemetry.supercharger_history
-WHERE account_id = @account_id
+WHERE tesla_id = @tesla_id
   AND updated_at >= @since
 ORDER BY updated_at ASC;
 

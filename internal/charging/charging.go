@@ -23,6 +23,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -281,9 +282,8 @@ func NewReader(pool *pgxpool.Pool) Reader {
 // Field names mirror telemetry.SuperchargerHistory's, which mirror the column
 // names, so the whole path stays a literal copy (design.md D1).
 type SessionMirror struct {
-	AccountID uuid.UUID
 	VIN       string
-	TeslaID   *int64 // nil when the VIN is not a currently-registered vehicle
+	TeslaID   int64 // a session is only ever mirrored for a registered vehicle
 	SessionID int64
 
 	ChargeStartDateTime time.Time
@@ -300,10 +300,8 @@ type SessionMirror struct {
 // (cmd/poller today; internal/app after RM29 tier 7). Upsert-only: a session that
 // disappears from Tesla's history stays mirrored.
 type SessionWriter interface {
-	// MirrorSessions upserts every supplied session under accountID, in one
-	// transaction. Every entry's AccountID must equal accountID; a single
-	// mis-scoped entry rejects the WHOLE call and writes nothing.
-	MirrorSessions(ctx context.Context, accountID uuid.UUID, sessions []SessionMirror) error
+	// MirrorSessions upserts every supplied session, in one transaction.
+	MirrorSessions(ctx context.Context, sessions []SessionMirror) error
 }
 
 // NewSessionWriter constructs a SessionWriter backed by the given pgxpool. The
@@ -354,17 +352,16 @@ const (
 // reason, even though Session's first thirteen fields duplicate SessionMirror's eleven
 // (RM30-charging-add-session-read-port design.md D4).
 //
-// Nineteen fields, one per supercharger_sessions column. Field names/types follow this
+// Eighteen fields, one per supercharger_sessions column. Field names/types follow this
 // module's existing conventions exactly: *T for every nullable column (matching Entry's
-// pattern), time.Time for every TIMESTAMPTZ, int64/*int64 for BIGINT/nullable BIGINT,
-// *int for nullable SMALLINT (matching Entry.StartBatteryPct's identical type), *string
-// for nullable TEXT. No pgtype anywhere in this type (ai/architecture.md §2, RM29 D6's
-// own rule applied to the read side).
+// pattern), time.Time for every TIMESTAMPTZ, int64 for BIGINT NOT NULL, *int for
+// nullable SMALLINT (matching Entry.StartBatteryPct's identical type), *string for
+// nullable TEXT. No pgtype anywhere in this type: ai/architecture.md §2 keeps pgtype
+// confined to the files that talk to the database directly, and this type is not one.
 type Session struct {
 	ID        uuid.UUID
-	AccountID uuid.UUID
 	VIN       string
-	TeslaID   *int64 // nil when the VIN is not a currently-registered vehicle
+	TeslaID   int64
 	SessionID int64
 
 	ChargeStartDateTime time.Time
@@ -419,7 +416,7 @@ type Session struct {
 // `go vet ./...` repo-wide.
 type SessionReader interface {
 	// ListSessionsByVehicleBetween returns charge sessions for a specific vehicle
-	// within an account whose ChargeStopDateTime falls within the window [from, to].
+	// whose ChargeStopDateTime falls within the window [from, to].
 	//
 	// from and to are whole UTC calendar days, to inclusive of its entire day —
 	// mirroring telemetry.SuperchargerHistoryByVehicleBetween's end.AddDate(0,0,1)/
@@ -438,12 +435,7 @@ type SessionReader interface {
 	//
 	// No limit parameter — the [from, to] window itself bounds the result. Always
 	// returns a non-nil empty slice when no rows match.
-	//
-	// A session whose TeslaID is nil (the VIN is not a currently-registered vehicle) is
-	// NEVER returned by this method for any teslaID — SQL's NULL = value is neither
-	// true nor false, so an orphaned session is definitionally outside a
-	// vehicle-scoped read (design.md D6).
-	ListSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Session, error)
+	ListSessionsByVehicleBetween(ctx context.Context, teslaID int64, from, to time.Time) ([]Session, error)
 }
 
 // NewSessionReader constructs a SessionReader backed by the given pgxpool. The
@@ -486,14 +478,11 @@ type SuperchargerSessionAnalyticsReader interface {
 	SessionReader
 
 	// ListSessionsByVehicleUpdatedSince returns every session for a specific vehicle
-	// within an account whose updated_at is at or after since. Ordered ASCENDING by
-	// ChargeStopDateTime — NOT by updated_at itself (RM31 design.md D1, Context fact 2:
-	// this mirrors Reader.ListEntriesByVehicleUpdatedSince's index reasoning in this
-	// module, not telemetry.SuperchargerHistoryReader's updated_at-ordering choice). No
-	// limit
-	// parameter — since itself bounds the result. Always returns a non-nil empty slice
-	// when no rows match. A session whose TeslaID is nil is never returned, for any
-	// teslaID (design.md D1, D4).
+	// whose updated_at is at or after since. Ordered ASCENDING by ChargeStopDateTime —
+	// NOT by updated_at itself: this mirrors Reader.ListEntriesByVehicleUpdatedSince's
+	// index reasoning in this module, not telemetry.SuperchargerHistoryReader's
+	// updated_at-ordering choice. No limit parameter — since itself bounds the result.
+	// Always returns a non-nil empty slice when no rows match.
 	//
 	// This is the mechanism by which a SessionVerifier.VerifySession edit becomes
 	// visible to analytics.Recalculator.Reconcile: VerifySession sets updated_at =
@@ -501,18 +490,16 @@ type SuperchargerSessionAnalyticsReader interface {
 	// ChargeStopDateTime are write-once, so updated_at is the only column that moves
 	// when a human verifies a session — this method is the sole path by which that
 	// verification reaches a cursor-driven re-derivation (design.md D1).
-	ListSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Session, error)
+	ListSessionsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Session, error)
 
 	// ListSessionsByVehicle returns the limit most recent sessions for a specific
-	// vehicle within an account, ordered DESCENDING by ChargeStopDateTime — the
-	// opposite of ListSessionsByVehicleBetween's ASC. This divergence is deliberate
-	// (design.md D3) and must not be "corrected" to match the sibling method: a "most
-	// recent N" limit-bounded read needs newest-first by construction. limit <= 0 uses
-	// the server default (defaultLimit, 100), mirroring Reader.ListEntriesByVehicle's
-	// identical contract. Always returns a non-nil empty slice when no rows match. A
-	// session whose TeslaID is nil is never returned, for any teslaID (design.md D3,
-	// D4).
-	ListSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Session, error)
+	// vehicle, ordered DESCENDING by ChargeStopDateTime — the opposite of
+	// ListSessionsByVehicleBetween's ASC. This divergence is deliberate
+	// and must not be "corrected" to match the sibling method: a "most recent N"
+	// limit-bounded read needs newest-first by construction. limit <= 0 uses the
+	// server default (defaultLimit, 100), mirroring Reader.ListEntriesByVehicle's
+	// identical contract. Always returns a non-nil empty slice when no rows match.
+	ListSessionsByVehicle(ctx context.Context, teslaID int64, limit int) ([]Session, error)
 }
 
 // NewSuperchargerSessionAnalyticsReader constructs a SuperchargerSessionAnalyticsReader
@@ -534,25 +521,26 @@ func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessi
 // trust models" shape the AI-efficiency "closed, small vocabularies" principle
 // (CLAUDE.md §Non-negotiables) argues against (design.md D9).
 type SessionVerifier interface {
-	// VerifySession updates exactly four columns on one account-scoped
+	// VerifySession updates exactly four columns on one vehicle-scoped
 	// supercharger_sessions row — start_battery_pct, end_battery_pct,
-	// battery_pct_source, status — plus updated_at (RM41-charging-add-session-status,
-	// MAG-45, added the fourth). No other column is reachable through this method: the
-	// underlying query's SET clause names only these four plus updated_at (RM31 design.md
-	// D1, extended by RM41 tier 4). status is ALWAYS COMPUTED by this method from the
-	// same startToStore/endBatteryPct/derivation-outcome values used to compute
-	// battery_pct_source — never accepted as a parameter; VerifySession's own signature
-	// is unchanged by this addition.
+	// battery_pct_source, status — plus updated_at. status was added later, alongside
+	// the original three columns. No other column is reachable through this method:
+	// the underlying query's SET clause names only these four plus updated_at, on
+	// purpose, so a future edit that wanted to also touch another column would have
+	// to add it to that clause explicitly, as a visible diff. status is ALWAYS
+	// COMPUTED by this method from the same startToStore/endBatteryPct/
+	// derivation-outcome values used to compute battery_pct_source — never accepted
+	// as a parameter; VerifySession's own signature is unchanged by this addition.
 	//
 	// The two frozen estimate columns formerly named here as columns this
-	// method could never reach were dropped from the table entirely by
-	// RM41-charging-drop-estimate-columns — there is no longer a column to be unreachable from.
+	// method could never reach were later dropped from the table entirely — there is
+	// no longer a column to be unreachable from.
 	//
 	// battery_pct_source is always computed by this method, never supplied by the
 	// caller: "user_verified" when either startBatteryPct or endBatteryPct is non-nil,
 	// NULL when both are nil. The method takes no source parameter, so "polled" — a
-	// documented future value for a measured-SOC path — cannot be written by any caller
-	// of this port (design.md D2/D7).
+	// documented future value for a measured-SOC path — cannot be written by any
+	// caller of this port: there is no parameter to carry it.
 	//
 	// A partial call (one percentage non-nil, the other nil) is legal — a human
 	// correcting a session mid-charge is a real, expected use. Every call supplies both
@@ -561,41 +549,53 @@ type SessionVerifier interface {
 	// wanting to add endBatteryPct to a session that already has startBatteryPct
 	// verified must re-supply the existing startBatteryPct value (read via
 	// SessionReader) alongside the new endBatteryPct, or that column is overwritten to
-	// NULL (design.md D6). Calling VerifySession(ctx, accountID, id, nil, nil) clears
-	// both percentages AND battery_pct_source to NULL in the same statement (design.md
-	// D7).
+	// NULL. Calling VerifySession(ctx, ref, id, nil, nil) clears both percentages AND
+	// battery_pct_source to NULL in the same statement: the table's own CHECK allows a
+	// null source only when both percentages are null, so this method must clear the
+	// source itself, in one statement, or leave the row violating that CHECK.
 	//
 	// Each non-nil percentage is validated to [0, 100] before the query runs; the
-	// database's own SMALLINT CHECK is the backstop, not the error message (design.md
-	// D3).
+	// database's own SMALLINT CHECK is the backstop, not the error message: this way
+	// a caller sees a clear Go error naming the field and value, not a raw Postgres
+	// CHECK-violation error.
 	//
-	// No ordering between startBatteryPct and endBatteryPct is enforced by this method —
-	// deliberately, matching the table's own deliberate absence of such a CHECK
-	// (design.md D8).
+	// No ordering between startBatteryPct and endBatteryPct is enforced by this
+	// method — deliberately, matching the table's own deliberate absence of such a
+	// CHECK. A human fixing a mistake corrects one field at a time across two calls,
+	// so an intermediate "inverted" pair is a normal step in that workflow, not
+	// invalid data. Tesla's own session data does not guarantee the end reading is
+	// higher than the start reading either.
 	//
-	// Derivation of a missing start percentage (MAG-36, charging-add-derived-
-	// start-battery-pct design.md D2/D3/D5/D7/D9): when the caller submits
+	// Derivation of a missing start percentage: when the caller submits
 	// startBatteryPct == nil and endBatteryPct != nil, and the session row's
 	// energy_kwh is non-NULL, and the algebraic result — start = end -
-	// energy_kwh/packCapacityKWh*100, rounded half away from zero (design.md D4) —
-	// lands in [0, 100], this method now stores the DERIVED value instead of NULL. A
-	// caller-supplied startBatteryPct is NEVER recomputed or overridden, under any
-	// condition — this is unconditional, not merely the common case (design.md D2).
-	// When energy_kwh is SQL NULL (design.md D5) or the derived result falls outside
-	// [0, 100] (design.md D3), start_battery_pct is left NULL, silently — no error,
-	// no clamp. Every other call shape (both percentages supplied, only start
-	// supplied, both nil, an out-of-range caller-supplied value) is unaffected. The
-	// battery_pct_source computation above is otherwise unaffected by this
-	// derivation: still batteryPctSourceUserVerified when either the (possibly
-	// derived) start or the end percentage is non-nil, still no new source value
-	// (design.md D1).
+	// energy_kwh/packCapacityKWh*100, rounded half away from zero (matching both Go's
+	// math.Round and PostgreSQL's own numeric rounding mode) — lands in [0, 100],
+	// this method now stores the DERIVED value instead of NULL. A caller-supplied
+	// startBatteryPct is NEVER recomputed or overridden, under any condition — this
+	// is unconditional, not merely the common case, so a person's own typed reading
+	// is never silently replaced by a computed guess. When energy_kwh is SQL NULL —
+	// a session can legitimately have no kWh fee recorded at all — or the derived
+	// result falls outside [0, 100] — the assumed pack capacity does not match every
+	// real vehicle, so the maths can legitimately miss the valid range —
+	// start_battery_pct is left NULL, silently — no error, no clamp. Every other call
+	// shape (both percentages supplied, only start supplied, both nil, an
+	// out-of-range caller-supplied value) is unaffected. The battery_pct_source
+	// computation above is otherwise unaffected by this derivation: still
+	// batteryPctSourceUserVerified when either the (possibly derived) start or the
+	// end percentage is non-nil — a derived value is stored under the same
+	// provenance as a typed one, not a new source value.
 	//
-	// id/accountID scope the update exactly like Writer.Update: WHERE id = @id AND
-	// account_id = @account_id. Zero rows matched — whether id does not exist at all or
-	// exists under a different account — surfaces as an error wrapping pgx.ErrNoRows,
-	// with no distinction made between the two cases, exactly mirroring Writer.Update's
-	// own not-found semantics (design.md D5).
-	VerifySession(ctx context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)
+	// id/ref scope the update: WHERE id = @id AND tesla_id = @tesla_id, using
+	// ref.TeslaID(). This is the ONLY tenant boundary left on the Supercharger write
+	// path. The caller no longer passes a bare id it merely believes is correct — it
+	// must hold a vehicleref.Ref, which only internal/vehicleref can construct, and only
+	// from a caller-owned vehicle list. A mismatched vehicle still matches zero rows
+	// exactly like an unknown id, and a caller still cannot tell "not yours" from "does
+	// not exist" — this change moves the ownership proof earlier, it does not change
+	// what a mismatch looks like. Zero rows matched surfaces as an error wrapping
+	// pgx.ErrNoRows, exactly mirroring Writer.Update's own not-found semantics.
+	VerifySession(ctx context.Context, ref vehicleref.Ref, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)
 }
 
 // NewSessionVerifier constructs a SessionVerifier backed by the given pgxpool. The
@@ -615,18 +615,18 @@ func NewSessionVerifier(pool *pgxpool.Pool) SessionVerifier {
 // keeps the vocabulary closed rather than splitting for its own sake
 // (CLAUDE.md's "do not over-abstract" AI-efficiency rule).
 type MirrorWatermarkStore interface {
-	// MirrorWatermark returns the stored cursor for accountID: the highest
-	// telemetry updated_at the mirror has already synchronized. No stored
-	// row means "epoch" -- the zero time.Time, not an error -- so the
-	// caller's first-ever read for this account is unbounded and backfills
-	// the account's whole history once. Mirrors
+	// MirrorWatermark returns the stored cursor for teslaID: the highest
+	// telemetry updated_at the mirror has already synchronized for that
+	// vehicle. No stored row means "epoch" -- the zero time.Time, not an
+	// error -- so the caller's first-ever read for this vehicle is
+	// unbounded and backfills the vehicle's whole history once. Mirrors
 	// analytics.recalculator.watermark's identical
 	// "pgx.ErrNoRows -> time.Time{}, nil" translation exactly (design.md
 	// D5, copying rather than re-deriving analytics.Recalculator.Reconcile's
 	// own rule).
-	MirrorWatermark(ctx context.Context, accountID uuid.UUID) (time.Time, error)
+	MirrorWatermark(ctx context.Context, teslaID int64) (time.Time, error)
 
-	// AdvanceMirrorWatermark upserts accountID's cursor to observed, the
+	// AdvanceMirrorWatermark upserts teslaID's cursor to observed, the
 	// highest updated_at the caller actually saw on this run. This method
 	// MUST be called only when the caller's bounded telemetry read
 	// returned at least one row (roadmap D5) -- it performs no such check
@@ -635,9 +635,8 @@ type MirrorWatermarkStore interface {
 	// responsibility (Reconcile decides whether to call it; the method
 	// itself just upserts). Calling this with observed == time.Time{} (the
 	// zero value) on a call the caller should not have made is a caller
-	// bug, not a case this method guards against, by design -- see
-	// design.md "Cross-Module Wiring" for why the guard lives one layer up.
-	AdvanceMirrorWatermark(ctx context.Context, accountID uuid.UUID, observed time.Time) error
+	// bug, not a case this method guards against, by design.
+	AdvanceMirrorWatermark(ctx context.Context, teslaID int64, observed time.Time) error
 }
 
 // NewMirrorWatermarkStore constructs a MirrorWatermarkStore backed by the given

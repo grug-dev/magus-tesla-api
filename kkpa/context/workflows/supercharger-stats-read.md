@@ -42,7 +42,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 | File | Role |
 |---|---|
-| `internal/charging/charging.go` | `SessionReader` interface: `ListSessionsByVehicleBetween` (bounded window, `to` INCLUSIVE of its whole day — translated to a `to+1day` half-open bound in Go, never in SQL; no limit param — the window bounds the read); `NewSessionReader(pool)`. Also `SessionVerifier` interface: `VerifySession(ctx, accountID, id, startBatteryPct, endBatteryPct *int) (Session, error)` (shipped tier 1, `RM31-charging-add-session-verification-port`; wired into the gateway by `RM31-gateway-add-session-battery-edit`) — SET clause reaches EXACTLY `start_battery_pct`, `end_battery_pct`, `battery_pct_source` and `status` (both computed, never caller-supplied) plus `updated_at` — `status` added by RM41 tier 4 (MAG-45), auto-set from the two percentages' presence and whether this write derived the start; `WHERE id = @id AND account_id = @account_id` only (no `TeslaID` predicate); `NewSessionVerifier(pool)`. |
+| `internal/charging/charging.go` | `SessionReader` interface: `ListSessionsByVehicleBetween` (bounded window, `to` INCLUSIVE of its whole day — translated to a `to+1day` half-open bound in Go, never in SQL; no limit param — the window bounds the read); `NewSessionReader(pool)`. Also `SessionVerifier` interface: `VerifySession(ctx, ref vehicleref.Ref, id, startBatteryPct, endBatteryPct *int) (Session, error)` (shipped tier 1, `RM31-charging-add-session-verification-port`; wired into the gateway by `RM31-gateway-add-session-battery-edit`) — SET clause reaches EXACTLY `start_battery_pct`, `end_battery_pct`, `battery_pct_source` and `status` (both computed, never caller-supplied) plus `updated_at` — `status` added by RM41 tier 4 (MAG-45), auto-set from the two percentages' presence and whether this write derived the start; `WHERE id = @id AND tesla_id = @tesla_id` — the caller names the vehicle it believes the session belongs to; `NewSessionVerifier(pool)`. |
 | `internal/charging/session_reader.go` | `sessionReader` impl; pgtype→domain mapping stays inside the module. |
 | `internal/charging/session_verifier.go` | `sessionVerifier` impl backing `VerifySession` — the query the gateway's write path calls. |
 | `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql` | `charging.supercharger_sessions` DDL (renamed from `charge_sessions`, RM39 tier 3) — the table the page reads (mirrored Supercharger sessions, incl. `battery_pct_source` 'user_verified'/'polled' trust labels). |
@@ -64,7 +64,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 ## How maintenance works
 
-- **Read (page load / fragment swap):** `GET /supercharger-stats` or `GET /ui/supercharger-stats?start=YYYY-MM-DD&end=YYYY-MM-DD` → auth guard (`currentUID`) → `superchargerStatsViewFor` (shared by both entry points; returns `(view, httpStatus)`): `parseSuperchargerRange` → on `ok=false` return the empty view with `Presets: nil` at HTTP 400 → `resolveSelectedVehicle` (account read; no vehicle → empty state, not an error) → `buildSuperchargerStatsView`: ONE `ListSessionsByVehicleBetween(ctx, uid, teslaID, start, end)` call → reverse the oldest-first slice once for newest-first display → tiles + chart + rows VM. The page renders via `render` / `renderError`; the fragment via `renderFragment` / `renderFragmentError` (`"supercharger-stats"`).
+- **Read (page load / fragment swap):** `GET /supercharger-stats` or `GET /ui/supercharger-stats?start=YYYY-MM-DD&end=YYYY-MM-DD` → auth guard (`currentUID`) → `superchargerStatsViewFor` (shared by both entry points; returns `(view, httpStatus)`): `parseSuperchargerRange` → on `ok=false` return the empty view with `Presets: nil` at HTTP 400 → `resolveSelectedVehicle` (account read; no vehicle → empty state, not an error) → `buildSuperchargerStatsView`: ONE `ListSessionsByVehicleBetween(ctx, teslaID, start, end)` call → reverse the oldest-first slice once for newest-first display → tiles + chart + rows VM. The page renders via `render` / `renderError`; the fragment via `renderFragment` / `renderFragmentError` (`"supercharger-stats"`).
 - **Change the window contract (default, cap, presets):** `superchargerRangeDefaultMonths` (6), `superchargerRangeMaxDays` (400) and `superchargerMonthPresets` (`{3, 6, 12}`) are constants in `internal/gateway/handlers/supercharger.go`; `monthsBackFrom` computes month-aligned starts and `buildSuperchargerPresets` builds the selector's absolute `?start=&end=` hrefs. The template iterates `[]RangePreset`, so only the constants + tests change.
 - **Add a KPI tile / table column:** `internal/gateway/handlers/supercharger.go` (`buildSuperchargerTiles` / `buildSuperchargerRows` — all formatting here) → `internal/gateway/templates/fragments/supercharger_stats.templ` (present the pre-formatted string) → i18n keys in `internal/gateway/i18n/catalog.go` (ES + EN) → `make templ && make css`. A column only exists if `charging.Session` carries the field — RM30 dropped the Country and Billing-type columns precisely because it does not.
 - **Widen the readable window:** raise `superchargerRangeMaxDays` in the gateway — the port is already time-bounded, so no `charging` change is needed. Size the cap from the source table's row density, per `internal/gateway/AGENTS.md` §"HTTP date-filter convention".
@@ -77,10 +77,9 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   All three resolve their target row via `fetchSuperchargerRowVM`: `resolveSelectedVehicle` → `parseSuperchargerRange(c, today)` on the REQUEST's own `?start=&end=` (not a fresh default) → `ListSessionsByVehicleBetween` → linear match on `id`. There is still NO `charging.SessionReader` by-id method — this mirrors `external_charges.go`'s `fetchEntryVM` shape exactly (design.md D1). Every row's Edit/Cancel/Save URL carries the SAME `?start=&end=` the table was rendered under (`SuperchargerStatsView.WindowStartStr`/`WindowEndStr`, design.md D2) so this resolve stays deterministic; an `id` outside that window is indistinguishable from a nonexistent one and returns `404`.
   - **Strict body semantics (design.md D3):** `SuperchargerRowUpdate` reads `start_battery_pct`/`end_battery_pct` via `c.GetPostForm` (not `c.PostForm`) specifically to distinguish "absent" from "present but empty." EITHER key absent → `HTTP 400` (`KeySuperchargerErrorMalformedBody`), `VerifySession` never called. A present key with an EMPTY value is an explicit clear (passed as `nil` to `VerifySession`) — NOT an error and NOT "leave unchanged." A present, non-empty value is range/type-validated to `[0,100]` integer BEFORE calling `VerifySession`; a violation is `HTTP 422` with a field-level error (`start_battery_pct`/`end_battery_pct`), the submitted raw value echoed back, and the port never called. Clearing BOTH percentages in one call also clears `battery_pct_source` to NULL — this is `VerifySession`'s own behavior, not a separate gateway write. NO ordering validation (`end < start` is accepted).
   - **CSRF:** a NEW session key, `csrfSuperchargerKey = "csrf_supercharger"` — distinct from `external_charges.go`'s `csrfExternalChargeKey`. Issued ONLY by `SuperchargerStatsPage`/`SuperchargerStatsFragment`; the three row-level handlers only READ it, never re-issue it (issuing a fresh token per row would invalidate any other row's already-rendered edit form in the same session).
-  - **Tenant boundary:** unlike `external_charges.go`'s write path, there is NO separate `RegisteredVehicles` ownership check here — `VerifySession`'s own `WHERE id = @id AND account_id = @account_id` is the sole boundary (design.md D8/D9, documented as a THIRD read-only-boundary amendment in `internal/gateway/AGENTS.md`, alongside D4 and the D-lang amendment).
-- **The recalculation hop — `recalculateAfterSessionVerify`:** on a successful `VerifySession` call whose returned `Session.TeslaID` is non-nil, `SuperchargerRowUpdate` calls `h.recalculateAfterSessionVerify(ctx, uid, teslaID, updated.ChargeStopDateTime)`, which calls `analytics.Recalculator.Recalculate` over a **`±1 day`** window: `[day-1, day+1]` where `day = startOfDay(ChargeStopDateTime.UTC())`. This is a SEPARATE function from `external_charges.go`'s `recalculateAfterExternalChargeWrite` (single-day window) — it is NOT reused and NOT widened for this tier; the two write paths keep independent recalculation logic (design.md D4).
+  - **Tenant boundary:** `SuperchargerRowUpdate` now DOES carry a separate ownership check, like `external_charges.go`'s write path — after body validation it reads the session-selected vehicle (`currentVehicle`, not `resolveSelectedVehicle`'s auto-select) and proves it with `h.authorizeVehicle`, reusing the same `RegisteredVehicles` call `resolveSelectedVehicle` makes elsewhere on this page (one query, not two). `VerifySession`'s own `WHERE id = @id AND tesla_id = @tesla_id` still does the actual row match — a mismatch still surfaces as an unknown id, not a 403 — but the `tesla_id` it is given can no longer be an unproven value.
+- **The recalculation hop — `recalculateAfterSessionVerify`:** on every successful `VerifySession` call, `SuperchargerRowUpdate` calls `h.recalculateAfterSessionVerify(ctx, uid, teslaID, updated.ChargeStopDateTime)`, which calls `analytics.Recalculator.Recalculate` over a **`±1 day`** window: `[day-1, day+1]` where `day = startOfDay(ChargeStopDateTime.UTC())`. This is a SEPARATE function from `external_charges.go`'s `recalculateAfterExternalChargeWrite` (single-day window) — it is NOT reused and NOT widened for this tier; the two write paths keep independent recalculation logic (design.md D4).
   - **Why `±1 day` and not a single day:** `analytics.sumSuperchargerPctBetween` buckets a session into the `vehicle_metrics` row whose `effectiveDay = CapturedDate - 1 day` (the nightly poller "describes the prior day"), so a session stopping between local midnight and ~03:30 poller-local can belong to the metric row for the day BEFORE its own `ChargeStopDateTime`'s calendar day. A naive single-day `Recalculate(day, day)` would miss that row entirely. The window is derived from `ChargeStopDateTime` (not `ChargeStartDateTime` — the aggregation itself filters on stop time) in plain UTC, not the browser-local `browser_tz` cookie (this page already commits to plain UTC for its own date math, and the gateway has no access to the poller's configured zone anyway). `±1 day` in UTC is proven (design.md D5) to always contain the true metric day even though the poller's own `effectiveDay` computation runs in ITS OWN local zone, not UTC — the two possible ±1 shifts (poller-local-vs-UTC zone offset, and the poller's own prior-day attribution) cannot stack to ±2 on the same instant. `Recalculate` is idempotent, so the two extra recomputed days cost nothing beyond one harmless extra UPSERT/DELETE pass.
-  - A **nil `TeslaID`** (the session's VIN no longer matches a registered vehicle) skips this call entirely and logs it — the write itself still succeeds and the row still swaps to its corrected static display (design.md D6).
   - A `Recalculate` error is logged only, never surfaced to the user — the save has already committed.
 
 - **Change the chart's month labels or kWh axis:** everything lives in `buildSuperchargerChart` in `internal/gateway/handlers/supercharger.go`, which populates `HistoryBar.Label` (`YYYY-MM`) and calls the shared `buildYAxisTicks` with a kWh formatter. There is no Supercharger-specific tick algorithm and no chart library — the shared `HistoryChart` / `HistoryBar` / `historyBarChart` contract renders both. A zero tallest bucket keeps the bars and the vertical-label selection but yields **no** ticks; do not special-case it in the template.
@@ -97,7 +96,6 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **400 rules (closed set):** missing partner, malformed non-ISO date, `end` before `start`, `end` after today, or a window wider than **400 days**. On a 400 the region renders its empty state with **no window selector**, and **no read is performed**. _Source: spec gateway — Requirement: Supercharger Stats month-window selector._
 - **`end` = today is ACCEPTED here — unlike the dashboard history endpoint, which rejects it.** Charge sessions are readable the day they end; history has a nightly capture lag. This endpoint also frames "today" as plain UTC (`startOfDay(time.Now().UTC())`) and does not use the `browser_tz` cookie. Do not copy history's boundary by reflex. _Source: spec gateway — Requirement: Supercharger Stats month-window selector._
 - **The 400-day cap is this endpoint's own, not a platform constant.** Caps are per-endpoint, sized by the source table's row density: `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) is sparse (400 days), `vehicle_snapshots` is dense (90 days). A new date-filtered endpoint measures its own density rather than copying either number. _Source: spec gateway — Requirement: Supercharger Stats month-window selector._
-- **Sessions with a `NULL` `TeslaID` are invisible here, by construction and by design** — the single read is scoped by `TeslaID`, so they can never match. Never add a second account-wide read to discover or disclose them, and show no "N sessions hidden" notice. _Source: spec gateway — Requirement: Unattributed Supercharger sessions are out of scope._
 - **Multi-currency costs are NEVER summed across currencies** — one pre-formatted cost line per currency; sessions missing cost or currency still count toward Sessions/Energy but are excluded from cost. _Source: spec gateway — Requirement: Supercharger Stats cost aggregation never sums across currencies._
 - **Reader errors degrade to the empty state, never a 500.** _Source: spec gateway — Requirement: Supercharger Stats page._
 - **The window drives tiles, chart and table identically** — all three reflect the same filtered slice; changing a preset re-fetches the whole region without a full page reload. _Source: spec gateway — Requirement: Supercharger Stats month-window selector._
@@ -243,15 +241,49 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   That repeats work; it never loses a row. Prefer that trade every time.
   _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
 
-- **An account with no watermark backfills its whole history once**, then advances normally.
+- **A vehicle with no watermark backfills its whole history once**, then advances normally.
   So the bounded read costs nothing on first deploy and needs no migration or manual seeding.
+  The cursor is per vehicle, so a car with two registered drivers still backfills once, not twice.
   _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
 
-- **A session whose vehicle is not currently registered is still recovered under the bounded
-  read.** This works only because the mirror uses telemetry's ACCOUNT-wide updated-since port,
-  which applies no vehicle filter. Switching it to the per-vehicle port would drop those rows
-  and break orphan recovery without any visible error.
-  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+- **A session whose vehicle is not registered is NEVER stored — it is skipped and counted.**
+  `tesla_id` is `NOT NULL`, so there is no row to write. The nightly cycle reports the skip in
+  its `CycleReport` rather than swallowing it. The older advice here said the opposite: it told
+  you to keep an account-wide updated-since port so such sessions could be recovered. That port
+  no longer exists, and recovery through it is not a behaviour to restore.
+  _Source: spec charging — Requirement: Supercharger Session Vehicle Keying._
+
+- **A session is keyed on the vehicle, never on an account.** `charging.supercharger_sessions`
+  carries `tesla_id NOT NULL` and no `account_id` column. Which cars a user may see is recorded
+  once, by the account module's vehicle registry. Do not add an account column back to scope a
+  read — scope it by `tesla_id`.
+  _Source: spec charging — Requirement: Supercharger Session Vehicle Keying._
+
+- **One `session_id` is one stored row, store-wide.** Uniqueness is `UNIQUE (session_id)`, not a
+  pair. A Supercharger session happened to exactly one car, so two rows for one `session_id`
+  would be two records of one event. Re-mirroring the same `session_id` under a different
+  vehicle updates the row to the newest vehicle; it never inserts a second one.
+  _Source: spec charging — Requirement: Supercharger Session Vehicle Keying._
+
+- **When the re-key had to collapse a duplicated pair, the copy with human-entered percentages
+  wins.** Every other column is re-derived from the mirrored source on the next sync, so the
+  hand-entered battery percentages are the only value a delete could destroy.
+  _Source: spec charging — Requirement: Supercharger Session Vehicle Keying._
+
+- **Every public Supercharger port takes `teslaID int64` and no account id.** This covers the
+  mirror write, the three session reads, and the verification write. A port that still asks for
+  an account id is stale code, not a second scoping style.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping._
+
+- **`VerifySession` keeps a scope — it did not lose one.** It matches on BOTH `id` AND
+  `tesla_id`. Naming a vehicle the session does not belong to changes nothing and returns the
+  same error an unknown id returns, so "not yours" and "does not exist" stay indistinguishable
+  from outside. Never replace that predicate with an id-only match.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping._
+
+- **The mirror write validates no owning account, and an empty set stays a successful no-op.**
+  No session carries an account, so there is nothing to check across the batch.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping._
 
 ## Related KB
 

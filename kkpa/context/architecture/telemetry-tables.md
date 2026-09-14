@@ -83,9 +83,13 @@ imports**):
   every catalog object that named the old table (7 constraints + 2 standalone indexes,
   all `supercharger_sessions_*` / `idx_supercharger_sessions_*`) was renamed alongside
   it, and the hand-written Go domain type followed: `SuperchargerSession` →
-  `SuperchargerHistory` (`telemetry.go`). One row per Tesla `session_id` (UPSERT, not
-  append-only: billing state — `is_paid`, invoice status — mutates post-session,
-  migration `20260716000001`). Extended by `RM27-telemetry-add-supercharger-battery-pct`
+  `SuperchargerHistory` (`telemetry.go`). **Keyed on `tesla_id NOT NULL`; has no
+  `account_id`** — `RM57-telemetry-rekey-supercharger-history-on-tesla-id` (tier 1,
+  migration `20260912000001`) dropped the column and deletes a session whose VIN is
+  not a registered vehicle instead of storing it with a hole. One row per Tesla
+  `session_id` (UPSERT, not append-only: billing state — `is_paid`, invoice status —
+  mutates post-session, migration `20260716000001`). Extended by
+  `RM27-telemetry-add-supercharger-battery-pct`
   (MAG-14, migration `20260815000001`) with three nullable columns (originally five;
   `RM41-telemetry-drop-estimate-columns`, 2026-09-03, dropped the frozen
   verification-snapshot pair), all excluded
@@ -123,9 +127,11 @@ imports**):
   years). Schema/rationale: `openspec/changes/RM36-telemetry-add-poll-runs/design.md`
   (MAG-35) — moves under `openspec/changes/archive/` once this change is archived.
 
-`account_id`/`tesla_id` are plain columns (no cross-module FK, D2 of the change design). `pgtype`
-never leaves the module — convert to/from plain domain types at the DB→domain mapping boundary
-(`ai/go-conventions.md` §persistence), mirroring the account module.
+`tesla_id` is a plain column on every table (no cross-module FK, D2 of the change design).
+`supercharger_history` has no `account_id` column at all; `vehicle_snapshots` still has one,
+nullable and unused (MAG-76 follow-up, see above); `poll_attempts` keeps `polled_by_account_id`,
+which it does read. `pgtype` never leaves the module — convert to/from plain domain types at the
+DB→domain mapping boundary (`ai/go-conventions.md` §persistence), mirroring the account module.
 
 ## Units — how the current rule came about
 

@@ -51,9 +51,8 @@ type PollRun struct {
 type SuperchargerHistory struct {
 	ID                  uuid.UUID
 	SessionID           int64
-	AccountID           uuid.UUID
 	Vin                 string
-	TeslaID             pgtype.Int8
+	TeslaID             int64
 	SiteLocationName    string
 	CountryCode         string
 	ChargeStartDateTime pgtype.Timestamptz

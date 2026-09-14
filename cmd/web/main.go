@@ -57,8 +57,9 @@ func main() {
 		Tesla:              tesla.NewClient(),
 		SuperchargerReader: charging.NewSessionReader(pool),
 		// Write port for the Supercharger row-edit save (PATCH
-		// /ui/supercharger-stats/row/:id). Its VerifySession is account-scoped,
-		// which is the tenant boundary for that route.
+		// /ui/supercharger-stats/row/:id). Its VerifySession is scoped by
+		// vehicle; the handler resolves that vehicle from the signed-in
+		// account, and that resolve is the tenant boundary for the route.
 		SuperchargerVerifier: charging.NewSessionVerifier(pool),
 		ChargingWriter:       charging.NewWriter(pool),
 		ChargingReader:       charging.NewReader(pool),

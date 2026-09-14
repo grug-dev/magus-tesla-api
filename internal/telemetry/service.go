@@ -315,19 +315,20 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla
 	// Source B: fetch Supercharger session history for this account (design DBS7).
 	// Zero params = full fetch, no vehicle wake. This call is per-account (not per
 	// vehicle): one HTTP call returns all sessions for all vehicles in the account.
-	s.collectChargingHistory(ctx, tsla, accountID, owned, creds, report)
+	s.collectChargingHistory(ctx, tsla, owned, creds, report)
 }
 
 // collectChargingHistory fetches the account's Supercharger session history and
-// upserts each session. It is called after the per-vehicle snapshot loop so a
-// ChargingHistory failure cannot abort or affect snapshot collection. On failure
-// it only increments ChargingFetchFailures (design DBS7). Per-session isolation:
-// a single upsert failure is logged but does not abort the remaining sessions.
-// No poll_attempts rows are written — outcomes live in CycleReport (design DBS7).
+// upserts each session whose VIN is a currently registered vehicle. It is called
+// after the per-vehicle snapshot loop so a ChargingHistory failure cannot abort or
+// affect snapshot collection. On failure it only increments ChargingFetchFailures
+// (design DBS7). Per-session isolation: a single upsert failure is logged but does
+// not abort the remaining sessions. No poll_attempts rows are written — outcomes
+// live in CycleReport (design DBS7).
 //
 // tsla is the tesla.VehicleService to use — passed down from CollectAll's
 // callCounter (design D10) so this call is counted too.
-func (s *service) collectChargingHistory(ctx context.Context, tsla tesla.VehicleService, accountID uuid.UUID, owned []account.OwnedVehicle, creds tesla.Credentials, report *CycleReport) {
+func (s *service) collectChargingHistory(ctx context.Context, tsla tesla.VehicleService, owned []account.OwnedVehicle, creds tesla.Credentials, report *CycleReport) {
 	history, err := tsla.ChargingHistory(ctx, creds, tesla.ChargingHistoryParams{})
 	if err != nil {
 		// Charging-history fetch failure is isolated: never aborts the cycle and
@@ -337,26 +338,26 @@ func (s *service) collectChargingHistory(ctx context.Context, tsla tesla.Vehicle
 	}
 
 	// Build VIN → TeslaID map from the account's registered vehicles so we can
-	// resolve tesla_id for each session. Sessions for VINs not in this map get
-	// tesla_id = NULL (sold / deregistered vehicle — row is kept, VIN is preserved).
+	// resolve tesla_id for each session.
 	vinToTeslaID := make(map[string]int64, len(owned))
 	for _, v := range owned {
 		vinToTeslaID[v.VIN] = v.TeslaID
 	}
 
 	for _, session := range history.Data {
-		// Resolve tesla_id: nil when the session's VIN is no longer a registered vehicle.
-		var teslaID *int64
-		if id, ok := vinToTeslaID[session.VIN]; ok {
-			idCopy := id
-			teslaID = &idCopy
+		// Tesla returns sessions for cars that are no longer registered here.
+		// The table has no column that could hold one, so it is dropped, not
+		// stored with a hole. The count makes that visible in the nightly line.
+		teslaID, registered := vinToTeslaID[session.VIN]
+		if !registered {
+			report.ChargingSessionsSkippedUnregistered++
+			continue
 		}
 
 		// Derive the four computed fields from fees[] in Go (not in SQL) so they
 		// are testable offline without a DB (design DBS2).
 		domainSession := SuperchargerHistory{
 			SessionID:           session.SessionID,
-			AccountID:           accountID,
 			VIN:                 session.VIN,
 			TeslaID:             teslaID,
 			SiteLocationName:    session.SiteLocationName,
@@ -741,19 +742,12 @@ func stringPtrToPgText(v *string) pgtype.Text {
 	return pgtype.Text{String: *v, Valid: true}
 }
 
-// teslaIDToPgInt8 wraps a non-nullable int64 tesla id as a valid pgtype.Int8 query
-// parameter. It lives here so pgtype stays confined to the module's DB-boundary files
-// (service.go/mapping.go) and never appears in reader.go (ai/go-conventions.md §persistence).
-func teslaIDToPgInt8(v int64) pgtype.Int8 {
-	return pgtype.Int8{Int64: v, Valid: true}
-}
-
 // runIDToPgUUID wraps a non-nullable uuid.UUID as a valid pgtype.UUID query
 // parameter. The run_id COLUMN is nullable (legacy pre-migration rows only,
 // design D7), but every Attempt written by this module carries a real RunID
-// (design D5), so there is no NULL-writing branch here — mirroring
-// teslaIDToPgInt8's always-valid wrap above. uuid.UUID and pgtype.UUID.Bytes are
-// both [16]byte under the hood, so the conversion is a plain reinterpretation.
+// (design D5), so there is no NULL-writing branch here — always a valid wrap.
+// uuid.UUID and pgtype.UUID.Bytes are both [16]byte under the hood, so the
+// conversion is a plain reinterpretation.
 func runIDToPgUUID(v uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: [16]byte(v), Valid: true}
 }
@@ -924,12 +918,6 @@ func boolPtrToPgBool(b *bool) pgtype.Bool {
 // never reads were dropped from SuperchargerHistory entirely by
 // RM41-telemetry-drop-estimate-columns — there is no longer a field to not read.)
 func (d *dbStore) upsertSuperchargerHistory(ctx context.Context, s SuperchargerHistory) error {
-	// nullable tesla_id: nil → invalid (NULL), non-nil → valid BIGINT.
-	var teslaID pgtype.Int8
-	if s.TeslaID != nil {
-		teslaID = pgtype.Int8{Int64: *s.TeslaID, Valid: true}
-	}
-
 	// nullable unlatch_date_time: zero time (empty parse) → invalid (NULL).
 	var unlatchDT pgtype.Timestamptz
 	if s.UnlatchDateTime != nil {
@@ -956,9 +944,8 @@ func (d *dbStore) upsertSuperchargerHistory(ctx context.Context, s SuperchargerH
 
 	return d.q.UpsertSuperchargerHistory(ctx, telemetrydb.UpsertSuperchargerHistoryParams{
 		SessionID:           s.SessionID,
-		AccountID:           s.AccountID,
 		Vin:                 s.VIN,
-		TeslaID:             teslaID,
+		TeslaID:             s.TeslaID,
 		SiteLocationName:    s.SiteLocationName,
 		CountryCode:         s.CountryCode,
 		ChargeStartDateTime: timestamptzFrom(s.ChargeStartDateTime),

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -37,22 +36,12 @@ var _ SessionWriter = (*sessionWriter)(nil)
 
 // MirrorSessions implements SessionWriter. See the interface doc comment
 // (charging.go) for the full contract. Implementation shape (design.md D6/D7,
-// task 2.2), validate-then-transact in this order:
+// task 2.2):
 //
-//  1. Validate every entry's AccountID against accountID BEFORE tx.Begin — a
-//     single mis-scoped entry rejects the WHOLE call with no partial write,
-//     never a tx.Begin followed by a rollback (Test Contract B6, mirroring
-//     GapWriter.ReconcileWindow's all-or-nothing contract).
-//  2. Return nil immediately for an empty/nil slice, before opening a
+//  1. Return nil immediately for an empty/nil slice, before opening a
 //     transaction (Test Contract B7).
-//  3. One transaction, one MirrorSuperchargerSession call per entry, commit-or-rollback.
-func (w *sessionWriter) MirrorSessions(ctx context.Context, accountID uuid.UUID, sessions []SessionMirror) error {
-	for _, s := range sessions {
-		if s.AccountID != accountID {
-			return fmt.Errorf("charging: session %d has account %s, does not match call scope (account %s)", s.SessionID, s.AccountID, accountID)
-		}
-	}
-
+//  2. One transaction, one MirrorSuperchargerSession call per entry, commit-or-rollback.
+func (w *sessionWriter) MirrorSessions(ctx context.Context, sessions []SessionMirror) error {
 	if len(sessions) == 0 {
 		return nil
 	}
@@ -70,9 +59,8 @@ func (w *sessionWriter) MirrorSessions(ctx context.Context, accountID uuid.UUID,
 
 	for _, s := range sessions {
 		if err := qtx.MirrorSuperchargerSession(ctx, chargingdb.MirrorSuperchargerSessionParams{
-			AccountID:           s.AccountID,
 			Vin:                 s.VIN,
-			TeslaID:             int64PtrToPgInt8(s.TeslaID),
+			TeslaID:             s.TeslaID,
 			SessionID:           s.SessionID,
 			ChargeStartDateTime: pgtype.Timestamptz{Time: s.ChargeStartDateTime, Valid: true},
 			ChargeStopDateTime:  pgtype.Timestamptz{Time: s.ChargeStopDateTime, Valid: true},
@@ -90,28 +78,6 @@ func (w *sessionWriter) MirrorSessions(ctx context.Context, accountID uuid.UUID,
 		return fmt.Errorf("charging: committing tx: %w", err)
 	}
 	return nil
-}
-
-// int64PtrToPgInt8 maps a *int64 to a nullable pgtype.Int8 (BIGINT). Follows the
-// existing intPtrToPgInt2 naming/shape (service.go). Reverse pair: pgInt8ToInt64Ptr,
-// below (added by RM30-charging-add-session-read-port, this module's first reader for
-// charge_sessions).
-func int64PtrToPgInt8(v *int64) pgtype.Int8 {
-	if v == nil {
-		return pgtype.Int8{Valid: false}
-	}
-	return pgtype.Int8{Int64: *v, Valid: true}
-}
-
-// pgInt8ToInt64Ptr converts a nullable pgtype.Int8 to *int64. Reverse of
-// int64PtrToPgInt8 — added by RM30-charging-add-session-read-port, this module's first
-// reader for charge_sessions.
-func pgInt8ToInt64Ptr(v pgtype.Int8) *int64 {
-	if !v.Valid {
-		return nil
-	}
-	n := v.Int64
-	return &n
 }
 
 // float64PtrToPgFloat8 maps a *float64 to a nullable pgtype.Float8 (DOUBLE

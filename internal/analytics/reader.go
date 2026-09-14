@@ -138,7 +138,7 @@ func (r *reader) RecentEfficiency(ctx context.Context, accountID uuid.UUID, tesl
 		return Efficiency{}, false, err
 	}
 
-	sessions, err := r.supercharger.ListSessionsByVehicle(ctx, accountID, teslaID, chargingSourceLimit)
+	sessions, err := r.supercharger.ListSessionsByVehicle(ctx, teslaID, chargingSourceLimit)
 	if err != nil {
 		return Efficiency{}, false, err
 	}

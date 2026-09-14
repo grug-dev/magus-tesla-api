@@ -34,7 +34,7 @@
 
 | File | Role |
 |---|---|
-| `internal/charging/session_writer.go` | `SessionWriter.MirrorSessions` — upsert-only, one transaction per account, rejects a mis-scoped `AccountID`. |
+| `internal/charging/session_writer.go` | `SessionWriter.MirrorSessions` — upsert-only, keyed on `tesla_id`; the port takes no account parameter. `internal/app` calls it once per vehicle. |
 | `internal/charging/charging.go` | `SessionMirror` — the mirror's payload type. It has **no battery-percentage field**; that is the structural protection, not a convention. |
 
 ### Step 3 — recalculate analytics (`internal/analytics`)
@@ -68,8 +68,8 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 | Caller | Port | Callee | Methods used |
 |---|---|---|---|
 | `app` | `telemetry.Collector` | `telemetry` | `CollectAll` |
-| `app` | `telemetry.SuperchargerHistoryReader` | `telemetry` | `SuperchargerHistoryByAccount` — **the port's only remaining caller repo-wide** |
-| `app` | `charging.SessionWriter` | `charging` | `MirrorSessions` |
+| `app` | `telemetry.SuperchargerHistoryReader` | `telemetry` | `SuperchargerHistoryByVehicleUpdatedSince` (once per vehicle of the account, fanned out — RM57 D7, the table dropped `account_id`) — **the port's only remaining caller repo-wide** |
+| `app` | `charging.SessionWriter` | `charging` | `MirrorSessions` (once per vehicle now — the port dropped its account parameter) |
 | `app` | `analytics.Recalculator` | `analytics` | `Reconcile` |
 | `app` | `analytics.Reader` | `analytics` | `ConsumedByDay` |
 | `app` | `analytics.GapWriter` | `analytics` | `ReconcileWindow` |
@@ -90,8 +90,8 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 | `accounts` | account | — | untouched — OAuth and language are user paths |
 | `vehicle_snapshots` | telemetry | 1 write · 3 read | C+U (`InsertVehicleSnapshot`, on-conflict per `(account_id, tesla_id, captured_date)`), R by analytics |
 | `poll_attempts` | telemetry | 1 | C only, one row per vehicle per cycle, stamped `run_id`/`triggered_by` |
-| `supercharger_history` (schema `telemetry`; renamed from `supercharger_sessions` + moved out of `public`, RM39 tier 4) | telemetry | 1 write · 2 read | C+U (`UpsertSuperchargerHistory`), R by step 2's mirror (`SuperchargerHistoryByAccount` — the port was renamed to match the table by RM39 tier 5). **No longer read in step 3.** |
-| `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) | charging | 2 write · 3 read | C+U (`MirrorSuperchargerSession`), R by analytics (`ListSessionsByVehicle{Between,UpdatedSince}`) |
+| `supercharger_history` (schema `telemetry`; renamed from `supercharger_sessions` + moved out of `public`, RM39 tier 4; keyed on `tesla_id NOT NULL`, no `account_id`, RM57 tier 1) | telemetry | 1 write · 2 read | C+U (`UpsertSuperchargerHistory`), R by step 2's mirror, per vehicle (`SuperchargerHistoryByVehicleUpdatedSince`). **No longer read in step 3.** |
+| `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3; keyed on `tesla_id NOT NULL`, no `account_id`) | charging | 2 write · 3 read | C+U (`MirrorSuperchargerSession`), R by analytics (`ListSessionsByVehicle{Between,UpdatedSince}`) |
 | `manual_charge_entries` | charging | 3 read | R only — the nightly job never writes manual entries |
 | `vehicle_metrics` | analytics | 3 | C+R+U+D — the only table the cycle touches with all four, in one transaction |
 | `vehicle_metric_watermarks` | analytics | 3 | C+R+U — one cursor per source |
@@ -121,7 +121,7 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 - **The watermark source label is `supercharger_sessions` (again), not `charge_sessions`.** Migration `20260828000001` (RM31 tier 3) first flipped it from `supercharger_sessions` to `charge_sessions`, DELETEing the old cursor rows rather than renaming them; migration `20260902000004` (`RM39-analytics-fix-watermark-vocabulary`, roadmap tier 3b) later reversed that — DELETEing the `charge_sessions` rows and reusing `supercharger_sessions`, which now names `charging`'s table instead of `telemetry`'s (see that change's `design.md` §6). Either way, every affected vehicle backfills its whole Supercharger history on the first run after deploy — deliberate, since the two tables' `updated_at` columns never carried the same meaning. _Source: `internal/analytics/db/migrations/20260828000001_migrate_vehicle_metric_watermarks_source.sql`, `20260902000004_migrate_vehicle_metric_watermarks_source_supercharger.sql`._
 - **The nightly mirror can never overwrite a human's verified battery percentage — structurally.** `charging.SessionMirror` has no percentage field, so a nightly pass that clobbered one would not compile, and `MirrorSuperchargerSession` never names the three battery-percentage columns (`RM41-charging-drop-estimate-columns` dropped the est-column pair, 2026-09-03). Only `charging.SessionVerifier.VerifySession` (a gateway user path, RM31) writes them. _Source: `internal/charging/charging.go`; `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql`._
 - **The mirror's upsert has no WHERE predicate, on purpose.** `updated_at` must keep advancing on every nightly pass so downstream watermarks see the row. _Source: `internal/charging/db/query.sql` `MirrorSuperchargerSession`._
-- **Step 2 enumerates per ACCOUNT, step 3 per VEHICLE.** The session read is account-wide, so looping per vehicle would re-mirror the same rows once per vehicle; the derivation is per vehicle. _Source: `internal/app/processor.go` `processChargingData` doc._
+- **Both step 2 and step 3 enumerate per VEHICLE now.** Step 2's mirror and its watermark cursor are keyed on `tesla_id`, one pass per vehicle; a car registered to two accounts is mirrored once, not twice. _Source: `internal/app/processor.go` `processChargingData` doc._
 - **A failing `Reconcile` skips that vehicle's gap step too.** Reconciling gaps against metrics you just failed to refresh would delete gap rows on stale evidence. Keep the `continue`. _Source: `internal/app/processor.go` `recalculateAnalytics`._
 - **The gap window's "yesterday" resolves in the POLLER'S zone, not UTC.** `time.Now().UTC()` here asks for the wrong day for 5 hours out of every 24. `internal/analytics` stays zone-free; the zone lives in this composition. _Source: `internal/app/processor.go` `recalculateAnalytics`; roadmap D6/D18._
 - **`internal/app` owns no data and takes no pool.** `poll_attempts` (incl. `run_id`/`triggered_by`) stays telemetry's. Every `NewProcessor` argument is a public port. _Source: `internal/app/AGENTS.md` §Data ownership._
@@ -133,25 +133,27 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 - **Both poller entry points are covered by construction.** The nightly schedule and `cmd/poller --once` both call `ProcessVehicleData`, so neither can diverge from the other. Never record a run from `cmd/`. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
 
 - **The Supercharger mirror's cursor is owned by `internal/charging`, and it holds the SOURCE
-  module's clock.** One row per account, at most. It records the highest last-modified instant
-  the mirror has already copied from `internal/telemetry`. The rule behind this: a cursor
-  belongs to the module that READS, never to the module that is read. `internal/telemetry` is
-  ingest-only and must not own a table describing how far its consumers have got.
+  module's clock.** One row per vehicle, at most (`tesla_id NOT NULL`, `UNIQUE (tesla_id)`).
+  It records the highest last-modified instant the mirror has already copied from
+  `internal/telemetry` for that vehicle. The rule behind this: a cursor belongs to the module
+  that READS, never to the module that is read. `internal/telemetry` is ingest-only and must
+  not own a table describing how far its consumers have got.
   _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
 
 - **No cursor means the epoch, not an error.** A caller can treat "no cursor" and "never
-  mirrored" identically, so the first run after deploy backfills the account's whole history
+  mirrored" identically, so the first run after deploy backfills the vehicle's whole history
   once and then goes quiet. Nothing special-cases the first run.
   _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
 
-- **The cursor identifies neither a vehicle nor a source table.** The mirror reads one
-  account's data as a whole, from exactly one upstream source, so a `tesla_id` or a `source`
-  column would be dead weight that invites a wrong read. Adding a second upstream source later
-  is an additive migration, not a reason to add the column now.
+- **The cursor identifies a vehicle, not a source table.** The mirror reads one vehicle's data
+  from exactly one upstream source, so a `source` column would be dead weight that invites a
+  wrong read. Adding a second upstream source later is an additive migration, not a reason to
+  add the column now.
   _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
 
-- **Cursors are isolated per account, and a later advance replaces an earlier one.** Reading
-  one account's cursor never returns another's.
+- **Cursors are isolated per vehicle, and a later advance replaces an earlier one.** Reading
+  one vehicle's cursor never returns another's. An account with two cars holds two cursors, not
+  one.
   _Source: spec charging — Requirement: Supercharger Mirror Watermark Storage._
 
 - **No other module touches this table.** Every read and write goes through the charging

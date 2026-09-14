@@ -1,29 +1,19 @@
-// Package charging_test starts an isolated, throw-away Postgres for the
-// database-backed tests in db_integration_test.go,
-// db_session_integration_test.go and db_backfill_integration_test.go.
+// Package charging_test starts an isolated, throw-away Postgres for every
+// database-backed test in this package.
 //
 // Behavior (see internal/testdb and ai/go-conventions.md §persistence):
 //   - If TEST_DATABASE_URL is set AND reachable, use it (managed/CI Postgres).
 //   - Otherwise auto-provision a disposable `postgres:16-alpine` container.
 //
 // TWO migration DIRECTORIES are applied, in this order: internal/telemetry's
-// first, then this module's own (design.md D8c,
-// RM29-charging-add-charge-sessions). Telemetry must go first because this
-// module's 20260823000001 migration ships a backfill that reads telemetry's
-// supercharger_history table (named supercharger_sessions until RM39 tier 4
-// moved and renamed it) — db_backfill_integration_test.go seeds that
-// table and needs it to already exist. testdb.ProvisionDirs is the sanctioned
-// form for a package whose fixtures span more than one module's schema
+// first, then this module's own. Telemetry must go first because one of this
+// module's migrations (20260823000001) ships a backfill reading telemetry's
+// supercharger_history table, so that table must exist first. testdb.ProvisionDirs is the sanctioned form for
+// a package whose fixtures span more than one module's schema
 // (ai/go-conventions.md §Testing: "more than one module's tables →
 // ProvisionDirs"); internal/analytics already does the same. This is a path
 // dependency on a migration DIRECTORY, not a Go import — no _test.go file in
 // this package imports internal/telemetry.
-//
-// migrationsFS stays embedded (rather than switching entirely to os.DirFS)
-// because db_backfill_integration_test.go reads the shipped migration file
-// through it to extract the backfill statement between the
-// BACKFILL-BEGIN/BACKFILL-END sentinels at runtime, so the test can never
-// drift from the statement that actually ships to production (design.md D8c).
 //
 // Production impact: NONE. This file is a _test.go file — Go never compiles
 // test-imports into the deployed binary, so testcontainers/goose are not
@@ -32,7 +22,6 @@ package charging_test
 
 import (
 	"context"
-	"embed"
 	"log"
 	"os"
 	"testing"
@@ -41,9 +30,6 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/testdb"
 )
-
-//go:embed db/migrations/*.sql
-var migrationsFS embed.FS
 
 var testPool *pgxpool.Pool
 
