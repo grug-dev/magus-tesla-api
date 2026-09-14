@@ -6,7 +6,7 @@
   "request": "MAG-67 — 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-14T02:50:00Z",
+  "updated_at": "2026-09-14T03:25:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -176,6 +176,22 @@
       "at": "2026-09-14T02:45:00Z",
       "what": "make vehicleref-guard now exempts _test.go files. The leader made the Makefile and internal/vehicleref/AGENTS.md edits, not the worker.",
       "why": "MAG-66's design always described that exemption; the target was built without it. Both files sit outside internal/charging, so a sandboxed worker cannot touch them."
+    },
+    {
+      "id": "RD19",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-14T03:25:00Z",
+      "what": "Tier 4 is built before tier 3 is reviewed and archived, reversing the roadmap's own depends_on order.",
+      "why": "make test cannot build while the gateway call site is broken, so the owner had no way to run the suite. Tier 4 restores the build; both tiers are then reviewed together."
+    },
+    {
+      "id": "RD20",
+      "scope": "tier:4",
+      "made_by": "autopilot",
+      "at": "2026-09-14T03:25:00Z",
+      "what": "One worker writes tier 4's artifacts and implements them in the same dispatch.",
+      "why": "No database object changes, so no design gate fires, and RD15 and RD16 already settled every design choice. A separate artifact round would decide nothing."
     }
   ],
   "tiers": [
@@ -237,7 +253,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Implementation done, tests not yet run by the owner. Review deferred until tier 4 restores the build (RD19)."
     },
     {
       "id": 4,
@@ -339,6 +355,11 @@
       "at": "2026-09-14T02:45:00Z",
       "what": "tier-3-artifacts",
       "detail": "Artifacts written, openspec validate --strict passes. No database object changes, so the built-in design gate did not fire. boundary-guard confirmed charging may import vehicleref. Guard fix committed separately as 9b39034. Worker corrected its own count: 30 real call sites in charging, not 33; the other 3 are comments and a fake in the gateway test, which is tier 4's."
+    },
+    {
+      "at": "2026-09-14T03:25:00Z",
+      "what": "tier-order-changed",
+      "detail": "Owner hit the deliberate red build twice running make test. Chose to build tier 4 now rather than verify tier 3 with a scoped command. Tier 3 stays applied and unreviewed; both tiers get reviewed after the build is whole again."
     }
   ]
 }
