@@ -11,24 +11,25 @@ import (
 
 // User-asserted home/work/third-party charge sessions not captured by the Tesla Fleet API. Owned by internal/manualcharge; no other module reads this table directly. Mutable table: full CRUD via Writer port (users correct hand-typed entries). No cross-module FK on account_id or tesla_id (ai/architecture.md §2). No raw_data JSONB column: user-typed data has no vendor payload to preserve (ai/go-conventions.md §persistence, design D5).
 type ManualChargeEntry struct {
-	ID              uuid.UUID
-	AccountID       uuid.UUID
-	TeslaID         int64
-	Vin             string
-	ChargedOn       pgtype.Date
-	EnergyAddedKwh  pgtype.Numeric
-	Price           pgtype.Numeric
-	Currency        string
-	StartedAt       pgtype.Timestamptz
-	EndedAt         pgtype.Timestamptz
-	StartBatteryPct pgtype.Int2
-	EndBatteryPct   pgtype.Int2
-	ChargingType    pgtype.Text
-	LocationKind    string
-	LocationLabel   pgtype.Text
-	Notes           pgtype.Text
-	CreatedAt       pgtype.Timestamptz
-	UpdatedAt       pgtype.Timestamptz
+	ID uuid.UUID
+	// Which account typed this entry. Authorship only: no query filters, joins, orders or groups by this column, and none may. Reads are per vehicle, so an entry is visible to every account registered to its car. Renamed from account_id, which used to be this table's tenant key. NOT NULL and not a foreign key -- a cross-module FK into the account module would couple this module's migrations to that schema.
+	CreatedByAccountID uuid.UUID
+	TeslaID            int64
+	Vin                string
+	ChargedOn          pgtype.Date
+	EnergyAddedKwh     pgtype.Numeric
+	Price              pgtype.Numeric
+	Currency           string
+	StartedAt          pgtype.Timestamptz
+	EndedAt            pgtype.Timestamptz
+	StartBatteryPct    pgtype.Int2
+	EndBatteryPct      pgtype.Int2
+	ChargingType       pgtype.Text
+	LocationKind       string
+	LocationLabel      pgtype.Text
+	Notes              pgtype.Text
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 	// Pack capacity in kWh implied by this entry: energy_added_kwh / ((end_battery_pct - start_battery_pct) / 100), rounded to 3 decimals. GENERATED ALWAYS AS ... STORED -- recomputed by the engine on every INSERT and UPDATE, and unwritable by any caller (design D2). NULL when either percentage is absent or when end_battery_pct is not strictly greater than start_battery_pct -- an equal delta would be a division by zero and a negative delta a negative capacity, neither of which is a physical quantity (design D3). Unconstrained NUMERIC because NUMERIC(8,3) would reject a legal max-energy/min-delta row (design D4). NOT indexed: nothing predicates on it (design D6).
 	InferredCapacityKwhCalc pgtype.Numeric
 	// Lifecycle state of this user-asserted charge record: IN_PROGRESS (logged at plug-in time, may lack the end-of-session facts) or DONE (complete). The required-field set is a function of this value and lives in Go, in charging.RequiredFieldsFor -- deliberately NOT as a database CHECK (roadmap D5): a CHECK backstop would turn every future change to the skip set into a migration, working against the ticket's maintainability requirement. Pre-existing rows backfilled to IN_PROGRESS by this column's DEFAULT, by the user's explicit choice, so historical entries surface as unreviewed. Not indexed: nothing predicates on it.

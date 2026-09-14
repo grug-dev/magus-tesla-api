@@ -143,7 +143,7 @@ func (r *reader) RecentEfficiency(ctx context.Context, accountID uuid.UUID, tesl
 		return Efficiency{}, false, err
 	}
 
-	entries, err := r.manual.ListEntriesByVehicle(ctx, accountID, teslaID, chargingSourceLimit)
+	entries, err := r.manual.ListEntriesByVehicle(ctx, teslaID, chargingSourceLimit)
 	if err != nil {
 		return Efficiency{}, false, err
 	}

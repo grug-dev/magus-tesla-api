@@ -102,30 +102,30 @@ type fakeChargeReader struct {
 	err     error
 }
 
-func (f *fakeChargeReader) ListEntriesByVehicle(_ context.Context, _ uuid.UUID, _ int64, _ int) ([]charging.Entry, error) {
+func (f *fakeChargeReader) ListEntriesByVehicle(_ context.Context, _ int64, _ int) ([]charging.Entry, error) {
 	return f.entries, f.err
 }
 
-func (f *fakeChargeReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, _ int) ([]charging.Entry, error) {
+func (f *fakeChargeReader) ListEntriesByVehicles(_ context.Context, _ []int64, _ int) ([]charging.Entry, error) {
 	return f.entries, f.err
 }
 
-// ListEntriesByVehicleBetween satisfies the charging.Reader port (added by RM28
-// tier 2) and IS called by gateway handlers: buildExternalChargesPage reads the filter
+// ListEntriesByVehicleBetween satisfies the charging.Reader port and IS called
+// by gateway handlers: buildExternalChargesPage reads the filter
 // window through it, and inProgressConflictOn reads a single day through it.
 // The fake IGNORES the requested window and always returns f.entries — a
 // conflict test that seeds an entry on another date therefore exercises the
 // handler's own same-day comparison, not the fake's filtering.
-func (f *fakeChargeReader) ListEntriesByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]charging.Entry, error) {
+func (f *fakeChargeReader) ListEntriesByVehicleBetween(_ context.Context, _ int64, _, _ time.Time) ([]charging.Entry, error) {
 	return f.entries, f.err
 }
 
-// ListEntriesByVehicleUpdatedSince satisfies the charging.Reader method added by
-// RM29-analytics-add-vehicle-metrics task 1.4. Unlike the sibling above -- which
-// returns data because gateway handlers really do call it -- no handler calls
-// this one; it serves analytics' recompute watermark. Panic makes an accidental
-// call visible instead of silently returning an empty result.
-func (f *fakeChargeReader) ListEntriesByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]charging.Entry, error) {
+// ListEntriesByVehicleUpdatedSince completes the charging.Reader port. Unlike
+// the sibling above -- which returns data because gateway handlers really do
+// call it -- no handler calls this one; it serves analytics' recompute
+// watermark. Panic makes an accidental call visible instead of silently
+// returning an empty result.
+func (f *fakeChargeReader) ListEntriesByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]charging.Entry, error) {
 	panic("fakeChargeReader: ListEntriesByVehicleUpdatedSince must not be called by any gateway handler")
 }
 
@@ -393,14 +393,14 @@ func TestExternalChargesListFragment_WithEntries(t *testing.T) {
 	entryID := uuid.New()
 	entries := []charging.Entry{
 		{
-			ID:             entryID,
-			AccountID:      uid,
-			TeslaID:        1001,
-			VIN:            "VIN1001",
-			ChargedOn:      chargedOn,
-			EnergyAddedKWh: ptrF64(10.0),
-			Price:          5000.0,
-			Currency:       "COP",
+			ID:                 entryID,
+			CreatedByAccountID: uid,
+			TeslaID:            1001,
+			VIN:                "VIN1001",
+			ChargedOn:          chargedOn,
+			EnergyAddedKWh:     ptrF64(10.0),
+			Price:              5000.0,
+			Currency:           "COP",
 		},
 	}
 	reader := &fakeChargeReader{entries: entries}
@@ -700,14 +700,14 @@ func TestExternalChargeRowEditFragment_WithEntry(t *testing.T) {
 	entryID := uuid.New()
 	entries := []charging.Entry{
 		{
-			ID:             entryID,
-			AccountID:      uid,
-			TeslaID:        1001,
-			VIN:            "VIN1001",
-			ChargedOn:      time.Now(),
-			EnergyAddedKWh: ptrF64(15.0),
-			Price:          7000.0,
-			Currency:       "COP",
+			ID:                 entryID,
+			CreatedByAccountID: uid,
+			TeslaID:            1001,
+			VIN:                "VIN1001",
+			ChargedOn:          time.Now(),
+			EnergyAddedKWh:     ptrF64(15.0),
+			Price:              7000.0,
+			Currency:           "COP",
 		},
 	}
 	reader := &fakeChargeReader{entries: entries}
@@ -1079,18 +1079,18 @@ func TestExternalChargeEntryVMFromEntry(t *testing.T) {
 	endPct := 92
 
 	e := charging.Entry{
-		ID:              uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-		AccountID:       uuid.New(),
-		TeslaID:         1001,
-		VIN:             "VIN1001",
-		ChargedOn:       time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
-		EnergyAddedKWh:  ptrF64(12.5),
-		Price:           15000.0,
-		Currency:        "COP",
-		StartedAt:       &start,
-		EndedAt:         &end,
-		StartBatteryPct: &startPct,
-		EndBatteryPct:   &endPct,
+		ID:                 uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		CreatedByAccountID: uuid.New(),
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
+		EnergyAddedKWh:     ptrF64(12.5),
+		Price:              15000.0,
+		Currency:           "COP",
+		StartedAt:          &start,
+		EndedAt:            &end,
+		StartBatteryPct:    &startPct,
+		EndBatteryPct:      &endPct,
 	}
 	vehicles := []account.Vehicle{
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
@@ -1154,14 +1154,14 @@ func TestExternalChargeEntryVMFromEntry(t *testing.T) {
 // underlying amount is >= 1000 and would otherwise be grouped for display.
 func TestExternalChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
 	e := charging.Entry{
-		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000002"),
-		AccountID:      uuid.New(),
-		TeslaID:        1001,
-		VIN:            "VIN1001",
-		ChargedOn:      time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
-		EnergyAddedKWh: ptrF64(1200.5),
-		Price:          58000.0,
-		Currency:       "COP",
+		ID:                 uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+		CreatedByAccountID: uuid.New(),
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
+		EnergyAddedKWh:     ptrF64(1200.5),
+		Price:              58000.0,
+		Currency:           "COP",
 	}
 	vehicles := []account.Vehicle{
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
@@ -1862,7 +1862,7 @@ func TestExternalChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	// both reads against the same fakeReader (the slice is a fixture per-call,
 	// so we re-set entries between the two GETs).
 	reader := &fakeChargeReader{entries: []charging.Entry{
-		{ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
+		{ID: id, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
 			EnergyAddedKWh: ptrF64(10.0), Price: 5000.0, Currency: "COP"},
 	}}
 	writer := &fakeChargeWriter{}
@@ -3066,7 +3066,7 @@ func TestExternalChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(
 	keptID := uuid.New()
 	deletedID := uuid.New()
 	reader := &fakeChargeReader{entries: []charging.Entry{
-		{ID: keptID, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
+		{ID: keptID, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
 			EnergyAddedKWh: ptrF64(10.0), Price: 5000.0, Currency: "COP"},
 	}}
 	writer := &fakeChargeWriter{}

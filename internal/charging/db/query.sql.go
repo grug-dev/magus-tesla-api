@@ -15,7 +15,7 @@ import (
 const createEntry = `-- name: CreateEntry :one
 
 INSERT INTO charging.manual_charge_entries (
-    account_id,
+    created_by_account_id,
     tesla_id,
     vin,
     charged_on,
@@ -55,29 +55,29 @@ INSERT INTO charging.manual_charge_entries (
     $18,
     $19
 )
-RETURNING id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source
+RETURNING id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source
 `
 
 type CreateEntryParams struct {
-	AccountID       uuid.UUID
-	TeslaID         int64
-	Vin             string
-	ChargedOn       pgtype.Date
-	EnergyAddedKwh  pgtype.Numeric
-	Price           pgtype.Numeric
-	Currency        string
-	StartedAt       pgtype.Timestamptz
-	EndedAt         pgtype.Timestamptz
-	StartBatteryPct pgtype.Int2
-	EndBatteryPct   pgtype.Int2
-	ChargingType    pgtype.Text
-	LocationKind    string
-	LocationLabel   pgtype.Text
-	Notes           pgtype.Text
-	Status          string
-	EnergySource    string
-	OdometerKm      pgtype.Int4
-	PriceSource     string
+	CreatedByAccountID uuid.UUID
+	TeslaID            int64
+	Vin                string
+	ChargedOn          pgtype.Date
+	EnergyAddedKwh     pgtype.Numeric
+	Price              pgtype.Numeric
+	Currency           string
+	StartedAt          pgtype.Timestamptz
+	EndedAt            pgtype.Timestamptz
+	StartBatteryPct    pgtype.Int2
+	EndBatteryPct      pgtype.Int2
+	ChargingType       pgtype.Text
+	LocationKind       string
+	LocationLabel      pgtype.Text
+	Notes              pgtype.Text
+	Status             string
+	EnergySource       string
+	OdometerKm         pgtype.Int4
+	PriceSource        string
 }
 
 // Queries for the manualcharge module. sqlc generates package `manualchargedb` from
@@ -101,9 +101,12 @@ type CreateEntryParams struct {
 // from the caller -- the identical precedent energy_source above already sets.
 // service.go's resolvePriceSource computes USER/UNCONFIRMED before binding this
 // param; the query itself has no way to tell the two apart.
+//
+// created_by_account_id records who typed the entry and is never read back as a
+// filter.
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (ManualChargeEntry, error) {
 	row := q.db.QueryRow(ctx, createEntry,
-		arg.AccountID,
+		arg.CreatedByAccountID,
 		arg.TeslaID,
 		arg.Vin,
 		arg.ChargedOn,
@@ -126,7 +129,7 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Manua
 	var i ManualChargeEntry
 	err := row.Scan(
 		&i.ID,
-		&i.AccountID,
+		&i.CreatedByAccountID,
 		&i.TeslaID,
 		&i.Vin,
 		&i.ChargedOn,
@@ -155,20 +158,20 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Manua
 const deleteEntry = `-- name: DeleteEntry :exec
 DELETE FROM charging.manual_charge_entries
 WHERE id = $1
-  AND account_id = $2
+  AND created_by_account_id = $2
 `
 
 type DeleteEntryParams struct {
-	ID        uuid.UUID
-	AccountID uuid.UUID
+	ID                 uuid.UUID
+	CreatedByAccountID uuid.UUID
 }
 
-// Delete a charge entry scoped to the caller's own account. The double-scope
-// (id AND account_id) means a user cannot delete another tenant's entry even
-// if they somehow obtain a valid entry UUID — cross-tenant deletes are blocked
-// at the SQL level (design D4, intentional double-scope guard).
+// Delete a charge entry. WHERE (id, created_by_account_id) is the only guard left on
+// this write path: it matches the account that TYPED the entry, which is narrower
+// than the car the entry belongs to, so a co-owner of a shared car cannot yet delete
+// it. It is replaced by a tesla_id guard as soon as the port can carry a vehicle.
 func (q *Queries) DeleteEntry(ctx context.Context, arg DeleteEntryParams) error {
-	_, err := q.db.Exec(ctx, deleteEntry, arg.ID, arg.AccountID)
+	_, err := q.db.Exec(ctx, deleteEntry, arg.ID, arg.CreatedByAccountID)
 	return err
 }
 
@@ -212,87 +215,26 @@ func (q *Queries) LatestMeasuredCapacity(ctx context.Context, teslaID int64) (pg
 	return effective_capacity_kwh, err
 }
 
-const listEntriesByAccount = `-- name: ListEntriesByAccount :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
-WHERE account_id = $1
+const listEntriesByVehicle = `-- name: ListEntriesByVehicle :many
+SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
+WHERE tesla_id = $1
 ORDER BY charged_on DESC
 LIMIT $2
 `
 
-type ListEntriesByAccountParams struct {
-	AccountID  uuid.UUID
-	LimitCount int32
-}
-
-// Return all entries for a given account across all vehicles, ordered newest charged
-// day first, limited to limit_count rows. Uses idx_manual_charge_entries_account_time
-// (account_id, charged_on DESC): account_id is the single WHERE predicate and
-// charged_on DESC matches the ORDER BY, eliminating a sort step (design D3, Read path 2).
-func (q *Queries) ListEntriesByAccount(ctx context.Context, arg ListEntriesByAccountParams) ([]ManualChargeEntry, error) {
-	rows, err := q.db.Query(ctx, listEntriesByAccount, arg.AccountID, arg.LimitCount)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ManualChargeEntry
-	for rows.Next() {
-		var i ManualChargeEntry
-		if err := rows.Scan(
-			&i.ID,
-			&i.AccountID,
-			&i.TeslaID,
-			&i.Vin,
-			&i.ChargedOn,
-			&i.EnergyAddedKwh,
-			&i.Price,
-			&i.Currency,
-			&i.StartedAt,
-			&i.EndedAt,
-			&i.StartBatteryPct,
-			&i.EndBatteryPct,
-			&i.ChargingType,
-			&i.LocationKind,
-			&i.LocationLabel,
-			&i.Notes,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.InferredCapacityKwhCalc,
-			&i.Status,
-			&i.EnergySource,
-			&i.OdometerKm,
-			&i.PriceSource,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listEntriesByVehicle = `-- name: ListEntriesByVehicle :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
-WHERE account_id = $1
-  AND tesla_id = $2
-ORDER BY charged_on DESC
-LIMIT $3
-`
-
 type ListEntriesByVehicleParams struct {
-	AccountID  uuid.UUID
 	TeslaID    int64
 	LimitCount int32
 }
 
-// Return entries for a specific vehicle within an account, ordered newest charged
-// day first, limited to limit_count rows. Uses idx_manual_charge_entries_vehicle_time
-// (account_id, tesla_id, charged_on DESC): account_id prunes to the tenant, tesla_id
-// further narrows to one vehicle, and the DESC column means the ORDER BY is satisfied
-// by the index directly — no sort step required (design D3, Read path 1).
+// Return entries for a specific vehicle, ordered newest charged day first, limited
+// to limit_count rows. Uses idx_manual_charge_entries_vehicle_time
+// (tesla_id, charged_on DESC): tesla_id prunes to one vehicle, and the DESC column
+// means the ORDER BY is satisfied by the index directly — no sort step required.
+// The read is car-wide: it returns entries typed by any account registered to
+// that car.
 func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVehicleParams) ([]ManualChargeEntry, error) {
-	rows, err := q.db.Query(ctx, listEntriesByVehicle, arg.AccountID, arg.TeslaID, arg.LimitCount)
+	rows, err := q.db.Query(ctx, listEntriesByVehicle, arg.TeslaID, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +244,7 @@ func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVeh
 		var i ManualChargeEntry
 		if err := rows.Scan(
 			&i.ID,
-			&i.AccountID,
+			&i.CreatedByAccountID,
 			&i.TeslaID,
 			&i.Vin,
 			&i.ChargedOn,
@@ -336,35 +278,28 @@ func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVeh
 }
 
 const listEntriesByVehicleBetween = `-- name: ListEntriesByVehicleBetween :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
-WHERE account_id = $1
-  AND tesla_id = $2
-  AND charged_on BETWEEN $3 AND $4
+SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
+WHERE tesla_id = $1
+  AND charged_on BETWEEN $2 AND $3
 ORDER BY charged_on DESC
 `
 
 type ListEntriesByVehicleBetweenParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-	FromDate  pgtype.Date
-	ToDate    pgtype.Date
+	TeslaID  int64
+	FromDate pgtype.Date
+	ToDate   pgtype.Date
 }
 
-// Return entries for a specific vehicle within an account whose charged_on falls
-// within [@from_date, @to_date], inclusive of both bounds, ordered newest charged
-// day first. Uses idx_manual_charge_entries_vehicle_time (account_id, tesla_id,
-// charged_on DESC) as a single index range scan: account_id and tesla_id prune to
-// the tenant and vehicle, charged_on BETWEEN walks the range, and the DESC column
-// order satisfies ORDER BY with no separate sort step (design D3). No LIMIT: the
-// caller-supplied [from, to] window is the safety bound, not a row count
-// (design D1, roadmap D9).
+// Return entries for a specific vehicle whose charged_on falls within
+// [@from_date, @to_date], inclusive of both bounds, ordered newest charged day
+// first. Uses idx_manual_charge_entries_vehicle_time (tesla_id, charged_on DESC)
+// as a single index range scan: tesla_id prunes to the vehicle, charged_on BETWEEN
+// walks the range, and the DESC column order satisfies ORDER BY with no separate
+// sort step. No LIMIT: the caller-supplied [from, to] window is the safety bound,
+// not a row count. The read is car-wide: it returns entries typed by any account
+// registered to that car.
 func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntriesByVehicleBetweenParams) ([]ManualChargeEntry, error) {
-	rows, err := q.db.Query(ctx, listEntriesByVehicleBetween,
-		arg.AccountID,
-		arg.TeslaID,
-		arg.FromDate,
-		arg.ToDate,
-	)
+	rows, err := q.db.Query(ctx, listEntriesByVehicleBetween, arg.TeslaID, arg.FromDate, arg.ToDate)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +309,7 @@ func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntri
 		var i ManualChargeEntry
 		if err := rows.Scan(
 			&i.ID,
-			&i.AccountID,
+			&i.CreatedByAccountID,
 			&i.TeslaID,
 			&i.Vin,
 			&i.ChargedOn,
@@ -408,30 +343,26 @@ func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntri
 }
 
 const listEntriesByVehicleUpdatedSince = `-- name: ListEntriesByVehicleUpdatedSince :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
-WHERE account_id = $1
-  AND tesla_id = $2
-  AND updated_at >= $3
+SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
+WHERE tesla_id = $1
+  AND updated_at >= $2
 ORDER BY charged_on DESC
 `
 
 type ListEntriesByVehicleUpdatedSinceParams struct {
-	AccountID uuid.UUID
-	TeslaID   int64
-	Since     pgtype.Timestamptz
+	TeslaID int64
+	Since   pgtype.Timestamptz
 }
 
-// Return entries for a specific vehicle within an account whose updated_at is at or
-// after @since, ordered newest charged day first. Reuses
-// idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC):
-// account_id and tesla_id are satisfied as leading equality predicates in the same
-// range scan the other vehicle-scoped queries use; updated_at >= @since is a residual
-// filter within that scan (no new index — this table is small and user-write-driven,
-// unlike the append-only, high-volume tables). No LIMIT: @since itself bounds the
-// result (RM29-analytics-add-vehicle-metrics design D3, specs/manual-charge-log/spec.md
-// "List entries by vehicle updated since a given instant").
+// Return entries for a specific vehicle whose updated_at is at or after @since,
+// ordered newest charged day first. Reuses idx_manual_charge_entries_vehicle_time
+// (tesla_id, charged_on DESC): tesla_id is satisfied as the leading equality
+// predicate in the same range scan the other vehicle-scoped queries use;
+// updated_at >= @since is a residual filter within that scan. This query orders by
+// charged_on, so an updated_at index would force a sort — no new index. The read
+// is car-wide: it returns entries typed by any account registered to that car.
 func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg ListEntriesByVehicleUpdatedSinceParams) ([]ManualChargeEntry, error) {
-	rows, err := q.db.Query(ctx, listEntriesByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
+	rows, err := q.db.Query(ctx, listEntriesByVehicleUpdatedSince, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +372,68 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 		var i ManualChargeEntry
 		if err := rows.Scan(
 			&i.ID,
-			&i.AccountID,
+			&i.CreatedByAccountID,
+			&i.TeslaID,
+			&i.Vin,
+			&i.ChargedOn,
+			&i.EnergyAddedKwh,
+			&i.Price,
+			&i.Currency,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.ChargingType,
+			&i.LocationKind,
+			&i.LocationLabel,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InferredCapacityKwhCalc,
+			&i.Status,
+			&i.EnergySource,
+			&i.OdometerKm,
+			&i.PriceSource,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEntriesByVehicles = `-- name: ListEntriesByVehicles :many
+SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
+WHERE tesla_id = ANY($1::bigint[])
+ORDER BY charged_on DESC
+LIMIT $2
+`
+
+type ListEntriesByVehiclesParams struct {
+	TeslaIds   []int64
+	LimitCount int32
+}
+
+// Return entries for a caller-supplied set of vehicles, ordered newest charged day
+// first across the whole set, limited to limit_count rows. Uses
+// idx_manual_charge_entries_vehicle_time (tesla_id, charged_on DESC): the index
+// prunes per vehicle, and a multi-vehicle array is expected to add a sort step on
+// top of the per-vehicle index walks.
+func (q *Queries) ListEntriesByVehicles(ctx context.Context, arg ListEntriesByVehiclesParams) ([]ManualChargeEntry, error) {
+	rows, err := q.db.Query(ctx, listEntriesByVehicles, arg.TeslaIds, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ManualChargeEntry
+	for rows.Next() {
+		var i ManualChargeEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedByAccountID,
 			&i.TeslaID,
 			&i.Vin,
 			&i.ChargedOn,
@@ -987,36 +979,38 @@ SET
     price_source      = $16,
     updated_at        = now()
 WHERE id = $17
-  AND account_id = $18
-RETURNING id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source
+  AND created_by_account_id = $18
+RETURNING id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source
 `
 
 type UpdateEntryParams struct {
-	ChargedOn       pgtype.Date
-	EnergyAddedKwh  pgtype.Numeric
-	Price           pgtype.Numeric
-	Currency        string
-	StartedAt       pgtype.Timestamptz
-	EndedAt         pgtype.Timestamptz
-	StartBatteryPct pgtype.Int2
-	EndBatteryPct   pgtype.Int2
-	ChargingType    pgtype.Text
-	LocationKind    string
-	LocationLabel   pgtype.Text
-	Notes           pgtype.Text
-	Status          string
-	EnergySource    string
-	OdometerKm      pgtype.Int4
-	PriceSource     string
-	ID              uuid.UUID
-	AccountID       uuid.UUID
+	ChargedOn          pgtype.Date
+	EnergyAddedKwh     pgtype.Numeric
+	Price              pgtype.Numeric
+	Currency           string
+	StartedAt          pgtype.Timestamptz
+	EndedAt            pgtype.Timestamptz
+	StartBatteryPct    pgtype.Int2
+	EndBatteryPct      pgtype.Int2
+	ChargingType       pgtype.Text
+	LocationKind       string
+	LocationLabel      pgtype.Text
+	Notes              pgtype.Text
+	Status             string
+	EnergySource       string
+	OdometerKm         pgtype.Int4
+	PriceSource        string
+	ID                 uuid.UUID
+	CreatedByAccountID uuid.UUID
 }
 
-// Update mutable fields of an existing charge entry. The WHERE clause scopes to
-// (id, account_id) so a user cannot update another tenant's entry even with a valid
-// UUID — cross-tenant mutation is blocked at the SQL level (design D4).
-// Immutable columns (id, account_id, tesla_id, vin, created_at) are never touched.
-// updated_at is refreshed to now() on every successful update.
+// Update mutable fields of an existing charge entry. WHERE (id, created_by_account_id)
+// is the only guard left on this write path: it matches the account that TYPED the
+// entry, which is narrower than the car the entry belongs to, so a co-owner of a
+// shared car cannot yet edit it. It is replaced by a tesla_id guard as soon as the
+// port can carry a vehicle.
+// Immutable columns (id, created_by_account_id, tesla_id, vin, created_at) are never
+// touched. updated_at is refreshed to now() on every successful update.
 //
 // status, odometer_km: bound as supplied by the caller (RM33 / MAG-18).
 //
@@ -1047,12 +1041,12 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 		arg.OdometerKm,
 		arg.PriceSource,
 		arg.ID,
-		arg.AccountID,
+		arg.CreatedByAccountID,
 	)
 	var i ManualChargeEntry
 	err := row.Scan(
 		&i.ID,
-		&i.AccountID,
+		&i.CreatedByAccountID,
 		&i.TeslaID,
 		&i.Vin,
 		&i.ChargedOn,

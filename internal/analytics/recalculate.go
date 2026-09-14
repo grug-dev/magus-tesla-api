@@ -160,7 +160,7 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 		return fmt.Errorf("fetching supercharger sessions: %w", err)
 	}
 
-	entries, err := r.manual.ListEntriesByVehicleBetween(ctx, accountID, teslaID, chargeStart, end)
+	entries, err := r.manual.ListEntriesByVehicleBetween(ctx, teslaID, chargeStart, end)
 	if err != nil {
 		return fmt.Errorf("fetching manual charge entries: %w", err)
 	}
@@ -280,7 +280,7 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 	if err != nil {
 		return fmt.Errorf("fetching updated supercharger sessions: %w", err)
 	}
-	entries, err := r.manual.ListEntriesByVehicleUpdatedSince(ctx, accountID, teslaID, manualCursor.Add(-recalcOverlap))
+	entries, err := r.manual.ListEntriesByVehicleUpdatedSince(ctx, teslaID, manualCursor.Add(-recalcOverlap))
 	if err != nil {
 		return fmt.Errorf("fetching updated manual charge entries: %w", err)
 	}

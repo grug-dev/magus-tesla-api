@@ -77,7 +77,7 @@ func TestErrorFragmentsCarryOptInHeader(t *testing.T) {
 func TestEditRowIssuesRequestFromForm(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	entry := charging.Entry{ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP"}
+	entry := charging.Entry{ID: id, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP"}
 	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -165,7 +165,7 @@ func TestConfirmDialogWiring(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	entry := charging.Entry{
-		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP",
+		ID: id, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP",
 		ChargedOn: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), EnergyAddedKWh: ptrF64(0.79),
 	}
 	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})

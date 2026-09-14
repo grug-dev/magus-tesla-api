@@ -442,7 +442,7 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 		return
 	}
 	entry.ID = id
-	entry.AccountID = uid
+	entry.CreatedByAccountID = uid
 
 	// Resolve the PRE-update ChargedOn BEFORE calling Update — once Update
 	// commits, the old date is gone; there is no other way to recover it
@@ -648,7 +648,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 	// design.md §D-Range/§Context fact 1: switched onto
 	// ListEntriesByVehicleBetween — [start, end] inclusive of both bounds, no
 	// limit parameter, the window itself bounds the result (D13).
-	entries, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, uid, teslaIDFilter, start, end)
+	entries, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, teslaIDFilter, start, end)
 	var pageError string
 	if err != nil {
 		log.Printf("gateway: charging reader error for account %s: %v", uid, err)
@@ -771,15 +771,34 @@ func windowFromQuery(c *gin.Context, today time.Time) (start, end time.Time) {
 	return bestEffortWindow(c.Query("start"), c.Query("end"), today)
 }
 
-// fetchEntryVM fetches a single entry by listing all account entries and finding
-// the one matching id (no GetEntry on the port — design decision D6). Returns
-// false if not found.
+// teslaIDsOf pulls the Tesla ids out of an account's registered vehicles. The
+// manual-charge reads are keyed on vehicles, so this is what bounds them to
+// what the account may see.
+func teslaIDsOf(vehicles []account.Vehicle) []int64 {
+	ids := make([]int64, 0, len(vehicles))
+	for _, v := range vehicles {
+		ids = append(ids, v.TeslaID)
+	}
+	return ids
+}
+
+// fetchEntryVM fetches a single entry by listing the account's entries and
+// finding the one matching id. The port has no GetEntry, so a list is the only
+// way in. Returns false if not found.
+//
+// The read is keyed on vehicles, so the account's registered vehicles decide
+// what it can see. An error or an empty list must return false: an empty set of
+// vehicles is not "no filter", and reading every entry would leak other
+// accounts' data.
 func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID) (fragments.ExternalChargeEntryVM, bool) {
-	entries, err := h.chargingReader.ListEntriesByAccount(ctx, uid, 0)
+	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
+	if err != nil || len(vehicles) == 0 {
+		return fragments.ExternalChargeEntryVM{}, false
+	}
+	entries, err := h.chargingReader.ListEntriesByVehicles(ctx, teslaIDsOf(vehicles), 0)
 	if err != nil {
 		return fragments.ExternalChargeEntryVM{}, false
 	}
-	vehicles, _ := h.acct.RegisteredVehicles(ctx, uid)
 	for _, e := range entries {
 		if e.ID == id {
 			return externalChargeEntryVMFromEntry(e, vehicles), true
@@ -788,16 +807,24 @@ func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID)
 	return fragments.ExternalChargeEntryVM{}, false
 }
 
-// fetchEntryTeslaIDAndChargedOn resolves a manual charge entry's stored
-// TeslaID and ChargedOn by id, listing all account entries and matching
-// (mirrors fetchEntryVM's own no-GetEntry-port shape, design decision D6).
-// Returns false if not found. Used by ExternalChargeRowUpdate (to learn the
-// PRE-update ChargedOn before it is overwritten) and ExternalChargeRowDelete (to
-// learn TeslaID/ChargedOn before the entry is gone entirely — the Delete
-// port does not return the deleted entry, design.md D5) so
-// recalculateAfterExternalChargeWrite can be called for the affected date.
+// fetchEntryTeslaIDAndChargedOn resolves a manual charge entry's stored TeslaID
+// and ChargedOn by id, listing the account's entries and matching. It mirrors
+// fetchEntryVM, because the port has no GetEntry. Returns false if not found.
+//
+// ExternalChargeRowUpdate uses it to learn the PRE-update ChargedOn before the
+// update overwrites it. ExternalChargeRowDelete uses it to learn
+// TeslaID/ChargedOn before the row is gone, because the Delete port does not
+// return the deleted entry. Both feed
+// recalculateAfterExternalChargeWrite, which needs the affected date.
+//
+// Same vehicle rule as fetchEntryVM: an error or an empty vehicle list returns
+// false, never an unfiltered read.
 func (h *Handler) fetchEntryTeslaIDAndChargedOn(ctx context.Context, uid uuid.UUID, id uuid.UUID) (teslaID int64, chargedOn time.Time, ok bool) {
-	entries, err := h.chargingReader.ListEntriesByAccount(ctx, uid, 0)
+	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
+	if err != nil || len(vehicles) == 0 {
+		return 0, time.Time{}, false
+	}
+	entries, err := h.chargingReader.ListEntriesByVehicles(ctx, teslaIDsOf(vehicles), 0)
 	if err != nil {
 		return 0, time.Time{}, false
 	}
@@ -842,7 +869,7 @@ func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry
 	if entry.Status != charging.StatusInProgress || entry.TeslaID == 0 {
 		return "", false
 	}
-	existing, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, uid, entry.TeslaID, entry.ChargedOn, entry.ChargedOn)
+	existing, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, entry.TeslaID, entry.ChargedOn, entry.ChargedOn)
 	if err != nil {
 		log.Printf("gateway: in-progress conflict check reader error for account %s, vehicle %d, date %s: %v",
 			uid, entry.TeslaID, entry.ChargedOn.Format("2006-01-02"), err)
@@ -1422,13 +1449,13 @@ func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicle
 	}
 
 	entry := charging.Entry{
-		AccountID:      uid,
-		TeslaID:        teslaID,
-		VIN:            vin,
-		ChargedOn:      chargedOn,
-		Status:         status,
-		EnergyAddedKWh: energy,
-		Price:          price,
+		CreatedByAccountID: uid,
+		TeslaID:            teslaID,
+		VIN:                vin,
+		ChargedOn:          chargedOn,
+		Status:             status,
+		EnergyAddedKWh:     energy,
+		Price:              price,
 		// PriceConfirmed is passed through unconditionally — charging already
 		// ignores it whenever Price > 0 (tier 1's resolvePriceSource); the
 		// gateway does not duplicate that precedence rule (design.md §D-Parse,

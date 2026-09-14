@@ -4,16 +4,27 @@
   "change": "RM58-charging-demote-manual-charge-account-id",
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
-  "request": "MAG-68 — 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Tier 1 of RM58: the migration, the queries, the four Reader ports, and the cross-module bridge.",
-  "status": "proposed",
+  "request": "MAG-68 \u2014 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Tier 1 of RM58: the migration, the queries, the four Reader ports, and the cross-module bridge.",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+    "pending": [
+      "T5",
+      "T7",
+      "T8"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T6"
+    ]
   },
   "created_at": "2026-09-14T10:40:00Z",
-  "updated_at": "2026-09-14T10:40:00Z",
+  "updated_at": "2026-09-14T10:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -28,75 +39,238 @@
   },
   "tasks": [
     {
-      "id": "T0", "title": "Offline check — grep the module's offline test files", "module": "charging",
-      "depends_on": [], "parallel_ok": true, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "A grep with no schema dependency. May start immediately."
+      "id": "T0",
+      "title": "Offline check \u2014 grep the module's offline test files",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:45:30Z",
+      "completed_at": "2026-09-14T10:46:10Z",
+      "duration_seconds": 40,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "Grepped all five offline test files for AccountID/accountID/account_id. Zero hits, as design.md predicted. No new test needed."
     },
     {
-      "id": "T1", "title": "Migration — rename the column, replace two indexes with one", "module": "charging",
-      "depends_on": [], "parallel_ok": false, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "Design confirmed by the owner at the database gate. No row deleted, no value rewritten, so Down is a true undo."
+      "id": "T1",
+      "title": "Migration \u2014 rename the column, replace two indexes with one",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:46:10Z",
+      "completed_at": "2026-09-14T10:47:00Z",
+      "duration_seconds": 50,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "Wrote 20260914000001_demote_manual_charge_account_id.sql verbatim from design.md. Up renames the column and replaces two indexes with one; Down is a true undo. make migration-guard clean apart from the known 20260720000001 warning."
     },
     {
-      "id": "T2", "title": "Queries and sqlc regeneration", "module": "charging",
-      "depends_on": ["T1"], "parallel_ok": false, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "Three reads drop the predicate. UpdateEntry and DeleteEntry KEEP it on the renamed column, per D5. ListEntriesByAccount becomes ListEntriesByVehicles."
+      "id": "T2",
+      "title": "Queries and sqlc regeneration",
+      "module": "charging",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:47:00Z",
+      "completed_at": "2026-09-14T10:48:00Z",
+      "duration_seconds": 60,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "query.sql updated per design.md; make sqlc run. Every T2.7 expectation confirmed: no new Row struct, UpdateEntryParams and DeleteEntryParams both survive, ListEntriesByVehiclesParams carries TeslaIds and LimitCount."
     },
     {
-      "id": "T3", "title": "Ports and domain type", "module": "charging",
-      "depends_on": ["T2"], "parallel_ok": false, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "Reader drops accountID and keeps int64. Writer.Delete keeps its signature. Entry.AccountID becomes Entry.CreatedByAccountID. No vehicleref import in this tier."
+      "id": "T3",
+      "title": "Ports and domain type",
+      "module": "charging",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:48:00Z",
+      "completed_at": "2026-09-14T10:49:00Z",
+      "duration_seconds": 60,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "Entry.AccountID renamed to CreatedByAccountID. Reader drops accountID from three methods and gains ListEntriesByVehicles. Writer.Delete signature unchanged. No vehicleref import."
     },
     {
-      "id": "T4", "title": "Implementation in service.go", "module": "charging",
-      "depends_on": ["T3"], "parallel_ok": false, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "Must land in the same wave as T6 — go build ./... is red outside internal/charging until it does."
+      "id": "T4",
+      "title": "Implementation in service.go",
+      "module": "charging",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:49:00Z",
+      "completed_at": "2026-09-14T10:50:00Z",
+      "duration_seconds": 60,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "service.go store interface, dbStore, writerService, readerService and rowToEntry all follow the new shapes. go build and gofmt clean for the module."
     },
     {
-      "id": "T5", "title": "Test fixups inside charging", "module": "charging",
-      "depends_on": ["T4"], "parallel_ok": true, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "The two cross-account tests STAY and keep passing, renamed column only. They are re-keyed onto tesla_id in tier 2. No new test file."
+      "id": "T5",
+      "title": "Test fixups inside charging",
+      "module": "charging",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The two cross-account tests STAY and keep passing, renamed column only. They are re-keyed onto tesla_id in tier 2. No new test file."
     },
     {
-      "id": "T6", "title": "Cross-module bridge — analytics and gateway call sites", "module": "leader-owned",
-      "depends_on": ["T4"], "parallel_ok": true, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "Leader-owned: touches internal/analytics and internal/gateway, outside the charging worker's sandbox. Must land in the same wave as T4."
+      "id": "T6",
+      "title": "Cross-module bridge \u2014 analytics and gateway call sites",
+      "module": "leader-owned",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T10:50:00Z",
+      "completed_at": "2026-09-14T10:52:00Z",
+      "duration_seconds": 120,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "Leader-owned. Three analytics call sites drop accountID; two gateway Between calls drop uid; fetchEntryVM and fetchEntryTeslaIDAndChargedOn now read by vehicle and return false on an error or empty vehicle list. Fakes re-signed. go build ./... green."
     },
     {
-      "id": "T7", "title": "Docs — AGENTS.md, spec, KB guides", "module": "charging",
-      "depends_on": ["T3"], "parallel_ok": true, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "Touches no Go file. May run in parallel with T4-T6."
+      "id": "T7",
+      "title": "Docs \u2014 AGENTS.md, spec, KB guides",
+      "module": "charging",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Touches no Go file. May run in parallel with T4-T6."
     },
     {
-      "id": "T8", "title": "Final verification", "module": "charging",
-      "depends_on": ["T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7"], "parallel_ok": false, "status": "pending",
-      "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null,
-      "budget": null, "notes": "Guards plus the repo-wide grep, which must exclude the created_by_ prefix. The suite is the owner's to run."
+      "id": "T8",
+      "title": "Final verification",
+      "module": "charging",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Guards plus the repo-wide grep, which must exclude the created_by_ prefix. The suite is the owner's to run."
     }
   ],
   "decisions": [
     {
-      "id": "D-GATE-1", "scope": "database", "made_by": "user", "at": "2026-09-14T10:32:00Z",
+      "id": "D-GATE-1",
+      "scope": "database",
+      "made_by": "user",
+      "at": "2026-09-14T10:32:00Z",
       "what": "Database design confirmed: rename the column, drop idx_manual_charge_entries_account_time, replace the vehicle-time index with (tesla_id, charged_on DESC).",
       "why": "No row deleted and no value rewritten, so Down is a true undo. Two indexes become one and it serves all four reads."
     },
     {
-      "id": "D-GATE-2", "scope": "security", "made_by": "user", "at": "2026-09-14T10:32:00Z",
+      "id": "D-GATE-2",
+      "scope": "security",
+      "made_by": "user",
+      "at": "2026-09-14T10:32:00Z",
       "what": "UpdateEntry and DeleteEntry keep an account predicate in tier 1, on the renamed column. Tier 2 swaps it for the tesla_id guard. This is the roadmap's D5 and design.md's D4.",
       "why": "Dropping it in tier 1 leaves the write path unauthorized until tier 2. The delete handler proceeds on a lookup miss, so SQL is the only guard, and main auto-deploys."
     },
     {
-      "id": "D-OPUS-1", "scope": "dispatch", "made_by": "autopilot", "at": "2026-09-14T10:14:00Z",
+      "id": "D-OPUS-1",
+      "scope": "dispatch",
+      "made_by": "autopilot",
+      "at": "2026-09-14T10:14:00Z",
       "what": "The artifact worker ran on Opus rather than the default Sonnet.",
       "why": "A DB design gate needs an index plan justified against read patterns plus rejected alternatives. A weak design.md here costs a full re-dispatch and a second user gate."
+    },
+    {
+      "id": "D-LEADER-1",
+      "scope": "implementation",
+      "made_by": "autopilot",
+      "at": "2026-09-14T10:52:00Z",
+      "what": "Kept the test name TestRecentEfficiency_AccountIDScoping_PassedToEveryPort and TestRecalculate_AccountIDScoping_PassedToEveryPort, and only swapped the manual port's assertion from account to vehicle.",
+      "why": "tasks.md T6.2 mandates the assertion swap, not a rename. Renaming is wider than the task. Flagged for the reviewer."
+    },
+    {
+      "id": "D-LEADER-2",
+      "scope": "implementation",
+      "made_by": "autopilot",
+      "at": "2026-09-14T10:52:00Z",
+      "what": "Removed the stale design/roadmap decision IDs from Reader.ListEntriesByVehicleBetween's doc comment in charging.go.",
+      "why": "The worker rewrote that comment and carried the pointers forward. They name archived docs a later reader cannot open. The opportunistic legacy-cleanup rule covers it."
     }
   ],
   "review": {
@@ -107,20 +281,34 @@
   },
   "events": [
     {
-      "at": "2026-09-14T10:28:53Z", "what": "artifacts-created",
+      "at": "2026-09-14T10:28:53Z",
+      "what": "artifacts-created",
       "detail": "proposal, design, specs/manual-charge-log/spec.md and tasks.md written by the charging worker on Opus. openspec validate --strict passes. Budget for the wave: five_hour_pct 20 -> 47, cost_usd 8.11 -> 20.15."
     },
     {
-      "at": "2026-09-14T10:32:00Z", "what": "design-gate-passed",
+      "at": "2026-09-14T10:32:00Z",
+      "what": "design-gate-passed",
       "detail": "Owner confirmed the database design. Owner accepted the worker's finding that tier 1 as first written left the write path unauthorized, and chose the transitional predicate instead."
     },
     {
-      "at": "2026-09-14T10:40:00Z", "what": "artifacts-revised",
+      "at": "2026-09-14T10:40:00Z",
+      "what": "artifacts-revised",
       "detail": "Worker revised design.md D4, the delta spec, tasks.md and proposal.md for the transitional predicate. Corrected its own sqlc expectations: UpdateEntryParams and DeleteEntryParams both survive, renamed field only."
     },
     {
-      "at": "2026-09-14T10:40:00Z", "what": "known-consequence-recorded",
+      "at": "2026-09-14T10:40:00Z",
+      "what": "known-consequence-recorded",
       "detail": "D1 and D5 combined leave reads car-wide and writes author-only for tiers 1-2. On a shared car the co-owner's entries are listed with working-looking controls; update fails with a 500 and delete is a SILENT no-op, because DeleteEntry is :exec and writerService.Delete never checks rows affected. Verified in code by the leader. Tier 3 removes the cause. Not fixed in tier 1 because hiding the controls is gateway work that tier 3 would immediately delete."
+    },
+    {
+      "at": "2026-09-14T10:45:00Z",
+      "what": "wave-1-dispatched",
+      "detail": "charging worker on Sonnet, tasks T0-T4 (offline grep, migration, queries+sqlc, ports, service impl). One serial worker: T1->T2->T3->T4 is a hard chain. T6 is leader-owned and lands in this same wave. Budget at dispatch: five_hour_pct 73, context_pct 9, cost_usd 0.70."
+    },
+    {
+      "at": "2026-09-14T10:52:00Z",
+      "what": "wave-1-complete",
+      "detail": "T0-T4 by the charging worker, T6 by the leader, in one wave so go build ./... is green. go build ./... passes; go vet ./... is red only in internal/charging_test, which is T5's unstarted work. gofmt clean (three pre-existing unformatted files are not this change's). Budget: five_hour_pct 73 -> 87, cost_usd 0.70 -> 8.21."
     }
   ]
 }

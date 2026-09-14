@@ -37,12 +37,12 @@ Sequencing rules that are not optional:
 
 Depends on: nothing.
 
-- [ ] 0.1 Grep the module's five offline test files (`charging_test.go`,
+- [x] 0.1 Grep the module's five offline test files (`charging_test.go`,
       `entry_status_test.go`, `monthly_capacity_estimator_test.go`,
       `price_source_test.go`, `session_verifier_derivation_test.go`) for
       `AccountID`, `accountID` and `account_id`. Expect **zero** hits. If a hit
       appears, that file is not offline-only and belongs to T5 instead.
-- [ ] 0.2 Record in the change's notes that this change adds **no new test**, and
+- [x] 0.2 Record in the change's notes that this change adds **no new test**, and
       why: the ticket excludes unit tests, and no pure function changes
       behaviour — the whole change is schema, queries and signatures.
 
@@ -50,38 +50,38 @@ Depends on: nothing.
 
 Depends on: nothing.
 
-- [ ] 1.0 **No owner pre-check query is needed, and this is a checked fact, not
+- [x] 1.0 **No owner pre-check query is needed, and this is a checked fact, not
       an omission.** The migration deletes no row, rewrites no value, and adds no
       constraint that an existing row could violate. `created_by_account_id`
       stays `UUID NOT NULL` with the same values it holds today. Compare RM57,
       whose de-duplication needed a count query first.
-- [ ] 1.1 Write
+- [x] 1.1 Write
       `internal/charging/db/migrations/20260914000001_demote_manual_charge_account_id.sql`
       exactly as `design.md` §Schema gives it — Up and Down, comments included.
       Do not renumber: `20260914000001` is free across all four module
       directories (`design.md` §Makefile).
-- [ ] 1.2 Do NOT edit `COMMENT ON TABLE charging.manual_charge_entries`, even
+- [x] 1.2 Do NOT edit `COMMENT ON TABLE charging.manual_charge_entries`, even
       though it still says "No cross-module FK on account_id" (`design.md` D7).
-- [ ] 1.3 Do NOT touch the primary key, any CHECK constraint, or the generated
+- [x] 1.3 Do NOT touch the primary key, any CHECK constraint, or the generated
       column `inferred_capacity_kwh_calc`.
-- [ ] 1.4 Do NOT touch `charging.supercharger_sessions`,
+- [x] 1.4 Do NOT touch `charging.supercharger_sessions`,
       `charging.mirror_watermarks` or `charging.monthly_effective_capacity` in
       this file.
-- [ ] 1.5 `make migration-guard` — expect clean. It prints its standing warning
+- [x] 1.5 `make migration-guard` — expect clean. It prints its standing warning
       about the pre-existing `20260720000001` collision in this same folder;
       that is backlog item 21 and is not this change's job.
-- [ ] 1.6 Do NOT write a test for the migration. This project does not test
+- [x] 1.6 Do NOT write a test for the migration. This project does not test
       migrations; the owner verifies them against the database directly (T8.9).
 
 ## T2 — Queries and sqlc
 
 Depends on: T1.
 
-- [ ] 2.1 `internal/charging/db/query.sql`, `CreateEntry`: `account_id` becomes
+- [x] 2.1 `internal/charging/db/query.sql`, `CreateEntry`: `account_id` becomes
       `created_by_account_id` in the INSERT column list, and `@account_id`
       becomes `@created_by_account_id`. Add one sentence to the comment: the
       column records who typed the entry and is never read back as a filter.
-- [ ] 2.2 `UpdateEntry`: **keep the predicate**, renaming the column only —
+- [x] 2.2 `UpdateEntry`: **keep the predicate**, renaming the column only —
       `WHERE id = @id AND created_by_account_id = @created_by_account_id`
       (`design.md` D4). Rewrite the comment to say three things: this is the only
       guard on the write path; it matches the account that TYPED the entry, which
@@ -90,10 +90,10 @@ Depends on: T1.
       port can carry a vehicle. The immutable-column list now reads `id`,
       `created_by_account_id`, `tesla_id`, `vin`, `created_at`. Do NOT name a
       tier, a change id, or a decision id in the comment — write the reason itself.
-- [ ] 2.3 `DeleteEntry`: **keep the predicate**, renaming the column only —
+- [x] 2.3 `DeleteEntry`: **keep the predicate**, renaming the column only —
       `WHERE id = @id AND created_by_account_id = @created_by_account_id`. Same
       comment rewrite.
-- [ ] 2.4 `ListEntriesByVehicle`, `ListEntriesByVehicleBetween` and
+- [x] 2.4 `ListEntriesByVehicle`, `ListEntriesByVehicleBetween` and
       `ListEntriesByVehicleUpdatedSince`: drop the `account_id` predicate from
       each. Update each index comment to `(tesla_id, charged_on DESC)`, and say
       the read is car-wide — it returns entries typed by any account registered
@@ -101,16 +101,16 @@ Depends on: T1.
       bounds the result" paragraph and `ListEntriesByVehicleUpdatedSince`'s "no
       new index" paragraph, restating the latter's reason: this query orders by
       `charged_on`, so an `updated_at` index would force a sort.
-- [ ] 2.5 Rename `ListEntriesByAccount` to `ListEntriesByVehicles` and re-key it:
+- [x] 2.5 Rename `ListEntriesByAccount` to `ListEntriesByVehicles` and re-key it:
       `WHERE tesla_id = ANY(@tesla_ids::bigint[])`, keeping
       `ORDER BY charged_on DESC LIMIT @limit_count`. New comment: the caller
       supplies the vehicles it is entitled to see, the index prunes per vehicle,
       and a multi-vehicle array is expected to add a sort step. Mirror
       `internal/telemetry`'s `LatestSnapshotsByVehicles` for the parameter form.
-- [ ] 2.6 Do NOT touch `ListValidManualEntryCapacitiesForPeriod` — it never named
+- [x] 2.6 Do NOT touch `ListValidManualEntryCapacitiesForPeriod` — it never named
       `account_id` — nor any `supercharger_sessions`, `mirror_watermarks` or
       `monthly_effective_capacity` query.
-- [ ] 2.7 `make sqlc`. Confirm in the diff, against `design.md` §What `make sqlc`
+- [x] 2.7 `make sqlc`. Confirm in the diff, against `design.md` §What `make sqlc`
       will produce: `chargingdb.ManualChargeEntry` keeps every field and renames
       only `AccountID` → `CreatedByAccountID`; **no new per-query `Row` struct
       appears** for this table; `CreateEntryParams.CreatedByAccountID` exists;
@@ -129,52 +129,52 @@ Depends on: T1.
 
 Depends on: T2.
 
-- [ ] 3.1 `internal/charging/charging.go`: rename `Entry.AccountID` to
+- [x] 3.1 `internal/charging/charging.go`: rename `Entry.AccountID` to
       `Entry.CreatedByAccountID`. Its comment states the rule: it records which
       account typed the entry, no read filters on it, an entry is visible to every
       account registered to its vehicle, and `Update`/`Delete` still match on it
       as the only guard they have until they can name the vehicle instead.
-- [ ] 3.2 `Reader`: drop `accountID` from `ListEntriesByVehicle`,
+- [x] 3.2 `Reader`: drop `accountID` from `ListEntriesByVehicle`,
       `ListEntriesByVehicleBetween` and `ListEntriesByVehicleUpdatedSince`, and
       replace `ListEntriesByAccount` with
       `ListEntriesByVehicles(ctx context.Context, teslaIDs []int64, limit int) ([]Entry, error)`.
       Keep the vehicle id a plain `int64` — do not introduce `vehicleref.Ref`
       (`design.md` D3).
-- [ ] 3.3 Same file: delete every "within an account" and "excludes entries
+- [x] 3.3 Same file: delete every "within an account" and "excludes entries
       belonging to other accounts" sentence from the `Reader` doc comments, and
       state the car-wide rule instead.
-- [ ] 3.4 `ListEntriesByVehicles`' own doc comment: the caller supplies the set
+- [x] 3.4 `ListEntriesByVehicles`' own doc comment: the caller supplies the set
       of vehicles it may see, and an empty or nil slice returns a non-nil empty
       result — an empty set must never be read as "no filter".
-- [ ] 3.5 `Writer.Delete` keeps its signature `Delete(ctx, accountID, id)`, and
+- [x] 3.5 `Writer.Delete` keeps its signature `Delete(ctx, accountID, id)`, and
       the argument keeps working: it is bound to `created_by_account_id` in the
       SQL. Keep the cross-account promise in the doc comment, and add that the
       guard matches the account that typed the entry — narrower than the car it
       belongs to. Same for `Update`, which scopes through
       `Entry.CreatedByAccountID`. Do NOT name a tier, a change id, or a design
       decision id in either comment — write the reason itself.
-- [ ] 3.6 Do NOT add an `internal/vehicleref` import to this module in this
+- [x] 3.6 Do NOT add an `internal/vehicleref` import to this module in this
       change, and do not change `Writer.Create` or `Writer.Update` signatures.
 
 ## T4 — Implementation
 
 Depends on: T3.
 
-- [ ] 4.1 `internal/charging/service.go`, the `store` interface: `deleteEntry`
+- [x] 4.1 `internal/charging/service.go`, the `store` interface: `deleteEntry`
       keeps its shape, `deleteEntry(ctx, params chargingdb.DeleteEntryParams) error`
       — the params struct survives. `listEntriesByAccount` becomes
       `listEntriesByVehicles`, taking `chargingdb.ListEntriesByVehiclesParams`.
-- [ ] 4.2 Same file, `dbStore`: both methods follow the new generated shapes.
-- [ ] 4.3 `writerService`: `Create` binds `CreatedByAccountID: e.CreatedByAccountID`;
+- [x] 4.2 Same file, `dbStore`: both methods follow the new generated shapes.
+- [x] 4.3 `writerService`: `Create` binds `CreatedByAccountID: e.CreatedByAccountID`;
       `Update` renames the same field in its params literal and does NOT drop it;
       `Delete` keeps its signature and binds `CreatedByAccountID: accountID`.
-- [ ] 4.4 `readerService`: the four methods drop `accountID` from their signature
+- [x] 4.4 `readerService`: the four methods drop `accountID` from their signature
       and their params literal. `ListEntriesByVehicles` keeps the
       `limit <= 0 → defaultLimit` clamp the account-wide read had, and passes
       `TeslaIds: teslaIDs`.
-- [ ] 4.5 `rowToEntry`: map `CreatedByAccountID: r.CreatedByAccountID`. Update
+- [x] 4.5 `rowToEntry`: map `CreatedByAccountID: r.CreatedByAccountID`. Update
       the mapping doc comment's field list.
-- [ ] 4.6 `go build ./internal/charging/...` and `go vet ./internal/charging/...`
+- [x] 4.6 `go build ./internal/charging/...` and `go vet ./internal/charging/...`
       — expect clean. The rest of the repo is still red until T6.
 
 ## T5 — Test fixups inside charging
@@ -240,36 +240,36 @@ Depends on: T3 (needs the final port signatures). **Not this module's sandbox �
 `internal/charging` workers must not edit these files.** Must land in the same
 wave as T4, or `go build ./...` stays red (`design.md` D5).
 
-- [ ] 6.1 `internal/analytics/reader.go:146`, `recalculate.go:163` and
+- [x] 6.1 `internal/analytics/reader.go:146`, `recalculate.go:163` and
       `recalculate.go:283`: drop the `accountID` argument from the three
       `ListEntries*` calls. `accountID` is still used elsewhere in each of those
       functions — check before deleting the parameter that carries it.
-- [ ] 6.2 `internal/analytics` tests: `fakeManualReader`
+- [x] 6.2 `internal/analytics` tests: `fakeManualReader`
       (`reader_test.go`) re-signs its four methods and renames
       `ListEntriesByAccount` to `ListEntriesByVehicles`. Any recorded
       `gotAccountID` for these ports records the vehicle instead. Same in
       `recalculate_test.go`. Rename `account_id` in every raw
       `manual_charge_entries` seed in `db_integration_test.go`.
-- [ ] 6.3 `internal/gateway/handlers/external_charges.go:651` and `:845`: the two
+- [x] 6.3 `internal/gateway/handlers/external_charges.go:651` and `:845`: the two
       `ListEntriesByVehicleBetween` calls drop `uid`. Both already pass a vehicle
       resolved from the account's own vehicles, so nothing else moves.
-- [ ] 6.4 Same file, `fetchEntryVM`: replace `ListEntriesByAccount(ctx, uid, 0)`
+- [x] 6.4 Same file, `fetchEntryVM`: replace `ListEntriesByAccount(ctx, uid, 0)`
       with `ListEntriesByVehicles(ctx, ids, 0)`, where `ids` are the `TeslaID`s
       of `h.acct.RegisteredVehicles(ctx, uid)` — which this function already
       calls. Move that call above the read and stop discarding its error: an
       error or an empty list must return `false`, not an unfiltered read.
-- [ ] 6.5 Same file, `fetchEntryTeslaIDAndChargedOn`: the same switch. It has no
+- [x] 6.5 Same file, `fetchEntryTeslaIDAndChargedOn`: the same switch. It has no
       `RegisteredVehicles` call today, so add one, with the same error and
       empty-list handling.
-- [ ] 6.6 Same file, lines 445 and 1425: `entry.AccountID = uid` and
+- [x] 6.6 Same file, lines 445 and 1425: `entry.AccountID = uid` and
       `AccountID: uid` become `CreatedByAccountID`.
-- [ ] 6.7 `internal/gateway/handlers/external_charges_test.go`:
+- [x] 6.7 `internal/gateway/handlers/external_charges_test.go`:
       `fakeChargeReader` re-signs its four methods and renames
       `ListEntriesByAccount` to `ListEntriesByVehicles`. Keep the `panic` body on
       `ListEntriesByVehicleUpdatedSince`.
-- [ ] 6.8 `go build ./internal/analytics/... ./internal/gateway/... ./cmd/...`
+- [x] 6.8 `go build ./internal/analytics/... ./internal/gateway/... ./cmd/...`
       and `go vet` the same packages — expect clean.
-- [ ] 6.9 Do NOT add `authorizeVehicle`, `vehicleref.All` or `vehicleref.TeslaIDs`
+- [x] 6.9 Do NOT add `authorizeVehicle`, `vehicleref.All` or `vehicleref.TeslaIDs`
       here. This task only keeps the build green; roadmap tier 3 owns the
       authorization work.
 

@@ -153,24 +153,25 @@ func (f *fakeSuperchargerReader) ListSessionsByVehicle(_ context.Context, teslaI
 	return f.sessions, nil
 }
 
-// fakeManualReader is a fake charging.Reader. ListEntriesByVehicle is exercised by
-// RecentEfficiency; ListEntriesByVehicleBetween is exercised by ConsumedByDay (RM28 tier
-// 3, design.md D-B13) — both share the entries/err fixture fields (safe: no existing
-// RecentEfficiency test calls the Between path).
+// fakeManualReader is a fake charging.Reader. ListEntriesByVehicle is exercised
+// by RecentEfficiency; ListEntriesByVehicleBetween is exercised by ConsumedByDay.
+// Both share the entries/err fixture fields. That is safe, because no
+// RecentEfficiency test calls the Between path.
+//
+// The manual-charge reads are keyed on the vehicle only, so this fake records
+// the tesla id and never an account id.
 type fakeManualReader struct {
 	entries []charging.Entry
 	err     error
 
-	gotAccountID uuid.UUID
-	gotTeslaID   int64
-	gotLimit     int
+	gotTeslaID int64
+	gotLimit   int
 
 	gotBetweenStart time.Time
 	gotBetweenEnd   time.Time
 }
 
-func (f *fakeManualReader) ListEntriesByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]charging.Entry, error) {
-	f.gotAccountID = accountID
+func (f *fakeManualReader) ListEntriesByVehicle(_ context.Context, teslaID int64, limit int) ([]charging.Entry, error) {
 	f.gotTeslaID = teslaID
 	f.gotLimit = limit
 	if f.err != nil {
@@ -179,15 +180,13 @@ func (f *fakeManualReader) ListEntriesByVehicle(_ context.Context, accountID uui
 	return f.entries, nil
 }
 
-func (f *fakeManualReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, _ int) ([]charging.Entry, error) {
-	panic("fakeManualReader: ListEntriesByAccount must not be called from RecentEfficiency")
+func (f *fakeManualReader) ListEntriesByVehicles(_ context.Context, _ []int64, _ int) ([]charging.Entry, error) {
+	panic("fakeManualReader: ListEntriesByVehicles must not be called from RecentEfficiency")
 }
 
-// ListEntriesByVehicleBetween implements the bounded-window fetch ConsumedByDay issues
-// (design.md D-B13 — start-1/end, no tail). Un-panicked by RM28 tier 3 (task T5.3);
-// previously a defensive stub since RecentEfficiency never called it.
-func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]charging.Entry, error) {
-	f.gotAccountID = accountID
+// ListEntriesByVehicleBetween implements the bounded-window fetch ConsumedByDay
+// issues: start-1 to end, with no tail.
+func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, teslaID int64, start, end time.Time) ([]charging.Entry, error) {
 	f.gotTeslaID = teslaID
 	f.gotBetweenStart = start
 	f.gotBetweenEnd = end
@@ -197,10 +196,10 @@ func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, accoun
 	return f.entries, nil
 }
 
-// ListEntriesByVehicleUpdatedSince satisfies the charging.Reader method added by
-// RM29-analytics-add-vehicle-metrics task 1.4. Panics for the same reason as the
-// two telemetry siblings above.
-func (f *fakeManualReader) ListEntriesByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]charging.Entry, error) {
+// ListEntriesByVehicleUpdatedSince completes the charging.Reader interface. It
+// panics for the same reason as the two telemetry siblings above: no Reader path
+// calls it.
+func (f *fakeManualReader) ListEntriesByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]charging.Entry, error) {
 	panic("fakeManualReader: ListEntriesByVehicleUpdatedSince must not be called from a Reader path")
 }
 
@@ -455,9 +454,10 @@ func TestRecentEfficiency_AccountError_Propagates(t *testing.T) {
 	}
 }
 
-// TestRecentEfficiency_AccountIDScoping_PassedToEveryPort covers design.md D4 / spec.md
-// "Multi-Tenant Scoping": the same accountID argument must reach all four fakes'
-// captured call arguments unchanged.
+// TestRecentEfficiency_AccountIDScoping_PassedToEveryPort checks that each port
+// receives the identity it is keyed on, unchanged. Only the vehicle lookup is
+// still keyed on the account; telemetry, supercharger and manual charges are all
+// keyed on the vehicle alone.
 func TestRecentEfficiency_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 	accountID := uuid.New()
 	const teslaID = int64(77)
@@ -491,8 +491,9 @@ func TestRecentEfficiency_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 	}
 	// The supercharger port is keyed on tesla_id alone now, so it has no
 	// accountID to check. superchargerFake.gotTeslaID below covers it.
-	if manualFake.gotAccountID != accountID {
-		t.Errorf("charging: accountID not passed through: want %v, got %v", accountID, manualFake.gotAccountID)
+	// The manual-charge port is keyed the same way.
+	if manualFake.gotTeslaID != teslaID {
+		t.Errorf("charging: teslaID not passed through: want %d, got %d", teslaID, manualFake.gotTeslaID)
 	}
 	if vehicleFake.gotAccountID != accountID {
 		t.Errorf("account: accountID not passed through: want %v, got %v", accountID, vehicleFake.gotAccountID)

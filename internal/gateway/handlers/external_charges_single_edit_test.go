@@ -16,13 +16,13 @@ import (
 // for editing and assert the other stayed static.
 func twoEntries(uid uuid.UUID, idA, idB uuid.UUID) []charging.Entry {
 	base := charging.Entry{
-		AccountID: uid,
-		TeslaID:   1001,
-		VIN:       "VIN1001",
-		ChargedOn: time.Now(),
-		Status:    charging.StatusDone,
-		Price:     7000,
-		Currency:  "COP",
+		CreatedByAccountID: uid,
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          time.Now(),
+		Status:             charging.StatusDone,
+		Price:              7000,
+		Currency:           "COP",
 	}
 	a, b := base, base
 	a.ID, b.ID = idA, idB
@@ -146,7 +146,7 @@ func max0(i int) int {
 func TestExternalChargeRowEditFragment_RM51_B5_ConfirmedFreeCharge_BoxChecked(t *testing.T) {
 	uid, id := uuid.New(), uuid.New()
 	entry := charging.Entry{
-		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001",
+		ID: id, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001",
 		ChargedOn: time.Now(), Status: charging.StatusDone,
 		Price: 0, PriceSource: charging.PriceSourceUser, Currency: "COP",
 	}
@@ -173,7 +173,7 @@ func TestExternalChargeRowEditFragment_RM51_B5_ConfirmedFreeCharge_BoxChecked(t 
 func TestExternalChargeRowEditFragment_RM51_B6_UnconfirmedZeroPrice_BoxUnchecked(t *testing.T) {
 	uid, id := uuid.New(), uuid.New()
 	entry := charging.Entry{
-		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001",
+		ID: id, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001",
 		ChargedOn: time.Now(), Status: charging.StatusDone,
 		Price: 0, PriceSource: charging.PriceSourceUnconfirmed, Currency: "COP",
 	}
@@ -200,7 +200,7 @@ func TestExternalChargeRowEditFragment_RM51_B6_UnconfirmedZeroPrice_BoxUnchecked
 func TestExternalChargeRowEditFragment_RM51_B7_PositivePrice_BoxUnchecked(t *testing.T) {
 	uid, id := uuid.New(), uuid.New()
 	entry := charging.Entry{
-		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001",
+		ID: id, CreatedByAccountID: uid, TeslaID: 1001, VIN: "VIN1001",
 		ChargedOn: time.Now(), Status: charging.StatusDone,
 		Price: 8000.00, PriceSource: charging.PriceSourceUser, Currency: "COP",
 	}
