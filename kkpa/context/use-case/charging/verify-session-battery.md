@@ -36,6 +36,16 @@ write channel is correcting the two human-owned battery percentages.
   user's way of asking for it to be calculated — the response's `SuperchargerRow` comes back
   carrying the derived value, with no second request.
   _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **Which session is writable now depends on the session-selected vehicle.** The write is scoped
+  to the vehicle held in the user's session, not to the account. A session belonging to another
+  of the account's own vehicles is not writable through this route until that vehicle is
+  selected. Selecting it, then repeating the save, scopes the write to it.
+  _Source: spec gateway — Requirement: Supercharger Stats page._
+- **No vehicle selected means `HTTP 404`, and `VerifySession` is never called.** This happens on
+  a stale session whose selection was cleared, or on a hand-crafted `PATCH` sent without first
+  loading a page that selects a vehicle. It is the same status an unresolvable vehicle already
+  returned, not a new one.
+  _Source: spec gateway — Requirement: Supercharger Stats page._
 
 ## Flow
 
@@ -142,3 +152,33 @@ On the error branches, `fetchSuperchargerRowVM` additionally READs `supercharger
 - **The derivation is one-directional.** An end percentage is never derived from a start
   percentage, under any circumstance.
   _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **Only the verification write requires a proof of ownership. The other four Supercharger
+  ports do not.** `VerifySession` takes a `vehicleref.Ref`. The mirror write and the three
+  session reads (`ListSessionsByVehicleBetween`, `ListSessionsByVehicleUpdatedSince`,
+  `ListSessionsByVehicle`) still take a bare `teslaID int64`. This is deliberate, not an
+  unfinished migration. The verification write is the only Supercharger port that changes a
+  human-entered record, so it is the only one worth the stricter type.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping._
+- **Do NOT "finish the job" by retyping the three read ports.** `internal/analytics` calls all
+  three, and `make vehicleref-guard` allows `vehicleref.Authorize` / `.All` only inside the
+  gateway's `authorizeVehicle` helper. Analytics has no legal way to build a `Ref`, so retyping
+  those ports forces an escape-hatch marker at every analytics call site — which removes the
+  single-construction-site rule the guard exists to hold.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping._
+- **A caller with no proof fails to build, not at run time.** A caller that never established
+  which vehicles it may act for has no way to construct the value `VerifySession` demands. The
+  mistake stops the compiler; it never reaches the store. This is the difference between this
+  port and the ones that take a bare id, where the same mistake reaches the database and
+  silently matches zero rows.
+  _Source: spec charging — Requirement: Supercharger Port Vehicle Scoping, Scenario: A
+  verification write cannot be issued without proof of ownership._
+- **The handler reads the vehicle from the session, never from `resolveSelectedVehicle`.**
+  `resolveSelectedVehicle` auto-picks a vehicle when the session holds none. On a write that
+  would silently save to a car the user never chose. Reading `currentVehicle` and rejecting an
+  empty selection is what makes the 404 correct rather than a lost edit.
+  _Source: spec gateway — Requirement: Supercharger Stats page, Scenario: A request with no
+  vehicle selected in the session is rejected._
+- **Ownership is proved once, not twice.** The check reuses the same `RegisteredVehicles` read
+  the route already performs. Do not add a `resolveSelectedVehicle` call in front of
+  `authorizeVehicle` — that costs a second account query on every save and proves nothing new.
+  _Source: spec gateway — Requirement: Supercharger Stats page._

@@ -118,6 +118,7 @@
 | `force a collection cycle` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
 | `on-demand poll` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
 | `POLLER_RERUN_TOKEN` | `POST /internal/rerun/<token>` | `n/a` | `use-case/trigger-manual-rerun.md` |
+| `why can't I edit this session` | the write is scoped to the session-selected vehicle; select that vehicle first | `charging` | `use-case/charging/verify-session-battery.md` |
 
 ## Workflows
 
@@ -299,8 +300,10 @@
 | `charging_skipped_unregistered` | the cycle-log label for a session skipped because its VIN is not a registered vehicle → `architecture/telemetry-ingest-only.md` |
 | `cycle report charging counters` | the three independent charging counters (upserted · fetch failures · skipped unregistered) → `architecture/telemetry-ingest-only.md` |
 | `session vehicle keying` | why a Supercharger session carries `tesla_id` and no `account_id`, and why `session_id` is unique store-wide → `architecture/charging-tables.md` |
-| `supercharger port scoping` | every charging Supercharger port takes `teslaID` alone; `VerifySession` matches id AND vehicle → `workflows/supercharger-stats-read.md` |
+| `supercharger port scoping` | the mirror write and the three reads take `teslaID` alone; `VerifySession` takes a proof value and matches id AND vehicle → `workflows/supercharger-stats-read.md` |
 | `wrong vehicle on a session write` | returns the same error an unknown id returns, on purpose → `workflows/supercharger-stats-read.md` |
+| `which supercharger ports need a proof` | only the verification write; the mirror write and the three reads take a bare `teslaID` → `use-case/charging/verify-session-battery.md` |
+| `why not retype the session read ports` | `internal/analytics` calls them and cannot legally build a `Ref` → `use-case/charging/verify-session-battery.md` |
 
 <!--
 Notes for the curator:
