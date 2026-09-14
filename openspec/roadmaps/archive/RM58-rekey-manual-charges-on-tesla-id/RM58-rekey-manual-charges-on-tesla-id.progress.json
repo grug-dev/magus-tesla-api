@@ -4,10 +4,10 @@
   "roadmap": "RM58-rekey-manual-charges-on-tesla-id",
   "intention": "charging.manual_charge_entries is keyed on tesla_id, account_id is demoted to created_by_account_id and never read as a filter, and no manual-charge write can run without a vehicleref.Ref.",
   "request": "MAG-68 — 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Step 5 of MAG-63.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": false,
   "created_at": "2026-09-14T10:13:34Z",
-  "updated_at": "2026-09-14T20:50:00Z",
+  "updated_at": "2026-09-14T21:45:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,14 +21,13 @@
     "created_at": "2026-09-14T10:13:34Z"
   },
   "rollup": {
-    "current": [
-      "RM58-gateway-authorize-manual-charge-writes"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       "RM58-charging-demote-manual-charge-account-id",
-      "RM58-charging-entry-writes-take-ref"
+      "RM58-charging-entry-writes-take-ref",
+      "RM58-gateway-authorize-manual-charge-writes"
     ]
   },
   "decisions": [
@@ -187,14 +186,18 @@
         1,
         2
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-09-14T20:20:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-14T21:45:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "The riskiest tier. Every manual-charge write proves the entry's own tesla_id with authorizeVehicle before touching a row."
+      "budget": {
+        "cost_usd_delta": 9.5,
+        "approx": true,
+        "note": "Artifacts wave (two dispatches), wave 1, leader T7, and three review rounds."
+      },
+      "notes": "One seam, h.ownedVehicles, produces the caller's owned vehicle set. Both entry-lookup helpers use it; teslaIDsOf is deleted. No behaviour change. Reshaped at the interview: the row's literal change was a no-op that broke vehicleref-guard."
     }
   ],
   "events": [
@@ -247,6 +250,11 @@
       "at": "2026-09-14T20:45:00Z",
       "what": "tier-3-artifacts-finding",
       "detail": "The worker refused to invent a delta spec and flagged that openspec validate hard-fails on a zero-delta change. Leader verified an honest requirement exists and that it is complete: ListEntriesByVehicles has exactly two gateway call sites, both in this tier, and no other fleet-wide owned-set read exists. Owner chose to add it (D16). Worker re-dispatched."
+    },
+    {
+      "at": "2026-09-14T21:45:00Z",
+      "what": "tier-3-archived-roadmap-complete",
+      "detail": "Reviewer approved at round 3. Round 1 found a doc citation in the test comments; round 2 rejected the leader's own fix for a false claim about index pairing; round 3 approved the correction. Owner ran make test and reported it passed. All three tiers archived, so RM58 is complete and both roadmap files move to openspec/roadmaps/archive/RM58-rekey-manual-charges-on-tesla-id/. The work counter is untouched: numbers are monotonic and RM58 keeps its number."
     }
   ]
 }

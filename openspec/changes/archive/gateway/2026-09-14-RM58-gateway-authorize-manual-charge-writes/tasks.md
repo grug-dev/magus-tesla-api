@@ -182,29 +182,29 @@ would describe something untrue).
 
 Depends on: T0–T6.
 
-- [ ] 7.1 `go build ./...` — clean.
-- [ ] 7.2 `go vet ./...` — clean.
-- [ ] 7.3 `gofmt -l .` — no output.
-- [ ] 7.4 `make vehicleref-guard` — clean. Confirm the output shows the new
+- [x] 7.1 `go build ./...` — clean.
+- [x] 7.2 `go vet ./...` — clean.
+- [x] 7.3 `gofmt -l .` — no output.
+- [x] 7.4 `make vehicleref-guard` — clean. Confirm the output shows the new
       `vehicleref.All(` call in `handlers.go` is accepted (it is on the exclusion list by
       filename) and that no `vehicleref.All`/`vehicleref.Authorize` call appears anywhere
       else new.
-- [ ] 7.5 `make boundary-guard`, `make tz-guard`, `make money-guard`, `make i18n-guard`,
+- [x] 7.5 `make boundary-guard`, `make tz-guard`, `make money-guard`, `make i18n-guard`,
       `make ui-guard`, `make migration-guard` — clean (all unaffected by this change, per
       `design.md` §Makefile).
-- [ ] 7.6 `make archive-guard` — clean.
-- [ ] 7.7 Grep `internal/gateway` for `teslaIDsOf` — expect **zero** hits (fully deleted).
-- [ ] 7.8 Grep the whole repository for `.RegisteredVehicles(` inside
+- [x] 7.6 `make archive-guard` — clean.
+- [x] 7.7 Grep `internal/gateway` for `teslaIDsOf` — expect **zero** hits (fully deleted).
+- [x] 7.8 Grep the whole repository for `.RegisteredVehicles(` inside
       `internal/gateway/handlers/external_charges.go` — expect exactly 3 remaining direct
       call sites (the ones named in `design.md` §D3, left alone on purpose), plus however
       many now go through `ownedVehicles` indirectly (which will not show up in this grep,
       since they call `h.ownedVehicles`, not `h.acct.RegisteredVehicles`, directly — that
       is the point).
-- [ ] 7.9 Re-read `design.md` §Docs this change invalidates top to bottom and confirm
+- [x] 7.9 Re-read `design.md` §Docs this change invalidates top to bottom and confirm
       every row was actually done (T5, T6) or explicitly found unnecessary and stated why
       (6.4).
-- [ ] 7.10 `openspec validate --strict` on this change — clean.
-- [ ] 7.11 Do NOT run `go test ./...`, `make test`, `make test-with-db`, or `make check` —
+- [x] 7.10 `openspec validate --strict` on this change — clean.
+- [x] 7.11 Do NOT run `go test ./...`, `make test`, `make test-with-db`, or `make check` —
       owner-only, per the Test-Execution-Policy. Hand the owner these exact commands:
       - `go test ./internal/gateway/...`
       - `go test ./...` (full suite, confirms no other module was affected)

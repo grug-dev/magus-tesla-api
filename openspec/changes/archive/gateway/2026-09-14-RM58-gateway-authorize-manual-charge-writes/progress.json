@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
   "request": "MAG-68 — Tier 3 of RM58: the gateway gets ONE seam that produces the caller's owned vehicle set, and every fleet-wide read uses it. No behaviour change.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -23,7 +23,7 @@
     "awaiting-user-verification": []
   },
   "created_at": "2026-09-14T20:50:00Z",
-  "updated_at": "2026-09-14T21:25:00Z",
+  "updated_at": "2026-09-14T21:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -262,7 +262,7 @@
   "review": {
     "brief": "Review scope: git diff 1c92a4e..HEAD, plus the artifacts committed at 1c92a4e. Tier 2 archived at 4f1c6b4; anything before it is approved work. Read the diff, not the whole module. Validate: (1) the binding decisions hold - D13, D14, D15, D16 in this file, and D1-D6 in design.md; (2) ownedVehicles does ONE RegisteredVehicles read and returns both shapes, with ok false on an error OR an empty list - the 'an empty vehicle list is not no-filter' rule must be exactly as strong as before; (3) vehicleref.All is called only from handlers.go and external_charges.go calls only vehicleref.TeslaIDs; (4) teslaIDsOf is gone and no caller rebuilds an owned-id list beside a call; (5) the delta spec requirement is behavioural - it must name no function, type or file - AND it must be TRUE and COMPLETE after this tier: check every fleet-wide owned-set read in the gateway, not just the two helpers, and say whether you found any the requirement would make false; (6) owned_vehicles_test.go asserts the values design.md pinned up front, not what the implementation happens to return - the three cases are vehicles present, empty list, and lookup error; (7) module boundaries - this change must stay inside internal/gateway plus the three granted KB files; (8) docs track the change - internal/gateway/AGENTS.md and the three KB guides; (9) openspec/changes/archive/ untouched; (10) anti-gaming - no criterion weakened, no self-approved status. LEADER OBSERVATION for you to judge, not a finding: ownedVehicles repeats the four-line owned-id loop that authorizeVehicle also has, in the same file. The leader left it, reasoning that extracting a helper for two short loops adds indirection the project's AI-efficiency rule warns against. Say whether you agree. Performance-Profile: read-heavy. This tier must not add a read; confirm the read count is unchanged. Signals: go build, go vet, openspec validate --strict and all eight guards were ASSISTANT-run and clean. The suite was USER-run: the owner ran make test and reported it passed. You judge test quality by READING the tests - never run the suite.",
     "agent": "gateway-reviewer",
-    "status": "changes-requested",
+    "status": "approved",
     "rounds": [
       {
         "round": 1,
@@ -292,7 +292,20 @@
             "id": "R2-F1",
             "severity": "minor",
             "note": "internal/gateway/handlers/owned_vehicles_test.go:12-14 (case 1 comment, from commit d4519e6) adds: \"Order matters -- a caller pairs the two slices by index.\" This is not true of any caller. fetchEntryVM never pairs refs and vehicles by index: refs is unwrapped only through vehicleref.TeslaIDs(refs) to build the ListEntriesByVehicles id argument, and vehicles is searched by TeslaID VALUE in vehicleLabelFor (internal/gateway/handlers/external_charges.go:1113-1119: `for _, v := range vehicles { if v.TeslaID == teslaID {...} }`), not by index. The rest of the comment (one Ref per vehicle, same order, plus the plain vehicle list) is accurate and matches the test and design.md D1. Fix: drop the \"a caller pairs the two slices by index\" clause, or replace it with what is actually true -- the two slices are two views of the same one RegisteredVehicles read, in the same order, but no caller relies on positional pairing between them.",
-            "status": "open"
+            "status": "fixed"
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "at": "2026-09-14T21:50:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R2-F1",
+            "severity": "minor",
+            "note": "Fixed. internal/gateway/handlers/owned_vehicles_test.go:12-15 (commit a6aafe8) now says the two slices are two views of one read and that no caller pairs them by index -- both true, confirmed against vehicleLabelFor (external_charges.go:1113-1119), which matches by TeslaID value. The remaining clause, 'the order is asserted so a future caller may rely on it', states a design rationale, not a claim about current caller behaviour, so it is not false. States nothing false; no citation of design.md, a decision ID, RM58, a change ID, or a tier number.",
+            "status": "fixed"
           }
         ]
       }
@@ -343,6 +356,11 @@
       "at": "2026-09-14T21:25:00Z",
       "what": "review-round-2-triaged",
       "detail": "R2-F1 accepted and fixed. The leader's own round-1 fix introduced a false claim: that a caller pairs refs and vehicles by index. Verified false -- vehicleLabelFor matches on TeslaID, and the only positional indexing is inside the test. The comment now says no caller pairs by index, and why the order is still asserted. go vet and gofmt clean. Reviewer signalled for round 3."
+    },
+    {
+      "at": "2026-09-14T21:30:00Z",
+      "what": "reviewer-approved",
+      "detail": "gateway-reviewer approved at round 3. Round 1 approved with one minor finding (doc citation in test comments); round 2 rejected the leader's own fix for a false claim about index pairing; round 3 approved the correction. The reviewer confirmed the delta spec requirement is complete -- no counter-example -- and agreed the duplicated owned-id loop should stay inline."
     }
   ]
 }
