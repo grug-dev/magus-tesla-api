@@ -6,7 +6,7 @@
   "request": "MAG-67 \u2014 4. Re-key the Supercharger pair on tesla_id; reshape the mirror. Step 4 of MAG-63.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-13T13:15:25Z",
+  "updated_at": "2026-09-14T01:10:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,14 +21,13 @@
   },
   "rollup": {
     "current": [
-      2
-    ],
-    "pending": [
       3
     ],
+    "pending": [],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -166,14 +165,19 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-09-13T12:17:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Wave 1 (T0, T1) committed. T1 awaits the owner's two pre-check queries. Wave 2 (T2-T4) dispatched."
+      "completed_at": "2026-09-14T01:10:00Z",
+      "duration_seconds": 46380,
+      "budget": {
+        "five_hour_pct_delta": 146,
+        "cost_usd_delta": 48.0,
+        "approx": true,
+        "note": "Sum of tier 2's wave and review deltas across four sessions: wave 1 (+6), wave 2 (+15), wave 3 (+51), the review round and its fixes, plus the archive. Spans three 5-hour buckets, so the pct is additive within buckets only."
+      },
+      "notes": "Archived to openspec/changes/archive/charging/2026-09-14-RM57-charging-rekey-supercharger-sessions-on-tesla-id. Reviewer approved in round 2. Owner verified the suite twice - once after wave 3, once after the round-1 fixes. RD13 moved the processor.go rewrite here from tier 3."
     },
     {
       "id": 3,
@@ -254,6 +258,11 @@
       "at": "2026-09-13T13:15:25Z",
       "what": "resumed",
       "detail": "Fresh session. Tier 2 status corrected proposed -> in-progress: its change progress.json already said in-progress with wave 1 committed. Wave 2 (T2, T3, T4) dispatched to one serial Sonnet worker. Budget five_hour_pct 72, context_pct 9."
+    },
+    {
+      "at": "2026-09-14T01:10:00Z",
+      "what": "tier-2-archived",
+      "detail": "openspec archive synced 2 ADDED and 2 MODIFIED requirements into openspec/specs/charging/spec.md. No RENAMED requirement, so no end-of-file reordering to undo. Folder moved from the CLI's archive root into archive/charging/ per config.yaml's group-by-domain rule. Tier 3 (gateway) is now unblocked."
     }
   ]
 }
