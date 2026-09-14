@@ -17,6 +17,10 @@ dropped, like RM57 dropped it from the two Supercharger tables. It is **demoted*
 to `created_by_account_id`, kept as a record of who entered the charge, and never used as a
 key or a read filter again.
 
+One transitional exception, for one tier only: tier 1 keeps the column as the write-path
+guard so no commit ships an unauthorized update or delete. Tier 2 removes it. See "The gap
+this roadmap must not open" below.
+
 ## The decision that sets the scope
 
 **The reads become car-wide.**
@@ -70,6 +74,25 @@ So three modules change, not two. The ticket description was corrected in Linear
   `20260720000001`, which sits in this same `charging` migrations folder. That is backlog
   item 21, pre-existing, and not this roadmap's job.
 
+## The gap this roadmap must not open
+
+Tier 1 was first written to drop the `account_id` predicate from `UpdateEntry` and
+`DeleteEntry`, exactly as the ticket says. That leaves the manual-charge write path with
+**no authorization at all** until tier 2.
+
+It is not theoretical. `ExternalChargeRowDelete` calls `fetchEntryTeslaIDAndChargedOn` only
+to learn which day to recalculate. Its own comment says the delete still proceeds on a
+lookup miss (`internal/gateway/handlers/external_charges.go:571`). So the SQL predicate is
+the only guard there is.
+
+The owner chose to keep the predicate in tier 1 and remove it in tier 2, together with the
+`tesla_id` guard. It costs two SQL lines. No commit is ever exposed, and `main`
+auto-deploys, so that matters.
+
+Consequence to state honestly: at the end of tier 1 the demoted column is still a read
+filter. The ticket's "no read filters on it" is met at the END of this roadmap, not at the
+end of tier 1.
+
 ## Known trap
 
 `sqlc` emits per-query `Row` structs when a query stops selecting a column the table still
@@ -81,8 +104,8 @@ compiles. Each tier's `design.md` must say which queries still select the column
 
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 | --- | --- | --- | --- | --- | --- |
-| `[ ]` | `RM58-charging-demote-manual-charge-account-id` | `charging` | Migration on `charging.manual_charge_entries`: `RENAME COLUMN account_id TO created_by_account_id`, replace `idx_manual_charge_entries_vehicle_time` with `(tesla_id, charged_on DESC)`, drop `idx_manual_charge_entries_account_time`. Queries drop the `account_id` predicate from `ListEntriesByVehicle`, `ListEntriesByVehicleBetween`, `ListEntriesByVehicleUpdatedSince`, `UpdateEntry`, `DeleteEntry`; `ListEntriesByAccount` becomes `ListEntriesByVehicles` taking a `tesla_id` array; `CreateEntry` still writes `created_by_account_id`. The four `Reader` ports drop `accountID` and keep `int64`. Leader-owned integration in this same tier: the three `internal/analytics` call sites, and the mechanical `internal/gateway` call-site updates needed to keep the build green. | — | Demote `account_id` to `created_by_account_id` on `charging.manual_charge_entries`. It stops being a key and a read filter, but the column stays to record who typed the charge. Read the current DDL first. Keep the read ports on `int64` — `internal/analytics` calls them and `make vehicleref-guard` forbids building a `Ref` outside the gateway. Say in `design.md` which queries still select the column, because sqlc emits per-query `Row` structs otherwise. Do not touch the write-port types; tier 2 owns those. |
-| `[ ]` | `RM58-charging-entry-writes-take-ref` | `charging` | `Update` and `Delete` take a `vehicleref.Ref` instead of an account. `UpdateEntry` and `DeleteEntry` keep a two-column SQL guard, `WHERE id = $1 AND tesla_id = $2`, with the `tesla_id` unwrapped from the `Ref`. `Create` is untouched — it keeps the account to record authorship. | 1 | Retype `Update` and `Delete` to require a `vehicleref.Ref`. Keep the SQL guard on `id` AND `tesla_id`; the account predicate is gone, so the row must still be pinned to the car. Explain in `design.md` why the type is the real guarantee and the SQL guard is the second line. Do not touch the read ports. |
+| `[~]` | `RM58-charging-demote-manual-charge-account-id` | `charging` | Migration on `charging.manual_charge_entries`: `RENAME COLUMN account_id TO created_by_account_id`, replace `idx_manual_charge_entries_vehicle_time` with `(tesla_id, charged_on DESC)`, drop `idx_manual_charge_entries_account_time`. Queries drop the `account_id` predicate from the three per-vehicle reads — `ListEntriesByVehicle`, `ListEntriesByVehicleBetween`, `ListEntriesByVehicleUpdatedSince`; `ListEntriesByAccount` becomes `ListEntriesByVehicles` taking a `tesla_id` array; `CreateEntry` still writes `created_by_account_id`. The four `Reader` ports drop `accountID` and keep `int64`. **`UpdateEntry` and `DeleteEntry` KEEP an account predicate on the renamed column** (`WHERE id = @id AND created_by_account_id = @created_by_account_id`) — transitional, removed in tier 2, so no commit ever has an unauthorized write path. Leader-owned integration in this same tier: the three `internal/analytics` call sites, and the mechanical `internal/gateway` call-site updates needed to keep the build green. | — | Demote `account_id` to `created_by_account_id` on `charging.manual_charge_entries`. It stops being a key and a read filter, but the column stays to record who typed the charge. Read the current DDL first. Keep the read ports on `int64` — `internal/analytics` calls them and `make vehicleref-guard` forbids building a `Ref` outside the gateway. Say in `design.md` which queries still select the column, because sqlc emits per-query `Row` structs otherwise. Do not touch the write-port types; tier 2 owns those. |
+| `[ ]` | `RM58-charging-entry-writes-take-ref` | `charging` | `Update` and `Delete` take a `vehicleref.Ref` instead of an account. `UpdateEntry` and `DeleteEntry` swap tier 1's transitional `created_by_account_id` predicate for a two-column guard, `WHERE id = $1 AND tesla_id = $2`, with the `tesla_id` unwrapped from the `Ref`. The two cross-account tests tier 1 kept are re-keyed onto `tesla_id` here. `Create` is untouched — it keeps the account to record authorship. | 1 | Retype `Update` and `Delete` to require a `vehicleref.Ref`. Keep the SQL guard on `id` AND `tesla_id`; the account predicate is gone, so the row must still be pinned to the car. Explain in `design.md` why the type is the real guarantee and the SQL guard is the second line. Do not touch the read ports. |
 | `[ ]` | `RM58-gateway-authorize-manual-charge-writes` | `gateway` | `fetchEntryVM` and `fetchEntryTeslaIDAndChargedOn` switch from `ListEntriesByAccount` to `ListEntriesByVehicles`, fed by the account's registered vehicles through `vehicleref.All` / `TeslaIDs`. `ExternalChargeRowUpdate` and `ExternalChargeRowDelete` prove the **entry's** `tesla_id` with `authorizeVehicle` and hand the `Ref` to the write ports. Files: `internal/gateway/handlers/external_charges.go`, `external_charges_tiles.go`, `handlers.go`. | 1, 2 | Make every manual-charge write prove vehicle ownership before it touches a row. The id on the request is not the proof — authorize the `tesla_id` stored on the entry itself. Explain in `design.md` why scoping the entry lookup to the account's own vehicles already proves ownership by construction. |
 
 Legend: `[ ]` pending — the tier's OpenSpec change has not been created yet.
