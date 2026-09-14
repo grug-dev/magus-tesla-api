@@ -162,3 +162,26 @@ Depends on: T1–T5.
       confirming every renamed call site still reports `PASS`, not `SKIP` or
       `FAIL`. Whole-repo `go test ./...` / `make test` will not build until tier 4
       lands — say so plainly rather than asking the owner to run it now.
+
+## T7 — Replace doc-comment pointers with their reasons
+
+Depends on: T1, T2. Added after T6 was ticked, when the owner asked for the
+cleanup the `CLAUDE.md` style rule calls opportunistic.
+
+Both `VerifySession` doc comments pointed at design docs by decision ID. Those
+docs are archived and frozen, so a later reader cannot follow the pointer, and
+the project forbids editing an archived file to fix it.
+
+- [x] 7.1 `internal/charging/charging.go`: in `SessionVerifier.VerifySession`'s
+      doc comment, replace all 13 citations with the reason each one stood for.
+      Resolve every ID against its archived design first — never invent a
+      reason. Keep every behavioural detail.
+- [x] 7.2 `internal/charging/session_verifier.go`: same for the 6 citations in
+      `func (v *sessionVerifier) VerifySession`'s doc comment.
+- [x] 7.3 Same file: remove the two remaining pointers inside the function
+      body. Each comment already stated its own reason, so only the prefix
+      goes.
+- [x] 7.4 Do NOT sweep the rest of either file. Other interfaces and functions
+      keep their citations — `MAG-70` owns that wider sweep.
+- [x] 7.5 `go build ./internal/charging/...`, `go vet ./internal/charging/...`,
+      `gofmt -l internal/charging`, `make archive-guard` — expect clean.
