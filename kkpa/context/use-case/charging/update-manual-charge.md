@@ -23,7 +23,8 @@
   comes from the session-selected vehicle. Currency is hardcoded `COP`.
 - **Output:** `200` with `fragments.ChargeRowUpdateSuccessOOB` — the static row swap plus an
   out-of-band `#external-charges-list` refresh. `422` re-renders the edit row with per-field errors,
-  `500` with a top-of-form error, `403` on CSRF failure, `400` on an unparseable id.
+  `500` with a top-of-form error, `403` on CSRF failure, `400` on an unparseable id, `404` when the
+  entry is not found among the account's registered vehicles.
 
 ## Flow
 
@@ -36,14 +37,20 @@
    `charging.RequiredFieldsFor(status)` rather than hardcoding it; runs `vehicleOwned`.
 5. `Handler.fetchEntryTeslaIDAndChargedOn` → `charging.Reader.ListEntriesByVehicles` (over the
    account's `RegisteredVehicles`, since `RM58-charging-demote-manual-charge-account-id`) — reads
-   the **pre-update** `charged_on`. Once the UPDATE commits the old date is unrecoverable.
+   the **pre-update** `charged_on`. Once the UPDATE commits the old date is unrecoverable. A miss
+   answers `404` and returns — never `403`, so a probed id cannot be confirmed as real.
    ⚠ capped at 100 rows — see `architecture/charge-record-mutation.md`.
-6. `charging.Writer.Update` — `internal/charging/service.go` — `normalizeStatus` →
-   `missingFields` → `resolveEnergy` → `UpdateEntry`. A rejected update writes nothing.
-7. `Handler.recalculateAfterExternalChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
+6. `Handler.authorizeVehicle` — proves the vehicle stored **on the entry** (not one named by the
+   request) against the account's registered vehicles, and returns a `vehicleref.Ref`. An error
+   here answers the same `404` as step 5.
+7. `charging.Writer.Update` — `internal/charging/service.go` — takes the `Ref` from step 6.
+   `normalizeStatus` → `missingFields` → `resolveEnergy` → `UpdateEntry`. The `Ref` overwrites
+   `Entry.TeslaID` before anything else runs, so energy derivation always reads the proven car.
+   A rejected update writes nothing.
+8. `Handler.recalculateAfterExternalChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
    for the new date; called a **second time** for the old date when the edit moved it. Errors
    logged and swallowed.
-8. `Handler.buildExternalChargesPage` — re-reads for the OOB list refresh and the aggregation tiles.
+9. `Handler.buildExternalChargesPage` — re-reads for the OOB list refresh and the aggregation tiles.
 
 ## Database
 

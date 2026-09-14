@@ -21,7 +21,7 @@
   string carrying the active filter window.
 - **Output:** `200` re-rendering the whole `#external-charges-list` region (the row no longer exists to
   swap into). `500` renders the same region with an error banner. `403` on CSRF failure, `400` on
-  an unparseable id.
+  an unparseable id, `404` when the entry is not found among the account's registered vehicles.
 
 ## Flow
 
@@ -31,14 +31,21 @@
 3. `Handler.resolveSelectedVehicle` — the vehicle context to scope the re-rendered list to.
 4. `Handler.fetchEntryTeslaIDAndChargedOn` → `charging.Reader.ListEntriesByVehicles` (over the
    account's `RegisteredVehicles`, since `RM58-charging-demote-manual-charge-account-id`) — **the
-   only chance** to learn `tesla_id` + `charged_on`; `Writer.Delete` returns nothing.
+   only chance** to learn `tesla_id` + `charged_on`; `Writer.Delete` returns nothing. A miss
+   answers `404` and returns — never `403`, so a probed id cannot be confirmed as real.
    ⚠ capped at 100 rows — see the gotchas below.
-5. `charging.Writer.Delete` — `internal/charging/service.go` — `DeleteEntry`, double-scoped
-   `id AND created_by_account_id` (transitional — matches who typed the entry, not yet the
-   vehicle). Hard delete: no soft delete, no tombstone, no audit row.
-6. `Handler.buildExternalChargesPage` — rebuilds the list region (runs before the error branch too, so
+5. `Handler.authorizeVehicle` — proves the vehicle stored **on the entry** (not one named by the
+   request) against the account's registered vehicles, and returns a `vehicleref.Ref`. An error
+   here answers the same `404` as step 4.
+6. `charging.Writer.Delete` — `internal/charging/service.go` — `DeleteEntry`, scoped
+   `id AND tesla_id`, where `tesla_id` comes from the `Ref` step 5 built. This is not
+   transitional: it is the real ownership guard, proven before the call, and the SQL predicate is
+   only the second line of defence. A `Ref` naming the wrong vehicle for this id matches no row,
+   and `Delete` returns an error wrapping `pgx.ErrNoRows` instead of `nil` — a rejected delete can
+   never be mistaken for a successful one. Hard delete: no soft delete, no tombstone, no audit row.
+7. `Handler.buildExternalChargesPage` — rebuilds the list region (runs before the error branch too, so
    both outcomes render the same way).
-7. `Handler.recalculateAfterExternalChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
+8. `Handler.recalculateAfterExternalChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
    — **only when step 4 found the row**. Errors logged and swallowed.
 
 ## Database

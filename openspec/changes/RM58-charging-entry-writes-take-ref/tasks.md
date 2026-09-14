@@ -292,19 +292,19 @@ outside `internal/charging` until this lands.
 Depends on: T6 (these two files describe the gateway flow T6 adds — writing
 them before T6 exists would describe code that is not there).
 
-- [ ] 7.1 `kkpa/context/use-case/charging/update-manual-charge.md` — insert a
+- [x] 7.1 `kkpa/context/use-case/charging/update-manual-charge.md` — insert a
       new flow step between the existing step 5
       (`fetchEntryTeslaIDAndChargedOn`) and step 6 (`charging.Writer.Update`):
       `Handler.authorizeVehicle` proving the entry's own `tesla_id`,
       producing the `Ref` the next step now requires. Renumber the steps
       after it.
-- [ ] 7.2 `kkpa/context/use-case/charging/delete-manual-charge.md` — same
+- [x] 7.2 `kkpa/context/use-case/charging/delete-manual-charge.md` — same
       shape: insert a step between the existing step 4
       (`fetchEntryTeslaIDAndChargedOn`) and step 5 (`Writer.Delete`).
       Rewrite step 5's text — it currently says "double-scoped `id AND
       created_by_account_id` (transitional...)" — to state the `tesla_id`/
       `Ref` guard, and remove the "transitional" framing.
-- [ ] 7.3 `kkpa/context/architecture/charge-record-mutation.md` — the
+- [x] 7.3 `kkpa/context/architecture/charge-record-mutation.md` — the
       "Different ownership vocabulary, same shape now" bullet's premise (a
       remaining difference between the manual and Supercharger ownership
       checks) is gone once T6 lands: both now call `authorizeVehicle` and
@@ -312,7 +312,7 @@ them before T6 exists would describe code that is not there).
       `ai/architecture.md` §7 records the telemetry-boundary guard as
       "RESOLVED" rather than deleting its own history — or delete it if the
       leader prefers; either is acceptable, note which was chosen.
-- [ ] 7.4 Do NOT edit anything under `openspec/changes/archive/` or
+- [x] 7.4 Do NOT edit anything under `openspec/changes/archive/` or
       `kkpa/context/pending-spec-to-sync/applied/`.
 
 ## T8 — Final verification

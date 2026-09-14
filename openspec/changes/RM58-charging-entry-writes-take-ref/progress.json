@@ -5,29 +5,27 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
   "request": "MAG-68 — Tier 2 of RM58: Writer.Update and Writer.Delete require a vehicleref.Ref, the SQL guard becomes id AND tesla_id, and a delete that matches nothing stops looking like success.",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [],
-    "pending": [
-      "T7",
-      "T8"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "T0",
-      "T5"
-    ],
-    "awaiting-user-verification": [
       "T1",
       "T2",
       "T3",
       "T4",
+      "T5",
       "T6",
-      "T6.7"
-    ]
+      "T6.7",
+      "T7",
+      "T8"
+    ],
+    "awaiting-user-verification": []
   },
   "created_at": "2026-09-14T16:05:00Z",
-  "updated_at": "2026-09-14T17:02:00Z",
+  "updated_at": "2026-09-14T17:44:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -68,7 +66,7 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T16:15:00Z",
@@ -91,7 +89,7 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T16:15:00Z",
@@ -114,7 +112,7 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T16:15:00Z",
@@ -137,7 +135,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T16:15:00Z",
@@ -183,7 +181,7 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-opus-5",
       "started_at": "2026-09-14T16:20:00Z",
@@ -206,14 +204,20 @@
         "T6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T17:40:00Z",
+      "completed_at": "2026-09-14T17:44:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 94,
+        "cost_usd_delta": 3.5,
+        "approx": true,
+        "note": "T7 Sonnet worker plus the leader's T8 verification."
+      },
+      "notes": "Three KB docs updated: both use-case flows gained the authorizeVehicle step and the 404-on-miss, and the mutation guide's stale bullet is restated as resolved. archive-guard clean."
     },
     {
       "id": "T8",
@@ -225,14 +229,20 @@
         "T7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T17:44:00Z",
+      "completed_at": "2026-09-14T17:44:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 94,
+        "cost_usd_delta": 3.5,
+        "approx": true,
+        "note": "Shared with T7."
+      },
+      "notes": "build, vet, openspec validate --strict all clean. All eight guards pass. 8.7 grep found zero charging.Writer calls outside charging and gateway, so analytics is untouched."
     },
     {
       "id": "T6.7",
@@ -242,7 +252,7 @@
         "T6"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-14T16:20:00Z",
@@ -298,6 +308,14 @@
       "at": "2026-09-14T17:00:00Z",
       "what": "fakeChargeWriter gained an opt-in linkedReader field so a successful Delete drops the row from the linked fake reader.",
       "why": "The D4 test asserts the entry present for the lookup and absent in the re-render, within one request. The alternatives weakened an assertion or rewrote the test."
+    },
+    {
+      "id": "D12",
+      "scope": "tier-2",
+      "made_by": "autopilot",
+      "at": "2026-09-14T17:40:00Z",
+      "what": "T7.3 restates the charge-record-mutation bullet as resolved instead of deleting it.",
+      "why": "tasks.md left the choice to the leader. ai/architecture.md section 7 keeps its telemetry-boundary guard as RESOLVED, so the project already prefers keeping the history."
     }
   ],
   "review": {
@@ -336,6 +354,26 @@
       "at": "2026-09-14T17:02:00Z",
       "what": "budget-checkpoint",
       "detail": "Stopped cleanly after wave 1. five_hour_pct 86 against a 90 threshold; wave 2 (T7 KB docs, T8 final verification) would cross it. context_pct 18. five_hour_resets_at 1789414800. Resume with: /kkpa-dev-harness-pipeline resume RM58-charging-entry-writes-take-ref"
+    },
+    {
+      "at": "2026-09-14T17:40:00Z",
+      "what": "owner-verified",
+      "detail": "The OWNER ran the suite and reported it passed. Tasks T1, T2, T3, T4, T6, T6.7 move from awaiting-user-verification to done. The assistant executed no test; this pass is the owner's report."
+    },
+    {
+      "at": "2026-09-14T17:40:00Z",
+      "what": "t7-dispatched",
+      "detail": "Sonnet worker for T7 (three KB docs). Budget at dispatch: five_hour_pct 87, context_pct 19."
+    },
+    {
+      "at": "2026-09-14T17:44:00Z",
+      "what": "t8-verified",
+      "detail": "go build ./... clean, go vet ./... clean, openspec validate --strict valid. vehicleref, boundary, tz, money, i18n, ui, archive and migration guards all pass. 8.4: only authorizeVehicle constructs a Ref. 8.7: zero charging.Writer calls outside charging and gateway. 8.8: every doc-invalidation row done. 8.3: gofmt lists three files, all pre-existing on main and untouched by this branch."
+    },
+    {
+      "at": "2026-09-14T17:44:00Z",
+      "what": "budget-checkpoint",
+      "detail": "Stopped before the reviewer gate. five_hour_pct 94, past the 90 threshold. context_pct 20. five_hour_resets_at 1789414800 (14:40 local). The only change since the owner's suite pass is three markdown files, so that pass still stands. Resume with: /kkpa-dev-harness-pipeline resume RM58-charging-entry-writes-take-ref"
     }
   ]
 }
