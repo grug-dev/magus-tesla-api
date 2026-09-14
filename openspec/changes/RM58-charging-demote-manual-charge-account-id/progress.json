@@ -5,12 +5,10 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
   "request": "MAG-68 \u2014 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Tier 1 of RM58: the migration, the queries, the four Reader ports, and the cross-module bridge.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "T8"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "T0",
@@ -19,14 +17,15 @@
       "T3",
       "T4",
       "T6",
-      "T7"
+      "T7",
+      "T8"
     ],
     "awaiting-user-verification": [
       "T5"
     ]
   },
   "created_at": "2026-09-14T10:40:00Z",
-  "updated_at": "2026-09-14T14:53:00Z",
+  "updated_at": "2026-09-14T14:58:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -235,14 +234,20 @@
         "T7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Guards plus the repo-wide grep, which must exclude the created_by_ prefix. The suite is the owner's to run."
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T14:53:00Z",
+      "completed_at": "2026-09-14T14:58:00Z",
+      "duration_seconds": 300,
+      "budget": {
+        "five_hour_pct_start": 18,
+        "five_hour_pct_end": 22,
+        "cost_usd_delta": 1.2,
+        "approx": true,
+        "note": "Leader-run guards and greps, no worker dispatch."
+      },
+      "notes": "build, vet, gofmt, four guards and openspec validate --strict all clean. Repo-wide grep found no live bare account_id on this table and no live ListEntriesByAccount call. Leader fixed one stale KB line the worker left."
     }
   ],
   "decisions": [
@@ -293,6 +298,14 @@
       "at": "2026-09-14T14:53:00Z",
       "what": "Accepted the worker's deviation on T5.2: cleanupAccount logs RowsAffected instead of asserting it.",
       "why": "84 callers; some clean an account that wrote no row, so a non-zero assert fails for the right reason. The checked exec error catches the rename hazard. Flagged to the reviewer."
+    },
+    {
+      "id": "D-LEADER-4",
+      "scope": "dispatch",
+      "made_by": "autopilot",
+      "at": "2026-09-14T14:58:00Z",
+      "what": "The leader ran T8 itself instead of dispatching a charging worker.",
+      "why": "T8 is guards, greps and hand-off text. A worker would re-read the ~11,900-token base pack to run shell commands."
     }
   ],
   "review": {
@@ -346,6 +359,16 @@
       "at": "2026-09-14T14:53:00Z",
       "what": "wave-2-complete",
       "detail": "T5 + T7 by the charging worker on Sonnet. go build ./... and go vet ./... both clean repo-wide for the first time in this change. gofmt clean (three pre-existing unformatted files are not this change's). Worker's own timestamps were before its dispatch and were replaced with the leader's bracket times. Budget: five_hour_pct 3 -> 18, cost_usd 0.93 -> 9.46."
+    },
+    {
+      "at": "2026-09-14T14:58:00Z",
+      "what": "t8-verification-complete",
+      "detail": "go build ./..., go vet ./..., gofmt, migration-guard, boundary-guard, vehicleref-guard, archive-guard and openspec validate --strict all clean. gofmt lists three pre-existing files this change never touched. T8.4 grep clean: every remaining hit is a historic migration, the change's own artifacts, the roadmap, a different table, or main specs that sync at archive. Leader removed a dead ListEntriesByAccount reference from kkpa/context/architecture/charge-record-mutation.md that T7 left as a historical aside."
+    },
+    {
+      "at": "2026-09-14T14:58:00Z",
+      "what": "merge-timing-note",
+      "detail": "T8.6, for the owner. The write path is authorized at every commit on this branch, so merging after tier 1 alone is safe. One user-visible effect remains until tier 3: a car registered to two accounts shows each account the other's entries with edit and delete controls that fail. Update reports an error; Delete does nothing and says nothing. A car with one registered account is unaffected. The owner decides; this is not a block."
     }
   ]
 }

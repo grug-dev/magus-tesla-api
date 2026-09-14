@@ -316,20 +316,20 @@ parallel with T4–T6.
 
 Depends on: T0–T7.
 
-- [ ] 8.1 `go build ./...`
-- [ ] 8.2 `go vet ./...`
-- [ ] 8.3 `gofmt -l internal/ cmd/` — expect no output.
-- [ ] 8.4 Grep the whole repo for a **bare** `account_id` — one NOT preceded by
+- [x] 8.1 `go build ./...`
+- [x] 8.2 `go vet ./...`
+- [x] 8.3 `gofmt -l internal/ cmd/` — expect no output.
+- [x] 8.4 Grep the whole repo for a **bare** `account_id` — one NOT preceded by
       `created_by_` — within 3 lines of `manual_charge_entries`, **across line
       breaks**, and for `ListEntriesByAccount`. Expect zero hits outside
       `openspec/changes/archive/`,
       `kkpa/context/pending-spec-to-sync/applied/`, and the untouched historic
       migration files. The `created_by_` prefix matters: hits on
       `created_by_account_id` are correct and must not be "fixed".
-- [ ] 8.5 `make migration-guard`, `make boundary-guard`, `make vehicleref-guard`,
+- [x] 8.5 `make migration-guard`, `make boundary-guard`, `make vehicleref-guard`,
       `make archive-guard` — all clean (migration-guard still prints its known
       `20260720000001` warning).
-- [ ] 8.6 **Hand-off, branch level — now a preference, not a hard rule.** The
+- [x] 8.6 **Hand-off, branch level — now a preference, not a hard rule.** The
       write path is authorized at every commit on this branch (`design.md` D4), so
       merging after this tier alone is safe from an authorization point of view.
       One reason to wait remains, and it is a user-visible one: until tier 3, a
@@ -338,15 +338,15 @@ Depends on: T0–T7.
       `Delete` silently does nothing. On a car with one registered account nothing
       changes. Record this in the change's notes and let the owner decide; do not
       state it as a block.
-- [ ] 8.7 `openspec validate RM58-charging-demote-manual-charge-account-id --strict`
-- [ ] 8.8 Hand the owner the suite commands — this agent never runs them:
+- [x] 8.7 `openspec validate RM58-charging-demote-manual-charge-account-id --strict`
+- [x] 8.8 Hand the owner the suite commands — this agent never runs them:
       `make test` (disposable container) and, for the DB-backed charging tests
       specifically,
       `go test ./internal/charging/ -run 'TestList|TestCreate|TestUpdate|TestDelete|TestSharedVehicle|TestMonthlyCapacity' -v`,
       confirming the output says `PASS` and not `SKIP`. If a local Postgres is
       used instead, `make db-setup-test` first. Also
       `go test ./internal/analytics/... ./internal/gateway/... -count=1`.
-- [ ] 8.9 Hand the owner the post-`migrate-up` verification queries, since this
+- [x] 8.9 Hand the owner the post-`migrate-up` verification queries, since this
       project verifies migrations by inspection, not by test:
       `\d charging.manual_charge_entries` (expect `created_by_account_id uuid not null`,
       no `account_id`, one index `idx_manual_charge_entries_vehicle_time` on
