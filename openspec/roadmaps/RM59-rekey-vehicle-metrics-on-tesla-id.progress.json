@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM59-rekey-vehicle-metrics-on-tesla-id",
   "intention": "analytics.vehicle_metrics and vehicle_metric_watermarks are keyed on the car, not the account, so one car has one metric history whoever registered it.",
-  "request": "Source ticket: MAG-69 \u2014 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. Collapse duplicate (tesla_id, metric_date) rows, replace both unique constraints, replace idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded.",
+  "request": "Source ticket: MAG-69 — 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. Collapse duplicate (tesla_id, metric_date) rows, replace both unique constraints, replace idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-15T02:04:17Z",
+  "updated_at": "2026-09-15T10:30:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
@@ -17,13 +17,13 @@
   },
   "rollup": {
     "current": [
-      1
-    ],
-    "pending": [
       2
     ],
+    "pending": [],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -79,14 +79,21 @@
       "module": "analytics",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-15T02:04:17Z",
-      "completed_at": null,
+      "completed_at": "2026-09-15T10:30:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 27.8,
+        "spanned_sessions": 3,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of the tier's wave deltas across three sessions; the 5-hour bucket reset between them"
+      },
+      "notes": "Both tables re-keyed on tesla_id, account_id dropped. Ports, queries and callers follow. Reviewer approved round 1 with two minor findings: one fixed, one deferred to tier 2."
     },
     {
       "id": 2,
@@ -120,12 +127,17 @@
     {
       "at": "2026-09-15T01:44:43Z",
       "agent": "leader",
-      "event": "run scope: HALT AFTER STEP 4 per kkpa-pickup-linear-ticket \u2014 artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+      "event": "run scope: HALT AFTER STEP 4 per kkpa-pickup-linear-ticket — artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
     },
     {
       "at": "2026-09-15T02:04:17Z",
       "agent": "leader",
       "event": "tier 1 artifacts created and design gate confirmed; tier 1 [ ] -> [~], status proposed"
+    },
+    {
+      "at": "2026-09-15T10:30:00Z",
+      "agent": "leader",
+      "event": "tier 1 archived; [~] -> [x]. Tier 2 (RM59-gateway-authorize-metrics-reads) is now unblocked. autopilot is false, so the leader stops here and asks."
     }
   ]
 }

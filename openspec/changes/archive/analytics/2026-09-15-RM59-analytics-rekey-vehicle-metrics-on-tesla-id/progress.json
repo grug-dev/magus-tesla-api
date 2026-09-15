@@ -5,7 +5,7 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM59-rekey-vehicle-metrics-on-tesla-id.md",
   "request": "Source ticket: MAG-69 — 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. One migration on both tables: collapse duplicate (tesla_id, metric_date) rows, replace vehicle_metrics_account_tesla_date_unique with UNIQUE (tesla_id, metric_date), replace idx_vehicle_metrics_latest with (tesla_id, metric_date DESC), replace vehicle_metric_watermarks_account_tesla_source_unique with UNIQUE (tesla_id, source), DROP COLUMN account_id from both. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded. MAG-71 was cancelled and its work folds in here.",
-  "status": "reviewer-approved",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -23,7 +23,7 @@
     ]
   },
   "created_at": "2026-09-15T02:04:09Z",
-  "updated_at": "2026-09-15T10:20:00Z",
+  "updated_at": "2026-09-15T10:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -521,6 +521,11 @@
       "at": "2026-09-15T10:20:00Z",
       "agent": "leader",
       "event": "F1 fixed: eight comment spots in db_integration_test.go rewritten to carry the reason instead of a task/design.md/RM citation. go vet ./internal/analytics/... and gofmt still clean. Verified no cited identifier remains in any line this change added."
+    },
+    {
+      "at": "2026-09-15T10:30:00Z",
+      "agent": "leader",
+      "event": "archived. openspec archive synced 3 MODIFIED requirements into openspec/specs/analytics/spec.md and touched nothing else - tasks.md 7.3 confirmed. Folder moved under archive/analytics/ per this repo's module grouping."
     }
   ]
 }

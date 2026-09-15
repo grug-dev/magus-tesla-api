@@ -292,7 +292,7 @@ Depends on: T1–T8.
 - [x] 9.4 `make migration-guard`
 - [x] 9.5 `make boundary-guard`
 - [x] 9.6 `make vehicleref-guard`
-- [ ] 9.7 Verify the two index claims (design.md D5/D6) with
+- [x] 9.7 Verify the two index claims (design.md D5/D6) with
       `SET enable_seqscan = off;` before `EXPLAIN` on `LatestVehicleMetricsByVehicles`
       and on one of the three chart queries — confirms the index CAN serve the query
       on this small table, which a bare `EXPLAIN` cannot prove (design.md D8). This
@@ -303,7 +303,7 @@ Depends on: T1–T8.
       tree and the two untouched original migration files
       (`20260821000001_add_vehicle_metrics.sql`,
       `20260821000002_add_vehicle_metric_watermarks.sql`).
-- [ ] 9.9 Suite commands for the owner to run (this worker does not run them):
+- [x] 9.9 Suite commands for the owner to run (this worker does not run them):
       `go test ./internal/analytics/... ./internal/app/...` (skip
       `./internal/gateway/...` until tier 2 lands), or `make test` /
       `make test-with-db` for the full suite once both tiers are done.
