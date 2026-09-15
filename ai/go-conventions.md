@@ -260,10 +260,22 @@ telemetry batch at 03:30). See [`architecture.md`](./architecture.md) §7 for th
 full rationale. The DB-level conventions below are binding for every DB-backed
 module:
 
-- **`account_id` is the leading index column** on every multi-tenant table. Every
-  dashboard read scopes by account; an index without `account_id` first forces a
-  scan when the planner can't pre-filter by tenant. Reference: the
-  `(account_id, tesla_id, captured_at)` index in `internal/telemetry/db/migrations/`.
+- **A multi-tenant table keys on one of three columns — pick by what the row means.**
+
+  | Rule | Applies when | Tables |
+  |---|---|---|
+  | Key on `tesla_id` | `tesla_id` is `NOT NULL` | `telemetry.vehicle_snapshots`, `analytics.vehicle_metrics`, `analytics.vehicle_metric_watermarks`, `analytics.charge_gaps` |
+  | Key on `vin` | `tesla_id` is nullable — the row can exist before the vehicle is known | `telemetry.supercharger_history`, `charging.supercharger_sessions` |
+  | Keep `account_id`, demoted to an attribute | the row records who acted, not what the car did | `charging.manual_charge_entries`, `telemetry.poll_attempts` |
+
+  `make tenancy-guard` enforces this: it fails if a module's query file outside
+  `internal/account` filters on `account_id` (escape hatch: `// tenancy:allow: <reason>`).
+
+  Do not add an index just because the old table had one. A `UNIQUE (a, b)`
+  constraint already builds a btree that serves equality on `a`, point lookups on
+  `(a, b)`, range scans on `b` within one `a`, and `ORDER BY b DESC` pinned to one
+  `a`. A separate `(a, b DESC)` index next to it repeats work the constraint
+  already does. Justify every index against a query that exists today.
 - **Unit-bearing columns are named with their unit suffix.** Every column storing a value with a
   unit ends in `_km`, `_kmh`, `_c`, `_psi`, `_kwh`, `_kw`, `_v`, `_a`, or `_pct` — the unit is
   readable from the column name alone, no migration or comment required. Identifiers, timestamps,

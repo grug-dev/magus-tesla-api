@@ -9,17 +9,9 @@
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "3.2",
-      "4.1",
-      "4.2",
       "5.1",
       "5.2",
-      "6.1",
-      "6.2",
       "7.1",
-      "8.1",
-      "8.2",
       "G.1",
       "S.1",
       "S.2",
@@ -31,21 +23,29 @@
     ],
     "blocked": [],
     "done": [
-      "1.6",
-      "2.2"
-    ],
-    "awaiting-user-verification": [
       "1.1",
       "1.2",
       "1.3",
       "1.4",
       "1.5",
+      "1.6",
       "1.7",
-      "2.1"
-    ]
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "6.1",
+      "6.2",
+      "8.1",
+      "8.2",
+      "T.1"
+    ],
+    "awaiting-user-verification": []
   },
   "created_at": "2026-09-15T20:59:00Z",
-  "updated_at": "2026-09-15T21:10:51Z",
+  "updated_at": "2026-09-15T21:38:35Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -65,7 +65,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-15T20:40:00Z",
@@ -91,7 +91,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-15T20:42:00Z",
@@ -117,7 +117,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-15T20:46:00Z",
@@ -143,7 +143,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-15T20:50:00Z",
@@ -169,7 +169,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-15T20:53:00Z",
@@ -224,7 +224,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-15T21:06:00Z",
@@ -250,7 +250,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-15T21:00:00Z",
@@ -301,14 +301,23 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Replaced the account_id-leading rule with the three-rule keying table.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     },
     {
       "id": "3.2",
@@ -318,14 +327,23 @@
         "3.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Index-redundancy note added right after the table, same edit.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     },
     {
       "id": "4.1",
@@ -333,14 +351,23 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Same table pasted into ai/architecture.md bullet 3. Leader verified all three data rows are byte-identical.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     },
     {
       "id": "4.2",
@@ -350,14 +377,23 @@
         "4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "The gateway-authorizes-tenancy rule already existed in \u00a75; worker added the missing make vehicleref-guard reference.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     },
     {
       "id": "5.1",
@@ -399,14 +435,23 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added tenancy-guard, green with zero violations. Leader widened its scope per user decision U9 and proved it fails on a planted violation.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     },
     {
       "id": "6.2",
@@ -416,14 +461,23 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added to .PHONY and to check's dependency list. Leader confirmed both.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     },
     {
       "id": "7.1",
@@ -451,14 +505,23 @@
         "1.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Fixed the vehicle_snapshots on-conflict target to (tesla_id, captured_date).",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     },
     {
       "id": "8.2",
@@ -468,14 +531,23 @@
         "8.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Re-read the port map and other table rows. All current, matching design D7's claim.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     },
     {
       "id": "G.1",
@@ -618,6 +690,32 @@
       "duration_seconds": null,
       "notes": null,
       "budget": null
+    },
+    {
+      "id": "T.1",
+      "title": "Create the specs/telemetry delta correcting the port's method count",
+      "module": "platform",
+      "depends_on": [
+        "1.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "New specs/telemetry delta narrows the port to one method, and records why the other three are gone. openspec validate --strict passes.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
     }
   ],
   "review": {
@@ -698,6 +796,22 @@
       "made_by": "autopilot",
       "decision": "Leader fixed the stale comment at internal/charging/charging.go:443",
       "why": "It named the deleted SuperchargerHistoryByVehicleBetween. A comment pointing at a removed symbol is cross-module fallout the leader owns."
+    },
+    {
+      "id": "U8",
+      "at": "2026-09-15T21:25:53Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Correct openspec/specs/telemetry/spec.md with a specs/telemetry delta in this change",
+      "why": "Wave 1 shrank a public port. CLAUDE.md makes the doc update part of the same change. A delta records why the port shrank; a direct edit would not."
+    },
+    {
+      "id": "U9",
+      "at": "2026-09-15T21:38:35Z",
+      "scope": "task:6.1",
+      "made_by": "user",
+      "decision": "tenancy-guard scans every .sql under internal/*/db/ except db/migrations/",
+      "why": "design.md D5's literal db/**/*.sql makes the guard permanently red on 35 migrations. Excluding migrations is green today and covers a future non-query.sql file."
     }
   ],
   "events": [
@@ -716,6 +830,34 @@
     {
       "at": "2026-09-15T21:10:51Z",
       "event": "FINDING, new scope \u2014 openspec/specs/telemetry/spec.md lines 1015 and 1060 still state the port has FOUR methods and name the two deleted ones plus the already-gone ByAccount. CLAUDE.md requires public-surface docs to update in the same change. Needs a specs/telemetry delta; not yet planned."
+    },
+    {
+      "at": "2026-09-15T21:25:53Z",
+      "event": "resumed in a fresh session; wave 1 verified committed (b70c533); budget five_hour_pct=34 context_pct=11"
+    },
+    {
+      "at": "2026-09-15T21:25:53Z",
+      "event": "FINDING resolved by user decision U8 \u2014 task T.1 appended to tasks.md and progress.json for the specs/telemetry delta"
+    },
+    {
+      "at": "2026-09-15T21:25:53Z",
+      "event": "wave-2 dispatched \u2014 3.1-3.2, 4.1-4.2, 6.1-6.2, 8.1-8.2, T.1 to platform worker on Sonnet, serial single dispatch; budget start five_hour_pct=34 context_pct=11"
+    },
+    {
+      "at": "2026-09-15T21:29:24Z",
+      "event": "USER-REPORTED VERIFICATION \u2014 the owner ran `make test` and reported it passed. Wave-1 tasks 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 2.1 move from awaiting-user-verification to done. The leader did not run the suite; this pass is the user's, recorded as theirs."
+    },
+    {
+      "at": "2026-09-15T21:32:18Z",
+      "event": "wave-2 complete \u2014 3.1-3.2, 4.1-4.2, 6.1-6.2, 8.1-8.2, T.1 all done. Leader independently verified: the three keying-table data rows are byte-identical across both docs; tenancy-guard is in .PHONY and in check; the three gofmt hits are pre-existing files this branch never touched."
+    },
+    {
+      "at": "2026-09-15T21:32:18Z",
+      "event": "FINDING, needs user triage \u2014 the worker deviated from design.md D5 on the guard's scope. D5 says db/**/*.sql; the worker used db/query.sql because 35 migration files legitimately contain account_id and would make the guard permanently red. Leader confirmed the count and confirmed a middle option (all non-migration .sql) is also green today."
+    },
+    {
+      "at": "2026-09-15T21:38:35Z",
+      "event": "leader applied user decision U9 \u2014 widened tenancy-guard from internal/*/db/query.sql to every non-migration .sql under internal/*/db/. Verified green, and verified it exits 1 on a planted WHERE account_id violation. The worker's other two D5 deviations (-- not // as the escape-hatch marker, and skipping plain SQL comment lines) accepted by the leader: SQL forces both, no reasonable alternative existed."
     }
   ]
 }

@@ -105,13 +105,13 @@ Depends on: T1.
 
 Depends on: nothing. Disjoint file from T1/T2/T4/T6.
 
-- [ ] 3.1 Replace the "`account_id` is the leading index column on every multi-tenant table"
+- [x] 3.1 Replace the "`account_id` is the leading index column on every multi-tenant table"
       bullet (~lines 263-266, §"Read optimization (project-wide)") with the three-rule keying
       table from `design.md` D6 (key on `tesla_id` / key on `vin` / demoted `account_id`,
       each with its table list).
       Acceptance: the old single-rule sentence is gone; the new table lists all eight named
       tables across the three rules.
-- [ ] 3.2 Add the index-redundancy note from `design.md` D6 (a `UNIQUE (a, b)` constraint already
+- [x] 3.2 Add the index-redundancy note from `design.md` D6 (a `UNIQUE (a, b)` constraint already
       serves equality/point/range/`ORDER BY` queries a redundant `(a, b DESC)` index would
       repeat) immediately after the table.
       Acceptance: the note is present and names the query shapes a `UNIQUE (a, b)` already covers.
@@ -120,11 +120,11 @@ Depends on: nothing. Disjoint file from T1/T2/T4/T6.
 
 Depends on: nothing. Disjoint file from T1/T2/T3/T6.
 
-- [ ] 4.1 Replace bullet 3 under "Concrete patterns already in use (now conventions)"
+- [x] 4.1 Replace bullet 3 under "Concrete patterns already in use (now conventions)"
       (~lines 315-319, §7 "Read-Heavy Workload Profile") with the same three-rule table as T3.1.
       Acceptance: matches T3's table exactly — this is the one vocabulary the project keeps in
       two files on purpose (`CLAUDE.md`'s base Doc-Pack includes both), so they must not drift.
-- [ ] 4.2 Add the new rule from `design.md` D6: the gateway authorizes the vehicle; modules below
+- [x] 4.2 Add the new rule from `design.md` D6: the gateway authorizes the vehicle; modules below
       it do not check tenancy. Reference `internal/vehicleref`'s `Ref` (unexported field forces
       a compile error on a skipped check) and `make vehicleref-guard`.
       Acceptance: the rule is stated in §2 or §5 (wherever the existing multi-tenancy rules
@@ -148,14 +148,14 @@ Depends on: T6 (documents a guard that must exist).
 
 Depends on: nothing. Disjoint file from T1-T5.
 
-- [ ] 6.1 Add a `tenancy-guard` target to the `Makefile`, mirroring `boundary-guard`'s
+- [x] 6.1 Add a `tenancy-guard` target to the `Makefile`, mirroring `boundary-guard`'s
       grep-based shape and escape-hatch convention (`design.md` D5): fail if any
       `internal/<module>/db/**/*.sql` outside `internal/account` matches `\baccount_id\b`,
       excluding lines that also match `created_by_account_id` or `polled_by_account_id`.
       Escape hatch: a trailing `// tenancy:allow: <reason>` comment on the same line.
       Acceptance: `make tenancy-guard` runs and passes with zero violations (measured fact,
       `design.md` D5) against the current tree.
-- [ ] 6.2 Add `tenancy-guard` to `check`'s dependency list and to the `.PHONY` line, alongside
+- [x] 6.2 Add `tenancy-guard` to `check`'s dependency list and to the `.PHONY` line, alongside
       the other guards.
       Acceptance: `grep -n "^check:" Makefile` shows `tenancy-guard` in the phase list.
 
@@ -177,12 +177,12 @@ Depends on: T1, T4 (documents the final port shape and rule).
 
 Depends on: T1 (final port shape).
 
-- [ ] 8.1 In the "Table effects" table, the `vehicle_snapshots` row's on-conflict target still
+- [x] 8.1 In the "Table effects" table, the `vehicle_snapshots` row's on-conflict target still
       reads `(account_id, tesla_id, captured_date)`. Correct it to `(tesla_id, captured_date)`,
       per `internal/telemetry/db/migrations/20260911000002_rekey_vehicle_snapshots_on_tesla_id.sql`
       (`design.md` D7). This is a component-map/file-map fact — apply directly, do not stage.
       Acceptance: the row matches the real constraint name and columns.
-- [ ] 8.2 Re-read the rest of the file (the port map, the other table rows) for any remaining
+- [x] 8.2 Re-read the rest of the file (the port map, the other table rows) for any remaining
       stale port or key reference now that T1 has landed. `design.md` D7 records that the port
       map (line 71) already reads correctly — confirm that is still true rather than assuming it.
       Acceptance: no hit for a deleted method name or a stale key in the file.
@@ -222,9 +222,36 @@ already authored in this change (`specs/analytics/spec.md`, `MODIFIED Requiremen
       Acceptance: `git diff --stat -- internal/analytics/reader.go` (against this change's base)
       is empty.
 
+## T-tel — `openspec/specs/telemetry/spec.md`: correct the port's method count
+
+Depends on: T1 (the deletion whose public surface this records).
+
+**Appended during implementation.** Wave 1 deleted two methods from the public
+`SuperchargerHistoryReader` port. The main telemetry spec still describes that port as having
+four methods and names both deleted ones. `CLAUDE.md` requires a public-surface change to
+update its docs in the same change, so the spec is corrected here, not later. The user chose
+the delta form over a direct edit of the main spec (decision U8).
+
+- [x] T.1 Create `openspec/changes/platform-sweep-tenancy-rule-docs/specs/telemetry/spec.md`
+      with a `## MODIFIED Requirements` block for the requirement
+      `### Requirement: Supercharger History Table Renamed`
+      (`openspec/specs/telemetry/spec.md`, heading at line 980). Copy the requirement forward
+      and correct only the port's shape: the port exposes ONE method,
+      `SuperchargerHistoryByVehicleUpdatedSince`. State plainly that
+      `SuperchargerHistoryByAccount`, `SuperchargerHistoryByVehicle` and
+      `SuperchargerHistoryByVehicleBetween` were deleted as dead code with no production
+      caller. Keep every other part of the requirement — the table rename, the constraint and
+      index renames, the generated-type rename, the `internal/gateway` out-of-scope note —
+      byte-identical. Update the scenario "The public port is fully renamed to match the table"
+      so it asserts the one surviving method, and drop or rewrite any scenario that only
+      exercises a deleted method.
+      Acceptance: `openspec validate --strict` passes; `grep -n -E
+      "SuperchargerHistoryByVehicle[^U]|SuperchargerHistoryByAccount"` over the new delta
+      returns only lines that describe the methods as deleted.
+
 ## T9 — Final verification
 
-Depends on: T1-T8, G.1, T-spec.
+Depends on: T1-T8, G.1, T-spec, T-tel.
 
 - [ ] 9.1 `go build ./...`, `go vet ./...`, `gofmt -l .` — all clean.
 - [ ] 9.2 `make tenancy-guard`, `make boundary-guard`, `make vehicleref-guard`,
