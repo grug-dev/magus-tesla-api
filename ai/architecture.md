@@ -257,7 +257,7 @@ telemetry through **another module's interface**, and the data crosses the bound
 **that module's own type**.
 
 - `RM38` moved the four telemetry latest-state call sites (dashboard, vehicle
-  cards, nav header, charges suggestion) to `analytics.Reader.LatestMetricsByAccount`,
+  cards, nav header, charges suggestion) to `analytics.Reader.LatestMetricsForVehicles`,
   returning `analytics.VehicleStatus`.
 - `RM40` moved the last one, `SnapshotsByVehicleBetween` (the history page's battery
   chart), to **`analytics.Reader.BatteryLevelByDay`**, returning `analytics.DayBattery`.

@@ -662,9 +662,9 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 		}
 	}
 
-	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
-	if err != nil {
-		log.Printf("gateway: RegisteredVehicles error for account %s: %v", uid, err)
+	refs, vehicles, ok := h.ownedVehicles(ctx, uid)
+	if !ok {
+		log.Printf("gateway: ownedVehicles failed for account %s", uid)
 		return fragments.ExternalChargesPageData{
 			CSRFToken: csrfToken,
 			Error:     i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadVehicles),
@@ -718,7 +718,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 	// a plain int on both source types, so no nil handling is introduced here.
 	suggestion := ""
 	if teslaIDFilter != 0 && h.analyticsReader != nil {
-		statuses, snapErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
+		statuses, snapErr := h.analyticsReader.LatestMetricsForVehicles(ctx, refs)
 		if snapErr != nil {
 			log.Printf("gateway: charges suggestion analytics reader error for account %s: %v", uid, snapErr)
 		} else {
@@ -925,7 +925,7 @@ func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry
 // root, not this logic (design.md D5) — the interim composition root is this
 // handler file.
 func (h *Handler) recalculateAfterExternalChargeWrite(ctx context.Context, uid uuid.UUID, teslaID int64, chargedOn time.Time) {
-	if err := h.analyticsRecalculator.Recalculate(ctx, uid, teslaID, chargedOn, chargedOn); err != nil {
+	if err := h.analyticsRecalculator.Recalculate(ctx, teslaID, chargedOn, chargedOn); err != nil {
 		log.Printf("gateway: analytics recalculate error for account %s, vehicle %d, date %s: %v",
 			uid, teslaID, chargedOn.Format("2006-01-02"), err)
 	}

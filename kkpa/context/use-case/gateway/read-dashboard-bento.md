@@ -50,8 +50,10 @@
 3. `Handler.dashboardFor` — `internal/gateway/handlers/handlers.go` — the core below.
 4. `account.Service.RegisteredVehicles` — the account module's port — the account's vehicles.
    Empty ⇒ `NeedsConnect`, return early.
-5. `analytics.Reader.LatestMetricsByAccount` — the analytics module's read port — the latest
-   precomputed `vehicle_metrics` row per vehicle for the whole account, in one query. This
+5. `analytics.Reader.LatestMetricsForVehicles` — the analytics module's read port — the latest
+   precomputed `vehicle_metrics` row for each vehicle in the set you pass it, in one query.
+   It takes `[]vehicleref.Ref`, not an account id: the port no longer filters by account, so
+   the handler passes only the vehicles it already resolved for this account. This
    read no longer touches `internal/telemetry` at all (see the resolved gotcha below).
 6. `mergeVehicleStatuses` — `internal/gateway/handlers/handlers.go` — indexes the
    `[]analytics.VehicleStatus` slice by Tesla id and picks the selected vehicle's status.
@@ -90,7 +92,7 @@ behind its interface.
 | # | Op | Table / entity | Where |
 |---|---|---|---|
 | 1 | READ | account vehicles | `account.Service.RegisteredVehicles` |
-| 2 | READ | `vehicle_metrics` | `analytics.Reader.LatestMetricsByAccount` — `DISTINCT ON (tesla_id) … ORDER BY tesla_id, metric_date DESC` |
+| 2 | READ | `vehicle_metrics` | `analytics.Reader.LatestMetricsForVehicles` — `DISTINCT ON (tesla_id) … ORDER BY tesla_id, metric_date DESC` |
 
 Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outside_temp_c`,
 `max_range_charge_counter`, `charging_state`; plus `car_version`, `captured_at`, and the
@@ -110,7 +112,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   page; a separate request with its own window parameters
 
 - `GET /ui/nav-header` — the sidebar vehicle block reads the **same**
-  `analytics.Reader.LatestMetricsByAccount` port, but it does **not** share this use case's
+  `analytics.Reader.LatestMetricsForVehicles` port, but it does **not** share this use case's
   `CapturedAt` handling: since MAG-44 it does no capture-instant branching at all. It renders
   the stored battery level and range whatever their age, and an em dash with no bar when there
   is no row. The connected/asleep vocabulary, its 48 h freshness window and the relative
@@ -130,7 +132,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   `ai/architecture.md` §"Exception: the gateway may not depend on `telemetry` at all" — but
   this specific read no longer violates it). `RM38-gateway-read-dashboard-from-metrics`
   repointed this use case off the telemetry latest-state port onto
-  `analytics.Reader.LatestMetricsByAccount`, so `dashboardFor`'s own read path is
+  `analytics.Reader.LatestMetricsForVehicles`, so `dashboardFor`'s own read path is
   `telemetry`-free. The sibling use case `use-case/gateway/read-dashboard-history.md`
   (`SnapshotsByVehicleBetween`) is a **different**, untouched use case that still reads
   `telemetry` directly — do not assume it is also resolved.
@@ -143,7 +145,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   migration and has not been recomputed since — `mapDashboardSnapshot` leaves
   `LastUpdated`/`IsStale` at their zero value in that case (never fabricated), and
   `navHeaderFor` treats it as forced-Asleep, never Connected (roadmap D9).
-  _Source: `internal/analytics/analytics.go`'s `LatestMetricsByAccount` doc comment;
+  _Source: `internal/analytics/analytics.go`'s `LatestMetricsForVehicles` doc comment;
   `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D8._
 - **Nil pointer fields omit, never fabricate.** Nineteen `VehicleStatus` fields this mapper
   reads are pointers — the nine from `RM38` (`InsideTempC`, `OutsideTempC`, `CarVersion`,
@@ -172,7 +174,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   `IsStale` (snapshot older than the threshold ⇒ warning badge). An account-read error
   returns a notice-only shell.
   _Source: `Handler.dashboardFor` doc comment._
-- **One batch read, never N+1.** `LatestMetricsByAccount` fetches every vehicle's latest
+- **One batch read, never N+1.** `LatestMetricsForVehicles` fetches every vehicle's latest
   status in one query even though the page shows one vehicle. Do not replace it with a
   per-vehicle call in a loop.
   _Source: `internal/analytics/db/query.sql`; `ai/architecture.md` §read-heavy profile._
@@ -243,7 +245,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
 - **A reserved subsection renders nothing at all — no heading, no description, no empty grid.** The layout may hold a position for a metric a later capability adds. Until that capability ships, the section is absent from the markup, not present and empty. The module has no exception for "not built yet". All three subsections are built today, so nothing is reserved right now; keep the rule for the next one.
   _Source: spec gateway — Requirement: Dashboard Vehicle Status Panel Groups Metrics Into Named Subsections._
-- **No subsection adds a read of its own.** Travel Progress and all four tyre values come from the same `LatestMetricsByAccount` row the card already fetches. No new query, no new port method, no Tesla Fleet API call. Keep it that way — this is the read-heavy path.
+- **No subsection adds a read of its own.** Travel Progress and all four tyre values come from the same `LatestMetricsForVehicles` row the card already fetches. No new query, no new port method, no Tesla Fleet API call. Keep it that way — this is the read-heavy path.
   _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection; Requirement: Dashboard Tire Pressure Subsection._
 - **A tyre tile has THREE states, and two of them look the same on purpose.** A positive change shows the "increased" icon; a negative change shows "decreased"; an **exactly zero** change and an **absent** change both show **no icon**. They are told apart by the numeric line instead: a zero change still prints its line, an absent change prints none. Never add a third "no change" glyph, and never print a fabricated `0.0` for an absent reading — that would erase the difference between "pressure held steady" and "we have no reading".
   _Source: spec gateway — Requirement: Dashboard Tire Pressure Subsection._

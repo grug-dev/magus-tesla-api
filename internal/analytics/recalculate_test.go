@@ -5,8 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -49,7 +47,6 @@ var errRecalculateFakeBoom = errors.New("recalculate_test: forced fake failure")
 // on every call. An implementation still carrying the withdrawn
 // "chargeStart == lookbackStart in the steady state" claim fails this test.
 func TestRecalculate_FetchWindow_NoGap_WidensChargeStartByOneDayPastLookback(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	start := day(2026, 8, 20)
@@ -66,7 +63,7 @@ func TestRecalculate_FetchWindow_NoGap_WidensChargeStartByOneDayPastLookback(t *
 
 	r := &recalculator{telemetry: telemetryFake, supercharger: superchargerFake, manual: manualFake}
 
-	err := r.Recalculate(context.Background(), accountID, teslaID, start, end)
+	err := r.Recalculate(context.Background(), teslaID, start, end)
 	if !errors.Is(err, errRecalculateFakeBoom) {
 		t.Fatalf("Recalculate error: want wrapped errRecalculateFakeBoom, got %v", err)
 	}
@@ -97,7 +94,6 @@ func TestRecalculate_FetchWindow_NoGap_WidensChargeStartByOneDayPastLookback(t *
 // must drop all the way to effectiveDay(preceding) = 2026-07-31, not merely
 // to start-2d.
 func TestRecalculate_FetchWindow_RealGap_WidensToPrecedingsEffectiveDay(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	start := day(2026, 8, 7)
@@ -113,7 +109,7 @@ func TestRecalculate_FetchWindow_RealGap_WidensToPrecedingsEffectiveDay(t *testi
 
 	r := &recalculator{telemetry: telemetryFake, supercharger: superchargerFake, manual: manualFake}
 
-	err := r.Recalculate(context.Background(), accountID, teslaID, start, end)
+	err := r.Recalculate(context.Background(), teslaID, start, end)
 	if !errors.Is(err, errRecalculateFakeBoom) {
 		t.Fatalf("Recalculate error: want wrapped errRecalculateFakeBoom, got %v", err)
 	}
@@ -133,7 +129,6 @@ func TestRecalculate_FetchWindow_RealGap_WidensToPrecedingsEffectiveDay(t *testi
 // zero value), chargeStart stays at the ordinary lookbackStart (start-1d) --
 // there is nothing to widen against.
 func TestRecalculate_FetchWindow_NoPredecessor_UsesLookbackStart(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	start := day(2026, 8, 4)
@@ -149,7 +144,7 @@ func TestRecalculate_FetchWindow_NoPredecessor_UsesLookbackStart(t *testing.T) {
 
 	r := &recalculator{telemetry: telemetryFake, supercharger: superchargerFake, manual: manualFake}
 
-	err := r.Recalculate(context.Background(), accountID, teslaID, start, end)
+	err := r.Recalculate(context.Background(), teslaID, start, end)
 	if !errors.Is(err, errRecalculateFakeBoom) {
 		t.Fatalf("Recalculate error: want wrapped errRecalculateFakeBoom, got %v", err)
 	}
@@ -171,7 +166,6 @@ func TestRecalculate_FetchWindow_NoPredecessor_UsesLookbackStart(t *testing.T) {
 // bind times stay at the zero time.Time, proving Recalculate returned before
 // reaching them.
 func TestRecalculate_SnapshotPrecedingDayError_AbortsBeforeChargeFetches(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 
 	start := day(2026, 8, 4)
@@ -186,7 +180,7 @@ func TestRecalculate_SnapshotPrecedingDayError_AbortsBeforeChargeFetches(t *test
 
 	r := &recalculator{telemetry: telemetryFake, supercharger: superchargerFake, manual: manualFake}
 
-	err := r.Recalculate(context.Background(), accountID, teslaID, start, end)
+	err := r.Recalculate(context.Background(), teslaID, start, end)
 	if !errors.Is(err, errRecalculateFakeBoom) {
 		t.Fatalf("Recalculate error: want wrapped errRecalculateFakeBoom, got %v", err)
 	}

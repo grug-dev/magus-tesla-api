@@ -12,6 +12,7 @@ import (
 	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // chargingSourceLimit bounds each of the two charging-cost source reads (design.md D6).
@@ -37,7 +38,7 @@ type vehicleLookup interface {
 type vehicleMetricsStore interface {
 	VehicleMetricsConsumedByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsConsumedByVehicleBetweenRow, error)
 	VehicleMetricsOdometerByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsOdometerByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsOdometerByVehicleBetweenRow, error)
-	LatestVehicleMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]analyticsdb.LatestVehicleMetricsByAccountRow, error)
+	LatestVehicleMetricsByVehicles(ctx context.Context, teslaIDs []int64) ([]analyticsdb.LatestVehicleMetricsByVehiclesRow, error)
 	// VehicleMetricsBatteryByVehicleBetween backs BatteryLevelByDay
 	// (RM40-analytics-add-battery-level-read design.md D2). *analyticsdb.
 	// Queries satisfies it automatically, no adapter needed, mirroring this
@@ -168,9 +169,8 @@ func (r *reader) RecentEfficiency(ctx context.Context, accountID uuid.UUID, tesl
 // row that passes the filter is guaranteed non-NULL
 // distance_traveled_km_calc/days_spanned_calc too (D9's "co-occur"
 // guarantee), so the mapping needs no nil-check and no fallback-to-1 branch.
-func (r *reader) ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayConsumption, error) {
+func (r *reader) ConsumedByDay(ctx context.Context, teslaID int64, start, end time.Time) ([]DayConsumption, error) {
 	rows, err := r.metrics.VehicleMetricsConsumedByVehicleBetween(ctx, analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams{
-		AccountID: accountID,
 		TeslaID:   teslaID,
 		StartDate: dateFrom(start),
 		EndDate:   dateFrom(end),
@@ -201,9 +201,8 @@ func (r *reader) ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID
 // ONLY place a negative distance is ever clamped; the stored column itself
 // stays the raw, unclamped value (the clamp is never applied to a NULL, the
 // filter guarantees that).
-func (r *reader) OdometerDeltaByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayDistance, error) {
+func (r *reader) OdometerDeltaByDay(ctx context.Context, teslaID int64, start, end time.Time) ([]DayDistance, error) {
 	rows, err := r.metrics.VehicleMetricsOdometerByVehicleBetween(ctx, analyticsdb.VehicleMetricsOdometerByVehicleBetweenParams{
-		AccountID: accountID,
 		TeslaID:   teslaID,
 		StartDate: dateFrom(start),
 		EndDate:   dateFrom(end),
@@ -231,9 +230,8 @@ func (r *reader) OdometerDeltaByDay(ctx context.Context, accountID uuid.UUID, te
 // requirement) and maps row-by-row into DayBattery -- no derivation logic
 // here, pure row-to-domain mapping, mirroring ConsumedByDay/
 // OdometerDeltaByDay's own "no derivation logic here" convention.
-func (r *reader) BatteryLevelByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayBattery, error) {
+func (r *reader) BatteryLevelByDay(ctx context.Context, teslaID int64, start, end time.Time) ([]DayBattery, error) {
 	rows, err := r.metrics.VehicleMetricsBatteryByVehicleBetween(ctx, analyticsdb.VehicleMetricsBatteryByVehicleBetweenParams{
-		AccountID: accountID,
 		TeslaID:   teslaID,
 		StartDate: dateFrom(start),
 		EndDate:   dateFrom(end),
@@ -253,13 +251,17 @@ func (r *reader) BatteryLevelByDay(ctx context.Context, accountID uuid.UUID, tes
 	return out, nil
 }
 
-// LatestMetricsByAccount implements Reader (RM38-analytics-add-vehicle-status-columns
-// design.md D5/D6). It SELECTs the latest vehicle_metrics row per vehicle via
-// LatestVehicleMetricsByAccount and maps row-by-row into VehicleStatus — no
+// LatestMetricsForVehicles implements Reader. It SELECTs the latest
+// vehicle_metrics row for each vehicle in refs via
+// LatestVehicleMetricsByVehicles and maps row-by-row into VehicleStatus — no
 // derivation logic here, pure row-to-domain mapping, mirroring ConsumedByDay's
-// own "no derivation logic here" convention.
-func (r *reader) LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]VehicleStatus, error) {
-	rows, err := r.metrics.LatestVehicleMetricsByAccount(ctx, accountID)
+// own "no derivation logic here" convention. refs is unwrapped to a plain
+// []int64 via vehicleref.TeslaIDs before reaching the store, which — like
+// every other analyticsdb method — deals only in plain vehicle ids; the
+// proof that these ids belong to the requesting account already happened
+// before this call, in whichever Ref the caller passed in.
+func (r *reader) LatestMetricsForVehicles(ctx context.Context, refs []vehicleref.Ref) ([]VehicleStatus, error) {
+	rows, err := r.metrics.LatestVehicleMetricsByVehicles(ctx, vehicleref.TeslaIDs(refs))
 	if err != nil {
 		return nil, err
 	}

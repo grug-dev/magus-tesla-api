@@ -38,23 +38,21 @@ type fakeRecalculator struct {
 }
 
 type recalculateCall struct {
-	accountID  uuid.UUID
 	teslaID    int64
 	start, end time.Time
 }
 
 // Compile-time proof that fakeRecalculator still satisfies the real interface.
-// This is what turns a future Recalculator change into a loud compile error here
-// instead of a silent runtime gap -- the same failure mode that broke six fakes
-// in this change's Wave 1. Mirrors internal/analytics/recalculate.go:62.
+// A port signature change then fails here as a compile error, not as a silent
+// runtime gap that only shows up when the handler is exercised.
 var _ analytics.Recalculator = (*fakeRecalculator)(nil)
 
-func (f *fakeRecalculator) Recalculate(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error {
-	f.calls = append(f.calls, recalculateCall{accountID: accountID, teslaID: teslaID, start: start, end: end})
+func (f *fakeRecalculator) Recalculate(_ context.Context, teslaID int64, start, end time.Time) error {
+	f.calls = append(f.calls, recalculateCall{teslaID: teslaID, start: start, end: end})
 	return f.err
 }
 
-func (f *fakeRecalculator) Reconcile(context.Context, uuid.UUID, int64) error {
+func (f *fakeRecalculator) Reconcile(context.Context, int64) error {
 	panic("fakeRecalculator: Reconcile is never called by any gateway handler — it is cmd/poller's nightly concern")
 }
 
@@ -294,9 +292,6 @@ func TestExternalChargeCreate_RecalculatesAfterSuccessfulWrite(t *testing.T) {
 		t.Fatalf("want exactly 1 Recalculate call after a successful create, got %d", len(recalc.calls))
 	}
 	got := recalc.calls[0]
-	if got.accountID != uid {
-		t.Errorf("want Recalculate scoped to account %s, got %s", uid, got.accountID)
-	}
 	if got.teslaID != 1001 {
 		t.Errorf("want Recalculate for the session-selected vehicle 1001, got %d", got.teslaID)
 	}
@@ -1487,7 +1482,7 @@ func TestExternalChargePage_SubscribesToVehicleChanged(t *testing.T) {
 // TestExternalChargePage_BatterySuggestionFromTelemetry verifies D2: when the selected
 // vehicle's latest status reports BatteryLevelPct=73, the create form's
 // start_battery_pct input carries a placeholder helper label "Latest: 73%"
-// built via analytics.Reader.LatestMetricsByAccount (the same port the
+// built via analytics.Reader.LatestMetricsForVehicles (the same port the
 // dashboard uses — retyped from the retired snapshot-based reader (RM40) by
 // RM38-gateway-read-dashboard-from-metrics design.md D9). The
 // fakeAnalyticsReader seeds the status; the buildExternalChargesPage helper picks the
@@ -1536,7 +1531,7 @@ func TestExternalChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 }
 
 // TestExternalChargePage_NoBatterySuggestionWhenNoSnapshot verifies D2's graceful-empty
-// contract: when analytics.Reader.LatestMetricsByAccount returns no status for
+// contract: when analytics.Reader.LatestMetricsForVehicles returns no status for
 // the selected vehicle (empty slice, nil error), the create form's start_battery_pct input
 // does NOT carry a "Latest: N%" placeholder — no fabricated value — and the page
 // still renders 200.

@@ -67,6 +67,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // newTestPool builds a pgxpool.Pool against the test Postgres provisioned by
@@ -86,19 +87,19 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 }
 
 // cleanupVehicleMetrics removes any vehicle_metrics/vehicle_metric_watermarks
-// rows this test created, scoped to one (accountID, teslaID), so a shared DB
-// stays tidy across test runs (mirrors telemetry/db_integration_test.go's
-// cleanupVehicle one level up).
+// rows this test created, scoped to one teslaID, so a shared DB stays tidy
+// across test runs (mirrors telemetry/db_integration_test.go's cleanupVehicle
+// one level up).
 //
 // It also deletes the telemetry.vehicle_snapshots rows this file inserts
 // directly. Telemetry's own helpers never see those rows, so only this
 // function can remove them.
-func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) {
+func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, teslaID int64) {
 	t.Helper()
 	t.Cleanup(func() {
 		ctx := context.Background()
-		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metrics WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metrics WHERE tesla_id = $1", teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metric_watermarks WHERE tesla_id = $1", teslaID)
 		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE tesla_id = $1", teslaID)
 	})
 }
@@ -111,7 +112,7 @@ func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID
 // task 6.1's job, blocked — see the file-level comment above); only that the
 // write succeeds and the three source ports were called with the right
 // window/scoping, or that an error from one of them propagates.
-func fixtureAPair(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
+func fixtureAPair(teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
@@ -139,11 +140,10 @@ func fixtureAPair(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snaps
 // is real, backing the UPSERT/DELETE half of Recalculate.
 func TestRecalculate_FetchWindows_MatchLookbackShape(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
 	const teslaID = int64(910001)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := fixtureAPair(accountID, teslaID)
+	prev, cur := fixtureAPair(teslaID)
 	fakeTelemetry := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{prev, cur}}
 	fakeSupercharger := &fakeSuperchargerReader{}
 	fakeManual := &fakeManualReader{}
@@ -152,7 +152,7 @@ func TestRecalculate_FetchWindows_MatchLookbackShape(t *testing.T) {
 
 	start := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	if err := rec.Recalculate(context.Background(), accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(context.Background(), teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
@@ -178,18 +178,16 @@ func TestRecalculate_FetchWindows_MatchLookbackShape(t *testing.T) {
 	}
 }
 
-// TestRecalculate_AccountIDScoping_PassedToEveryPort asserts task 6.4(b):
-// accountID/teslaID scoping reaches every one of the three source ports —
-// the coverage rescue for the offline test tasks.md records as removed
-// (TestConsumedByDay_AccountIDScoping_PassedToEveryPort), now asserted
-// against Recalculate (its new fetcher) instead of the old live ConsumedByDay.
-func TestRecalculate_AccountIDScoping_PassedToEveryPort(t *testing.T) {
+// TestRecalculate_TeslaIDScoping_PassedToEveryPort asserts that the teslaID
+// reaches every one of the three source ports. An older offline test asserted
+// the same thing against the live ConsumedByDay. That read no longer computes
+// anything, so the assertion moved here, onto Recalculate, its new fetcher.
+func TestRecalculate_TeslaIDScoping_PassedToEveryPort(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
 	const teslaID = int64(910002)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := fixtureAPair(accountID, teslaID)
+	prev, cur := fixtureAPair(teslaID)
 	fakeTelemetry := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{prev, cur}}
 	fakeSupercharger := &fakeSuperchargerReader{}
 	fakeManual := &fakeManualReader{}
@@ -198,13 +196,13 @@ func TestRecalculate_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 
 	start := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
 	end := start
-	if err := rec.Recalculate(context.Background(), accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(context.Background(), teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
 	// All three source reads are keyed on tesla_id alone now, so the vehicle is
-	// the only identity there is left to check. The account still scopes the
-	// rows Recalculate writes, which the other tests in this file cover.
+	// the only identity there is left to check. Nothing scopes the written
+	// rows by account any more -- tesla_id alone identifies the row.
 	if fakeTelemetry.gotTeslaID != teslaID {
 		t.Errorf("telemetry scoping: want teslaID %d, got %d", teslaID, fakeTelemetry.gotTeslaID)
 	}
@@ -222,9 +220,8 @@ func TestRecalculate_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 // supercharger/manual ports are ever called.
 func TestRecalculate_TelemetryError_Propagates(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
 	const teslaID = int64(910003)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	sentinel := errors.New("boom: telemetry unavailable")
 	fakeTelemetry := &fakeTelemetryReader{err: sentinel}
@@ -234,7 +231,7 @@ func TestRecalculate_TelemetryError_Propagates(t *testing.T) {
 	rec := NewRecalculator(pool, fakeTelemetry, fakeSupercharger, fakeManual)
 
 	start := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	err := rec.Recalculate(context.Background(), accountID, teslaID, start, start)
+	err := rec.Recalculate(context.Background(), teslaID, start, start)
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("Recalculate error: want wrapping %v, got %v", sentinel, err)
 	}
@@ -253,9 +250,8 @@ func TestRecalculate_TelemetryError_Propagates(t *testing.T) {
 // propagates, short-circuiting before the manual port is called.
 func TestRecalculate_SuperchargerError_Propagates(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
 	const teslaID = int64(910004)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	sentinel := errors.New("boom: supercharger unavailable")
 	fakeTelemetry := &fakeTelemetryReader{}
@@ -265,7 +261,7 @@ func TestRecalculate_SuperchargerError_Propagates(t *testing.T) {
 	rec := NewRecalculator(pool, fakeTelemetry, fakeSupercharger, fakeManual)
 
 	start := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	err := rec.Recalculate(context.Background(), accountID, teslaID, start, start)
+	err := rec.Recalculate(context.Background(), teslaID, start, start)
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("Recalculate error: want wrapping %v, got %v", sentinel, err)
 	}
@@ -279,9 +275,8 @@ func TestRecalculate_SuperchargerError_Propagates(t *testing.T) {
 // propagates from Recalculate rather than being swallowed.
 func TestRecalculate_ManualError_Propagates(t *testing.T) {
 	pool := newTestPool(t)
-	accountID := uuid.New()
 	const teslaID = int64(910005)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	sentinel := errors.New("boom: manual entries unavailable")
 	fakeTelemetry := &fakeTelemetryReader{}
@@ -291,7 +286,7 @@ func TestRecalculate_ManualError_Propagates(t *testing.T) {
 	rec := NewRecalculator(pool, fakeTelemetry, fakeSupercharger, fakeManual)
 
 	start := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	err := rec.Recalculate(context.Background(), accountID, teslaID, start, start)
+	err := rec.Recalculate(context.Background(), teslaID, start, start)
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("Recalculate error: want wrapping %v, got %v", sentinel, err)
 	}
@@ -612,8 +607,8 @@ func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, sessionID int64, endB
 // ---------------------------------------------------------------------------
 
 // fetchVehicleMetric SELECTs every non-key column of one vehicle_metrics row
-// by its (account_id, tesla_id, metric_date) — the table's own UNIQUE index
-// (Index Plan #1) — for the "assert every column" requirement in task 6.1.
+// by its (tesla_id, metric_date) — the table's own UNIQUE index. It selects
+// every column so a test can assert on any of them without a second helper.
 // Returns ok=false when no row exists (never a zero-value row masquerading
 // as "found"). Extended by RM38-analytics-add-vehicle-status-columns (task
 // 5.1/5.2) to also select/scan the eight new columns
@@ -625,11 +620,11 @@ func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, sessionID int64, endB
 // four tpms_pressure_*_psi columns — same reason: models.go already carries
 // them (task 1.3's sqlc regeneration), only this helper needed the SQL/Scan
 // addition.
-func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, metricDate time.Time) (analyticsdb.VehicleMetric, bool) {
+func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricDate time.Time) (analyticsdb.VehicleMetric, bool) {
 	t.Helper()
 	var m analyticsdb.VehicleMetric
 	err := pool.QueryRow(context.Background(), `
-		SELECT id, account_id, tesla_id, metric_date, battery_level_pct, odometer_km,
+		SELECT id, tesla_id, metric_date, battery_level_pct, odometer_km,
 		       battery_range_km, distance_traveled_km_calc, battery_used_pct_calc,
 		       km_per_pct_calc, estimated_range_km_calc, days_spanned_calc,
 		       consumed_pct, flagged, missing_charging_type, created_at, updated_at,
@@ -637,9 +632,9 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, t
 		       charging_state, charge_limit_soc_pct, captured_at,
 		       tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi
 		FROM analytics.vehicle_metrics
-		WHERE account_id = $1 AND tesla_id = $2 AND metric_date = $3`,
-		accountID, teslaID, dateFrom(metricDate),
-	).Scan(&m.ID, &m.AccountID, &m.TeslaID, &m.MetricDate, &m.BatteryLevelPct,
+		WHERE tesla_id = $1 AND metric_date = $2`,
+		teslaID, dateFrom(metricDate),
+	).Scan(&m.ID, &m.TeslaID, &m.MetricDate, &m.BatteryLevelPct,
 		&m.OdometerKm, &m.BatteryRangeKm, &m.DistanceTraveledKmCalc, &m.BatteryUsedPctCalc,
 		&m.KmPerPctCalc, &m.EstimatedRangeKmCalc, &m.DaysSpannedCalc, &m.ConsumedPct,
 		&m.Flagged, &m.MissingChargingType, &m.CreatedAt, &m.UpdatedAt,
@@ -655,17 +650,17 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, t
 	return m, true
 }
 
-// fetchWatermark SELECTs one (account_id, tesla_id, source) cursor's
-// source_updated_at directly from vehicle_metric_watermarks (the table's own
-// UNIQUE index, Index Plan #4). Returns ok=false when no watermark row
+// fetchWatermark SELECTs one (tesla_id, source) cursor's source_updated_at
+// directly from vehicle_metric_watermarks (the table's own UNIQUE index).
+// Returns ok=false when no watermark row
 // exists yet for this source (design.md D7's "no row = epoch" case) — never
 // a zero time.Time masquerading as a real cursor value.
-func fetchWatermark(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, source string) (time.Time, bool) {
+func fetchWatermark(t *testing.T, pool *pgxpool.Pool, teslaID int64, source string) (time.Time, bool) {
 	t.Helper()
 	var ts pgtype.Timestamptz
 	err := pool.QueryRow(context.Background(),
-		`SELECT source_updated_at FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
-		accountID, teslaID, source,
+		`SELECT source_updated_at FROM analytics.vehicle_metric_watermarks WHERE tesla_id = $1 AND source = $2`,
+		teslaID, source,
 	).Scan(&ts)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return time.Time{}, false
@@ -696,7 +691,7 @@ func fetchWatermark(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesla
 // metricsFixtureA returns design.md's Test Contract Fixture A: a plain day,
 // no charge events. Raw observations only — analytics computes the five
 // derived figures itself (D1/D10).
-func metricsFixtureA(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
+func metricsFixtureA(teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
@@ -725,7 +720,7 @@ func metricsFixtureA(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 // asserted against by name in the tests below (only battery_level_pct and
 // odometer_km are named for this fixture in design.md's "raw observations"
 // row).
-func metricsFixtureB(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
+func metricsFixtureB(teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 12, 3, 30, 0, 0, time.UTC),
@@ -747,7 +742,7 @@ func metricsFixtureB(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 
 // metricsFixtureC returns design.md's Test Contract Fixture C: a vehicle's
 // true first-ever snapshot, no predecessor row seeded at all.
-func metricsFixtureC(accountID uuid.UUID, teslaID int64) telemetry.Snapshot {
+func metricsFixtureC(teslaID int64) telemetry.Snapshot {
 	return telemetry.Snapshot{
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 5, 3, 30, 0, 0, time.UTC),
@@ -763,8 +758,8 @@ func metricsFixtureC(accountID uuid.UUID, teslaID int64) telemetry.Snapshot {
 // new status columns added on cur ONLY (design D3 -- the eight new columns
 // copy from cur, never from prev, so prev is left exactly as
 // metricsFixtureA already builds it).
-func metricsFixtureRM38A(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
-	prev, cur = metricsFixtureA(accountID, teslaID)
+func metricsFixtureRM38A(teslaID int64) (prev, cur telemetry.Snapshot) {
+	prev, cur = metricsFixtureA(teslaID)
 	cur.Locked = true
 	cur.SentryMode = boolPtr(false)
 	cur.CarVersion = "2026.28.4"
@@ -782,8 +777,8 @@ func metricsFixtureRM38A(accountID uuid.UUID, teslaID int64) (prev, cur telemetr
 // a predecessor. SentryMode stays nil (the vehicle genuinely did not report
 // sentry this capture -- design D2/D8's "not reported" reading, distinct
 // from Fixture RM38-C's "predates the migration" reading below).
-func metricsFixtureRM38B(accountID uuid.UUID, teslaID int64) telemetry.Snapshot {
-	cur := metricsFixtureC(accountID, teslaID)
+func metricsFixtureRM38B(teslaID int64) telemetry.Snapshot {
+	cur := metricsFixtureC(teslaID)
 	cur.Locked = false
 	cur.SentryMode = nil
 	cur.CarVersion = "2026.28.4"
@@ -806,13 +801,13 @@ func metricsFixtureRM38B(accountID uuid.UUID, teslaID int64) telemetry.Snapshot 
 // can build. Every column this INSERT omits (the five _calc columns,
 // consumed_pct, missing_charging_type, and all eight RM38 columns) stays
 // SQL NULL, exactly matching a genuine pre-migration row.
-func seedPreMigrationVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, metricDate time.Time, batteryLevelPct int, odometerKm, batteryRangeKm float64) {
+func seedPreMigrationVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricDate time.Time, batteryLevelPct int, odometerKm, batteryRangeKm float64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO analytics.vehicle_metrics (
-			account_id, tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km, flagged
-		) VALUES ($1, $2, $3, $4, $5, $6, false)`,
-		accountID, teslaID, dateFrom(metricDate), int32(batteryLevelPct), odometerKm, batteryRangeKm,
+			tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km, flagged
+		) VALUES ($1, $2, $3, $4, $5, false)`,
+		teslaID, dateFrom(metricDate), int32(batteryLevelPct), odometerKm, batteryRangeKm,
 	)
 	if err != nil {
 		t.Fatalf("seeding pre-migration vehicle_metrics row: %v", err)
@@ -855,22 +850,21 @@ func newRealReader(pool *pgxpool.Pool) Reader {
 func TestRecalculate_FixtureA(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(920001)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureA(accountID, teslaID)
+	prev, cur := metricsFixtureA(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 10)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, start)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for Fixture A, found none")
 	}
@@ -915,11 +909,10 @@ func TestRecalculate_FixtureA(t *testing.T) {
 func TestRecalculate_FixtureB(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(920002)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureB(accountID, teslaID)
+	prev, cur := metricsFixtureB(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 	// No Supercharger session, no manual entry seeded near this vehicle at
@@ -928,11 +921,11 @@ func TestRecalculate_FixtureB(t *testing.T) {
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 12)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, start)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for Fixture B, found none")
 	}
@@ -972,21 +965,20 @@ func TestRecalculate_FixtureB(t *testing.T) {
 func TestRecalculate_FixtureC(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(920003)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	cur := metricsFixtureC(accountID, teslaID)
+	cur := metricsFixtureC(teslaID)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 4)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, start)
 	if !ok {
 		t.Fatal("Fixture C: expected a DENSE vehicle_metrics row for the predecessor-less day, found none (design.md D9)")
 	}
@@ -1046,9 +1038,8 @@ func TestRecalculate_FixtureC(t *testing.T) {
 func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(930001)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	day0 := clock.CalendarDay(time.Now(), time.UTC).AddDate(0, 0, -20)
 	day1 := day0.AddDate(0, 0, 1)
@@ -1067,14 +1058,14 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
-	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+	if err := rec.Reconcile(ctx, teslaID); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
 	// D7: no prior watermark is treated as the epoch -- the vehicle's entire
 	// stored telemetry history backfills into vehicle_metrics in one pass.
 	wantDay := effectiveDay(cur) // == day0
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, wantDay)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, wantDay)
 	if !ok {
 		t.Fatalf("expected a vehicle_metrics row for %s after the first-ever Reconcile, found none", wantDay)
 	}
@@ -1086,7 +1077,7 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	}
 
 	// The vehicle_snapshots source watermark now exists (design.md D2/D7).
-	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceVehicleSnapshots); !ok {
+	if _, ok := fetchWatermark(t, pool, teslaID, sourceVehicleSnapshots); !ok {
 		t.Error("want a vehicle_snapshots watermark row after the first Reconcile, found none")
 	}
 	// A source with zero returned rows leaves NO watermark row at all, even
@@ -1099,10 +1090,10 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	// there from internal/telemetry by RM31 tier 3 and renamed by RM39 tier 3
 	// (charging.supercharger_sessions); the watermark label was reset to match
 	// by RM39-analytics-fix-watermark-vocabulary (design.md §2/§7).
-	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions); ok {
+	if _, ok := fetchWatermark(t, pool, teslaID, sourceSuperchargerSessions); ok {
 		t.Error("want no supercharger_sessions watermark row (no session data ever seeded for this vehicle)")
 	}
-	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceManualChargeEntries); ok {
+	if _, ok := fetchWatermark(t, pool, teslaID, sourceManualChargeEntries); ok {
 		t.Error("want no manual_charge_entries watermark row (no entry ever seeded for this vehicle)")
 	}
 }
@@ -1110,9 +1101,8 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 func TestReconcile_Idempotent(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(930002)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	day0 := clock.CalendarDay(time.Now(), time.UTC).AddDate(0, 0, -22)
 	day1 := day0.AddDate(0, 0, 1)
@@ -1131,30 +1121,30 @@ func TestReconcile_Idempotent(t *testing.T) {
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
-	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+	if err := rec.Reconcile(ctx, teslaID); err != nil {
 		t.Fatalf("first Reconcile: %v", err)
 	}
 
 	wantDay := effectiveDay(cur)
-	before, ok := fetchVehicleMetric(t, pool, accountID, teslaID, wantDay)
+	before, ok := fetchVehicleMetric(t, pool, teslaID, wantDay)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row after the first Reconcile")
 	}
-	watermarkBefore, ok := fetchWatermark(t, pool, accountID, teslaID, sourceVehicleSnapshots)
+	watermarkBefore, ok := fetchWatermark(t, pool, teslaID, sourceVehicleSnapshots)
 	if !ok {
 		t.Fatal("expected a vehicle_snapshots watermark row after the first Reconcile")
 	}
 	var rowCountBefore int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM analytics.vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountBefore); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM analytics.vehicle_metrics WHERE tesla_id=$1`, teslaID).Scan(&rowCountBefore); err != nil {
 		t.Fatalf("counting vehicle_metrics rows: %v", err)
 	}
 
 	// Second Reconcile: no source data changed at all since the first run.
-	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+	if err := rec.Reconcile(ctx, teslaID); err != nil {
 		t.Fatalf("second Reconcile: %v", err)
 	}
 
-	after, ok := fetchVehicleMetric(t, pool, accountID, teslaID, wantDay)
+	after, ok := fetchVehicleMetric(t, pool, teslaID, wantDay)
 	if !ok {
 		t.Fatal("expected the vehicle_metrics row to still exist after the idempotent second Reconcile")
 	}
@@ -1170,14 +1160,14 @@ func TestReconcile_Idempotent(t *testing.T) {
 		t.Errorf("Reconcile is not idempotent: row changed from %+v to %+v", before, after)
 	}
 	var rowCountAfter int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM analytics.vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountAfter); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM analytics.vehicle_metrics WHERE tesla_id=$1`, teslaID).Scan(&rowCountAfter); err != nil {
 		t.Fatalf("counting vehicle_metrics rows: %v", err)
 	}
 	if rowCountAfter != rowCountBefore {
 		t.Errorf("net row count changed: want %d, got %d (design.md's idempotence contract)", rowCountBefore, rowCountAfter)
 	}
 
-	watermarkAfter, ok := fetchWatermark(t, pool, accountID, teslaID, sourceVehicleSnapshots)
+	watermarkAfter, ok := fetchWatermark(t, pool, teslaID, sourceVehicleSnapshots)
 	if !ok {
 		t.Fatal("expected the vehicle_snapshots watermark row to still exist")
 	}
@@ -1198,10 +1188,9 @@ func TestReconcile_Idempotent(t *testing.T) {
 func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaIDConst = int64(930003)
 	teslaID := teslaIDConst // addressable copy for charging.Session.TeslaID (*int64)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	refNow := time.Now().UTC()
 	oldDay := clock.CalendarDay(refNow, time.UTC).AddDate(0, 0, -25) // "three weeks ago" and then some -- safely before yesterday
@@ -1232,12 +1221,12 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 	sessionID := seedChargeSession(t, pool, session)
 
 	rec := newRealRecalculator(pool)
-	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+	if err := rec.Reconcile(ctx, teslaID); err != nil {
 		t.Fatalf("first Reconcile: %v", err)
 	}
 
 	wantDay := effectiveDay(cur) // == oldDay
-	before, ok := fetchVehicleMetric(t, pool, accountID, teslaID, wantDay)
+	before, ok := fetchVehicleMetric(t, pool, teslaID, wantDay)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row after the first Reconcile")
 	}
@@ -1255,11 +1244,11 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 	// sandbox), keyed on the globally unique session_id.
 	reviseChargeSession(t, pool, sessionID, 50, refNow)
 
-	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+	if err := rec.Reconcile(ctx, teslaID); err != nil {
 		t.Fatalf("second Reconcile: %v", err)
 	}
 
-	after, ok := fetchVehicleMetric(t, pool, accountID, teslaID, wantDay)
+	after, ok := fetchVehicleMetric(t, pool, teslaID, wantDay)
 	if !ok {
 		t.Fatal("expected the vehicle_metrics row to still exist after the revision")
 	}
@@ -1268,7 +1257,7 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 		t.Errorf("ConsumedPct after revision: want %v (the day, well outside any trailing window measured from today, must still be recomputed), got %+v", wantConsumedAfter, after.ConsumedPct)
 	}
 
-	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions)
+	watermark, ok := fetchWatermark(t, pool, teslaID, sourceSuperchargerSessions)
 	if !ok {
 		t.Fatal("expected a supercharger_sessions watermark row")
 	}
@@ -1355,9 +1344,8 @@ var _ charging.SuperchargerSessionAnalyticsReader = (*recordingSuperchargerReade
 func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(970001)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	// prev/cur CapturedDate are one day past each fixture's own EFFECTIVE day
 	// (day(2026,8,13)/day(2026,8,14) respectively) -- effectiveDay(s) =
@@ -1390,7 +1378,7 @@ func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 	superchargerFake := &recordingSuperchargerReader{sessions: []charging.Session{session}}
 
 	rec := NewRecalculator(pool, telemetry.NewReader(pool), superchargerFake, charging.NewReader(pool))
-	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+	if err := rec.Reconcile(ctx, teslaID); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
@@ -1398,7 +1386,7 @@ func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 		t.Error("want ListSessionsByVehicleUpdatedSince to be called by Reconcile's own cursor read, was not -- the retype did not actually change which port method is consulted")
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, day(2026, 8, 14))
+	row, ok := fetchVehicleMetric(t, pool, teslaID, day(2026, 8, 14))
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for 2026-08-14, found none")
 	}
@@ -1413,7 +1401,7 @@ func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 		t.Errorf("Flagged: want false (65 is neither negative nor zero), got %v", row.Flagged)
 	}
 
-	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions)
+	watermark, ok := fetchWatermark(t, pool, teslaID, sourceSuperchargerSessions)
 	if !ok {
 		t.Fatal("expected a supercharger_sessions watermark row to be created (no prior row -- epoch)")
 	}
@@ -1431,9 +1419,8 @@ func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 func TestReconcile_T4_OtherVehicleSessionExcludedByPort(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(970002)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	prev := telemetry.Snapshot{
 		TeslaID:    teslaID,
@@ -1463,11 +1450,11 @@ func TestReconcile_T4_OtherVehicleSessionExcludedByPort(t *testing.T) {
 	superchargerFake := &recordingSuperchargerReader{sessions: []charging.Session{otherVehicle}, teslaScoped: true}
 
 	rec := NewRecalculator(pool, telemetry.NewReader(pool), superchargerFake, charging.NewReader(pool))
-	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+	if err := rec.Reconcile(ctx, teslaID); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, day(2026, 8, 14))
+	row, ok := fetchVehicleMetric(t, pool, teslaID, day(2026, 8, 14))
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for 2026-08-14, found none")
 	}
@@ -1501,9 +1488,8 @@ func TestReconcile_T4_OtherVehicleSessionExcludedByPort(t *testing.T) {
 func TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(970003)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	// prev/cur CapturedDate one day past each fixture's own effective day
 	// (day(2026,8,20)/day(2026,8,21)) -- design.md's "Then" pins the row's
@@ -1554,11 +1540,11 @@ func TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy(t *testing.
 	})
 
 	rec := newRealRecalculator(pool)
-	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+	if err := rec.Reconcile(ctx, teslaID); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, day(2026, 8, 21))
+	row, ok := fetchVehicleMetric(t, pool, teslaID, day(2026, 8, 21))
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for 2026-08-21, found none")
 	}
@@ -1591,23 +1577,22 @@ func TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy(t *testing.
 func TestReader_ConsumedByDay_ReadsBackWhatRecalculateWrote(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(940001)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureA(accountID, teslaID)
+	prev, cur := metricsFixtureA(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 10)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
 	rdr := newRealReader(pool)
-	got, err := rdr.ConsumedByDay(ctx, accountID, teslaID, start, end)
+	got, err := rdr.ConsumedByDay(ctx, teslaID, start, end)
 	if err != nil {
 		t.Fatalf("ConsumedByDay: %v", err)
 	}
@@ -1638,24 +1623,23 @@ func TestReader_ConsumedByDay_ReadsBackWhatRecalculateWrote(t *testing.T) {
 func TestReader_OdometerDeltaByDay_ReadsBackWhatRecalculateWrote(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(940002)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureB(accountID, teslaID)
+	prev, cur := metricsFixtureB(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 12)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
 	rdr := newRealReader(pool)
 
-	gotOdometer, err := rdr.OdometerDeltaByDay(ctx, accountID, teslaID, start, end)
+	gotOdometer, err := rdr.OdometerDeltaByDay(ctx, teslaID, start, end)
 	if err != nil {
 		t.Fatalf("OdometerDeltaByDay: %v", err)
 	}
@@ -1672,7 +1656,7 @@ func TestReader_OdometerDeltaByDay_ReadsBackWhatRecalculateWrote(t *testing.T) {
 	// ConsumedByDay's DistanceKm for the SAME underlying row stays -2.0,
 	// unclamped -- the exact divergence design.md's Test Contract calls out
 	// (only the odometer chart's displayed delta is ever clamped).
-	gotConsumed, err := rdr.ConsumedByDay(ctx, accountID, teslaID, start, end)
+	gotConsumed, err := rdr.ConsumedByDay(ctx, teslaID, start, end)
 	if err != nil {
 		t.Fatalf("ConsumedByDay: %v", err)
 	}
@@ -1693,29 +1677,28 @@ func TestReader_OdometerDeltaByDay_ReadsBackWhatRecalculateWrote(t *testing.T) {
 func TestReader_BothMethods_ExcludeFixtureCRow(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(940003)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	cur := metricsFixtureC(accountID, teslaID)
+	cur := metricsFixtureC(teslaID)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 4)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
 	// Direct-read confirmation: the row genuinely exists in the real database
 	// (design.md: "the exact property a sparse table would not have had").
-	if _, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start); !ok {
+	if _, ok := fetchVehicleMetric(t, pool, teslaID, start); !ok {
 		t.Fatal("expected the dense vehicle_metrics row for Fixture C's predecessor-less day to exist, found none")
 	}
 
 	rdr := newRealReader(pool)
 
-	gotConsumed, err := rdr.ConsumedByDay(ctx, accountID, teslaID, start, end)
+	gotConsumed, err := rdr.ConsumedByDay(ctx, teslaID, start, end)
 	if err != nil {
 		t.Fatalf("ConsumedByDay: %v", err)
 	}
@@ -1723,7 +1706,7 @@ func TestReader_BothMethods_ExcludeFixtureCRow(t *testing.T) {
 		t.Errorf("ConsumedByDay: want empty (D13's IS NOT NULL filter excludes the predecessor-less row), got %+v", gotConsumed)
 	}
 
-	gotOdometer, err := rdr.OdometerDeltaByDay(ctx, accountID, teslaID, start, end)
+	gotOdometer, err := rdr.OdometerDeltaByDay(ctx, teslaID, start, end)
 	if err != nil {
 		t.Fatalf("OdometerDeltaByDay: %v", err)
 	}
@@ -1749,7 +1732,7 @@ func TestReader_BothMethods_ExcludeFixtureCRow(t *testing.T) {
 // capture gap. Raw observations only (D1/D10) -- the true predecessor
 // (2026-08-01) sits far outside Recalculate's normal one-day lookback and is
 // reachable only via telemetry.Reader.SnapshotPrecedingDay (design.md D2/D7).
-func metricsFixtureD(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
+func metricsFixtureD(teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 1, 3, 30, 0, 0, time.UTC),
@@ -1804,11 +1787,10 @@ func seedManualEntry(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesl
 func TestRecalculate_FixtureD_MultiDayGap(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(950001)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureD(accountID, teslaID)
+	prev, cur := metricsFixtureD(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 	// No Supercharger sessions, no manual entries anywhere in the span.
@@ -1816,11 +1798,11 @@ func TestRecalculate_FixtureD_MultiDayGap(t *testing.T) {
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 7)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, start)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for Fixture D's gap day, found none -- the day SnapshotPrecedingDay exists to recover")
 	}
@@ -1864,7 +1846,7 @@ func TestRecalculate_FixtureD_MultiDayGap(t *testing.T) {
 	// silently dropped day that compiles and does not error.
 	rdr := newRealReader(pool)
 
-	gotConsumed, err := rdr.ConsumedByDay(ctx, accountID, teslaID, start, end)
+	gotConsumed, err := rdr.ConsumedByDay(ctx, teslaID, start, end)
 	if err != nil {
 		t.Fatalf("ConsumedByDay: %v", err)
 	}
@@ -1891,7 +1873,7 @@ func TestRecalculate_FixtureD_MultiDayGap(t *testing.T) {
 		t.Errorf("ConsumedByDay DaysSpanned: want 7, got %d", c.DaysSpanned)
 	}
 
-	gotOdometer, err := rdr.OdometerDeltaByDay(ctx, accountID, teslaID, start, end)
+	gotOdometer, err := rdr.OdometerDeltaByDay(ctx, teslaID, start, end)
 	if err != nil {
 		t.Fatalf("OdometerDeltaByDay: %v", err)
 	}
@@ -1918,9 +1900,9 @@ func TestRecalculate_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 	ctx := context.Background()
 	accountID := uuid.New()
 	const teslaID = int64(950002)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureD(accountID, teslaID)
+	prev, cur := metricsFixtureD(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 	seedManualEntry(t, pool, accountID, teslaID, day(2026, 8, 4), 30, 50) // +20
@@ -1928,11 +1910,11 @@ func TestRecalculate_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 7)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, start)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for Fixture D2, found none")
 	}
@@ -1963,7 +1945,7 @@ func TestRecalculate_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 // battery_used_pct_calc == 0 divisor guard (a parked day) -- distinct from
 // Fixture B's negative-divisor case: the guard is `batteryUsed > 0`, so zero
 // is excluded exactly like a negative. Raw observations only (D1/D10).
-func metricsFixtureE(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
+func metricsFixtureE(teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
 		TeslaID:         teslaID,
 		CapturedAt:      time.Date(2026, 8, 15, 3, 30, 0, 0, time.UTC),
@@ -1994,22 +1976,21 @@ func metricsFixtureE(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 func TestRecalculate_ZeroDivisorGuard(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(960001)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureE(accountID, teslaID)
+	prev, cur := metricsFixtureE(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 15)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, start)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for Fixture E, found none")
 	}
@@ -2039,7 +2020,7 @@ func TestRecalculate_ZeroDivisorGuard(t *testing.T) {
 	}
 
 	rdr := newRealReader(pool)
-	gotConsumed, err := rdr.ConsumedByDay(ctx, accountID, teslaID, start, end)
+	gotConsumed, err := rdr.ConsumedByDay(ctx, teslaID, start, end)
 	if err != nil {
 		t.Fatalf("ConsumedByDay: %v", err)
 	}
@@ -2077,9 +2058,8 @@ func TestRecalculate_ZeroDivisorGuard(t *testing.T) {
 func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(960002)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	snapA := telemetry.Snapshot{ // day N-1
 		TeslaID:    teslaID,
@@ -2103,12 +2083,12 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 20) // day N
 	end := day(2026, 8, 21)   // day N+1
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("first Recalculate: %v", err)
 	}
 
 	dayNPlus1 := day(2026, 8, 21)
-	before, ok := fetchVehicleMetric(t, pool, accountID, teslaID, dayNPlus1)
+	before, ok := fetchVehicleMetric(t, pool, teslaID, dayNPlus1)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for day N+1 after the first Recalculate")
 	}
@@ -2140,11 +2120,11 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 		t.Fatalf("simulating same-day recapture: want 1 row updated, got %d", tag.RowsAffected())
 	}
 
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("second Recalculate: %v", err)
 	}
 
-	after, ok := fetchVehicleMetric(t, pool, accountID, teslaID, dayNPlus1)
+	after, ok := fetchVehicleMetric(t, pool, teslaID, dayNPlus1)
 	if !ok {
 		t.Fatal("expected the vehicle_metrics row for day N+1 to still exist after the recapture")
 	}
@@ -2177,22 +2157,21 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 func TestRecalculate_FixtureRM38A_StatusColumnsPersisted(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(990001)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureRM38A(accountID, teslaID)
+	prev, cur := metricsFixtureRM38A(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 10)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, start)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row for Fixture RM38-A, found none")
 	}
@@ -2246,21 +2225,20 @@ func TestRecalculate_FixtureRM38A_StatusColumnsPersisted(t *testing.T) {
 func TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(990002)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	cur := metricsFixtureRM38B(accountID, teslaID)
+	cur := metricsFixtureRM38B(teslaID)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 4)
 	end := start
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, end); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, start)
 	if !ok {
 		t.Fatal("expected a DENSE vehicle_metrics row for Fixture RM38-B's predecessor-less day, found none (design.md D9)")
 	}
@@ -2323,37 +2301,36 @@ func TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor(t *te
 }
 
 // ===========================================================================
-// Task 5.3 -- TestReader_LatestMetricsByAccount_*: the four cases from
-// design.md's Test Contract ("Multi-vehicle DISTINCT ON case", Fixture
-// RM38-A/RM38-C, and the empty-account contract mirroring
-// LatestSnapshotsByVehicles's own).
+// TestReader_LatestMetricsForVehicles_*: four cases. One vehicle, several
+// vehicles (DISTINCT ON must pick each car's own latest day), a pre-migration
+// row, and an empty vehicle set. The empty-set case mirrors
+// LatestSnapshotsByVehicles: an empty non-nil slice, never an error.
 // ===========================================================================
 
-// TestReader_LatestMetricsByAccount_SingleVehicleFullyPopulated covers
+// TestReader_LatestMetricsForVehicles_SingleVehicleFullyPopulated covers
 // design.md's Test Contract "A single vehicle's latest status is returned":
-// one vehicle, one recalculated day, LatestMetricsByAccount returns exactly
+// one vehicle, one recalculated day, LatestMetricsForVehicles returns exactly
 // one VehicleStatus with every pointer field non-nil.
-func TestReader_LatestMetricsByAccount_SingleVehicleFullyPopulated(t *testing.T) {
+func TestReader_LatestMetricsForVehicles_SingleVehicleFullyPopulated(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(990101)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
-	prev, cur := metricsFixtureRM38A(accountID, teslaID)
+	prev, cur := metricsFixtureRM38A(teslaID)
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
 	start := day(2026, 8, 10)
-	if err := rec.Recalculate(ctx, accountID, teslaID, start, start); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, start, start); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
 	rdr := newRealReader(pool)
-	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	got, err := rdr.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{teslaID}))
 	if err != nil {
-		t.Fatalf("LatestMetricsByAccount: %v", err)
+		t.Fatalf("LatestMetricsForVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
@@ -2399,22 +2376,21 @@ func TestReader_LatestMetricsByAccount_SingleVehicleFullyPopulated(t *testing.T)
 	}
 }
 
-// TestReader_LatestMetricsByAccount_TwoVehiclesEachOwnLatestDay covers
+// TestReader_LatestMetricsForVehicles_TwoVehiclesEachOwnLatestDay covers
 // design.md's Test Contract "Multi-vehicle DISTINCT ON case": two vehicles
-// on one account, each with its own most-recent metric_date, must each
+// in one requested set, each with its own most-recent metric_date, must each
 // return their OWN latest row -- never one vehicle's entry describing the
 // other's day.
-func TestReader_LatestMetricsByAccount_TwoVehiclesEachOwnLatestDay(t *testing.T) {
+func TestReader_LatestMetricsForVehicles_TwoVehiclesEachOwnLatestDay(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID1 = int64(990102)
 	const teslaID2 = int64(990103)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID1)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID2)
+	cleanupVehicleMetrics(t, pool, teslaID1)
+	cleanupVehicleMetrics(t, pool, teslaID2)
 
 	// Vehicle 1: Fixture RM38-A's predecessor/current pair, latest day 2026-08-11.
-	prev1, cur1 := metricsFixtureRM38A(accountID, teslaID1)
+	prev1, cur1 := metricsFixtureRM38A(teslaID1)
 	seedSnapshot(t, pool, prev1)
 	seedSnapshot(t, pool, cur1)
 
@@ -2422,21 +2398,21 @@ func TestReader_LatestMetricsByAccount_TwoVehiclesEachOwnLatestDay(t *testing.T)
 	// (and only) day 2026-08-04 -- a different calendar date than vehicle
 	// 1's, and deliberately its own row so a cross-vehicle mixup is
 	// observable in either direction.
-	cur2 := metricsFixtureRM38B(accountID, teslaID2)
+	cur2 := metricsFixtureRM38B(teslaID2)
 	seedSnapshot(t, pool, cur2)
 
 	rec := newRealRecalculator(pool)
-	if err := rec.Recalculate(ctx, accountID, teslaID1, day(2026, 8, 10), day(2026, 8, 10)); err != nil {
+	if err := rec.Recalculate(ctx, teslaID1, day(2026, 8, 10), day(2026, 8, 10)); err != nil {
 		t.Fatalf("Recalculate vehicle 1: %v", err)
 	}
-	if err := rec.Recalculate(ctx, accountID, teslaID2, day(2026, 8, 4), day(2026, 8, 4)); err != nil {
+	if err := rec.Recalculate(ctx, teslaID2, day(2026, 8, 4), day(2026, 8, 4)); err != nil {
 		t.Fatalf("Recalculate vehicle 2: %v", err)
 	}
 
 	rdr := newRealReader(pool)
-	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	got, err := rdr.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{teslaID1, teslaID2}))
 	if err != nil {
-		t.Fatalf("LatestMetricsByAccount: %v", err)
+		t.Fatalf("LatestMetricsForVehicles: %v", err)
 	}
 	if len(got) != 2 {
 		t.Fatalf("want exactly 2 entries (one per vehicle), got %d: %+v", len(got), got)
@@ -2472,25 +2448,24 @@ func TestReader_LatestMetricsByAccount_TwoVehiclesEachOwnLatestDay(t *testing.T)
 	}
 }
 
-// TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus
+// TestReader_LatestMetricsForVehicles_PreMigrationRowReportsAbsentStatus
 // covers design.md's Test Contract Fixture RM38-C: a vehicle_metrics row
 // written before this migration exists. Its existing battery/range/odometer
 // values come back unchanged; all eight new fields come back nil -- never a
 // fabricated default such as "unlocked" or "sentry off".
-func TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus(t *testing.T) {
+func TestReader_LatestMetricsForVehicles_PreMigrationRowReportsAbsentStatus(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(990104)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	metricDate := day(2026, 8, 1)
-	seedPreMigrationVehicleMetric(t, pool, accountID, teslaID, metricDate, 55, 900.0, 310.0)
+	seedPreMigrationVehicleMetric(t, pool, teslaID, metricDate, 55, 900.0, 310.0)
 
 	rdr := newRealReader(pool)
-	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	got, err := rdr.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{teslaID}))
 	if err != nil {
-		t.Fatalf("LatestMetricsByAccount: %v", err)
+		t.Fatalf("LatestMetricsForVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
@@ -2560,20 +2535,19 @@ func TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus(t *tes
 	}
 }
 
-// TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice
-// covers design.md's Test Contract "An account with no computed vehicles yet
-// returns no results, not an error" -- mirroring
-// telemetry.Reader.LatestSnapshotsByVehicles's identical empty-account
-// contract (design D5).
-func TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice(t *testing.T) {
+// TestReader_LatestMetricsForVehicles_EmptyVehicleSetReturnsEmptyNonNilSlice
+// asserts that an empty vehicle set returns no results, not an error --
+// mirroring telemetry.Reader.LatestSnapshotsByVehicles's identical
+// empty-input contract. This is the empty-input case, not an account lookup:
+// no vehicle is ever seeded here.
+func TestReader_LatestMetricsForVehicles_EmptyVehicleSetReturnsEmptyNonNilSlice(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New() // never seeded
 
 	rdr := newRealReader(pool)
-	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	got, err := rdr.LatestMetricsForVehicles(ctx, vehicleref.All(nil))
 	if err != nil {
-		t.Fatalf("LatestMetricsByAccount: want nil error, got %v", err)
+		t.Fatalf("LatestMetricsForVehicles: want nil error, got %v", err)
 	}
 	if got == nil {
 		t.Fatal("want a non-nil empty slice, got nil")
@@ -2584,17 +2558,14 @@ func TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice(t *te
 }
 
 // ===========================================================================
-// RM50-analytics-add-tire-pressure-columns -- task 1.7 (Recalculate
-// round-trip) and task 2.5's "LatestMetricsByAccount case" (task 2.5's other
-// case, "the pre-migration row", extends
-// TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus above
-// instead of duplicating a second fixture). Expected values are copied
-// verbatim from design.md's Test Contract, never derived by reading
-// recalculate.go/reader.go.
+// TPMS coverage: one Recalculate round-trip and one read through Reader. The
+// pre-migration case is not repeated here; it extends
+// TestReader_LatestMetricsForVehicles_PreMigrationRowReportsAbsentStatus
+// above instead of seeding a second fixture. Every expected value below was
+// written before the implementation, never read back out of it.
 // ===========================================================================
 
-// TestRecalculate_TPMS_RoundTrip covers design.md's Test Contract "DB
-// integration: Recalculate round-trip" (task 1.7): one
+// TestRecalculate_TPMS_RoundTrip seeds one
 // telemetry.vehicle_snapshots row with all four TPMS fields non-NULL,
 // Recalculate for the day containing it, then the same four values read
 // back unconverted from analytics.vehicle_metrics.
@@ -2614,9 +2585,8 @@ func TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice(t *te
 func TestRecalculate_TPMS_RoundTrip(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(990201)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	metricDate := day(2026, 9, 1)
 	cur := telemetry.Snapshot{
@@ -2640,11 +2610,11 @@ func TestRecalculate_TPMS_RoundTrip(t *testing.T) {
 	seedSnapshot(t, pool, cur)
 
 	rec := newRealRecalculator(pool)
-	if err := rec.Recalculate(ctx, accountID, teslaID, metricDate, metricDate); err != nil {
+	if err := rec.Recalculate(ctx, teslaID, metricDate, metricDate); err != nil {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, metricDate)
+	row, ok := fetchVehicleMetric(t, pool, teslaID, metricDate)
 	if !ok {
 		t.Fatal("expected a vehicle_metrics row, found none")
 	}
@@ -2662,30 +2632,27 @@ func TestRecalculate_TPMS_RoundTrip(t *testing.T) {
 	}
 }
 
-// TestReader_LatestMetricsByAccount_TPMS_And_ExposedCalcColumns covers
-// design.md's Test Contract "DB integration: LatestMetricsByAccount" (task
-// 2.5): one vehicle_metrics row with non-NULL tpms_pressure_fl_psi (42.5),
+// TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns seeds one
+// vehicle_metrics row with non-NULL tpms_pressure_fl_psi (42.5),
 // distance_traveled_km_calc (12.3) and consumed_pct (5.0) -- all three are
 // DOUBLE PRECISION columns, not REAL, so no float32 narrowing applies and
-// exact equality is the right assertion (matching design.md's own "== 42.5"
-// wording). Seeded directly, not via Recalculate: this test is about the
-// read projection (query.sql task 2.1 / reader.go task 2.4), which
+// exact equality is the right assertion. The row is seeded directly, not
+// through Recalculate: this test is about the read projection, which
 // TestRecalculate_TPMS_RoundTrip above does not exercise (it only reads back
 // via fetchVehicleMetric's raw SQL, never through Reader).
-func TestReader_LatestMetricsByAccount_TPMS_And_ExposedCalcColumns(t *testing.T) {
+func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
-	accountID := uuid.New()
 	const teslaID = int64(990202)
-	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+	cleanupVehicleMetrics(t, pool, teslaID)
 
 	metricDate := day(2026, 9, 3)
 	_, err := pool.Exec(ctx, `
 		INSERT INTO analytics.vehicle_metrics (
-			account_id, tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km,
+			tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km,
 			flagged, tpms_pressure_fl_psi, distance_traveled_km_calc, consumed_pct
-		) VALUES ($1, $2, $3, $4, $5, $6, false, $7, $8, $9)`,
-		accountID, teslaID, dateFrom(metricDate), int32(60), 800.0, 300.0,
+		) VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8)`,
+		teslaID, dateFrom(metricDate), int32(60), 800.0, 300.0,
 		42.5, 12.3, 5.0,
 	)
 	if err != nil {
@@ -2693,9 +2660,9 @@ func TestReader_LatestMetricsByAccount_TPMS_And_ExposedCalcColumns(t *testing.T)
 	}
 
 	rdr := newRealReader(pool)
-	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	got, err := rdr.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{teslaID}))
 	if err != nil {
-		t.Fatalf("LatestMetricsByAccount: %v", err)
+		t.Fatalf("LatestMetricsForVehicles: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)

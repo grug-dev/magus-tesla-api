@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM59-gateway-authorize-metrics-reads",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM59-rekey-vehicle-metrics-on-tesla-id.md",
+  "request": "Point the gateway at the re-keyed analytics ports. Use the ownedVehicles helper that already exists at handlers.go:1082 \u2014 do not write a new one, and do not call vehicleref.All directly, because make vehicleref-guard forbids it outside authorizeVehicle. Say in design.md why the three chart reads stay on int64 while the account-wide read takes []Ref.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ]
+  },
+  "created_at": "2026-09-15T10:20:00Z",
+  "updated_at": "2026-09-15T10:45:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
+    "base": "f24ab446237c99a3508a84cb2ee77cb1a0d938dc",
+    "ticket": "MAG-69",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-69/6-re-key-analyticsvehicle-metrics-and-vehicle-metric-watermarks-on",
+    "created_at": "2026-09-15T01:44:43Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "history_test.go: fakeAnalyticsReader signature fixup",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T10:28:00Z",
+      "completed_at": "2026-09-15T10:32:00Z",
+      "duration_seconds": 240,
+      "notes": "Added vehicleref import, dropped accountID and the three gotXxxAccount fields, renamed LatestMetricsByAccount to LatestMetricsForVehicles, fixed 4 stale comments.",
+      "budget": {
+        "five_hour_pct_start": 68,
+        "five_hour_pct_end": 74,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1-T4; the wave delta is copied onto each task"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "external_charges.go: collapse buildExternalChargesPage to one read (RD6)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T10:28:00Z",
+      "completed_at": "2026-09-15T10:32:00Z",
+      "duration_seconds": 240,
+      "notes": "buildExternalChargesPage now calls ownedVehicles once and reuses refs for the battery suggestion. Matches design.md D2 exactly.",
+      "budget": {
+        "five_hour_pct_start": 68,
+        "five_hour_pct_end": 74,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1-T4; the wave delta is copied onto each task"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "external_charges_test.go: fakeRecalculator fixup + stale comments",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T10:28:00Z",
+      "completed_at": "2026-09-15T10:32:00Z",
+      "duration_seconds": 240,
+      "notes": "Dropped accountID from recalculateCall and Recalculate, deleted the stale assertion, fixed 2 comments. Also fixed Reconcile's signature, which design.md D4 missed.",
+      "budget": {
+        "five_hour_pct_start": 68,
+        "five_hour_pct_end": 74,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1-T4; the wave delta is copied onto each task"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "handlers_test.go: stale comment fixups only",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T10:28:00Z",
+      "completed_at": "2026-09-15T10:32:00Z",
+      "duration_seconds": 240,
+      "notes": "Comments only, 3 mentions fixed. No code touched.",
+      "budget": {
+        "five_hour_pct_start": 68,
+        "five_hour_pct_end": 74,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1-T4; the wave delta is copied onto each task"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Gateway delta spec renaming LatestMetricsByAccount",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T10:12:00Z",
+      "completed_at": "2026-09-15T10:19:00Z",
+      "duration_seconds": 420,
+      "notes": "Written with the artifacts: all 5 mentions renamed across 4 requirements. Validated strict.",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Final verification: build, vet, gofmt, guards, repo-wide grep",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T10:31:00Z",
+      "completed_at": "2026-09-15T10:45:00Z",
+      "duration_seconds": 840,
+      "notes": "Build, vet, gofmt and the guards re-run by the leader, all clean. Repo-wide grep: no live Go file names the old port.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review the diff of ff781c4 (wave 1) against this change's design.md, not the whole module. Validate: (1) D2's rewrite of buildExternalChargesPage is exactly one ownedVehicles read and the refs reuse is correct, including that ok is genuinely guaranteed at the suggestion block; (2) D1/RD7 is honoured - handlers.go's three call sites are UNCHANGED, and flag any attempt to 'fix' them toward the roadmap text as wrong; (3) D3/D4 fake signatures match the real analytics.Reader and analytics.Recalculator interfaces, and the one deleted assertion lost no coverage the surviving teslaID/start/end assertions do not already carry; (4) the leader-accepted unplanned fix to fakeRecalculator.Reconcile (decision D-A1) is correct and in scope; (5) module-boundary compliance - no HTML outside the gateway, no cross-module DB read, no internal/telemetry import; (6) every doc-pack convention, especially the code-comment rule: NO comment may cite design.md, a decision ID, a change or roadmap ID, or a tier number. The leader already removed one such comment; look for others this change introduced or left in the files it touched. (7) bilingual i18n - this change adds no new user-facing string; confirm that. (8) the delta spec in specs/gateway/spec.md renames the port in all five spots and changes nothing else. (9) anti-gaming: no acceptance criterion was weakened, no task was self-approved, tasks.md checkboxes match what the diff actually does. Performance-Profile compliance matters here: the whole point of D2 is removing a duplicate read on a page render, and D1 is refusing to ADD two more. Judge both against that. Signals: go build, go vet, gofmt, and the vehicleref/boundary/i18n/tz guards were run by the ASSISTANT and are clean. The test suite (make test AND make test-with-db) was run and reported passing by the USER - never by the assistant. Do not run the suite yourself; judge test quality by reading the tests.",
+    "rounds": [
+      {
+        "at": "2026-09-15T11:05:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/history_test.go:161-167 - the rewritten LatestMetricsForVehicles doc comment (this diff touched every line, reflowed by the longer name) still cites 'RM38-gateway-read-dashboard-from-metrics' and '(RM40)'. Those docs get archived and frozen; state the reason itself instead (this fake backs the dashboard/vehicles/nav-header/charges-suggestion tests), drop the RM ids.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers_test.go:233 - comment '// RM38: vehiclesFor now reads h.analyticsReader.LatestMetricsForVehicles' keeps the RM38 citation on a line this diff edited (renamed the method). Drop 'RM38:' and state the reason plainly.",
+            "status": "open"
+          }
+        ],
+        "summary": "D1/RD7 honored: handlers.go is byte-identical, untouched. D2's buildExternalChargesPage rewrite is exactly one ownedVehicles read; refs/ok are never reassigned between the top-of-function call and the suggestion block, so ok is genuinely guaranteed true there; the VM-mapping loop's use of vehicles is unaffected. D3/D4 fake signatures verified against the real internal/analytics/analytics.go Reader and Recalculator interfaces line by line - exact match, including the D-A1 fix to fakeRecalculator.Reconcile (design.md D4 named only Recalculate; Reconcile also changed shape and the worker fixed both in the same file/struct - correct, mechanical, in scope, required for the interface assertion to compile). The one deleted assertion (got.accountID != uid) loses no real coverage: the surviving got.teslaID != 1001 check already proves the call was scoped to the right vehicle, which is what the accountID check was also proving indirectly. Delta spec verified requirement-by-requirement against the main spec: all 5 LatestMetricsByAccount mentions across the 4 named requirements are renamed to LatestMetricsForVehicles and nothing else in any of the 4 requirement bodies differs. Boundaries clean: no internal/telemetry import, no cross-module DB import, no new vehicleref.All/Authorize call site (external_charges.go still only calls ownedVehicles). Independently re-ran go build ./..., go vet ./..., gofmt -l on the 4 touched files, make vehicleref-guard, make boundary-guard, make i18n-guard, make tz-guard - all clean, matching what the leader reported. i18n: no new user-facing string: the error key on the ownedVehicles failure path is i18n.KeyChargesErrorCouldNotLoadVehicles, unchanged from before. tasks.md checkboxes match the diff; T6.7 (owner test run) is correctly left unchecked pending the user - not gaming. Docs-track-change: this tier changed no port signature and no module surface, so no README/AGENTS.md update is owed here; internal/gateway/AGENTS.md and the KB vehicle-metrics guide were already clean of the old port name (grep-confirmed), consistent with tier 1 having done that sweep already.",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "internal/gateway/AGENTS.md",
+          "ai/agentic-workflow.md",
+          "openspec/changes/RM59-gateway-authorize-metrics-reads/proposal.md",
+          "openspec/changes/RM59-gateway-authorize-metrics-reads/design.md",
+          "openspec/changes/RM59-gateway-authorize-metrics-reads/tasks.md",
+          "openspec/changes/RM59-gateway-authorize-metrics-reads/specs/gateway/spec.md",
+          "openspec/changes/RM59-gateway-authorize-metrics-reads/progress.json",
+          "openspec/roadmaps/RM59-rekey-vehicle-metrics-on-tesla-id.md"
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-RD6",
+      "at": "2026-09-15T10:12:00Z",
+      "scope": "task:T2",
+      "made_by": "user",
+      "decision": "buildExternalChargesPage collapses to one ownedVehicles read; ok=false renders the could-not-load-vehicles error",
+      "why": "Two reads of the same list per render. The empty-list behaviour change is unreachable: the function already returns early when teslaIDFilter is 0.",
+      "covered_by": "roadmap RD6"
+    },
+    {
+      "id": "D-RD7",
+      "at": "2026-09-15T10:12:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The three handlers.go call sites keep vehicleref.All(teslaIDsOf(registered))",
+      "why": "Deliberate deviation from the roadmap text. ownedVehicles would add a second DB read on three hot paths; the guard exempts the whole file.",
+      "covered_by": "roadmap RD7"
+    },
+    {
+      "id": "D-A1",
+      "at": "2026-09-15T10:32:00Z",
+      "scope": "task:T3",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's unplanned fix to fakeRecalculator.Reconcile's signature",
+      "why": "design.md D4 named only Recalculate. Both methods had drifted, so the interface assertion still failed. Same file, same struct, mechanical.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-15T10:19:00Z",
+      "agent": "leader",
+      "event": "artifacts created by the gateway worker; openspec validate --strict passed. No design gate: the change touches no database object. Spanish briefing posted and approved by the owner."
+    },
+    {
+      "at": "2026-09-15T10:28:00Z",
+      "agent": "leader",
+      "event": "dispatched ONE serial gateway worker on claude-sonnet-5 for wave 1 (T1-T4, four disjoint files). Batched rather than parallel: four small mechanical edits, one doc-pack read. budget 5h 68%, ctx 16%."
+    },
+    {
+      "at": "2026-09-15T10:32:00Z",
+      "agent": "leader",
+      "event": "wave 1 (T1-T4) reconciled. go build, go vet, gofmt and vehicleref/boundary/i18n/tz guards all clean, re-run by the leader. Leader also rewrote one stale comment in external_charges_test.go that cited this change's wave number. Pre-existing gofmt drift in 3 untouched files confirmed not ours."
+    },
+    {
+      "at": "2026-09-15T10:34:00Z",
+      "agent": "leader",
+      "event": "wave 1 committed as ff781c4. All code is written; every task now awaits the owner's test run before the reviewer gate. budget 5h 74%, ctx 18% - neither threshold tripped."
+    },
+    {
+      "at": "2026-09-15T10:38:00Z",
+      "agent": "leader",
+      "event": "USER reported the test suite passing: they ran `make test` and `make test-with-db`, both green. Recorded as the owner's verification, not the assistant's. T1-T3 move to done; change status verified."
+    },
+    {
+      "at": "2026-09-15T10:45:00Z",
+      "agent": "leader",
+      "event": "gateway-reviewer returned approved in round 1 with two minor findings, both accepted and fixed in 207dbc4: two comments still named retired change ids on lines the diff had rewritten. Change status mirrored from the reviewer's own review.status=approved; the leader set no verdict of its own."
+    }
+  ]
+}

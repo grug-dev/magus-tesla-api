@@ -1,0 +1,531 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM59-analytics-rekey-vehicle-metrics-on-tesla-id",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM59-rekey-vehicle-metrics-on-tesla-id.md",
+  "request": "Source ticket: MAG-69 — 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. One migration on both tables: collapse duplicate (tesla_id, metric_date) rows, replace vehicle_metrics_account_tesla_date_unique with UNIQUE (tesla_id, metric_date), replace idx_vehicle_metrics_latest with (tesla_id, metric_date DESC), replace vehicle_metric_watermarks_account_tesla_source_unique with UNIQUE (tesla_id, source), DROP COLUMN account_id from both. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded. MAG-71 was cancelled and its work folds in here.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9"
+    ]
+  },
+  "created_at": "2026-09-15T02:04:09Z",
+  "updated_at": "2026-09-15T10:30:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
+    "base": "f24ab446237c99a3508a84cb2ee77cb1a0d938dc",
+    "ticket": "MAG-69",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-69/6-re-key-analyticsvehicle-metrics-and-vehicle-metric-watermarks-on",
+    "created_at": "2026-09-15T02:04:09Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Migration — collapse duplicates, swap both unique constraints, recreate idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T02:00:00Z",
+      "completed_at": "2026-09-15T02:04:00Z",
+      "duration_seconds": null,
+      "notes": "Migration written per design.md. Renumbered 20260914000001 to ...0002: a committed charging migration already held that version. make migration-guard clean.",
+      "budget": {
+        "five_hour_pct_start": 46,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 10,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "one shared wave delta across T1-T4 (worker) and T8 (leader)"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Queries + sqlc — drop account_id from 7 queries, rename LatestVehicleMetricsByAccount to LatestVehicleMetricsByVehicles, regenerate",
+      "module": "analytics",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T02:04:00Z",
+      "completed_at": "2026-09-15T02:08:00Z",
+      "duration_seconds": null,
+      "notes": "All 7 query edits done, doc comments rewritten. make sqlc clean. No AccountID on any touched Params; LatestVehicleMetricsByVehiclesParams/Row exist.",
+      "budget": {
+        "five_hour_pct_start": 46,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 10,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "one shared wave delta across T1-T4 (worker) and T8 (leader)"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Ports — 5 signatures drop accountID; LatestMetricsByAccount becomes LatestMetricsForVehicles(ctx, []vehicleref.Ref)",
+      "module": "analytics",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T02:08:00Z",
+      "completed_at": "2026-09-15T02:11:00Z",
+      "duration_seconds": null,
+      "notes": "All 5 port signatures changed in analytics.go; vehicleref imported. Build red until T4, as the task sequence expects.",
+      "budget": {
+        "five_hour_pct_start": 46,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 10,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "one shared wave delta across T1-T4 (worker) and T8 (leader)"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Implementation — consumed.go, recalculate.go, reader.go and the vehicleMetricsStore seam follow the new ports",
+      "module": "analytics",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T02:11:00Z",
+      "completed_at": "2026-09-15T02:16:39Z",
+      "duration_seconds": null,
+      "notes": "consumed.go, recalculate.go, reader.go updated. go build ./internal/analytics/... clean. go vet red only on this package's own test files, as expected.",
+      "budget": {
+        "five_hour_pct_start": 46,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 10,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "one shared wave delta across T1-T4 (worker) and T8 (leader)"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "DB-backed integration test fixups in db_integration_test.go",
+      "module": "analytics",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T09:33:00Z",
+      "completed_at": "2026-09-15T09:42:50Z",
+      "duration_seconds": null,
+      "notes": "Helpers, fixtures and every Recalculate/Reconcile/chart call dropped accountID. Five LatestMetricsByAccount tests renamed and rewired to vehicleref.All. seedManualEntry keeps accountID: it is a real charging.Entry field.",
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 19,
+        "context_pct_start": 11,
+        "context_pct_end": 15,
+        "cost_usd_delta": 8.66,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across T5-T7 (worker) plus the leader's cross-module doc sweep"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Offline test fixups in reader_test.go",
+      "module": "analytics",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T09:33:00Z",
+      "completed_at": "2026-09-15T09:42:50Z",
+      "duration_seconds": null,
+      "notes": "Chart calls and the gotConsumedParams assertion dropped accountID; the fake's store method renamed. RecentEfficiency test verified unchanged. Worker also fixed recalculate_test.go, which tasks.md never listed.",
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 19,
+        "context_pct_start": 11,
+        "context_pct_end": 15,
+        "cost_usd_delta": 8.66,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across T5-T7 (worker) plus the leader's cross-module doc sweep"
+      }
+    },
+    {
+      "id": "T7",
+      "title": "Docs — internal/analytics/AGENTS.md and the kkpa/context vehicle-metrics guide",
+      "module": "analytics",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T09:33:00Z",
+      "completed_at": "2026-09-15T09:42:50Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md port row renamed, vehicleref added to May-import. KB vehicle-metrics guide columns, constraints and index updated. 7.3 stays a confirm-at-archive check.",
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 19,
+        "context_pct_start": 11,
+        "context_pct_end": 15,
+        "cost_usd_delta": 8.66,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across T5-T7 (worker) plus the leader's cross-module doc sweep"
+      }
+    },
+    {
+      "id": "T8",
+      "title": "LEADER-OWNED cross-module integration — processor.go dedupes by tesla_id; gateway stopgap keeps go build green",
+      "module": "app+gateway",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T02:17:00Z",
+      "completed_at": "2026-09-15T02:21:00Z",
+      "duration_seconds": null,
+      "notes": "Leader-owned. processor.go dedupes by tesla_id; gateway stopgap done. Two Recalculate call sites tasks.md never named (external_charges.go, supercharger.go) also fixed. go build ./... green.",
+      "budget": {
+        "five_hour_pct_start": 46,
+        "five_hour_pct_end": 66,
+        "context_pct_start": 10,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.94,
+        "approx": true,
+        "note": "one shared wave delta across T1-T4 (worker) and T8 (leader)"
+      }
+    },
+    {
+      "id": "T9",
+      "title": "Final verification — build, vet, gofmt, migration/boundary/vehicleref guards, index claims with enable_seqscan off",
+      "module": "analytics",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T09:44:00Z",
+      "completed_at": "2026-09-15T09:52:00Z",
+      "duration_seconds": null,
+      "notes": "9.1-9.6 and 9.8 green. 9.7 verified after the owner applied the migration: both queries use an index with enable_seqscan off, and the latest-row query needs no Sort node. 9.9 reported passing by the owner.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review tier 1 of RM59 (change RM59-analytics-rekey-vehicle-metrics-on-tesla-id, ticket MAG-69). Read the diff from f24ab446237c99a3508a84cb2ee77cb1a0d938dc to HEAD, not the whole module. Validate: (1) the migration matches the user-confirmed design in design.md exactly - a mismatch on any schema object is a blocker finding; (2) every query in query.sql lost account_id and LatestVehicleMetricsByVehicles filters on tesla_id = ANY; (3) the five port signatures in analytics.go match design.md D9/D10, and LatestMetricsForVehicles takes []vehicleref.Ref; (4) module boundaries - internal/analytics imports no other module's db package, and the leader-owned edits in internal/app and internal/gateway go through public interfaces only; (5) the existing tests were fixed, not weakened - no test deleted, no assertion removed to make a failure go away, and the renamed tests still assert the same behaviour; (6) the read-heavy Performance-Profile - the index plan still serves the latest-row query with no Sort node; (7) doc comments carry no change-doc citation (no design.md, no D-ids, no RM/CH ids, no tier or wave numbers) per the B2 comment rule; (8) the docs-track-change rule - AGENTS.md, README.md, ai/architecture.md and kkpa/context/ no longer name the old port. KNOWN AND EXPECTED, not findings: go vet ./internal/gateway/... is red (three gateway test files are tier 2's job, design.md D12); openspec/specs/gateway/spec.md still names the old port (tier 2 owns that delta); openspec/specs/analytics/spec.md's Module-Scoped Database Schema requirement is deliberately unchanged (tasks.md 7.3); historic migrations and kkpa/context/pending-spec-to-sync/applied/ snapshots are never edited. SIGNAL PROVENANCE: go build, go vet, gofmt and the four guards were run by the ASSISTANT. The test suite (go test ./internal/analytics/... ./internal/app/...) was run and reported passing by the OWNER. You do NOT run the suite - judge test quality by reading the tests.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-15T10:15:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/analytics/db_integration_test.go:181,2305,2307,2564,2641 — comment lines this change edited (function renames, LatestMetricsByAccount to LatestMetricsForVehicles) still cite change-doc identifiers left over from the rename: 'task 6.4(b)' (181), 'Task 5.3' (2305), 'RM38-A/RM38-C' (2307), 'task 2.5' (2564), 'design.md's Test Contract ... (task' (2641). The B2 comment rule treats an edited line that keeps such a citation as a finding, and the same edit already shows the cleanup done correctly elsewhere in this file (fetchWatermark's comment dropped its 'Index Plan #4' citation). Fix by writing the reason in place of the citation, same as that one. | LEADER: accepted and fixed. Eight comment spots rewritten to state the reason instead of the citation. go vet and gofmt still clean.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/external_charges.go:720 — 'if refs, _, ok := h.ownedVehicles(ctx, uid); teslaIDFilter != 0 && ...' calls h.ownedVehicles, which re-reads h.acct.RegisteredVehicles, even though buildExternalChargesPage already fetched the same account's vehicles at line 665 into `vehicles`. This is a second DB read on a read-heavy hot path. It matches design.md D12's explicit instruction (guard-compliance forces going through ownedVehicles rather than reusing the local slice), so this is not a design deviation — flagging it for tier 2's full gateway-authorization rewrite (RM59-gateway-authorize-metrics-reads) to fix, not a blocker here. | LEADER: accepted as correct, deferred to tier 2 on the reviewer's own reasoning - D12 forces the ownedVehicles call here, and tier 2 rewrites this function. Recorded in tier 2's roadmap row so the dispatch cannot lose it. Not fixed in tier 1.",
+            "status": "open",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-GATE",
+      "at": "2026-09-15T02:04:09Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "database design gate confirmed: migration shape, the three-index plan, and DROP COLUMN account_id on both tables",
+      "why": "Owner reviewed the schema before/after, the index plan and the irreversible DROP COLUMN, and approved. Dev DB has one account, so no distinguishable data is lost.",
+      "covered_by": "roadmap RM59 decisions RD1-RD5"
+    },
+    {
+      "id": "D-VET",
+      "at": "2026-09-15T02:04:09Z",
+      "scope": "task:T8",
+      "made_by": "user",
+      "decision": "tier 1 leaves go vet ./internal/gateway/... red until tier 2 lands",
+      "why": "The gateway stopgap fixes production files only; its test fakes still use the old signatures. go build ./... stays green. Mirrors RM57 T8.",
+      "covered_by": "design.md D12"
+    },
+    {
+      "id": "D-T8-EXTRA",
+      "at": "2026-09-15T02:20:01Z",
+      "scope": "task:T8",
+      "made_by": "autopilot",
+      "decision": "fixed two Recalculate call sites tasks.md never listed: external_charges.go recalculateAfterExternalChargeWrite and supercharger.go recalculateAfterSessionVerify",
+      "why": "Both pass accountID to the changed port. go build ./... cannot go green without them, which is exactly T8's stated mandate.",
+      "covered_by": "design.md D12"
+    },
+    {
+      "id": "D-T8-NOTEST",
+      "at": "2026-09-15T02:20:01Z",
+      "scope": "task:T8",
+      "made_by": "user",
+      "decision": "no new unit test added for the recalculateAnalytics tesla_id dedupe",
+      "why": "RM59's header says Unit tests: excluded. Owner was shown the untested dedupe and chose to keep it untested; fakeAccountSharedVehicle makes adding it later cheap.",
+      "covered_by": null
+    },
+    {
+      "id": "D-DOCSWEEP",
+      "at": "2026-09-15T09:42:50Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "leader fixed the stale port name outside internal/analytics: README.md, internal/gateway/AGENTS.md (4 spots), kkpa/context/INDEX.md, read-dashboard-bento.md, telemetry-ingest-only.md",
+      "why": "T8 renamed the port in gateway production code, so these docs went stale in tier 1, not tier 2. CLAUDE.md's docs-track-change rule makes a stale KB guide incomplete work.",
+      "covered_by": null
+    },
+    {
+      "id": "D-APPLIED-SNAPSHOTS",
+      "at": "2026-09-15T09:42:50Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "left the five stale hits in kkpa/context/pending-spec-to-sync/applied/ untouched",
+      "why": "They are dated snapshots of proposals already applied, a record of what was synced when. Editing one rewrites that record, same reasoning as the archive-immutability rule.",
+      "covered_by": null
+    },
+    {
+      "id": "D-T5-EXTRA",
+      "at": "2026-09-15T09:42:50Z",
+      "scope": "task:T5",
+      "made_by": "autopilot",
+      "decision": "worker also fixed internal/analytics/recalculate_test.go, a file design.md's test-fixup inventory never named",
+      "why": "Four tests called Recalculate with the old 5-arg signature, so go vet stayed red. Purely mechanical, inside the module sandbox. design.md inventory gap, not a design conflict.",
+      "covered_by": "design.md D-TESTFIX"
+    },
+    {
+      "id": "D-GWSPEC",
+      "at": "2026-09-15T09:52:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "left the five stale port names in openspec/specs/gateway/spec.md for tier 2; added the pointer to tier 2's roadmap row",
+      "why": "A main spec is only updated through a delta sync at archive, and the gateway capability belongs to tier 2. Hand-editing it here would bypass the OpenSpec flow.",
+      "covered_by": null
+    },
+    {
+      "id": "D-INDEXDOC",
+      "at": "2026-09-15T09:52:00Z",
+      "scope": "task:T9",
+      "made_by": "leader",
+      "decision": "rewrote the three chart queries' index claim: they no longer name one index, they name the (tesla_id, metric_date) lead and say the planner chooses",
+      "why": "EXPLAIN picked idx_vehicle_metrics_latest backward, not the named vehicle_metrics_tesla_date_unique. Both lead on the same columns, so the claim was over-specific, not wrong.",
+      "covered_by": null
+    },
+    {
+      "id": "D-F2-DEFER",
+      "at": "2026-09-15T10:20:00Z",
+      "scope": "review:F2",
+      "made_by": "leader",
+      "decision": "F2 (duplicate RegisteredVehicles read in external_charges.go) accepted but deferred to tier 2",
+      "why": "design.md D12 forces the ownedVehicles call: this file is not exempt from vehicleref-guard. Tier 2 rewrites the function anyway, so fixing it twice is waste.",
+      "covered_by": "design.md D12"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-15T02:04:09Z",
+      "agent": "leader",
+      "event": "dispatched analytics worker (sonnet) to create tier 1 artifacts; returned proposal.md, design.md, tasks.md, specs/analytics/spec.md — openspec validate --strict passes"
+    },
+    {
+      "at": "2026-09-15T02:04:09Z",
+      "agent": "leader",
+      "event": "cross-checked the worker's D1-D12 enumeration against design.md — all twelve have real sections, no hand-waving found"
+    },
+    {
+      "at": "2026-09-15T02:04:09Z",
+      "agent": "leader",
+      "event": "leader independently verified the vehicleref-guard exemption claim in design.md D12: the Makefile exempts the whole internal/gateway/handlers/handlers.go file, not only authorizeVehicle. Worker's claim correct."
+    },
+    {
+      "at": "2026-09-15T02:04:09Z",
+      "agent": "leader",
+      "event": "database design gate CONFIRMED by user; artifacts committed. Run halts here per kkpa-pickup-linear-ticket scope — no implementation workers dispatched, no reviewer, no archive."
+    },
+    {
+      "at": "2026-09-15T02:09:45Z",
+      "agent": "leader",
+      "event": "resumed in fresh session; wave 1 dispatched to analytics worker (sonnet) for T1-T4 (hard chain); T8 stays leader-owned and lands in the same wave. budget at dispatch: 5h 46%, ctx 10%"
+    },
+    {
+      "at": "2026-09-15T02:20:01Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: T1-T4 (worker) + T8 (leader) done. go build ./... green; go vet clean for internal/app; vet red only in internal/analytics (T5/T6 next wave) and internal/gateway (tier 2, design.md D12). migration-guard, boundary-guard, vehicleref-guard all pass. budget 5h 46%->66%, ctx 10%->15%"
+    },
+    {
+      "at": "2026-09-15T02:20:01Z",
+      "agent": "leader",
+      "event": "leader verified the worker's migration-collision claim independently: internal/charging/db/migrations/20260914000001_demote_manual_charge_account_id.sql exists, so the renumber to ...0002 was required, not discretionary"
+    },
+    {
+      "at": "2026-09-15T02:20:01Z",
+      "agent": "leader",
+      "event": "leader removed two change-doc citations that survived a rewritten comment (design.md D5 in the migration, design D7 in query.sql, regenerated) per the B2 comment rule; pre-existing citations in untouched lines left alone"
+    },
+    {
+      "at": "2026-09-15T09:25:33Z",
+      "agent": "leader",
+      "event": "owner confirmed: no unit test for the recalculateAnalytics tesla_id dedupe, per RM59's Unit tests: excluded"
+    },
+    {
+      "at": "2026-09-15T09:25:33Z",
+      "agent": "leader",
+      "event": "checkpoint at wave 1/2 boundary (3-wave change, owner chose /clear + resume). budget 5h 66%, ctx 15% - neither threshold tripped; this is the 3-or-more-waves recommendation, not a budget stop. No auto-resume armed: the owner is clearing context by hand."
+    },
+    {
+      "at": "2026-09-15T09:33:00Z",
+      "agent": "leader",
+      "event": "resumed in fresh session; wave 2 dispatched to analytics worker (sonnet) for T5+T6+T7 batched serially. budget at dispatch: 5h 8%, ctx 11%"
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: T5, T6, T7 complete. go build ./... clean; go vet clean on every package except internal/gateway (tier 2's job, design.md D12); gofmt -l clean on touched files; migration-guard, boundary-guard, vehicleref-guard, archive-guard all pass. budget 5h 8%->27%, ctx 11%->15%"
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "T5/T6 recorded as awaiting-user-verification, not done: they are test fixups and the assistant never runs the suite. T7 is docs only, so it is done."
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "leader independently re-ran the worker's signals rather than trusting the report: build, vet (gateway excluded), gofmt and the four guards all reproduce as reported"
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "leader rewrote one reader_test.go comment that cited a pipeline wave number and a dead identifier, per the B2 comment rule"
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "leader ticked T8's tasks.md checkboxes: the work was verified present in processor.go, handlers.go and external_charges.go, but wave 1 never ticked them"
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "T9 partially done by the leader: 9.1 build clean; 9.2 vet red ONLY in internal/gateway/handlers (external_charges_test.go, handlers_test.go, history_test.go - tier 2's job, design.md D12); 9.3 gofmt clean; 9.4-9.6 guards pass; 9.8 grep triaged"
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "9.8 found three stale spots beyond the analytics module: ai/architecture.md (in the base Doc-Pack, so every worker reads it), README.md and internal/gateway/AGENTS.md. Leader fixed all three. Historic migrations and the applied-proposal snapshots left untouched."
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "9.7 BLOCKED on the dev DB: migration 20260914000002 is not applied, account_id is still present and the new indexes do not exist. Owner chose to run make migrate-up themselves; leader then runs the two enable_seqscan-off EXPLAIN checks."
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "specs/analytics/spec.md line 853 still names LatestMetricsByAccount inside the Module-Scoped Database Schema requirement. tasks.md 7.3 says that requirement is deliberately left as written; confirm at archive that the sync does not touch it."
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED THE SUITE PASSING: go test ./internal/analytics/... ./internal/app/... passed. This is the owner's verification, not the assistant's. T5, T6 and T9 move to done and the change moves to verified."
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "owner applied migration 20260914000002; leader confirmed the live DDL read-only: account_id gone from both tables, vehicle_metrics_tesla_date_unique and vehicle_metric_watermarks_tesla_source_unique present, idx_vehicle_metrics_latest now (tesla_id, metric_date DESC)"
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "9.7 PASSED. With enable_seqscan off: the latest-row query is Unique over a plain Index Scan on idx_vehicle_metrics_latest, NO Sort node - the DESC ordering claim holds. The chart query is an Index Scan Backward on the same index, not the vehicle_metrics_tesla_date_unique the comment named."
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "leader corrected the three chart queries' index comment and re-ran make sqlc; comment-only change, no SQL and no generated signature altered, so the owner's suite run still stands"
+    },
+    {
+      "at": "2026-09-15T09:54:00Z",
+      "agent": "leader",
+      "event": "review brief written; dispatching analytics-reviewer (sonnet). budget at dispatch: 5h 32%, ctx 18%"
+    },
+    {
+      "at": "2026-09-15T10:20:00Z",
+      "agent": "leader",
+      "event": "reviewer verdict APPROVED with two minor findings. Leader triaged both: F1 accepted and fixed now; F2 accepted and deferred to tier 2, with the reason recorded and the roadmap row updated."
+    },
+    {
+      "at": "2026-09-15T10:20:00Z",
+      "agent": "leader",
+      "event": "F1 fixed: eight comment spots in db_integration_test.go rewritten to carry the reason instead of a task/design.md/RM citation. go vet ./internal/analytics/... and gofmt still clean. Verified no cited identifier remains in any line this change added."
+    },
+    {
+      "at": "2026-09-15T10:30:00Z",
+      "agent": "leader",
+      "event": "archived. openspec archive synced 3 MODIFIED requirements into openspec/specs/analytics/spec.md and touched nothing else - tasks.md 7.3 confirmed. Folder moved under archive/analytics/ per this repo's module grouping."
+    }
+  ]
+}

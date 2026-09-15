@@ -256,7 +256,7 @@ raw error.
 
 The gateway dashboard (`/dashboard` and `/ui/vehicles`) SHALL enrich each registered
 vehicle card with the vehicle's latest precomputed vehicle-status row. The data
-SHALL come exclusively from the `analytics.Reader` port (`LatestMetricsByAccount`)
+SHALL come exclusively from the `analytics.Reader` port (`LatestMetricsForVehicles`)
 — no live Tesla Fleet API call on a normal dashboard render, and no direct read of
 `internal/telemetry` for this purpose. Every registered vehicle SHALL appear on the
 dashboard regardless of whether a precomputed row exists.
@@ -379,7 +379,7 @@ documented placeholder or omission — never a fabricated default such as "unloc
 #### Scenario: Analytics reader failure degrades gracefully
 
 - **GIVEN** a signed-in user whose account has registered vehicles
-- **AND** the analytics `Reader.LatestMetricsByAccount` call returns an error
+- **AND** the analytics `Reader.LatestMetricsForVehicles` call returns an error
 - **WHEN** the dashboard is rendered
 - **THEN** the dashboard still renders successfully — it does NOT return an error page
   or a 500 response
@@ -750,7 +750,7 @@ free" checkbox's checked state**, not only the fields that already had a today's
   placeholder derived from `73`)
 - **AND** the suggestion is a hint, not a forced value — the user may type any
   integer in 0–100 and the field submits whatever the user typed
-- **AND** the suggestion is built from the `analytics.Reader.LatestMetricsByAccount`
+- **AND** the suggestion is built from the `analytics.Reader.LatestMetricsForVehicles`
   port (the same port the dashboard uses), picking the status whose `TeslaID`
   matches the session-selected vehicle
 - **AND** the gateway does not add a new `telemetry.Reader` method, does not read
@@ -1077,7 +1077,7 @@ The gateway SHALL render a vehicle header in the navigation shell that
 shows the active vehicle's display name, battery level, and a
 freshness-derived status. The data SHALL come exclusively from existing
 read ports: `account.RegisteredVehicles` (vehicle name) and
-`analytics.Reader.LatestMetricsByAccount` (battery level + capture instant).
+`analytics.Reader.LatestMetricsForVehicles` (battery level + capture instant).
 The status SHALL be derived from the row's freshness, not from any live Tesla
 call. A row whose capture instant is absent SHALL be treated as stale (never
 "Connected") and SHALL render no relative "Last seen" label, since there is no
@@ -2406,7 +2406,7 @@ The gateway SHALL access manual charge data exclusively through the `charging.Wr
 and `charging.Reader` public interfaces. It SHALL NOT import `internal/charging/db`
 (`chargingdb`) or any generated sqlc types. On the charges page, the gateway also reads
 vehicle status data (the `start_battery_pct` suggestion label) exclusively through
-`analytics.Reader.LatestMetricsByAccount` and SHALL NOT import `internal/telemetry` or
+`analytics.Reader.LatestMetricsForVehicles` and SHALL NOT import `internal/telemetry` or
 `internal/telemetry/db` (`telemetrydb`) for that purpose.
 
 #### Scenario: Gateway only uses charging public interfaces

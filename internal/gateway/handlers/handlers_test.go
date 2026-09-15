@@ -214,7 +214,7 @@ func newHandler(acct account.Service, tsvc tesla.VehicleService) *Handler {
 // newHandlerWithAnalytics builds a Handler with a fake analytics.Reader for
 // tests that exercise vehiclesFor/dashboardFor/navHeaderFor's enriched-vehicle
 // path (RM38-gateway-read-dashboard-from-metrics: these three call sites now
-// read h.analyticsReader.LatestMetricsByAccount instead of the retired
+// read h.analyticsReader.LatestMetricsForVehicles instead of the retired
 // snapshot-based reader (RM40). Mirrors newHandler's shape for the new port.
 func newHandlerWithAnalytics(acct account.Service, tsvc tesla.VehicleService, reader analytics.Reader) *Handler {
 	return New(Deps{Account: acct, Tesla: tsvc, AnalyticsReader: reader})
@@ -230,8 +230,8 @@ func TestVehiclesFor_RegisteredRendersWithoutTeslaCall(t *testing.T) {
 	tsvc := &fakeTesla{vehicles: []tesla.VehicleTesla{
 		{DisplayName: "SHOULD NOT BE CALLED", VIN: "NEVER"},
 	}}
-	// RM38: vehiclesFor now reads h.analyticsReader.LatestMetricsByAccount
-	// instead of the retired snapshot-based reader (RM40).
+	// vehiclesFor reads the latest stored metrics row through
+	// h.analyticsReader.LatestMetricsForVehicles -- never a live Tesla call.
 	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newHandlerWithAnalytics(acct, tsvc, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
@@ -1153,7 +1153,7 @@ func TestSeedAccessTypeMapping_Empty(t *testing.T) {
 // the nav-header helper tests (Tesla is never reached by navHeaderFor).
 // Retyped from the retired snapshot-based reader (RM40) to analytics.Reader
 // (RM38-gateway-read-dashboard-from-metrics, design.md D8): navHeaderFor now
-// reads h.analyticsReader.LatestMetricsByAccount.
+// reads h.analyticsReader.LatestMetricsForVehicles.
 // navTestToday is the fixed "browser today" the nav-header tests pass in place of
 // browserToday(c) — midnight UTC, so the calendar-day age assertions below are
 // deterministic instead of depending on when the suite runs.

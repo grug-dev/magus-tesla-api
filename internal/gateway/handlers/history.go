@@ -359,7 +359,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 	// Battery chart: analytics.Reader.BatteryLevelByDay (RM40 tier 2) — replaces
 	// the telemetry.Reader.SnapshotsByVehicleBetween call and its 1-day lookback
 	// (roadmap D5). No lookback: the port returns exactly [start, end].
-	batteryDays, err := h.analyticsReader.BatteryLevelByDay(ctx, uid, teslaID, start, end)
+	batteryDays, err := h.analyticsReader.BatteryLevelByDay(ctx, teslaID, start, end)
 	if err != nil {
 		log.Printf("gateway: history reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Battery = fragments.HistoryChart{Empty: true}
@@ -370,7 +370,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 	// Odometer chart: a SEPARATE read against analytics.Reader.
 	// OdometerDeltaByDay (roadmap D5, design.md D6) — its own error degrades
 	// ONLY v.Odometer, never the already-populated v.Battery above.
-	distances, err := h.analyticsReader.OdometerDeltaByDay(ctx, uid, teslaID, start, end)
+	distances, err := h.analyticsReader.OdometerDeltaByDay(ctx, teslaID, start, end)
 	if err != nil {
 		log.Printf("gateway: odometer-chart reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Odometer = fragments.HistoryChart{Empty: true}
@@ -381,7 +381,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 	// Consumed chart: a SEPARATE read against a SEPARATE port — its own
 	// error degrades ONLY v.Consumed, never the already-populated
 	// v.Odometer/v.Battery above (design.md D-G10).
-	days, err := h.analyticsReader.ConsumedByDay(ctx, uid, teslaID, start, end)
+	days, err := h.analyticsReader.ConsumedByDay(ctx, teslaID, start, end)
 	if err != nil {
 		log.Printf("gateway: consumed-chart reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Consumed = fragments.HistoryChart{Empty: true}

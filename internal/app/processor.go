@@ -270,17 +270,18 @@ func (p *processor) processChargingData(ctx context.Context) {
 	}
 }
 
-// recalculateAnalytics is the "recalculate analytics" step (design.md D8),
-// relocated wholesale from cmd/poller/main.go's newNightlyReconciler, which since
-// RM29 tier 3 has TWO halves run per vehicle, in this order:
+// recalculateAnalytics is the "recalculate analytics" step. It runs TWO halves
+// per distinct vehicle, in this order:
 //
 //  1. analytics.Recalculator.Reconcile — advances the module's own precomputed read
-//     model, vehicle_metrics, from its three per-source watermarks (design.md D7/D8
-//     of the tier-3 change).
-//  2. charge-gap reconciliation (D4/D4a, D7b of that change) — recomputes the
-//     trailing analytics.GapReconciliationWindow of consumed-per-day figures and
-//     hands the flagged days to analytics's own gap writer, which upserts the days
-//     that flag and deletes the days that no longer do.
+//     model, vehicle_metrics, from its three per-source watermarks.
+//  2. charge-gap reconciliation — recomputes the trailing
+//     analytics.GapReconciliationWindow of consumed-per-day figures and hands the
+//     flagged days to analytics's own gap writer, which upserts the days that flag
+//     and deletes the days that no longer do.
+//
+// Both halves are keyed on the car, not on the account that registered it, so the
+// loop runs once per distinct tesla_id.
 //
 // The order is a correctness requirement, not a preference. ConsumedByDay no
 // longer derives anything: it is a SELECT over vehicle_metrics, so without step 1
@@ -330,12 +331,25 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 		return
 	}
 
+	// One pass per distinct tesla_id. The same car registered to two accounts
+	// appears twice in vehicles, and both halves below are now keyed on the car
+	// alone, so a second pass would redo identical work on the same rows. The
+	// first entry for each car is kept as its representative: VIN is a property
+	// of the car, so it does not vary across the accounts that registered it.
+	distinct := make([]account.OwnedVehicle, 0, len(vehicles))
 	for _, v := range vehicles {
+		if slices.ContainsFunc(distinct, func(d account.OwnedVehicle) bool { return d.TeslaID == v.TeslaID }) {
+			continue
+		}
+		distinct = append(distinct, v)
+	}
+
+	for _, v := range distinct {
 		// Step 1 — advance vehicle_metrics before anything reads it. Reconcile
 		// derives its own affected window from its watermarks, so it takes no
 		// start/end from here: the [start, end] below is the gap step's trailing
 		// window, a different and unrelated question.
-		if err := p.recalculator.Reconcile(ctx, v.AccountID, v.TeslaID); err != nil {
+		if err := p.recalculator.Reconcile(ctx, v.TeslaID); err != nil {
 			// Per-vehicle isolation. Skips this vehicle's gap step too — see the doc
 			// comment: reconciling gaps against metrics we just failed to refresh
 			// would delete gap rows on stale evidence.
@@ -344,7 +358,7 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 		}
 
 		// Step 2 — charge gaps, now reading the model step 1 just advanced.
-		days, err := p.analyticsReader.ConsumedByDay(ctx, v.AccountID, v.TeslaID, start, end)
+		days, err := p.analyticsReader.ConsumedByDay(ctx, v.TeslaID, start, end)
 		if err != nil {
 			// Per-vehicle isolation: one vehicle's failure never aborts another
 			// vehicle's reconciliation.

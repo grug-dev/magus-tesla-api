@@ -55,7 +55,7 @@ Three ports. `Reader` exposes five reads; `Recalculator` and `GapWriter` are the
 | | `ConsumedByDay` | `[]DayConsumption` — corrected per-day battery-consumed % |
 | | `OdometerDeltaByDay` | `[]DayDistance` — per-day distance from `vehicle_metrics` |
 | | `BatteryLevelByDay` | `[]DayBattery` — per-day battery level + estimated range |
-| | `LatestMetricsByAccount` | `[]VehicleStatus` — latest row per vehicle for an account |
+| | `LatestMetricsForVehicles` | `[]VehicleStatus` — latest row per vehicle in a given vehicle set |
 | `Recalculator` | `Recalculate`, `Reconcile` | rebuild `vehicle_metrics`; `Reconcile` is the incremental watermark pass |
 | `GapWriter` | `ReconcileWindow` | upsert the days that flag, DELETE the days that stopped |
 
@@ -104,6 +104,9 @@ What the source does not tell you:
   `time.UTC` explicitly, because the values being bucketed are already-normalized
   days and the zone that decides day boundaries is applied upstream, in `telemetry`.
   Importing `clock` does not change that invariant.
+- `internal/vehicleref` — the `Ref` type and `TeslaIDs` helper. `LatestMetricsForVehicles`
+  takes `[]vehicleref.Ref` so the compiler enforces that only an already-authorized vehicle
+  set can reach this port; `vehicleref` imports nothing project-local, so this adds no cycle.
 - `github.com/google/uuid`, stdlib (`context`, `time`).
 
 **Must NOT import:**

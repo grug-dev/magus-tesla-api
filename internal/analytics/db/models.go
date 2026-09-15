@@ -27,7 +27,6 @@ type ChargeGap struct {
 // Precomputed daily read model for the analytics module (RM29-analytics-add-vehicle-metrics, MAG-26 tier 3). One row per (account_id, tesla_id, metric_date) for EVERY day that has a telemetry.Snapshot -- dense, mirroring vehicle_snapshots' own grain, not a sparse subset of it (design D9, revised at the database design gate). Written exclusively by internal/analytics.Recalculator (Recalculate/Reconcile); read by internal/analytics.Reader (ConsumedByDay/OdometerDeltaByDay), both of which filter predecessor-less rows back out (design D13) to stay characterization-identical to the live-computed output this table replaces. Owned by internal/analytics; no other module reads this table directly.
 type VehicleMetric struct {
 	ID              uuid.UUID
-	AccountID       uuid.UUID
 	TeslaID         int64
 	MetricDate      pgtype.Date
 	BatteryLevelPct int32
@@ -89,9 +88,8 @@ type VehicleMetric struct {
 
 // One recompute cursor per (account_id, tesla_id, source) for internal/analytics.Recalculator.Reconcile (RM29-analytics-add-vehicle-metrics, MAG-26 tier 3). Three independent sources (design D3): vehicle_snapshots, supercharger_sessions, manual_charge_entries -- each advances on its own row, never coupled to the others' clocks. No watermark row yet for a (account_id, tesla_id, source) means "epoch" (design D7): Reconcile backfills the vehicle's full history in one pass. Owned by internal/analytics; no other module reads this table directly. source's vocabulary was migrated vehicle_snapshots/supercharger_sessions/manual_charge_entries -> vehicle_snapshots/charge_sessions/manual_charge_entries by 20260828000001 (RM31-analytics-read-sessions-from-charging), then back to vehicle_snapshots/supercharger_sessions/manual_charge_entries by THIS migration (RM39-analytics-fix-watermark-vocabulary, tier 3b) once internal/charging renamed its own table to supercharger_sessions (RM39 tier 3, D5b). The reused string now names a DIFFERENT physical table (charging.supercharger_sessions) than it did before 20260828000001 (telemetry.supercharger_sessions) -- see COMMENT ON COLUMN .source for the disambiguation.
 type VehicleMetricWatermark struct {
-	ID        uuid.UUID
-	AccountID uuid.UUID
-	TeslaID   int64
+	ID      uuid.UUID
+	TeslaID int64
 	// Closed 3-value vocabulary naming the physical table this cursor tracks (design D3): 'vehicle_snapshots' (internal/telemetry), 'supercharger_sessions' (internal/charging, AS OF RM39-analytics-fix-watermark-vocabulary -- this is a REUSED string; before RM31 (20260828000001) the same literal named internal/telemetry's table instead, and until RM39 tier 4 renames that table to supercharger_history, a DIFFERENT, still-live table (public.supercharger_sessions) shares this bare name in this same database. This column never schema-qualifies its own value (RM39 tier 2 decision -- these are data, not table references), so a reader relies on this comment, internal/analytics/AGENTS.md, and recalculate.go's sourceSuperchargerSessions constant to know which table is meant: always internal/charging's, never internal/telemetry's, for this column, in every era after RM31.), or 'manual_charge_entries' (internal/charging). No FK -- a free-standing string label, mirroring charge_gaps.missing_charging_type's identical convention.
 	Source string
 	// The maximum UpdatedAt (vehicle_snapshots/supercharger_sessions) or updated_at (manual_charge_entries) Reconcile has observed from this source for this vehicle, as of its last run. Reconcile queries each source's ...UpdatedSince(source_updated_at - recalcOverlap) (design D4's 24h commit-skew guard) and advances this column only when that query returns rows -- a source with zero returned rows on a given run leaves its own watermark row untouched (design D2's "Reconcile idempotence contract").

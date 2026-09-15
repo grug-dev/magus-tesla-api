@@ -17,6 +17,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -83,7 +84,12 @@ type Reader interface {
 	// (mirrors telemetry.Reader.SnapshotsByVehicleBetween's identical
 	// stance) -- keeping a window reasonable is the caller's job (the HTTP
 	// handler in tier 4, the fixed GapReconciliationWindow in cmd/poller).
-	ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayConsumption, error)
+	//
+	// Scoped by vehicle identity (teslaID) alone -- tesla_id already names one
+	// vehicle uniquely, so no account identifier is taken or needed. A caller
+	// must already have proven the requesting account owns this vehicle
+	// before calling.
+	ConsumedByDay(ctx context.Context, teslaID int64, start, end time.Time) ([]DayConsumption, error)
 
 	// OdometerDeltaByDay returns, for the given vehicle and date range, the
 	// per-calendar-day distance travelled together with that day's absolute
@@ -98,7 +104,12 @@ type Reader interface {
 	// vehicle_metrics row with no computable predecessor is excluded exactly
 	// like ConsumedByDay excludes it, design.md D13). This port performs no
 	// window-size validation or capping of its own, mirroring ConsumedByDay.
-	OdometerDeltaByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayDistance, error)
+	//
+	// Scoped by vehicle identity (teslaID) alone, same contract as
+	// ConsumedByDay above: no account identifier is taken or needed, and a
+	// caller must already have proven the requesting account owns this
+	// vehicle before calling.
+	OdometerDeltaByDay(ctx context.Context, teslaID int64, start, end time.Time) ([]DayDistance, error)
 
 	// BatteryLevelByDay returns, for the given vehicle and date range, the
 	// per-calendar-day battery-level percentage and estimated range exactly
@@ -146,20 +157,32 @@ type Reader interface {
 	// telemetry-backed battery read, no captured_at-to-effective-day
 	// conversion happens against vehicle_metrics, so no extra day of data is
 	// needed to produce an accurate [start, end] result.
-	BatteryLevelByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayBattery, error)
+	//
+	// Scoped by vehicle identity (teslaID) alone, same contract as
+	// ConsumedByDay/OdometerDeltaByDay above: no account identifier is taken
+	// or needed, and a caller must already have proven the requesting
+	// account owns this vehicle before calling.
+	BatteryLevelByDay(ctx context.Context, teslaID int64, start, end time.Time) ([]DayBattery, error)
 
-	// LatestMetricsByAccount returns the latest precomputed vehicle_metrics row for
-	// each vehicle belonging to the given account, as VehicleStatus — the
-	// analytics-owned equivalent of telemetry.Reader.LatestSnapshotsByVehicles (never
+	// LatestMetricsForVehicles returns the latest precomputed vehicle_metrics row
+	// for each vehicle in the given set, as VehicleStatus — the analytics-owned
+	// equivalent of telemetry.Reader.LatestSnapshotsByVehicles (never
 	// telemetry.Snapshot itself, ai/architecture.md §6). "Latest" means the row with
-	// the greatest metric_date for that (account_id, tesla_id) — vehicle_metrics'
-	// grain is a calendar day, not a capture instant, so this describes the vehicle's
+	// the greatest metric_date for that tesla_id — vehicle_metrics' grain is a
+	// calendar day, not a capture instant, so this describes each vehicle's own
 	// most recently RECALCULATED day, which is typically yesterday (metric_date is
-	// the snapshot's effective day, recalculate.go). If the account has no stored
-	// vehicle_metrics rows it returns an empty (non-nil) slice and a nil error, same
-	// contract as LatestSnapshotsByVehicles. Order of the returned slice is
-	// unspecified.
-	LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]VehicleStatus, error)
+	// the snapshot's effective day, recalculate.go). Exactly one result per vehicle
+	// in the set, never a result for a vehicle outside the given set. If the set is
+	// empty, or none of its vehicles has a stored vehicle_metrics row, this returns
+	// an empty (non-nil) slice and a nil error, same contract as
+	// LatestSnapshotsByVehicles. Order of the returned slice is unspecified.
+	//
+	// Takes []vehicleref.Ref, not a plain []int64: a Ref can only be built by
+	// vehicleref.Authorize, vehicleref.All, or a _test.go file, so the caller
+	// must already have proven every id in the set belongs to the requesting
+	// account before calling — this method takes that proof as its input,
+	// it does not perform the check itself.
+	LatestMetricsForVehicles(ctx context.Context, refs []vehicleref.Ref) ([]VehicleStatus, error)
 }
 
 // Recalculator is the analytics module's write-path port
@@ -184,7 +207,12 @@ type Recalculator interface {
 	// (self-healing symmetry with GapWriter.ReconcileWindow's
 	// UPSERT+DELETE shape). Idempotent: re-running over an unchanged window
 	// produces a byte-identical UPSERT (design.md D4).
-	Recalculate(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error
+	//
+	// Scoped by vehicle identity (teslaID) alone -- tesla_id already names
+	// one vehicle uniquely, so no account identifier is taken or needed. A
+	// caller must already have proven the requesting account owns this
+	// vehicle before calling.
+	Recalculate(ctx context.Context, teslaID int64, start, end time.Time) error
 
 	// Reconcile reads each of the three independent per-source watermarks
 	// (design.md D2/D3; a missing watermark is treated as the epoch, D7, so a
@@ -198,7 +226,12 @@ type Recalculator interface {
 	// UpdatedAt/updated_at observed -- a source with zero returned rows
 	// leaves its watermark untouched (Reconcile's own idempotence contract,
 	// design.md's Test Contract).
-	Reconcile(ctx context.Context, accountID uuid.UUID, teslaID int64) error
+	//
+	// Scoped by vehicle identity (teslaID) alone, same contract as
+	// Recalculate above: no account identifier is taken or needed, and a
+	// caller must already have proven the requesting account owns this
+	// vehicle before calling.
+	Reconcile(ctx context.Context, teslaID int64) error
 }
 
 // DayConsumption is one calendar day's corrected battery-consumed result --
@@ -286,8 +319,7 @@ type DayBattery struct {
 
 // VehicleStatus is the latest precomputed vehicle_metrics row for one vehicle
 // — our own domain model, no vendor or sibling-module suffix
-// (ai/architecture.md §6). Backs LatestMetricsByAccount
-// (RM38-analytics-add-vehicle-status-columns design.md D4). Never
+// (ai/architecture.md §6). Backs LatestMetricsForVehicles. Never
 // telemetry.Snapshot and never an alias of it: this module maps
 // telemetry-sourced values into vehicle_metrics once, at Recalculate-time,
 // and VehicleStatus is built from that stored row, not a live pass-through.

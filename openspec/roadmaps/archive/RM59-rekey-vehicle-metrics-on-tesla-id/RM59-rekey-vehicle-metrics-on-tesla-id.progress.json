@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM59-rekey-vehicle-metrics-on-tesla-id",
+  "intention": "analytics.vehicle_metrics and vehicle_metric_watermarks are keyed on the car, not the account, so one car has one metric history whoever registered it.",
+  "request": "Source ticket: MAG-69 \u2014 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. Collapse duplicate (tesla_id, metric_date) rows, replace both unique constraints, replace idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded.",
+  "status": "complete",
+  "autopilot": false,
+  "updated_at": "2026-09-15T10:49:00Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
+    "base": "f24ab446237c99a3508a84cb2ee77cb1a0d938dc",
+    "ticket": "MAG-69",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-69/6-re-key-analyticsvehicle-metrics-and-vehicle-metric-watermarks-on",
+    "created_at": "2026-09-15T01:44:43Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2
+    ]
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-15T01:44:43Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Two tiers: analytics then gateway; app + gateway call-site updates folded into tier 1 as leader-owned integration",
+      "why": "A tier that changes a port signature must fix its callers too, or it lands with a red build. Mirrors RM57 tier 2.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-15T01:44:43Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "MAG-71's work (3 chart queries + 3 Reader ports) is part of tier 1",
+      "why": "MAG-71 was cancelled because MAG-69 covers it. Leaving it out drops account_id while three queries still filter on it.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-15T01:44:43Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "recalculateAnalytics dedupes its vehicle loop by tesla_id",
+      "why": "AllRegisteredVehicles returns one row per (account, vehicle) pair with no election, so a shared car would reconcile twice with identical arguments.",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-15T01:44:43Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "LatestMetricsByAccount becomes LatestMetricsForVehicles(ctx, refs []vehicleref.Ref)",
+      "why": "It is the one port losing its WHERE account_id filter. A Ref can only be built by authorizeVehicle or vehicleref.All, so the compiler enforces what SQL used to.",
+      "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-15T01:44:43Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "ConsumedByDay, OdometerDeltaByDay and BatteryLevelByDay keep teslaID int64",
+      "why": "processor.go calls ConsumedByDay as a background job and cannot build a Ref. Siblings stay int64 so the set buildHistoryView calls together is uniform.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-15T10:12:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "buildExternalChargesPage collapses to one ownedVehicles read; ok=false (error or empty list) renders the could-not-load-vehicles error",
+      "why": "Two reads of the same vehicle list per render. The empty-list behaviour change is unreachable: teslaIDFilter is non-zero only when a vehicle came from that list.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-15T10:12:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The three handlers.go call sites keep vehicleref.All(teslaIDsOf(registered)); they do NOT move to ownedVehicles",
+      "why": "Each already holds its own registered list, so ownedVehicles would add a second DB read per render. vehicleref-guard exempts the whole handlers.go file.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM59-analytics-rekey-vehicle-metrics-on-tesla-id",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T02:04:17Z",
+      "completed_at": "2026-09-15T10:30:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 27.8,
+        "spanned_sessions": 3,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of the tier's wave deltas across three sessions; the 5-hour bucket reset between them"
+      },
+      "notes": "Both tables re-keyed on tesla_id, account_id dropped. Ports, queries and callers follow. Reviewer approved round 1 with two minor findings: one fixed, one deferred to tier 2."
+    },
+    {
+      "id": 2,
+      "change": "RM59-gateway-authorize-metrics-reads",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T10:12:00Z",
+      "completed_at": "2026-09-15T10:47:00Z",
+      "duration_seconds": 2100,
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 4.2,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one session, one wave plus one review round"
+      },
+      "notes": "Test fakes follow the re-keyed ports, so go vet is green again. buildExternalChargesPage reads the vehicle list once. Gateway spec renamed. Reviewer approved round 1, two minor findings fixed."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-15T01:44:43Z",
+      "agent": "leader",
+      "event": "roadmap RM59 created from MAG-69 via kkpa-pickup-linear-ticket; work counter 59 -> 60; branch ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id off main"
+    },
+    {
+      "at": "2026-09-15T01:44:43Z",
+      "agent": "leader",
+      "event": "comprehension grill completed with user: RD1-RD5 settled. Ticket text corrected on 3 points (MAG-71 was cancelled, not done). Dev DB measured read-only: 0 duplicate rows on both new keys, tesla_id already NOT NULL."
+    },
+    {
+      "at": "2026-09-15T01:44:43Z",
+      "agent": "leader",
+      "event": "run scope: HALT AFTER STEP 4 per kkpa-pickup-linear-ticket \u2014 artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-15T02:04:17Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created and design gate confirmed; tier 1 [ ] -> [~], status proposed"
+    },
+    {
+      "at": "2026-09-15T10:30:00Z",
+      "agent": "leader",
+      "event": "tier 1 archived; [~] -> [x]. Tier 2 (RM59-gateway-authorize-metrics-reads) is now unblocked. autopilot is false, so the leader stops here and asks."
+    },
+    {
+      "at": "2026-09-15T10:05:00Z",
+      "agent": "leader",
+      "event": "checkpoint at the tier 1/2 boundary. Owner chose /clear + resume. budget 5h 49%, ctx 26% - neither threshold tripped; this is the tier-boundary recommendation, not a budget stop. No auto-resume armed: a context checkpoint never arms one."
+    },
+    {
+      "at": "2026-09-15T10:12:00Z",
+      "agent": "leader",
+      "event": "resumed at the tier 2 boundary; budget 5h 52%, ctx 10%. Tier 2 interview done: RD6 (F2 fix shape) and RD7 (deviation from the roadmap text on handlers.go). No design gate: tier 2 touches no DB object."
+    },
+    {
+      "at": "2026-09-15T10:47:00Z",
+      "agent": "leader",
+      "event": "tier 2 archived into openspec/changes/archive/gateway/2026-09-15-RM59-gateway-authorize-metrics-reads; [~] -> [x]. Every tier archived, so the roadmap itself completes."
+    },
+    {
+      "at": "2026-09-15T10:49:00Z",
+      "agent": "leader",
+      "event": "roadmap RM59 complete; both files moved into openspec/roadmaps/archive/RM59-rekey-vehicle-metrics-on-tesla-id/. .work-counter untouched: numbers are monotonic."
+    }
+  ]
+}

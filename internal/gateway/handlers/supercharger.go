@@ -527,7 +527,7 @@ func (h *Handler) recalculateAfterSessionVerify(ctx context.Context, uid uuid.UU
 	day := startOfDay(chargeStopDateTime.UTC()) // D5 — plain UTC, ChargeStopDateTime
 	from := day.AddDate(0, 0, -1)
 	to := day.AddDate(0, 0, 1)
-	if err := h.analyticsRecalculator.Recalculate(ctx, uid, teslaID, from, to); err != nil {
+	if err := h.analyticsRecalculator.Recalculate(ctx, teslaID, from, to); err != nil {
 		log.Printf("gateway: analytics recalculate error for account %s, vehicle %d, session window %s..%s: %v",
 			uid, teslaID, from.Format("2006-01-02"), to.Format("2006-01-02"), err)
 	}

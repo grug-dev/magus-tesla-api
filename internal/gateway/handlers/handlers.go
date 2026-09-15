@@ -216,7 +216,7 @@ func (h *Handler) DashboardFragment(c *gin.Context) {
 // dashboard never calls Tesla again (openspec/changes/persist-tesla-vehicles).
 //
 // When vehicles are already registered, it additionally calls
-// h.analyticsReader.LatestMetricsByAccount to enrich each vehicle card with its
+// h.analyticsReader.LatestMetricsForVehicles to enrich each vehicle card with its
 // latest per-vehicle status (RM38-gateway-read-dashboard-from-metrics, design.md
 // D3 — replaces the earlier snapshot-based reader call, retired by RM40). If
 // the Reader fails, it degrades gracefully — all vehicles render in placeholder
@@ -230,7 +230,7 @@ func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.Vehi
 		// Fetch the latest status per vehicle from the analytics read port.
 		// On error: log and degrade gracefully — use an empty status map so all
 		// vehicles render with HasSnapshot: false (placeholder). Never return early.
-		statuses, statusErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
+		statuses, statusErr := h.analyticsReader.LatestMetricsForVehicles(ctx, vehicleref.All(teslaIDsOf(registered)))
 		statusMap := mergeVehicleStatuses(statuses)
 		var notice string
 		if statusErr != nil {
@@ -304,7 +304,7 @@ func isStale(capturedAt, now time.Time) bool {
 // mergeVehicleStatuses builds a map from TeslaID to VehicleStatus for O(1) lookup
 // per vehicle. A nil or empty slice produces an empty map (no panic on range).
 // Renamed from mergeSnapshots: same shape, new source type --
-// LatestMetricsByAccount already returns at most one row per TeslaID, so,
+// LatestMetricsForVehicles already returns at most one row per TeslaID, so,
 // exactly as before with
 // LatestSnapshotsByVehicles, this function does no de-duplication of its own; it
 // only indexes an already-unique slice for lookup by an arbitrary caller-supplied
@@ -385,7 +385,7 @@ func mapTeslasToVehicles(vs []tesla.VehicleTesla) []fragments.Vehicle {
 // gin/session so it is unit-testable with fake account/analytics implementations
 // (mirrors vehiclesFor). It reads the account's registered vehicles through the
 // account port, selects the user's chosen vehicle (or auto-selects the first), then
-// reads the latest per-vehicle status through analytics.Reader.LatestMetricsByAccount
+// reads the latest per-vehicle status through analytics.Reader.LatestMetricsForVehicles
 // (RM38 tier 2 — it was a retired snapshot-based reader before, since removed by
 // RM40) and maps the selected vehicle's status onto a logic-free view model.
 //
@@ -419,7 +419,7 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		VehicleImage:       h.vehicleImage(primary.CarType, primary.ExteriorColor),
 		DefaultHistoryHref: defaultHistoryHref(today),
 	}
-	statuses, statusErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
+	statuses, statusErr := h.analyticsReader.LatestMetricsForVehicles(ctx, vehicleref.All(teslaIDsOf(registered)))
 	if statusErr != nil {
 		log.Printf("gateway: dashboard analytics reader error for account %s: %v", uid, statusErr)
 		vm.TelemetryUnavailable = true
@@ -766,7 +766,7 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 // navHeaderFor is the sidebar vehicle block's core logic, decoupled from
 // gin/session so it is unit-testable with fake account/analytics
 // implementations. It calls ONLY Reader ports — account.RegisteredVehicles +
-// analytics.Reader.LatestMetricsByAccount (never a Writer/Collector, never
+// analytics.Reader.LatestMetricsForVehicles (never a Writer/Collector, never
 // Tesla). It never imports a DB package.
 //
 // It reports only what is actually stored: the primary vehicle's name, its
@@ -816,7 +816,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 
 	// Read the latest status per vehicle for this account. On error: degrade —
 	// keep the vehicle name, no battery. Never return early with a 500.
-	statuses, statusErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
+	statuses, statusErr := h.analyticsReader.LatestMetricsForVehicles(ctx, vehicleref.All(teslaIDsOf(registered)))
 	if statusErr != nil {
 		log.Printf("gateway: nav-header analytics reader error for account %s: %v", uid, statusErr)
 		return vm
@@ -1085,11 +1085,18 @@ func (h *Handler) ownedVehicles(ctx context.Context, uid uuid.UUID) (refs []vehi
 	if err != nil || len(vehicles) == 0 {
 		return nil, nil, false
 	}
-	owned := make([]int64, 0, len(vehicles))
+	return vehicleref.All(teslaIDsOf(vehicles)), vehicles, true
+}
+
+// teslaIDsOf pulls the tesla_id out of an already-resolved vehicle list. Reader
+// ports take plain ids, so every caller that holds the vehicle structs needs this
+// same one-line unwrap.
+func teslaIDsOf(vehicles []account.Vehicle) []int64 {
+	ids := make([]int64, 0, len(vehicles))
 	for _, v := range vehicles {
-		owned = append(owned, v.TeslaID)
+		ids = append(ids, v.TeslaID)
 	}
-	return vehicleref.All(owned), vehicles, true
+	return ids
 }
 
 // ConnectTesla starts the Tesla OAuth connect flow for the signed-in user.

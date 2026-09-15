@@ -31,11 +31,11 @@ It renders what other modules expose; it owns no business data.
   `internal/gateway/`. This was completed by `RM40-gateway-drop-telemetry-dependency`:
   the history fragment's battery chart (`history.go`, `/ui/dashboard/history`) was the
   module's last caller of that module's `Reader.SnapshotsByVehicleBetween` — it now reads
-  `Deps.AnalyticsReader.BatteryLevelByDay(ctx, uid, teslaID, start, end)` instead, with
+  `Deps.AnalyticsReader.BatteryLevelByDay(ctx, teslaID, start, end)` instead, with
   **no lookback** (the port returns exactly `[start, end]`, since `vehicle_metrics.
   metric_date` is already the effective day it needs). The four telemetry latest-state
   call sites (dashboard, vehicle cards, nav header, charges battery suggestion) were
-  already repointed onto `Deps.AnalyticsReader.LatestMetricsByAccount` below by the
+  already repointed onto `Deps.AnalyticsReader.LatestMetricsForVehicles` below by the
   earlier `RM38-gateway-read-dashboard-from-metrics`. Do **not** reintroduce a
   `Deps.TelemetryReader` field or an import of that module's package — `make
   boundary-guard` enforces this repo-wide (fails on a non-test file, warns on a
@@ -91,9 +91,11 @@ It renders what other modules expose; it owns no business data.
   all access through this interface only. Added by
   `RM28-gateway-add-consumed-graph` (tier 4), renamed from `battery` by
   `RM29-analytics-rename-from-battery`.
-  Since `RM38-gateway-read-dashboard-from-metrics`, also **`LatestMetricsByAccount`** —
-  the account's latest per-vehicle status, replacing the equivalent telemetry
-  latest-state calls. Four callers: `dashboardFor` (single-
+  Since `RM38-gateway-read-dashboard-from-metrics`, also **`LatestMetricsForVehicles`** —
+  the latest status of each vehicle in the set you pass it, replacing the equivalent
+  telemetry latest-state calls. It takes `[]vehicleref.Ref`, not an account id: the port
+  no longer filters by account, so the caller must pass only vehicles it has already
+  proven the account owns. Four callers: `dashboardFor` (single-
   vehicle bento, via `mapDashboardSnapshot`), `vehiclesFor`/`mapVehicles` (the unrouted
   `/ui/vehicles` card list — see `mapVehicles`'s own doc comment for why it is kept
   working despite having no route), `navHeaderFor` (status dot/battery — a nil
@@ -720,7 +722,7 @@ a read that ignores the selection silently shows a *different* car's data.
 1. **Resolve once, pass the TeslaID down.** Call `h.resolveSelectedVehicle(ctx, c, uid)` (it
    auto-selects the first OWNER when the session has none) and hand its `.TeslaID` to the
    module port — e.g. filter `charging.Reader.ListEntriesByVehicle(ctx, uid, teslaID, …)`,
-   pick the status for that TeslaID out of `analytics.Reader.LatestMetricsByAccount`, or
+   pick the status for that TeslaID out of `analytics.Reader.LatestMetricsForVehicles`, or
    pass it to a `tesla` adapter per-vehicle call. **Never** default a per-vehicle read to
    `registered[0]` or to "all vehicles" when a selection exists.
 2. **Identity is the numeric `TeslaID`, not the VIN and not the list index.** The VIN travels
