@@ -549,13 +549,11 @@ type fakeVehicleMetricsStore struct {
 	gotConsumedParams analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams
 	gotOdometerParams analyticsdb.VehicleMetricsOdometerByVehicleBetweenParams
 
-	// latestRows/gotLatestAccountID back LatestVehicleMetricsByAccount
-	// (RM38-analytics-add-vehicle-status-columns task 3.5) -- added here only
-	// to keep this fake satisfying vehicleMetricsStore after the interface
-	// gained the method; no assertions on it are added by this dispatch
-	// (Wave 5, a later dispatch's own DB-integration test wave, owns those).
-	latestRows         []analyticsdb.LatestVehicleMetricsByAccountRow
-	gotLatestAccountID uuid.UUID
+	// latestRows/gotLatestTeslaIDs back LatestVehicleMetricsByVehicles. They
+	// exist so this fake still satisfies vehicleMetricsStore; the assertions on
+	// that method live in the DB-backed integration tests, not here.
+	latestRows        []analyticsdb.LatestVehicleMetricsByVehiclesRow
+	gotLatestTeslaIDs []int64
 
 	// batteryRows/gotBatteryParams back VehicleMetricsBatteryByVehicleBetween
 	// (RM40-analytics-add-battery-level-read task 3.1) -- added here only to
@@ -582,8 +580,8 @@ func (f *fakeVehicleMetricsStore) VehicleMetricsOdometerByVehicleBetween(_ conte
 	return f.odometerRows, nil
 }
 
-func (f *fakeVehicleMetricsStore) LatestVehicleMetricsByAccount(_ context.Context, accountID uuid.UUID) ([]analyticsdb.LatestVehicleMetricsByAccountRow, error) {
-	f.gotLatestAccountID = accountID
+func (f *fakeVehicleMetricsStore) LatestVehicleMetricsByVehicles(_ context.Context, teslaIDs []int64) ([]analyticsdb.LatestVehicleMetricsByVehiclesRow, error) {
+	f.gotLatestTeslaIDs = teslaIDs
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -604,7 +602,6 @@ func (f *fakeVehicleMetricsStore) VehicleMetricsBatteryByVehicleBetween(_ contex
 // pre-precompute live derivation produced for the same fixture -- no derivation logic
 // runs in ConsumedByDay any more, only SELECT + map.
 func TestReader_ConsumedByDay_ReadsPrecomputedRows(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 	start := day(2026, 8, 10)
 	end := day(2026, 8, 10)
@@ -623,7 +620,7 @@ func TestReader_ConsumedByDay_ReadsPrecomputedRows(t *testing.T) {
 	}
 	r := &reader{metrics: metricsFake}
 
-	got, err := r.ConsumedByDay(context.Background(), accountID, teslaID, start, end)
+	got, err := r.ConsumedByDay(context.Background(), teslaID, start, end)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -635,8 +632,8 @@ func TestReader_ConsumedByDay_ReadsPrecomputedRows(t *testing.T) {
 		t.Errorf("ConsumedByDay: want %+v, got %+v", want, got[0])
 	}
 
-	if metricsFake.gotConsumedParams.AccountID != accountID || metricsFake.gotConsumedParams.TeslaID != teslaID {
-		t.Errorf("VehicleMetricsConsumedByVehicleBetween: accountID/teslaID not passed through: got %+v", metricsFake.gotConsumedParams)
+	if metricsFake.gotConsumedParams.TeslaID != teslaID {
+		t.Errorf("VehicleMetricsConsumedByVehicleBetween: teslaID not passed through: got %+v", metricsFake.gotConsumedParams)
 	}
 	if !metricsFake.gotConsumedParams.StartDate.Time.Equal(start) || !metricsFake.gotConsumedParams.EndDate.Time.Equal(end) {
 		t.Errorf("VehicleMetricsConsumedByVehicleBetween: start/end not passed through unwidened: got %+v", metricsFake.gotConsumedParams)
@@ -651,7 +648,6 @@ func TestReader_ConsumedByDay_ReadsPrecomputedRows(t *testing.T) {
 // today; only the odometer chart's displayed delta is. This is the exact divergence
 // design.md's Test Contract calls out.
 func TestReader_OdometerDeltaByDay_ClampsOnRead(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 	start := day(2026, 8, 12)
 	end := day(2026, 8, 12)
@@ -677,7 +673,7 @@ func TestReader_OdometerDeltaByDay_ClampsOnRead(t *testing.T) {
 	}
 	r := &reader{metrics: metricsFake}
 
-	gotOdometer, err := r.OdometerDeltaByDay(context.Background(), accountID, teslaID, start, end)
+	gotOdometer, err := r.OdometerDeltaByDay(context.Background(), teslaID, start, end)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -691,7 +687,7 @@ func TestReader_OdometerDeltaByDay_ClampsOnRead(t *testing.T) {
 		t.Errorf("OdometerKm: want 1998.0 (unclamped absolute reading), got %v", gotOdometer[0].OdometerKm)
 	}
 
-	gotConsumed, err := r.ConsumedByDay(context.Background(), accountID, teslaID, start, end)
+	gotConsumed, err := r.ConsumedByDay(context.Background(), teslaID, start, end)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -717,7 +713,6 @@ func TestReader_OdometerDeltaByDay_ClampsOnRead(t *testing.T) {
 // proves the Reader's OWN mapping correctly produces an empty slice (not a panic, not
 // a garbage zero-value entry) when the store returns zero rows for the window.
 func TestReader_ConsumedByDay_ExcludesPredecessorlessRow(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 	start := day(2026, 8, 4) // Fixture C's metric_date
 	end := day(2026, 8, 4)
@@ -725,7 +720,7 @@ func TestReader_ConsumedByDay_ExcludesPredecessorlessRow(t *testing.T) {
 	metricsFake := &fakeVehicleMetricsStore{consumedRows: nil}
 	r := &reader{metrics: metricsFake}
 
-	got, err := r.ConsumedByDay(context.Background(), accountID, teslaID, start, end)
+	got, err := r.ConsumedByDay(context.Background(), teslaID, start, end)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -735,7 +730,6 @@ func TestReader_ConsumedByDay_ExcludesPredecessorlessRow(t *testing.T) {
 }
 
 func TestReader_OdometerDeltaByDay_ExcludesPredecessorlessRow(t *testing.T) {
-	accountID := uuid.New()
 	const teslaID = int64(42)
 	start := day(2026, 8, 4) // Fixture C's metric_date
 	end := day(2026, 8, 4)
@@ -743,7 +737,7 @@ func TestReader_OdometerDeltaByDay_ExcludesPredecessorlessRow(t *testing.T) {
 	metricsFake := &fakeVehicleMetricsStore{odometerRows: nil}
 	r := &reader{metrics: metricsFake}
 
-	got, err := r.OdometerDeltaByDay(context.Background(), accountID, teslaID, start, end)
+	got, err := r.OdometerDeltaByDay(context.Background(), teslaID, start, end)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -759,10 +753,10 @@ func TestReader_VehicleMetricsStoreError_Propagates(t *testing.T) {
 	wantErr := errors.New("analyticsdb: connection lost")
 	r := &reader{metrics: &fakeVehicleMetricsStore{err: wantErr}}
 
-	if _, err := r.ConsumedByDay(context.Background(), uuid.New(), 1, day(2026, 8, 10), day(2026, 8, 20)); !errors.Is(err, wantErr) {
+	if _, err := r.ConsumedByDay(context.Background(), 1, day(2026, 8, 10), day(2026, 8, 20)); !errors.Is(err, wantErr) {
 		t.Fatalf("ConsumedByDay: want error %v propagated unwrapped, got %v", wantErr, err)
 	}
-	if _, err := r.OdometerDeltaByDay(context.Background(), uuid.New(), 1, day(2026, 8, 10), day(2026, 8, 20)); !errors.Is(err, wantErr) {
+	if _, err := r.OdometerDeltaByDay(context.Background(), 1, day(2026, 8, 10), day(2026, 8, 20)); !errors.Is(err, wantErr) {
 		t.Fatalf("OdometerDeltaByDay: want error %v propagated unwrapped, got %v", wantErr, err)
 	}
 }

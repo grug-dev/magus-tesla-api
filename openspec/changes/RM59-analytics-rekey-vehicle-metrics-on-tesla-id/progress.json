@@ -4,14 +4,14 @@
   "change": "RM59-analytics-rekey-vehicle-metrics-on-tesla-id",
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM59-rekey-vehicle-metrics-on-tesla-id.md",
-  "request": "Source ticket: MAG-69 \u2014 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. One migration on both tables: collapse duplicate (tesla_id, metric_date) rows, replace vehicle_metrics_account_tesla_date_unique with UNIQUE (tesla_id, metric_date), replace idx_vehicle_metrics_latest with (tesla_id, metric_date DESC), replace vehicle_metric_watermarks_account_tesla_source_unique with UNIQUE (tesla_id, source), DROP COLUMN account_id from both. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded. MAG-71 was cancelled and its work folds in here.",
+  "request": "Source ticket: MAG-69 — 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. One migration on both tables: collapse duplicate (tesla_id, metric_date) rows, replace vehicle_metrics_account_tesla_date_unique with UNIQUE (tesla_id, metric_date), replace idx_vehicle_metrics_latest with (tesla_id, metric_date DESC), replace vehicle_metric_watermarks_account_tesla_source_unique with UNIQUE (tesla_id, source), DROP COLUMN account_id from both. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded. MAG-71 was cancelled and its work folds in here.",
   "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       "T5",
-      "T6",
-      "T7",
+      "T6"
+    ],
+    "pending": [
       "T9"
     ],
     "blocked": [],
@@ -20,11 +20,12 @@
       "T2",
       "T3",
       "T4",
+      "T7",
       "T8"
     ]
   },
   "created_at": "2026-09-15T02:04:09Z",
-  "updated_at": "2026-09-15T09:25:33Z",
+  "updated_at": "2026-09-15T09:42:50Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -40,7 +41,7 @@
   "tasks": [
     {
       "id": "T1",
-      "title": "Migration \u2014 collapse duplicates, swap both unique constraints, recreate idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables",
+      "title": "Migration — collapse duplicates, swap both unique constraints, recreate idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables",
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": false,
@@ -63,7 +64,7 @@
     },
     {
       "id": "T2",
-      "title": "Queries + sqlc \u2014 drop account_id from 7 queries, rename LatestVehicleMetricsByAccount to LatestVehicleMetricsByVehicles, regenerate",
+      "title": "Queries + sqlc — drop account_id from 7 queries, rename LatestVehicleMetricsByAccount to LatestVehicleMetricsByVehicles, regenerate",
       "module": "analytics",
       "depends_on": [
         "T1"
@@ -88,7 +89,7 @@
     },
     {
       "id": "T3",
-      "title": "Ports \u2014 5 signatures drop accountID; LatestMetricsByAccount becomes LatestMetricsForVehicles(ctx, []vehicleref.Ref)",
+      "title": "Ports — 5 signatures drop accountID; LatestMetricsByAccount becomes LatestMetricsForVehicles(ctx, []vehicleref.Ref)",
       "module": "analytics",
       "depends_on": [
         "T2"
@@ -113,7 +114,7 @@
     },
     {
       "id": "T4",
-      "title": "Implementation \u2014 consumed.go, recalculate.go, reader.go and the vehicleMetricsStore seam follow the new ports",
+      "title": "Implementation — consumed.go, recalculate.go, reader.go and the vehicleMetricsStore seam follow the new ports",
       "module": "analytics",
       "depends_on": [
         "T3"
@@ -144,14 +145,24 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T09:33:00Z",
+      "completed_at": "2026-09-15T09:42:50Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Helpers, fixtures and every Recalculate/Reconcile/chart call dropped accountID. Five LatestMetricsByAccount tests renamed and rewired to vehicleref.All. seedManualEntry keeps accountID: it is a real charging.Entry field.",
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 19,
+        "context_pct_start": 11,
+        "context_pct_end": 15,
+        "cost_usd_delta": 8.66,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across T5-T7 (worker) plus the leader's cross-module doc sweep"
+      }
     },
     {
       "id": "T6",
@@ -161,35 +172,55 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T09:33:00Z",
+      "completed_at": "2026-09-15T09:42:50Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Chart calls and the gotConsumedParams assertion dropped accountID; the fake's store method renamed. RecentEfficiency test verified unchanged. Worker also fixed recalculate_test.go, which tasks.md never listed.",
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 19,
+        "context_pct_start": 11,
+        "context_pct_end": 15,
+        "cost_usd_delta": 8.66,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across T5-T7 (worker) plus the leader's cross-module doc sweep"
+      }
     },
     {
       "id": "T7",
-      "title": "Docs \u2014 internal/analytics/AGENTS.md and the kkpa/context vehicle-metrics guide",
+      "title": "Docs — internal/analytics/AGENTS.md and the kkpa/context vehicle-metrics guide",
       "module": "analytics",
       "depends_on": [
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T09:33:00Z",
+      "completed_at": "2026-09-15T09:42:50Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md port row renamed, vehicleref added to May-import. KB vehicle-metrics guide columns, constraints and index updated. 7.3 stays a confirm-at-archive check.",
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 19,
+        "context_pct_start": 11,
+        "context_pct_end": 15,
+        "cost_usd_delta": 8.66,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across T5-T7 (worker) plus the leader's cross-module doc sweep"
+      }
     },
     {
       "id": "T8",
-      "title": "LEADER-OWNED cross-module integration \u2014 processor.go dedupes by tesla_id; gateway stopgap keeps go build green",
+      "title": "LEADER-OWNED cross-module integration — processor.go dedupes by tesla_id; gateway stopgap keeps go build green",
       "module": "app+gateway",
       "depends_on": [
         "T4"
@@ -214,7 +245,7 @@
     },
     {
       "id": "T9",
-      "title": "Final verification \u2014 build, vet, gofmt, migration/boundary/vehicleref guards, index claims with enable_seqscan off",
+      "title": "Final verification — build, vet, gofmt, migration/boundary/vehicleref guards, index claims with enable_seqscan off",
       "module": "analytics",
       "depends_on": [
         "T1",
@@ -279,18 +310,45 @@
       "decision": "no new unit test added for the recalculateAnalytics tesla_id dedupe",
       "why": "RM59's header says Unit tests: excluded. Owner was shown the untested dedupe and chose to keep it untested; fakeAccountSharedVehicle makes adding it later cheap.",
       "covered_by": null
+    },
+    {
+      "id": "D-DOCSWEEP",
+      "at": "2026-09-15T09:42:50Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "leader fixed the stale port name outside internal/analytics: README.md, internal/gateway/AGENTS.md (4 spots), kkpa/context/INDEX.md, read-dashboard-bento.md, telemetry-ingest-only.md",
+      "why": "T8 renamed the port in gateway production code, so these docs went stale in tier 1, not tier 2. CLAUDE.md's docs-track-change rule makes a stale KB guide incomplete work.",
+      "covered_by": null
+    },
+    {
+      "id": "D-APPLIED-SNAPSHOTS",
+      "at": "2026-09-15T09:42:50Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "left the five stale hits in kkpa/context/pending-spec-to-sync/applied/ untouched",
+      "why": "They are dated snapshots of proposals already applied, a record of what was synced when. Editing one rewrites that record, same reasoning as the archive-immutability rule.",
+      "covered_by": null
+    },
+    {
+      "id": "D-T5-EXTRA",
+      "at": "2026-09-15T09:42:50Z",
+      "scope": "task:T5",
+      "made_by": "autopilot",
+      "decision": "worker also fixed internal/analytics/recalculate_test.go, a file design.md's test-fixup inventory never named",
+      "why": "Four tests called Recalculate with the old 5-arg signature, so go vet stayed red. Purely mechanical, inside the module sandbox. design.md inventory gap, not a design conflict.",
+      "covered_by": "design.md D-TESTFIX"
     }
   ],
   "events": [
     {
       "at": "2026-09-15T02:04:09Z",
       "agent": "leader",
-      "event": "dispatched analytics worker (sonnet) to create tier 1 artifacts; returned proposal.md, design.md, tasks.md, specs/analytics/spec.md \u2014 openspec validate --strict passes"
+      "event": "dispatched analytics worker (sonnet) to create tier 1 artifacts; returned proposal.md, design.md, tasks.md, specs/analytics/spec.md — openspec validate --strict passes"
     },
     {
       "at": "2026-09-15T02:04:09Z",
       "agent": "leader",
-      "event": "cross-checked the worker's D1-D12 enumeration against design.md \u2014 all twelve have real sections, no hand-waving found"
+      "event": "cross-checked the worker's D1-D12 enumeration against design.md — all twelve have real sections, no hand-waving found"
     },
     {
       "at": "2026-09-15T02:04:09Z",
@@ -300,7 +358,7 @@
     {
       "at": "2026-09-15T02:04:09Z",
       "agent": "leader",
-      "event": "database design gate CONFIRMED by user; artifacts committed. Run halts here per kkpa-pickup-linear-ticket scope \u2014 no implementation workers dispatched, no reviewer, no archive."
+      "event": "database design gate CONFIRMED by user; artifacts committed. Run halts here per kkpa-pickup-linear-ticket scope — no implementation workers dispatched, no reviewer, no archive."
     },
     {
       "at": "2026-09-15T02:09:45Z",
@@ -331,6 +389,36 @@
       "at": "2026-09-15T09:25:33Z",
       "agent": "leader",
       "event": "checkpoint at wave 1/2 boundary (3-wave change, owner chose /clear + resume). budget 5h 66%, ctx 15% - neither threshold tripped; this is the 3-or-more-waves recommendation, not a budget stop. No auto-resume armed: the owner is clearing context by hand."
+    },
+    {
+      "at": "2026-09-15T09:33:00Z",
+      "agent": "leader",
+      "event": "resumed in fresh session; wave 2 dispatched to analytics worker (sonnet) for T5+T6+T7 batched serially. budget at dispatch: 5h 8%, ctx 11%"
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: T5, T6, T7 complete. go build ./... clean; go vet clean on every package except internal/gateway (tier 2's job, design.md D12); gofmt -l clean on touched files; migration-guard, boundary-guard, vehicleref-guard, archive-guard all pass. budget 5h 8%->27%, ctx 11%->15%"
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "T5/T6 recorded as awaiting-user-verification, not done: they are test fixups and the assistant never runs the suite. T7 is docs only, so it is done."
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "leader independently re-ran the worker's signals rather than trusting the report: build, vet (gateway excluded), gofmt and the four guards all reproduce as reported"
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "leader rewrote one reader_test.go comment that cited a pipeline wave number and a dead identifier, per the B2 comment rule"
+    },
+    {
+      "at": "2026-09-15T09:42:50Z",
+      "agent": "leader",
+      "event": "leader ticked T8's tasks.md checkboxes: the work was verified present in processor.go, handlers.go and external_charges.go, but wave 1 never ticked them"
     }
   ]
 }

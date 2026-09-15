@@ -149,7 +149,7 @@ Depends on: T3.
 
 Depends on: T4. May run in parallel with T6 (disjoint file).
 
-- [ ] 5.1 Update every helper that seeds or reads `vehicle_metrics` /
+- [x] 5.1 Update every helper that seeds or reads `vehicle_metrics` /
       `vehicle_metric_watermarks` (`cleanupVehicleMetrics`, `fetchVehicleMetric`,
       `seedPreMigrationVehicleMetric`, `fetchWatermark` and its siblings, and any
       other helper design.md's test-fixup section names) to drop its `accountID
@@ -157,15 +157,15 @@ Depends on: T4. May run in parallel with T6 (disjoint file).
       `tesla_id` (+ `metric_date` / `+ source` where the original already filtered on
       it) alone. `fetchVehicleMetric`'s `SELECT`/`Scan` list drops `account_id` /
       `&m.AccountID`.
-- [ ] 5.2 Update every `Recalculate(ctx, accountID, teslaID, ...)` /
+- [x] 5.2 Update every `Recalculate(ctx, accountID, teslaID, ...)` /
       `Reconcile(ctx, accountID, teslaID)` call in this file to drop the `accountID`
       argument.
-- [ ] 5.3 Rename `TestRecalculate_AccountIDScoping_PassedToEveryPort` to
+- [x] 5.3 Rename `TestRecalculate_AccountIDScoping_PassedToEveryPort` to
       `TestRecalculate_TeslaIDScoping_PassedToEveryPort`; drop its `accountID`
       variable and argument; rewrite its doc comment's closing sentence, which
       currently claims "the account still scopes the rows Recalculate writes" — that
       is no longer true (design.md's test-fixup section).
-- [ ] 5.4 Rename the five `TestReader_LatestMetricsByAccount_*` tests to
+- [x] 5.4 Rename the five `TestReader_LatestMetricsByAccount_*` tests to
       `TestReader_LatestMetricsForVehicles_*` (design.md's test-fixup section gives
       the exact list). Replace each `r.LatestMetricsByAccount(ctx, accountID)` call
       with `r.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{...}))` — a test
@@ -173,12 +173,12 @@ Depends on: T4. May run in parallel with T6 (disjoint file).
       call here is correct. `TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice`
       becomes `TestReader_LatestMetricsForVehicles_EmptyVehicleSetReturnsEmptyNonNilSlice`,
       asserted against an empty/nil ref slice rather than an account with no vehicles.
-- [ ] 5.5 Grep this file for `AccountID` and `account_id` once done. Any fixture
+- [x] 5.5 Grep this file for `AccountID` and `account_id` once done. Any fixture
       builder that still carries `accountID` because it also seeds a
       `telemetry.Snapshot`/`charging.Session` row (untouched by this change) is
       correct to keep it there — only drop it where it exists solely to reach a
       `vehicle_metrics`/`vehicle_metric_watermarks` call.
-- [ ] 5.6 `go build ./internal/analytics/...` and `go vet ./internal/analytics/...`
+- [x] 5.6 `go build ./internal/analytics/...` and `go vet ./internal/analytics/...`
       restricted to this file's package — expect clean once T6 also lands (both
       files are in the same package).
 
@@ -186,22 +186,22 @@ Depends on: T4. May run in parallel with T6 (disjoint file).
 
 Depends on: T4. May run in parallel with T5 (disjoint file).
 
-- [ ] 6.1 `TestRecentEfficiency_AccountIDScoping_PassedToEveryPort` — confirm
+- [x] 6.1 `TestRecentEfficiency_AccountIDScoping_PassedToEveryPort` — confirm
       unchanged (`RecentEfficiency` keeps `accountID`, design.md D10). No edit
       expected; verify rather than skip.
-- [ ] 6.2 Drop the `accountID` argument from every `r.ConsumedByDay(...)` /
+- [x] 6.2 Drop the `accountID` argument from every `r.ConsumedByDay(...)` /
       `r.OdometerDeltaByDay(...)` call in `TestReader_ConsumedByDay_ReadsPrecomputedRows`,
       `TestReader_OdometerDeltaByDay_ClampsOnRead`,
       `TestReader_ConsumedByDay_ExcludesPredecessorlessRow`,
       `TestReader_OdometerDeltaByDay_ExcludesPredecessorlessRow`,
       `TestReader_VehicleMetricsStoreError_Propagates`.
-- [ ] 6.3 Update the fake implementing `vehicleMetricsStore` in this file: drop
+- [x] 6.3 Update the fake implementing `vehicleMetricsStore` in this file: drop
       `AccountID:` from its `*BetweenParams` literals and any `gotConsumedParams.AccountID`
       assertion; rename its `LatestVehicleMetricsByAccount` method to
       `LatestVehicleMetricsByVehicles(ctx context.Context, teslaIDs []int64)`, and
       rename its recorded `gotLatestAccountID uuid.UUID` field to `gotLatestTeslaIDs
       []int64`.
-- [ ] 6.4 `go build ./internal/analytics/...` and `go vet ./internal/analytics/...`
+- [x] 6.4 `go build ./internal/analytics/...` and `go vet ./internal/analytics/...`
       — expect clean once T5 also lands.
 
 ## T7 — Docs
@@ -209,14 +209,14 @@ Depends on: T4. May run in parallel with T5 (disjoint file).
 Depends on: T1–T4 (needs the final schema/signature shape to describe accurately).
 Independent of T5/T6/T8; may run in parallel with them.
 
-- [ ] 7.1 `internal/analytics/AGENTS.md`: rename the "Public interface" table's
+- [x] 7.1 `internal/analytics/AGENTS.md`: rename the "Public interface" table's
       `LatestMetricsByAccount` row to `LatestMetricsForVehicles` with an updated
       "Returns" description; add `internal/vehicleref` to "May import" with a
       one-line reason (design.md D9). Grep the file for any other `account_id` /
       `LatestMetricsByAccount` mention on these two tables and fix what is found
       (none is currently expected beyond the two spots above — verify, don't
       assume).
-- [ ] 7.2 `kkpa/context/entities/vehicle-metrics/guide.md`: update the
+- [x] 7.2 `kkpa/context/entities/vehicle-metrics/guide.md`: update the
       `vehicle_metrics` and `vehicle_metric_watermarks` column lists — remove
       `account_id UUID NOT NULL` from both, rename
       `vehicle_metrics_account_tesla_date_unique` /
@@ -224,13 +224,13 @@ Independent of T5/T6/T8; may run in parallel with them.
       `vehicle_metrics_tesla_date_unique` / `vehicle_metric_watermarks_tesla_source_unique`
       with their new column sets, and update `idx_vehicle_metrics_latest`'s
       documented columns to `(tesla_id, metric_date DESC)`.
-- [ ] 7.3 This change's `specs/analytics/spec.md` delta (already written as part of
+- [x] 7.3 This change's `specs/analytics/spec.md` delta (already written as part of
       this change's artifacts) is synced into `openspec/specs/analytics/spec.md` at
       archive time via the normal OpenSpec sync step. Confirm at archive time that
       the sync picked up the three `MODIFIED Requirements` below and did NOT also
       touch "Module-Scoped Database Schema" — design.md explains why that one stays
       as written.
-- [ ] 7.4 Grep `kkpa/context/` for any other guide naming `LatestMetricsByAccount` or
+- [x] 7.4 Grep `kkpa/context/` for any other guide naming `LatestMetricsByAccount` or
       this table's old constraint names outside the one guide named in 7.2 (the base
       `CLAUDE.md` docs-track-change rule). None is currently expected.
 
@@ -240,41 +240,41 @@ Depends on: T3 (needs the final port signatures). **Not this module's sandbox �
 `internal/analytics` workers must not edit these files.** Must land in the same wave
 as T4, or `go build ./...` stays red (design.md D12).
 
-- [ ] 8.1 `internal/app/processor.go`'s `recalculateAnalytics`: build the distinct set
+- [x] 8.1 `internal/app/processor.go`'s `recalculateAnalytics`: build the distinct set
       of `tesla_id`s from `p.acct.AllRegisteredVehicles(ctx)`'s result before the
       loop, mirroring `processChargingData`'s own existing dedupe idiom in the same
       file. Loop over that distinct set. `p.recalculator.Reconcile(ctx, teslaID)` and
       `p.analyticsReader.ConsumedByDay(ctx, teslaID, start, end)` drop `v.AccountID`
       (design.md D11).
-- [ ] 8.2 Same file: the `flagged` loop's `analytics.ChargeGap{...}` literals are
+- [x] 8.2 Same file: the `flagged` loop's `analytics.ChargeGap{...}` literals are
       unaffected (that type carries no `AccountID` field already); `VIN` still comes
       from one representative vehicle per `tesla_id`.
-- [ ] 8.3 Same file: rewrite `recalculateAnalytics`'s doc comment where it describes
+- [x] 8.3 Same file: rewrite `recalculateAnalytics`'s doc comment where it describes
       the loop as running once per `(account, vehicle)` pair — it now runs once per
       distinct `tesla_id`, mirroring `processChargingData`'s own "why per vehicle"
       paragraph.
-- [ ] 8.4 `internal/app/processor_test.go`: update the `analytics.Recalculator` /
+- [x] 8.4 `internal/app/processor_test.go`: update the `analytics.Recalculator` /
       `analytics.Reader` fakes' method signatures to match (drop `accountID`), and
       re-shape the dedupe assertion if one already exists for the mirror step's own
       identical pattern (`processChargingData`'s test likely already asserts
       "registered twice → mirrored once"; mirror that shape for `Reconcile`/
       `ConsumedByDay` if `recalculateAnalytics` has an equivalent test).
-- [ ] 8.5 `internal/gateway/handlers/history.go`'s `buildHistoryView`: drop `uid` from
+- [x] 8.5 `internal/gateway/handlers/history.go`'s `buildHistoryView`: drop `uid` from
       the three `h.analyticsReader.BatteryLevelByDay(...)` /
       `OdometerDeltaByDay(...)` / `ConsumedByDay(...)` calls.
-- [ ] 8.6 `internal/gateway/handlers/handlers.go`: at `vehiclesFor`, `dashboardFor`,
+- [x] 8.6 `internal/gateway/handlers/handlers.go`: at `vehiclesFor`, `dashboardFor`,
       `navHeaderFor`, build `refs := vehicleref.All(...)` inline from the already-
       resolved `registered []account.Vehicle` slice's `TeslaID`s, and replace
       `h.analyticsReader.LatestMetricsByAccount(ctx, uid)` with
       `h.analyticsReader.LatestMetricsForVehicles(ctx, refs)` (design.md D12 — this is
       guard-compliant because the whole file is exempt from `make vehicleref-guard`).
-- [ ] 8.7 `internal/gateway/handlers/external_charges.go`'s `buildExternalChargesPage`:
+- [x] 8.7 `internal/gateway/handlers/external_charges.go`'s `buildExternalChargesPage`:
       replace `h.analyticsReader.LatestMetricsByAccount(ctx, uid)` with a call using
       `h.ownedVehicles(ctx, uid)`'s returned `refs` — this file is NOT exempt from
       `make vehicleref-guard`, so do not call `vehicleref.All`/`vehicleref.Authorize`
       directly here (design.md D12). Keep the existing "loop returned statuses, match
       `s.TeslaID == teslaIDFilter`" filtering unchanged.
-- [ ] 8.8 `go build ./internal/app/... ./internal/gateway/... ./cmd/...` — expect
+- [x] 8.8 `go build ./internal/app/... ./internal/gateway/... ./cmd/...` — expect
       clean. `go vet` on the same packages is **expected to still fail** for
       `internal/gateway` (its own test files are tier 2's job, design.md D12) — this
       is not a regression to chase down here; `go vet ./internal/app/...` IS expected
