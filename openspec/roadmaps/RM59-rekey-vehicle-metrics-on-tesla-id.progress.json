@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-69 — 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. Collapse duplicate (tesla_id, metric_date) rows, replace both unique constraints, replace idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-15T10:30:00Z",
+  "updated_at": "2026-09-15T10:05:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
@@ -138,6 +138,11 @@
       "at": "2026-09-15T10:30:00Z",
       "agent": "leader",
       "event": "tier 1 archived; [~] -> [x]. Tier 2 (RM59-gateway-authorize-metrics-reads) is now unblocked. autopilot is false, so the leader stops here and asks."
+    },
+    {
+      "at": "2026-09-15T10:05:00Z",
+      "agent": "leader",
+      "event": "checkpoint at the tier 1/2 boundary. Owner chose /clear + resume. budget 5h 49%, ctx 26% - neither threshold tripped; this is the tier-boundary recommendation, not a budget stop. No auto-resume armed: a context checkpoint never arms one."
     }
   ]
 }
