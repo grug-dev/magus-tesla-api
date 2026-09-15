@@ -123,7 +123,8 @@ code changes as a result. A future consumer of the removed methods would need
 column, index, constraint, view, or migration.
 
 **Affected modules:** `internal/telemetry` (port deletion), `internal/app` (test fake only, no
-production code change — it already calls only the kept method). Docs: `ai/`,
+production code change — it already calls only the kept method), `internal/charging` (one doc
+comment only — it named a deleted telemetry method; no code change). Docs: `ai/`,
 `openspec/specs/`, `kkpa/context/`, `Makefile`, `CLAUDE.md`, root `README.md`.
 
 **No read path is touched.** The two deleted methods have no caller today, so no request or

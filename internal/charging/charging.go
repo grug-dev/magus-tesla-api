@@ -446,8 +446,8 @@ type SessionReader interface {
 	// included.
 	//
 	// Results are ordered ASCENDING by ChargeStopDateTime (oldest first), matching
-	// telemetry's own ordering for the identical access pattern (design.md D3,
-	// strengthened). This is DELIBERATELY THE OPPOSITE of Reader's DESC order — the two
+	// telemetry's own ordering for the identical access pattern. This is
+	// DELIBERATELY THE OPPOSITE of Reader's DESC order — the two
 	// `…Between` methods on this module do not share a sort-direction convention,
 	// because sort direction here is a property of each table's own index, not a
 	// port-family rule. Do NOT "fix" this to DESC to match Reader; doing so would force

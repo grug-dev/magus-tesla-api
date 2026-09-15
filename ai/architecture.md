@@ -324,7 +324,7 @@ months of raw snapshots and aggregating on the fly).
    | Keep `account_id`, demoted to an attribute | the row records who acted, not what the car did | `charging.manual_charge_entries`, `telemetry.poll_attempts` |
 
    `make tenancy-guard` enforces this: it fails if a module's query file outside
-   `internal/account` filters on `account_id` (escape hatch: `// tenancy:allow: <reason>`).
+   `internal/account` filters on `account_id` (escape hatch: `-- tenancy:allow: <reason>`, SQL's own comment syntax).
 
    Do not add an index just because the old table had one. A `UNIQUE (a, b)`
    constraint already builds a btree that serves equality on `a`, point lookups on
