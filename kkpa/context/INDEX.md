@@ -66,6 +66,8 @@
 | `pressure change` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `travel progress` | UI name for `vehicle_metrics.distance_traveled_km_calc`, exposed on `analytics.VehicleStatus.DistanceTraveledKmCalc` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
 | `battery drain` | UI name for `vehicle_metrics.consumed_pct`, exposed on `analytics.VehicleStatus.ConsumedPct` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
+| `charge authorship` | `charging.Entry.CreatedByAccountID` / `manual_charge_entries.created_by_account_id` — stored and returned, never a read filter | entity | `workflows/manual-charge-crud.md` |
+| `entry author` | synonym of `charge authorship` | entity | `workflows/manual-charge-crud.md` |
 
 ## Input ports — pages & endpoints
 
@@ -317,3 +319,5 @@ Notes for the curator:
 - `Internal name` is the actual symbol/table behind the term — the thing CodeGraph knows.
 - Keep paths relative to kkpa/context/.
 -->
+| `bulk ownership proof` | synonym of `vehicle ownership proof` → `architecture/vehicle-ownership-proof.md` |
+| `fleet-wide read` | a read scoped to every vehicle the caller owns → `architecture/vehicle-ownership-proof.md` |

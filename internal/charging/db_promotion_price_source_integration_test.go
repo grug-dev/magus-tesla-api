@@ -257,7 +257,7 @@ func TestPriceSource_C6_RecomputedNeverStickyOnUpdate(t *testing.T) {
 	updated := created
 	updated.PriceConfirmed = true
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(340006), updated)
 	if err != nil {
 		t.Fatalf("C6: Update: unexpected error: %v", err)
 	}
@@ -319,7 +319,7 @@ func TestPromotion_C8_PromotedOnUpdate(t *testing.T) {
 	updated.EndedAt = ptrTime(end)
 	updated.EndBatteryPct = ptrInt(90)
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(340008), updated)
 	if err != nil {
 		t.Fatalf("C8: Update: unexpected error: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestPromotion_C10_IncompleteExplicitDoneStillRejected(t *testing.T) {
 	_, err := w.Create(ctx, e)
 	assertErrorNamesField(t, err, string(charging.FieldEndBatteryPct))
 
-	entries, listErr := r.ListEntriesByVehicle(ctx, accountID, 340010, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if listErr != nil {
 		t.Fatalf("C10: ListEntriesByVehicle: %v", listErr)
 	}
@@ -415,7 +415,7 @@ func TestPromotion_C11_ReopenWithoutClearingFieldsRePromotes(t *testing.T) {
 	// caller did not clear either field, so the entry is re-promoted rather
 	// than reopened.
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(340011), updated)
 	if err != nil {
 		t.Fatalf("C11: Update: unexpected error: %v", err)
 	}

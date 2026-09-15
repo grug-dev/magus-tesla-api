@@ -9,7 +9,7 @@
 //   - store interface — the narrow persistence seam (unexported, testable with a fake).
 //   - dbStore — the production implementation wrapping *chargingdb.Queries.
 //   - writerService — implements Writer (Create / Update / Delete).
-//   - readerService — implements Reader (ListEntriesByVehicle / ListEntriesByAccount).
+//   - readerService — implements Reader (ListEntriesByVehicle / ListEntriesByVehicles).
 //   - rowToEntry — DB→domain mapping, confined to this file.
 //   - newWriter / newReader — internal constructors called by the public NewWriter / NewReader.
 //
@@ -30,6 +30,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	chargingdb "github.com/cristianpena/magus-tesla-api/internal/charging/db"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // Compile-time assertions: writerService must satisfy Writer and readerService must
@@ -53,9 +54,9 @@ const defaultLimit = 100
 type store interface {
 	createEntry(ctx context.Context, params chargingdb.CreateEntryParams) (chargingdb.ManualChargeEntry, error)
 	updateEntry(ctx context.Context, params chargingdb.UpdateEntryParams) (chargingdb.ManualChargeEntry, error)
-	deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) error
+	deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) (int64, error)
 	listEntriesByVehicle(ctx context.Context, params chargingdb.ListEntriesByVehicleParams) ([]chargingdb.ManualChargeEntry, error)
-	listEntriesByAccount(ctx context.Context, params chargingdb.ListEntriesByAccountParams) ([]chargingdb.ManualChargeEntry, error)
+	listEntriesByVehicles(ctx context.Context, params chargingdb.ListEntriesByVehiclesParams) ([]chargingdb.ManualChargeEntry, error)
 	listEntriesByVehicleBetween(ctx context.Context, params chargingdb.ListEntriesByVehicleBetweenParams) ([]chargingdb.ManualChargeEntry, error)
 	listEntriesByVehicleUpdatedSince(ctx context.Context, params chargingdb.ListEntriesByVehicleUpdatedSinceParams) ([]chargingdb.ManualChargeEntry, error)
 
@@ -82,7 +83,7 @@ func (d *dbStore) updateEntry(ctx context.Context, params chargingdb.UpdateEntry
 	return d.q.UpdateEntry(ctx, params)
 }
 
-func (d *dbStore) deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) error {
+func (d *dbStore) deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) (int64, error) {
 	return d.q.DeleteEntry(ctx, params)
 }
 
@@ -90,8 +91,8 @@ func (d *dbStore) listEntriesByVehicle(ctx context.Context, params chargingdb.Li
 	return d.q.ListEntriesByVehicle(ctx, params)
 }
 
-func (d *dbStore) listEntriesByAccount(ctx context.Context, params chargingdb.ListEntriesByAccountParams) ([]chargingdb.ManualChargeEntry, error) {
-	return d.q.ListEntriesByAccount(ctx, params)
+func (d *dbStore) listEntriesByVehicles(ctx context.Context, params chargingdb.ListEntriesByVehiclesParams) ([]chargingdb.ManualChargeEntry, error) {
+	return d.q.ListEntriesByVehicles(ctx, params)
 }
 
 func (d *dbStore) listEntriesByVehicleBetween(ctx context.Context, params chargingdb.ListEntriesByVehicleBetweenParams) ([]chargingdb.ManualChargeEntry, error) {
@@ -161,13 +162,13 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 	priceSource := resolvePriceSource(e) // RD3/RD4 (design.md D3)
 
 	params := chargingdb.CreateEntryParams{
-		AccountID:      e.AccountID,
-		TeslaID:        e.TeslaID,
-		Vin:            e.VIN,
-		ChargedOn:      dateFromTime(e.ChargedOn),
-		EnergyAddedKwh: energyParam,
-		Price:          price,
-		Currency:       e.Currency,
+		CreatedByAccountID: e.CreatedByAccountID,
+		TeslaID:            e.TeslaID,
+		Vin:                e.VIN,
+		ChargedOn:          dateFromTime(e.ChargedOn),
+		EnergyAddedKwh:     energyParam,
+		Price:              price,
+		Currency:           e.Currency,
 		// Nullable fields — nil → invalid pgtype (SQL NULL); non-nil → valid.
 		StartedAt:       timestamptzPtrToPg(e.StartedAt),
 		EndedAt:         timestamptzPtrToPg(e.EndedAt),
@@ -197,15 +198,19 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 	return rowToEntry(row)
 }
 
-// Update replaces the mutable fields of an existing entry scoped to the caller's
-// account (WHERE id = @id AND account_id = @account_id). Returns the stored Entry.
-// Immutable columns (id, account_id, tesla_id, vin, created_at) are never touched
-// (design D4, T4.3).
+// Update replaces the mutable fields of an existing entry, scoped to the vehicle ref
+// proves ownership of (WHERE id = @id AND tesla_id = @tesla_id). The Ref is the real
+// guard — only internal/gateway's authorizeVehicle can build one — and the WHERE
+// clause is the second line of defence against a proven-vehicle Ref applied to the
+// wrong row. Returns the stored Entry. A Ref naming the wrong vehicle for this id
+// matches no row: the error wraps pgx.ErrNoRows. Immutable columns (id,
+// created_by_account_id, tesla_id, vin, created_at) are never touched.
 //
 // Same order as Create above, and for the same reason (MAG-18/RM33 design.md D3):
 // normalize + validate status, enforce RequiredFieldsFor, THEN derive energy. A
 // rejected update writes nothing — the row it targets is left unchanged.
-func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
+func (w *writerService) Update(ctx context.Context, ref vehicleref.Ref, e Entry) (Entry, error) {
+	e.TeslaID = ref.TeslaID() // the proven car wins over whatever the caller sent
 	status, err := normalizeStatus(e.Status)
 	if err != nil {
 		return Entry{}, err
@@ -234,7 +239,7 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 
 	params := chargingdb.UpdateEntryParams{
 		ID:              e.ID,
-		AccountID:       e.AccountID,
+		TeslaID:         e.TeslaID,
 		ChargedOn:       dateFromTime(e.ChargedOn),
 		EnergyAddedKwh:  energyParam,
 		Price:           price,
@@ -320,16 +325,24 @@ func resolvePriceSource(e Entry) PriceSource {
 	return PriceSourceUnconfirmed
 }
 
-// Delete removes the entry identified by id, scoped to the caller's accountID.
-// The double-scope (id AND account_id) at the SQL level means a user cannot delete
-// another tenant's entry even with a valid UUID (design D4).
-func (w *writerService) Delete(ctx context.Context, accountID uuid.UUID, id uuid.UUID) error {
+// Delete removes the entry identified by id, scoped to the vehicle ref proves
+// ownership of (WHERE id = @id AND tesla_id = @tesla_id). The Ref is the real guard —
+// only internal/gateway's authorizeVehicle can build one — and the WHERE clause is the
+// second line of defence against a proven-vehicle Ref applied to the wrong row. A Ref
+// naming the wrong vehicle for this id deletes nothing, and the caller learns it: the
+// returned error wraps pgx.ErrNoRows, so a rejected delete can never be mistaken for a
+// successful one by omission.
+func (w *writerService) Delete(ctx context.Context, ref vehicleref.Ref, id uuid.UUID) error {
 	params := chargingdb.DeleteEntryParams{
-		ID:        id,
-		AccountID: accountID,
+		ID:      id,
+		TeslaID: ref.TeslaID(),
 	}
-	if err := w.store.deleteEntry(ctx, params); err != nil {
+	rows, err := w.store.deleteEntry(ctx, params)
+	if err != nil {
 		return fmt.Errorf("charging: delete entry: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("charging: delete entry: %w", pgx.ErrNoRows)
 	}
 	return nil
 }
@@ -342,18 +355,18 @@ type readerService struct {
 	store store
 }
 
-// ListEntriesByVehicle returns entries for a specific vehicle within an account,
-// ordered newest charged-day first (charged_on DESC). limit <= 0 uses the server
-// default (100). Always returns a non-nil empty slice when no rows exist (design D5).
-// Uses idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC)
-// — the ORDER BY is satisfied by the index, no sort step required (design D3).
-func (r *readerService) ListEntriesByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Entry, error) {
+// ListEntriesByVehicle returns entries for a specific vehicle, ordered newest
+// charged-day first (charged_on DESC). limit <= 0 uses the server default (100).
+// Always returns a non-nil empty slice when no rows exist. The read is car-wide: it
+// returns entries typed by any account registered to that car. Uses
+// idx_manual_charge_entries_vehicle_time (tesla_id, charged_on DESC) — the ORDER BY
+// is satisfied by the index, no sort step required.
+func (r *readerService) ListEntriesByVehicle(ctx context.Context, teslaID int64, limit int) ([]Entry, error) {
 	if limit <= 0 {
 		limit = defaultLimit
 	}
 
 	params := chargingdb.ListEntriesByVehicleParams{
-		AccountID:  accountID,
 		TeslaID:    teslaID,
 		LimitCount: int32(limit),
 	}
@@ -374,24 +387,26 @@ func (r *readerService) ListEntriesByVehicle(ctx context.Context, accountID uuid
 	return entries, nil
 }
 
-// ListEntriesByAccount returns all entries for the given account across all vehicles,
-// ordered newest charged-day first (charged_on DESC). limit <= 0 uses the server
-// default (100). Always returns a non-nil empty slice when no rows exist (design D5).
-// Uses idx_manual_charge_entries_account_time (account_id, charged_on DESC) —
-// the ORDER BY is satisfied by the index, no sort step required (design D3).
-func (r *readerService) ListEntriesByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]Entry, error) {
+// ListEntriesByVehicles returns entries for a caller-supplied set of vehicles,
+// ordered newest charged-day first (charged_on DESC) across the whole set. limit <= 0
+// uses the server default (100). Always returns a non-nil empty slice when no rows
+// exist — an empty or nil teslaIDs is never read as "no filter": it returns nothing,
+// because a caller supplying no vehicle is entitled to no entry. Uses
+// idx_manual_charge_entries_vehicle_time (tesla_id, charged_on DESC) per vehicle; a
+// multi-vehicle array is expected to add a sort step on top of the per-vehicle scans.
+func (r *readerService) ListEntriesByVehicles(ctx context.Context, teslaIDs []int64, limit int) ([]Entry, error) {
 	if limit <= 0 {
 		limit = defaultLimit
 	}
 
-	params := chargingdb.ListEntriesByAccountParams{
-		AccountID:  accountID,
+	params := chargingdb.ListEntriesByVehiclesParams{
+		TeslaIds:   teslaIDs,
 		LimitCount: int32(limit),
 	}
 
-	rows, err := r.store.listEntriesByAccount(ctx, params)
+	rows, err := r.store.listEntriesByVehicles(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("charging: list entries by account: %w", err)
+		return nil, fmt.Errorf("charging: list entries by vehicles: %w", err)
 	}
 
 	entries := make([]Entry, 0, len(rows))
@@ -405,17 +420,17 @@ func (r *readerService) ListEntriesByAccount(ctx context.Context, accountID uuid
 	return entries, nil
 }
 
-// ListEntriesByVehicleBetween returns entries for a specific vehicle within an
-// account whose charged_on falls within [from, to], inclusive of both bounds
-// (design D5). Ordered charged_on DESC, matching ListEntriesByVehicle (design D2).
-// Always returns a non-nil empty slice when no rows exist (design D4). No limit
-// parameter (design D1) — the [from, to] window itself bounds the result.
-func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Entry, error) {
+// ListEntriesByVehicleBetween returns entries for a specific vehicle whose
+// charged_on falls within [from, to], inclusive of both bounds. Ordered charged_on
+// DESC, matching ListEntriesByVehicle. Always returns a non-nil empty slice when no
+// rows exist. No limit parameter — the [from, to] window itself bounds the result.
+// The read is car-wide: it returns entries typed by any account registered to that
+// car.
+func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, teslaID int64, from, to time.Time) ([]Entry, error) {
 	params := chargingdb.ListEntriesByVehicleBetweenParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-		FromDate:  dateFromTime(from),
-		ToDate:    dateFromTime(to),
+		TeslaID:  teslaID,
+		FromDate: dateFromTime(from),
+		ToDate:   dateFromTime(to),
 	}
 
 	rows, err := r.store.listEntriesByVehicleBetween(ctx, params)
@@ -434,17 +449,18 @@ func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, account
 	return entries, nil
 }
 
-// ListEntriesByVehicleUpdatedSince returns entries for a specific vehicle within an
-// account whose updated_at is at or after since, inclusive, ordered charged_on DESC
-// (matching ListEntriesByVehicle and ListEntriesByVehicleBetween). Always returns a
-// non-nil empty slice when no rows exist. No limit parameter — since itself bounds
-// the result. Backs the analytics module's per-source incremental recompute
-// watermark (RM29-analytics-add-vehicle-metrics design D3).
-func (r *readerService) ListEntriesByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Entry, error) {
+// ListEntriesByVehicleUpdatedSince returns entries for a specific vehicle whose
+// updated_at is at or after since, inclusive, ordered charged_on DESC (matching
+// ListEntriesByVehicle and ListEntriesByVehicleBetween). Always returns a non-nil
+// empty slice when no rows exist. No limit parameter — since itself bounds the
+// result. The read is car-wide: it returns entries typed by any account registered
+// to that car. Backs the analytics module's per-source incremental recompute
+// watermark: a user can edit a manual entry at any hour, so the nightly poll is
+// not a reliable cursor for this source.
+func (r *readerService) ListEntriesByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Entry, error) {
 	params := chargingdb.ListEntriesByVehicleUpdatedSinceParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-		Since:     pgtype.Timestamptz{Time: since, Valid: true},
+		TeslaID: teslaID,
+		Since:   pgtype.Timestamptz{Time: since, Valid: true},
 	}
 
 	rows, err := r.store.listEntriesByVehicleUpdatedSince(ctx, params)
@@ -486,7 +502,7 @@ func newReader(pool *pgxpool.Pool) Reader {
 // tests (ai/go-conventions.md §persistence, design D8).
 //
 // Mapping rules:
-//   - ID, AccountID, TeslaID, Vin, Currency: direct (non-nullable, value-compatible).
+//   - ID, CreatedByAccountID, TeslaID, Vin, Currency: direct (non-nullable, value-compatible).
 //   - ChargedOn: pgtype.Date → time.Time via .Time (DATE column, midnight UTC).
 //   - CreatedAt, UpdatedAt: pgtype.Timestamptz → time.Time via .Time (required, non-null).
 //   - StartedAt, EndedAt: pgtype.Timestamptz → *time.Time (nullable TIMESTAMPTZ).
@@ -514,12 +530,12 @@ func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 	}
 
 	return Entry{
-		ID:        r.ID,
-		AccountID: r.AccountID,
-		TeslaID:   r.TeslaID,
-		VIN:       r.Vin,
-		Status:    Status(r.Status),
-		ChargedOn: r.ChargedOn.Time, // pgtype.Date.Time → time.Time
+		ID:                 r.ID,
+		CreatedByAccountID: r.CreatedByAccountID,
+		TeslaID:            r.TeslaID,
+		VIN:                r.Vin,
+		Status:             Status(r.Status),
+		ChargedOn:          r.ChargedOn.Time, // pgtype.Date.Time → time.Time
 		// EnergyAddedKwh is nullable since design.md D2; pgNumericToFloat64Ptr
 		// is the existing helper this module already uses for
 		// InferredCapacityKwhCalc — reused here rather than duplicated.

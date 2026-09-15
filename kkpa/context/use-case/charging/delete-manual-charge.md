@@ -21,7 +21,7 @@
   string carrying the active filter window.
 - **Output:** `200` re-rendering the whole `#external-charges-list` region (the row no longer exists to
   swap into). `500` renders the same region with an error banner. `403` on CSRF failure, `400` on
-  an unparseable id.
+  an unparseable id, `404` when the entry is not found among the account's registered vehicles.
 
 ## Flow
 
@@ -29,21 +29,30 @@
    parse the id.
 2. `windowFromQuery` → `bestEffortWindow` — the filter window to re-render, never a gate.
 3. `Handler.resolveSelectedVehicle` — the vehicle context to scope the re-rendered list to.
-4. `Handler.fetchEntryTeslaIDAndChargedOn` → `charging.Reader.ListEntriesByAccount` — **the only
-   chance** to learn `tesla_id` + `charged_on`; `Writer.Delete` returns nothing.
+4. `Handler.fetchEntryTeslaIDAndChargedOn` → `charging.Reader.ListEntriesByVehicles` (over the
+   account's `RegisteredVehicles`, since `RM58-charging-demote-manual-charge-account-id`) — **the
+   only chance** to learn `tesla_id` + `charged_on`; `Writer.Delete` returns nothing. A miss
+   answers `404` and returns — never `403`, so a probed id cannot be confirmed as real.
    ⚠ capped at 100 rows — see the gotchas below.
-5. `charging.Writer.Delete` — `internal/charging/service.go` — `DeleteEntry`, double-scoped
-   `id AND account_id`. Hard delete: no soft delete, no tombstone, no audit row.
-6. `Handler.buildExternalChargesPage` — rebuilds the list region (runs before the error branch too, so
+5. `Handler.authorizeVehicle` — proves the vehicle stored **on the entry** (not one named by the
+   request) against the account's registered vehicles, and returns a `vehicleref.Ref`. An error
+   here answers the same `404` as step 4.
+6. `charging.Writer.Delete` — `internal/charging/service.go` — `DeleteEntry`, scoped
+   `id AND tesla_id`, where `tesla_id` comes from the `Ref` step 5 built. This is not
+   transitional: it is the real ownership guard, proven before the call, and the SQL predicate is
+   only the second line of defence. A `Ref` naming the wrong vehicle for this id matches no row,
+   and `Delete` returns an error wrapping `pgx.ErrNoRows` instead of `nil` — a rejected delete can
+   never be mistaken for a successful one. Hard delete: no soft delete, no tombstone, no audit row.
+7. `Handler.buildExternalChargesPage` — rebuilds the list region (runs before the error branch too, so
    both outcomes render the same way).
-7. `Handler.recalculateAfterExternalChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
+8. `Handler.recalculateAfterExternalChargeWrite` → `analytics.Recalculator.Recalculate(uid, teslaID, D, D)`
    — **only when step 4 found the row**. Errors logged and swallowed.
 
 ## Database
 
 | # | Op | Table / entity | Where |
 |---|---|---|---|
-| 1 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByAccount` (resolve the affected day) |
+| 1 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByVehicles` (resolve the affected day) |
 | 2 | DELETE | `manual_charge_entries` | `DeleteEntry` |
 | 3 | READ | `manual_charge_entries`, `vehicles` | `buildExternalChargesPage` |
 | 4 | READ | `vehicle_snapshots`, `supercharger_sessions`, `manual_charge_entries` | `Recalculate`'s three source fetches |
@@ -68,10 +77,11 @@ Steps 4–5 are skipped entirely when step 1 did not find the row. **Not touched
   forever. The `Recalculate` call in step 7 is not a fast path, it is the *only* path — and its
   error is logged and swallowed. Treat any change to that call as safety-critical.
   _Source: `analytics/recalculate.go` `Reconcile`; `architecture/charge-record-mutation.md`._
-- **The 100-row lookup cap is worst here.** `ListEntriesByAccount(ctx, uid, 0)` resolves to
-  `defaultLimit = 100`, ordered `charged_on DESC` across all the account's vehicles. Deleting an
-  entry outside that set means `hadEntry == false` and **no recalculation at all** — silently,
-  with nothing logged. Fixing this needs a `GetEntry` on the `charging.Reader` port.
+- **The 100-row lookup cap is worst here.** `ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)`
+  resolves to `defaultLimit = 100`, ordered `charged_on DESC` across the account's registered
+  vehicles (`refs` from one `h.ownedVehicles(ctx, uid)` call). Deleting an entry outside that set
+  means `hadEntry == false` and **no recalculation at all** — silently, with nothing logged.
+  Fixing this needs a `GetEntry` on the `charging.Reader` port.
   _Source: `charging/service.go` `defaultLimit`, `fetchEntryTeslaIDAndChargedOn`._
 - **CSRF travels on the header for this route, by necessity.** The delete button uses htmx
   `hx-headers` to set `X-CSRF-Token`; a hidden body input would never be parsed and would 403.

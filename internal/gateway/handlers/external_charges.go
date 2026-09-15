@@ -25,6 +25,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // csrfExternalChargeKey is the session key for the manual charge CSRF token.
@@ -442,17 +443,31 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 		return
 	}
 	entry.ID = id
-	entry.AccountID = uid
+	entry.CreatedByAccountID = uid
 
-	// Resolve the PRE-update ChargedOn BEFORE calling Update — once Update
-	// commits, the old date is gone; there is no other way to recover it
-	// (design.md D5, "Manual Charge Write Path Triggers Analytics
-	// Recalculation"). A lookup miss (e.g. the id no longer exists) just
-	// means there is no old date to additionally recalculate — the write
-	// itself still proceeds and is validated on its own terms below.
-	_, oldChargedOn, hadOld := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
+	// Resolve the entry's stored vehicle and its PRE-update ChargedOn before
+	// calling Update. Once Update commits the old date is gone, and analytics
+	// has to recalculate the old day as well as the new one.
+	//
+	// The lookup reads only over this account's registered vehicles, so a miss
+	// means the entry is not this account's to edit. Answer 404, never 403: a
+	// 403 would confirm that a probed id is real.
+	entryTeslaID, oldChargedOn, hadOld := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
+	if !hadOld {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
+		return
+	}
 
-	updated, err := h.chargingWriter.Update(c.Request.Context(), entry)
+	// Authorize the vehicle stored ON THE ENTRY, not one named by the request.
+	// Update accepts nothing but the Ref this call returns, so an unproven
+	// caller cannot reach the row at all.
+	ref, err := h.authorizeVehicle(c.Request.Context(), uid, entryTeslaID)
+	if err != nil {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
+		return
+	}
+
+	updated, err := h.chargingWriter.Update(c.Request.Context(), ref, entry)
 	if err != nil {
 		log.Printf("gateway: ExternalChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
 		// Same value-preservation treatment on the 500 (writer-error) branch as
@@ -469,7 +484,7 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 		return
 	}
 	h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, updated.TeslaID, updated.ChargedOn)
-	if hadOld && !oldChargedOn.Equal(updated.ChargedOn) {
+	if !oldChargedOn.Equal(updated.ChargedOn) {
 		h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, updated.TeslaID, oldChargedOn)
 	}
 	// A SUCCESSFUL edit re-renders the WHOLE #external-charges-list region, retargeted
@@ -564,14 +579,27 @@ func (h *Handler) ExternalChargeRowDelete(c *gin.Context) {
 		filterTeslaID = sel.TeslaID
 	}
 
-	// Resolve the entry's ChargedOn (and TeslaID) BEFORE calling Delete — the
-	// Delete port does not return the deleted entry, so this is the only
-	// chance to learn which day needs recalculating (design.md D5). A lookup
-	// miss just means there is no day to recalculate; the delete still
-	// proceeds.
+	// Resolve the entry's vehicle and ChargedOn before calling Delete. The
+	// Delete port does not return the deleted entry, so this is the only chance
+	// to learn which day needs recalculating.
+	//
+	// The lookup reads only over this account's registered vehicles, so a miss
+	// means the entry is not this account's to delete. Answer 404, never 403: a
+	// 403 would confirm that a probed id is real.
 	entryTeslaID, entryChargedOn, hadEntry := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
+	if !hadEntry {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
+		return
+	}
 
-	err = h.chargingWriter.Delete(c.Request.Context(), uid, id)
+	// Authorize the vehicle stored ON THE ENTRY, not one named by the request.
+	ref, err := h.authorizeVehicle(c.Request.Context(), uid, entryTeslaID)
+	if err != nil {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
+		return
+	}
+
+	err = h.chargingWriter.Delete(c.Request.Context(), ref, id)
 	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	if err != nil {
 		log.Printf("gateway: ExternalChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
@@ -579,9 +607,7 @@ func (h *Handler) ExternalChargeRowDelete(c *gin.Context) {
 		renderFragmentError(c, http.StatusInternalServerError, pages.ExternalChargesPage(d), "external-charges-list")
 		return
 	}
-	if hadEntry {
-		h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, entryTeslaID, entryChargedOn)
-	}
+	h.recalculateAfterExternalChargeWrite(c.Request.Context(), uid, entryTeslaID, entryChargedOn)
 	renderFragment(c, http.StatusOK, pages.ExternalChargesPage(d), "external-charges-list")
 }
 
@@ -648,7 +674,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 	// design.md §D-Range/§Context fact 1: switched onto
 	// ListEntriesByVehicleBetween — [start, end] inclusive of both bounds, no
 	// limit parameter, the window itself bounds the result (D13).
-	entries, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, uid, teslaIDFilter, start, end)
+	entries, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, teslaIDFilter, start, end)
 	var pageError string
 	if err != nil {
 		log.Printf("gateway: charging reader error for account %s: %v", uid, err)
@@ -771,15 +797,23 @@ func windowFromQuery(c *gin.Context, today time.Time) (start, end time.Time) {
 	return bestEffortWindow(c.Query("start"), c.Query("end"), today)
 }
 
-// fetchEntryVM fetches a single entry by listing all account entries and finding
-// the one matching id (no GetEntry on the port — design decision D6). Returns
-// false if not found.
+// fetchEntryVM fetches a single entry by listing the account's entries and
+// finding the one matching id. The port has no GetEntry, so a list is the only
+// way in. Returns false if not found.
+//
+// The read is keyed on vehicles, so the account's registered vehicles decide
+// what it can see. An error or an empty list must return false: an empty set of
+// vehicles is not "no filter", and reading every entry would leak other
+// accounts' data. ownedVehicles enforces that rule one level down.
 func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID) (fragments.ExternalChargeEntryVM, bool) {
-	entries, err := h.chargingReader.ListEntriesByAccount(ctx, uid, 0)
+	refs, vehicles, ok := h.ownedVehicles(ctx, uid)
+	if !ok {
+		return fragments.ExternalChargeEntryVM{}, false
+	}
+	entries, err := h.chargingReader.ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)
 	if err != nil {
 		return fragments.ExternalChargeEntryVM{}, false
 	}
-	vehicles, _ := h.acct.RegisteredVehicles(ctx, uid)
 	for _, e := range entries {
 		if e.ID == id {
 			return externalChargeEntryVMFromEntry(e, vehicles), true
@@ -788,16 +822,25 @@ func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID)
 	return fragments.ExternalChargeEntryVM{}, false
 }
 
-// fetchEntryTeslaIDAndChargedOn resolves a manual charge entry's stored
-// TeslaID and ChargedOn by id, listing all account entries and matching
-// (mirrors fetchEntryVM's own no-GetEntry-port shape, design decision D6).
-// Returns false if not found. Used by ExternalChargeRowUpdate (to learn the
-// PRE-update ChargedOn before it is overwritten) and ExternalChargeRowDelete (to
-// learn TeslaID/ChargedOn before the entry is gone entirely — the Delete
-// port does not return the deleted entry, design.md D5) so
-// recalculateAfterExternalChargeWrite can be called for the affected date.
+// fetchEntryTeslaIDAndChargedOn resolves a manual charge entry's stored TeslaID
+// and ChargedOn by id, listing the account's entries and matching. It mirrors
+// fetchEntryVM, because the port has no GetEntry. Returns false if not found.
+//
+// ExternalChargeRowUpdate uses it to learn the PRE-update ChargedOn before the
+// update overwrites it. ExternalChargeRowDelete uses it to learn
+// TeslaID/ChargedOn before the row is gone, because the Delete port does not
+// return the deleted entry. Both feed
+// recalculateAfterExternalChargeWrite, which needs the affected date.
+//
+// Same vehicle rule as fetchEntryVM: an error or an empty vehicle list returns
+// false, never an unfiltered read. ownedVehicles enforces that rule one level
+// down; this helper only needs the id list, so it discards the vehicle list.
 func (h *Handler) fetchEntryTeslaIDAndChargedOn(ctx context.Context, uid uuid.UUID, id uuid.UUID) (teslaID int64, chargedOn time.Time, ok bool) {
-	entries, err := h.chargingReader.ListEntriesByAccount(ctx, uid, 0)
+	refs, _, ok := h.ownedVehicles(ctx, uid)
+	if !ok {
+		return 0, time.Time{}, false
+	}
+	entries, err := h.chargingReader.ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)
 	if err != nil {
 		return 0, time.Time{}, false
 	}
@@ -842,7 +885,7 @@ func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry
 	if entry.Status != charging.StatusInProgress || entry.TeslaID == 0 {
 		return "", false
 	}
-	existing, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, uid, entry.TeslaID, entry.ChargedOn, entry.ChargedOn)
+	existing, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, entry.TeslaID, entry.ChargedOn, entry.ChargedOn)
 	if err != nil {
 		log.Printf("gateway: in-progress conflict check reader error for account %s, vehicle %d, date %s: %v",
 			uid, entry.TeslaID, entry.ChargedOn.Format("2006-01-02"), err)
@@ -1422,13 +1465,13 @@ func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicle
 	}
 
 	entry := charging.Entry{
-		AccountID:      uid,
-		TeslaID:        teslaID,
-		VIN:            vin,
-		ChargedOn:      chargedOn,
-		Status:         status,
-		EnergyAddedKWh: energy,
-		Price:          price,
+		CreatedByAccountID: uid,
+		TeslaID:            teslaID,
+		VIN:                vin,
+		ChargedOn:          chargedOn,
+		Status:             status,
+		EnergyAddedKWh:     energy,
+		Price:              price,
 		// PriceConfirmed is passed through unconditionally — charging already
 		// ignores it whenever Price > 0 (tier 1's resolvePriceSource); the
 		// gateway does not duplicate that precedence rule (design.md §D-Parse,

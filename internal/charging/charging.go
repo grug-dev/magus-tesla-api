@@ -95,10 +95,20 @@ const (
 // pgtype is confined to the DB boundary inside service.go — it never appears here.
 // Timestamps map to time.Time; DATE maps to time.Time (midnight UTC).
 type Entry struct {
-	ID        uuid.UUID
-	AccountID uuid.UUID
-	TeslaID   int64
-	VIN       string
+	ID uuid.UUID
+	// CreatedByAccountID records which account typed this entry. It is
+	// authorship only, recorded once on Create and never touched or checked
+	// again: no read filters on it, and no write matches on it.
+	CreatedByAccountID uuid.UUID
+	// TeslaID is the vehicle this entry belongs to. On Create it is
+	// caller-supplied and trusted -- the gateway already checked the vehicle
+	// against the account before calling. On Update it is IGNORED: the
+	// module overwrites it from the caller's vehicleref.Ref before anything
+	// else runs, the same "module owns this value" rule EnergySource and
+	// PriceSource already follow -- so a stale or mismatched caller value can
+	// never leak into energy derivation or the stored row.
+	TeslaID int64
+	VIN     string
 
 	// Status is this entry's lifecycle state. The required-field set for
 	// Create/Update is a function of Status — see RequiredFieldsFor. An empty
@@ -215,48 +225,59 @@ func (e Entry) SessionDuration() *time.Duration {
 	return &d
 }
 
-// Writer is the full CRUD port for manual charge entries. The gateway calls this after
-// validating that the user owns the vehicle (resolved via account.Service — outside
-// this module's scope). Create and Update return the stored Entry (with server-assigned
-// id, created_at, updated_at) so the gateway can display the result without a second
-// round-trip. Delete takes accountID as a required argument so the SQL WHERE clause
-// always scopes to the caller's own account — a user cannot delete another tenant's
-// entry even with a valid UUID (design D4).
+// Writer is the full CRUD port for manual charge entries. Create keeps the account
+// argument on Entry.CreatedByAccountID -- authorship, not a guard: no existing row can
+// collide with a new one, so nothing needs proving before a create. Update and Delete
+// instead require a vehicleref.Ref, proving the caller's account owns the entry's OWN
+// vehicle -- only internal/gateway's authorizeVehicle can build one. Update overwrites
+// Entry.TeslaID from the Ref before doing anything else (see the field's own comment),
+// so every downstream derivation reads the proven car, never the caller's value.
+// Create and Update return the stored Entry (with server-assigned id, created_at,
+// updated_at) so the gateway can display the result without a second round-trip. A Ref
+// naming the wrong vehicle for a given id matches no row: Update returns an error
+// wrapping pgx.ErrNoRows (from RETURNING * finding nothing), and Delete reports the
+// same, from a zero row count.
 type Writer interface {
 	Create(ctx context.Context, e Entry) (Entry, error)
-	Update(ctx context.Context, e Entry) (Entry, error)
-	Delete(ctx context.Context, accountID uuid.UUID, id uuid.UUID) error
+	Update(ctx context.Context, ref vehicleref.Ref, e Entry) (Entry, error)
+	Delete(ctx context.Context, ref vehicleref.Ref, id uuid.UUID) error
 }
 
 // Reader is the read port shaped for dashboard access patterns. All methods return a
 // non-nil empty slice when no entries exist. For ListEntriesByVehicle and
-// ListEntriesByAccount, limit = 0 uses a server default (100).
+// ListEntriesByVehicles, limit = 0 uses a server default (100). Every read is
+// car-wide: it returns entries typed by any account registered to the vehicle asked
+// for, never filtered by who typed them.
 // Gateway and other callers MUST NOT import chargingdb directly — all read access
 // goes through this interface (ai/architecture.md §2, design D5).
 type Reader interface {
-	ListEntriesByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Entry, error)
-	ListEntriesByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]Entry, error)
+	ListEntriesByVehicle(ctx context.Context, teslaID int64, limit int) ([]Entry, error)
 
-	// ListEntriesByVehicleBetween returns entries for a specific vehicle within an
-	// account whose charged_on falls within [from, to], inclusive of both bounds
-	// (design D5, roadmap D9/D12). Ordered charged_on DESC, matching
-	// ListEntriesByVehicle (design D2). Always returns a non-nil empty slice when no
-	// rows match (design D4). No limit parameter (design D1, roadmap D9) — the
-	// [from, to] window itself bounds the result.
-	ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Entry, error)
+	// ListEntriesByVehicles returns entries for a caller-supplied set of vehicles,
+	// ordered charged_on DESC across the whole set, bounded by limit (0 = server
+	// default). The caller supplies the set of vehicles it is entitled to see. An
+	// empty or nil slice returns a non-nil empty result — it must never be read as
+	// "no filter": a caller supplying no vehicle is entitled to no entry.
+	ListEntriesByVehicles(ctx context.Context, teslaIDs []int64, limit int) ([]Entry, error)
 
-	// ListEntriesByVehicleUpdatedSince returns entries for a specific vehicle within
-	// an account whose updated_at is at or after since, inclusive. Ordered
-	// charged_on DESC, matching ListEntriesByVehicle and ListEntriesByVehicleBetween.
-	// Always returns a non-nil empty slice when no rows match. No limit parameter —
-	// the since bound itself limits the result. This port exists for the analytics
-	// module's incremental recompute watermark: manual_charge_entries is the one
-	// source a user can edit at an arbitrary hour (rather than only at the nightly
-	// poll), which is why it gets its own updated-since cursor read
-	// (RM29-analytics-add-vehicle-metrics design D3,
+	// ListEntriesByVehicleBetween returns entries for a specific vehicle whose
+	// charged_on falls within [from, to], inclusive of both bounds. Ordered
+	// charged_on DESC, matching ListEntriesByVehicle. Always returns a non-nil
+	// empty slice when no rows match. There is no limit parameter: the
+	// [from, to] window already bounds the result.
+	ListEntriesByVehicleBetween(ctx context.Context, teslaID int64, from, to time.Time) ([]Entry, error)
+
+	// ListEntriesByVehicleUpdatedSince returns entries for a specific vehicle whose
+	// updated_at is at or after since, inclusive. Ordered charged_on DESC, matching
+	// ListEntriesByVehicle and ListEntriesByVehicleBetween. Always returns a
+	// non-nil empty slice when no rows match. No limit parameter — the since bound
+	// itself limits the result. This port exists for the analytics module's
+	// incremental recompute watermark: manual_charge_entries is the one source a
+	// user can edit at an arbitrary hour (rather than only at the nightly poll),
+	// which is why it gets its own updated-since cursor read (see
 	// specs/manual-charge-log/spec.md "List entries by vehicle updated since a given
 	// instant").
-	ListEntriesByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Entry, error)
+	ListEntriesByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Entry, error)
 }
 
 // NewWriter constructs a Writer backed by the given pgxpool. The implementation

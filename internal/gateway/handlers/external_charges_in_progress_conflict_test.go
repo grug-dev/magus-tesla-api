@@ -117,13 +117,13 @@ func TestExternalChargeCreate_RejectsSecondInProgressOnSameDate(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{{
-		ID:        uuid.New(),
-		AccountID: uid,
-		TeslaID:   1001,
-		VIN:       "VIN1001",
-		ChargedOn: day(t, "2026-07-15"),
-		Status:    charging.StatusInProgress,
-		Currency:  "COP",
+		ID:                 uuid.New(),
+		CreatedByAccountID: uid,
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          day(t, "2026-07-15"),
+		Status:             charging.StatusInProgress,
+		Currency:           "COP",
 	}}}
 	h := newHandlerForExternalCharges(writer, reader)
 
@@ -154,13 +154,13 @@ func TestExternalChargeCreate_AllowsInProgressOnADifferentDate(t *testing.T) {
 	// 2026-07-15 lookup — which makes this test the sharper one: only the
 	// handler's own same-day scoping can let this write through.
 	reader := &fakeChargeReader{entries: []charging.Entry{{
-		ID:        uuid.New(),
-		AccountID: uid,
-		TeslaID:   1001,
-		VIN:       "VIN1001",
-		ChargedOn: day(t, "2026-07-20"),
-		Status:    charging.StatusInProgress,
-		Currency:  "COP",
+		ID:                 uuid.New(),
+		CreatedByAccountID: uid,
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          day(t, "2026-07-20"),
+		Status:             charging.StatusInProgress,
+		Currency:           "COP",
 	}}}
 	h := newHandlerForExternalCharges(writer, reader)
 
@@ -181,13 +181,13 @@ func TestExternalChargeCreate_AllowsDoneOnADateWithAnInProgress(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{{
-		ID:        uuid.New(),
-		AccountID: uid,
-		TeslaID:   1001,
-		VIN:       "VIN1001",
-		ChargedOn: day(t, "2026-07-15"),
-		Status:    charging.StatusInProgress,
-		Currency:  "COP",
+		ID:                 uuid.New(),
+		CreatedByAccountID: uid,
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          day(t, "2026-07-15"),
+		Status:             charging.StatusInProgress,
+		Currency:           "COP",
 	}}}
 	h := newHandlerForExternalCharges(writer, reader)
 
@@ -208,13 +208,13 @@ func TestExternalChargeCreate_AllowsInProgressWhenSameDayEntryIsDone(t *testing.
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{{
-		ID:        uuid.New(),
-		AccountID: uid,
-		TeslaID:   1001,
-		VIN:       "VIN1001",
-		ChargedOn: day(t, "2026-07-15"),
-		Status:    charging.StatusDone,
-		Currency:  "COP",
+		ID:                 uuid.New(),
+		CreatedByAccountID: uid,
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          day(t, "2026-07-15"),
+		Status:             charging.StatusDone,
+		Currency:           "COP",
 	}}}
 	h := newHandlerForExternalCharges(writer, reader)
 
@@ -256,13 +256,13 @@ func TestExternalChargeRowUpdate_RejectsInProgressWhenAnotherExistsSameDate(t *t
 	editedID := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{{
-		ID:        uuid.New(), // a DIFFERENT row already holds the day
-		AccountID: uid,
-		TeslaID:   1001,
-		VIN:       "VIN1001",
-		ChargedOn: day(t, "2026-07-15"),
-		Status:    charging.StatusInProgress,
-		Currency:  "COP",
+		ID:                 uuid.New(), // a DIFFERENT row already holds the day
+		CreatedByAccountID: uid,
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          day(t, "2026-07-15"),
+		Status:             charging.StatusInProgress,
+		Currency:           "COP",
 	}}}
 	h := newHandlerForExternalCharges(writer, reader)
 
@@ -288,13 +288,13 @@ func TestExternalChargeRowUpdate_InProgressRowDoesNotConflictWithItself(t *testi
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{{
-		ID:        id, // the very row being edited
-		AccountID: uid,
-		TeslaID:   1001,
-		VIN:       "VIN1001",
-		ChargedOn: day(t, "2026-07-15"),
-		Status:    charging.StatusInProgress,
-		Currency:  "COP",
+		ID:                 id, // the very row being edited
+		CreatedByAccountID: uid,
+		TeslaID:            1001,
+		VIN:                "VIN1001",
+		ChargedOn:          day(t, "2026-07-15"),
+		Status:             charging.StatusInProgress,
+		Currency:           "COP",
 	}}}
 	h := newHandlerForExternalCharges(writer, reader)
 

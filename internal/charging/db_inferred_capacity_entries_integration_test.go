@@ -134,7 +134,7 @@ func TestCreate_InferredCapacity_TableCases(t *testing.T) {
 				t.Fatalf("%s: Create: expected success, got error: %v", tc.id, err)
 			}
 
-			got, err := r.ListEntriesByVehicle(ctx, accountID, teslaID, 10)
+			got, err := r.ListEntriesByVehicle(ctx, teslaID, 10)
 			if err != nil {
 				t.Fatalf("%s: ListEntriesByVehicle: %v", tc.id, err)
 			}
@@ -180,7 +180,7 @@ func TestUpdate_InferredCapacity_RecomputesOnEndBatteryPctChange(t *testing.T) {
 	updated := created
 	updated.EndBatteryPct = ptrInt(84)
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(teslaID), updated)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}

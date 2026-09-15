@@ -76,7 +76,7 @@ func insertEntryColumns(ctx context.Context, pool *pgxpool.Pool, columns string,
 // minColumns/minArgs are the pre-migration required column set (Context fact 5
 // / B1's own subject) and a set of valid values for it, reused by every Group B
 // case that does not specifically exercise one of these columns.
-const minColumns = "account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, location_kind"
+const minColumns = "created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, location_kind"
 
 func minArgs(accountID uuid.UUID, teslaID int64) []any {
 	return []any{
@@ -481,9 +481,9 @@ func TestEntryStatus_C7_DoneRejectsMissingEndBatteryPct(t *testing.T) {
 	_, err := w.Create(ctx, e)
 	assertErrorNamesField(t, err, string(charging.FieldEndBatteryPct))
 
-	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if listErr != nil {
-		t.Fatalf("C7: ListEntriesByAccount: %v", listErr)
+		t.Fatalf("C7: ListEntriesByVehicle: %v", listErr)
 	}
 	if len(entries) != 0 {
 		t.Errorf("C7: expected 0 rows after rejection, got %d", len(entries))
@@ -508,9 +508,9 @@ func TestEntryStatus_C8_DoneRejectsMissingEndedAt(t *testing.T) {
 	_, err := w.Create(ctx, e)
 	assertErrorNamesField(t, err, string(charging.FieldEndedAt))
 
-	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if listErr != nil {
-		t.Fatalf("C8: ListEntriesByAccount: %v", listErr)
+		t.Fatalf("C8: ListEntriesByVehicle: %v", listErr)
 	}
 	if len(entries) != 0 {
 		t.Errorf("C8: expected 0 rows after rejection, got %d", len(entries))
@@ -582,9 +582,9 @@ func TestEntryStatus_C11_UnknownStatusRejectedInGo(t *testing.T) {
 		t.Fatal("C11: Create with status=PAUSED: expected error, got nil")
 	}
 
-	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if listErr != nil {
-		t.Fatalf("C11: ListEntriesByAccount: %v", listErr)
+		t.Fatalf("C11: ListEntriesByVehicle: %v", listErr)
 	}
 	if len(entries) != 0 {
 		t.Errorf("C11: expected 0 rows after rejection, got %d", len(entries))
@@ -649,7 +649,7 @@ func TestEntryStatus_C13_UpdateDerivesIdenticallyToCreate(t *testing.T) {
 	updated := created
 	updated.EnergyAddedKWh = nil // percentages (50/100) carry over from created
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(320015), updated)
 	if err != nil {
 		t.Fatalf("C13: Update: unexpected error: %v", err)
 	}
@@ -686,7 +686,7 @@ func TestEntryStatus_C14_UpdateProvenanceRecomputedNeverSticky(t *testing.T) {
 	updated := created
 	updated.EnergyAddedKWh = ptrFloat64(25.0)
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(320016), updated)
 	if err != nil {
 		t.Fatalf("C14: Update: unexpected error: %v", err)
 	}
@@ -722,12 +722,12 @@ func TestEntryStatus_C15_UpdateEnforcesRequiredFieldsAndWritesNothing(t *testing
 	tampered.Status = charging.StatusDone
 	tampered.EndedAt = nil // still missing -- and end_battery_pct is also nil
 
-	_, err = w.Update(ctx, tampered)
+	_, err = w.Update(ctx, refFor(320017), tampered)
 	if err == nil {
 		t.Fatal("C15: Update to DONE without ended_at/end_battery_pct: expected error, got nil")
 	}
 
-	entries, listErr := r.ListEntriesByVehicle(ctx, accountID, 320017, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, created.TeslaID, 10)
 	if listErr != nil {
 		t.Fatalf("C15: ListEntriesByVehicle: %v", listErr)
 	}
@@ -764,7 +764,7 @@ func TestEntryStatus_C16_DoneToInProgressIsAllowed(t *testing.T) {
 	updated.EndedAt = nil
 	updated.EndBatteryPct = nil
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(320018), updated)
 	if err != nil {
 		t.Fatalf("C16: Update DONE -> IN_PROGRESS: unexpected error: %v", err)
 	}

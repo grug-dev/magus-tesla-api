@@ -1,0 +1,402 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM58-charging-entry-writes-take-ref",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
+  "request": "MAG-68 — Tier 2 of RM58: Writer.Update and Writer.Delete require a vehicleref.Ref, the SQL guard becomes id AND tesla_id, and a delete that matches nothing stops looking like success.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T6.7",
+      "T7",
+      "T8"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-14T16:05:00Z",
+  "updated_at": "2026-09-14T19:46:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM58-MAG-68-rekey-manual-charges-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-68",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-68/5-demote-chargingmanual-charge-entriesaccount-id-to-created-by-account",
+    "created_at": "2026-09-14T10:13:34Z"
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Offline check — grep every Update/Delete call site before edits move the lines",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "Grep counts matched design.md: 12 Update and 2 Delete call sites across four files. Offline test files clean, zero hits."
+    },
+    {
+      "id": "T1",
+      "title": "Queries and sqlc — tesla_id guard on UpdateEntry/DeleteEntry, DeleteEntry becomes :execrows",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "query.sql rewritten: tesla_id predicate on both writes, DeleteEntry is :execrows. make sqlc output matched design.md point by point."
+    },
+    {
+      "id": "T2",
+      "title": "Ports (charging.go) — Update/Delete take a vehicleref.Ref; Entry.TeslaID doc",
+      "module": "charging",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "Writer.Update and Writer.Delete retyped to take a vehicleref.Ref, mirroring VerifySession's parameter order. Interface and field doc comments rewritten."
+    },
+    {
+      "id": "T3",
+      "title": "Service (service.go) — Ref unwrap, e.TeslaID overwritten, Delete returns pgx.ErrNoRows on a miss",
+      "module": "charging",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "service.go: e.TeslaID overwritten from the Ref first, before resolveEnergy. store.deleteEntry returns rows; Delete wraps pgx.ErrNoRows on zero."
+    },
+    {
+      "id": "T4",
+      "title": "Tests — re-key the two cross-account guards onto tesla_id; the delete guard inverts its assertion",
+      "module": "charging",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "12 Update and 2 Delete call sites updated. Both guard tests renamed onto the vehicle; the delete guard's assertion inverted. Reused RM57's existing refFor helper."
+    },
+    {
+      "id": "T5",
+      "title": "Docs (module-owned) — charging docs with no gateway dependency",
+      "module": "charging",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:15:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "internal/charging/AGENTS.md updated across four sections. kkpa/context/workflows/manual-charge-crud.md updated. charging-tables.md needed no edit."
+    },
+    {
+      "id": "T6",
+      "title": "Gateway call sites (LEADER-OWNED) — authorizeVehicle on the entry's tesla_id, Ref to the write ports",
+      "module": "gateway",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T16:20:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "Both handlers authorize the entry's own tesla_id and pass the Ref. A lookup miss now answers 404. Grep found no write call site beyond the two handlers and the one fake."
+    },
+    {
+      "id": "T7",
+      "title": "Cross-module-aware KB docs — the two use-case guides that describe the gateway flow",
+      "module": "charging",
+      "depends_on": [
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T17:40:00Z",
+      "completed_at": "2026-09-14T17:44:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 94,
+        "cost_usd_delta": 3.5,
+        "approx": true,
+        "note": "T7 Sonnet worker plus the leader's T8 verification."
+      },
+      "notes": "Three KB docs updated: both use-case flows gained the authorizeVehicle step and the 404-on-miss, and the mutation guide's stale bullet is restated as resolved. archive-guard clean."
+    },
+    {
+      "id": "T8",
+      "title": "Final verification — build, vet, gofmt, guards",
+      "module": "charging",
+      "depends_on": [
+        "T4",
+        "T5",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T17:44:00Z",
+      "completed_at": "2026-09-14T17:44:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 87,
+        "five_hour_pct_end": 94,
+        "cost_usd_delta": 3.5,
+        "approx": true,
+        "note": "Shared with T7."
+      },
+      "notes": "build, vet, openspec validate --strict all clean. All eight guards pass. 8.7 grep found zero charging.Writer calls outside charging and gateway, so analytics is untouched."
+    },
+    {
+      "id": "T6.7",
+      "title": "Gateway tests broken by the new 404-on-miss behaviour (LEADER-OWNED)",
+      "module": "gateway",
+      "depends_on": [
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T16:20:00Z",
+      "completed_at": "2026-09-14T17:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 86,
+        "cost_usd_delta": 11.0,
+        "approx": true,
+        "note": "One wave delta shared across T0-T5 (Sonnet), T6 (leader) and T6.7 (Sonnet + leader)."
+      },
+      "notes": "Three tests reseeded with a matching entry on TeslaID 1001. D4 needed more: the fake writer gained an opt-in linkedReader so one request can show both states."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D7",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "Tier 2 does the minimal gateway wiring: authorizeVehicle on the entry's tesla_id, Ref passed to the write ports. Tier 3 keeps the rest.",
+      "why": "Tier 1 used the same pattern. The alternative merges tier 2 into the riskiest tier and makes one big review."
+    },
+    {
+      "id": "D8",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "Update overwrites e.TeslaID from the Ref before any work, so resolveEnergy reads the proven car.",
+      "why": "The module already overwrites caller values it owns (EnergySource, PriceSource). Without it, energy can be derived from an unproven car."
+    },
+    {
+      "id": "D9",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "DeleteEntry becomes :execrows and Delete returns pgx.ErrNoRows on zero rows.",
+      "why": "Update is :one and already reports not-found. The gateway maps a Delete error to a message, so a miss stops looking like success."
+    },
+    {
+      "id": "D10",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:35:00Z",
+      "what": "A manual-charge update or delete whose entry lookup misses answers 404, for both handlers.",
+      "why": "A miss leaves no vehicle to authorize, and the ports accept only a Ref. design.md D8 claimed Delete is unreachable on a miss; the code proved otherwise."
+    },
+    {
+      "id": "D11",
+      "scope": "tier-2",
+      "made_by": "autopilot",
+      "at": "2026-09-14T17:00:00Z",
+      "what": "fakeChargeWriter gained an opt-in linkedReader field so a successful Delete drops the row from the linked fake reader.",
+      "why": "The D4 test asserts the entry present for the lookup and absent in the re-render, within one request. The alternatives weakened an assertion or rewrote the test."
+    },
+    {
+      "id": "D12",
+      "scope": "tier-2",
+      "made_by": "autopilot",
+      "at": "2026-09-14T17:40:00Z",
+      "what": "T7.3 restates the charge-record-mutation bullet as resolved instead of deleting it.",
+      "why": "tasks.md left the choice to the leader. ai/architecture.md section 7 keeps its telemetry-boundary guard as RESOLVED, so the project already prefers keeping the history."
+    }
+  ],
+  "review": {
+    "brief": "Review scope: git diff 9c33a8d..HEAD (tier 2 only; tier 1 archived at 9c33a8d). Read the diff, not the whole module. Validate: (1) every binding decision holds in the code - D2/D5 from the roadmap, D7-D12 in this file; (2) Writer.Update and Writer.Delete accept only a vehicleref.Ref and no call site bypasses it; (3) UpdateEntry/DeleteEntry SQL guards on id AND tesla_id, DeleteEntry is :execrows, Delete wraps pgx.ErrNoRows on zero rows; (4) service.Update overwrites e.TeslaID from the Ref BEFORE resolveEnergy (D8) - order matters, a later overwrite is a blocker; (5) both gateway handlers call authorizeVehicle on the entry's own tesla_id and answer 404 on a lookup miss (D10); (6) only authorizeVehicle constructs a Ref (vehicleref-guard); (7) module boundaries - charging owns no HTML and reads no other module's DB; (8) the integration tests assert the expected values design.md authored up front, not whatever the implementation happens to do - in particular TestDelete_CrossVehicleGuard must now assert a non-nil error wrapping pgx.ErrNoRows, the inverted assertion the worker flagged as easy to miss; (9) docs track the change - internal/charging/AGENTS.md, the three KB guides, openspec specs; (10) openspec/changes/archive/ is untouched (archive-guard); (11) anti-gaming - no acceptance criterion weakened or deleted, no self-approved status. Performance-Profile compliance: read-heavy; the write path may cost more if reads do not. Signals: go build ./..., go vet ./..., openspec validate --strict and all eight guards were ASSISTANT-run and clean. The test suite was USER-run and the owner reported it passed; the only change since that pass is three markdown files. You judge test quality by READING the tests - never run the suite.",
+    "agent": "charging-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-14T19:45:43Z",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Scope: git diff 9c33a8d..HEAD. Read charging.go, service.go, query.sql, query.sql.go, all four integration test diffs, external_charges.go, external_charges_test.go, AGENTS.md, KB guides, roadmap/change progress.json, specs delta. D2/D5 (roadmap) and D7-D12 (this change) all hold in code. Writer.Update/Delete take only vehicleref.Ref; grep confirms no other call site in the repo. UpdateEntry/DeleteEntry guard on id AND tesla_id; DeleteEntry is :execrows; Delete wraps pgx.ErrNoRows on a zero-row match. service.Update sets e.TeslaID = ref.TeslaID() as the first line, before normalizeStatus/resolveEnergy (D8 order confirmed). Both gateway handlers call authorizeVehicle on the entry's own tesla_id and return 404 (never 403) on a lookup miss or an authorization miss (D10). make vehicleref-guard confirms only authorizeVehicle/tests/vehicleref itself construct a Ref. TestDelete_CrossVehicleGuard now asserts errors.Is(err, pgx.ErrNoRows) — the inverted assertion the worker flagged, correctly applied. Docs updated: internal/charging/AGENTS.md (3 sections), 3 KB guides, INDEX.md; openspec/specs/manual-charge-log/spec.md intentionally left for archive-time sync per this project's own convention (task 5.4), and the change's own delta spec has the 4 modified requirements. openspec/changes/archive/ untouched (archive-guard clean). go build, go vet, gofmt (on touched files), openspec validate --strict, boundary-guard, archive-guard, i18n-guard, vehicleref-guard all clean (assistant-run per Test-Execution-Policy). No code comment in the diff cites design.md, a decision ID, RM58, or a tier number. No task/criterion edited or weakened; progress.json task statuses match the diff. One observation, not a finding: two early commits on this branch (514d7b9, abb8fa6) apply tier 1's own already-approved KB sync proposal under kkpa/context/pending-spec-to-sync/applied/ — housekeeping from the prior tier, not tier-2 work, and it touches no code."
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-14T16:05:00Z",
+      "what": "artifacts-created",
+      "detail": "Worker (Sonnet) wrote proposal/design/tasks and a 4-requirement delta spec. openspec validate --strict passes. No design gate: design.md D9 states no database object changes. Budget after the artifacts wave: five_hour_pct 47, context_pct 13."
+    },
+    {
+      "at": "2026-09-14T16:05:00Z",
+      "what": "worker-flag",
+      "detail": "TestDelete_CrossVehicleGuard inverts its own assertion: it asserts err == nil today and must assert a non-nil error wrapping pgx.ErrNoRows after D9. Easy to miss during implementation."
+    },
+    {
+      "at": "2026-09-14T16:15:00Z",
+      "what": "wave-1-dispatched",
+      "detail": "One serial Sonnet worker for T0-T5 (charging module). T6 is leader-owned and lands right after, in the same wave commit, because go build ./... is red outside internal/charging until it does. Budget at dispatch: five_hour_pct 63, context_pct 13."
+    },
+    {
+      "at": "2026-09-14T16:35:00Z",
+      "what": "design-doc-corrected",
+      "detail": "design.md D8 states that on an entry-lookup miss chargingWriter.Delete is never reached. False: ExternalChargeRowDelete called Delete unconditionally and its own comment said the delete still proceeds. The owner chose 404-on-miss (D10). design.md D8 is corrected in place; the sentence was wrong when written, not made stale by this work."
+    },
+    {
+      "at": "2026-09-14T17:00:00Z",
+      "what": "wave-1-reconciled",
+      "detail": "T0-T6.7 complete. go build ./... and go vet ./... clean. All seven guards pass: vehicleref, boundary, archive, i18n, money, tz, migration. No test was executed, so every code task is awaiting the owner's verification. Budget after the wave: five_hour_pct 86, context_pct 18."
+    },
+    {
+      "at": "2026-09-14T17:02:00Z",
+      "what": "budget-checkpoint",
+      "detail": "Stopped cleanly after wave 1. five_hour_pct 86 against a 90 threshold; wave 2 (T7 KB docs, T8 final verification) would cross it. context_pct 18. five_hour_resets_at 1789414800. Resume with: /kkpa-dev-harness-pipeline resume RM58-charging-entry-writes-take-ref"
+    },
+    {
+      "at": "2026-09-14T17:40:00Z",
+      "what": "owner-verified",
+      "detail": "The OWNER ran the suite and reported it passed. Tasks T1, T2, T3, T4, T6, T6.7 move from awaiting-user-verification to done. The assistant executed no test; this pass is the owner's report."
+    },
+    {
+      "at": "2026-09-14T17:40:00Z",
+      "what": "t7-dispatched",
+      "detail": "Sonnet worker for T7 (three KB docs). Budget at dispatch: five_hour_pct 87, context_pct 19."
+    },
+    {
+      "at": "2026-09-14T17:44:00Z",
+      "what": "t8-verified",
+      "detail": "go build ./... clean, go vet ./... clean, openspec validate --strict valid. vehicleref, boundary, tz, money, i18n, ui, archive and migration guards all pass. 8.4: only authorizeVehicle constructs a Ref. 8.7: zero charging.Writer calls outside charging and gateway. 8.8: every doc-invalidation row done. 8.3: gofmt lists three files, all pre-existing on main and untouched by this branch."
+    },
+    {
+      "at": "2026-09-14T17:44:00Z",
+      "what": "budget-checkpoint",
+      "detail": "Stopped before the reviewer gate. five_hour_pct 94, past the 90 threshold. context_pct 20. five_hour_resets_at 1789414800 (14:40 local). The only change since the owner's suite pass is three markdown files, so that pass still stands. Resume with: /kkpa-dev-harness-pipeline resume RM58-charging-entry-writes-take-ref"
+    },
+    {
+      "at": "2026-09-14T17:45:44Z",
+      "what": "resume-deferred",
+      "detail": "Resume attempted before the 5-hour bucket reset. five_hour_pct 97 (worse than the 94 at checkpoint), resets_at 1789414800 (14:40 local, ~1h55m away). context_pct 10. The reviewer gate is the only work left and it is a full dispatch, so nothing was started. State unchanged: status verified, all tasks done."
+    },
+    {
+      "at": "2026-09-14T19:42:30Z",
+      "what": "reviewer-dispatched",
+      "detail": "charging-reviewer (Sonnet) dispatched for review round 1, scope git diff 9c33a8d..HEAD. Doc pack: base + ai/agentic-workflow.md + internal/charging/AGENTS.md + internal/gateway/AGENTS.md (the change edits two gateway handlers). Budget at dispatch: five_hour bucket freshly reset, context_pct 11."
+    },
+    {
+      "at": "2026-09-14T19:46:00Z",
+      "what": "reviewer-approved",
+      "detail": "charging-reviewer approved round 1 with zero findings. It ran build, vet, openspec validate --strict, vehicleref/boundary/archive/i18n guards itself, and read the tests rather than running them. It noted one non-finding: the branch's first two commits apply tier 1's KB sync, leftover housekeeping from the prior tier."
+    }
+  ]
+}

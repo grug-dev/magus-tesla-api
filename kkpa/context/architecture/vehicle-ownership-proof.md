@@ -33,6 +33,11 @@ Ask CodeGraph for the symbols named in the Glossary, or run
   may act on a requested vehicle. It authorizes once, and the resulting proof is what any
   domain module call for that vehicle receives.
   _Source: spec vehicleref — Requirement: Vehicle Ownership Check Happens At The Gateway._
+- **Using the fleet proof for a read.** A read scoped to the caller's whole fleet takes its
+  vehicle identities from the bulk proof, not from a list built beside the call. The owned set
+  is proved once and reused, never re-derived per read. When the owned set is empty, or cannot
+  be determined at all, the read does not run.
+  _Source: spec vehicleref — Requirement: A Fleet-Wide Read Uses The Bulk Ownership Proof._
 
 ## Conventions & gotchas
 
@@ -51,6 +56,21 @@ Ask CodeGraph for the symbols named in the Glossary, or run
 - **An empty owned list is a normal state, not an error.** A caller with no vehicles gets no
   proof back. Handle it as "nothing to show", not as a failure.
   _Source: spec vehicleref — Requirement: Proof For Every Owned Vehicle._
+- **Never build an owned-id list beside the call.** A fleet-wide read gets its identities from
+  the bulk proof. A local loop that turns the caller's vehicles into a plain id slice looks
+  harmless and is the thing this rule forbids: it puts an owned set outside the one place the
+  guard watches. If you find yourself writing that loop, you want the bulk proof instead.
+  _Source: spec vehicleref — Requirement: A Fleet-Wide Read Uses The Bulk Ownership Proof._
+- **A fleet-wide read fails closed — empty and unknown both mean "no read".** An empty owned
+  set and a failure to determine the owned set produce the same outcome: the read does not run,
+  and the caller is told nothing was found. Never fall through to an unfiltered read. This is
+  the security-relevant half of the rule: "no filter" would return every vehicle's rows.
+  _Source: spec vehicleref — Requirement: A Fleet-Wide Read Uses The Bulk Ownership Proof._
+- **This sharpens the existing "an empty owned list is a normal state" bullet, it does not
+  contradict it.** That bullet is about asking for proofs and getting none back, which is
+  normal. This one is about what a *read* must then do: stop. Both are true.
+  _Source: spec vehicleref — Requirement: A Fleet-Wide Read Uses The Bulk Ownership Proof;
+  Requirement: Proof For Every Owned Vehicle._
 
 ## Related KB
 

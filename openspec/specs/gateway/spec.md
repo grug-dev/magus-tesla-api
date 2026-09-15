@@ -441,7 +441,7 @@ own.
 account has zero registered vehicles, or the session's selection is stale), the page SHALL
 render ONLY the existing "no entries yet" empty-state message — no date-filter selector, no
 aggregation tiles, and no table. The prior fallback of listing entries across the whole
-account (`ListEntriesByAccount`) when no vehicle is selected is REMOVED: an account with no
+account when no vehicle is selected is REMOVED: an account with no
 registered vehicle cannot create an entry either, so there is nothing meaningful to fall back
 to.
 
@@ -484,8 +484,7 @@ to.
 - **AND** no date-filter selector is shown
 - **AND** no aggregation tiles are shown
 - **AND** no table (not even an empty one) is shown
-- **AND** the gateway does NOT call `charging.Reader.ListEntriesByAccount` or any other
-  account-wide read to populate this page
+- **AND** the gateway does NOT perform any account-wide read to populate this page
 
 #### Scenario: External charges is linked from the dashboard navigation
 

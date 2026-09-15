@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM58-rekey-manual-charges-on-tesla-id",
+  "intention": "charging.manual_charge_entries is keyed on tesla_id, account_id is demoted to created_by_account_id and never read as a filter, and no manual-charge write can run without a vehicleref.Ref.",
+  "request": "MAG-68 — 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Step 5 of MAG-63.",
+  "status": "complete",
+  "autopilot": false,
+  "created_at": "2026-09-14T10:13:34Z",
+  "updated_at": "2026-09-14T21:45:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM58-MAG-68-rekey-manual-charges-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-68",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-68/5-demote-chargingmanual-charge-entriesaccount-id-to-created-by-account",
+    "created_at": "2026-09-14T10:13:34Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "RM58-charging-demote-manual-charge-account-id",
+      "RM58-charging-entry-writes-take-ref",
+      "RM58-gateway-authorize-manual-charge-writes"
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-14T10:05:00Z",
+      "what": "The three internal/analytics read ports drop accountID, so analytics reads every manual charge for a car whoever typed it.",
+      "why": "It matches supercharger sessions, which RM57 already made car-wide. Manual entries were the last charging source still filtered by account."
+    },
+    {
+      "id": "D2",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-14T10:08:00Z",
+      "what": "Update and Delete take a vehicleref.Ref; the SQL keeps WHERE id = $1 AND tesla_id = $2.",
+      "why": "Only the gateway's authorizeVehicle can build a Ref and vehicleref-guard enforces it, so a missed call site is a compile error, not a security hole. Same shape RM57 gave VerifySession."
+    },
+    {
+      "id": "D3",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-14T10:13:00Z",
+      "what": "The four Reader ports keep int64 rather than taking a vehicleref.Ref.",
+      "why": "internal/analytics calls them and make vehicleref-guard forbids building a Ref outside the gateway. RM57 kept its read ports on int64 for the same reason."
+    },
+    {
+      "id": "D4",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-14T10:13:00Z",
+      "what": "Three tiers, split charging / charging / gateway, with tier 1 carrying the analytics and mechanical gateway call-site updates.",
+      "why": "Mirrors RM57, which folded consumer call-site updates into the owning module's tier and gave the gateway its own tier for the real authorization work."
+    },
+    {
+      "id": "D5",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-14T10:32:00Z",
+      "what": "UpdateEntry and DeleteEntry keep an account predicate in tier 1, on the renamed column. Tier 2 swaps it for the tesla_id guard.",
+      "why": "Dropping it in tier 1 leaves the write path with no authorization until tier 2. The delete handler proceeds on a lookup miss, so SQL is the only guard. main auto-deploys."
+    },
+    {
+      "id": "D6",
+      "scope": "database-gate",
+      "made_by": "user",
+      "at": "2026-09-14T10:32:00Z",
+      "what": "Database design confirmed: rename the column, drop idx_manual_charge_entries_account_time, replace the vehicle-time index with (tesla_id, charged_on DESC).",
+      "why": "No row is deleted and no value rewritten, so Down is a true undo. Two indexes become one and it serves all four reads."
+    },
+    {
+      "id": "D7",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "Tier 2 does the minimal gateway wiring: authorizeVehicle on the entry's tesla_id, Ref passed to the write ports. Tier 3 keeps the rest.",
+      "why": "Tier 1 used the same pattern. The alternative merges tier 2 into the riskiest tier and makes one big review."
+    },
+    {
+      "id": "D8",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "Update overwrites e.TeslaID from the Ref before any work, so resolveEnergy reads the proven car.",
+      "why": "The module already overwrites caller values it owns (EnergySource, PriceSource). Without it, energy can be derived from an unproven car."
+    },
+    {
+      "id": "D9",
+      "scope": "tier-2",
+      "made_by": "user",
+      "at": "2026-09-14T16:00:00Z",
+      "what": "DeleteEntry becomes :execrows and Delete returns pgx.ErrNoRows on zero rows.",
+      "why": "Update is :one and already reports not-found. The gateway maps a Delete error to a message, so a miss stops looking like success."
+    },
+    {
+      "id": "D13",
+      "scope": "tier-3",
+      "made_by": "user",
+      "at": "2026-09-14T20:25:00Z",
+      "what": "Tier 3 moves the Ref construction into one named seam in handlers.go. It does NOT call vehicleref.All inside the two lookup helpers.",
+      "why": "All is unchecked and TeslaIDs is its inverse, so the round-trip returns the same slice. The guard also forbids All outside handlers.go. One seam is a real win; the round-trip is not."
+    },
+    {
+      "id": "D14",
+      "scope": "tier-3",
+      "made_by": "user",
+      "at": "2026-09-14T20:28:00Z",
+      "what": "The seam is h.ownedVehicles(ctx, uid) returning (refs []vehicleref.Ref, vehicles []account.Vehicle, ok bool).",
+      "why": "fetchEntryVM needs the vehicles for vehicleLabelFor, so one read returns both. ok stays false on an error or an empty list."
+    },
+    {
+      "id": "D15",
+      "scope": "tier-3",
+      "made_by": "autopilot",
+      "at": "2026-09-14T20:28:00Z",
+      "what": "Only fetchEntryVM and fetchEntryTeslaIDAndChargedOn use the seam. The other three RegisteredVehicles sites keep their own calls.",
+      "why": "Those three answer 500 with an i18n message; the helpers answer a silent false. Folding them in would change what the user sees."
+    },
+    {
+      "id": "D16",
+      "scope": "tier-3",
+      "made_by": "user",
+      "at": "2026-09-14T20:45:00Z",
+      "what": "Tier 3 adds one ADDED requirement to the vehicleref capability: a fleet-wide gateway read gets its ids from a bulk ownership proof.",
+      "why": "openspec validate hard-fails with no delta. The property is false today and true after this tier, so the requirement is honest and behavioural, not a restated helper name."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM58-charging-demote-manual-charge-account-id",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T10:05:00Z",
+      "completed_at": "2026-09-14T15:50:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "cost_usd_delta": 22.3,
+        "approx": true,
+        "note": "Artifacts wave, wave 1, wave 2, T8, review round 1 and the archive, across two sessions."
+      },
+      "notes": "Migration, queries and the four Reader ports. Leader-owned integration: the three internal/analytics call sites plus the mechanical internal/gateway call-site updates that keep the build green."
+    },
+    {
+      "id": 2,
+      "change": "RM58-charging-entry-writes-take-ref",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T16:05:00Z",
+      "completed_at": "2026-09-14T19:47:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "cost_usd_delta": 15.3,
+        "approx": true,
+        "note": "Artifacts wave, wave 1 (T0-T6.7), T7, T8 and review round 1, across two sessions."
+      },
+      "notes": "Update and Delete take a vehicleref.Ref. SQL guard becomes id AND tesla_id. Create is untouched and keeps the account for authorship."
+    },
+    {
+      "id": 3,
+      "change": "RM58-gateway-authorize-manual-charge-writes",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1,
+        2
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T20:20:00Z",
+      "completed_at": "2026-09-14T21:45:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "cost_usd_delta": 9.5,
+        "approx": true,
+        "note": "Artifacts wave (two dispatches), wave 1, leader T7, and three review rounds."
+      },
+      "notes": "One seam, h.ownedVehicles, produces the caller's owned vehicle set. Both entry-lookup helpers use it; teslaIDsOf is deleted. No behaviour change. Reshaped at the interview: the row's literal change was a no-op that broke vehicleref-guard."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-14T10:13:34Z",
+      "what": "roadmap-created",
+      "detail": "RM58 numbered from openspec/.work-counter (58 -> 59). Branch ft/RM58-MAG-68-rekey-manual-charges-on-tesla-id created off main. Budget at creation: five_hour_pct 11, context_pct 19."
+    },
+    {
+      "at": "2026-09-14T10:13:34Z",
+      "what": "ticket-corrected",
+      "detail": "MAG-68's description claimed internal/gateway was the only consumer. Verified false: internal/analytics calls three per-vehicle read ports. The Linear description was corrected before the roadmap was written."
+    },
+    {
+      "at": "2026-09-14T10:13:34Z",
+      "what": "makefile-reverse-check",
+      "detail": "MIGRATIONS_DIRS order account/telemetry/charging/analytics, one shared goose_db_version table; a 20260914 migration sorts after MAG-67's 20260912. make migration-guard passes, warning only about the pre-existing 20260720000001 collision (backlog item 21). sqlc risk recorded: per-query Row structs when a kept column stops being selected."
+    },
+    {
+      "at": "2026-09-14T10:32:00Z",
+      "what": "design-gate-passed",
+      "detail": "Owner confirmed the tier 1 database design. Owner also accepted the worker's D4 finding and chose to keep the account predicate in tier 1 (D5). Worker re-dispatched to revise the artifacts. Budget after artifact wave: five_hour_pct 47, context_pct 25."
+    },
+    {
+      "at": "2026-09-14T10:40:00Z",
+      "what": "tier-1-artifacts-created",
+      "detail": "Artifacts written and revised for D5. openspec validate --strict passes. Worker surfaced a user-visible consequence of D1+D5 combined: for tiers 1-2 a shared car's co-owner entries are listed with working-looking edit/delete controls, but the delete is a silent no-op because DeleteEntry is :exec and writerService.Delete never checks rows affected. Verified in code. Tier 3 removes the cause."
+    },
+    {
+      "at": "2026-09-14T15:50:00Z",
+      "what": "tier-1-archived",
+      "detail": "Reviewer approved with two minor comment findings, both fixed and re-verified by the reviewer. Owner ran make test and reported it passed. Archived to openspec/changes/archive/charging/. autopilot is false, so tier 2 does NOT start automatically."
+    },
+    {
+      "at": "2026-09-14T16:00:00Z",
+      "what": "tier-2-interview",
+      "detail": "Resumed for tier 2. Three new decisions taken (D7-D9); roadmap D1-D6 remain binding. No database design gate: tier 2 changes query text and Go signatures only, no schema object. Budget at resume: five_hour_pct 43, context_pct 9."
+    },
+    {
+      "at": "2026-09-14T19:47:00Z",
+      "what": "tier-2-archived",
+      "detail": "charging-reviewer approved round 1 with zero findings. Owner ran make test and reported it passed before the doc-only wave. Archived to openspec/changes/archive/charging/. T6's checkboxes were ticked at the archive step: the work was done and reviewer-confirmed, but the leader had not ticked them. autopilot is false, so tier 3 does NOT start automatically."
+    },
+    {
+      "at": "2026-09-14T20:30:00Z",
+      "what": "tier-3-interview",
+      "detail": "Owner reshaped tier 3 (D13-D15). The roadmap row's literal change was a no-op: vehicleref.All is unchecked and TeslaIDs is its inverse, so TeslaIDs(All(ids)) == ids, and the guard forbids All outside handlers.go. The row is corrected. Budget at interview: five_hour_pct 25, context_pct 9."
+    },
+    {
+      "at": "2026-09-14T20:45:00Z",
+      "what": "tier-3-artifacts-finding",
+      "detail": "The worker refused to invent a delta spec and flagged that openspec validate hard-fails on a zero-delta change. Leader verified an honest requirement exists and that it is complete: ListEntriesByVehicles has exactly two gateway call sites, both in this tier, and no other fleet-wide owned-set read exists. Owner chose to add it (D16). Worker re-dispatched."
+    },
+    {
+      "at": "2026-09-14T21:45:00Z",
+      "what": "tier-3-archived-roadmap-complete",
+      "detail": "Reviewer approved at round 3. Round 1 found a doc citation in the test comments; round 2 rejected the leader's own fix for a false claim about index pairing; round 3 approved the correction. Owner ran make test and reported it passed. All three tiers archived, so RM58 is complete and both roadmap files move to openspec/roadmaps/archive/RM58-rekey-manual-charges-on-tesla-id/. The work counter is untouched: numbers are monotonic and RM58 keeps its number."
+    }
+  ]
+}

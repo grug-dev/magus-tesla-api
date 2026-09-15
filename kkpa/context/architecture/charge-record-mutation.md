@@ -107,11 +107,13 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   the only reason the blast radius is small today.
   _Source: `analytics/gap_writer.go`, `app/processor.go`, `gateway/handlers/handlers.go`._
 - **The manual pre-write lookup is capped at 100 rows** — `fetchEntryTeslaIDAndChargedOn` and
-  `fetchEntryVM` call `ListEntriesByAccount(ctx, uid, 0)`, and `limit <= 0` becomes
-  `defaultLimit = 100`, ordered `charged_on DESC` across all the account's vehicles. There is no
-  `GetEntry` on the `charging.Reader` port. A miss is indistinguishable from "not found" and is
-  not logged. On update this skips the old-date recalculation; **on delete it skips recalculation
-  entirely**.
+  `fetchEntryVM` call `ListEntriesByVehicles(ctx, vehicleref.TeslaIDs(refs), 0)`, where `refs`
+  and `vehicles` both come from one `h.ownedVehicles(ctx, uid)` call (itself backed by
+  `acct.RegisteredVehicles(ctx, uid)`), and `limit <= 0` becomes `defaultLimit = 100`,
+  ordered `charged_on DESC` across the account's vehicles. An error from
+  `RegisteredVehicles`, or an empty vehicle list, returns not-found — it never reads unfiltered. There is no `GetEntry` on the
+  `charging.Reader` port. A miss is indistinguishable from "not found" and is not logged. On
+  update this skips the old-date recalculation; **on delete it skips recalculation entirely**.
   _Source: `gateway/handlers/external_charges.go`, `charging/service.go` `defaultLimit`._
 - **A deleted manual entry has no nightly safety net** — `Reconcile` discovers work via
   `ListEntriesByVehicleUpdatedSince` over live rows, so a deleted row is invisible to it forever.
@@ -132,15 +134,20 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   information. That is why the monthly job in `charging/monthly_capacity.go` filters
   `WHERE energy_source = 'USER'`: it must never average a derived value back into itself.
   _Source: `charging/capacity.go`, `analytics/capacity.go`._
-- **Different ownership vocabulary, same shape now** — the manual handlers call
-  `acct.RegisteredVehicles` + `vehicleOwned`; `SuperchargerRowUpdate` calls
-  `acct.RegisteredVehicles` through `h.authorizeVehicle`, which turns the result into a
-  `vehicleref.Ref` `VerifySession` requires. Both now prove ownership with one
-  `RegisteredVehicles` read before writing — the remaining difference is `vehicleOwned`'s bool
-  vs. `authorizeVehicle`'s typed `Ref`, and where in the handler each check runs (Supercharger
-  proves ownership after body validation, not before CSRF).
-  _Source: `gateway/handlers/external_charges.go` `vehicleOwned`, `gateway/handlers/handlers.go`
-  `authorizeVehicle`, `gateway/handlers/supercharger.go` `SuperchargerRowUpdate`._
+- **Ownership check — RESOLVED, both paths now share one shape.** The manual write handlers
+  (`ExternalChargeRowUpdate`, `ExternalChargeRowDelete`) and `SuperchargerRowUpdate` all call the
+  same `h.authorizeVehicle`: it proves the record's own vehicle against `acct.RegisteredVehicles`
+  and returns a typed `vehicleref.Ref`. `charging.Writer.Update`, `Writer.Delete`, and
+  `SessionVerifier.VerifySession` all now take that `Ref` — none takes a bare vehicle id or
+  account id any more. A `Ref` naming the wrong vehicle matches no row on either table. What is
+  left is not an ownership difference: `vehicleOwned` still runs earlier in
+  `parseExternalChargeForm`, but it checks the *session-selected* vehicle field on the form
+  (create and update), a separate, defense-in-depth check unrelated to which vehicle the stored
+  entry belongs to.
+  _Source: `charging/service.go` `Writer.Update`/`Writer.Delete`,
+  `charging/session_verifier.go` `VerifySession`, `gateway/handlers/handlers.go`
+  `authorizeVehicle`, `gateway/handlers/external_charges.go` `vehicleOwned`,
+  `gateway/handlers/supercharger.go` `SuperchargerRowUpdate`._
 - **Different post-write refresh** — the manual update returns an OOB `#external-charges-list` refresh so
   tiles follow the edit; the Supercharger update swaps only the row. Harmless today (a battery-%
   correction changes no tile), a defect the moment that page surfaces anything derived from the

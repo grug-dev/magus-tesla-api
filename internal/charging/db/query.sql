@@ -21,8 +21,11 @@
 -- from the caller -- the identical precedent energy_source above already sets.
 -- service.go's resolvePriceSource computes USER/UNCONFIRMED before binding this
 -- param; the query itself has no way to tell the two apart.
+--
+-- created_by_account_id records who typed the entry and is never read back as a
+-- filter.
 INSERT INTO charging.manual_charge_entries (
-    account_id,
+    created_by_account_id,
     tesla_id,
     vin,
     charged_on,
@@ -42,7 +45,7 @@ INSERT INTO charging.manual_charge_entries (
     odometer_km,
     price_source
 ) VALUES (
-    @account_id,
+    @created_by_account_id,
     @tesla_id,
     @vin,
     @charged_on,
@@ -65,11 +68,13 @@ INSERT INTO charging.manual_charge_entries (
 RETURNING *;
 
 -- name: UpdateEntry :one
--- Update mutable fields of an existing charge entry. The WHERE clause scopes to
--- (id, account_id) so a user cannot update another tenant's entry even with a valid
--- UUID — cross-tenant mutation is blocked at the SQL level (design D4).
--- Immutable columns (id, account_id, tesla_id, vin, created_at) are never touched.
--- updated_at is refreshed to now() on every successful update.
+-- Update mutable fields of an existing charge entry. The real check is the caller
+-- proving vehicle ownership before this query ever runs (a vehicleref.Ref cannot be
+-- built without it). WHERE (id, tesla_id) is the second line of defence: it catches a
+-- proven-vehicle Ref applied to the wrong row (id typo, stale id, a race), so a right
+-- vehicle can never collide with another vehicle's row even by accident.
+-- Immutable columns (id, created_by_account_id, tesla_id, vin, created_at) are never
+-- touched. updated_at is refreshed to now() on every successful update.
 --
 -- status, odometer_km: bound as supplied by the caller (RM33 / MAG-18).
 --
@@ -101,68 +106,66 @@ SET
     price_source      = @price_source,
     updated_at        = now()
 WHERE id = @id
-  AND account_id = @account_id
+  AND tesla_id = @tesla_id
 RETURNING *;
 
--- name: DeleteEntry :exec
--- Delete a charge entry scoped to the caller's own account. The double-scope
--- (id AND account_id) means a user cannot delete another tenant's entry even
--- if they somehow obtain a valid entry UUID — cross-tenant deletes are blocked
--- at the SQL level (design D4, intentional double-scope guard).
+-- name: DeleteEntry :execrows
+-- Delete a charge entry. Same guard as UpdateEntry: the caller already proved vehicle
+-- ownership to obtain a Ref, and WHERE (id, tesla_id) is the second line of defence
+-- against a proven-vehicle Ref applied to the wrong row. Returns the row count so the
+-- caller can tell a real delete from a no-op instead of a silent no-op looking like
+-- success.
 DELETE FROM charging.manual_charge_entries
 WHERE id = @id
-  AND account_id = @account_id;
+  AND tesla_id = @tesla_id;
 
 -- name: ListEntriesByVehicle :many
--- Return entries for a specific vehicle within an account, ordered newest charged
--- day first, limited to limit_count rows. Uses idx_manual_charge_entries_vehicle_time
--- (account_id, tesla_id, charged_on DESC): account_id prunes to the tenant, tesla_id
--- further narrows to one vehicle, and the DESC column means the ORDER BY is satisfied
--- by the index directly — no sort step required (design D3, Read path 1).
+-- Return entries for a specific vehicle, ordered newest charged day first, limited
+-- to limit_count rows. Uses idx_manual_charge_entries_vehicle_time
+-- (tesla_id, charged_on DESC): tesla_id prunes to one vehicle, and the DESC column
+-- means the ORDER BY is satisfied by the index directly — no sort step required.
+-- The read is car-wide: it returns entries typed by any account registered to
+-- that car.
 SELECT * FROM charging.manual_charge_entries
-WHERE account_id = @account_id
-  AND tesla_id = @tesla_id
+WHERE tesla_id = @tesla_id
 ORDER BY charged_on DESC
 LIMIT @limit_count;
 
--- name: ListEntriesByAccount :many
--- Return all entries for a given account across all vehicles, ordered newest charged
--- day first, limited to limit_count rows. Uses idx_manual_charge_entries_account_time
--- (account_id, charged_on DESC): account_id is the single WHERE predicate and
--- charged_on DESC matches the ORDER BY, eliminating a sort step (design D3, Read path 2).
+-- name: ListEntriesByVehicles :many
+-- Return entries for a caller-supplied set of vehicles, ordered newest charged day
+-- first across the whole set, limited to limit_count rows. Uses
+-- idx_manual_charge_entries_vehicle_time (tesla_id, charged_on DESC): the index
+-- prunes per vehicle, and a multi-vehicle array is expected to add a sort step on
+-- top of the per-vehicle index walks.
 SELECT * FROM charging.manual_charge_entries
-WHERE account_id = @account_id
+WHERE tesla_id = ANY(@tesla_ids::bigint[])
 ORDER BY charged_on DESC
 LIMIT @limit_count;
 
 -- name: ListEntriesByVehicleBetween :many
--- Return entries for a specific vehicle within an account whose charged_on falls
--- within [@from_date, @to_date], inclusive of both bounds, ordered newest charged
--- day first. Uses idx_manual_charge_entries_vehicle_time (account_id, tesla_id,
--- charged_on DESC) as a single index range scan: account_id and tesla_id prune to
--- the tenant and vehicle, charged_on BETWEEN walks the range, and the DESC column
--- order satisfies ORDER BY with no separate sort step (design D3). No LIMIT: the
--- caller-supplied [from, to] window is the safety bound, not a row count
--- (design D1, roadmap D9).
+-- Return entries for a specific vehicle whose charged_on falls within
+-- [@from_date, @to_date], inclusive of both bounds, ordered newest charged day
+-- first. Uses idx_manual_charge_entries_vehicle_time (tesla_id, charged_on DESC)
+-- as a single index range scan: tesla_id prunes to the vehicle, charged_on BETWEEN
+-- walks the range, and the DESC column order satisfies ORDER BY with no separate
+-- sort step. No LIMIT: the caller-supplied [from, to] window is the safety bound,
+-- not a row count. The read is car-wide: it returns entries typed by any account
+-- registered to that car.
 SELECT * FROM charging.manual_charge_entries
-WHERE account_id = @account_id
-  AND tesla_id = @tesla_id
+WHERE tesla_id = @tesla_id
   AND charged_on BETWEEN @from_date AND @to_date
 ORDER BY charged_on DESC;
 
 -- name: ListEntriesByVehicleUpdatedSince :many
--- Return entries for a specific vehicle within an account whose updated_at is at or
--- after @since, ordered newest charged day first. Reuses
--- idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC):
--- account_id and tesla_id are satisfied as leading equality predicates in the same
--- range scan the other vehicle-scoped queries use; updated_at >= @since is a residual
--- filter within that scan (no new index — this table is small and user-write-driven,
--- unlike the append-only, high-volume tables). No LIMIT: @since itself bounds the
--- result (RM29-analytics-add-vehicle-metrics design D3, specs/manual-charge-log/spec.md
--- "List entries by vehicle updated since a given instant").
+-- Return entries for a specific vehicle whose updated_at is at or after @since,
+-- ordered newest charged day first. Reuses idx_manual_charge_entries_vehicle_time
+-- (tesla_id, charged_on DESC): tesla_id is satisfied as the leading equality
+-- predicate in the same range scan the other vehicle-scoped queries use;
+-- updated_at >= @since is a residual filter within that scan. This query orders by
+-- charged_on, so an updated_at index would force a sort — no new index. The read
+-- is car-wide: it returns entries typed by any account registered to that car.
 SELECT * FROM charging.manual_charge_entries
-WHERE account_id = @account_id
-  AND tesla_id = @tesla_id
+WHERE tesla_id = @tesla_id
   AND updated_at >= @since
 ORDER BY charged_on DESC;
 

@@ -202,18 +202,17 @@ func TestRecalculate_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 		t.Fatalf("Recalculate: %v", err)
 	}
 
-	// Telemetry and supercharger reads are keyed on tesla_id alone now, so only
-	// the vehicle is checked for those two. The manual port below still takes
-	// the account and is still checked for both.
+	// All three source reads are keyed on tesla_id alone now, so the vehicle is
+	// the only identity there is left to check. The account still scopes the
+	// rows Recalculate writes, which the other tests in this file cover.
 	if fakeTelemetry.gotTeslaID != teslaID {
 		t.Errorf("telemetry scoping: want teslaID %d, got %d", teslaID, fakeTelemetry.gotTeslaID)
 	}
 	if fakeSupercharger.gotTeslaID != teslaID {
 		t.Errorf("supercharger scoping: want teslaID %d, got %d", teslaID, fakeSupercharger.gotTeslaID)
 	}
-	if fakeManual.gotAccountID != accountID || fakeManual.gotTeslaID != teslaID {
-		t.Errorf("manual scoping: want (%s, %d), got (%s, %d)",
-			accountID, teslaID, fakeManual.gotAccountID, fakeManual.gotTeslaID)
+	if fakeManual.gotTeslaID != teslaID {
+		t.Errorf("manual scoping: want teslaID %d, got %d", teslaID, fakeManual.gotTeslaID)
 	}
 }
 
@@ -244,8 +243,8 @@ func TestRecalculate_TelemetryError_Propagates(t *testing.T) {
 	if fakeSupercharger.gotTeslaID != 0 {
 		t.Errorf("supercharger port must not be called once telemetry fails, got teslaID=%d", fakeSupercharger.gotTeslaID)
 	}
-	if fakeManual.gotAccountID != uuid.Nil {
-		t.Errorf("manual port must not be called once telemetry fails, got accountID=%s", fakeManual.gotAccountID)
+	if fakeManual.gotTeslaID != 0 {
+		t.Errorf("manual port must not be called once telemetry fails, got teslaID=%d", fakeManual.gotTeslaID)
 	}
 }
 
@@ -270,8 +269,8 @@ func TestRecalculate_SuperchargerError_Propagates(t *testing.T) {
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("Recalculate error: want wrapping %v, got %v", sentinel, err)
 	}
-	if fakeManual.gotAccountID != uuid.Nil {
-		t.Errorf("manual port must not be called once supercharger fails, got accountID=%s", fakeManual.gotAccountID)
+	if fakeManual.gotTeslaID != 0 {
+		t.Errorf("manual port must not be called once supercharger fails, got teslaID=%d", fakeManual.gotTeslaID)
 	}
 }
 
@@ -1781,16 +1780,16 @@ func seedManualEntry(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesl
 	t.Helper()
 	lk := "HOME"
 	_, err := charging.NewWriter(pool).Create(context.Background(), charging.Entry{
-		AccountID:       accountID,
-		TeslaID:         teslaID,
-		VIN:             "5YJ3E1EA0NF000001",
-		ChargedOn:       chargedOn,
-		EnergyAddedKWh:  fp(10.0),
-		Price:           1000.0,
-		Currency:        "COP",
-		LocationKind:    &lk,
-		StartBatteryPct: intPtr(startPct),
-		EndBatteryPct:   intPtr(endPct),
+		CreatedByAccountID: accountID,
+		TeslaID:            teslaID,
+		VIN:                "5YJ3E1EA0NF000001",
+		ChargedOn:          chargedOn,
+		EnergyAddedKWh:     fp(10.0),
+		Price:              1000.0,
+		Currency:           "COP",
+		LocationKind:       &lk,
+		StartBatteryPct:    intPtr(startPct),
+		EndBatteryPct:      intPtr(endPct),
 	})
 	if err != nil {
 		t.Fatalf("seeding manual_charge_entries via charging.Writer: %v", err)

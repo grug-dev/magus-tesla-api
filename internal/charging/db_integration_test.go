@@ -8,11 +8,13 @@
 //
 // Coverage:
 //   - Writer.Create: required-only, all-optional, CHECK constraint violations.
-//   - Writer.Update: mutation of mutable fields, created_at unchanged, cross-account guard.
-//   - Writer.Delete: own entry, cross-account guard.
-//   - Reader.ListEntriesByVehicle: vehicle isolation, newest-first ordering, limit, empty slice.
-//   - Reader.ListEntriesByAccount: account isolation, ordering, limit, empty slice.
-//   - Multi-tenant spot-check: no read ever returns another account's rows.
+//   - Writer.Update: mutation of mutable fields, created_at unchanged, cross-vehicle guard
+//     (a caller proving ownership of the wrong vehicle mutates nothing).
+//   - Writer.Delete: own entry, cross-vehicle guard (same shape, now an error on a miss).
+//   - Reader.ListEntriesByVehicle: reads are car-wide now — every account's entries for
+//     that vehicle come back, newest-first ordering, limit, empty slice.
+//   - Reader.ListEntriesByVehicles: reads for a caller-supplied set of vehicles.
+//   - Shared-vehicle spot-check: a read for one car returns every account's entries for it.
 //
 // Assertions: ONLY against charging.Entry domain fields — never pgtype.
 // No Tesla API call fires anywhere in this file (no import of internal/tesla).
@@ -20,11 +22,13 @@ package charging_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
@@ -45,12 +49,22 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 
 // cleanupAccount removes all manual_charge_entries rows created by this test so
 // a shared DB stays tidy. Uses t.Cleanup so cleanup runs even when the test fails.
+// The exec error is checked, not discarded: a renamed or missing column fails the
+// DELETE outright, and swallowing that error would leave every later test running
+// against a dirty table for a reason nobody could see. RowsAffected is not asserted
+// against a fixed count — some callers clean up an account that never wrote a row
+// (a read-only test), so zero is a legitimate outcome here.
 func cleanupAccount(t *testing.T, pool *pgxpool.Pool, accountIDs ...uuid.UUID) {
 	t.Helper()
 	t.Cleanup(func() {
 		ctx := context.Background()
 		for _, id := range accountIDs {
-			_, _ = pool.Exec(ctx, "DELETE FROM charging.manual_charge_entries WHERE account_id = $1", id)
+			tag, err := pool.Exec(ctx, "DELETE FROM charging.manual_charge_entries WHERE created_by_account_id = $1", id)
+			if err != nil {
+				t.Errorf("cleanupAccount: DELETE created_by_account_id=%v: %v", id, err)
+				continue
+			}
+			t.Logf("cleanupAccount: deleted %d row(s) for %v", tag.RowsAffected(), id)
 		}
 	})
 }
@@ -62,16 +76,20 @@ func cleanupAccount(t *testing.T, pool *pgxpool.Pool, accountIDs ...uuid.UUID) {
 func minEntry(accountID uuid.UUID, teslaID int64) charging.Entry {
 	lk := "HOME"
 	return charging.Entry{
-		AccountID:      accountID,
-		TeslaID:        teslaID,
-		VIN:            "5YJ3E1EA0NF000001",
-		ChargedOn:      time.Date(2026, 7, 18, 0, 0, 0, 0, time.UTC),
-		EnergyAddedKWh: ptrFloat64(20.5),
-		Price:          45000.00,
-		Currency:       "COP",
-		LocationKind:   &lk,
+		CreatedByAccountID: accountID,
+		TeslaID:            teslaID,
+		VIN:                "5YJ3E1EA0NF000001",
+		ChargedOn:          time.Date(2026, 7, 18, 0, 0, 0, 0, time.UTC),
+		EnergyAddedKWh:     ptrFloat64(20.5),
+		Price:              45000.00,
+		Currency:           "COP",
+		LocationKind:       &lk,
 	}
 }
+
+// refFor is declared in db_session_verifier_integration_test.go (added by
+// RM57 for VerifySession) and reused here -- same package, same shape this
+// file would otherwise duplicate.
 
 func ptrString(s string) *string { return &s }
 func ptrInt(i int) *int          { return &i }
@@ -111,8 +129,8 @@ func TestCreate_RequiredOnly(t *testing.T) {
 	}
 
 	// Required fields round-trip.
-	if got, want := created.AccountID, accountID; got != want {
-		t.Errorf("AccountID: got %v, want %v", got, want)
+	if got, want := created.CreatedByAccountID, accountID; got != want {
+		t.Errorf("CreatedByAccountID: got %v, want %v", got, want)
 	}
 	if got, want := created.TeslaID, e.TeslaID; got != want {
 		t.Errorf("TeslaID: got %v, want %v", got, want)
@@ -144,9 +162,9 @@ func TestCreate_RequiredOnly(t *testing.T) {
 	}
 
 	// Read back via Reader confirms persistence.
-	entries, err := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, err := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount: %v", err)
+		t.Fatalf("ListEntriesByVehicle: %v", err)
 	}
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(entries))
@@ -186,9 +204,9 @@ func TestCreate_AllOptionals(t *testing.T) {
 	}
 
 	// Read back.
-	entries, err := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, err := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount: %v", err)
+		t.Fatalf("ListEntriesByVehicle: %v", err)
 	}
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(entries))
@@ -332,7 +350,8 @@ func TestUpdate_MutatesFieldsAndAdvancesUpdatedAt(t *testing.T) {
 	w := charging.NewWriter(pool)
 	r := charging.NewReader(pool)
 
-	e := minEntry(accountID, 222)
+	const teslaID = int64(222)
+	e := minEntry(accountID, teslaID)
 	created, err := w.Create(ctx, e)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -346,7 +365,7 @@ func TestUpdate_MutatesFieldsAndAdvancesUpdatedAt(t *testing.T) {
 	updated.Price = 99999.99
 	updated.Notes = ptrString("corrected price")
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(teslaID), updated)
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -367,9 +386,9 @@ func TestUpdate_MutatesFieldsAndAdvancesUpdatedAt(t *testing.T) {
 	}
 
 	// Read back via Reader to confirm persistence.
-	entries, err := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, err := r.ListEntriesByVehicle(ctx, teslaID, 10)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount: %v", err)
+		t.Fatalf("ListEntriesByVehicle: %v", err)
 	}
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(entries))
@@ -379,10 +398,13 @@ func TestUpdate_MutatesFieldsAndAdvancesUpdatedAt(t *testing.T) {
 	}
 }
 
-// TestUpdate_CrossAccountIsNoOp asserts that updating an entry with a different
-// account_id is a no-op — the WHERE id=X AND account_id=Y finds zero rows and
-// returns a not-found / zero-rows error.
-func TestUpdate_CrossAccountIsNoOp(t *testing.T) {
+// TestUpdate_CrossVehicleIsNoOp asserts that updating an entry while proving
+// ownership of a DIFFERENT vehicle than the entry's own is a no-op — the WHERE
+// id=X AND tesla_id=Y finds zero rows and returns a not-found / zero-rows
+// error. This is the proof that no commit on this branch has an unauthorized
+// write path: a caller cannot mutate an entry by proving ownership of some
+// other car.
+func TestUpdate_CrossVehicleIsNoOp(t *testing.T) {
 	pool := newTestPool(t)
 	ownerID := uuid.New()
 	attackerID := uuid.New()
@@ -391,29 +413,29 @@ func TestUpdate_CrossAccountIsNoOp(t *testing.T) {
 	ctx := context.Background()
 	w := charging.NewWriter(pool)
 
-	// Create entry under ownerID.
-	e := minEntry(ownerID, 333)
+	// Create entry under ownerID, for vehicle 333.
+	const teslaID = int64(333)
+	e := minEntry(ownerID, teslaID)
 	created, err := w.Create(ctx, e)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	// Attempt to update it using attackerID as the account scope.
+	// Attempt to update it while proving ownership of a different vehicle (999).
 	tampered := created
-	tampered.AccountID = attackerID // wrong account
 	tampered.Price = 1.0
 
-	_, err = w.Update(ctx, tampered)
+	_, err = w.Update(ctx, refFor(999), tampered)
 	// Expected: error (pgx returns pgx.ErrNoRows when RETURNING * finds 0 rows).
 	if err == nil {
-		t.Fatal("Update with wrong account_id: expected error (no rows), got nil")
+		t.Fatal("Update with wrong vehicle Ref: expected error (no rows), got nil")
 	}
 
 	// Owner's row must be unchanged.
 	r := charging.NewReader(pool)
-	entries, err := r.ListEntriesByAccount(ctx, ownerID, 10)
+	entries, err := r.ListEntriesByVehicle(ctx, teslaID, 10)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount: %v", err)
+		t.Fatalf("ListEntriesByVehicle: %v", err)
 	}
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 entry for owner, got %d", len(entries))
@@ -435,28 +457,32 @@ func TestDelete_OwnEntry(t *testing.T) {
 	w := charging.NewWriter(pool)
 	r := charging.NewReader(pool)
 
-	e := minEntry(accountID, 444)
+	const teslaID = int64(444)
+	e := minEntry(accountID, teslaID)
 	created, err := w.Create(ctx, e)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if err := w.Delete(ctx, accountID, created.ID); err != nil {
+	if err := w.Delete(ctx, refFor(teslaID), created.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
-	entries, err := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, err := r.ListEntriesByVehicle(ctx, teslaID, 10)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount after delete: %v", err)
+		t.Fatalf("ListEntriesByVehicle after delete: %v", err)
 	}
 	if len(entries) != 0 {
 		t.Errorf("expected 0 entries after delete, got %d", len(entries))
 	}
 }
 
-// TestDelete_CrossAccountGuard attempts to delete an entry with the wrong account_id
-// and asserts the row survives.
-func TestDelete_CrossAccountGuard(t *testing.T) {
+// TestDelete_CrossVehicleGuard attempts to delete an entry while proving
+// ownership of a DIFFERENT vehicle than the entry's own, and asserts the row
+// survives. Behaviour change from the prior account-keyed guard: a mismatched
+// delete now reports an error instead of silently doing nothing, so a caller
+// can no longer mistake a rejected delete for a successful one.
+func TestDelete_CrossVehicleGuard(t *testing.T) {
 	pool := newTestPool(t)
 	ownerID := uuid.New()
 	attackerID := uuid.New()
@@ -466,23 +492,25 @@ func TestDelete_CrossAccountGuard(t *testing.T) {
 	w := charging.NewWriter(pool)
 	r := charging.NewReader(pool)
 
-	// Create entry under ownerID.
-	e := minEntry(ownerID, 555)
+	// Create entry under ownerID, for vehicle 555.
+	const teslaID = int64(555)
+	e := minEntry(ownerID, teslaID)
 	created, err := w.Create(ctx, e)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	// Delete with wrong account — :exec does not return an error for zero rows deleted;
-	// the row simply survives.
-	if err := w.Delete(ctx, attackerID, created.ID); err != nil {
-		t.Fatalf("Delete with wrong account returned unexpected error: %v", err)
+	// Delete while proving ownership of a different vehicle (998) — :execrows
+	// now reports the zero-row match as an error wrapping pgx.ErrNoRows.
+	err = w.Delete(ctx, refFor(998), created.ID)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("Delete with wrong vehicle Ref: got err=%v, want error wrapping pgx.ErrNoRows", err)
 	}
 
 	// Owner's row must still exist.
-	entries, err := r.ListEntriesByAccount(ctx, ownerID, 10)
+	entries, err := r.ListEntriesByVehicle(ctx, teslaID, 10)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount: %v", err)
+		t.Fatalf("ListEntriesByVehicle: %v", err)
 	}
 	if len(entries) != 1 {
 		t.Errorf("expected 1 entry (row survived), got %d", len(entries))
@@ -514,7 +542,7 @@ func TestListByVehicle_VehicleIsolation(t *testing.T) {
 		t.Fatalf("Create v2: %v", err)
 	}
 
-	got, err := r.ListEntriesByVehicle(ctx, accountID, v1, 10)
+	got, err := r.ListEntriesByVehicle(ctx, v1, 10)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicle(v1): %v", err)
 	}
@@ -554,7 +582,7 @@ func TestListByVehicle_NewestFirst(t *testing.T) {
 		}
 	}
 
-	got, err := r.ListEntriesByVehicle(ctx, accountID, teslaID, 10)
+	got, err := r.ListEntriesByVehicle(ctx, teslaID, 10)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicle: %v", err)
 	}
@@ -589,7 +617,7 @@ func TestListByVehicle_Limit(t *testing.T) {
 		}
 	}
 
-	got, err := r.ListEntriesByVehicle(ctx, accountID, teslaID, 1)
+	got, err := r.ListEntriesByVehicle(ctx, teslaID, 1)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicle(limit=1): %v", err)
 	}
@@ -608,7 +636,7 @@ func TestListByVehicle_EmptyNonNil(t *testing.T) {
 	ctx := context.Background()
 	r := charging.NewReader(pool)
 
-	got, err := r.ListEntriesByVehicle(ctx, accountID, 999999, 10)
+	got, err := r.ListEntriesByVehicle(ctx, 999999, 10)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicle for empty vehicle: %v", err)
 	}
@@ -620,46 +648,13 @@ func TestListByVehicle_EmptyNonNil(t *testing.T) {
 	}
 }
 
-// --- T6.6 Reader.ListEntriesByAccount ---
+// --- T6.6 Reader.ListEntriesByVehicles ---
 
-// TestListByAccount_AccountIsolation creates entries for two accounts and asserts
-// ListEntriesByAccount(A) returns only account A's entries.
-func TestListByAccount_AccountIsolation(t *testing.T) {
-	pool := newTestPool(t)
-	accountA := uuid.New()
-	accountB := uuid.New()
-	cleanupAccount(t, pool, accountA, accountB)
-
-	ctx := context.Background()
-	w := charging.NewWriter(pool)
-	r := charging.NewReader(pool)
-
-	eA := minEntry(accountA, 901)
-	if _, err := w.Create(ctx, eA); err != nil {
-		t.Fatalf("Create A: %v", err)
-	}
-	eB := minEntry(accountB, 902)
-	if _, err := w.Create(ctx, eB); err != nil {
-		t.Fatalf("Create B: %v", err)
-	}
-
-	gotA, err := r.ListEntriesByAccount(ctx, accountA, 10)
-	if err != nil {
-		t.Fatalf("ListEntriesByAccount(A): %v", err)
-	}
-	if len(gotA) != 1 {
-		t.Errorf("expected 1 entry for accountA, got %d", len(gotA))
-	}
-	for _, g := range gotA {
-		if g.AccountID != accountA {
-			t.Errorf("ListEntriesByAccount(A): got entry for accountID %v, want %v", g.AccountID, accountA)
-		}
-	}
-}
-
-// TestListByAccount_NewestFirst creates entries with different charged_on dates and
-// asserts newest-first ordering.
-func TestListByAccount_NewestFirst(t *testing.T) {
+// TestListByVehicles_VehicleIsolation seeds one entry for vehicle V1 and one for
+// V2, both under one account, and asserts ListEntriesByVehicles(ctx, []int64{V1},
+// 10) returns exactly the V1 entry — the V2 entry never appears. The caller now
+// supplies the vehicles it may see; there is no account-wide read left to scope on.
+func TestListByVehicles_VehicleIsolation(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
 	cleanupAccount(t, pool, accountID)
@@ -668,22 +663,66 @@ func TestListByAccount_NewestFirst(t *testing.T) {
 	w := charging.NewWriter(pool)
 	r := charging.NewReader(pool)
 
+	const v1 = int64(901)
+	const v2 = int64(902)
+
+	e1 := minEntry(accountID, v1)
+	if _, err := w.Create(ctx, e1); err != nil {
+		t.Fatalf("Create v1: %v", err)
+	}
+	e2 := minEntry(accountID, v2)
+	if _, err := w.Create(ctx, e2); err != nil {
+		t.Fatalf("Create v2: %v", err)
+	}
+
+	got, err := r.ListEntriesByVehicles(ctx, []int64{v1}, 10)
+	if err != nil {
+		t.Fatalf("ListEntriesByVehicles({v1}): %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 entry for v1, got %d", len(got))
+	}
+	for _, g := range got {
+		if g.TeslaID != v1 {
+			t.Errorf("ListEntriesByVehicles({v1}): got entry for teslaID %v, want %v", g.TeslaID, v1)
+		}
+	}
+}
+
+// TestListByVehicles_NewestFirst creates entries with different charged_on dates
+// across two vehicles and asserts newest-first ordering across the whole set.
+func TestListByVehicles_NewestFirst(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
+
+	const v1 = int64(950)
+	const v2 = int64(951)
+
 	dates := []time.Time{
 		time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 7, 18, 0, 0, 0, 0, time.UTC),
 	}
-	for _, d := range dates {
-		e := minEntry(accountID, 950)
+	for i, d := range dates {
+		teslaID := v1
+		if i%2 == 1 {
+			teslaID = v2
+		}
+		e := minEntry(accountID, teslaID)
 		e.ChargedOn = d
 		if _, err := w.Create(ctx, e); err != nil {
 			t.Fatalf("Create: %v", err)
 		}
 	}
 
-	got, err := r.ListEntriesByAccount(ctx, accountID, 10)
+	got, err := r.ListEntriesByVehicles(ctx, []int64{v1, v2}, 10)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount: %v", err)
+		t.Fatalf("ListEntriesByVehicles: %v", err)
 	}
 	if len(got) != 3 {
 		t.Fatalf("expected 3 entries, got %d", len(got))
@@ -696,8 +735,9 @@ func TestListByAccount_NewestFirst(t *testing.T) {
 	}
 }
 
-// TestListByAccount_Limit asserts that a limit of 1 returns at most 1 entry.
-func TestListByAccount_Limit(t *testing.T) {
+// TestListByVehicles_Limit asserts that a limit of 1 returns exactly one row, the
+// newest charged_on.
+func TestListByVehicles_Limit(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
 	cleanupAccount(t, pool, accountID)
@@ -706,36 +746,53 @@ func TestListByAccount_Limit(t *testing.T) {
 	w := charging.NewWriter(pool)
 	r := charging.NewReader(pool)
 
+	const teslaID = int64(960)
+	var newest time.Time
 	for i := range 3 {
-		e := minEntry(accountID, 960)
-		e.ChargedOn = time.Date(2026, 7, i+14, 0, 0, 0, 0, time.UTC)
+		d := time.Date(2026, 7, i+14, 0, 0, 0, 0, time.UTC)
+		e := minEntry(accountID, teslaID)
+		e.ChargedOn = d
 		if _, err := w.Create(ctx, e); err != nil {
 			t.Fatalf("Create: %v", err)
 		}
+		if d.After(newest) {
+			newest = d
+		}
 	}
 
-	got, err := r.ListEntriesByAccount(ctx, accountID, 1)
+	got, err := r.ListEntriesByVehicles(ctx, []int64{teslaID}, 1)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount(limit=1): %v", err)
+		t.Fatalf("ListEntriesByVehicles(limit=1): %v", err)
 	}
-	if len(got) > 1 {
-		t.Errorf("expected at most 1 entry, got %d", len(got))
+	if len(got) != 1 {
+		t.Fatalf("expected exactly 1 entry, got %d", len(got))
+	}
+	if !got[0].ChargedOn.Equal(newest) {
+		t.Errorf("ChargedOn: got %v, want newest %v", got[0].ChargedOn, newest)
 	}
 }
 
-// TestListByAccount_EmptyNonNil asserts that an account with no entries returns an empty
-// non-nil slice (not nil).
-func TestListByAccount_EmptyNonNil(t *testing.T) {
+// TestListByVehicles_EmptyNonNil asserts that a vehicle id with no entries returns
+// a non-nil, zero-length slice and no error, and that an empty []int64{} does too
+// — an empty set is never read as "no filter" (never returns every row).
+func TestListByVehicles_EmptyNonNil(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
+	w := charging.NewWriter(pool)
 	r := charging.NewReader(pool)
 
-	got, err := r.ListEntriesByAccount(ctx, accountID, 10)
+	const withEntry = int64(970)
+	e := minEntry(accountID, withEntry)
+	if _, err := w.Create(ctx, e); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := r.ListEntriesByVehicles(ctx, []int64{971}, 10)
 	if err != nil {
-		t.Fatalf("ListEntriesByAccount for empty account: %v", err)
+		t.Fatalf("ListEntriesByVehicles for empty vehicle: %v", err)
 	}
 	if got == nil {
 		t.Errorf("expected non-nil empty slice, got nil")
@@ -743,14 +800,28 @@ func TestListByAccount_EmptyNonNil(t *testing.T) {
 	if len(got) != 0 {
 		t.Errorf("expected 0 entries, got %d", len(got))
 	}
+
+	gotEmptySet, err := r.ListEntriesByVehicles(ctx, []int64{}, 10)
+	if err != nil {
+		t.Fatalf("ListEntriesByVehicles for empty set: %v", err)
+	}
+	if gotEmptySet == nil {
+		t.Errorf("expected non-nil empty slice for an empty vehicle set, got nil")
+	}
+	if len(gotEmptySet) != 0 {
+		t.Errorf("expected an empty vehicle set to return 0 entries (never every row), got %d", len(gotEmptySet))
+	}
 }
 
-// --- T6.7 Multi-tenant isolation spot-check ---
+// --- T6.7 Shared-vehicle spot-check ---
 
-// TestMultiTenantIsolation_NeverLeaks creates entries for two accounts with the same
-// tesla_id and asserts that no read method ever returns another account's rows.
-// This is the definitive guard that the account_id scope in every WHERE clause is real.
-func TestMultiTenantIsolation_NeverLeaks(t *testing.T) {
+// TestSharedVehicle_ReadsAreCarWide seeds one entry by alice and one by bob for
+// the same shared vehicle, and asserts the opposite of what this test asserted
+// before this change: both entries come back on every read for that vehicle, each
+// still carrying the CreatedByAccountID of whoever typed it. A charge happened to
+// a car — the demoted column is still stored and still read back, it just does
+// not filter a read.
+func TestSharedVehicle_ReadsAreCarWide(t *testing.T) {
 	pool := newTestPool(t)
 	alice := uuid.New()
 	bob := uuid.New()
@@ -760,7 +831,7 @@ func TestMultiTenantIsolation_NeverLeaks(t *testing.T) {
 	w := charging.NewWriter(pool)
 	r := charging.NewReader(pool)
 
-	// Same tesla_id to make the multi-tenant boundary as stressful as possible.
+	// Same tesla_id to make the shared-vehicle path as stressful as possible.
 	const sharedTeslaID = int64(100001)
 
 	eA := minEntry(alice, sharedTeslaID)
@@ -775,47 +846,41 @@ func TestMultiTenantIsolation_NeverLeaks(t *testing.T) {
 		t.Fatalf("Create bob: %v", err)
 	}
 
-	// Alice's account view: must see only alice's rows.
-	aliceByVehicle, err := r.ListEntriesByVehicle(ctx, alice, sharedTeslaID, 100)
-	if err != nil {
-		t.Fatalf("alice ListByVehicle: %v", err)
-	}
-	for _, e := range aliceByVehicle {
-		if e.AccountID != alice {
-			t.Errorf("alice ListByVehicle: got entry for accountID %v (want alice %v)", e.AccountID, alice)
+	assertBothCreators := func(t *testing.T, label string, got []charging.Entry) {
+		t.Helper()
+		if len(got) != 2 {
+			t.Fatalf("%s: expected 2 entries, got %d", label, len(got))
+		}
+		var sawAlice, sawBob bool
+		for _, e := range got {
+			switch e.CreatedByAccountID {
+			case alice:
+				sawAlice = true
+			case bob:
+				sawBob = true
+			default:
+				t.Errorf("%s: entry with unexpected CreatedByAccountID %v", label, e.CreatedByAccountID)
+			}
+		}
+		if !sawAlice {
+			t.Errorf("%s: alice's entry is missing", label)
+		}
+		if !sawBob {
+			t.Errorf("%s: bob's entry is missing", label)
 		}
 	}
 
-	aliceByAccount, err := r.ListEntriesByAccount(ctx, alice, 100)
+	byVehicle, err := r.ListEntriesByVehicle(ctx, sharedTeslaID, 100)
 	if err != nil {
-		t.Fatalf("alice ListByAccount: %v", err)
+		t.Fatalf("ListEntriesByVehicle: %v", err)
 	}
-	for _, e := range aliceByAccount {
-		if e.AccountID != alice {
-			t.Errorf("alice ListByAccount: got entry for accountID %v (want alice %v)", e.AccountID, alice)
-		}
-	}
+	assertBothCreators(t, "ListEntriesByVehicle", byVehicle)
 
-	// Bob's account view: must see only bob's rows.
-	bobByVehicle, err := r.ListEntriesByVehicle(ctx, bob, sharedTeslaID, 100)
+	byVehicles, err := r.ListEntriesByVehicles(ctx, []int64{sharedTeslaID}, 100)
 	if err != nil {
-		t.Fatalf("bob ListByVehicle: %v", err)
+		t.Fatalf("ListEntriesByVehicles: %v", err)
 	}
-	for _, e := range bobByVehicle {
-		if e.AccountID != bob {
-			t.Errorf("bob ListByVehicle: got entry for accountID %v (want bob %v)", e.AccountID, bob)
-		}
-	}
-
-	bobByAccount, err := r.ListEntriesByAccount(ctx, bob, 100)
-	if err != nil {
-		t.Fatalf("bob ListByAccount: %v", err)
-	}
-	for _, e := range bobByAccount {
-		if e.AccountID != bob {
-			t.Errorf("bob ListByAccount: got entry for accountID %v (want bob %v)", e.AccountID, bob)
-		}
-	}
+	assertBothCreators(t, "ListEntriesByVehicles", byVehicles)
 }
 
 // --- T3: location_kind required-field scenarios (RM4-manualcharge-require-location-kind) ---
@@ -843,9 +908,9 @@ func TestCreate_RejectsNilLocationKind(t *testing.T) {
 	}
 
 	// Assert no row was inserted.
-	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if listErr != nil {
-		t.Fatalf("ListEntriesByAccount: %v", listErr)
+		t.Fatalf("ListEntriesByVehicle: %v", listErr)
 	}
 	if len(entries) != 0 {
 		t.Errorf("expected 0 rows after rejection, got %d", len(entries))
@@ -875,9 +940,9 @@ func TestCreate_RejectsEmptyLocationKind(t *testing.T) {
 	}
 
 	// Assert no row was inserted.
-	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if listErr != nil {
-		t.Fatalf("ListEntriesByAccount: %v", listErr)
+		t.Fatalf("ListEntriesByVehicle: %v", listErr)
 	}
 	if len(entries) != 0 {
 		t.Errorf("expected 0 rows after rejection, got %d", len(entries))
@@ -972,7 +1037,7 @@ func TestUpdate_RejectsNilLocationKind(t *testing.T) {
 	tampered := created
 	tampered.LocationKind = nil
 
-	_, err = w.Update(ctx, tampered)
+	_, err = w.Update(ctx, refFor(1006), tampered)
 	if err == nil {
 		t.Fatal("Update with nil LocationKind: expected non-nil error, got nil")
 	}
@@ -981,9 +1046,9 @@ func TestUpdate_RejectsNilLocationKind(t *testing.T) {
 	}
 
 	// Assert the original row is unchanged.
-	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	entries, listErr := r.ListEntriesByVehicle(ctx, e.TeslaID, 10)
 	if listErr != nil {
-		t.Fatalf("ListEntriesByAccount: %v", listErr)
+		t.Fatalf("ListEntriesByVehicle: %v", listErr)
 	}
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(entries))
@@ -1020,7 +1085,7 @@ func TestListByVehicleBetween_InclusiveBounds(t *testing.T) {
 		}
 	}
 
-	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, teslaID, from, to)
+	got, err := r.ListEntriesByVehicleBetween(ctx, teslaID, from, to)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
 	}
@@ -1071,7 +1136,7 @@ func TestListByVehicleBetween_ExcludesOutsideBounds(t *testing.T) {
 		}
 	}
 
-	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, teslaID, from, to)
+	got, err := r.ListEntriesByVehicleBetween(ctx, teslaID, from, to)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
 	}
@@ -1114,7 +1179,7 @@ func TestListByVehicleBetween_NewestFirst(t *testing.T) {
 		}
 	}
 
-	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, teslaID, from, to)
+	got, err := r.ListEntriesByVehicleBetween(ctx, teslaID, from, to)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
 	}
@@ -1152,7 +1217,7 @@ func TestListByVehicleBetween_EmptyNonNil(t *testing.T) {
 	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
 
-	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, teslaID, from, to)
+	got, err := r.ListEntriesByVehicleBetween(ctx, teslaID, from, to)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicleBetween for empty window: %v", err)
 	}
@@ -1164,10 +1229,11 @@ func TestListByVehicleBetween_EmptyNonNil(t *testing.T) {
 	}
 }
 
-// TestListByVehicleBetween_AccountIsolation — design.md Test Contract (e): two accounts
-// share the same teslaID and the same charged_on inside the window; the scoped call must
-// return only the requesting account's entry.
-func TestListByVehicleBetween_AccountIsolation(t *testing.T) {
+// TestListByVehicleBetween_ReturnsBothAccountsEntries: two accounts share the same
+// teslaID and the same charged_on inside the window. The read is car-wide, so both
+// entries come back, in charged_on DESC order. The scoped call this replaced
+// returned only the requesting account's entry.
+func TestListByVehicleBetween_ReturnsBothAccountsEntries(t *testing.T) {
 	pool := newTestPool(t)
 	accountA := uuid.New()
 	accountB := uuid.New()
@@ -1193,21 +1259,42 @@ func TestListByVehicleBetween_AccountIsolation(t *testing.T) {
 		t.Fatalf("Create B: %v", err)
 	}
 
-	got, err := r.ListEntriesByVehicleBetween(ctx, accountA, sharedTeslaID, from, to)
+	got, err := r.ListEntriesByVehicleBetween(ctx, sharedTeslaID, from, to)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("expected exactly 1 entry, got %d", len(got))
+	if len(got) != 2 {
+		t.Fatalf("expected 2 entries (both accounts), got %d", len(got))
 	}
-	if got[0].AccountID != accountA {
-		t.Errorf("AccountID: got %v, want accountA %v", got[0].AccountID, accountA)
+	var sawA, sawB bool
+	for _, e := range got {
+		switch e.CreatedByAccountID {
+		case accountA:
+			sawA = true
+		case accountB:
+			sawB = true
+		default:
+			t.Errorf("entry with unexpected CreatedByAccountID %v", e.CreatedByAccountID)
+		}
+	}
+	if !sawA {
+		t.Errorf("account A's entry is missing")
+	}
+	if !sawB {
+		t.Errorf("account B's entry is missing")
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i-1].ChargedOn.Before(got[i].ChargedOn) {
+			t.Errorf("ordering: entry[%d].ChargedOn=%v is before entry[%d].ChargedOn=%v — expected DESC",
+				i-1, got[i-1].ChargedOn, i, got[i].ChargedOn)
+		}
 	}
 }
 
 // TestListByVehicleBetween_VehicleIsolation — design.md Test Contract (f): one account
 // with two vehicles, each with an entry at the same charged_on inside the window; the
-// scoped call must return only the requested vehicle's entry.
+// scoped call must return only the requested vehicle's entry. Vehicle isolation is
+// exactly what survives this change (unlike account isolation, above).
 func TestListByVehicleBetween_VehicleIsolation(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
@@ -1234,7 +1321,7 @@ func TestListByVehicleBetween_VehicleIsolation(t *testing.T) {
 		t.Fatalf("Create v2: %v", err)
 	}
 
-	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, v1, from, to)
+	got, err := r.ListEntriesByVehicleBetween(ctx, v1, from, to)
 	if err != nil {
 		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
 	}
@@ -1273,7 +1360,7 @@ func TestUpdate_AcceptsLocationKindChange(t *testing.T) {
 	updated := created
 	updated.LocationKind = ptrString("WORK")
 
-	result, err := w.Update(ctx, updated)
+	result, err := w.Update(ctx, refFor(1007), updated)
 	if err != nil {
 		t.Fatalf("Update LocationKind HOME→WORK: unexpected error: %v", err)
 	}

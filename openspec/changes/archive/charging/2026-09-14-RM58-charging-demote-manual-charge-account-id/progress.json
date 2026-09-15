@@ -1,0 +1,459 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM58-charging-demote-manual-charge-account-id",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
+  "request": "MAG-68 — 5. Demote charging.manual_charge_entries.account_id to created_by_account_id. Tier 1 of RM58: the migration, the queries, the four Reader ports, and the cross-module bridge.",
+  "status": "verified",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8"
+    ]
+  },
+  "created_at": "2026-09-14T10:40:00Z",
+  "updated_at": "2026-09-14T15:40:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM58-MAG-68-rekey-manual-charges-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-68",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-68/5-demote-chargingmanual-charge-entriesaccount-id-to-created-by-account",
+    "created_at": "2026-09-14T10:13:34Z"
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Offline check — grep the module's offline test files",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:45:30Z",
+      "completed_at": "2026-09-14T10:46:10Z",
+      "duration_seconds": 40,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "Grepped all five offline test files for AccountID/accountID/account_id. Zero hits, as design.md predicted. No new test needed."
+    },
+    {
+      "id": "T1",
+      "title": "Migration — rename the column, replace two indexes with one",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:46:10Z",
+      "completed_at": "2026-09-14T10:47:00Z",
+      "duration_seconds": 50,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "Wrote 20260914000001_demote_manual_charge_account_id.sql verbatim from design.md. Up renames the column and replaces two indexes with one; Down is a true undo. make migration-guard clean apart from the known 20260720000001 warning."
+    },
+    {
+      "id": "T2",
+      "title": "Queries and sqlc regeneration",
+      "module": "charging",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:47:00Z",
+      "completed_at": "2026-09-14T10:48:00Z",
+      "duration_seconds": 60,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "query.sql updated per design.md; make sqlc run. Every T2.7 expectation confirmed: no new Row struct, UpdateEntryParams and DeleteEntryParams both survive, ListEntriesByVehiclesParams carries TeslaIds and LimitCount."
+    },
+    {
+      "id": "T3",
+      "title": "Ports and domain type",
+      "module": "charging",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:48:00Z",
+      "completed_at": "2026-09-14T10:49:00Z",
+      "duration_seconds": 60,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "Entry.AccountID renamed to CreatedByAccountID. Reader drops accountID from three methods and gains ListEntriesByVehicles. Writer.Delete signature unchanged. No vehicleref import."
+    },
+    {
+      "id": "T4",
+      "title": "Implementation in service.go",
+      "module": "charging",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T10:49:00Z",
+      "completed_at": "2026-09-14T10:50:00Z",
+      "duration_seconds": 60,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "service.go store interface, dbStore, writerService, readerService and rowToEntry all follow the new shapes. go build and gofmt clean for the module."
+    },
+    {
+      "id": "T5",
+      "title": "Test fixups inside charging",
+      "module": "charging",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T14:42:00Z",
+      "completed_at": "2026-09-14T14:53:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 18,
+        "cost_usd_delta": 8.53,
+        "approx": true,
+        "note": "One wave-2 delta shared across T5 and T7 (one Sonnet worker)."
+      },
+      "notes": "All charging _test.go files re-keyed. Both cross-account tests kept unweakened. Also fixed 3 stale 4-arg ListEntriesByVehicle calls and a raw-SQL account_id column list the design missed. go vet ./... clean. Owner ran make test and reported it passed."
+    },
+    {
+      "id": "T6",
+      "title": "Cross-module bridge — analytics and gateway call sites",
+      "module": "leader-owned",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T10:50:00Z",
+      "completed_at": "2026-09-14T10:52:00Z",
+      "duration_seconds": 120,
+      "budget": {
+        "five_hour_pct_start": 73,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 7.51,
+        "approx": true,
+        "note": "One wave delta shared across T0-T4 (Sonnet worker) and T6 (leader)."
+      },
+      "notes": "Leader-owned. Three analytics call sites drop accountID; two gateway Between calls drop uid; fetchEntryVM and fetchEntryTeslaIDAndChargedOn now read by vehicle and return false on an error or empty vehicle list. Fakes re-signed. go build ./... green."
+    },
+    {
+      "id": "T7",
+      "title": "Docs — AGENTS.md, spec, KB guides",
+      "module": "charging",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T14:42:00Z",
+      "completed_at": "2026-09-14T14:53:00Z",
+      "duration_seconds": 660,
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 18,
+        "cost_usd_delta": 8.53,
+        "approx": true,
+        "note": "One wave-2 delta shared across T5 and T7 (one Sonnet worker)."
+      },
+      "notes": "AGENTS.md plus five kkpa/context guides updated: car-wide reads, created_by_account_id as authorship, transitional write guard, new index. make archive-guard clean."
+    },
+    {
+      "id": "T8",
+      "title": "Final verification",
+      "module": "charging",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T14:53:00Z",
+      "completed_at": "2026-09-14T14:58:00Z",
+      "duration_seconds": 300,
+      "budget": {
+        "five_hour_pct_start": 18,
+        "five_hour_pct_end": 22,
+        "cost_usd_delta": 1.2,
+        "approx": true,
+        "note": "Leader-run guards and greps, no worker dispatch."
+      },
+      "notes": "build, vet, gofmt, four guards and openspec validate --strict all clean. Repo-wide grep found no live bare account_id on this table and no live ListEntriesByAccount call. Leader fixed one stale KB line the worker left."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-GATE-1",
+      "scope": "database",
+      "made_by": "user",
+      "at": "2026-09-14T10:32:00Z",
+      "what": "Database design confirmed: rename the column, drop idx_manual_charge_entries_account_time, replace the vehicle-time index with (tesla_id, charged_on DESC).",
+      "why": "No row deleted and no value rewritten, so Down is a true undo. Two indexes become one and it serves all four reads."
+    },
+    {
+      "id": "D-GATE-2",
+      "scope": "security",
+      "made_by": "user",
+      "at": "2026-09-14T10:32:00Z",
+      "what": "UpdateEntry and DeleteEntry keep an account predicate in tier 1, on the renamed column. Tier 2 swaps it for the tesla_id guard. This is the roadmap's D5 and design.md's D4.",
+      "why": "Dropping it in tier 1 leaves the write path unauthorized until tier 2. The delete handler proceeds on a lookup miss, so SQL is the only guard, and main auto-deploys."
+    },
+    {
+      "id": "D-OPUS-1",
+      "scope": "dispatch",
+      "made_by": "autopilot",
+      "at": "2026-09-14T10:14:00Z",
+      "what": "The artifact worker ran on Opus rather than the default Sonnet.",
+      "why": "A DB design gate needs an index plan justified against read patterns plus rejected alternatives. A weak design.md here costs a full re-dispatch and a second user gate."
+    },
+    {
+      "id": "D-LEADER-1",
+      "scope": "implementation",
+      "made_by": "autopilot",
+      "at": "2026-09-14T10:52:00Z",
+      "what": "Kept the test name TestRecentEfficiency_AccountIDScoping_PassedToEveryPort and TestRecalculate_AccountIDScoping_PassedToEveryPort, and only swapped the manual port's assertion from account to vehicle.",
+      "why": "tasks.md T6.2 mandates the assertion swap, not a rename. Renaming is wider than the task. Flagged for the reviewer."
+    },
+    {
+      "id": "D-LEADER-2",
+      "scope": "implementation",
+      "made_by": "autopilot",
+      "at": "2026-09-14T10:52:00Z",
+      "what": "Removed the stale design/roadmap decision IDs from Reader.ListEntriesByVehicleBetween's doc comment in charging.go.",
+      "why": "The worker rewrote that comment and carried the pointers forward. They name archived docs a later reader cannot open. The opportunistic legacy-cleanup rule covers it."
+    },
+    {
+      "id": "D-LEADER-3",
+      "scope": "implementation",
+      "made_by": "autopilot",
+      "at": "2026-09-14T14:53:00Z",
+      "what": "Accepted the worker's deviation on T5.2: cleanupAccount logs RowsAffected instead of asserting it.",
+      "why": "84 callers; some clean an account that wrote no row, so a non-zero assert fails for the right reason. The checked exec error catches the rename hazard. Flagged to the reviewer."
+    },
+    {
+      "id": "D-LEADER-4",
+      "scope": "dispatch",
+      "made_by": "autopilot",
+      "at": "2026-09-14T14:58:00Z",
+      "what": "The leader ran T8 itself instead of dispatching a charging worker.",
+      "why": "T8 is guards, greps and hand-off text. A worker would re-read the ~11,900-token base pack to run shell commands."
+    },
+    {
+      "id": "D-GATE-3",
+      "scope": "merge",
+      "made_by": "user",
+      "at": "2026-09-14T15:00:00Z",
+      "what": "The branch waits for tier 3 before merging. Tier 1 is not merged alone.",
+      "why": "Until tier 3 a shared car shows each account the other's entries with controls that fail. The owner chose to merge the whole roadmap at once."
+    }
+  ],
+  "review": {
+    "brief": "Review RM58 tier 1: manual_charge_entries.account_id demoted to created_by_account_id. Read the branch diff (git diff main...HEAD), not the whole module. Validate: (1) every DB object matches the user-confirmed design in design.md Schema and D-GATE-1 - any mismatch is a blocker; (2) the integration tests assert the expectations design.md Test contract authored up front, not what the code happens to do; (3) TestUpdate_CrossAccountIsNoOp and TestDelete_CrossAccountGuard are present and NOT weakened - they prove no commit has an unauthorized write path; (4) module boundaries - no charging edit outside its sandbox, no vehicleref import in charging, gateway and analytics changes were leader-owned; (5) doc-pack conventions, including km/C/PSI units, clock, i18n where they apply; (6) docs track the change - AGENTS.md and the five kkpa/context guides; nothing under openspec/changes/archive/ touched; (7) anti-gaming - no criterion weakened, no task self-approved. Signals: the ASSISTANT ran go build, go vet, gofmt and four guards, all clean. The OWNER ran make test and reported it passed - the assistant never ran the suite and claims no test result. Judge test quality by reading the tests. Four leader decisions need your judgment: D-LEADER-1 (kept two analytics test names, swapped only the assertion), D-LEADER-2 (removed stale decision IDs from a doc comment), D-LEADER-3 (accepted a deviation from task T5.2 - cleanupAccount logs RowsAffected instead of asserting it), D-LEADER-4 (leader ran T8 instead of a worker). Known and accepted, not a finding: until roadmap tier 3, a car with two registered accounts shows each account the other's entries with edit and delete controls that fail. The owner decided to merge the whole roadmap at once.",
+    "agent": "charging-reviewer",
+    "status": "reviewer-approved",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "charging-reviewer",
+        "at": "2026-09-14T16:10:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/charging/AGENTS.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/design.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/tasks.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/proposal.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/specs/manual-charge-log/spec.md",
+          "openspec/changes/RM58-charging-demote-manual-charge-account-id/progress.json"
+        ],
+        "summary": "Migration, queries, ports, service.go and every generated sqlc type match design.md's Schema, Index plan and sqlc-prediction tables exactly, Up and Down. The two cross-account guard tests are present and unweakened. Test contract matches design.md's pre-authored expectations, not back-fitted values. No boundary violation: no vehicleref import in charging, gateway/analytics edits are mechanical, all four guards and go build/vet/gofmt pass clean as claimed. Docs (AGENTS.md + 5 KB guides) are accurate and complete. Archive folders untouched. Two minor comment-citation findings only; nothing blocking.",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/charging/db_integration_test.go:13, 399, 479, 817 and ~1226 (TestListByVehicleBetween_ReturnsBothAccountsEntries doc comment) all cite 'design.md D4' / 'design.md D1' / 'design.md Test Contract (e)' in comment lines this change added or rewrote. design.md is an OpenSpec change artifact that gets archived and frozen, so the pointer will die and the project forbids fixing it there. Write the reason itself instead, the way the sibling comments in charging.go and query.sql already do.",
+            "status": "fixed",
+            "fix_verified": "Verified in commit 6feaddd: all five citations removed (db_integration_test.go package doc comment, TestUpdate_CrossAccountIsNoOp, TestDelete_CrossAccountGuard, TestSharedVehicle_ReadsAreCarWide, TestListByVehicleBetween_ReturnsBothAccountsEntries). Reason is now written in the comment itself in every case. Confirmed by grep: no 'design.md D4' / 'design.md D1' / 'design.md Test Contract (e)' remains at those locations. go build ./... and go vet ./internal/charging/... both clean."
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/charging/charging.go and internal/charging/service.go: ListEntriesByVehicleUpdatedSince's doc comment was edited by this change (accountID dropped from the parameter list description) but still ends '...watermark (RM29-analytics-add-vehicle-metrics design D3).' D-LEADER-2 correctly stripped the equivalent legacy citations from the sibling ListEntriesByVehicleBetween's comment in both files, in the same change. This one function was missed, so the same edited-function rule was applied inconsistently.",
+            "status": "fixed",
+            "fix_verified": "Verified in commit 6feaddd: the RM29-analytics-add-vehicle-metrics design D3 citation is removed from ListEntriesByVehicleUpdatedSince's doc comment in both internal/charging/charging.go and internal/charging/service.go, replaced with the reason itself (charging.go points to the spec scenario instead of a decision id; service.go states the underlying fact: a user can edit a manual entry at any hour, so the nightly poll is not a reliable cursor). Comments only, no signature or behaviour change. go build ./... and go vet ./internal/charging/... both clean."
+          }
+        ],
+        "leader_decisions_judged": [
+          {
+            "id": "D-LEADER-1",
+            "judgment": "acceptable",
+            "note": "Task T6.2 asked only for the assertion swap, not a rename, and both test names' own docstrings now say plainly that telemetry, supercharger and manual charges are keyed on the vehicle. The name is slightly less precise than before (it no longer literally describes what every port receives), but it is not misleading given the docstring right above it, and renaming was out of the task's scope."
+          },
+          {
+            "id": "D-LEADER-2",
+            "judgment": "correct, but incomplete",
+            "note": "The cleanup on ListEntriesByVehicleBetween's comment was done right and is exactly what the opportunistic-cleanup rule asks for. See F2: the same rule should also have caught ListEntriesByVehicleUpdatedSince, whose comment was edited in the same change."
+          },
+          {
+            "id": "D-LEADER-3",
+            "judgment": "acceptable",
+            "note": "Read cleanupAccount and its 84 call sites' shape: the two cross-account guard tests deliberately clean up an attacker account that wrote no row, so a non-zero RowsAffected assertion would fail those two for an unrelated reason. Checking the exec error still catches a renamed or missing column (Postgres errors on it), which was the real hazard T5.2 existed to guard against. The deviation does not lose the coverage that mattered."
+          },
+          {
+            "id": "D-LEADER-4",
+            "judgment": "acceptable",
+            "note": "T8 is guard/grep/hand-off execution with no design judgment call in it. Verified independently: go build, go vet, gofmt, all four guards and openspec validate --strict all reproduce clean, matching what T8's notes claim."
+          }
+        ],
+        "post_approval_fixes": {
+          "commit": "6feaddd",
+          "at": "2026-09-14T15:40:00Z",
+          "by": "leader",
+          "detail": "Both minor findings from round 1 fixed after the approved verdict. Comment text only, no behaviour change. Re-verified independently: go build ./... clean, go vet ./internal/charging/... clean, both fixes match what the findings asked for. No re-review needed -- neither finding gated the approved verdict."
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-14T10:28:53Z",
+      "what": "artifacts-created",
+      "detail": "proposal, design, specs/manual-charge-log/spec.md and tasks.md written by the charging worker on Opus. openspec validate --strict passes. Budget for the wave: five_hour_pct 20 -> 47, cost_usd 8.11 -> 20.15."
+    },
+    {
+      "at": "2026-09-14T10:32:00Z",
+      "what": "design-gate-passed",
+      "detail": "Owner confirmed the database design. Owner accepted the worker's finding that tier 1 as first written left the write path unauthorized, and chose the transitional predicate instead."
+    },
+    {
+      "at": "2026-09-14T10:40:00Z",
+      "what": "artifacts-revised",
+      "detail": "Worker revised design.md D4, the delta spec, tasks.md and proposal.md for the transitional predicate. Corrected its own sqlc expectations: UpdateEntryParams and DeleteEntryParams both survive, renamed field only."
+    },
+    {
+      "at": "2026-09-14T10:40:00Z",
+      "what": "known-consequence-recorded",
+      "detail": "D1 and D5 combined leave reads car-wide and writes author-only for tiers 1-2. On a shared car the co-owner's entries are listed with working-looking controls; update fails with a 500 and delete is a SILENT no-op, because DeleteEntry is :exec and writerService.Delete never checks rows affected. Verified in code by the leader. Tier 3 removes the cause. Not fixed in tier 1 because hiding the controls is gateway work that tier 3 would immediately delete."
+    },
+    {
+      "at": "2026-09-14T10:45:00Z",
+      "what": "wave-1-dispatched",
+      "detail": "charging worker on Sonnet, tasks T0-T4 (offline grep, migration, queries+sqlc, ports, service impl). One serial worker: T1->T2->T3->T4 is a hard chain. T6 is leader-owned and lands in this same wave. Budget at dispatch: five_hour_pct 73, context_pct 9, cost_usd 0.70."
+    },
+    {
+      "at": "2026-09-14T10:52:00Z",
+      "what": "wave-1-complete",
+      "detail": "T0-T4 by the charging worker, T6 by the leader, in one wave so go build ./... is green. go build ./... passes; go vet ./... is red only in internal/charging_test, which is T5's unstarted work. gofmt clean (three pre-existing unformatted files are not this change's). Budget: five_hour_pct 73 -> 87, cost_usd 0.70 -> 8.21."
+    },
+    {
+      "at": "2026-09-14T10:54:00Z",
+      "what": "budget-checkpoint",
+      "detail": "Stopped at the wave-1 boundary. five_hour_pct 87 (threshold 90, resets 2026-09-14T14:40:00Z), context_pct 16. Owner chose to /clear and resume immediately rather than wait for the reset. Next: wave 2 = T5 (test fixups in charging) + T7 (docs), then T6 is already done, then T8."
+    },
+    {
+      "at": "2026-09-14T14:42:00Z",
+      "what": "wave-2-dispatched",
+      "detail": "charging worker on Sonnet, T5 (test fixups) + T7 (docs) batched in one serial dispatch. Disjoint files, one doc-pack read. Budget at dispatch: five_hour_pct 3 (bucket reset), context_pct 9, cost_usd 0.93."
+    },
+    {
+      "at": "2026-09-14T14:53:00Z",
+      "what": "wave-2-complete",
+      "detail": "T5 + T7 by the charging worker on Sonnet. go build ./... and go vet ./... both clean repo-wide for the first time in this change. gofmt clean (three pre-existing unformatted files are not this change's). Worker's own timestamps were before its dispatch and were replaced with the leader's bracket times. Budget: five_hour_pct 3 -> 18, cost_usd 0.93 -> 9.46."
+    },
+    {
+      "at": "2026-09-14T14:58:00Z",
+      "what": "t8-verification-complete",
+      "detail": "go build ./..., go vet ./..., gofmt, migration-guard, boundary-guard, vehicleref-guard, archive-guard and openspec validate --strict all clean. gofmt lists three pre-existing files this change never touched. T8.4 grep clean: every remaining hit is a historic migration, the change's own artifacts, the roadmap, a different table, or main specs that sync at archive. Leader removed a dead ListEntriesByAccount reference from kkpa/context/architecture/charge-record-mutation.md that T7 left as a historical aside."
+    },
+    {
+      "at": "2026-09-14T14:58:00Z",
+      "what": "merge-timing-note",
+      "detail": "T8.6, for the owner. The write path is authorized at every commit on this branch, so merging after tier 1 alone is safe. One user-visible effect remains until tier 3: a car registered to two accounts shows each account the other's entries with edit and delete controls that fail. Update reports an error; Delete does nothing and says nothing. A car with one registered account is unaffected. The owner decides; this is not a block."
+    },
+    {
+      "at": "2026-09-14T15:00:00Z",
+      "what": "awaiting-user-test-run",
+      "detail": "Owner chose to run the suite now, before the reviewer gate. Handed over: make migrate-up, the schema inspection queries, make test, the charging -run filter, and the analytics + gateway packages. T5 stays awaiting-user-verification until the owner reports."
+    },
+    {
+      "at": "2026-09-14T15:05:00Z",
+      "what": "user-verified",
+      "detail": "The OWNER ran make test and reported it passed. The assistant did not run the suite and does not claim this result. make test covers every package, including the DB-backed charging integration tests. T5 moves from awaiting-user-verification to done on this report."
+    },
+    {
+      "at": "2026-09-14T15:40:00Z",
+      "what": "review-findings-fixed",
+      "detail": "Reviewer returned approved with two minor comment-hygiene findings. Leader fixed both after approval: F1 removed design.md and decision-ID citations from five comments in db_integration_test.go; F2 removed the RM29 citation the earlier cleanup missed, in charging.go and service.go. Comments only, no behaviour change. go build and go vet clean. No re-review needed: the verdict was already approved and neither finding gated it."
+    }
+  ]
+}

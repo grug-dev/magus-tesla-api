@@ -1,0 +1,366 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM58-gateway-authorize-manual-charge-writes",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM58-rekey-manual-charges-on-tesla-id.md",
+  "request": "MAG-68 — Tier 3 of RM58: the gateway gets ONE seam that produces the caller's owned vehicle set, and every fleet-wide read uses it. No behaviour change.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-14T20:50:00Z",
+  "updated_at": "2026-09-14T21:30:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM58-MAG-68-rekey-manual-charges-on-tesla-id",
+    "base": "main",
+    "ticket": "MAG-68",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-68/5-demote-chargingmanual-charge-entriesaccount-id-to-created-by-account",
+    "created_at": "2026-09-14T10:13:34Z"
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Offline check — grep every teslaIDsOf and RegisteredVehicles call site before edits move the lines",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "All three greps matched design.md: 3 teslaIDsOf hits, no vehicleref import in external_charges.go, zero test call sites."
+    },
+    {
+      "id": "T1",
+      "title": "Add ownedVehicles to handlers.go, next to authorizeVehicle",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "ownedVehicles added to handlers.go after authorizeVehicle. One RegisteredVehicles read returns both shapes. No new import needed."
+    },
+    {
+      "id": "T2",
+      "title": "Test ownedVehicles directly — the three pinned cases from design.md",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "owned_vehicles_test.go covers the three pinned cases: vehicles, empty list, lookup error. Written, not executed."
+    },
+    {
+      "id": "T3",
+      "title": "Route both lookup helpers through ownedVehicles; delete teslaIDsOf",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "Both helpers route through ownedVehicles and unwrap with vehicleref.TeslaIDs. teslaIDsOf deleted. The three other call sites untouched."
+    },
+    {
+      "id": "T4",
+      "title": "Build, vet, format across the change",
+      "module": "gateway",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "go build ./... and go vet ./... clean. gofmt flags three files, all pre-existing on main and untouched by this branch."
+    },
+    {
+      "id": "T5",
+      "title": "Docs — internal/gateway/AGENTS.md (module-owned)",
+      "module": "gateway",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "internal/gateway/AGENTS.md gained an ownedVehicles bullet beside authorizeVehicle, in the vehicle-ownership section."
+    },
+    {
+      "id": "T6",
+      "title": "Docs — the three KB guides (cross-module-aware)",
+      "module": "gateway",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "Three KB guides updated: two literal quotes re-pointed at vehicleref.TeslaIDs(refs), and update-manual-charge step 5 names the seam."
+    },
+    {
+      "id": "T7",
+      "title": "Final verification — build, vet, gofmt, guards, validate",
+      "module": "gateway",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-14T20:52:00Z",
+      "completed_at": "2026-09-14T21:03:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 56,
+        "cost_usd_delta": 3.2,
+        "approx": true,
+        "note": "One wave delta shared across T0-T6 (Sonnet) and the leader's T7."
+      },
+      "notes": "Leader-run. build, vet, validate --strict and all eight guards clean. teslaIDsOf gone from Go; vehicleref.All only in handlers.go."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D13",
+      "scope": "tier-3",
+      "made_by": "user",
+      "at": "2026-09-14T20:25:00Z",
+      "what": "Tier 3 moves the Ref construction into one named seam in handlers.go, not into the two lookup helpers.",
+      "why": "vehicleref.All is unchecked and TeslaIDs is its inverse, so the round-trip returns the same slice. The guard also forbids All outside handlers.go."
+    },
+    {
+      "id": "D14",
+      "scope": "tier-3",
+      "made_by": "user",
+      "at": "2026-09-14T20:28:00Z",
+      "what": "The seam is h.ownedVehicles(ctx, uid) returning (refs []vehicleref.Ref, vehicles []account.Vehicle, ok bool).",
+      "why": "fetchEntryVM needs the vehicles for vehicleLabelFor, so one read returns both. ok stays false on an error or an empty list."
+    },
+    {
+      "id": "D15",
+      "scope": "tier-3",
+      "made_by": "autopilot",
+      "at": "2026-09-14T20:28:00Z",
+      "what": "Only the two lookup helpers use the seam. The other three RegisteredVehicles sites keep their own calls.",
+      "why": "Those three answer 500 with an i18n message; the helpers answer a silent false. Folding them in would change what the user sees."
+    },
+    {
+      "id": "D16",
+      "scope": "tier-3",
+      "made_by": "user",
+      "at": "2026-09-14T20:45:00Z",
+      "what": "One ADDED requirement on the vehicleref capability: a fleet-wide gateway read gets its ids from a bulk ownership proof.",
+      "why": "openspec validate hard-fails with no delta. The property is false today and true after this tier, so the requirement is honest and behavioural."
+    }
+  ],
+  "review": {
+    "brief": "Review scope: git diff 1c92a4e..HEAD, plus the artifacts committed at 1c92a4e. Tier 2 archived at 4f1c6b4; anything before it is approved work. Read the diff, not the whole module. Validate: (1) the binding decisions hold - D13, D14, D15, D16 in this file, and D1-D6 in design.md; (2) ownedVehicles does ONE RegisteredVehicles read and returns both shapes, with ok false on an error OR an empty list - the 'an empty vehicle list is not no-filter' rule must be exactly as strong as before; (3) vehicleref.All is called only from handlers.go and external_charges.go calls only vehicleref.TeslaIDs; (4) teslaIDsOf is gone and no caller rebuilds an owned-id list beside a call; (5) the delta spec requirement is behavioural - it must name no function, type or file - AND it must be TRUE and COMPLETE after this tier: check every fleet-wide owned-set read in the gateway, not just the two helpers, and say whether you found any the requirement would make false; (6) owned_vehicles_test.go asserts the values design.md pinned up front, not what the implementation happens to return - the three cases are vehicles present, empty list, and lookup error; (7) module boundaries - this change must stay inside internal/gateway plus the three granted KB files; (8) docs track the change - internal/gateway/AGENTS.md and the three KB guides; (9) openspec/changes/archive/ untouched; (10) anti-gaming - no criterion weakened, no self-approved status. LEADER OBSERVATION for you to judge, not a finding: ownedVehicles repeats the four-line owned-id loop that authorizeVehicle also has, in the same file. The leader left it, reasoning that extracting a helper for two short loops adds indirection the project's AI-efficiency rule warns against. Say whether you agree. Performance-Profile: read-heavy. This tier must not add a read; confirm the read count is unchanged. Signals: go build, go vet, openspec validate --strict and all eight guards were ASSISTANT-run and clean. The suite was USER-run: the owner ran make test and reported it passed. You judge test quality by READING the tests - never run the suite.",
+    "agent": "gateway-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-14T21:25:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-F1",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/owned_vehicles_test.go:12,29,48 - each test's doc comment says it \"covers the design's Test Contract case N\". This points at design.md's own section name. design.md is archived and frozen with the change, so the pointer cannot be resolved by a later reader. State the rule the test checks instead (e.g. \"case 2: an account with no registered vehicles is not 'no filter'\"), not that it matches a design document section.",
+            "status": "fixed"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-09-14T21:40:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1-F1",
+            "severity": "minor",
+            "note": "Fixed. internal/gateway/handlers/owned_vehicles_test.go:12-14,34-36,53-55 (commit d4519e6) no longer name design.md, a decision ID, RM58, a change ID, or a tier number. Each comment now states the rule its test checks.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2-F1",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/owned_vehicles_test.go:12-14 (case 1 comment, from commit d4519e6) adds: \"Order matters -- a caller pairs the two slices by index.\" This is not true of any caller. fetchEntryVM never pairs refs and vehicles by index: refs is unwrapped only through vehicleref.TeslaIDs(refs) to build the ListEntriesByVehicles id argument, and vehicles is searched by TeslaID VALUE in vehicleLabelFor (internal/gateway/handlers/external_charges.go:1113-1119: `for _, v := range vehicles { if v.TeslaID == teslaID {...} }`), not by index. The rest of the comment (one Ref per vehicle, same order, plus the plain vehicle list) is accurate and matches the test and design.md D1. Fix: drop the \"a caller pairs the two slices by index\" clause, or replace it with what is actually true -- the two slices are two views of the same one RegisteredVehicles read, in the same order, but no caller relies on positional pairing between them.",
+            "status": "fixed"
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "at": "2026-09-14T21:50:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R2-F1",
+            "severity": "minor",
+            "note": "Fixed. internal/gateway/handlers/owned_vehicles_test.go:12-15 (commit a6aafe8) now says the two slices are two views of one read and that no caller pairs them by index -- both true, confirmed against vehicleLabelFor (external_charges.go:1113-1119), which matches by TeslaID value. The remaining clause, 'the order is asserted so a future caller may rely on it', states a design rationale, not a claim about current caller behaviour, so it is not false. States nothing false; no citation of design.md, a decision ID, RM58, a change ID, or a tier number.",
+            "status": "fixed"
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-14T20:30:00Z",
+      "what": "tier-3-interview",
+      "detail": "Owner reshaped tier 3 (D13-D15). The roadmap row's literal change was a no-op and broke vehicleref-guard; the row was corrected. Budget: five_hour_pct 25, context_pct 9."
+    },
+    {
+      "at": "2026-09-14T20:50:00Z",
+      "what": "artifacts-created",
+      "detail": "Sonnet worker wrote proposal/design/tasks. It refused to invent a delta spec and flagged that openspec validate hard-fails on a zero-delta change. Leader verified an honest requirement exists and is complete: ListEntriesByVehicles has exactly two gateway call sites, both in this tier; buildExternalChargesPage reads one vehicle, not the fleet. Owner chose to add it (D16). Worker re-dispatched; openspec validate --strict now passes. No design gate: design.md states no database object changes."
+    },
+    {
+      "at": "2026-09-14T20:52:00Z",
+      "what": "wave-1-dispatched",
+      "detail": "One serial Sonnet worker for T0-T6 (gateway). Serial order respects every depends_on, and one dispatch reads the doc pack once. T7 is leader-owned. T6 needs kkpa/context/, granted explicitly beyond the module sandbox. Budget at dispatch: five_hour_pct 48, context_pct 24."
+    },
+    {
+      "at": "2026-09-14T21:03:00Z",
+      "what": "wave-1-reconciled",
+      "detail": "T0-T7 complete. The worker reported fabricated timestamps (00:00-00:33Z); the real wave window is 20:52-21:03Z and is what this file records. go build, go vet, openspec validate --strict and all eight guards clean. tz-guard passes: its message wraps two lines and a tail -1 read clipped it into looking like a failure. No test was executed, so T1-T3 await the owner's verification. Budget after the wave: five_hour_pct 56, context_pct 25."
+    },
+    {
+      "at": "2026-09-14T21:03:00Z",
+      "what": "leader-observation",
+      "detail": "ownedVehicles repeats the four-line owned-id loop that authorizeVehicle also has, in the same file. Left as is: extracting a helper for two short loops adds indirection the project's own AI-efficiency rule warns against. Flagged for the reviewer to judge, not hidden."
+    },
+    {
+      "at": "2026-09-14T21:10:00Z",
+      "what": "owner-verified",
+      "detail": "The OWNER ran make test and reported it passed. T1, T2 and T3 move from awaiting-user-verification to done. The assistant executed no test; this pass is the owner's report, not the assistant's claim."
+    },
+    {
+      "at": "2026-09-14T21:10:00Z",
+      "what": "reviewer-dispatched",
+      "detail": "gateway-reviewer (Sonnet) dispatched for review round 1, scope git diff 1c92a4e..HEAD. Doc pack: base + ai/agentic-workflow.md + the gateway module pack + internal/gateway/AGENTS.md. Budget at dispatch: five_hour_pct 56, context_pct 25."
+    },
+    {
+      "at": "2026-09-14T21:18:00Z",
+      "what": "review-round-1-triaged",
+      "detail": "One minor finding, R1-F1, accepted and fixed by the leader. The three test doc comments cited the design's Test Contract cases; the B2 rule forbids citing change docs because they are archived and frozen. Each comment now states the rule itself. go vet clean, gofmt clean. Reviewer signalled to re-verify."
+    },
+    {
+      "at": "2026-09-14T21:25:00Z",
+      "what": "review-round-2-triaged",
+      "detail": "R2-F1 accepted and fixed. The leader's own round-1 fix introduced a false claim: that a caller pairs refs and vehicles by index. Verified false -- vehicleLabelFor matches on TeslaID, and the only positional indexing is inside the test. The comment now says no caller pairs by index, and why the order is still asserted. go vet and gofmt clean. Reviewer signalled for round 3."
+    },
+    {
+      "at": "2026-09-14T21:30:00Z",
+      "what": "reviewer-approved",
+      "detail": "gateway-reviewer approved at round 3. Round 1 approved with one minor finding (doc citation in test comments); round 2 rejected the leader's own fix for a false claim about index pairing; round 3 approved the correction. The reviewer confirmed the delta spec requirement is complete -- no counter-example -- and agreed the duplicated owned-id loop should stay inline."
+    }
+  ]
+}
