@@ -1,3 +1,8 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark`
+- TO: `### Requirement: Supercharger Mirror Synchronization Is Bounded By A Vehicle Watermark`
+
 ## MODIFIED Requirements
 
 ### Requirement: Supercharger Mirror Synchronization Is Bounded By A Vehicle Watermark

@@ -7,6 +7,7 @@ reads sibling modules' public ports and computes values none of them store. Its 
 rolling energy-per-kilometre (Wh/km).
 ## Requirements
 ### Requirement: Recent Energy-Per-Kilometre Derivation
+
 The analytics capability SHALL derive a rolling energy-per-kilometre (Wh/km) value for a given
 vehicle over a fixed window (default 30 days, fixed at construction time), from that vehicle's
 stored telemetry snapshots plus its Supercharger sessions and manually-logged charge entries
@@ -15,8 +16,19 @@ port already provides them in, and SHALL NOT perform any unit conversion of its 
 capability SHALL compute the energy numerator as measured charging energy (kWh) minus a
 pack-capacity correction for net SoC drift over the window, using whichever of
 `UsableBatteryLevel` or `BatteryLevel` is consistently available at BOTH window endpoints (never a
-mixed pair). The capability SHALL scope every underlying read to the given account, even when the
-vehicle identifier alone would suffice, as defense-in-depth tenant isolation.
+mixed pair). The capability SHALL scope its telemetry, Supercharger, and manual-charge-entry
+reads by the given vehicle identifier alone. The capability SHALL use the given account
+identifier for exactly one purpose — resolving the vehicle's car type, the pack-capacity lookup —
+and SHALL NOT use it to scope the telemetry, Supercharger, or manual-charge-entry reads.
+
+**This is a CHANGE from the prior revision of this requirement, under which it stated that the
+capability scoped every underlying read to the given account, even when the vehicle identifier
+alone would suffice, as defense-in-depth tenant isolation.** That statement was never accurate:
+the capability's telemetry, Supercharger, and manual-charge-entry reads
+(`SnapshotsByVehicleSince`, `ListSessionsByVehicle`, `ListEntriesByVehicle`) have always taken a
+vehicle identifier alone. The account identifier the capability receives is real and still used —
+it resolves the vehicle's car type for the pack-capacity lookup — but it was never a scoping
+parameter on the other three reads.
 
 #### Scenario: A vehicle with two or more snapshots, known capacity, and net consumption gets a computed value
 - **GIVEN** a vehicle with at least two telemetry snapshots inside the window, whose Fleet API
@@ -47,6 +59,13 @@ vehicle identifier alone would suffice, as defense-in-depth tenant isolation.
   `UsableBatteryLevel`
 - **WHEN** the capability computes the state-of-charge delta for that window
 - **THEN** it uses `UsableBatteryLevel` at both endpoints
+
+#### Scenario: The account identifier resolves car type only, never scopes the vehicle reads
+- **GIVEN** a request to derive recent efficiency for a specific account and vehicle
+- **WHEN** the capability performs its underlying reads
+- **THEN** the telemetry, Supercharger, and manual-charge-entry reads are scoped to the vehicle
+  identifier alone
+- **AND** the account identifier is used only to resolve that vehicle's car type
 
 ### Requirement: Unknown Pack Capacity Yields an Approximate Value, Never a Blank Tile
 The analytics capability SHALL NOT refuse to return an efficiency value solely because the
@@ -92,17 +111,6 @@ window exceeded consumption).
   or measured charging energy alone when capacity is unknown) is zero or negative
 - **WHEN** the capability derives recent efficiency for that vehicle
 - **THEN** it returns `ok=false` and no error
-
-### Requirement: Multi-Tenant Scoping on Every Underlying Read
-The analytics capability SHALL pass the given account identifier to every underlying port call it
-makes (telemetry snapshot history, Supercharger sessions, manually-logged charge entries, and
-vehicle registration lookup), so that a caller can never retrieve another account's data by
-supplying a vehicle identifier alone.
-
-#### Scenario: Every underlying read is scoped to the given account
-- **GIVEN** a request to derive recent efficiency for a specific account and vehicle
-- **WHEN** the capability performs its underlying reads
-- **THEN** every one of those reads is scoped to the given account identifier
 
 ### Requirement: No Cross-Module Database Access
 The analytics capability SHALL own no database of its own and SHALL access telemetry, manual

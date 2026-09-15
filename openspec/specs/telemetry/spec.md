@@ -1006,18 +1006,28 @@ everywhere, including in the code that reads it most. The five sqlc query names 
 the old table name SHALL be renamed to name `SuperchargerHistory` instead, with no change to
 any query's parameters, predicates, ordering or column effects.
 
-**The public port's deliberate half-renamed state is now RETIRED.** The port interface
-previously named `SuperchargerReader`, its four `SuperchargerSessions*` methods, its
-constructor `NewSuperchargerReader`, and its unexported implementation and helper functions
-SHALL be renamed to match the domain type and table they operate on:
-`SuperchargerReader` → `SuperchargerHistoryReader`; `SuperchargerSessionsByAccount` →
-`SuperchargerHistoryByAccount`; `SuperchargerSessionsByVehicle` →
-`SuperchargerHistoryByVehicle`; `SuperchargerSessionsByVehicleBetween` →
-`SuperchargerHistoryByVehicleBetween`; `SuperchargerSessionsByVehicleUpdatedSince` →
-`SuperchargerHistoryByVehicleUpdatedSince`; `NewSuperchargerReader` →
-`NewSuperchargerHistoryReader`. No method signature, parameter list, predicate, ordering, or
-returned data SHALL change — this is a pure identifier rename layered on top of tier 4's table
-and type rename, completing it rather than altering behavior.
+**The public port's deliberate half-renamed state is now RETIRED, and the port has since
+narrowed to ONE method.** The port interface previously named `SuperchargerReader` and its
+constructor `NewSuperchargerReader` SHALL be renamed to match the domain type and table they
+operate on: `SuperchargerReader` → `SuperchargerHistoryReader`; `NewSuperchargerReader` →
+`NewSuperchargerHistoryReader`. The rename also covered the port's methods at the time, each
+renamed from a `SuperchargerSessions*` name to the matching `SuperchargerHistory*` name — but
+three of those four renamed names describe methods that are gone today, for two different
+reasons stated plainly here so neither is mistaken for a currently-callable method:
+
+- The rename table of the time listed `SuperchargerSessionsByAccount` renaming to
+  `SuperchargerHistoryByAccount` — that target name never existed as a real Go symbol anywhere
+  in the repository; the rename table was aspirational for that one entry, and no code ever
+  called it under either name.
+- `SuperchargerHistoryByVehicle` (renamed from `SuperchargerSessionsByVehicle`) and
+  `SuperchargerHistoryByVehicleBetween` (renamed from `SuperchargerSessionsByVehicleBetween`)
+  did exist after the rename, but were later DELETED as dead code: no caller outside
+  `internal/telemetry` itself ever called either one.
+
+The port SHALL now expose exactly ONE method, `SuperchargerHistoryByVehicleUpdatedSince`
+(renamed from `SuperchargerSessionsByVehicleUpdatedSince`) — the nightly Supercharger mirror's
+only read (`internal/app/processor.go`) — with its signature, predicate, ordering and returned
+data unchanged by either the rename or the later deletion of its three now-gone siblings.
 
 A same-named field belonging to another module (`internal/gateway`'s `Deps.SuperchargerReader`,
 typed `charging.SessionReader`) is explicitly OUT OF SCOPE for this requirement and SHALL NOT
@@ -1053,23 +1063,25 @@ unaffected by this rename).
 - **THEN** every field name, type and declaration order is identical — only the struct's own
   type identifier changed
 
-#### Scenario: The public port is fully renamed to match the table (no residual half-state)
+#### Scenario: The public port exposes one method, the bounded per-vehicle read
 - **GIVEN** a caller of telemetry's Supercharger read port
 - **WHEN** this change is applied
-- **THEN** the port is named `SuperchargerHistoryReader`, its four methods are named
-  `SuperchargerHistoryByAccount`, `SuperchargerHistoryByVehicle`,
-  `SuperchargerHistoryByVehicleBetween` and `SuperchargerHistoryByVehicleUpdatedSince`, and its
-  constructor is named `NewSuperchargerHistoryReader`
-- **AND** each method's parameter list, predicate, ordering and returned element type
-  (`SuperchargerHistory`) are byte-identical to the pre-change port's
+- **THEN** the port is named `SuperchargerHistoryReader`, its ONE method is named
+  `SuperchargerHistoryByVehicleUpdatedSince`, and its constructor is named
+  `NewSuperchargerHistoryReader`
+- **AND** that method's parameter list, predicate, ordering and returned element type
+  (`SuperchargerHistory`) are byte-identical to the pre-rename port's equivalent method
 - **AND** the data returned by every call is identical to what the same call returned before
   the rename
 - **AND** no name on the public port still contains the word "Session" in reference to this
   table (the old `SuperchargerSession*` vocabulary is fully retired from this port)
+- **AND** the port defines no `SuperchargerHistoryByAccount`, `SuperchargerHistoryByVehicle` or
+  `SuperchargerHistoryByVehicleBetween` method — the first never existed as a Go symbol, and
+  the other two were deleted as dead code with no production caller
 
 #### Scenario: A real consumer outside the module is broken only by the identifier, and visibly
 - **GIVEN** code outside `internal/telemetry` that names the type `telemetry.SuperchargerReader`
-  or calls one of its four old method names
+  or calls one of its old method names
 - **WHEN** this change is applied without that code being updated
 - **THEN** that code fails to compile, rather than compiling against a silently different type
   or method
