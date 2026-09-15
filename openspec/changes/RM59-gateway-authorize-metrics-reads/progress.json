@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM59-gateway-authorize-metrics-reads",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM59-rekey-vehicle-metrics-on-tesla-id.md",
+  "request": "Point the gateway at the re-keyed analytics ports. Use the ownedVehicles helper that already exists at handlers.go:1082 — do not write a new one, and do not call vehicleref.All directly, because make vehicleref-guard forbids it outside authorizeVehicle. Say in design.md why the three chart reads stay on int64 while the account-wide read takes []Ref.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T6"],
+    "blocked": [],
+    "done": ["T5"]
+  },
+  "created_at": "2026-09-15T10:20:00Z",
+  "updated_at": "2026-09-15T10:20:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
+    "base": "f24ab446237c99a3508a84cb2ee77cb1a0d938dc",
+    "ticket": "MAG-69",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-69/6-re-key-analyticsvehicle-metrics-and-vehicle-metric-watermarks-on",
+    "created_at": "2026-09-15T01:44:43Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "history_test.go: fakeAnalyticsReader signature fixup",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "external_charges.go: collapse buildExternalChargesPage to one read (RD6)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "external_charges_test.go: fakeRecalculator fixup + stale comments",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "handlers_test.go: stale comment fixups only",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Gateway delta spec renaming LatestMetricsByAccount",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway", "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T10:12:00Z", "completed_at": "2026-09-15T10:19:00Z", "duration_seconds": 420,
+      "notes": "Written with the artifacts: all 5 mentions renamed across 4 requirements. Validated strict.",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Final verification: build, vet, gofmt, guards, repo-wide grep",
+      "module": "gateway",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    {
+      "id": "D-RD6",
+      "at": "2026-09-15T10:12:00Z",
+      "scope": "task:T2",
+      "made_by": "user",
+      "decision": "buildExternalChargesPage collapses to one ownedVehicles read; ok=false renders the could-not-load-vehicles error",
+      "why": "Two reads of the same list per render. The empty-list behaviour change is unreachable: the function already returns early when teslaIDFilter is 0.",
+      "covered_by": "roadmap RD6"
+    },
+    {
+      "id": "D-RD7",
+      "at": "2026-09-15T10:12:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The three handlers.go call sites keep vehicleref.All(teslaIDsOf(registered))",
+      "why": "Deliberate deviation from the roadmap text. ownedVehicles would add a second DB read on three hot paths; the guard exempts the whole file.",
+      "covered_by": "roadmap RD7"
+    }
+  ],
+  "events": [
+    { "at": "2026-09-15T10:19:00Z", "agent": "leader", "event": "artifacts created by the gateway worker; openspec validate --strict passed. No design gate: the change touches no database object. Spanish briefing posted and approved by the owner." }
+  ]
+}

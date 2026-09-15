@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM59-rekey-vehicle-metrics-on-tesla-id",
   "intention": "analytics.vehicle_metrics and vehicle_metric_watermarks are keyed on the car, not the account, so one car has one metric history whoever registered it.",
-  "request": "Source ticket: MAG-69 — 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. Collapse duplicate (tesla_id, metric_date) rows, replace both unique constraints, replace idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded.",
+  "request": "Source ticket: MAG-69 \u2014 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. Collapse duplicate (tesla_id, metric_date) rows, replace both unique constraints, replace idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-15T10:05:00Z",
+  "updated_at": "2026-09-15T10:12:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
@@ -70,6 +70,24 @@
       "decision": "ConsumedByDay, OdometerDeltaByDay and BatteryLevelByDay keep teslaID int64",
       "why": "processor.go calls ConsumedByDay as a background job and cannot build a Ref. Siblings stay int64 so the set buildHistoryView calls together is uniform.",
       "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-15T10:12:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "buildExternalChargesPage collapses to one ownedVehicles read; ok=false (error or empty list) renders the could-not-load-vehicles error",
+      "why": "Two reads of the same vehicle list per render. The empty-list behaviour change is unreachable: teslaIDFilter is non-zero only when a vehicle came from that list.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-15T10:12:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The three handlers.go call sites keep vehicleref.All(teslaIDsOf(registered)); they do NOT move to ownedVehicles",
+      "why": "Each already holds its own registered list, so ownedVehicles would add a second DB read per render. vehicleref-guard exempts the whole handlers.go file.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -103,10 +121,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-15T10:12:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -127,7 +145,7 @@
     {
       "at": "2026-09-15T01:44:43Z",
       "agent": "leader",
-      "event": "run scope: HALT AFTER STEP 4 per kkpa-pickup-linear-ticket — artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+      "event": "run scope: HALT AFTER STEP 4 per kkpa-pickup-linear-ticket \u2014 artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
     },
     {
       "at": "2026-09-15T02:04:17Z",
@@ -143,6 +161,11 @@
       "at": "2026-09-15T10:05:00Z",
       "agent": "leader",
       "event": "checkpoint at the tier 1/2 boundary. Owner chose /clear + resume. budget 5h 49%, ctx 26% - neither threshold tripped; this is the tier-boundary recommendation, not a budget stop. No auto-resume armed: a context checkpoint never arms one."
+    },
+    {
+      "at": "2026-09-15T10:12:00Z",
+      "agent": "leader",
+      "event": "resumed at the tier 2 boundary; budget 5h 52%, ctx 10%. Tier 2 interview done: RD6 (F2 fix shape) and RD7 (deviation from the roadmap text on handlers.go). No design gate: tier 2 touches no DB object."
     }
   ]
 }
