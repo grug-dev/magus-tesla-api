@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM59-analytics-rekey-vehicle-metrics-on-tesla-id",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM59-rekey-vehicle-metrics-on-tesla-id.md",
+  "request": "Source ticket: MAG-69 — 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. One migration on both tables: collapse duplicate (tesla_id, metric_date) rows, replace vehicle_metrics_account_tesla_date_unique with UNIQUE (tesla_id, metric_date), replace idx_vehicle_metrics_latest with (tesla_id, metric_date DESC), replace vehicle_metric_watermarks_account_tesla_source_unique with UNIQUE (tesla_id, source), DROP COLUMN account_id from both. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded. MAG-71 was cancelled and its work folds in here.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-15T02:04:09Z",
+  "updated_at": "2026-09-15T02:04:09Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
+    "base": "f24ab446237c99a3508a84cb2ee77cb1a0d938dc",
+    "ticket": "MAG-69",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-69/6-re-key-analyticsvehicle-metrics-and-vehicle-metric-watermarks-on",
+    "created_at": "2026-09-15T02:04:09Z"
+  },
+  "tasks": [
+    { "id": "T1", "title": "Migration — collapse duplicates, swap both unique constraints, recreate idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables", "module": "analytics", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T2", "title": "Queries + sqlc — drop account_id from 7 queries, rename LatestVehicleMetricsByAccount to LatestVehicleMetricsByVehicles, regenerate", "module": "analytics", "depends_on": ["T1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T3", "title": "Ports — 5 signatures drop accountID; LatestMetricsByAccount becomes LatestMetricsForVehicles(ctx, []vehicleref.Ref)", "module": "analytics", "depends_on": ["T2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4", "title": "Implementation — consumed.go, recalculate.go, reader.go and the vehicleMetricsStore seam follow the new ports", "module": "analytics", "depends_on": ["T3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T5", "title": "DB-backed integration test fixups in db_integration_test.go", "module": "analytics", "depends_on": ["T4"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T6", "title": "Offline test fixups in reader_test.go", "module": "analytics", "depends_on": ["T4"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T7", "title": "Docs — internal/analytics/AGENTS.md and the kkpa/context vehicle-metrics guide", "module": "analytics", "depends_on": ["T3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T8", "title": "LEADER-OWNED cross-module integration — processor.go dedupes by tesla_id; gateway stopgap keeps go build green", "module": "app+gateway", "depends_on": ["T4"], "parallel_ok": false, "status": "pending", "agent": "leader", "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T9", "title": "Final verification — build, vet, gofmt, migration/boundary/vehicleref guards, index claims with enable_seqscan off", "module": "analytics", "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    { "id": "D-GATE", "at": "2026-09-15T02:04:09Z", "scope": "change", "made_by": "user",
+      "decision": "database design gate confirmed: migration shape, the three-index plan, and DROP COLUMN account_id on both tables",
+      "why": "Owner reviewed the schema before/after, the index plan and the irreversible DROP COLUMN, and approved. Dev DB has one account, so no distinguishable data is lost.",
+      "covered_by": "roadmap RM59 decisions RD1-RD5" },
+    { "id": "D-VET", "at": "2026-09-15T02:04:09Z", "scope": "task:T8", "made_by": "user",
+      "decision": "tier 1 leaves go vet ./internal/gateway/... red until tier 2 lands",
+      "why": "The gateway stopgap fixes production files only; its test fakes still use the old signatures. go build ./... stays green. Mirrors RM57 T8.",
+      "covered_by": "design.md D12" }
+  ],
+  "events": [
+    { "at": "2026-09-15T02:04:09Z", "agent": "leader", "event": "dispatched analytics worker (sonnet) to create tier 1 artifacts; returned proposal.md, design.md, tasks.md, specs/analytics/spec.md — openspec validate --strict passes" },
+    { "at": "2026-09-15T02:04:09Z", "agent": "leader", "event": "cross-checked the worker's D1-D12 enumeration against design.md — all twelve have real sections, no hand-waving found" },
+    { "at": "2026-09-15T02:04:09Z", "agent": "leader", "event": "leader independently verified the vehicleref-guard exemption claim in design.md D12: the Makefile exempts the whole internal/gateway/handlers/handlers.go file, not only authorizeVehicle. Worker's claim correct." },
+    { "at": "2026-09-15T02:04:09Z", "agent": "leader", "event": "database design gate CONFIRMED by user; artifacts committed. Run halts here per kkpa-pickup-linear-ticket scope — no implementation workers dispatched, no reviewer, no archive." }
+  ]
+}
