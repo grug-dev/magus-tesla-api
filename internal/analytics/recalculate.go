@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,7 +27,7 @@ import (
 // read queries a source with updated_at >= cursor - recalcOverlap, so a
 // transaction that commits after Reconcile's own cursor read is still picked
 // up on the next run. Recalculate's UPSERT is idempotent on
-// (account_id, tesla_id, metric_date), so a row this overlap re-reads
+// (tesla_id, metric_date), so a row this overlap re-reads
 // unchanged produces a byte-identical write -- a correctness no-op paid for
 // in a handful of extra read rows (design.md D4). Mirrors reader.go's own
 // chargingSourceLimit named-constant convention.
@@ -98,7 +97,7 @@ func NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, super
 // fully applies or has no effect -- Reconcile's D4 overlap re-read makes a retry of a partially
 // failed call a correctness no-op regardless, but the transaction avoids
 // ever persisting a half-written window.
-func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error {
+func (r *recalculator) Recalculate(ctx context.Context, teslaID int64, start, end time.Time) error {
 	lookbackStart := start.AddDate(0, 0, -1)
 
 	snapshots, err := r.telemetry.SnapshotsByVehicleBetween(ctx, teslaID, lookbackStart, end.AddDate(0, 0, 1))
@@ -166,12 +165,6 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 	}
 
 	rows := deriveVehicleMetrics(preceding, snapshots, sessions, entries, start, end)
-	// Snapshots no longer carry an account: one elected account polls each
-	// vehicle, so the row says which car it is, not who fetched it. The metric
-	// row is still per account, so the scope comes from this call's own caller.
-	for i := range rows {
-		rows[i].AccountID = accountID
-	}
 
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -190,7 +183,6 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 	}
 
 	if err := qtx.DeleteVehicleMetricsInRangeExcept(ctx, analyticsdb.DeleteVehicleMetricsInRangeExceptParams{
-		AccountID:   accountID,
 		TeslaID:     teslaID,
 		StartDate:   dateFrom(start),
 		EndDate:     dateFrom(end),
@@ -210,7 +202,6 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 // domain pointer/zero-value through mapping.go's pg* helpers.
 func upsertVehicleMetricParamsFrom(row vehicleMetricRow) analyticsdb.UpsertVehicleMetricParams {
 	return analyticsdb.UpsertVehicleMetricParams{
-		AccountID:              row.AccountID,
 		TeslaID:                row.TeslaID,
 		MetricDate:             dateFrom(row.MetricDate),
 		BatteryLevelPct:        int32(row.BatteryLevelPct),
@@ -258,16 +249,16 @@ func upsertVehicleMetricParamsFrom(row vehicleMetricRow) analyticsdb.UpsertVehic
 // UpdatedAt/updated_at observed on this run -- a source with zero returned
 // rows leaves its own watermark row untouched (Reconcile's own idempotence
 // contract, design.md's Test Contract).
-func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, teslaID int64) error {
-	snapCursor, err := r.watermark(ctx, accountID, teslaID, sourceVehicleSnapshots)
+func (r *recalculator) Reconcile(ctx context.Context, teslaID int64) error {
+	snapCursor, err := r.watermark(ctx, teslaID, sourceVehicleSnapshots)
 	if err != nil {
 		return fmt.Errorf("reading %s watermark: %w", sourceVehicleSnapshots, err)
 	}
-	scsCursor, err := r.watermark(ctx, accountID, teslaID, sourceSuperchargerSessions)
+	scsCursor, err := r.watermark(ctx, teslaID, sourceSuperchargerSessions)
 	if err != nil {
 		return fmt.Errorf("reading %s watermark: %w", sourceSuperchargerSessions, err)
 	}
-	manualCursor, err := r.watermark(ctx, accountID, teslaID, sourceManualChargeEntries)
+	manualCursor, err := r.watermark(ctx, teslaID, sourceManualChargeEntries)
 	if err != nil {
 		return fmt.Errorf("reading %s watermark: %w", sourceManualChargeEntries, err)
 	}
@@ -337,22 +328,22 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 		end = yesterday
 	}
 
-	if err := r.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+	if err := r.Recalculate(ctx, teslaID, start, end); err != nil {
 		return fmt.Errorf("recalculating [%s, %s]: %w", start, end, err)
 	}
 
 	if len(snapshots) > 0 {
-		if err := r.advanceWatermark(ctx, accountID, teslaID, sourceVehicleSnapshots, maxSnapUpdated); err != nil {
+		if err := r.advanceWatermark(ctx, teslaID, sourceVehicleSnapshots, maxSnapUpdated); err != nil {
 			return err
 		}
 	}
 	if len(sessions) > 0 {
-		if err := r.advanceWatermark(ctx, accountID, teslaID, sourceSuperchargerSessions, maxSessionUpdated); err != nil {
+		if err := r.advanceWatermark(ctx, teslaID, sourceSuperchargerSessions, maxSessionUpdated); err != nil {
 			return err
 		}
 	}
 	if len(entries) > 0 {
-		if err := r.advanceWatermark(ctx, accountID, teslaID, sourceManualChargeEntries, maxEntryUpdated); err != nil {
+		if err := r.advanceWatermark(ctx, teslaID, sourceManualChargeEntries, maxEntryUpdated); err != nil {
 			return err
 		}
 	}
@@ -365,11 +356,10 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 // then queries "since epoch - recalcOverlap", which matches every row the
 // source has ever stored, backfilling the vehicle's entire history for that
 // source on its first-ever Reconcile call.
-func (r *recalculator) watermark(ctx context.Context, accountID uuid.UUID, teslaID int64, source string) (time.Time, error) {
+func (r *recalculator) watermark(ctx context.Context, teslaID int64, source string) (time.Time, error) {
 	ts, err := r.q.GetVehicleMetricWatermark(ctx, analyticsdb.GetVehicleMetricWatermarkParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-		Source:    source,
+		TeslaID: teslaID,
+		Source:  source,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -384,9 +374,8 @@ func (r *recalculator) watermark(ctx context.Context, accountID uuid.UUID, tesla
 // updated_at observed on this Reconcile run (design.md D2/D3/D4). Only
 // called for a source whose ...UpdatedSince query returned at least one row
 // -- see Reconcile above.
-func (r *recalculator) advanceWatermark(ctx context.Context, accountID uuid.UUID, teslaID int64, source string, observed time.Time) error {
+func (r *recalculator) advanceWatermark(ctx context.Context, teslaID int64, source string, observed time.Time) error {
 	if err := r.q.UpsertVehicleMetricWatermark(ctx, analyticsdb.UpsertVehicleMetricWatermarkParams{
-		AccountID:       accountID,
 		TeslaID:         teslaID,
 		Source:          source,
 		SourceUpdatedAt: pgtype.Timestamptz{Time: observed, Valid: true},

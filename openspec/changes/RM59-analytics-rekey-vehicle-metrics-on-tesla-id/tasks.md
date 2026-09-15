@@ -28,7 +28,7 @@ T1 (migration) ──► T2 (queries + sqlc) ──► T3 (ports) ──► T4 (
 
 Depends on: nothing.
 
-- [ ] 1.1 Write
+- [x] 1.1 Write
       `internal/analytics/db/migrations/20260914000001_rekey_vehicle_metrics_on_tesla_id.sql`
       exactly as specified in `design.md`'s "Migration SQL": the two duplicate-collapse
       `DELETE`s (keep latest `updated_at`, tie broken by `id`), `DROP CONSTRAINT
@@ -42,13 +42,13 @@ Depends on: nothing.
       account_id`, `ADD CONSTRAINT vehicle_metric_watermarks_tesla_source_unique
       UNIQUE (tesla_id, source)` — no index recreation needed there, design.md D7),
       plus the `-- +goose Down` half.
-- [ ] 1.2 Do NOT write a `SET NOT NULL` for `tesla_id` on either table (already
+- [x] 1.2 Do NOT write a `SET NOT NULL` for `tesla_id` on either table (already
       `NOT NULL`, verified) and do NOT write `DROP INDEX
       idx_vehicle_metrics_vehicle_date` (does not exist) — design.md D4.
-- [ ] 1.3 Do not touch `20260821000001_add_vehicle_metrics.sql` or
+- [x] 1.3 Do not touch `20260821000001_add_vehicle_metrics.sql` or
       `20260821000002_add_vehicle_metric_watermarks.sql` — historic migrations are
       never edited.
-- [ ] 1.4 Run `make migration-guard`. Expect clean (no cross-module schema reference
+- [x] 1.4 Run `make migration-guard`. Expect clean (no cross-module schema reference
       introduced).
 
 ## T2 — Queries + sqlc
@@ -56,29 +56,29 @@ Depends on: nothing.
 Depends on: T1 (schema must exist before `sqlc generate` can validate the queries
 against it).
 
-- [ ] 2.1 In `internal/analytics/db/query.sql`, remove `account_id` from
+- [x] 2.1 In `internal/analytics/db/query.sql`, remove `account_id` from
       `UpsertVehicleMetric`'s column list, `VALUES` list, and `ON CONFLICT` target
       (becomes `(tesla_id, metric_date)`).
-- [ ] 2.2 Remove `account_id` from `DeleteVehicleMetricsInRangeExcept`'s `WHERE`
+- [x] 2.2 Remove `account_id` from `DeleteVehicleMetricsInRangeExcept`'s `WHERE`
       clause.
-- [ ] 2.3 Remove `account_id` from `VehicleMetricsConsumedByVehicleBetween`'s,
+- [x] 2.3 Remove `account_id` from `VehicleMetricsConsumedByVehicleBetween`'s,
       `VehicleMetricsOdometerByVehicleBetween`'s, and
       `VehicleMetricsBatteryByVehicleBetween`'s `WHERE` clauses (the three MAG-71
       queries, folded in per roadmap RD2).
-- [ ] 2.4 Remove `account_id` from `GetVehicleMetricWatermark`'s `WHERE` clause and
+- [x] 2.4 Remove `account_id` from `GetVehicleMetricWatermark`'s `WHERE` clause and
       `UpsertVehicleMetricWatermark`'s column list / `VALUES` list / `ON CONFLICT`
       target.
-- [ ] 2.5 Rename `LatestVehicleMetricsByAccount` to `LatestVehicleMetricsByVehicles`:
+- [x] 2.5 Rename `LatestVehicleMetricsByAccount` to `LatestVehicleMetricsByVehicles`:
       replace `WHERE account_id = @account_id` with
       `WHERE tesla_id = ANY(@tesla_ids::bigint[])`. Keep the `SELECT` column list,
       `DISTINCT ON (tesla_id)`, and `ORDER BY tesla_id, metric_date DESC` unchanged.
-- [ ] 2.6 Rewrite the doc comments on every query touched above so none cites a
+- [x] 2.6 Rewrite the doc comments on every query touched above so none cites a
       constraint name being replaced (`vehicle_metrics_account_tesla_date_unique`,
       `vehicle_metric_watermarks_account_tesla_source_unique`) or an archived design
       doc's "Index Plan" by name — replace each citation with the reason itself
       (design.md D5/D6/D7 give the substance). Do not cite this change's own name or
       any decision ID in the new comment text.
-- [ ] 2.7 Run `make sqlc` (or `sqlc generate`). Confirm the regenerated
+- [x] 2.7 Run `make sqlc` (or `sqlc generate`). Confirm the regenerated
       `internal/analytics/db/query.sql.go` has no `AccountID` field on
       `UpsertVehicleMetricParams`, `DeleteVehicleMetricsInRangeExceptParams`,
       `VehicleMetricsConsumedByVehicleBetweenParams`,
@@ -92,14 +92,14 @@ against it).
 
 Depends on: T2 (needs the regenerated `analyticsdb` types).
 
-- [ ] 3.1 In `internal/analytics/analytics.go`: change `Reader.ConsumedByDay`,
+- [x] 3.1 In `internal/analytics/analytics.go`: change `Reader.ConsumedByDay`,
       `OdometerDeltaByDay`, `BatteryLevelByDay` to drop `accountID uuid.UUID` (keep
       `teslaID int64`, design.md D10). Update each method's doc comment: drop every
       sentence describing account-scoping as the security boundary, replace with a
       one-line note that scoping is by vehicle identity (`tesla_id`) alone, and that a
       caller must already have proven the requesting account owns this vehicle before
       calling.
-- [ ] 3.2 In the same file, change `LatestMetricsByAccount(ctx, accountID
+- [x] 3.2 In the same file, change `LatestMetricsByAccount(ctx, accountID
       uuid.UUID)` to `LatestMetricsForVehicles(ctx context.Context, refs
       []vehicleref.Ref) ([]VehicleStatus, error)` (design.md D9). Add the
       `internal/vehicleref` import. Rewrite the method's doc comment: replace every
@@ -107,10 +107,10 @@ Depends on: T2 (needs the regenerated `analyticsdb` types).
       vehicle in the given set"/"a vehicle outside the given set"; keep the existing
       "latest = greatest metric_date" and "empty, non-nil slice" contract sentences,
       reworded for a vehicle set instead of an account.
-- [ ] 3.3 In the same file, change `Recalculator.Recalculate` and `Reconcile` to drop
+- [x] 3.3 In the same file, change `Recalculator.Recalculate` and `Reconcile` to drop
       `accountID uuid.UUID` (keep `teslaID int64`, design.md D10). Update both doc
       comments the same way as 3.1.
-- [ ] 3.4 `go build ./internal/analytics/...` — expect this to fail until T4 also
+- [x] 3.4 `go build ./internal/analytics/...` — expect this to fail until T4 also
       lands (the implementation files still reference the old signatures); expected
       at this point in the sequence, not a regression.
 
@@ -118,10 +118,10 @@ Depends on: T2 (needs the regenerated `analyticsdb` types).
 
 Depends on: T3.
 
-- [ ] 4.1 `internal/analytics/consumed.go`: delete `vehicleMetricRow.AccountID` (no
+- [x] 4.1 `internal/analytics/consumed.go`: delete `vehicleMetricRow.AccountID` (no
       caller sets it once Recalculate has no `accountID` to assign from — design.md
       D10).
-- [ ] 4.2 `internal/analytics/recalculate.go`: `Recalculate` drops the `accountID`
+- [x] 4.2 `internal/analytics/recalculate.go`: `Recalculate` drops the `accountID`
       parameter and the `for i := range rows { rows[i].AccountID = accountID }` loop.
       `upsertVehicleMetricParamsFrom` drops `AccountID: row.AccountID` from the
       `analyticsdb.UpsertVehicleMetricParams` literal. `Reconcile` drops the
@@ -131,7 +131,7 @@ Depends on: T3.
       Every `analyticsdb.GetVehicleMetricWatermarkParams` /
       `UpsertVehicleMetricWatermarkParams` / `DeleteVehicleMetricsInRangeExceptParams`
       literal drops `AccountID:`.
-- [ ] 4.3 `internal/analytics/reader.go`: `ConsumedByDay`, `OdometerDeltaByDay`,
+- [x] 4.3 `internal/analytics/reader.go`: `ConsumedByDay`, `OdometerDeltaByDay`,
       `BatteryLevelByDay` drop the `accountID` parameter and the `AccountID:
       accountID` field from their respective `analyticsdb.*BetweenParams` literals.
       Rename the `vehicleMetricsStore` interface's `LatestVehicleMetricsByAccount`
@@ -141,7 +141,7 @@ Depends on: T3.
       refs, pass the result to `r.metrics.LatestVehicleMetricsByVehicles`, map rows to
       `[]VehicleStatus` exactly as `LatestMetricsByAccount` did (no change to the
       mapping body itself, only its inputs).
-- [ ] 4.4 `go build ./internal/analytics/...` and `go vet ./internal/analytics/...`
+- [x] 4.4 `go build ./internal/analytics/...` and `go vet ./internal/analytics/...`
       — expect `go vet` to fail until T5/T6 also land (this package's own test files
       still reference the old shapes); expected at this point, not a regression.
 

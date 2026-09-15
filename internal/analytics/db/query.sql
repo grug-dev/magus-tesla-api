@@ -9,16 +9,17 @@
 
 -- name: UpsertVehicleMetric :exec
 -- Upsert one vehicle_metrics row (design D11). On conflict with
--- vehicle_metrics_account_tesla_date_unique, refresh every column
+-- vehicle_metrics_tesla_date_unique, refresh every column
 -- Recalculate/deriveVehicleMetrics computed for this day, including the
 -- nullable _calc columns and consumed_pct/flagged/missing_charging_type —
 -- deriveVehicleMetrics may re-run over a revised prior day (D4's 24h
 -- overlap) or the vehicle_snapshots row itself may have been replaced
 -- (telemetry's own same-day UPSERT), so a stale value here must not survive
 -- a re-derivation. created_at is DELIBERATELY ABSENT from the SET clause —
--- it must record when this (account_id, tesla_id, metric_date) was FIRST
+-- it must record when this (tesla_id, metric_date) was FIRST
 -- written, not the most recent recompute, mirroring UpsertChargeGap's
--- identical convention (internal/telemetry/db/query.sql).
+-- identical convention (internal/telemetry/db/query.sql). tesla_id alone
+-- names one vehicle uniquely, so it carries the row's full identity.
 -- The eight RM38 status columns (locked, sentry_mode, car_version,
 -- inside_temp_c, outside_temp_c, charging_state, charge_limit_soc_pct,
 -- captured_at) are ordinary refreshed columns like every other non-
@@ -39,7 +40,7 @@
 -- distance_traveled_km_calc and its four siblings already follow, never the raw-TPMS
 -- rule the four columns above it follow.
 INSERT INTO analytics.vehicle_metrics (
-    account_id, tesla_id, metric_date,
+    tesla_id, metric_date,
     battery_level_pct, odometer_km, battery_range_km,
     distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
     estimated_range_km_calc, days_spanned_calc,
@@ -50,7 +51,7 @@ INSERT INTO analytics.vehicle_metrics (
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
 ) VALUES (
-    @account_id, @tesla_id, @metric_date,
+    @tesla_id, @metric_date,
     @battery_level_pct, @odometer_km, @battery_range_km,
     @distance_traveled_km_calc, @battery_used_pct_calc, @km_per_pct_calc,
     @estimated_range_km_calc, @days_spanned_calc,
@@ -61,7 +62,7 @@ INSERT INTO analytics.vehicle_metrics (
     @tpms_pressure_fl_psi, @tpms_pressure_fr_psi, @tpms_pressure_rl_psi, @tpms_pressure_rr_psi,
     @tpms_pressure_fl_psi_calc, @tpms_pressure_fr_psi_calc, @tpms_pressure_rl_psi_calc, @tpms_pressure_rr_psi_calc
 )
-ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
+ON CONFLICT (tesla_id, metric_date) DO UPDATE SET
     battery_level_pct         = EXCLUDED.battery_level_pct,
     odometer_km                = EXCLUDED.odometer_km,
     battery_range_km           = EXCLUDED.battery_range_km,
@@ -92,18 +93,19 @@ ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     tpms_pressure_rr_psi_calc   = EXCLUDED.tpms_pressure_rr_psi_calc,
     updated_at                 = now();
 
--- name: LatestVehicleMetricsByAccount :many
--- Backs analytics.Reader.LatestMetricsByAccount (design D5/D6 of
--- RM38-analytics-add-vehicle-status-columns) -- the analytics-owned
+-- name: LatestVehicleMetricsByVehicles :many
+-- Backs analytics.Reader.LatestMetricsForVehicles -- the analytics-owned
 -- equivalent of telemetry.Reader.LatestSnapshotsByVehicles, mirroring its
--- exact DISTINCT ON shape: account_id equality narrows to one tenant's
--- rows, then (tesla_id, metric_date) lets Postgres pick the highest
--- metric_date row per tesla_id in one ordered index scan.
--- Served by idx_vehicle_metrics_latest (account_id, tesla_id,
--- metric_date DESC) -- added at the database design gate specifically to
--- match this query's ORDER BY exactly, eliminating the incremental sort
--- the existing all-ascending vehicle_metrics_account_tesla_date_unique
--- index would otherwise force (design.md "Index Plan", revised).
+-- exact DISTINCT ON shape: tesla_id membership narrows to the given vehicle
+-- set, then (tesla_id, metric_date) lets Postgres pick the highest
+-- metric_date row per tesla_id in one ordered index scan. The caller
+-- already proved the requesting account owns every id in the set before
+-- calling -- this query trusts the given identifiers and re-checks nothing.
+-- Served by idx_vehicle_metrics_latest (tesla_id, metric_date DESC) --
+-- its ORDER BY match eliminates the incremental sort an all-ascending
+-- index would otherwise force. `= ANY(...)` on a small array still uses
+-- this index one element at a time, in index order, so DISTINCT ON needs
+-- no extra sort node.
 -- max_range_charge_counter joined the projection for the dashboard's
 -- "100% Charges" tile: it is one more nullable raw observation on the same
 -- latest row, so it adds a column to an existing read, not a second query --
@@ -128,7 +130,7 @@ SELECT DISTINCT ON (tesla_id)
     distance_traveled_km_calc, consumed_pct, km_per_pct_calc,
     tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
 FROM analytics.vehicle_metrics
-WHERE account_id = @account_id
+WHERE tesla_id = ANY(@tesla_ids::bigint[])
 ORDER BY tesla_id, metric_date DESC;
 
 -- name: DeleteVehicleMetricsInRangeExcept :exec
@@ -143,11 +145,10 @@ ORDER BY tesla_id, metric_date DESC;
 -- window, e.g. every snapshot in range was itself removed) correctly deletes
 -- every existing row in range: `!= ALL('{}')` is true for every row, since
 -- there are no elements to compare against.
--- Served by vehicle_metrics_account_tesla_date_unique's own index (Index Plan,
--- read pattern #3) — no separate CREATE INDEX.
+-- Served by vehicle_metrics_tesla_date_unique's own index -- no separate
+-- CREATE INDEX.
 DELETE FROM analytics.vehicle_metrics
-WHERE account_id  = @account_id
-  AND tesla_id    = @tesla_id
+WHERE tesla_id    = @tesla_id
   AND metric_date BETWEEN @start_date AND @end_date
   AND metric_date != ALL(@metric_dates::date[]);
 
@@ -166,16 +167,15 @@ WHERE account_id  = @account_id
 -- have non-NULL distance_traveled_km_calc/days_spanned_calc, so the Go
 -- mapping in reader.go needs no nil-check and no fallback-to-1 branch for
 -- either.
--- Served by vehicle_metrics_account_tesla_date_unique's own index (Index
--- Plan, read pattern #1) — no separate CREATE INDEX. The IS NOT NULL clause
--- is a residual predicate evaluated against the already-tiny (<=
--- historyRangeMaxDays = 90 row) range-scanned result.
+-- Served by vehicle_metrics_tesla_date_unique's own index -- no separate
+-- CREATE INDEX. The IS NOT NULL clause is a residual predicate evaluated
+-- against the already-tiny (<= historyRangeMaxDays = 90 row) range-scanned
+-- result.
 SELECT
     metric_date, consumed_pct, distance_traveled_km_calc, flagged,
     missing_charging_type, days_spanned_calc
 FROM analytics.vehicle_metrics
-WHERE account_id  = @account_id
-  AND tesla_id    = @tesla_id
+WHERE tesla_id    = @tesla_id
   AND metric_date BETWEEN @start_date AND @end_date
   AND battery_used_pct_calc IS NOT NULL
 ORDER BY metric_date;
@@ -195,8 +195,7 @@ ORDER BY metric_date;
 SELECT
     metric_date, odometer_km, distance_traveled_km_calc
 FROM analytics.vehicle_metrics
-WHERE account_id  = @account_id
-  AND tesla_id    = @tesla_id
+WHERE tesla_id    = @tesla_id
   AND metric_date BETWEEN @start_date AND @end_date
   AND distance_traveled_km_calc IS NOT NULL
 ORDER BY metric_date;
@@ -217,47 +216,45 @@ ORDER BY metric_date;
 -- the battery chart even though both values are fully known for that day --
 -- a strictly worse answer, and on a NOT NULL column the filter could never
 -- exclude a row anyway, so omitting it is not an oversight.
--- Served by vehicle_metrics_account_tesla_date_unique's own index (design.md
--- Index Plan #1) -- no separate CREATE INDEX; byte-identical index usage to
--- its two siblings, differing only in the absent residual predicate.
+-- Served by vehicle_metrics_tesla_date_unique's own index -- no separate
+-- CREATE INDEX; byte-identical index usage to its two siblings, differing
+-- only in the absent residual predicate.
 SELECT
     metric_date, battery_level_pct, battery_range_km
 FROM analytics.vehicle_metrics
-WHERE account_id  = @account_id
-  AND tesla_id    = @tesla_id
+WHERE tesla_id    = @tesla_id
   AND metric_date BETWEEN @start_date AND @end_date
 ORDER BY metric_date;
 
 -- name: GetVehicleMetricWatermark :one
--- Single-row cursor lookup for one (account_id, tesla_id, source) — design
--- D2/D3. Returns pgx.ErrNoRows when no watermark exists yet for this source,
--- which internal/analytics.Recalculator.Reconcile treats as "epoch": the
--- source has never been reconciled for this vehicle, so it backfills the
--- vehicle's full history in one pass (design D7). Served entirely by
--- vehicle_metric_watermarks_account_tesla_source_unique's own index (Index
--- Plan, read pattern #4) — no separate CREATE INDEX.
+-- Single-row cursor lookup for one (tesla_id, source) -- tesla_id alone
+-- names one vehicle uniquely. Returns pgx.ErrNoRows when no watermark
+-- exists yet for this source, which
+-- internal/analytics.Recalculator.Reconcile treats as "epoch": the source
+-- has never been reconciled for this vehicle, so it backfills the vehicle's
+-- full history in one pass. Served entirely by
+-- vehicle_metric_watermarks_tesla_source_unique's own index -- a point
+-- lookup, no separate CREATE INDEX.
 SELECT source_updated_at
 FROM analytics.vehicle_metric_watermarks
-WHERE account_id = @account_id
-  AND tesla_id   = @tesla_id
+WHERE tesla_id   = @tesla_id
   AND source     = @source;
 
 -- name: UpsertVehicleMetricWatermark :exec
--- Advance one source's cursor for one vehicle (design D2/D3/D4). Called by
--- Reconcile only for a source whose ...UpdatedSince query returned at least
--- one row, advanced to the max UpdatedAt/updated_at observed from that
--- source on this run — a source with zero returned rows leaves its
--- watermark row untouched (Reconcile's own idempotence contract,
--- design.md's Test Contract). created_at is DELIBERATELY ABSENT from the SET
--- clause — it must record when this (account_id, tesla_id, source) cursor
--- was FIRST created, not the most recent advance, mirroring
+-- Advance one source's cursor for one vehicle. Called by Reconcile only for
+-- a source whose ...UpdatedSince query returned at least one row, advanced
+-- to the max UpdatedAt/updated_at observed from that source on this run —
+-- a source with zero returned rows leaves its watermark row untouched
+-- (Reconcile's own idempotence contract). created_at is DELIBERATELY
+-- ABSENT from the SET clause — it must record when this (tesla_id, source)
+-- cursor was FIRST created, not the most recent advance, mirroring
 -- UpsertChargeGap's identical convention.
 INSERT INTO analytics.vehicle_metric_watermarks (
-    account_id, tesla_id, source, source_updated_at
+    tesla_id, source, source_updated_at
 ) VALUES (
-    @account_id, @tesla_id, @source, @source_updated_at
+    @tesla_id, @source, @source_updated_at
 )
-ON CONFLICT (account_id, tesla_id, source) DO UPDATE SET
+ON CONFLICT (tesla_id, source) DO UPDATE SET
     source_updated_at = EXCLUDED.source_updated_at,
     updated_at         = now();
 

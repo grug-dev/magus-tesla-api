@@ -15,6 +15,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // --- Fixtures P1/P2: buildPollRun, pure — no fakes needed (design.md Test
@@ -232,11 +233,11 @@ var _ charging.SessionWriter = fakeSessionWriter{}
 // Fixtures P3-P5 (design D9).
 type fakeRecalculator struct{}
 
-func (fakeRecalculator) Recalculate(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) error {
+func (fakeRecalculator) Recalculate(_ context.Context, _ int64, _, _ time.Time) error {
 	return nil
 }
 
-func (fakeRecalculator) Reconcile(_ context.Context, _ uuid.UUID, _ int64) error {
+func (fakeRecalculator) Reconcile(_ context.Context, _ int64) error {
 	return nil
 }
 
@@ -250,19 +251,19 @@ func (fakeAnalyticsReader) RecentEfficiency(_ context.Context, _ uuid.UUID, _ in
 	return analytics.Efficiency{}, false, nil
 }
 
-func (fakeAnalyticsReader) ConsumedByDay(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]analytics.DayConsumption, error) {
+func (fakeAnalyticsReader) ConsumedByDay(_ context.Context, _ int64, _, _ time.Time) ([]analytics.DayConsumption, error) {
 	return nil, nil
 }
 
-func (fakeAnalyticsReader) OdometerDeltaByDay(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]analytics.DayDistance, error) {
+func (fakeAnalyticsReader) OdometerDeltaByDay(_ context.Context, _ int64, _, _ time.Time) ([]analytics.DayDistance, error) {
 	return nil, nil
 }
 
-func (fakeAnalyticsReader) LatestMetricsByAccount(_ context.Context, _ uuid.UUID) ([]analytics.VehicleStatus, error) {
+func (fakeAnalyticsReader) LatestMetricsForVehicles(_ context.Context, _ []vehicleref.Ref) ([]analytics.VehicleStatus, error) {
 	return nil, nil
 }
 
-func (fakeAnalyticsReader) BatteryLevelByDay(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]analytics.DayBattery, error) {
+func (fakeAnalyticsReader) BatteryLevelByDay(_ context.Context, _ int64, _, _ time.Time) ([]analytics.DayBattery, error) {
 	return nil, nil
 }
 

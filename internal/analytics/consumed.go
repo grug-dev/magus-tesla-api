@@ -13,8 +13,6 @@ package analytics
 import (
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
@@ -34,7 +32,6 @@ const minFlagDistanceKm = 10.0
 // deriveVehicleMetrics and the only place this type is converted to
 // analyticsdb.UpsertVehicleMetricParams (mapping.go's pg* helpers).
 type vehicleMetricRow struct {
-	AccountID  uuid.UUID
 	TeslaID    int64
 	MetricDate time.Time
 
