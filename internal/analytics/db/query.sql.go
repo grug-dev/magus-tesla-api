@@ -103,8 +103,11 @@ type DeleteVehicleMetricsInRangeExceptParams struct {
 // window, e.g. every snapshot in range was itself removed) correctly deletes
 // every existing row in range: `!= ALL('{}')` is true for every row, since
 // there are no elements to compare against.
-// Served by vehicle_metrics_tesla_date_unique's own index -- no separate
-// CREATE INDEX.
+// Served by an index on (tesla_id, metric_date), never a seq scan -- no
+// separate CREATE INDEX. Two indexes lead on those columns and either can
+// serve this range: vehicle_metrics_tesla_date_unique ascending,
+// idx_vehicle_metrics_latest backward. Which one the planner picks is its
+// choice, not a contract.
 func (q *Queries) DeleteVehicleMetricsInRangeExcept(ctx context.Context, arg DeleteVehicleMetricsInRangeExceptParams) error {
 	_, err := q.db.Exec(ctx, deleteVehicleMetricsInRangeExcept,
 		arg.TeslaID,
@@ -526,8 +529,11 @@ type VehicleMetricsBatteryByVehicleBetweenRow struct {
 // the battery chart even though both values are fully known for that day --
 // a strictly worse answer, and on a NOT NULL column the filter could never
 // exclude a row anyway, so omitting it is not an oversight.
-// Served by vehicle_metrics_tesla_date_unique's own index -- no separate
-// CREATE INDEX; byte-identical index usage to its two siblings, differing
+// Served by an index on (tesla_id, metric_date), never a seq scan -- no
+// separate CREATE INDEX. Two indexes lead on those columns and either can
+// serve this range: vehicle_metrics_tesla_date_unique ascending,
+// idx_vehicle_metrics_latest backward. Which one the planner picks is its
+// choice, not a contract; byte-identical index usage to its two siblings, differing
 // only in the absent residual predicate.
 func (q *Queries) VehicleMetricsBatteryByVehicleBetween(ctx context.Context, arg VehicleMetricsBatteryByVehicleBetweenParams) ([]VehicleMetricsBatteryByVehicleBetweenRow, error) {
 	rows, err := q.db.Query(ctx, vehicleMetricsBatteryByVehicleBetween, arg.TeslaID, arg.StartDate, arg.EndDate)
@@ -589,8 +595,11 @@ type VehicleMetricsConsumedByVehicleBetweenRow struct {
 // have non-NULL distance_traveled_km_calc/days_spanned_calc, so the Go
 // mapping in reader.go needs no nil-check and no fallback-to-1 branch for
 // either.
-// Served by vehicle_metrics_tesla_date_unique's own index -- no separate
-// CREATE INDEX. The IS NOT NULL clause is a residual predicate evaluated
+// Served by an index on (tesla_id, metric_date), never a seq scan -- no
+// separate CREATE INDEX. Two indexes lead on those columns and either can
+// serve this range: vehicle_metrics_tesla_date_unique ascending,
+// idx_vehicle_metrics_latest backward. Which one the planner picks is its
+// choice, not a contract. The IS NOT NULL clause is a residual predicate evaluated
 // against the already-tiny (<= historyRangeMaxDays = 90 row) range-scanned
 // result.
 func (q *Queries) VehicleMetricsConsumedByVehicleBetween(ctx context.Context, arg VehicleMetricsConsumedByVehicleBetweenParams) ([]VehicleMetricsConsumedByVehicleBetweenRow, error) {
