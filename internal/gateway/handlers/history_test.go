@@ -160,11 +160,9 @@ func (f *fakeAnalyticsReader) BatteryLevelByDay(_ context.Context, teslaID int64
 
 // LatestMetricsForVehicles returns the fixture statuses/error the test set
 // up. The history fragment itself never calls this method (RecentEfficiency
-// above still panics for that reason), but the dashboard, vehicles,
-// nav-header, and charges-suggestion tests in this package share this same
-// fake and DO call it, since RM38-gateway-read-dashboard-from-metrics
-// repointed all four of those call sites here from the retired
-// snapshot-based reader (RM40).
+// above still panics for that reason). The dashboard, vehicles, nav-header
+// and charges-suggestion tests in this package share this same fake and do
+// call it -- all four read the latest stored metrics row from here.
 func (f *fakeAnalyticsReader) LatestMetricsForVehicles(context.Context, []vehicleref.Ref) ([]analytics.VehicleStatus, error) {
 	return f.statuses, f.statusesErr
 }

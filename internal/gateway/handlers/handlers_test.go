@@ -230,8 +230,8 @@ func TestVehiclesFor_RegisteredRendersWithoutTeslaCall(t *testing.T) {
 	tsvc := &fakeTesla{vehicles: []tesla.VehicleTesla{
 		{DisplayName: "SHOULD NOT BE CALLED", VIN: "NEVER"},
 	}}
-	// RM38: vehiclesFor now reads h.analyticsReader.LatestMetricsForVehicles
-	// instead of the retired snapshot-based reader (RM40).
+	// vehiclesFor reads the latest stored metrics row through
+	// h.analyticsReader.LatestMetricsForVehicles -- never a live Tesla call.
 	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newHandlerWithAnalytics(acct, tsvc, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
