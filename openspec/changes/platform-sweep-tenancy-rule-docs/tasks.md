@@ -134,11 +134,11 @@ Depends on: nothing. Disjoint file from T1/T2/T3/T6.
 
 Depends on: T6 (documents a guard that must exist).
 
-- [ ] 5.1 Add `make tenancy-guard` to `CLAUDE.md`'s "Builds & local checks — PROJECT OVERRIDE"
+- [x] 5.1 Add `make tenancy-guard` to `CLAUDE.md`'s "Builds & local checks — PROJECT OVERRIDE"
       allowed-commands list, alongside the other eight standalone guards, and to the `make check`
       phase-list sentence.
       Acceptance: `tenancy-guard` appears in both places in `CLAUDE.md`.
-- [ ] 5.2 If the root `README.md` lists the project's guard targets (build/check instructions),
+- [x] 5.2 If the root `README.md` lists the project's guard targets (build/check instructions),
       add `tenancy-guard` there too, in the same style as the existing entries.
       Acceptance: consistent with whatever pattern `README.md` already uses for the other guards
       — if it does not enumerate guards individually, no change is needed there; note that
@@ -163,7 +163,7 @@ Depends on: nothing. Disjoint file from T1-T5.
 
 Depends on: T1, T4 (documents the final port shape and rule).
 
-- [ ] 7.1 Re-grep `kkpa/context/entities/vehicle-metrics/guide.md`,
+- [x] 7.1 Re-grep `kkpa/context/entities/vehicle-metrics/guide.md`,
       `kkpa/context/architecture/telemetry-ingest-only.md`,
       `kkpa/context/architecture/schema-per-module.md`,
       `kkpa/context/workflows/supercharger-stats-read.md` for `SuperchargerHistoryByVehicle\b`
@@ -191,7 +191,7 @@ Depends on: T1 (final port shape).
 
 Depends on: T7, T8 (needs the final, corrected guide content to know what changed).
 
-- [ ] G.1 Run `kkpa-context-curate` over any glossary or gotcha entry across the five guides that
+- [x] G.1 Run `kkpa-context-curate` over any glossary or gotcha entry across the five guides that
       the T7/T8 corrections invalidate. Stage the proposal under
       `kkpa/context/pending-spec-to-sync/` — do NOT apply it. `design.md` D7 records that this
       pass found `INDEX.md` already current; re-confirm that after T7/T8 land, since a guide
@@ -253,14 +253,14 @@ the delta form over a direct edit of the main spec (decision U8).
 
 Depends on: T1-T8, G.1, T-spec, T-tel.
 
-- [ ] 9.1 `go build ./...`, `go vet ./...`, `gofmt -l .` — all clean.
-- [ ] 9.2 `make tenancy-guard`, `make boundary-guard`, `make vehicleref-guard`,
+- [x] 9.1 `go build ./...`, `go vet ./...`, `gofmt -l .` — all clean.
+- [x] 9.2 `make tenancy-guard`, `make boundary-guard`, `make vehicleref-guard`,
       `make migration-guard` — all clean.
-- [ ] 9.3 `make archive-guard` — confirm nothing under `openspec/changes/archive/` was touched
+- [x] 9.3 `make archive-guard` — confirm nothing under `openspec/changes/archive/` was touched
       by this change (it should not have been — no task above names a path there).
-- [ ] 9.4 Confirm no task above ran `go test ./...`, `make test`, `make test-with-db`, or
+- [x] 9.4 Confirm no task above ran `go test ./...`, `make test`, `make test-with-db`, or
       `make check` — those are the owner's to run. State the exact commands for the owner to
       paste: `go test ./...`, `make check`.
-- [ ] 9.5 Grep the whole repo (excluding `openspec/changes/archive/`) for
+- [x] 9.5 Grep the whole repo (excluding `openspec/changes/archive/`) for
       `SuperchargerHistoryByVehicle\b` and `SuperchargerHistoryByVehicleBetween` — confirm zero
       hits outside historical/archived text.

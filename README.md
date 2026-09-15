@@ -61,7 +61,7 @@ make build     # go build ./...   — all internal/ packages + every cmd/
 
 # 3. Full local gate
 make check     # build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard
-#              # + boundary-guard + theme-guard + archive-guard + test
+#              # + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + test
 ```
 
 Raw Go equivalents (no Make):

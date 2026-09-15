@@ -73,7 +73,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 ## How maintenance works
 
 - **Add a new telemetry read consumer:** construct `telemetry.NewReader(pool)` / `NewSuperchargerHistoryReader(pool)` in the consumer's composition root (`cmd/web/main.go` or the module's constructor), accept the PORT interface in `Deps`/constructor — never import `internal/telemetry/db`. Gateway handlers go through `resolveSelectedVehicle` for per-vehicle reads.
-- **Add a new read method:** `internal/telemetry/db/queries.sql` → `make sqlc` → implement on `Reader`/`SuperchargerHistoryReader` in `reader.go` + declare in `telemetry.go`. Bounded windows follow the platform `?start=&end=` convention (see `SuperchargerHistoryByVehicleBetween`).
+- **Add a new read method:** `internal/telemetry/db/queries.sql` → `make sqlc` → implement on `Reader`/`SuperchargerHistoryReader` in `reader.go` + declare in `telemetry.go`. Bounded `[start,end]` windows follow the platform `?start=&end=` convention (see `Reader.SnapshotsByVehicleBetween`). The Supercharger-history port has one method only, `SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, since)` — an open lower bound, not a `[start,end]` window.
 - **Add a new collected field:** capture path only — `telemetry.Collector`/`service.go` + `db/queries.sql` (+ migration). Units convert exactly once at capture time (display units, RM7 D1/D3); never add read-time conversion.
 - **Change the nightly cycle:** `internal/app/processor.go` (`ProcessVehicleData` 4-step flow) — never re-add orchestration to `cmd/poller`. Full step/port/table map: `architecture/nightly-cycle.md`.
 

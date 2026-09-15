@@ -5,21 +5,12 @@
   "module": "platform",
   "roadmap": null,
   "request": "MAG-70 \u2014 Sweep the conventions, specs and KB. Step 7 of MAG-63. Correct every doc, spec and KB guide that still teaches the old 'account_id is the leading index column' rule, delete the dead Supercharger ports, and add make tenancy-guard.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
     "pending": [
-      "5.1",
-      "5.2",
-      "7.1",
-      "G.1",
       "S.1",
-      "S.2",
-      "9.1",
-      "9.2",
-      "9.3",
-      "9.4",
-      "9.5"
+      "S.2"
     ],
     "blocked": [],
     "done": [
@@ -36,16 +27,25 @@
       "3.2",
       "4.1",
       "4.2",
+      "5.1",
+      "5.2",
       "6.1",
       "6.2",
+      "7.1",
       "8.1",
       "8.2",
+      "9.1",
+      "9.2",
+      "9.3",
+      "9.4",
+      "9.5",
+      "G.1",
       "T.1"
     ],
     "awaiting-user-verification": []
   },
   "created_at": "2026-09-15T20:59:00Z",
-  "updated_at": "2026-09-15T21:38:35Z",
+  "updated_at": "2026-09-15T21:42:52Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -403,14 +403,23 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:39:02Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added theme-guard and tenancy-guard to the allowed-commands list and the check phase list. Leader confirmed both now match the Makefile exactly.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "5.2",
@@ -420,14 +429,23 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:39:02Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "README.md does enumerate the guards, so tenancy-guard was added there. Worker also found vehicleref-guard missing; leader fixed it (decision A3).",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "6.1",
@@ -488,14 +506,23 @@
         "4.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:39:02Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "telemetry-ingest-only.md:76 named the deleted ...ByVehicleBetween. Now points at the live Reader.SnapshotsByVehicleBetween. Other three guides clean.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "8.1",
@@ -558,14 +585,23 @@
         "8.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:39:02Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Checked INDEX.md and all four guides' glossary lines. Nothing was invalidated, so nothing was staged. Confirmed explicitly, not skipped.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "S.1",
@@ -614,14 +650,23 @@
         "S.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "go build, go vet clean. gofmt -l lists three pre-existing files this branch never touched.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "9.2",
@@ -631,14 +676,23 @@
         "9.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "tenancy-guard, boundary-guard, vehicleref-guard, migration-guard all pass. migration-guard prints its known pre-existing collision warning.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "9.3",
@@ -648,14 +702,23 @@
         "9.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "archive-guard confirms no archived file was edited or deleted since the branch base.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "9.4",
@@ -665,14 +728,23 @@
         "9.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "No task ran the suite. The owner ran make test and reported it passed. Leader ran only build, vet, gofmt and the guards.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "9.5",
@@ -682,14 +754,23 @@
         "9.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Zero live hits for the deleted names. Two expected non-hits remain: the main telemetry spec (the delta syncs at archive) and a dated plan file that correctly calls them dead.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
     },
     {
       "id": "T.1",
@@ -812,6 +893,14 @@
       "made_by": "user",
       "decision": "tenancy-guard scans every .sql under internal/*/db/ except db/migrations/",
       "why": "design.md D5's literal db/**/*.sql makes the guard permanently red on 35 migrations. Excluding migrations is green today and covers a future non-query.sql file."
+    },
+    {
+      "id": "A3",
+      "at": "2026-09-15T21:42:52Z",
+      "scope": "task:5.2",
+      "made_by": "autopilot",
+      "decision": "Leader also added the missing vehicleref-guard to README.md's make check line",
+      "why": "The line exists to mirror make check. I was already editing it. Leaving a known-false neighbour on the same line is worse than a one-word fix."
     }
   ],
   "events": [
@@ -858,6 +947,18 @@
     {
       "at": "2026-09-15T21:38:35Z",
       "event": "leader applied user decision U9 \u2014 widened tenancy-guard from internal/*/db/query.sql to every non-migration .sql under internal/*/db/. Verified green, and verified it exits 1 on a planted WHERE account_id violation. The worker's other two D5 deviations (-- not // as the escape-hatch marker, and skipping plain SQL comment lines) accepted by the leader: SQL forces both, no reasonable alternative existed."
+    },
+    {
+      "at": "2026-09-15T21:39:02Z",
+      "event": "wave-2 committed as a0be646; wave-3 dispatched \u2014 5.1-5.2 (CLAUDE.md + README.md document the guard), 7.1 (re-check the four KB guides), G.1 (glossary staging) to platform worker on Sonnet, serial; budget start five_hour_pct=48 context_pct=15"
+    },
+    {
+      "at": "2026-09-15T21:42:52Z",
+      "event": "wave-3 complete \u2014 5.1, 5.2, 7.1, G.1 done. Leader verified CLAUDE.md's phase list now matches the Makefile exactly, and that the KB's new example SnapshotsByVehicleBetween is a real method in telemetry.go."
+    },
+    {
+      "at": "2026-09-15T21:42:52Z",
+      "event": "T9 verification run by the leader \u2014 9.1-9.5 done. 9.5's only remaining hits are openspec/specs/telemetry/spec.md (the T.1 delta has not synced yet; it syncs at archive, exactly like the analytics delta S.1 checks) and a dated kkpa/plans file that correctly describes the ports as dead. Neither is a defect."
     }
   ]
 }
