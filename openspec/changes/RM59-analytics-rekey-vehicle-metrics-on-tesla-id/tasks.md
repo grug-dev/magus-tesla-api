@@ -284,20 +284,20 @@ as T4, or `go build ./...` stays red (design.md D12).
 
 Depends on: T1–T8.
 
-- [ ] 9.1 `go build ./...` — expect clean.
-- [ ] 9.2 `go vet ./...` — expect clean EXCEPT `internal/gateway` (design.md D12,
+- [x] 9.1 `go build ./...` — expect clean.
+- [x] 9.2 `go vet ./...` — expect clean EXCEPT `internal/gateway` (design.md D12,
       tier 2's job). Record the exact failing package/test names for the tier 2
       dispatch rather than leaving them implicit.
-- [ ] 9.3 `gofmt -l` over every file this change touched — expect no output.
-- [ ] 9.4 `make migration-guard`
-- [ ] 9.5 `make boundary-guard`
-- [ ] 9.6 `make vehicleref-guard`
+- [x] 9.3 `gofmt -l` over every file this change touched — expect no output.
+- [x] 9.4 `make migration-guard`
+- [x] 9.5 `make boundary-guard`
+- [x] 9.6 `make vehicleref-guard`
 - [ ] 9.7 Verify the two index claims (design.md D5/D6) with
       `SET enable_seqscan = off;` before `EXPLAIN` on `LatestVehicleMetricsByVehicles`
       and on one of the three chart queries — confirms the index CAN serve the query
       on this small table, which a bare `EXPLAIN` cannot prove (design.md D8). This
       is a read-only session setting plus a read-only `EXPLAIN` — no DDL.
-- [ ] 9.8 Grep the whole repo for `account_id` scoped to `vehicle_metrics` /
+- [x] 9.8 Grep the whole repo for `account_id` scoped to `vehicle_metrics` /
       `vehicle_metric_watermarks` / `VehicleMetricRow` / `LatestMetricsByAccount` and
       confirm zero remaining hits outside the immutable `openspec/changes/archive/`
       tree and the two untouched original migration files

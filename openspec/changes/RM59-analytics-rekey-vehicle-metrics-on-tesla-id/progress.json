@@ -9,11 +9,10 @@
   "rollup": {
     "current": [
       "T5",
-      "T6"
-    ],
-    "pending": [
+      "T6",
       "T9"
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       "T1",
@@ -25,7 +24,7 @@
     ]
   },
   "created_at": "2026-09-15T02:04:09Z",
-  "updated_at": "2026-09-15T09:42:50Z",
+  "updated_at": "2026-09-15T09:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -258,13 +257,13 @@
         "T8"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T09:44:00Z",
       "completed_at": null,
       "duration_seconds": null,
-      "notes": null,
+      "notes": "9.1-9.6 and 9.8 done by the leader, all green. 9.7 waits on the owner applying the migration: the dev DB still has account_id, so the new indexes do not exist yet. 9.9 is the owner's suite.",
       "budget": null
     }
   ],
@@ -337,6 +336,15 @@
       "decision": "worker also fixed internal/analytics/recalculate_test.go, a file design.md's test-fixup inventory never named",
       "why": "Four tests called Recalculate with the old 5-arg signature, so go vet stayed red. Purely mechanical, inside the module sandbox. design.md inventory gap, not a design conflict.",
       "covered_by": "design.md D-TESTFIX"
+    },
+    {
+      "id": "D-GWSPEC",
+      "at": "2026-09-15T09:52:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "left the five stale port names in openspec/specs/gateway/spec.md for tier 2; added the pointer to tier 2's roadmap row",
+      "why": "A main spec is only updated through a delta sync at archive, and the gateway capability belongs to tier 2. Hand-editing it here would bypass the OpenSpec flow.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -419,6 +427,26 @@
       "at": "2026-09-15T09:42:50Z",
       "agent": "leader",
       "event": "leader ticked T8's tasks.md checkboxes: the work was verified present in processor.go, handlers.go and external_charges.go, but wave 1 never ticked them"
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "T9 partially done by the leader: 9.1 build clean; 9.2 vet red ONLY in internal/gateway/handlers (external_charges_test.go, handlers_test.go, history_test.go - tier 2's job, design.md D12); 9.3 gofmt clean; 9.4-9.6 guards pass; 9.8 grep triaged"
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "9.8 found three stale spots beyond the analytics module: ai/architecture.md (in the base Doc-Pack, so every worker reads it), README.md and internal/gateway/AGENTS.md. Leader fixed all three. Historic migrations and the applied-proposal snapshots left untouched."
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "9.7 BLOCKED on the dev DB: migration 20260914000002 is not applied, account_id is still present and the new indexes do not exist. Owner chose to run make migrate-up themselves; leader then runs the two enable_seqscan-off EXPLAIN checks."
+    },
+    {
+      "at": "2026-09-15T09:52:00Z",
+      "agent": "leader",
+      "event": "specs/analytics/spec.md line 853 still names LatestMetricsByAccount inside the Module-Scoped Database Schema requirement. tasks.md 7.3 says that requirement is deliberately left as written; confirm at archive that the sync does not touch it."
     }
   ]
 }
