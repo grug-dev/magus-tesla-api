@@ -29,28 +29,28 @@ T5 (gateway spec delta) — already done, independent of T1–T4
 
 Depends on: nothing. Touches only `internal/gateway/handlers/history_test.go`.
 
-- [ ] 1.1 Add the import
+- [x] 1.1 Add the import
       `"github.com/cristianpena/magus-tesla-api/internal/vehicleref"`.
-- [ ] 1.2 Remove the three now-unread struct fields `gotAccount`, `gotOdoAccount`,
+- [x] 1.2 Remove the three now-unread struct fields `gotAccount`, `gotOdoAccount`,
       `gotBattAccount` (design.md D3 — confirmed unread by any assertion).
-- [ ] 1.3 `ConsumedByDay`, `OdometerDeltaByDay`, `BatteryLevelByDay`: drop the
+- [x] 1.3 `ConsumedByDay`, `OdometerDeltaByDay`, `BatteryLevelByDay`: drop the
       `accountID uuid.UUID` parameter from each signature and the
       `f.gotXxxAccount = accountID` line each currently sets. Every other
       recorded field and the returned fixture values are unchanged — see
       design.md D3's before/after table for the exact signatures.
-- [ ] 1.4 Rename `LatestMetricsByAccount(context.Context, uuid.UUID)
+- [x] 1.4 Rename `LatestMetricsByAccount(context.Context, uuid.UUID)
       ([]analytics.VehicleStatus, error)` to `LatestMetricsForVehicles(context.Context,
       []vehicleref.Ref) ([]analytics.VehicleStatus, error)`. Body unchanged:
       `return f.statuses, f.statusesErr`.
-- [ ] 1.5 Update the doc comments naming `LatestMetricsByAccount` — the struct's
+- [x] 1.5 Update the doc comments naming `LatestMetricsByAccount` — the struct's
       field-group comment above `statuses`/`statusesErr`, and the renamed
       method's own comment (design.md D5) — to say `LatestMetricsForVehicles`.
       Do not add a design-doc or change-ID citation to either comment
       (`ai/go-conventions.md`'s code-comment rule) — state the reason itself if
       the surrounding sentence needs one.
-- [ ] 1.6 Fix the one remaining `LatestMetricsByAccount` mention near line 1885
+- [x] 1.6 Fix the one remaining `LatestMetricsByAccount` mention near line 1885
       (a doc comment on a dashboard/vehicles/nav-header test in this same file).
-- [ ] 1.7 `go vet ./internal/gateway/handlers/...` still fails at this point
+- [x] 1.7 `go vet ./internal/gateway/handlers/...` still fails at this point
       (T2/T3 not done yet) — expected. Confirm the specific error this file used
       to contribute is gone; do not chase remaining errors from other files here.
 
@@ -59,26 +59,26 @@ Depends on: nothing. Touches only `internal/gateway/handlers/history_test.go`.
 Depends on: nothing. Touches only
 `internal/gateway/handlers/external_charges.go` (production code).
 
-- [ ] 2.1 Replace the `vehicles, err := h.acct.RegisteredVehicles(ctx, uid)` /
+- [x] 2.1 Replace the `vehicles, err := h.acct.RegisteredVehicles(ctx, uid)` /
       `if err != nil { ... }` block near the top of `buildExternalChargesPage`
       with `refs, vehicles, ok := h.ownedVehicles(ctx, uid)` / `if !ok { ... }`,
       returning the same `ExternalChargesPageData{CSRFToken, Error:
       i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadVehicles)}` on the failure
       path — design.md D2 has the exact before/after code.
-- [ ] 2.2 In the battery-suggestion block later in the same function, remove
+- [x] 2.2 In the battery-suggestion block later in the same function, remove
       the second `h.ownedVehicles(ctx, uid)` call
       (`if refs, _, ok := h.ownedVehicles(ctx, uid); teslaIDFilter != 0 &&
       h.analyticsReader != nil && ok`) and reuse the `refs` from 2.1 instead.
       The guard becomes `if teslaIDFilter != 0 && h.analyticsReader != nil`
       (`ok` is already guaranteed true at this point in the function, since 2.1
       already returned otherwise).
-- [ ] 2.3 Every other use of `vehicles` in this function (the VM-mapping loop
+- [x] 2.3 Every other use of `vehicles` in this function (the VM-mapping loop
       that calls `externalChargeEntryVMFromEntry(e, vehicles)`) is unchanged —
       `ownedVehicles` returns the same `[]account.Vehicle` shape
       `RegisteredVehicles` did.
-- [ ] 2.4 `go build ./internal/gateway/...` — expect clean (this is a
+- [x] 2.4 `go build ./internal/gateway/...` — expect clean (this is a
       production-code change; it must not break the build on its own).
-- [ ] 2.5 Do not touch `handlers.go`'s three `LatestMetricsForVehicles` call
+- [x] 2.5 Do not touch `handlers.go`'s three `LatestMetricsForVehicles` call
       sites — design.md D1 (RD7) keeps them as tier 1 wrote them. This task
       touches `external_charges.go` only.
 
@@ -88,21 +88,21 @@ Depends on: nothing (see the dependency-graph note above on why this does not
 need to wait on T2). Touches only
 `internal/gateway/handlers/external_charges_test.go`.
 
-- [ ] 3.1 Remove the `accountID uuid.UUID` field from the `recalculateCall`
+- [x] 3.1 Remove the `accountID uuid.UUID` field from the `recalculateCall`
       struct.
-- [ ] 3.2 `Recalculate`: drop the `accountID uuid.UUID` parameter and the
+- [x] 3.2 `Recalculate`: drop the `accountID uuid.UUID` parameter and the
       `accountID: accountID` entry in the `recalculateCall{...}` literal it
       appends — design.md D4 has the exact before/after signature.
-- [ ] 3.3 In `TestExternalChargeCreate_RecalculatesAfterSuccessfulWrite`,
+- [x] 3.3 In `TestExternalChargeCreate_RecalculatesAfterSuccessfulWrite`,
       delete the `got.accountID != uid` assertion block. Keep the `got.teslaID
       != 1001` assertion and the `start`/`end` window assertion unchanged —
       design.md D4 has the exact before/after for this test body. Do not touch
       `TestExternalChargeCreate_NoRecalculateWhenWriteFails` or
       `TestExternalChargeCreate_RecalculateErrorDoesNotFailTheRequest`; neither
       reads the removed field.
-- [ ] 3.4 Fix the two remaining `LatestMetricsByAccount` comment mentions near
+- [x] 3.4 Fix the two remaining `LatestMetricsByAccount` comment mentions near
       lines 1490 and 1539 to say `LatestMetricsForVehicles` (design.md D5).
-- [ ] 3.5 `go build`/`go vet` on this package still fail until T1 also lands
+- [x] 3.5 `go build`/`go vet` on this package still fail until T1 also lands
       (both files are in the same package) — expected; do not chase T1's
       errors from here.
 
@@ -113,7 +113,7 @@ Depends on: nothing. Touches only
 changes — every `fakeAnalyticsReader{statuses: ...}` construction already
 compiles against the fake once T1 lands; this task is comments only.
 
-- [ ] 4.1 Fix the three `LatestMetricsByAccount` comment mentions near lines
+- [x] 4.1 Fix the three `LatestMetricsByAccount` comment mentions near lines
       217, 233, and 1156 to say `LatestMetricsForVehicles` (design.md D5).
 
 ## T5 — Gateway delta spec (already complete)
@@ -129,18 +129,18 @@ compiles against the fake once T1 lands; this task is comments only.
 
 Depends on: T1–T4.
 
-- [ ] 6.1 `go build ./...` — expect clean (already clean before this change;
+- [x] 6.1 `go build ./...` — expect clean (already clean before this change;
       confirms no regression).
-- [ ] 6.2 `go vet ./...` — expect clean, including `internal/gateway` for the
+- [x] 6.2 `go vet ./...` — expect clean, including `internal/gateway` for the
       first time since tier 1 landed.
-- [ ] 6.3 `gofmt -l` over every file this change touched — expect no output.
-- [ ] 6.4 `make vehicleref-guard` — expect clean; confirms T2 introduced no new
+- [x] 6.3 `gofmt -l` over every file this change touched — expect no output.
+- [x] 6.4 `make vehicleref-guard` — expect clean; confirms T2 introduced no new
       `vehicleref.All`/`vehicleref.Authorize` call site outside the existing
       allow-list (design.md's Verification section).
-- [ ] 6.5 `make boundary-guard`, `make i18n-guard`, `make tz-guard`,
+- [x] 6.5 `make boundary-guard`, `make i18n-guard`, `make tz-guard`,
       `make migration-guard`, `make archive-guard` — expect clean; none of this
       change's edits touch what any of these five check.
-- [ ] 6.6 Grep the whole repo for `LatestMetricsByAccount` and confirm the only
+- [x] 6.6 Grep the whole repo for `LatestMetricsByAccount` and confirm the only
       remaining hits are the three named in design.md's "Docs" section
       (`openspec/specs/analytics/spec.md`'s historical scenario, the roadmap
       file's own narrative, and the KB's `pending-spec-to-sync/applied/`

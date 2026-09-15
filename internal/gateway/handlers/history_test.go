@@ -20,6 +20,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
 // browserTodayNoCookie mirrors exactly what browserToday(c) computes for a
@@ -117,25 +118,22 @@ type fakeAnalyticsReader struct {
 	battery    []analytics.DayBattery
 	batteryErr error
 
-	gotAccount          uuid.UUID
 	gotTeslaID          int64
 	gotStart            time.Time
 	gotEnd              time.Time
 	consumedByDayCalled bool
 
-	gotOdoAccount       uuid.UUID
 	gotOdoTeslaID       int64
 	gotOdoStart         time.Time
 	gotOdoEnd           time.Time
 	odometerByDayCalled bool
 
-	gotBattAccount     uuid.UUID
 	gotBattTeslaID     int64
 	gotBattStart       time.Time
 	gotBattEnd         time.Time
 	batteryByDayCalled bool
 
-	// statuses/statusesErr back LatestMetricsByAccount
+	// statuses/statusesErr back LatestMetricsForVehicles
 	// (RM38-gateway-read-dashboard-from-metrics task 5.1). The dashboard,
 	// vehicles, nav-header, and charges-suggestion tests set these to drive
 	// the four call sites this tier repointed from the retired snapshot-based
@@ -152,8 +150,7 @@ func (f *fakeAnalyticsReader) RecentEfficiency(context.Context, uuid.UUID, int64
 // error. It is the battery chart's sole read since
 // RM40-gateway-drop-telemetry-dependency retargeted it off the retired
 // snapshot-based reader — mirrors ConsumedByDay's call-recording shape below.
-func (f *fakeAnalyticsReader) BatteryLevelByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]analytics.DayBattery, error) {
-	f.gotBattAccount = accountID
+func (f *fakeAnalyticsReader) BatteryLevelByDay(_ context.Context, teslaID int64, start, end time.Time) ([]analytics.DayBattery, error) {
 	f.gotBattTeslaID = teslaID
 	f.gotBattStart = start
 	f.gotBattEnd = end
@@ -161,18 +158,18 @@ func (f *fakeAnalyticsReader) BatteryLevelByDay(_ context.Context, accountID uui
 	return f.battery, f.batteryErr
 }
 
-// LatestMetricsByAccount returns the fixture statuses/error the test set up.
-// The history fragment itself never calls this method (RecentEfficiency above
-// still panics for that reason), but the dashboard, vehicles, nav-header, and
-// charges-suggestion tests in this package share this same fake and DO call
-// it, since RM38-gateway-read-dashboard-from-metrics repointed all four of
-// those call sites here from the retired snapshot-based reader (RM40).
-func (f *fakeAnalyticsReader) LatestMetricsByAccount(context.Context, uuid.UUID) ([]analytics.VehicleStatus, error) {
+// LatestMetricsForVehicles returns the fixture statuses/error the test set
+// up. The history fragment itself never calls this method (RecentEfficiency
+// above still panics for that reason), but the dashboard, vehicles,
+// nav-header, and charges-suggestion tests in this package share this same
+// fake and DO call it, since RM38-gateway-read-dashboard-from-metrics
+// repointed all four of those call sites here from the retired
+// snapshot-based reader (RM40).
+func (f *fakeAnalyticsReader) LatestMetricsForVehicles(context.Context, []vehicleref.Ref) ([]analytics.VehicleStatus, error) {
 	return f.statuses, f.statusesErr
 }
 
-func (f *fakeAnalyticsReader) ConsumedByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]analytics.DayConsumption, error) {
-	f.gotAccount = accountID
+func (f *fakeAnalyticsReader) ConsumedByDay(_ context.Context, teslaID int64, start, end time.Time) ([]analytics.DayConsumption, error) {
 	f.gotTeslaID = teslaID
 	f.gotStart = start
 	f.gotEnd = end
@@ -180,8 +177,7 @@ func (f *fakeAnalyticsReader) ConsumedByDay(_ context.Context, accountID uuid.UU
 	return f.days, f.err
 }
 
-func (f *fakeAnalyticsReader) OdometerDeltaByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]analytics.DayDistance, error) {
-	f.gotOdoAccount = accountID
+func (f *fakeAnalyticsReader) OdometerDeltaByDay(_ context.Context, teslaID int64, start, end time.Time) ([]analytics.DayDistance, error) {
 	f.gotOdoTeslaID = teslaID
 	f.gotOdoStart = start
 	f.gotOdoEnd = end
@@ -1882,7 +1878,7 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Test"},
 	}}
 	// RM38-gateway-read-dashboard-from-metrics: DashboardFragment/dashboardFor now
-	// read h.analyticsReader.LatestMetricsByAccount instead of the retired
+	// read h.analyticsReader.LatestMetricsForVehicles instead of the retired
 	// snapshot-based reader (RM40) — a nil analyticsReader would panic when
 	// this HTTP round-trip reaches dashboardFor, so this pre-existing
 	// structural test is retyped to the new port (same values, new fixture type).

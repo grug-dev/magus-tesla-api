@@ -662,9 +662,9 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 		}
 	}
 
-	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
-	if err != nil {
-		log.Printf("gateway: RegisteredVehicles error for account %s: %v", uid, err)
+	refs, vehicles, ok := h.ownedVehicles(ctx, uid)
+	if !ok {
+		log.Printf("gateway: ownedVehicles failed for account %s", uid)
 		return fragments.ExternalChargesPageData{
 			CSRFToken: csrfToken,
 			Error:     i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadVehicles),
@@ -717,7 +717,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 	// Retyped from telemetry.Reader.LatestSnapshotsByVehicles: BatteryLevelPct is
 	// a plain int on both source types, so no nil handling is introduced here.
 	suggestion := ""
-	if refs, _, ok := h.ownedVehicles(ctx, uid); teslaIDFilter != 0 && h.analyticsReader != nil && ok {
+	if teslaIDFilter != 0 && h.analyticsReader != nil {
 		statuses, snapErr := h.analyticsReader.LatestMetricsForVehicles(ctx, refs)
 		if snapErr != nil {
 			log.Printf("gateway: charges suggestion analytics reader error for account %s: %v", uid, snapErr)
