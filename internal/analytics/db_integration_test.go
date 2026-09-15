@@ -178,11 +178,10 @@ func TestRecalculate_FetchWindows_MatchLookbackShape(t *testing.T) {
 	}
 }
 
-// TestRecalculate_TeslaIDScoping_PassedToEveryPort asserts task 6.4(b):
-// teslaID scoping reaches every one of the three source ports — the coverage
-// rescue for the offline test tasks.md records as removed
-// (TestConsumedByDay_AccountIDScoping_PassedToEveryPort), now asserted
-// against Recalculate (its new fetcher) instead of the old live ConsumedByDay.
+// TestRecalculate_TeslaIDScoping_PassedToEveryPort asserts that the teslaID
+// reaches every one of the three source ports. An older offline test asserted
+// the same thing against the live ConsumedByDay. That read no longer computes
+// anything, so the assertion moved here, onto Recalculate, its new fetcher.
 func TestRecalculate_TeslaIDScoping_PassedToEveryPort(t *testing.T) {
 	pool := newTestPool(t)
 	const teslaID = int64(910002)
@@ -608,8 +607,8 @@ func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, sessionID int64, endB
 // ---------------------------------------------------------------------------
 
 // fetchVehicleMetric SELECTs every non-key column of one vehicle_metrics row
-// by its (tesla_id, metric_date) — the table's own UNIQUE index — for the
-// "assert every column" requirement in task 6.1.
+// by its (tesla_id, metric_date) — the table's own UNIQUE index. It selects
+// every column so a test can assert on any of them without a second helper.
 // Returns ok=false when no row exists (never a zero-value row masquerading
 // as "found"). Extended by RM38-analytics-add-vehicle-status-columns (task
 // 5.1/5.2) to also select/scan the eight new columns
@@ -2302,10 +2301,10 @@ func TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor(t *te
 }
 
 // ===========================================================================
-// Task 5.3 -- TestReader_LatestMetricsForVehicles_*: the four cases from
-// design.md's Test Contract ("Multi-vehicle DISTINCT ON case", Fixture
-// RM38-A/RM38-C, and the empty-vehicle-set contract mirroring
-// LatestSnapshotsByVehicles's own).
+// TestReader_LatestMetricsForVehicles_*: four cases. One vehicle, several
+// vehicles (DISTINCT ON must pick each car's own latest day), a pre-migration
+// row, and an empty vehicle set. The empty-set case mirrors
+// LatestSnapshotsByVehicles: an empty non-nil slice, never an error.
 // ===========================================================================
 
 // TestReader_LatestMetricsForVehicles_SingleVehicleFullyPopulated covers
@@ -2537,11 +2536,10 @@ func TestReader_LatestMetricsForVehicles_PreMigrationRowReportsAbsentStatus(t *t
 }
 
 // TestReader_LatestMetricsForVehicles_EmptyVehicleSetReturnsEmptyNonNilSlice
-// covers design.md's Test Contract "An account with no computed vehicles yet
-// returns no results, not an error" -- mirroring
-// telemetry.Reader.LatestSnapshotsByVehicles's identical empty-input
-// contract (design D5). The empty-input case, not an account lookup: no
-// vehicle is ever seeded here.
+// asserts that an empty vehicle set returns no results, not an error --
+// mirroring telemetry.Reader.LatestSnapshotsByVehicles's identical
+// empty-input contract. This is the empty-input case, not an account lookup:
+// no vehicle is ever seeded here.
 func TestReader_LatestMetricsForVehicles_EmptyVehicleSetReturnsEmptyNonNilSlice(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
@@ -2560,17 +2558,14 @@ func TestReader_LatestMetricsForVehicles_EmptyVehicleSetReturnsEmptyNonNilSlice(
 }
 
 // ===========================================================================
-// RM50-analytics-add-tire-pressure-columns -- task 1.7 (Recalculate
-// round-trip) and task 2.5's "LatestMetricsForVehicles case" (task 2.5's
-// other case, "the pre-migration row", extends
-// TestReader_LatestMetricsForVehicles_PreMigrationRowReportsAbsentStatus above
-// instead of duplicating a second fixture). Expected values are copied
-// verbatim from design.md's Test Contract, never derived by reading
-// recalculate.go/reader.go.
+// TPMS coverage: one Recalculate round-trip and one read through Reader. The
+// pre-migration case is not repeated here; it extends
+// TestReader_LatestMetricsForVehicles_PreMigrationRowReportsAbsentStatus
+// above instead of seeding a second fixture. Every expected value below was
+// written before the implementation, never read back out of it.
 // ===========================================================================
 
-// TestRecalculate_TPMS_RoundTrip covers design.md's Test Contract "DB
-// integration: Recalculate round-trip" (task 1.7): one
+// TestRecalculate_TPMS_RoundTrip seeds one
 // telemetry.vehicle_snapshots row with all four TPMS fields non-NULL,
 // Recalculate for the day containing it, then the same four values read
 // back unconverted from analytics.vehicle_metrics.
@@ -2637,14 +2632,12 @@ func TestRecalculate_TPMS_RoundTrip(t *testing.T) {
 	}
 }
 
-// TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns covers
-// design.md's Test Contract "DB integration: LatestMetricsForVehicles" (task
-// 2.5): one vehicle_metrics row with non-NULL tpms_pressure_fl_psi (42.5),
+// TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns seeds one
+// vehicle_metrics row with non-NULL tpms_pressure_fl_psi (42.5),
 // distance_traveled_km_calc (12.3) and consumed_pct (5.0) -- all three are
 // DOUBLE PRECISION columns, not REAL, so no float32 narrowing applies and
-// exact equality is the right assertion (matching design.md's own "== 42.5"
-// wording). Seeded directly, not via Recalculate: this test is about the
-// read projection (query.sql task 2.1 / reader.go task 2.4), which
+// exact equality is the right assertion. The row is seeded directly, not
+// through Recalculate: this test is about the read projection, which
 // TestRecalculate_TPMS_RoundTrip above does not exercise (it only reads back
 // via fetchVehicleMetric's raw SQL, never through Reader).
 func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.T) {

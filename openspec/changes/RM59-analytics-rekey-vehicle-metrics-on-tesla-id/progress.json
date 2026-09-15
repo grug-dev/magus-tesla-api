@@ -5,7 +5,7 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM59-rekey-vehicle-metrics-on-tesla-id.md",
   "request": "Source ticket: MAG-69 — 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. One migration on both tables: collapse duplicate (tesla_id, metric_date) rows, replace vehicle_metrics_account_tesla_date_unique with UNIQUE (tesla_id, metric_date), replace idx_vehicle_metrics_latest with (tesla_id, metric_date DESC), replace vehicle_metric_watermarks_account_tesla_source_unique with UNIQUE (tesla_id, source), DROP COLUMN account_id from both. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded. MAG-71 was cancelled and its work folds in here.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -23,7 +23,7 @@
     ]
   },
   "created_at": "2026-09-15T02:04:09Z",
-  "updated_at": "2026-09-15T09:52:00Z",
+  "updated_at": "2026-09-15T10:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -267,10 +267,32 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review tier 1 of RM59 (change RM59-analytics-rekey-vehicle-metrics-on-tesla-id, ticket MAG-69). Read the diff from f24ab446237c99a3508a84cb2ee77cb1a0d938dc to HEAD, not the whole module. Validate: (1) the migration matches the user-confirmed design in design.md exactly - a mismatch on any schema object is a blocker finding; (2) every query in query.sql lost account_id and LatestVehicleMetricsByVehicles filters on tesla_id = ANY; (3) the five port signatures in analytics.go match design.md D9/D10, and LatestMetricsForVehicles takes []vehicleref.Ref; (4) module boundaries - internal/analytics imports no other module's db package, and the leader-owned edits in internal/app and internal/gateway go through public interfaces only; (5) the existing tests were fixed, not weakened - no test deleted, no assertion removed to make a failure go away, and the renamed tests still assert the same behaviour; (6) the read-heavy Performance-Profile - the index plan still serves the latest-row query with no Sort node; (7) doc comments carry no change-doc citation (no design.md, no D-ids, no RM/CH ids, no tier or wave numbers) per the B2 comment rule; (8) the docs-track-change rule - AGENTS.md, README.md, ai/architecture.md and kkpa/context/ no longer name the old port. KNOWN AND EXPECTED, not findings: go vet ./internal/gateway/... is red (three gateway test files are tier 2's job, design.md D12); openspec/specs/gateway/spec.md still names the old port (tier 2 owns that delta); openspec/specs/analytics/spec.md's Module-Scoped Database Schema requirement is deliberately unchanged (tasks.md 7.3); historic migrations and kkpa/context/pending-spec-to-sync/applied/ snapshots are never edited. SIGNAL PROVENANCE: go build, go vet, gofmt and the four guards were run by the ASSISTANT. The test suite (go test ./internal/analytics/... ./internal/app/...) was run and reported passing by the OWNER. You do NOT run the suite - judge test quality by reading the tests.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-15T10:15:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/analytics/db_integration_test.go:181,2305,2307,2564,2641 — comment lines this change edited (function renames, LatestMetricsByAccount to LatestMetricsForVehicles) still cite change-doc identifiers left over from the rename: 'task 6.4(b)' (181), 'Task 5.3' (2305), 'RM38-A/RM38-C' (2307), 'task 2.5' (2564), 'design.md's Test Contract ... (task' (2641). The B2 comment rule treats an edited line that keeps such a citation as a finding, and the same edit already shows the cleanup done correctly elsewhere in this file (fetchWatermark's comment dropped its 'Index Plan #4' citation). Fix by writing the reason in place of the citation, same as that one. | LEADER: accepted and fixed. Eight comment spots rewritten to state the reason instead of the citation. go vet and gofmt still clean.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/external_charges.go:720 — 'if refs, _, ok := h.ownedVehicles(ctx, uid); teslaIDFilter != 0 && ...' calls h.ownedVehicles, which re-reads h.acct.RegisteredVehicles, even though buildExternalChargesPage already fetched the same account's vehicles at line 665 into `vehicles`. This is a second DB read on a read-heavy hot path. It matches design.md D12's explicit instruction (guard-compliance forces going through ownedVehicles rather than reusing the local slice), so this is not a design deviation — flagging it for tier 2's full gateway-authorization rewrite (RM59-gateway-authorize-metrics-reads) to fix, not a blocker here. | LEADER: accepted as correct, deferred to tier 2 on the reviewer's own reasoning - D12 forces the ownedVehicles call here, and tier 2 rewrites this function. Recorded in tier 2's roadmap row so the dispatch cannot lose it. Not fixed in tier 1.",
+            "status": "open",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -353,6 +375,15 @@
       "decision": "rewrote the three chart queries' index claim: they no longer name one index, they name the (tesla_id, metric_date) lead and say the planner chooses",
       "why": "EXPLAIN picked idx_vehicle_metrics_latest backward, not the named vehicle_metrics_tesla_date_unique. Both lead on the same columns, so the claim was over-specific, not wrong.",
       "covered_by": null
+    },
+    {
+      "id": "D-F2-DEFER",
+      "at": "2026-09-15T10:20:00Z",
+      "scope": "review:F2",
+      "made_by": "leader",
+      "decision": "F2 (duplicate RegisteredVehicles read in external_charges.go) accepted but deferred to tier 2",
+      "why": "design.md D12 forces the ownedVehicles call: this file is not exempt from vehicleref-guard. Tier 2 rewrites the function anyway, so fixing it twice is waste.",
+      "covered_by": "design.md D12"
     }
   ],
   "events": [
@@ -475,6 +506,21 @@
       "at": "2026-09-15T09:52:00Z",
       "agent": "leader",
       "event": "leader corrected the three chart queries' index comment and re-ran make sqlc; comment-only change, no SQL and no generated signature altered, so the owner's suite run still stands"
+    },
+    {
+      "at": "2026-09-15T09:54:00Z",
+      "agent": "leader",
+      "event": "review brief written; dispatching analytics-reviewer (sonnet). budget at dispatch: 5h 32%, ctx 18%"
+    },
+    {
+      "at": "2026-09-15T10:20:00Z",
+      "agent": "leader",
+      "event": "reviewer verdict APPROVED with two minor findings. Leader triaged both: F1 accepted and fixed now; F2 accepted and deferred to tier 2, with the reason recorded and the roadmap row updated."
+    },
+    {
+      "at": "2026-09-15T10:20:00Z",
+      "agent": "leader",
+      "event": "F1 fixed: eight comment spots in db_integration_test.go rewritten to carry the reason instead of a task/design.md/RM citation. go vet ./internal/analytics/... and gofmt still clean. Verified no cited identifier remains in any line this change added."
     }
   ]
 }
