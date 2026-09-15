@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
 	"strings"
 	"testing"
 	"time"
@@ -103,12 +102,6 @@ type fakeQueryLogSCHReader struct {
 	history []SuperchargerHistory
 }
 
-func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicle(context.Context, int64, int) ([]SuperchargerHistory, error) {
-	return f.history, nil
-}
-func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicleBetween(context.Context, int64, time.Time, time.Time) ([]SuperchargerHistory, error) {
-	return f.history, nil
-}
 func (f *fakeQueryLogSCHReader) SuperchargerHistoryByVehicleUpdatedSince(context.Context, int64, time.Time) ([]SuperchargerHistory, error) {
 	return f.history, nil
 }
@@ -361,38 +354,8 @@ func TestLoggingReader_SnapshotPrecedingDay_LogsExpectedLine(t *testing.T) {
 }
 
 // ============================================================
-// Group A / A.2 — loggingSuperchargerHistoryReader's 3 methods
+// Group A — loggingSuperchargerHistoryReader's 1 method
 // ============================================================
-
-// Group A.2: SuperchargerHistoryByVehicle logs the RESOLVED limit
-// (resolveLimit(0) == math.MaxInt32), not the caller's raw 0.
-func TestLoggingSuperchargerHistoryReader_ByVehicle_LogsResolvedLimit(t *testing.T) {
-	cases := []struct {
-		name      string
-		rawLimit  int
-		wantLimit int64
-	}{
-		{name: "unbounded (limit=0 resolves to math.MaxInt32)", rawLimit: 0, wantLimit: math.MaxInt32},
-		{name: "bounded (limit=25 stays 25)", rawLimit: 25, wantLimit: 25},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			buf := captureLog(t)
-			l := newLoggingSuperchargerHistoryReader(&fakeQueryLogSCHReader{history: twoSCHRows()})
-
-			if _, err := l.SuperchargerHistoryByVehicle(context.Background(), qlTeslaID, tc.rawLimit); err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicle tesla_id=%d limit=%d rows=%d\n",
-				qlTeslaID, tc.wantLimit, 2)
-			if got := buf.String(); got != want {
-				t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
-			}
-		})
-	}
-}
 
 func TestLoggingSuperchargerHistoryReader_ByVehicleUpdatedSince_LogsExpectedLine(t *testing.T) {
 	buf := captureLog(t)
@@ -405,23 +368,6 @@ func TestLoggingSuperchargerHistoryReader_ByVehicleUpdatedSince_LogsExpectedLine
 
 	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicleUpdatedSince tesla_id=%d since=%s rows=%d\n",
 		qlTeslaID, since.Format(time.RFC3339), 2)
-	if got := buf.String(); got != want {
-		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
-	}
-}
-
-func TestLoggingSuperchargerHistoryReader_ByVehicleBetween_LogsExpectedLine(t *testing.T) {
-	buf := captureLog(t)
-	l := newLoggingSuperchargerHistoryReader(&fakeQueryLogSCHReader{history: twoSCHRows()})
-
-	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
-	if _, err := l.SuperchargerHistoryByVehicleBetween(context.Background(), qlTeslaID, start, end); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicleBetween tesla_id=%d start=%s end=%s rows=%d\n",
-		qlTeslaID, start.Format("2006-01-02"), end.Format("2006-01-02"), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}

@@ -439,12 +439,11 @@ type SessionReader interface {
 	// ListSessionsByVehicleBetween returns charge sessions for a specific vehicle
 	// whose ChargeStopDateTime falls within the window [from, to].
 	//
-	// from and to are whole UTC calendar days, to inclusive of its entire day —
-	// mirroring telemetry.SuperchargerHistoryByVehicleBetween's end.AddDate(0,0,1)/
-	// half-open contract exactly (design.md D5, revised), NOT
-	// ListEntriesByVehicleBetween's exact-value BETWEEN semantics: to is translated to
-	// a half-open upper bound (to+1 calendar day) before the database sees it, so every
-	// session that stopped later on the to calendar day is still included.
+	// from and to are whole UTC calendar days, to inclusive of its entire day.
+	// This is NOT ListEntriesByVehicleBetween's exact-value BETWEEN semantics: to is
+	// translated to a half-open upper bound (to+1 calendar day) before the database
+	// sees it, so every session that stopped later on the to calendar day is still
+	// included.
 	//
 	// Results are ordered ASCENDING by ChargeStopDateTime (oldest first), matching
 	// telemetry's own ordering for the identical access pattern (design.md D3,

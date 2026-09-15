@@ -24,6 +24,11 @@ import (
 // an application-level API. Every session now carries a real, non-null tesla_id — a
 // session for an unregistered VIN is never stored — so every fixture below sets one.
 
+// batteryPctReadbackSince is the `since` bound every read-back in this file uses.
+// It only needs to be older than every seeded session, so a fixed, obviously-old
+// date keeps the tests readable without computing a real "start of test" time.
+var batteryPctReadbackSince = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
 // insertBaseSuperchargerSession upserts an ordinary session (no battery-% columns)
 // and registers cleanup.
 func insertBaseSuperchargerSession(t *testing.T, st *dbStore, pool *pgxpool.Pool, teslaID, sessionID int64, energyKWh, totalCost float64, currency string, isPaid bool, rawData []byte) {
@@ -66,9 +71,9 @@ func TestStore_SuperchargerUpsert_FreshInsertSeedsBatteryPctColumnsNull(t *testi
 	insertBaseSuperchargerSession(t, st, pool, teslaID, sessionID, 45.2, 12000, "COP", false, []byte(`{"sessionId":900001}`))
 
 	r := newSuperchargerHistoryReaderImpl(pool)
-	got, err := r.SuperchargerHistoryByVehicle(ctx, teslaID, 10)
+	got, err := r.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, batteryPctReadbackSince)
 	if err != nil {
-		t.Fatalf("SuperchargerHistoryByVehicle: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicleUpdatedSince: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session, got %d", len(got))
@@ -133,9 +138,9 @@ func TestStore_SuperchargerUpsert_LeavesVerifiedBatteryPctUntouched(t *testing.T
 	}
 
 	r := newSuperchargerHistoryReaderImpl(pool)
-	got, err := r.SuperchargerHistoryByVehicle(ctx, teslaID, 10)
+	got, err := r.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, batteryPctReadbackSince)
 	if err != nil {
-		t.Fatalf("SuperchargerHistoryByVehicle: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicleUpdatedSince: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session, got %d", len(got))
@@ -211,8 +216,8 @@ func TestStore_SuperchargerBatteryPctChecks_RejectOutOfRangeAndUnrecognizedValue
 }
 
 // TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrio verifies that
-// SuperchargerHistoryByVehicle surfaces the trio, round-trips an untouched (NULL)
-// session correctly, and (T-11) returns TeslaID as a plain int64.
+// SuperchargerHistoryByVehicleUpdatedSince surfaces the trio, round-trips an
+// untouched (NULL) session correctly, and (T-11) returns TeslaID as a plain int64.
 func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrio(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
@@ -240,12 +245,12 @@ func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrio(t *testing.T) {
 
 	r := newSuperchargerHistoryReaderImpl(pool)
 
-	byVehicle, err := r.SuperchargerHistoryByVehicle(ctx, teslaID, 10)
+	byVehicle, err := r.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, batteryPctReadbackSince)
 	if err != nil {
-		t.Fatalf("SuperchargerHistoryByVehicle: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicleUpdatedSince: %v", err)
 	}
 	if len(byVehicle) != 1 || byVehicle[0].SessionID != sessionVerified {
-		t.Fatalf("SuperchargerHistoryByVehicle: want 1 session (%d), got %+v", sessionVerified, byVehicle)
+		t.Fatalf("SuperchargerHistoryByVehicleUpdatedSince: want 1 session (%d), got %+v", sessionVerified, byVehicle)
 	}
 	// T-11: the round-tripped TeslaID is a plain int64, not a pointer — a
 	// compile-time property of the SuperchargerHistory struct, checked here at
@@ -263,9 +268,9 @@ func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrio(t *testing.T) {
 		t.Errorf("BatteryPctSource: want *user_verified, got %v", byVehicle[0].BatteryPctSource)
 	}
 
-	byOtherVehicle, err := r.SuperchargerHistoryByVehicle(ctx, otherTeslaID, 10)
+	byOtherVehicle, err := r.SuperchargerHistoryByVehicleUpdatedSince(ctx, otherTeslaID, batteryPctReadbackSince)
 	if err != nil {
-		t.Fatalf("SuperchargerHistoryByVehicle (other vehicle): %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicleUpdatedSince (other vehicle): %v", err)
 	}
 	var foundSnapshot, foundUntouched bool
 	for _, s := range byOtherVehicle {
@@ -289,10 +294,10 @@ func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrio(t *testing.T) {
 		}
 	}
 	if !foundSnapshot {
-		t.Errorf("SuperchargerHistoryByVehicle(otherTeslaID): missing session %d", sessionSnapshot)
+		t.Errorf("SuperchargerHistoryByVehicleUpdatedSince(otherTeslaID): missing session %d", sessionSnapshot)
 	}
 	if !foundUntouched {
-		t.Errorf("SuperchargerHistoryByVehicle(otherTeslaID): missing session %d", sessionUntouched)
+		t.Errorf("SuperchargerHistoryByVehicleUpdatedSince(otherTeslaID): missing session %d", sessionUntouched)
 	}
 }
 

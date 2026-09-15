@@ -37,9 +37,13 @@ Deleting the two dead methods touches, all in `internal/telemetry` except the la
   `sqlc generate` (`make sqlc`).
 - `db_supercharger_integration_test.go` (covers `SuperchargerHistoryByVehicle`) and
   `db_supercharger_between_integration_test.go` (covers `...Between`) — delete outright.
-  `db_supercharger_vehicle_updated_since_integration_test.go` and
-  `db_supercharger_battery_pct_integration_test.go` are untouched — neither exercises a deleted
-  method.
+  `db_supercharger_vehicle_updated_since_integration_test.go` is untouched — it exercises only
+  the kept method.
+- **Correction, found during implementation:** an earlier version of this design also claimed
+  `db_supercharger_battery_pct_integration_test.go` was untouched. That was wrong. The file
+  calls `SuperchargerHistoryByVehicle` at four sites as its read-back mechanism (it verifies the
+  battery-% trio, not the deleted method itself). This change swaps those four calls to
+  `SuperchargerHistoryByVehicleUpdatedSince`, with every assertion unchanged.
 - `query_log_test.go` — remove the two deleted methods' cases; keep the rest.
 - `internal/app/processor_test.go` — the fake `SuperchargerHistoryReader` must drop the same two
   methods in the **same wave** as the interface shrinks. A fake that still implements a wider

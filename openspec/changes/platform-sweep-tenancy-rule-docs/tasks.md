@@ -50,42 +50,55 @@
 
 Depends on: nothing.
 
-- [ ] 1.1 Remove `SuperchargerHistoryByVehicle` and `SuperchargerHistoryByVehicleBetween` from
+- [x] 1.1 Remove `SuperchargerHistoryByVehicle` and `SuperchargerHistoryByVehicleBetween` from
       the `SuperchargerHistoryReader` interface in `internal/telemetry/telemetry.go`, including
       their doc comments. Leave `SuperchargerHistoryByVehicleUpdatedSince` untouched.
       Acceptance: `grep -n "SuperchargerHistoryByVehicle\b\|SuperchargerHistoryByVehicleBetween"
       internal/telemetry/telemetry.go` returns nothing; `SuperchargerHistoryByVehicleUpdatedSince`
       is still present.
-- [ ] 1.2 Remove both implementations from `internal/telemetry/reader.go`.
+- [x] 1.2 Remove both implementations from `internal/telemetry/reader.go`.
       Acceptance: same grep, empty, against `reader.go`.
-- [ ] 1.3 Remove both logging-decorator methods from `internal/telemetry/query_log.go`, and
+- [x] 1.3 Remove both logging-decorator methods from `internal/telemetry/query_log.go`, and
       remove their cases from `internal/telemetry/query_log_test.go`. Keep the decorator for
       `SuperchargerHistoryByVehicleUpdatedSince`.
       Acceptance: same grep, empty, against both files (except the kept method).
-- [ ] 1.4 Remove the two `-- name:` query blocks from `internal/telemetry/db/query.sql`. Run
+- [x] 1.4 Remove the two `-- name:` query blocks from `internal/telemetry/db/query.sql`. Run
       `make sqlc` (or `sqlc generate`) to regenerate `internal/telemetry/db/query.sql.go` —
       allowed to run directly per `CLAUDE.md`'s project override.
       Acceptance: the two query blocks and their generated Go functions/param structs are gone
       from `query.sql` and `query.sql.go`; the kept query is unchanged.
-- [ ] 1.5 Delete `internal/telemetry/db_supercharger_integration_test.go` (covers
+- [x] 1.5 Delete `internal/telemetry/db_supercharger_integration_test.go` (covers
       `SuperchargerHistoryByVehicle`) and `internal/telemetry/db_supercharger_between_integration_test.go`
       (covers `...Between`) outright — do not repair them, per the project's migration/dead-code
-      test rule. Do NOT touch `db_supercharger_vehicle_updated_since_integration_test.go` or
-      `db_supercharger_battery_pct_integration_test.go` — neither exercises a deleted method.
-      Acceptance: the two named files no longer exist; the two untouched files are unchanged.
-- [ ] 1.6 `go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...`.
+      test rule. Do NOT touch `db_supercharger_vehicle_updated_since_integration_test.go` — it
+      exercises only the kept method.
+      **Correction, found during implementation:** this task originally also said
+      `db_supercharger_battery_pct_integration_test.go` was untouched, because it "exercises no
+      deleted method." That was false — the file calls `SuperchargerHistoryByVehicle` at four
+      sites as its read-back mechanism. See task 1.7 for the fix.
+      Acceptance: the two named files no longer exist; `db_supercharger_vehicle_updated_since_integration_test.go`
+      is unchanged.
+- [x] 1.7 Fix `internal/telemetry/db_supercharger_battery_pct_integration_test.go`: replace its
+      four `SuperchargerHistoryByVehicle(ctx, <id>, 10)` read-back calls with
+      `SuperchargerHistoryByVehicleUpdatedSince(ctx, <id>, <since>)`, `<since>` an explicit,
+      obviously-old constant. Every existing assertion (expected values, nil checks, session ids)
+      stays unchanged — only the read-back mechanism changes. Update the one function-level doc
+      comment naming the deleted method.
+      Acceptance: `grep -n "SuperchargerHistoryByVehicle\b" internal/telemetry/db_supercharger_battery_pct_integration_test.go`
+      returns nothing; every pre-existing assertion in the file is untouched.
+- [x] 1.6 `go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...`.
       Acceptance: both clean.
 
 ## T2 — Narrow the `internal/app` test fake to match — same wave as T1
 
 Depends on: T1.
 
-- [ ] 2.1 In `internal/app/processor_test.go`, remove the two deleted methods from whatever fake
+- [x] 2.1 In `internal/app/processor_test.go`, remove the two deleted methods from whatever fake
       implements `telemetry.SuperchargerHistoryReader`. `processor.go`'s production code already
       calls only `SuperchargerHistoryByVehicleUpdatedSince` — no production file in `internal/app`
       changes.
       Acceptance: the fake no longer defines the two removed methods.
-- [ ] 2.2 `go build ./...` and `go vet ./...` repo-wide.
+- [x] 2.2 `go build ./...` and `go vet ./...` repo-wide.
       Acceptance: both clean.
 
 ## T3 — `ai/go-conventions.md`: replace the `account_id`-leading rule

@@ -199,19 +199,11 @@ func (f *fakeAccountEmpty) AnalysisStartDateFor(_ context.Context, _ uuid.UUID) 
 
 var _ account.Service = (*fakeAccountEmpty)(nil)
 
-// fakeSuperchargerHistoryReader satisfies telemetry.SuperchargerHistoryReader. Every method
-// is unreachable in Fixtures P3-P5 (an empty vehicle list means the
+// fakeSuperchargerHistoryReader satisfies telemetry.SuperchargerHistoryReader. Its
+// one method is unreachable in Fixtures P3-P5 (an empty vehicle list means the
 // per-account loop that would call it never iterates) and stubs to its zero
 // value (design D9).
 type fakeSuperchargerHistoryReader struct{}
-
-func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicle(_ context.Context, _ int64, _ int) ([]telemetry.SuperchargerHistory, error) {
-	return nil, nil
-}
-
-func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleBetween(_ context.Context, _ int64, _, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
-	return nil, nil
-}
 
 func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil

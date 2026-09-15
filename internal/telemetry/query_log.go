@@ -175,12 +175,8 @@ func (l *loggingReader) SnapshotPrecedingDay(ctx context.Context, teslaID int64,
 // --- loggingSuperchargerHistoryReader ---
 
 // loggingSuperchargerHistoryReader wraps the public SuperchargerHistoryReader
-// port and logs all 3 methods AFTER delegating to inner, so rows reflects the
-// actual result (design D6). SuperchargerHistoryByVehicle logs the RESOLVED
-// limit (via the existing resolveLimit helper in reader.go, reused as-is),
-// not the caller's raw limit argument — a caller-supplied limit=0 must
-// visibly show limit=2147483647, the number the query engine actually runs
-// with.
+// port and logs its method AFTER delegating to inner, so rows reflects the
+// actual result.
 type loggingSuperchargerHistoryReader struct {
 	inner SuperchargerHistoryReader
 }
@@ -195,24 +191,6 @@ func newLoggingSuperchargerHistoryReader(inner SuperchargerHistoryReader) *loggi
 // public SuperchargerHistoryReader interface. A future method added to that
 // interface without a matching explicit override here fails to compile.
 var _ SuperchargerHistoryReader = (*loggingSuperchargerHistoryReader)(nil)
-
-// SuperchargerHistoryByVehicle implements SuperchargerHistoryReader, logging
-// after delegating.
-func (l *loggingSuperchargerHistoryReader) SuperchargerHistoryByVehicle(ctx context.Context, teslaID int64, limit int) ([]SuperchargerHistory, error) {
-	result, err := l.inner.SuperchargerHistoryByVehicle(ctx, teslaID, limit)
-	log.Printf("telemetry query: SuperchargerHistoryByVehicle tesla_id=%d limit=%d rows=%d",
-		teslaID, resolveLimit(limit), len(result))
-	return result, err
-}
-
-// SuperchargerHistoryByVehicleBetween implements SuperchargerHistoryReader,
-// logging after delegating.
-func (l *loggingSuperchargerHistoryReader) SuperchargerHistoryByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error) {
-	result, err := l.inner.SuperchargerHistoryByVehicleBetween(ctx, teslaID, start, end)
-	log.Printf("telemetry query: SuperchargerHistoryByVehicleBetween tesla_id=%d start=%s end=%s rows=%d",
-		teslaID, start.UTC().Format("2006-01-02"), end.UTC().Format("2006-01-02"), len(result))
-	return result, err
-}
 
 // SuperchargerHistoryByVehicleUpdatedSince implements
 // SuperchargerHistoryReader, logging after delegating.
