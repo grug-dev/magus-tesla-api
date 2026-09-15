@@ -146,6 +146,6 @@ Depends on: T1–T4.
       file's own narrative, and the KB's `pending-spec-to-sync/applied/`
       snapshots) plus anything under `openspec/changes/archive/` — never a live
       guide, an `AGENTS.md`, or a non-archived `.go` file.
-- [ ] 6.7 Suite command for the owner to run (this worker does not run it):
+- [x] 6.7 Suite command for the owner to run (this worker does not run it):
       `go test ./internal/gateway/...`, or `make test` / `make test-with-db`
       for the full suite now that both RM59 tiers are done.

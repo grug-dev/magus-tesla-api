@@ -4,9 +4,9 @@
   "roadmap": "RM59-rekey-vehicle-metrics-on-tesla-id",
   "intention": "analytics.vehicle_metrics and vehicle_metric_watermarks are keyed on the car, not the account, so one car has one metric history whoever registered it.",
   "request": "Source ticket: MAG-69 \u2014 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. Collapse duplicate (tesla_id, metric_date) rows, replace both unique constraints, replace idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": false,
-  "updated_at": "2026-09-15T10:12:00Z",
+  "updated_at": "2026-09-15T10:47:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
@@ -16,13 +16,12 @@
     "created_at": "2026-09-15T01:44:43Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -121,14 +120,21 @@
       "depends_on": [
         1
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-15T10:12:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "completed_at": "2026-09-15T10:47:00Z",
+      "duration_seconds": 2100,
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 4.2,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one session, one wave plus one review round"
+      },
+      "notes": "Test fakes follow the re-keyed ports, so go vet is green again. buildExternalChargesPage reads the vehicle list once. Gateway spec renamed. Reviewer approved round 1, two minor findings fixed."
     }
   ],
   "events": [
@@ -166,6 +172,11 @@
       "at": "2026-09-15T10:12:00Z",
       "agent": "leader",
       "event": "resumed at the tier 2 boundary; budget 5h 52%, ctx 10%. Tier 2 interview done: RD6 (F2 fix shape) and RD7 (deviation from the roadmap text on handlers.go). No design gate: tier 2 touches no DB object."
+    },
+    {
+      "at": "2026-09-15T10:47:00Z",
+      "agent": "leader",
+      "event": "tier 2 archived into openspec/changes/archive/gateway/2026-09-15-RM59-gateway-authorize-metrics-reads; [~] -> [x]. Every tier archived, so the roadmap itself completes."
     }
   ]
 }
