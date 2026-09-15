@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-69 \u2014 6. Re-key analytics.vehicle_metrics and vehicle_metric_watermarks on tesla_id. Step 6 of MAG-63. Collapse duplicate (tesla_id, metric_date) rows, replace both unique constraints, replace idx_vehicle_metrics_latest, DROP COLUMN account_id from both tables. Drop account_id from the queries and accountID from the Reader/Recalculator ports. LatestMetricsByAccount becomes LatestMetricsForVehicles. Unit tests: excluded.",
   "status": "complete",
   "autopilot": false,
-  "updated_at": "2026-09-15T10:47:00Z",
+  "updated_at": "2026-09-15T10:49:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM59-MAG-69-rekey-vehicle-metrics-on-tesla-id",
@@ -177,6 +177,11 @@
       "at": "2026-09-15T10:47:00Z",
       "agent": "leader",
       "event": "tier 2 archived into openspec/changes/archive/gateway/2026-09-15-RM59-gateway-authorize-metrics-reads; [~] -> [x]. Every tier archived, so the roadmap itself completes."
+    },
+    {
+      "at": "2026-09-15T10:49:00Z",
+      "agent": "leader",
+      "event": "roadmap RM59 complete; both files moved into openspec/roadmaps/archive/RM59-rekey-vehicle-metrics-on-tesla-id/. .work-counter untouched: numbers are monotonic."
     }
   ]
 }
