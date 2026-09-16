@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-40 — Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-16T10:10:00Z",
+  "updated_at": "2026-09-16T09:58:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -220,6 +220,11 @@
       "at": "2026-09-16T10:10:00Z",
       "agent": "leader",
       "event": "tier 2 artifacts created and validated. No database change, so no design gate. Spanish briefing posted and the owner approved. Tier 2 status pending -> proposed."
+    },
+    {
+      "at": "2026-09-16T09:58:00Z",
+      "agent": "leader",
+      "event": "resume-armed — budget-only checkpoint before wave A. five_hour_pct 85 (threshold 90, projected to cross mid-wave), context_pct 14 (threshold 40). five_hour_resets_at 1789563600; wake epoch 1789563720 (+120s slack). Owner chose auto-resume over a manual stop. Nothing dispatched; all tier 2 tasks still pending."
     }
   ]
 }
