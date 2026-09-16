@@ -3,8 +3,9 @@
 ## Purpose
 Derived analytics over stored telemetry — the platform's metrics layer, sitting between
 what `telemetry` captures and what the dashboard renders. It owns no database and no capture: it
-reads sibling modules' public ports and computes values none of them store. Its first metric is
-rolling energy-per-kilometre (Wh/km).
+reads sibling modules' public ports and computes values none of them store. It derives the
+per-day battery-consumed percentage, distance, battery level and tyre-pressure figures the
+dashboard and history charts read, and flags the days whose battery maths does not add up.
 ## Requirements
 ### Requirement: No Cross-Module Database Access
 

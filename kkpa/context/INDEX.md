@@ -143,7 +143,7 @@
 | `measured pack capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `monthly capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `effective capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
-| `pack capacity` | `charging`'s `packCapacityKWh` + its `62.0` fallback → `workflows/vehicle-monthly-metrics.md` (the `analytics` `car_type` table is a different thing — see that guide's last section) |
+| `pack capacity` | `charging`'s `packCapacityKWh` + its `62.0` fallback → `workflows/vehicle-monthly-metrics.md`. The `analytics` `car_type` table was DELETED by RM61 — there is only one definition now. |
 | `capacity backfill` | re-run one month — `cmd/monthly-capacity` / `make cmd-monthly-capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `cmd/monthly-capacity` | synonym of `capacity backfill` → `workflows/vehicle-monthly-metrics.md` |
 | `monthly_effective_capacity` | the table → `workflows/vehicle-monthly-metrics.md` |

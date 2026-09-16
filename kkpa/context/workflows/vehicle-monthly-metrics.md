@@ -167,6 +167,15 @@ With no arguments it does the previous month, every vehicle. It needs `DATABASE_
   and `migrate`. Do not add it: it is an operator tool for re-running a month, not a service.
   _Source: spec monthly-capacity-cli — Requirement: The Tool Is Not Part Of The Deployed Production Image._
 
+- **`analytics` imports no `internal/account` symbol at all** — production and test files alike.
+  Its reads are scoped by vehicle identifier. Do not add an `account` import to resolve a vehicle
+  attribute; that dependency was removed on purpose.
+- **`analytics.NewReader` takes the pool and nothing else.** Every surviving `Reader` method reads
+  `vehicle_metrics` alone. The sibling ports belong to `NewRecalculator`, which writes those rows.
+- **The dashboard efficiency tile is not an `analytics` metric.** It reads
+  `vehicle_metrics.km_per_pct_calc` through `LatestMetricsForVehicles`. The Wh/km derivation that
+  once shared the word "efficiency" is deleted; searching for it finds nothing.
+
 ## Adding a second monthly metric
 
 The plural name is a placeholder, not a promise of a shared table. When a second metric arrives,
@@ -178,10 +187,15 @@ decide then — do not pre-build for it:
   put this one in `charging`. A wider cross-module `monthly_metrics` table owned by `analytics`
   was considered and deferred for exactly one reason: one metric does not justify it.
 
-`internal/analytics/capacity.go` holds a **different**, model-coarse capacity table keyed on
-`car_type`. This workflow never touched it. Before extending that one, weigh reading the measured
-value instead — `analytics` already imports `charging`, so there is no cycle. See
-`openspec/roadmaps/backlog.md` item 7.
+`internal/charging` now holds the platform's **only** pack-capacity definition. `internal/analytics`
+used to hold a second one — a model-coarse table keyed on `car_type`, in
+`internal/analytics/capacity.go`. That file is gone. It was deleted with the unused efficiency
+branch that was its only consumer, so no displayed number changed. A future model-aware capacity
+starts from `charging`'s definition, not from a second table.
+
+One limit stays open: `charging`'s `62.0` fallback is model-blind for a vehicle with no measured
+value yet. `internal/charging` may not import `internal/account`, so it cannot resolve a `car_type`
+by itself. That is a new ticket, not a leftover.
 
 ## Related KB
 
