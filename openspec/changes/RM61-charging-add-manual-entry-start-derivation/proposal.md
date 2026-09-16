@@ -80,9 +80,21 @@ is scoped to the start-percentage derivation only.
 - **CHANGED** — `internal/charging/AGENTS.md` (§Public Interface, §Data Ownership, §Testing
   Notes) — docs-track-structural-change, `CLAUDE.md` §Non-negotiables.
 - **UNCHANGED** — every existing index; `status`'s rules and `RequiredFieldsFor`; `energy_source`
-  and its derivation seam; `price_source`; `inferred_capacity_kwh_calc`; the whole
+  and its derivation seam; `price_source`; the whole
   `supercharger_sessions` table and its ports; every file outside `internal/charging/` except
-  `internal/charging/AGENTS.md`.
+  `internal/charging/AGENTS.md` and the root `README.md` (see below).
+- **CORRECTED DURING IMPLEMENTATION** — this list first claimed
+  `inferred_capacity_kwh_calc` was unchanged. That was wrong, and the owner's test run caught
+  it. The generated column's own rule is unchanged: it is still NULL whenever either battery
+  percentage is NULL. But its observable value through `Writer.Create` changes for one shape of
+  entry — no starting percentage, an ending percentage, and an energy value. That entry's
+  starting percentage is now filled in, so the delta is complete and the column has a value.
+  Such a row carries `start_battery_source = 'ESTIMATED'`, so the monthly capacity query still
+  excludes it and the feedback loop this change exists to prevent stays prevented. One existing
+  test asserted the old outcome and was updated with the owner's approval:
+  `db_inferred_capacity_entries_integration_test.go`'s T4.
+- **CHANGED** — the root `README.md` database table lists this table's module-computed
+  provenance columns by name, so `start_battery_source` was added to that line.
 
 **Out of scope, deliberately:** relaxing the `start_battery_pct` "required" rule on the
 `/external-charges` gateway page, and rendering a derived value as a placeholder — that is tier

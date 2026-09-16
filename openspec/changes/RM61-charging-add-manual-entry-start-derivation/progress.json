@@ -32,7 +32,7 @@
     ]
   },
   "created_at": "2026-09-16T08:05:46Z",
-  "updated_at": "2026-09-16T09:11:30Z",
+  "updated_at": "2026-09-16T09:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -450,6 +450,15 @@
       "decision": "Stripped every design.md / Test-Contract citation from the two new test files, against this module's existing convention.",
       "why": "The pipeline's writing rule forbids citing archived docs. Sibling test files cite design.md 41 times; leaving them is out of scope, so the new files now differ from them.",
       "covered_by": null
+    },
+    {
+      "id": "D-T4",
+      "at": "2026-09-16T09:30:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "T4 in db_inferred_capacity_entries_integration_test.go now asserts the derived behaviour (start filled, source ESTIMATED, column non-nil) instead of the exact 64.000 or a raw-SQL reseed.",
+      "why": "Asserting 64.000 would tie that file to defaultPackCapacityKWh = 62.0. T6 still covers NULL start giving a NULL column, so no coverage is lost.",
+      "covered_by": null
     }
   ],
   "review": {
@@ -508,6 +517,11 @@
       "at": "2026-09-16T09:11:30Z",
       "agent": "leader",
       "event": "wave 3+4+5 complete (3.1, 3.2, 4.1, 5.1 by the worker; 4.2, L1, L2 by the leader). Leader rewrote the new test files' doc comments to drop design.md citations, then re-ran gofmt/build/vet: clean. L2 found the README DID need an edit."
+    },
+    {
+      "at": "2026-09-16T09:30:00Z",
+      "agent": "leader",
+      "event": "owner ran make check: TestCreate_InferredCapacity_TableCases/T4 FAILED (got 64, want nil). Root cause: the derivation fills a missing start, so the generated inferred_capacity_kwh_calc is no longer NULL for that shape. proposal.md wrongly listed that column as UNCHANGED \u2014 a design gap, not a worker error. T4 updated per D-T4; proposal.md corrected with a visible note. Awaiting the owner's re-run."
     }
   ]
 }

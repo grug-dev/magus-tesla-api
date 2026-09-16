@@ -11,6 +11,12 @@
 // this code. Do not "correct" a value here to match the ticket's 2-decimal prose;
 // design.md §"What must NOT change" explicitly forbids it.
 //
+// T4 is the ONE case whose expectation has since changed, and deliberately. The
+// module now fills in a missing starting percentage on write, so that row's
+// battery delta is complete and the generated column is no longer NULL. The
+// original rule — NULL delta gives NULL column — is unchanged and still covered
+// by T5 through T8.
+//
 // Fixtures are seeded through Writer.Create (and Writer.Update for T11) — the
 // module's only writers for this table — and read back through
 // Reader.ListEntriesByVehicle, except T12, which needs direct SQL because no port
@@ -70,6 +76,11 @@ type entryCapacityCase struct {
 	startPct       *int
 	endPct         *int
 	want           *float64 // nil means the expected InferredCapacityKWhCalc is NULL
+	// wantDerivedStart marks a case where the module fills the starting
+	// percentage in on write. The battery delta is then complete, so the
+	// generated column has a value. Its exact figure follows the pack capacity,
+	// which is not this file's subject, so the case asserts presence only.
+	wantDerivedStart bool
 }
 
 // TestCreate_InferredCapacity_TableCases implements design.md §Test Contract Group
@@ -93,8 +104,11 @@ func TestCreate_InferredCapacity_TableCases(t *testing.T) {
 		// 52.27 on insert, giving 73.620 — NOT 73.624 (that figure belongs to T13 on
 		// supercharger_sessions, whose energy_kwh is full DOUBLE PRECISION).
 		{id: "T3", energyAddedKWh: 52.27, startPct: ptrInt(29), endPct: ptrInt(100), want: ptrFloat64(73.620)},
-		// T4: missing start (D3).
-		{id: "T4", energyAddedKWh: 7.04, startPct: nil, endPct: ptrInt(74), want: nil},
+		// T4: a missing start no longer stays missing. The module derives it from
+		// the energy and the ending percentage, so the delta is complete and the
+		// column has a value. The NULL-on-missing-start rule itself is unchanged
+		// and still covered by T6, where no derivation is possible.
+		{id: "T4", energyAddedKWh: 7.04, startPct: nil, endPct: ptrInt(74), wantDerivedStart: true},
 		// T5: missing end (D3).
 		{id: "T5", energyAddedKWh: 7.04, startPct: ptrInt(64), endPct: nil, want: nil},
 		// T6: both missing (D3).
@@ -143,6 +157,19 @@ func TestCreate_InferredCapacity_TableCases(t *testing.T) {
 			}
 			if got[0].ID != created.ID {
 				t.Fatalf("%s: round-trip ID mismatch: got %v, want %v", tc.id, got[0].ID, created.ID)
+			}
+
+			if tc.wantDerivedStart {
+				if got[0].StartBatteryPct == nil {
+					t.Fatalf("%s: StartBatteryPct = nil, want a derived value", tc.id)
+				}
+				if got[0].StartBatterySource == nil || *got[0].StartBatterySource != charging.StartBatterySourceEstimated {
+					t.Errorf("%s: StartBatterySource = %v, want ESTIMATED", tc.id, got[0].StartBatterySource)
+				}
+				if got[0].InferredCapacityKWhCalc == nil {
+					t.Errorf("%s: InferredCapacityKWhCalc = nil, want a value: a derived starting percentage completes the delta", tc.id)
+				}
+				return
 			}
 
 			// T24 (for T1/T7): the domain-mapping proof is this same read-back —
