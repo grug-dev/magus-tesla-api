@@ -184,6 +184,9 @@ The system serves **many users**, each with their own Tesla account. Rules:
   that requires one, so the mistake fails to compile instead of failing a
   runtime check nobody notices. `internal/gateway/handlers/handlers.go`'s
   `authorizeVehicle`, next to `resolveSelectedVehicle`, is where this check runs.
+  `make vehicleref-guard` enforces the call sites: it fails if `vehicleref.Authorize`
+  or `vehicleref.All` is called anywhere outside `internal/vehicleref`, `_test.go`
+  files, and `authorizeVehicle` itself.
 
 ---
 
@@ -312,11 +315,22 @@ months of raw snapshots and aggregating on the fly).
    snapshot per vehicle in one index scan. Convention: batch reads like this replace
    N+1 per-vehicle queries at the module interface boundary.
 
-3. **`account_id` as leading index column** — every multi-tenant table indexes
-   `account_id` first, because every dashboard read scopes by account. The
-   `(account_id, tesla_id, captured_at)` index in telemetry covers both the WHERE
-   filter and the ORDER BY in a single range scan. Convention: no multi-tenant table
-   is created without an `account_id`-leading index.
+3. **A multi-tenant table keys on one of three columns — pick by what the row means.**
+
+   | Rule | Applies when | Tables |
+   |---|---|---|
+   | Key on `tesla_id` | `tesla_id` is `NOT NULL` | `telemetry.vehicle_snapshots`, `analytics.vehicle_metrics`, `analytics.vehicle_metric_watermarks`, `analytics.charge_gaps` |
+   | Key on `vin` | `tesla_id` is nullable — the row can exist before the vehicle is known | `telemetry.supercharger_history`, `charging.supercharger_sessions` |
+   | Keep `account_id`, demoted to an attribute | the row records who acted, not what the car did | `charging.manual_charge_entries`, `telemetry.poll_attempts` |
+
+   `make tenancy-guard` enforces this: it fails if a module's query file outside
+   `internal/account` filters on `account_id` (escape hatch: `-- tenancy:allow: <reason>`, SQL's own comment syntax).
+
+   Do not add an index just because the old table had one. A `UNIQUE (a, b)`
+   constraint already builds a btree that serves equality on `a`, point lookups on
+   `(a, b)`, range scans on `b` within one `a`, and `ORDER BY b DESC` pinned to one
+   `a`. A separate `(a, b DESC)` index next to it repeats work the constraint
+   already does. Justify every index against a query that exists today.
 
 4. **Append-only inserts for history** — `vehicle_snapshots` and `poll_attempts`
    are `INSERT`-only (no UPDATE/DELETE). Writes are cheap; reads are indexed.

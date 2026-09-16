@@ -150,7 +150,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **A recorded absence must never fail a synchronization pass.** The guard (all three inputs
   present **and** end % strictly greater than start %) exists partly to protect the nightly
   mirror: an equal delta would be a division by zero, and because one bad row rejects the whole
-  `MirrorSessions` call, that error would abort the entire night's sync for the account. The
+  `MirrorSessions` call, that error would abort the entire night's sync for that batch. The
   column's type is unconstrained `NUMERIC` for the same reason — `energy_kwh` is vendor-controlled
   `DOUBLE PRECISION` with no `CHECK`, so any fixed precision could overflow on data the project
   does not own and take down the sync.
@@ -219,32 +219,39 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   _Source: spec charge-session-log — Requirement: The Charge Session Log Is Synchronized From The Source._
 
 - **The mirror reads a BOUNDED window, not the whole history.** It asks the source only for
-  sessions modified at or after this account's watermark, widened slightly to tolerate a source
+  sessions modified at or after this vehicle's watermark, widened slightly to tolerate a source
   write that commits just after the previous run read. Before MAG-48 it re-read every session
   every night, which is what defeated every downstream cursor.
-  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By A Vehicle Watermark._
+
+- **The watermark is per VEHICLE, and the per-account cursor it replaced is retired.** An account
+  with two cars held one cursor and needed two — the stored instant could not say how far each
+  car had progressed. Synchronization now runs once per distinct vehicle across the platform, not
+  once per account, so a car with two registered drivers is mirrored once per run, not twice.
+  The requirement was renamed to match (MAG-70): "An Account Watermark" → "A Vehicle Watermark".
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By A Vehicle Watermark._
 
 - **THE most important rule in this capability: a run whose bounded read returns nothing leaves
   the watermark completely untouched.** Never advance it to "now". A session the source commits
   moments after the read would fall permanently behind the cursor and never be picked up again.
   The loss is silent and undetectable — nothing errors, nothing logs, the row simply never
   arrives. If you change this code, this is the line to protect.
-  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By A Vehicle Watermark._
 
 - **A run that DOES return sessions advances the watermark to the highest last-modified instant
   actually observed — never to the run's own instant.** Same reason: advancing to "now" skips
   anything the source commits between the read and the advance.
-  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By A Vehicle Watermark._
 
 - **The watermark advances only AFTER the mirroring step succeeds.** A failed run leaves it
   where it was, so the next run's bounded read still covers what the failed one did not write.
   That repeats work; it never loses a row. Prefer that trade every time.
-  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By A Vehicle Watermark._
 
 - **A vehicle with no watermark backfills its whole history once**, then advances normally.
   So the bounded read costs nothing on first deploy and needs no migration or manual seeding.
   The cursor is per vehicle, so a car with two registered drivers still backfills once, not twice.
-  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By An Account Watermark._
+  _Source: spec charge-session-log — Requirement: Supercharger Mirror Synchronization Is Bounded By A Vehicle Watermark._
 
 - **A session whose vehicle is not registered is NEVER stored — it is skipped and counted.**
   `tesla_id` is `NOT NULL`, so there is no row to write. The nightly cycle reports the skip in

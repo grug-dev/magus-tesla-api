@@ -86,7 +86,7 @@ TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(pos
 TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard archive-guard tidy build vet test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs docker-migrate backup-db
 
@@ -761,6 +761,56 @@ vehicleref-guard: ## Fail if vehicleref.Authorize/.All are called outside intern
 		echo "vehicleref-guard: vehicleref.Authorize/.All called only from internal/vehicleref, tests and authorizeVehicle"; \
 	fi
 
+# tenancy-guard mirrors boundary-guard's grep-based shape and escape-hatch convention.
+# It enforces the re-keyed multi-tenant rule (ai/go-conventions.md "Read optimization
+# (project-wide)", ai/architecture.md §7): a table keys on tesla_id or vin now, never
+# on account_id, everywhere except internal/account, which legitimately owns
+# account_id as its own primary key. A query filtering `WHERE account_id = $1`
+# outside internal/account would silently reintroduce the reversed rule with
+# nothing to catch it.
+#
+# Scope is every .sql a module keeps under db/, EXCEPT db/migrations/. A migration
+# is frozen the moment it is applied — the archive-guard rule elsewhere in this
+# Makefile exists for the same reason — and every migration in this repo still
+# legitimately shows account_id in the table shape it altered at the time. The live
+# query layer is what a future regression would touch, so that is what this guard
+# reads. Today that layer is one query.sql per module, but the guard does not
+# hardcode that name: a module that later splits its queries across several .sql
+# files is covered without anyone remembering to widen this target.
+#
+# Word-boundary match only, so it never fires on created_by_account_id or
+# polled_by_account_id — demoted attribute columns that record who acted, not what
+# the car did — nor on a plain SQL comment (a line whose first non-blank characters
+# are `--`), which explains a past decision rather than filtering a query.
+#
+# Escape hatch: a trailing `-- tenancy:allow: <reason>` SQL comment on the same
+# line (SQL's own comment syntax — unlike the Go-file guards above, which use
+# `//`). Never widen the pattern to silence a true positive.
+tenancy-guard: ## Fail if a module's db/*.sql outside internal/account filters on account_id (escape hatch: -- tenancy:allow: <reason>)
+	@hits=$$(find internal -path '*/db/*' -name '*.sql' ! -path '*/db/migrations/*' \
+		-exec grep -nE '\baccount_id\b' {} + 2>/dev/null \
+		| grep -v '^internal/account/' \
+		| grep -v 'created_by_account_id' \
+		| grep -v 'polled_by_account_id' \
+		| grep -vE '^[^:]+:[0-9]+:[[:space:]]*--' \
+		| grep -v 'tenancy:allow' || true); \
+	if [ -n "$$hits" ]; then \
+		echo "$$hits"; \
+		echo ""; \
+		echo "ERROR: account_id referenced in a db/*.sql outside internal/account above."; \
+		echo "The platform re-keyed multi-tenant tables on tesla_id or vin; account_id"; \
+		echo "stays only as a demoted attribute (created_by_account_id,"; \
+		echo "polled_by_account_id) or inside internal/account itself. See"; \
+		echo "ai/go-conventions.md \"Read optimization (project-wide)\" and"; \
+		echo "ai/architecture.md §7 for the keying rules."; \
+		echo "Genuinely unavoidable (false positive)? Mark it with -- tenancy:allow: <reason>"; \
+		echo "as a trailing comment on the same line. Never weaken this pattern to silence"; \
+		echo "a true positive."; \
+		exit 1; \
+	else \
+		echo "tenancy-guard: no account_id filter in a db/*.sql outside internal/account"; \
+	fi
+
 # archive-guard is the one guard that reads git history instead of the working tree,
 # because the rule it enforces is about CHANGE, not about content: everything under
 # openspec/changes/archive/ is an immutable snapshot of what was decided at the time.
@@ -807,7 +857,7 @@ archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or de
 		echo "archive-guard: no archived file edited or deleted since $$base"; \
 	fi
 
-check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard archive-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + archive-guard + test
+check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

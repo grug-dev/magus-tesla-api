@@ -526,43 +526,6 @@ func deriveIsPaid(fees []tesla.ChargingFeeTesla) *bool {
 // and to allow the gateway to depend on only the port it needs. Callers MUST NOT
 // import telemetrydb (design DBS6).
 type SuperchargerHistoryReader interface {
-	// SuperchargerHistoryByVehicle returns Supercharger sessions for the given
-	// vehicle, ordered by charge_start_date_time DESC, limited to limit
-	// rows (0 = server default of math.MaxInt32). Returns an empty non-nil
-	// slice when no sessions exist.
-	SuperchargerHistoryByVehicle(ctx context.Context, teslaID int64, limit int) ([]SuperchargerHistory, error)
-
-	// SuperchargerHistoryByVehicleBetween returns Supercharger sessions for
-	// the given vehicle whose ChargeStopDateTime falls in the caller-supplied
-	// [start, end] window, inclusive of the whole end calendar day, ordered
-	// oldest-first (ascending by ChargeStopDateTime). start/end are whole
-	// UTC-midnight-bounded calendar days, matching this project's
-	// platform-wide HTTP date-filter convention (ai/go-conventions.md
-	// §"Read optimization").
-	//
-	// Filters on ChargeStopDateTime, NOT ChargeStartDateTime (roadmap D12):
-	// energy is fully delivered at session stop, which is what
-	// EndBatteryPct corresponds to, so a session belongs to the window
-	// containing its STOP instant even when it started the day before -- a
-	// session spanning midnight (ChargeStartDateTime before start,
-	// ChargeStopDateTime inside [start, end]) is deliberately INCLUDED. This
-	// is a pure data accessor: the port does no charge-to-day attribution of
-	// its own (that is internal/analytics's job, roadmap D12) -- it only
-	// answers "which sessions' energy finished landing in this window."
-	//
-	// Returns a non-nil empty slice and nil error when no sessions exist in
-	// the window (parity with SuperchargerHistoryByVehicle's existing
-	// empty-result contract, and with Reader.SnapshotsByVehicleBetween's
-	// identical convention -- no nil-slice footgun for callers).
-	//
-	// Purely additive alongside SuperchargerHistoryByVehicle (unchanged,
-	// still limit-based for its own "most recent N" access pattern). This
-	// method has no limit parameter and no LIMIT-N contract -- the
-	// caller-supplied window is the bound, exactly like
-	// Reader.SnapshotsByVehicleBetween's own reasoning for why a bounded
-	// window makes an unbounded-N limit the caller's job, not this query's.
-	SuperchargerHistoryByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)
-
 	// SuperchargerHistoryByVehicleUpdatedSince returns every stored Supercharger
 	// session for the given vehicle whose updated_at is at or after `since`,
 	// ordered oldest-first by updated_at. It exists so other modules

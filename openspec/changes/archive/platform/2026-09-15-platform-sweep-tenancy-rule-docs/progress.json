@@ -1,0 +1,1067 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "platform-sweep-tenancy-rule-docs",
+  "module": "platform",
+  "roadmap": null,
+  "request": "MAG-70 \u2014 Sweep the conventions, specs and KB. Step 7 of MAG-63. Correct every doc, spec and KB guide that still teaches the old 'account_id is the leading index column' rule, delete the dead Supercharger ports, and add make tenancy-guard.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [
+      "S.1"
+    ],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "1.7",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "5.1",
+      "5.2",
+      "6.1",
+      "6.2",
+      "7.1",
+      "8.1",
+      "8.2",
+      "9.1",
+      "9.2",
+      "9.3",
+      "9.4",
+      "9.5",
+      "G.1",
+      "S.2",
+      "T.1"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-15T20:59:00Z",
+  "updated_at": "2026-09-15T22:35:15Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH60-MAG-70-platform-sweep-tenancy-rule-docs",
+    "base": "c484f4d2568a533ae7e814b063feb82ad598e215",
+    "ticket": "MAG-70",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-70/7-sweep-the-conventions-specs-and-kb",
+    "created_at": "2026-09-15T20:59:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Remove both dead methods from SuperchargerHistoryReader interface",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T20:40:00Z",
+      "completed_at": "2026-09-15T20:42:00Z",
+      "duration_seconds": 120,
+      "notes": "Removed both methods and their doc comments from the SuperchargerHistoryReader interface. UpdatedSince untouched.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Remove both implementations from reader.go",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T20:42:00Z",
+      "completed_at": "2026-09-15T20:46:00Z",
+      "duration_seconds": 240,
+      "notes": "Removed both implementations from reader.go. Also dropped the orphaned resolveLimit helper and an unused math import.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "Remove both decorator methods from query_log.go and its test",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T20:46:00Z",
+      "completed_at": "2026-09-15T20:50:00Z",
+      "duration_seconds": 240,
+      "notes": "Removed both decorator methods from query_log.go and their cases plus fakes from query_log_test.go.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "1.4",
+      "title": "Remove both query blocks from db/query.sql, run sqlc generate",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T20:50:00Z",
+      "completed_at": "2026-09-15T20:53:00Z",
+      "duration_seconds": 180,
+      "notes": "Removed both -- name: blocks from query.sql and ran make sqlc. query.sql.go regenerated clean.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "1.5",
+      "title": "Delete the two integration test files covering the removed ports",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T20:53:00Z",
+      "completed_at": "2026-09-15T20:55:00Z",
+      "duration_seconds": 120,
+      "notes": "Deleted the two integration test files covering the removed ports. The updated-since test file untouched.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "1.6",
+      "title": "go build + go vet internal/telemetry",
+      "module": "telemetry",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:10:00Z",
+      "completed_at": "2026-09-15T21:12:00Z",
+      "duration_seconds": 120,
+      "notes": "go build and go vet on internal/telemetry both clean. Leader re-ran and confirmed exit 0.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "1.7",
+      "title": "Swap the battery-pct test read-back to the kept UpdatedSince port",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:06:00Z",
+      "completed_at": "2026-09-15T21:10:00Z",
+      "duration_seconds": 240,
+      "notes": "Swapped 4 read-back calls in the battery-pct test to the kept UpdatedSince method. No assertion changed; leader verified the diff.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "Narrow the SuperchargerHistoryReader fake in app/processor_test.go",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:00:00Z",
+      "completed_at": "2026-09-15T21:02:00Z",
+      "duration_seconds": 120,
+      "notes": "Removed the two deleted methods from fakeSuperchargerHistoryReader. No production file in internal/app changed.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "go build + go vet repo-wide",
+      "module": "app",
+      "depends_on": [
+        "2.1",
+        "1.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:12:00Z",
+      "completed_at": "2026-09-15T21:13:00Z",
+      "duration_seconds": 60,
+      "notes": "go build ./... and go vet ./... both clean repo-wide. Leader re-ran and confirmed exit 0.",
+      "budget": {
+        "five_hour_pct_start": 16.0,
+        "five_hour_pct_end": 31.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 6.83,
+        "context_pct_end": 33,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole wave-1 slice (1.1-1.7, 2.1-2.2) jointly, including the correction round"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "ai/go-conventions.md: replace account_id-leading rule with the three-rule table",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "Replaced the account_id-leading rule with the three-rule keying table.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "ai/go-conventions.md: add the index-redundancy note",
+      "module": "platform",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "Index-redundancy note added right after the table, same edit.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "ai/architecture.md: replace the same rule with the identical table",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "Same table pasted into ai/architecture.md bullet 3. Leader verified all three data rows are byte-identical.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "ai/architecture.md: add the gateway-authorizes-tenancy rule",
+      "module": "platform",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "The gateway-authorizes-tenancy rule already existed in \u00a75; worker added the missing make vehicleref-guard reference.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "CLAUDE.md: add tenancy-guard to allowed commands and the check phase list",
+      "module": "platform",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:39:02Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "Added theme-guard and tenancy-guard to the allowed-commands list and the check phase list. Leader confirmed both now match the Makefile exactly.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "README.md: add tenancy-guard if it enumerates guards",
+      "module": "platform",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:39:02Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "README.md does enumerate the guards, so tenancy-guard was added there. Worker also found vehicleref-guard missing; leader fixed it (decision A3).",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "Add make tenancy-guard, word-boundary match, excluding the demoted columns",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "Added tenancy-guard, green with zero violations. Leader widened its scope per user decision U9 and proved it fails on a planted violation.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "Wire tenancy-guard into check and .PHONY",
+      "module": "platform",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "Added to .PHONY and to check's dependency list. Leader confirmed both.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    },
+    {
+      "id": "7.1",
+      "title": "Re-check the four KB guides found clean, now that T1 and T4 landed",
+      "module": "platform",
+      "depends_on": [
+        "1.6",
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:39:02Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "telemetry-ingest-only.md:76 named the deleted ...ByVehicleBetween. Now points at the live Reader.SnapshotsByVehicleBetween. Other three guides clean.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "8.1",
+      "title": "nightly-cycle.md: fix the vehicle_snapshots conflict target to (tesla_id, captured_date)",
+      "module": "platform",
+      "depends_on": [
+        "1.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "Fixed the vehicle_snapshots on-conflict target to (tesla_id, captured_date).",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    },
+    {
+      "id": "8.2",
+      "title": "nightly-cycle.md: re-read port map and other rows for stale refs",
+      "module": "platform",
+      "depends_on": [
+        "8.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "Re-read the port map and other table rows. All current, matching design D7's claim.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    },
+    {
+      "id": "G.1",
+      "title": "Stage glossary/gotcha/INDEX.md changes under pending-spec-to-sync, never apply",
+      "module": "platform",
+      "depends_on": [
+        "7.1",
+        "8.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:39:02Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "Checked INDEX.md and all four guides' glossary lines. Nothing was invalidated, so nothing was staged. Confirmed explicitly, not skipped.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "S.1",
+      "title": "Verify the analytics spec correction syncs into the main spec",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "blocked",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T22:35:15Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Substance passes: the stale requirement text is gone. Its literal grep criterion cannot pass \u2014 the approved delta quotes the old phrase on purpose to record what changed. Needs the user's call.",
+      "budget": null
+    },
+    {
+      "id": "S.2",
+      "title": "Confirm the sync left internal/analytics/reader.go untouched",
+      "module": "platform",
+      "depends_on": [
+        "S.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T22:35:15Z",
+      "completed_at": "2026-09-15T22:35:15Z",
+      "duration_seconds": null,
+      "notes": "Confirmed: git diff against the branch base shows internal/analytics/reader.go untouched.",
+      "budget": null
+    },
+    {
+      "id": "9.1",
+      "title": "go build, go vet, gofmt -l all clean",
+      "module": "platform",
+      "depends_on": [
+        "2.2",
+        "3.2",
+        "4.2",
+        "5.1",
+        "5.2",
+        "6.2",
+        "G.1",
+        "S.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "go build, go vet clean. gofmt -l lists three pre-existing files this branch never touched.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "9.2",
+      "title": "tenancy/boundary/vehicleref/migration guards all clean",
+      "module": "platform",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "tenancy-guard, boundary-guard, vehicleref-guard, migration-guard all pass. migration-guard prints its known pre-existing collision warning.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "9.3",
+      "title": "make archive-guard confirms the archive was not touched",
+      "module": "platform",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "archive-guard confirms no archived file was edited or deleted since the branch base.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "9.4",
+      "title": "Confirm no task ran the suite; print the owner's commands",
+      "module": "platform",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "No task ran the suite. The owner ran make test and reported it passed. Leader ran only build, vet, gofmt and the guards.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "9.5",
+      "title": "Repo-wide grep confirms zero hits for both deleted method names",
+      "module": "platform",
+      "depends_on": [
+        "9.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-15T21:42:52Z",
+      "completed_at": "2026-09-15T21:42:52Z",
+      "duration_seconds": null,
+      "notes": "Zero live hits for the deleted names. Two expected non-hits remain: the main telemetry spec (the delta syncs at archive) and a dated plan file that correctly calls them dead.",
+      "budget": {
+        "five_hour_pct_start": 48.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 4.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for wave-3 plus the leader-run T9 verification"
+      }
+    },
+    {
+      "id": "T.1",
+      "title": "Create the specs/telemetry delta correcting the port's method count",
+      "module": "platform",
+      "depends_on": [
+        "1.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-15T21:25:53Z",
+      "completed_at": "2026-09-15T21:32:18Z",
+      "duration_seconds": null,
+      "notes": "New specs/telemetry delta narrows the port to one method, and records why the other three are gone. openspec validate --strict passes.",
+      "budget": {
+        "five_hour_pct_start": 34.0,
+        "five_hour_pct_end": 39.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": null,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared delta for the whole wave-2 serial dispatch"
+      }
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "platform-reviewer",
+    "brief": "Review the full diff of ft/CH60-MAG-70-platform-sweep-tenancy-rule-docs against base c484f4d2568a533ae7e814b063feb82ad598e215 (three commits: b70c533, a0be646, ee0d953). Validate: (1) the two dead Supercharger ports are gone from every layer \u2014 interface, impl, logging decorator, query.sql, generated code, tests \u2014 and the kept UpdatedSince port is untouched in signature, predicate and ordering; (2) no test assertion was weakened or deleted to make the port removal pass, especially in db_supercharger_battery_pct_integration_test.go whose read-back mechanism was swapped; (3) the three-rule keying table is byte-identical in ai/go-conventions.md and ai/architecture.md, and both match design.md D6; (4) make tenancy-guard actually fails on a real violation and its scope decision (non-migration .sql only) matches user decision U9; (5) CLAUDE.md's and README.md's guard lists match the Makefile's real check target exactly; (6) the specs/telemetry delta (task T.1) describes the port truthfully and its scenarios match the real interface in internal/telemetry/telemetry.go; (7) the KB corrections name methods that actually exist; (8) module boundaries held \u2014 no module read another module's DB or internals; (9) nothing under openspec/changes/archive/ was modified; (10) anti-gaming \u2014 no task title or acceptance criterion was edited, weakened or deleted, and every task marked done really is. Note this change has NO database object change, so the database design gate did not fire; flag it as a blocker if you find one.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-15T23:15:00Z",
+        "verdict": "changes-requested",
+        "summary": "No database object change confirmed (correctly, no design gate needed). Port deletion is clean and complete at every layer; the kept SuperchargerHistoryByVehicleUpdatedSince port is byte-identical in signature, predicate, ordering, query, and doc comment. No test assertion was weakened \u2014 the battery-pct test swap only changed the read-back call and error strings; every expected value, nil check, and session id is untouched. The two deleted integration test files covered only the removed ports, so no coverage of the kept port was lost. tenancy-guard was planted with a real WHERE account_id violation in internal/telemetry/db/query.sql, confirmed to fail (exit 1) with a correct error message, then the file was restored byte-identical (same md5). Guard scope matches U9 (every non-migration .sql under internal/*/db/). CLAUDE.md and README.md guard lists match the Makefile's real check target exactly. The specs/telemetry delta accurately describes the one-method port. KB corrections (Reader.SnapshotsByVehicleBetween, (tesla_id, captured_date) conflict target) are real. Archive folder untouched (archive-guard clean). Anti-gaming: task 1.5's edit was a transparently-labeled correction of a false premise (not a weakening), with a new task 1.7 added to do the real work \u2014 legitimate. One major finding blocks approval: see F1.",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "ai/go-conventions.md:272 and ai/architecture.md:327 both document the tenancy-guard escape hatch as `// tenancy:allow: <reason>`. The real Makefile guard (Makefile:786,789,806) uses `-- tenancy:allow: <reason>` (SQL line-comment syntax) because the guard scans .sql files, where `//` is not a valid comment marker. `// tenancy:allow:` in a .sql file breaks the SQL statement and sqlc generate. progress.json's own decision U9 and the wave-2 completion event show the leader knew `--` was required and fixed it in the Makefile, but never propagated that fix to the two convention docs, which are read by every worker on every future dispatch (CLAUDE.md base Doc-Pack). Fix: change `//` to `--` on both lines.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/charging/charging.go:439-445 (comment fix removing the dead SuperchargerHistoryByVehicleBetween reference and a design.md D5 citation) was edited directly by the leader (decision A2), not by a module-scoped worker. ai/agentic-workflow.md's Leader role says the leader 'never implements module code itself'. The edit is correct and harmless (comment-only, improves the file by also dropping a stale design.md pointer), but it is a process deviation, and internal/charging is not listed in proposal.md's 'Affected modules'. No functional risk; flagging for the leader's awareness, not blocking.",
+            "status": "open"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "internal/telemetry/db_supercharger_battery_pct_integration_test.go:27-30 \u2014 the new `batteryPctReadbackSince` var has a 3-line comment above a 1-line declaration. Explains a real, non-obvious choice (why a fixed old date instead of computing test-start time), so likely fine to keep as-is; noted only because it technically matches the 'comment longer than the code it explains' criterion.",
+            "status": "open"
+          }
+        ],
+        "triage": {
+          "F1": {
+            "verdict": "accepted",
+            "action": "Fixed. Both docs now teach `-- tenancy:allow:`. The leader decided `--` in the Makefile under U9 and failed to propagate it. A worker following the old text would have written an escape hatch the guard ignores."
+          },
+          "F2": {
+            "verdict": "partially-accepted",
+            "action": "Rejected the first half: a doc comment naming a deleted telemetry symbol is cross-module fallout, which the skill assigns to the leader, not to a module worker. Accepted the second half: proposal.md did not list internal/charging. Now listed."
+          },
+          "F3": {
+            "verdict": "rejected",
+            "action": "No change. The comment explains why a year-2000 constant is safe as the `since` bound. The reviewer itself called the content legitimate. The length heuristic does not outrank a real why."
+          }
+        }
+      },
+      {
+        "round": 2,
+        "at": "2026-09-15T23:40:00Z",
+        "verdict": "approved",
+        "summary": "Re-verified commit 6263963 against round-1 findings plus a spot-check for regressions. F1 confirmed fixed: ai/go-conventions.md:272 and ai/architecture.md:327 both now read `-- tenancy:allow: <reason>, SQL's own comment syntax`, matching the real Makefile guard exactly. Re-ran go build ./..., go vet ./... and make tenancy-guard myself (not on the leader's say-so) \u2014 all green. The charging.go doc-comment fix (decision A2) is confirmed to also drop the `design.md D3, strengthened` citation on the 'Results are ordered ASCENDING' line, as claimed; the package-level doc comment (lines 1-18) and the SessionReader interface's own top-of-type doc comment (lines 430-437, a separate comment block from the edited method comment) still carry design.md/RM citations, which is correctly out of scope under the legacy-cleanup rule (scoped to the function comment actually edited, not the enclosing type or file). gofmt -l on charging.go is clean. Full diff stat re-checked against base: only the five files the commit message claims, no stray changes. Commit message accurately describes every change it makes.",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "Fix verified: both docs now say `-- tenancy:allow: <reason>` and name it as SQL's own comment syntax. Matches the Makefile guard byte-for-byte in spirit.",
+            "status": "fixed"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "proposal.md half confirmed fixed (internal/charging now listed in Affected modules). On the rejected half: I do not fully share the leader's reading. 'Integrates across modules' in ai/agentic-workflow.md reads to me as wiring interfaces and reconciling contracts BETWEEN modules, not editing a comment entirely inside one module's own file (internal/charging/charging.go) just because the fact it references originated elsewhere. A charging-scoped worker editing its own module's file would not have crossed any sandbox, regardless of what triggered the need for the edit. That said: the edit itself is one line, comment-only, correct, and zero functional risk, and the leader offered to take a disagreement to the user, so I am not blocking on it \u2014 recording my dissent for the record rather than escalating.",
+            "status": "acknowledged, not blocking"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "Rejection accepted. The reviewer agreed in round 1 that the comment's content was legitimate; the length heuristic is a filler-detector, not an override of a real, stated reason. No further action.",
+            "status": "closed"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "U1",
+      "at": "2026-09-15T20:59:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Delete only SuperchargerHistoryByVehicle and ...ByVehicleBetween; keep ...ByVehicleUpdatedSince",
+      "why": "The ticket listed a live port for deletion. processor.go:223 calls it as the nightly mirror read. Deleting it would break the mirror."
+    },
+    {
+      "id": "U2",
+      "at": "2026-09-15T20:59:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Add make tenancy-guard and wire it into check",
+      "why": "Measured zero violations today, so the guard is green from day one and needs no grace period. It locks in the MAG-63 work."
+    },
+    {
+      "id": "U3",
+      "at": "2026-09-15T20:59:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Rewrite exactly two stale requirements: analytics:96 and charge-session-log:889",
+      "why": "telemetry and charging specs have no account-scoping requirement. Their account headings describe polling, which stays correctly account-level."
+    },
+    {
+      "id": "U4",
+      "at": "2026-09-15T20:59:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Run as one standalone platform- change, not a 2-tier roadmap",
+      "why": "The code part is deleting two dead methods. A roadmap's two briefings and two review rounds would cost more than the work."
+    },
+    {
+      "id": "U5",
+      "at": "2026-09-15T20:59:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Leave the three stale ...ByAccountUpdatedSince comments alone",
+      "why": "Project rule: a drifted table comment is not a finding and never justifies a migration to fix comment text."
+    },
+    {
+      "id": "U6",
+      "at": "2026-09-15T20:59:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Also fix the third stale sentence in the analytics Recent Energy-Per-Kilometre requirement",
+      "why": "Verified against reader.go: three of four reads take the vehicle alone. The ticket's Done-when requires no spec teaching the old rule."
+    },
+    {
+      "id": "U7",
+      "at": "2026-09-15T20:59:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Do NOT drop telemetry.vehicle_snapshots.account_id here; MAG-83 owns it",
+      "why": "MAG-83 drops it by omitting it from its new baseline. Doing it here needs two edits MAG-83 then deletes, and would break fresh test containers."
+    },
+    {
+      "id": "A1",
+      "at": "2026-09-15T21:10:51Z",
+      "scope": "task:1.7",
+      "made_by": "autopilot",
+      "decision": "Fix the battery-pct test read-back instead of restoring SuperchargerHistoryByVehicle",
+      "why": "The port has no production caller. Restoring it would keep dead code alive for one test. All four call sites proved order-independent."
+    },
+    {
+      "id": "A2",
+      "at": "2026-09-15T21:10:51Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Leader fixed the stale comment at internal/charging/charging.go:443",
+      "why": "It named the deleted SuperchargerHistoryByVehicleBetween. A comment pointing at a removed symbol is cross-module fallout the leader owns."
+    },
+    {
+      "id": "U8",
+      "at": "2026-09-15T21:25:53Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Correct openspec/specs/telemetry/spec.md with a specs/telemetry delta in this change",
+      "why": "Wave 1 shrank a public port. CLAUDE.md makes the doc update part of the same change. A delta records why the port shrank; a direct edit would not."
+    },
+    {
+      "id": "U9",
+      "at": "2026-09-15T21:38:35Z",
+      "scope": "task:6.1",
+      "made_by": "user",
+      "decision": "tenancy-guard scans every .sql under internal/*/db/ except db/migrations/",
+      "why": "design.md D5's literal db/**/*.sql makes the guard permanently red on 35 migrations. Excluding migrations is green today and covers a future non-query.sql file."
+    },
+    {
+      "id": "A3",
+      "at": "2026-09-15T21:42:52Z",
+      "scope": "task:5.2",
+      "made_by": "autopilot",
+      "decision": "Leader also added the missing vehicleref-guard to README.md's make check line",
+      "why": "The line exists to mirror make check. I was already editing it. Leaving a known-false neighbour on the same line is worse than a one-word fix."
+    },
+    {
+      "id": "A4",
+      "at": "2026-09-15T22:31:01Z",
+      "scope": "review:F2",
+      "made_by": "autopilot",
+      "decision": "Rejected F2's claim that the leader should not have fixed the charging.go comment",
+      "why": "The comment named a telemetry symbol this change deleted. That is cross-module fallout, which the pipeline assigns to the leader. The proposal half of F2 was accepted."
+    },
+    {
+      "id": "A5",
+      "at": "2026-09-15T22:31:01Z",
+      "scope": "review:F3",
+      "made_by": "autopilot",
+      "decision": "Rejected F3, no change to the batteryPctReadbackSince comment",
+      "why": "It states why an arbitrary-looking year-2000 date is correct. The reviewer agreed the content is legitimate. Cutting it would delete the reason, not filler."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-15T20:59:00Z",
+      "event": "artifacts created and validated (openspec validate --strict: valid); Spanish design briefing posted and approved by the user; no database object changes so the database design gate did not fire"
+    },
+    {
+      "at": "2026-09-15T21:01:08Z",
+      "event": "wave-1 dispatched \u2014 T1+T2 (delete two dead Supercharger ports, narrow the app test fake) to telemetry worker on Sonnet; budget start five_hour_pct=16 context_pct=30"
+    },
+    {
+      "at": "2026-09-15T21:10:51Z",
+      "event": "wave-1 complete \u2014 1.1-1.7, 2.1-2.2. Worker found design.md D1 and tasks.md 1.5 stated a falsehood: db_supercharger_battery_pct_integration_test.go DID call a deleted method at 4 sites. Worker reported blocked instead of guessing; artifacts corrected, task 1.7 appended. Leader independently re-ran go build and go vet (both exit 0) and verified no assertion was weakened."
+    },
+    {
+      "at": "2026-09-15T21:10:51Z",
+      "event": "FINDING, new scope \u2014 openspec/specs/telemetry/spec.md lines 1015 and 1060 still state the port has FOUR methods and name the two deleted ones plus the already-gone ByAccount. CLAUDE.md requires public-surface docs to update in the same change. Needs a specs/telemetry delta; not yet planned."
+    },
+    {
+      "at": "2026-09-15T21:25:53Z",
+      "event": "resumed in a fresh session; wave 1 verified committed (b70c533); budget five_hour_pct=34 context_pct=11"
+    },
+    {
+      "at": "2026-09-15T21:25:53Z",
+      "event": "FINDING resolved by user decision U8 \u2014 task T.1 appended to tasks.md and progress.json for the specs/telemetry delta"
+    },
+    {
+      "at": "2026-09-15T21:25:53Z",
+      "event": "wave-2 dispatched \u2014 3.1-3.2, 4.1-4.2, 6.1-6.2, 8.1-8.2, T.1 to platform worker on Sonnet, serial single dispatch; budget start five_hour_pct=34 context_pct=11"
+    },
+    {
+      "at": "2026-09-15T21:29:24Z",
+      "event": "USER-REPORTED VERIFICATION \u2014 the owner ran `make test` and reported it passed. Wave-1 tasks 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 2.1 move from awaiting-user-verification to done. The leader did not run the suite; this pass is the user's, recorded as theirs."
+    },
+    {
+      "at": "2026-09-15T21:32:18Z",
+      "event": "wave-2 complete \u2014 3.1-3.2, 4.1-4.2, 6.1-6.2, 8.1-8.2, T.1 all done. Leader independently verified: the three keying-table data rows are byte-identical across both docs; tenancy-guard is in .PHONY and in check; the three gofmt hits are pre-existing files this branch never touched."
+    },
+    {
+      "at": "2026-09-15T21:32:18Z",
+      "event": "FINDING, needs user triage \u2014 the worker deviated from design.md D5 on the guard's scope. D5 says db/**/*.sql; the worker used db/query.sql because 35 migration files legitimately contain account_id and would make the guard permanently red. Leader confirmed the count and confirmed a middle option (all non-migration .sql) is also green today."
+    },
+    {
+      "at": "2026-09-15T21:38:35Z",
+      "event": "leader applied user decision U9 \u2014 widened tenancy-guard from internal/*/db/query.sql to every non-migration .sql under internal/*/db/. Verified green, and verified it exits 1 on a planted WHERE account_id violation. The worker's other two D5 deviations (-- not // as the escape-hatch marker, and skipping plain SQL comment lines) accepted by the leader: SQL forces both, no reasonable alternative existed."
+    },
+    {
+      "at": "2026-09-15T21:39:02Z",
+      "event": "wave-2 committed as a0be646; wave-3 dispatched \u2014 5.1-5.2 (CLAUDE.md + README.md document the guard), 7.1 (re-check the four KB guides), G.1 (glossary staging) to platform worker on Sonnet, serial; budget start five_hour_pct=48 context_pct=15"
+    },
+    {
+      "at": "2026-09-15T21:42:52Z",
+      "event": "wave-3 complete \u2014 5.1, 5.2, 7.1, G.1 done. Leader verified CLAUDE.md's phase list now matches the Makefile exactly, and that the KB's new example SnapshotsByVehicleBetween is a real method in telemetry.go."
+    },
+    {
+      "at": "2026-09-15T21:42:52Z",
+      "event": "T9 verification run by the leader \u2014 9.1-9.5 done. 9.5's only remaining hits are openspec/specs/telemetry/spec.md (the T.1 delta has not synced yet; it syncs at archive, exactly like the analytics delta S.1 checks) and a dated kkpa/plans file that correctly describes the ports as dead. Neither is a defect."
+    },
+    {
+      "at": "2026-09-15T22:23:34Z",
+      "event": "USER-REPORTED VERIFICATION \u2014 the owner ran `make check` (the full gate, including the new tenancy-guard phase and the test suite) and reported it passed. The leader did not run it. Change moves to verified; the reviewer gate may now run."
+    },
+    {
+      "at": "2026-09-15T22:31:01Z",
+      "event": "review round 1 triaged \u2014 F1 accepted and fixed (leader's own miss: decision U9 changed the escape hatch to `--` in the Makefile but never reached ai/go-conventions.md or ai/architecture.md). F2 partially accepted. F3 rejected. Leader also found a finding the reviewer missed: the SAME charging.go doc comment it edited still cited `design.md D3`; removed."
+    },
+    {
+      "at": "2026-09-15T22:35:15Z",
+      "event": "archive attempt 1 aborted cleanly, no files changed \u2014 the charge-session-log delta renamed a requirement title (An Account Watermark -> A Vehicle Watermark) and OpenSpec matches MODIFIED by header. Leader verified the rename is TRUE against the code first (charging.MirrorWatermark has TeslaID, no account column, unique index mirror_watermarks_vehicle_unique), then added a RENAMED FROM/TO block following the precedent in archive/app/2026-09-10-RM52. Content unchanged; only how OpenSpec applies it."
+    },
+    {
+      "at": "2026-09-15T22:35:15Z",
+      "event": "archived \u2014 specs synced (analytics ~1 -1, charge-session-log ~1 renamed 1, telemetry ~1). The renamed requirement landed in place at line 889, not appended at EOF. Change folder moved under archive/platform/ per this repo's module grouping; make archive-guard still clean."
+    },
+    {
+      "at": "2026-09-15T22:35:15Z",
+      "event": "CONFLICT, needs user call \u2014 task S.1's acceptance criterion says the phrase 'defense-in-depth tenant isolation' must return zero hits in openspec/specs/analytics/spec.md. One hit remains, inside the delta's own paragraph that QUOTES the old wording to record what changed. The criterion and the user-approved delta contradict each other. Anti-gaming forbids editing the criterion, so S.1 is recorded blocked rather than marked done."
+    }
+  ]
+}

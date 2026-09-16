@@ -1,0 +1,383 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "magus-tesla-api Runtime Architecture",
+    "output": "magus-tesla-runtime-architecture.html",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/grug-dev/magus-tesla-api",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "d1ae43a9bcd0931c0a07a7be996b2438e14fadb5"
+    }
+  },
+  "components": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "User Browser",
+      "sublabel": "htmx dashboard",
+      "pos": [
+        30,
+        300
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "google",
+      "type": "security",
+      "label": "Google OAuth",
+      "sublabel": "OIDC sign-in",
+      "pos": [
+        60,
+        88
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "caddy",
+      "type": "cloud",
+      "label": "Caddy",
+      "sublabel": "reverse proxy :443",
+      "tag": "only public port",
+      "pos": [
+        232,
+        300
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "sources": [
+        {
+          "path": "deploy/docker/compose.yaml",
+          "label": "caddy service"
+        }
+      ]
+    },
+    {
+      "id": "account",
+      "type": "security",
+      "label": "Account",
+      "sublabel": "per-user Tesla tokens",
+      "pos": [
+        456,
+        88
+      ],
+      "size": [
+        172,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/account/service.go",
+          "label": "UpsertFromOAuth · SaveTeslaTokens"
+        }
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "frontend",
+      "label": "Gin Gateway",
+      "sublabel": "cmd/web · /ui fragments",
+      "tag": "only place HTML lives",
+      "pos": [
+        456,
+        292
+      ],
+      "size": [
+        172,
+        76
+      ],
+      "sources": [
+        {
+          "path": "cmd/web/main.go"
+        },
+        {
+          "path": "internal/gateway/handlers/handlers.go"
+        }
+      ]
+    },
+    {
+      "id": "analytics",
+      "type": "backend",
+      "label": "Analytics",
+      "sublabel": "pre-computed metrics",
+      "pos": [
+        708,
+        292
+      ],
+      "size": [
+        172,
+        76
+      ],
+      "sources": [
+        {
+          "path": "internal/analytics/reader.go"
+        }
+      ]
+    },
+    {
+      "id": "pg",
+      "type": "database",
+      "label": "PostgreSQL 16",
+      "sublabel": "append-only + summaries",
+      "tag": "loopback only",
+      "brand": "postgresql",
+      "pos": [
+        1146,
+        300
+      ],
+      "size": [
+        168,
+        64
+      ],
+      "sources": [
+        {
+          "path": "deploy/docker/compose.yaml",
+          "label": "db service"
+        }
+      ]
+    },
+    {
+      "id": "poller",
+      "type": "backend",
+      "label": "Nightly Poller",
+      "sublabel": "cmd/poller · 03:30",
+      "pos": [
+        410,
+        490
+      ],
+      "size": [
+        150,
+        66
+      ],
+      "sources": [
+        {
+          "path": "cmd/poller/main.go"
+        },
+        {
+          "path": "internal/app/scheduler.go"
+        }
+      ]
+    },
+    {
+      "id": "telemetry",
+      "type": "backend",
+      "label": "Telemetry",
+      "sublabel": "Collector · Reader ports",
+      "pos": [
+        650,
+        490
+      ],
+      "size": [
+        172,
+        66
+      ],
+      "sources": [
+        {
+          "path": "internal/telemetry/service.go",
+          "label": "CollectAll"
+        }
+      ]
+    },
+    {
+      "id": "teslaAdapter",
+      "type": "backend",
+      "label": "Tesla Adapter",
+      "sublabel": "anti-corruption layer",
+      "pos": [
+        918,
+        490
+      ],
+      "size": [
+        172,
+        66
+      ],
+      "sources": [
+        {
+          "path": "internal/tesla/client.go"
+        }
+      ]
+    },
+    {
+      "id": "teslaApi",
+      "type": "external",
+      "label": "Tesla Fleet API",
+      "sublabel": "paid · wakes vehicle",
+      "pos": [
+        1158,
+        490
+      ],
+      "size": [
+        168,
+        66
+      ]
+    },
+    {
+      "id": "charging",
+      "type": "backend",
+      "label": "Charging",
+      "sublabel": "sessions · capacity",
+      "pos": [
+        410,
+        620
+      ],
+      "size": [
+        172,
+        66
+      ],
+      "sources": [
+        {
+          "path": "internal/charging/service.go"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "App zone — Go modular monolith · in-process ports only",
+      "wraps": [
+        "gateway",
+        "account",
+        "analytics",
+        "poller",
+        "telemetry",
+        "teslaAdapter",
+        "charging"
+      ],
+      "pad": 14
+    },
+    {
+      "kind": "security-group",
+      "label": "Data plane — 127.0.0.1:5432",
+      "wraps": [
+        "pg"
+      ],
+      "pad": 14
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-to-caddy",
+      "from": "user",
+      "to": "caddy",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "caddy-to-gateway",
+      "from": "caddy",
+      "to": "gateway",
+      "label": "proxy :8080",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gateway-to-analytics",
+      "from": "gateway",
+      "to": "analytics",
+      "label": "read ports",
+      "variant": "emphasis"
+    },
+    {
+      "id": "analytics-to-pg",
+      "from": "analytics",
+      "to": "pg",
+      "label": "SELECT summaries",
+      "variant": "emphasis"
+    },
+    {
+      "id": "google-to-gateway",
+      "from": "google",
+      "to": "gateway",
+      "label": "OIDC session",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "gateway-to-account",
+      "from": "gateway",
+      "to": "account",
+      "label": "connect · save tokens",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -80
+    },
+    {
+      "id": "poller-to-telemetry",
+      "from": "poller",
+      "to": "telemetry",
+      "label": "nightly 03:30"
+    },
+    {
+      "id": "telemetry-to-adapter",
+      "from": "telemetry",
+      "to": "teslaAdapter",
+      "label": "creds per call"
+    },
+    {
+      "id": "adapter-to-tesla",
+      "from": "teslaAdapter",
+      "to": "teslaApi",
+      "label": "Fleet API"
+    },
+    {
+      "id": "telemetry-to-pg",
+      "from": "telemetry",
+      "to": "pg",
+      "label": "INSERT snapshots",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "poller-to-charging",
+      "from": "poller",
+      "to": "charging",
+      "label": "verify · capacity",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 28
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Read path — 99% of DB ops",
+      "items": [
+        "Browser → Caddy → Gin gateway → read ports → PostgreSQL",
+        "Gateway renders Templ fragments; it has zero DB access",
+        "Dashboards read pre-aggregated summaries, never raw tables"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Nightly write path — 1% of DB ops",
+      "items": [
+        "One batch at 03:30 local (America/Bogota), all accounts",
+        "CollectAll → Tesla adapter → INSERT raw JSONB + typed columns",
+        "Charging verifies sessions; analytics recalculates metrics"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Trust & module boundaries",
+      "items": [
+        "Caddy is the only public service; PostgreSQL binds to 127.0.0.1",
+        "Users never trigger Tesla calls — the nightly batch is the exception",
+        "One-way deps: gateway → modules → adapters; no import cycles"
+      ]
+    }
+  ]
+}

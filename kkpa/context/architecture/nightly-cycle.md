@@ -88,7 +88,7 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 | `vehicles` | account | 1, 2, 3 | R (×3, `ListAllVehicles`) + U (`UpdateVehicleConfigIfEmpty`, step 1) |
 | `tesla_tokens` | account | 1 | R+U, row-locked, in one transaction; UPDATE only when the token needed refreshing |
 | `accounts` | account | — | untouched — OAuth and language are user paths |
-| `vehicle_snapshots` | telemetry | 1 write · 3 read | C+U (`InsertVehicleSnapshot`, on-conflict per `(account_id, tesla_id, captured_date)`), R by analytics |
+| `vehicle_snapshots` | telemetry | 1 write · 3 read | C+U (`InsertVehicleSnapshot`, on-conflict per `(tesla_id, captured_date)`), R by analytics |
 | `poll_attempts` | telemetry | 1 | C only, one row per vehicle per cycle, stamped `run_id`/`triggered_by` |
 | `supercharger_history` (schema `telemetry`; renamed from `supercharger_sessions` + moved out of `public`, RM39 tier 4; keyed on `tesla_id NOT NULL`, no `account_id`, RM57 tier 1) | telemetry | 1 write · 2 read | C+U (`UpsertSuperchargerHistory`), R by step 2's mirror, per vehicle (`SuperchargerHistoryByVehicleUpdatedSince`). **No longer read in step 3.** |
 | `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3; keyed on `tesla_id NOT NULL`, no `account_id`) | charging | 2 write · 3 read | C+U (`MirrorSuperchargerSession`), R by analytics (`ListSessionsByVehicle{Between,UpdatedSince}`) |
