@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM61-analytics-remove-dead-efficiency-branch",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
+  "request": "Delete the dead efficiency branch, and with it the platform's second pack-capacity definition. RecentEfficiency is never called by any handler, template or command. Roadmap decision RD9: no capacity port in charging, delete instead. NewReader collapses from six parameters to one.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "1.2", "1.3", "1.4", "1.5", "2.1", "2.2", "2.3", "2.4", "2.5", "3.1", "3.2", "3.3", "3.4", "O1", "L1", "L2"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-16T20:01:23Z",
+  "updated_at": "2026-09-16T20:01:23Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
+    "base": "fc5efdfde6211a4478ba8bb89fc424c10d89647c",
+    "ticket": "MAG-40",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-40/recalculated-battery-start",
+    "created_at": "2026-09-16T01:56:32Z"
+  },
+  "tasks": [
+    { "id": "1.1", "title": "Re-verify the grep, then delete derive.go, capacity.go, and the dead members of analytics.go and reader.go", "module": "analytics", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.2", "title": "Fix in-module references: db_integration_test.go newRealReader + two stale doc comments, recalculate.go:33", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.3", "title": "Trim reader_test.go (8 TestRecentEfficiency_* + 4 fakes) and delete derive_test.go", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.4", "title": "Run Test Contract checks T1-T8", "module": "analytics", "depends_on": ["1.1", "1.2", "1.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.5", "title": "Run the cheap signals: gofmt -l, go vet, go build, make lint (module-scoped)", "module": "analytics", "depends_on": ["1.1", "1.2", "1.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.1", "title": "LEADER: shrink analytics.NewReader call in cmd/web/main.go:70 + its comment", "module": "platform", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.2", "title": "LEADER: shrink analytics.NewReader call in cmd/poller/main.go:125 + its comment", "module": "platform", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.3", "title": "LEADER: remove the RecentEfficiency fake stub in internal/gateway/handlers/history_test.go", "module": "gateway", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.4", "title": "LEADER: remove the RecentEfficiency fake stub in internal/app/processor_test.go", "module": "app", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.5", "title": "LEADER: repo-wide go build ./... and go vet ./...", "module": "platform", "depends_on": ["2.1", "2.2", "2.3", "2.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.1", "title": "Rewrite internal/analytics/AGENTS.md: Responsibility, Reader table, imports, data-ownership sentences", "module": "analytics", "depends_on": ["1.1", "1.2", "1.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.2", "title": "Confirm no other doc under internal/analytics/ describes the deleted branch", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.3", "title": "LEADER: sync the specs/analytics delta into openspec/specs/analytics/spec.md", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.4", "title": "LEADER: grep kkpa/context/ for the deleted symbols and fix any stale guide", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "O1", "title": "OWNER: run the test suite (make check)", "module": "platform", "depends_on": ["2.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "L1", "title": "LEADER: confirm build/vet green repo-wide after every wave", "module": "platform", "depends_on": ["2.5"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "L2", "title": "LEADER: confirm the root README needs no edit", "module": "platform", "depends_on": ["3.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-16T20:01:23Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Spanish briefing approved; tier 3 proceeds. The owner asked whether the two pages share one formula.",
+      "why": "They do share derivedStartBatteryPct in charging, but that is not what this tier deletes. This tier deletes analytics' deriveEfficiency, which nothing calls.",
+      "covered_by": "roadmap RD9"
+    }
+  ],
+  "events": [
+    { "at": "2026-09-16T20:01:23Z", "agent": "leader", "event": "resumed in a fresh session at the tier 2/3 boundary. budget 5h 2% (bucket reset), context 12%. Leader re-verified RD9's dead-code claim with a repo-wide grep before dispatching." },
+    { "at": "2026-09-16T20:01:23Z", "agent": "leader", "event": "tier 3 artifacts created and validated (openspec validate --strict passes). No database object touched, so no design gate. Spanish briefing posted; the owner approved and asked a premise question about the shared formula, answered before dispatch." }
+  ]
+}

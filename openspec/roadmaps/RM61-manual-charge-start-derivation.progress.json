@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM61-manual-charge-start-derivation",
   "intention": "A manual charge can be saved without a start battery %, and the charging module derives it from the energy and the end % the same way the Supercharger path already does.",
-  "request": "Source ticket: MAG-40 \u2014 Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
+  "request": "Source ticket: MAG-40 — Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-16T17:41:58Z",
+  "updated_at": "2026-09-16T20:01:23Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -16,10 +16,10 @@
     "created_at": "2026-09-16T01:56:32Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       3
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1,
@@ -51,7 +51,7 @@
       "scope": "tier:2",
       "made_by": "user",
       "decision": "The edit form renders a derived start % as a placeholder, not a filled value, so Update re-derives it",
-      "why": "Update requires every mutable field, so a pre-filled derived value returns looking user-supplied and gets stamped USER \u2014 the exact loop RD2 prevents.",
+      "why": "Update requires every mutable field, so a pre-filled derived value returns looking user-supplied and gets stamped USER — the exact loop RD2 prevents.",
       "covered_by": null
     },
     {
@@ -105,7 +105,7 @@
       "scope": "change",
       "made_by": "user",
       "decision": "RD8's design half superseded: no capacity port, no measured-capacity wiring. The whole dead efficiency branch is deleted instead (RecentEfficiency, Efficiency, deriveEfficiency, socReadings, carTypeFor, vehicleLookup, DefaultWindow, chargingSourceLimit, capacity.go). Tiers 3 and 4 collapse into one analytics tier.",
-      "why": "Nothing calls RecentEfficiency \u2014 the map's only consumer. history_test.go:146 panics saying so, and the dashboard tile reads KmPerPctCalc instead. Deleting removes the second capacity definition cheaper and with no risk.",
+      "why": "Nothing calls RecentEfficiency — the map's only consumer. history_test.go:146 panics saying so, and the dashboard tile reads KmPerPctCalc instead. Deleting removes the second capacity definition cheaper and with no risk.",
       "covered_by": null
     },
     {
@@ -170,10 +170,10 @@
       "module": "analytics",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:01:23Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -189,7 +189,7 @@
     {
       "at": "2026-09-16T01:56:32Z",
       "agent": "leader",
-      "event": "run scope: HALT AFTER STEP 4 \u2014 tier 1 artifacts + progress.json only, no implementation workers. autopilot disabled for this reason."
+      "event": "run scope: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers. autopilot disabled for this reason."
     },
     {
       "at": "2026-09-16T02:15:00Z",
@@ -229,17 +229,17 @@
     {
       "at": "2026-09-16T09:58:00Z",
       "agent": "leader",
-      "event": "resume-armed \u2014 budget-only checkpoint before wave A. five_hour_pct 85 (threshold 90, projected to cross mid-wave), context_pct 14 (threshold 40). five_hour_resets_at 1789563600; wake epoch 1789563720 (+120s slack). Owner chose auto-resume over a manual stop. Nothing dispatched; all tier 2 tasks still pending."
+      "event": "resume-armed — budget-only checkpoint before wave A. five_hour_pct 85 (threshold 90, projected to cross mid-wave), context_pct 14 (threshold 40). five_hour_resets_at 1789563600; wake epoch 1789563720 (+120s slack). Owner chose auto-resume over a manual stop. Nothing dispatched; all tier 2 tasks still pending."
     },
     {
       "at": "2026-09-16T10:36:34Z",
       "agent": "leader",
-      "event": "the armed wake-up was killed at 05:36 local, before it fired. The bucket has NOT reset: five_hour_pct 87, five_hour_resets_at 1789563600 (08:00 local). Not re-armed \u2014 a kill is treated as deliberate. Tier 2 still at the wave-A checkpoint, all tasks pending."
+      "event": "the armed wake-up was killed at 05:36 local, before it fired. The bucket has NOT reset: five_hour_pct 87, five_hour_resets_at 1789563600 (08:00 local). Not re-armed — a kill is treated as deliberate. Tier 2 still at the wave-A checkpoint, all tasks pending."
     },
     {
       "at": "2026-09-16T10:40:00Z",
       "agent": "leader",
-      "event": "resume-armed \u2014 re-armed at the owner's explicit request after the first wake-up was killed. Same target: five_hour_resets_at 1789563600, wake epoch 1789563720 (08:02 local). five_hour_pct 87, context_pct 15. Second attempt; the first survived ~40 minutes before being killed."
+      "event": "resume-armed — re-armed at the owner's explicit request after the first wake-up was killed. Same target: five_hour_resets_at 1789563600, wake epoch 1789563720 (08:02 local). five_hour_pct 87, context_pct 15. Second attempt; the first survived ~40 minutes before being killed."
     },
     {
       "at": "2026-09-16T11:57:33Z",
@@ -260,6 +260,11 @@
       "at": "2026-09-16T17:41:58Z",
       "agent": "leader",
       "event": "CHECKPOINT at the tier 2/3 boundary. Not a threshold trip: five_hour_pct 53 (threshold 90), context_pct 24 (threshold 40), seven_day_pct 94. Stopped on the skill's standing advice to prefer a fresh session per tier. The owner chose /clear + resume over continuing here. NO wake-up armed - this is a context-hygiene stop, not a budget trip. Tier 3 RM61-analytics-remove-dead-efficiency-branch is unblocked (depends_on []) and starts at Step 2. Resume with: /kkpa-dev-harness-pipeline resume RM61-manual-charge-start-derivation"
+    },
+    {
+      "at": "2026-09-16T20:01:23Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; bucket had reset (5h 2%, context 12%). Tier 3 artifacts created and validated. No DB object touched, so no design gate. Spanish briefing approved by the owner. Tier 3 not-started -> proposed. The owner asked whether /supercharger-stats and /external-charges share one formula: they do (derivedStartBatteryPct in charging), but that is NOT what this tier deletes -- it deletes analytics' deriveEfficiency, which has no caller."
     }
   ]
 }
