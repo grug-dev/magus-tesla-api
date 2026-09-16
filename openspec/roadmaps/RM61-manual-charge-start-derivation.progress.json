@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-40 — Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-16T01:56:32Z",
+  "updated_at": "2026-09-16T02:15:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -17,7 +17,12 @@
   },
   "rollup": {
     "current": [],
-    "pending": [1, 2],
+    "pending": [
+      1,
+      2,
+      3,
+      4
+    ],
     "blocked": [],
     "done": []
   },
@@ -84,6 +89,15 @@
       "decision": "Unit tests are included in this roadmap",
       "why": "The owner asked for them. They cover the derivation wiring, the start_battery_source values, and the capacity-query exclusion.",
       "covered_by": null
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-16T02:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "RD6 reversed: the capacity fix IS in scope. charging exposes MeasuredCapacityKWh (measured or nil, never 62.0); analytics uses it and keeps its car_type map as fallback. Two new tiers, 3 and 4.",
+      "why": "Returning 62.0 would be worse than the model-aware map for an unmeasured car. Moving the map into charging fails: charging may not import account, so it cannot resolve car_type.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -107,7 +121,43 @@
       "change": "RM61-gateway-relax-start-battery-pct-required",
       "module": "gateway",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 3,
+      "change": "RM61-charging-add-measured-capacity-port",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 4,
+      "change": "RM61-analytics-use-measured-capacity",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [
+        3
+      ],
       "status": "not-started",
       "assistant": "Claude Code",
       "model": null,
@@ -128,6 +178,11 @@
       "at": "2026-09-16T01:56:32Z",
       "agent": "leader",
       "event": "run scope: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers. autopilot disabled for this reason."
+    },
+    {
+      "at": "2026-09-16T02:15:00Z",
+      "agent": "leader",
+      "event": "RD6 superseded by RD8 at the owner's request: the analytics/charging capacity disagreement moves from backlog item 31 into this roadmap as tiers 3 and 4. Backlog item 31 removed. Tier 1 scope unchanged; its worker was already in flight."
     }
   ]
 }

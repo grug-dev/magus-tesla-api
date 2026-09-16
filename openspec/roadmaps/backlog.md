@@ -761,39 +761,6 @@ for `tesla_id` instead of `vin` as the new table's key.
 
 
 
-## 31. analytics / charging — Two different pack capacities for the same car
-
-2026-09-15
-
-### PROPOSAL
-
-`internal/analytics/capacity.go` keeps its own `car_type` -> kWh map (`model3: 75`,
-`modely: 75`, `models: 100`, `modelx: 100`), read by `analytics.Reader` at
-`internal/analytics/reader.go:158` to compute efficiency. `internal/charging` measures the
-real capacity per vehicle each month in `charging.monthly_effective_capacity`, and falls
-back to `defaultPackCapacityKWh = 62.0` when it has no measurement.
-
-So the two modules disagree about the same car. For a Model 3, analytics assumes 75 kWh and
-charging assumes 62 kWh until a measurement exists. Every efficiency number the dashboard
-shows is computed from the analytics map, not from the measured value.
-
-The fix is a new public port out of `internal/charging` that returns a vehicle's effective
-capacity, which `internal/analytics` then calls. Analytics may not read charging's table
-directly — that is a module-boundary rule.
-
-**Trigger:** pick this up when an efficiency number is questioned, or when enough vehicles
-have a measured capacity that the hardcoded map is clearly the worse source. Note that it
-moves every efficiency figure already on screen, so it needs its own before/after check.
-
-### ORIGIN
-
-RM61 decision RD6, raised while picking up MAG-40 on 2026-09-15. MAG-40 asked to "check if
-there are other capacity values hardcoded in the codebase and scan all modules"; this is
-what that scan found. Kept out of RM61 because it crosses a module boundary and changes
-displayed numbers.
-
-
-
 # BRAINSTORMING
 
 
