@@ -5,8 +5,8 @@
   "intention": "A manual charge can be saved without a start battery %, and the charging module derives it from the energy and the end % the same way the Supercharger path already does.",
   "request": "Source ticket: MAG-40 \u2014 Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
   "status": "in-progress",
-  "autopilot": false,
-  "updated_at": "2026-09-16T09:50:00Z",
+  "autopilot": true,
+  "updated_at": "2026-09-16T09:55:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -107,6 +107,15 @@
       "decision": "RD8's design half superseded: no capacity port, no measured-capacity wiring. The whole dead efficiency branch is deleted instead (RecentEfficiency, Efficiency, deriveEfficiency, socReadings, carTypeFor, vehicleLookup, DefaultWindow, chargingSourceLimit, capacity.go). Tiers 3 and 4 collapse into one analytics tier.",
       "why": "Nothing calls RecentEfficiency \u2014 the map's only consumer. history_test.go:146 panics saying so, and the dashboard tile reads KmPerPctCalc instead. Deleting removes the second capacity definition cheaper and with no risk.",
       "covered_by": null
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-16T09:55:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Autopilot turned ON after tier 1 archived. Tier 2 (gateway) runs next, then tier 3 (analytics), without asking between tiers.",
+      "why": "The owner asked for it. Tier 1 settled the design questions the later tiers depend on, so there is less left to stop for.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -195,6 +204,11 @@
       "at": "2026-09-16T09:50:00Z",
       "agent": "leader",
       "event": "tier 1 archived into openspec/changes/archive/charging/2026-09-16-RM61-charging-add-manual-entry-start-derivation. Specs synced: manual-charge-log +1 requirement, monthly-effective-capacity ~1. Leader removed the delta-only 'MODIFIED from its prior revision' paragraph from the LIVING spec and rejoined a scenario heading the archive step had wrapped. MAG-40 moved Todo -> In Progress (fired late; it was missed at the first dispatch)."
+    },
+    {
+      "at": "2026-09-16T09:55:00Z",
+      "agent": "leader",
+      "event": "owner turned autopilot ON and asked for a fresh session. Next: tier 2 RM61-gateway-relax-start-battery-pct-required (depends_on 1, now archived). Tier 3 is also unblocked (depends_on []). The Spanish design briefing and any design gate still pause autopilot."
     }
   ]
 }
