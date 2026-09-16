@@ -30,7 +30,7 @@
     "awaiting-user-verification": []
   },
   "created_at": "2026-09-16T08:05:46Z",
-  "updated_at": "2026-09-16T08:05:46Z",
+  "updated_at": "2026-09-16T08:24:49Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -354,6 +354,11 @@
       "at": "2026-09-16T08:05:46Z",
       "agent": "leader",
       "event": "run HALTS here per the pickup scope: no implementation worker dispatched, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-16T08:24:49Z",
+      "agent": "leader",
+      "event": "checkpoint (context) — context_pct 36 vs Context-Checkpoint-At 40, five_hour_pct 11, resets_at 1789563600. Stopped BEFORE dispatching Wave 1: one wave would cross the threshold and force the clear anyway, and this change has five waves. No wake-up armed — a context trip must not resume in the same session. Resume with: /kkpa-dev-harness-pipeline resume RM61-charging-add-manual-entry-start-derivation"
     }
   ]
 }
