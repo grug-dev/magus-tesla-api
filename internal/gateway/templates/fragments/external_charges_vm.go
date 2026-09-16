@@ -43,6 +43,12 @@ type ExternalChargeEntryVM struct {
 	RawStartedAt       string // "2006-01-02T15:04" (datetime-local) or ""
 	RawEndedAt         string // "2006-01-02T15:04" or ""
 	RawStartBatteryPct string // "80" or ""
+	// StartBatterySource is "USER" (the person typed the stored percentage),
+	// "ESTIMATED" (this entry's module-computed derivation), or "" when
+	// RawStartBatteryPct is itself empty. A plain string, not
+	// charging.StartBatterySource — see the package doc comment; Status/RawStatus
+	// already follow the same rule for charging.Status.
+	StartBatterySource string
 	RawEndBatteryPct   string // "92" or ""
 	RawOdometerKm      string // "45210" or "" — mirrors RawEnergyKWh/RawPrice (leader addition, 2026-08-29, design.md §D-Values gap closed by tasks.md 2.1)
 	TeslaID            int64  // the entry's owning vehicle (identity key, not rendered — asserted by TestExternalChargeEntryVMFromEntry)

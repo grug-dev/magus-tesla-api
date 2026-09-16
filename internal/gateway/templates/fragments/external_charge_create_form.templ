@@ -20,8 +20,9 @@ import (
 //     DefaultEndedAt — one day value in buildExternalChargesPage feeds all three, so they
 //     cannot drift. charged_on is REQUIRED; started_at / ended_at stay OPTIONAL —
 //     clearing either still submits.
-//   - D2/D6: start_battery_pct is unconditionally REQUIRED (UI + handler); the
-//     start input carries a telemetry-sourced suggestion via its placeholder
+//   - start_battery_pct is OPTIONAL — the charging module derives it from
+//     the energy added and the end percentage when left empty. The start
+//     input still carries a telemetry-sourced suggestion via its placeholder
 //     (ExternalChargesPageData.StartBatteryPctSuggestion); empty placeholder when no
 //     snapshot — no fabricated value (graceful empty). end_battery_pct's
 //     required-ness is conditional as of RM33 (see below).
@@ -105,13 +106,15 @@ templ ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[s
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndedAt), Error: validationErrors["ended_at"]}) {
 						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: d.DefaultEndedAt, Required: d.RequiredEndedAt})
 					}
-					// D6 + D2: required battery fields; start has a telemetry-sourced suggestion label (graceful empty when no snapshot).
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"]}) {
+					// start_battery_pct is optional — the charging module derives it
+					// from the energy added and the end percentage when left empty.
+					// The start input keeps its telemetry-sourced suggestion label
+					// (graceful empty when no snapshot).
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"], Optional: true, Help: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPctHelp)}) {
 						@ui.Input(ui.InputProps{
-							Type:     "number",
-							Name:     "start_battery_pct",
-							Value:    d.FormValues.StartBatteryPct,
-							Required: true,
+							Type:  "number",
+							Name:  "start_battery_pct",
+							Value: d.FormValues.StartBatteryPct,
 							Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1", "placeholder": d.StartBatteryPctSuggestion},
 						})
 					}

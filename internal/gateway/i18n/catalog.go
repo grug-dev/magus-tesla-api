@@ -150,8 +150,12 @@ const (
 	KeyChargesFormStartedAt       Key = "charges_form.started_at"
 	KeyChargesFormEndedAt         Key = "charges_form.ended_at"
 	KeyChargesFormStartBatteryPct Key = "charges_form.start_battery_pct"
-	KeyChargesFormEndBatteryPct   Key = "charges_form.end_battery_pct"
-	KeyChargesFormOptionalDetails Key = "charges_form.optional_details"
+	// KeyChargesFormStartBatteryPctHelp is the field-help line telling the
+	// user an empty start_battery_pct gets computed by internal/charging,
+	// not rejected. Shown on both charge forms.
+	KeyChargesFormStartBatteryPctHelp Key = "charges_form.start_battery_pct_help"
+	KeyChargesFormEndBatteryPct       Key = "charges_form.end_battery_pct"
+	KeyChargesFormOptionalDetails     Key = "charges_form.optional_details"
 	// Short helper copy under each form's title. Both state RULES THAT LIVE IN GO
 	// (charging.resolveEnergy's derivation and charging.RequiredFieldsFor's sets) —
 	// if either rule changes, these strings are part of that change.
@@ -563,35 +567,36 @@ var catalog = map[Key]entry{
 	KeyDashboardStatusParked:          {ES: "Estacionado", EN: "Parked"},
 	KeyDashboardStatusSoftwareVersion: {ES: "Software v%s", EN: "Software v%s"},
 
-	KeyChargesFormTitle:            {ES: "Registrar una carga", EN: "Log a charge"},
-	KeyChargesFormDate:             {ES: "Fecha", EN: "Date"},
-	KeyChargesFormEnergyAdded:      {ES: "Energía agregada (kWh)", EN: "Energy added (kWh)"},
-	KeyChargesFormPrice:            {ES: "Precio", EN: "Price"},
-	KeyChargesFormLocation:         {ES: "Ubicación", EN: "Location"},
-	KeyChargesFormHome:             {ES: "Casa", EN: "Home"},
-	KeyChargesFormWork:             {ES: "Trabajo", EN: "Work"},
-	KeyChargesFormOther:            {ES: "Otro", EN: "Other"},
-	KeyChargesFormStartedAt:        {ES: "Hora de inicio", EN: "Started at"},
-	KeyChargesFormEndedAt:          {ES: "Hora de fin", EN: "Ended at"},
-	KeyChargesFormStartBatteryPct:  {ES: "% de batería inicial", EN: "Start battery %"},
-	KeyChargesFormEndBatteryPct:    {ES: "% de batería final", EN: "End battery %"},
-	KeyChargesFormOptionalDetails:  {ES: "Detalles opcionales", EN: "Optional details"},
-	KeyChargesFormCreateHint:       {ES: "Si dejas Energía vacía, se estimará a partir de la diferencia de batería, una vez que el porcentaje inicial y el final estén definidos. Una carga En progreso solo requiere Fecha, Ubicación y % de batería inicial.", EN: "Leave Energy empty and it will be estimated from the battery difference, once both the start and end percentages are set. An In progress charge only requires Date, Location and Start battery %."},
-	KeyChargesFormEditHint:         {ES: "Para cambiar el estado a Finalizada, Hora de fin y % de batería final son obligatorios.", EN: "To change the status to Done, Ended at and End battery % are required."},
-	KeyChargesFormChargingType:     {ES: "Tipo de carga", EN: "Charging type"},
-	KeyChargesFormAC:               {ES: "AC — Carga lenta (casa/destino)", EN: "AC — Slow charging (home/destination)"},
-	KeyChargesFormDC:               {ES: "DC — Carga rápida (Supercargador)", EN: "DC — Fast charging (Supercharger)"},
-	KeyChargesFormLocationLabel:    {ES: "Etiqueta de ubicación", EN: "Location label"},
-	KeyChargesFormNotes:            {ES: "Notas", EN: "Notes"},
-	KeyChargesFormLogCharge:        {ES: "Registrar carga", EN: "Log charge"},
-	KeyChargesFormVehicle:          {ES: "Vehículo", EN: "Vehicle"},
-	KeyChargesFormSave:             {ES: "Guardar", EN: "Save"},
-	KeyChargesFormCancel:           {ES: "Cancelar", EN: "Cancel"},
-	KeyChargesFormStatus:           {ES: "Estado", EN: "Status"},
-	KeyChargesFormStatusInProgress: {ES: "En progreso", EN: "In progress"},
-	KeyChargesFormStatusDone:       {ES: "Finalizada", EN: "Done"},
-	KeyChargesFormOdometer:         {ES: "Odómetro (km)", EN: "Odometer (km)"},
-	KeyChargesFormPriceConfirmed:   {ES: "Esta carga fue gratis", EN: "This charge was free"},
+	KeyChargesFormTitle:               {ES: "Registrar una carga", EN: "Log a charge"},
+	KeyChargesFormDate:                {ES: "Fecha", EN: "Date"},
+	KeyChargesFormEnergyAdded:         {ES: "Energía agregada (kWh)", EN: "Energy added (kWh)"},
+	KeyChargesFormPrice:               {ES: "Precio", EN: "Price"},
+	KeyChargesFormLocation:            {ES: "Ubicación", EN: "Location"},
+	KeyChargesFormHome:                {ES: "Casa", EN: "Home"},
+	KeyChargesFormWork:                {ES: "Trabajo", EN: "Work"},
+	KeyChargesFormOther:               {ES: "Otro", EN: "Other"},
+	KeyChargesFormStartedAt:           {ES: "Hora de inicio", EN: "Started at"},
+	KeyChargesFormEndedAt:             {ES: "Hora de fin", EN: "Ended at"},
+	KeyChargesFormStartBatteryPct:     {ES: "% de batería inicial", EN: "Start battery %"},
+	KeyChargesFormStartBatteryPctHelp: {ES: "Opcional. Déjalo vacío y lo calculamos con la energía y el % final.", EN: "Optional. Leave it empty and we calculate it from the energy and the end %."},
+	KeyChargesFormEndBatteryPct:       {ES: "% de batería final", EN: "End battery %"},
+	KeyChargesFormOptionalDetails:     {ES: "Detalles opcionales", EN: "Optional details"},
+	KeyChargesFormCreateHint:          {ES: "Si dejas Energía vacía, se estimará a partir de la diferencia de batería, una vez que el porcentaje inicial y el final estén definidos. Una carga En progreso solo requiere Fecha y Ubicación.", EN: "Leave Energy empty and it will be estimated from the battery difference, once both the start and end percentages are set. An In progress charge only requires Date and Location."},
+	KeyChargesFormEditHint:            {ES: "Para cambiar el estado a Finalizada, Hora de fin y % de batería final son obligatorios.", EN: "To change the status to Done, Ended at and End battery % are required."},
+	KeyChargesFormChargingType:        {ES: "Tipo de carga", EN: "Charging type"},
+	KeyChargesFormAC:                  {ES: "AC — Carga lenta (casa/destino)", EN: "AC — Slow charging (home/destination)"},
+	KeyChargesFormDC:                  {ES: "DC — Carga rápida (Supercargador)", EN: "DC — Fast charging (Supercharger)"},
+	KeyChargesFormLocationLabel:       {ES: "Etiqueta de ubicación", EN: "Location label"},
+	KeyChargesFormNotes:               {ES: "Notas", EN: "Notes"},
+	KeyChargesFormLogCharge:           {ES: "Registrar carga", EN: "Log charge"},
+	KeyChargesFormVehicle:             {ES: "Vehículo", EN: "Vehicle"},
+	KeyChargesFormSave:                {ES: "Guardar", EN: "Save"},
+	KeyChargesFormCancel:              {ES: "Cancelar", EN: "Cancel"},
+	KeyChargesFormStatus:              {ES: "Estado", EN: "Status"},
+	KeyChargesFormStatusInProgress:    {ES: "En progreso", EN: "In progress"},
+	KeyChargesFormStatusDone:          {ES: "Finalizada", EN: "Done"},
+	KeyChargesFormOdometer:            {ES: "Odómetro (km)", EN: "Odometer (km)"},
+	KeyChargesFormPriceConfirmed:      {ES: "Esta carga fue gratis", EN: "This charge was free"},
 
 	KeyChargesRowEdit:           {ES: "Editar", EN: "Edit"},
 	KeyChargesRowDelete:         {ES: "Eliminar", EN: "Delete"},

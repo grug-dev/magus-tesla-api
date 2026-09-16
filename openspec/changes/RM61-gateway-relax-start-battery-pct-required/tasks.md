@@ -39,7 +39,7 @@ immediately, no owner confirmation needed first.
 
 ## Wave 1 — kit + catalogue (parallel)
 
-- [ ] **1.1** **[module: gateway worker]** `internal/gateway/templates/ui/field.templ`:
+- [x] **1.1** **[module: gateway worker]** `internal/gateway/templates/ui/field.templ`:
   add `Help string` to `FieldProps` with the doc comment from design.md **D1**, and render
   it right after `{ children... }` and before the existing `Error` paragraph:
   ```templ
@@ -53,7 +53,7 @@ immediately, no owner confirmation needed first.
   rule.
   `depends_on`: — · `parallel_ok`: with 1.2
 
-- [ ] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go`:
+- [x] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go`:
   - Add `KeyChargesFormStartBatteryPctHelp Key = "charges_form.start_battery_pct_help"` and
     its catalogue entry, both `ES`/`EN` on the same line, exact wording from design.md
     **D2**.
@@ -69,14 +69,14 @@ immediately, no owner confirmation needed first.
 
 ## Wave 2 — view model + handler
 
-- [ ] **2.1** **[module: gateway worker]** `internal/gateway/templates/fragments/external_charges_vm.go`:
+- [x] **2.1** **[module: gateway worker]** `internal/gateway/templates/fragments/external_charges_vm.go`:
   add `StartBatterySource string` to `ExternalChargeEntryVM`, placed next to
   `RawStartBatteryPct`, with the doc comment from design.md **D3**. Do not import
   `internal/charging` in this file — the VM stays a plain string, per its own package doc
   comment ("no charging.\*").
   `depends_on`: — · `parallel_ok`: with 1.1/1.2 (different file), but must land before 2.2
 
-- [ ] **2.2** **[module: gateway worker]** `internal/gateway/handlers/external_charges.go`:
+- [x] **2.2** **[module: gateway worker]** `internal/gateway/handlers/external_charges.go`:
   - In `externalChargeEntryVMFromEntry`, map `e.StartBatterySource *charging.StartBatterySource`
     to the new `StartBatterySource string` field exactly as design.md **D3** shows (`nil` →
     `""`, else `string(*e.StartBatterySource)`), and add it to the returned struct literal
@@ -101,7 +101,7 @@ immediately, no owner confirmation needed first.
 
 ## Wave 3 — the two forms (parallel once Wave 1 + 2.1 land)
 
-- [ ] **3.1** **[module: gateway worker]**
+- [x] **3.1** **[module: gateway worker]**
   `internal/gateway/templates/fragments/external_charge_create_form.templ`: on the
   `start_battery_pct` `ui.Field`, remove `Required: true` from the `ui.Input`, and change
   the `ui.Field` call to add `Optional: true` and
@@ -110,7 +110,7 @@ immediately, no owner confirmation needed first.
   unrelated to this change. Do not touch any other field in this file.
   `depends_on`: 1.1, 1.2 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: gateway worker]**
+- [x] **3.2** **[module: gateway worker]**
   `internal/gateway/templates/fragments/external_charge_row_edit.templ`: replace the
   `start_battery_pct` `ui.Field`/`ui.Input` pair with the exact `if vm.StartBatterySource ==
   "ESTIMATED" { ... } else { ... }` branch from design.md **D4** — placeholder-only when
@@ -123,7 +123,7 @@ immediately, no owner confirmation needed first.
 
 ## Wave 4 — regenerate (serialization point)
 
-- [ ] **4.1** **[module: gateway worker]** Run `make templ` (allowed by `CLAUDE.md` §"Builds
+- [x] **4.1** **[module: gateway worker]** Run `make templ` (allowed by `CLAUDE.md` §"Builds
   & local checks"). Confirm both `external_charge_create_form_templ.go` and
   `external_charge_row_edit_templ.go` regenerated with no unrelated diff. Run `make css` only
   if a new Tailwind/DaisyUI class was introduced — `fieldset-label` already ships in the

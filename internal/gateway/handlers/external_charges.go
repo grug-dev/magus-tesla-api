@@ -1029,6 +1029,10 @@ func externalChargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle
 	if e.StartBatteryPct != nil {
 		rawStartPct = strconv.Itoa(*e.StartBatteryPct)
 	}
+	startBatterySource := ""
+	if e.StartBatterySource != nil {
+		startBatterySource = string(*e.StartBatterySource)
+	}
 	rawEndPct := ""
 	if e.EndBatteryPct != nil {
 		rawEndPct = strconv.Itoa(*e.EndBatteryPct)
@@ -1090,6 +1094,7 @@ func externalChargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle
 		RawStartedAt:       rawStartedAt,
 		RawEndedAt:         rawEndedAt,
 		RawStartBatteryPct: rawStartPct,
+		StartBatterySource: startBatterySource,
 		RawEndBatteryPct:   rawEndPct,
 		RawOdometerKm:      rawOdometerKm,
 		TeslaID:            e.TeslaID,
@@ -1400,22 +1405,21 @@ func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicle
 		errs["location_kind"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorLocationRequired)
 	}
 
-	// start_battery_pct stays UNCONDITIONALLY required — it has no
-	// charging.Field constant (not in RequiredFieldsFor's domain), unchanged by
-	// RM33 (design.md §D-Fields). The 0–100 bound check matches the
-	// manual-charge-log spec (BETWEEN 0 AND 100 when present). No relative-order
-	// check (start < end): a partial charge with prior driving can legitimately
-	// start above the previous end; the user-asserted entry is the user's truth.
+	// start_battery_pct is now OPTIONAL — the charging module derives it from the
+	// energy added and the end battery percentage when it is left empty
+	// (Writer.Create/Update). The 0-100 bound check still applies to a value the
+	// user DID type; only a malformed or out-of-range value is rejected, an
+	// absent one is not. No relative-order check (start < end): a partial charge
+	// with prior driving can legitimately start above the previous end; the
+	// user-asserted entry is the user's truth.
 	startPctStr := strings.TrimSpace(raw.StartBatteryPct)
-	var startPct int
-	if startPctStr == "" {
-		errs["start_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorBatteryPctRequired)
-	} else {
+	var startPct *int
+	if startPctStr != "" {
 		n, perr := strconv.Atoi(startPctStr)
 		if perr != nil || n < 0 || n > 100 {
 			errs["start_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorStartBatteryPctRange)
 		} else {
-			startPct = n
+			startPct = &n
 		}
 	}
 
@@ -1479,7 +1483,7 @@ func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicle
 		PriceConfirmed:  raw.PriceConfirmed,
 		Currency:        currency,
 		LocationKind:    locationKindPtr,
-		StartBatteryPct: &startPct,
+		StartBatteryPct: startPct,
 		EndBatteryPct:   endPct,
 		OdometerKm:      odometerKm,
 	}
