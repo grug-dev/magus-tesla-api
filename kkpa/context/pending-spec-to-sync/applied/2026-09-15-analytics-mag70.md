@@ -1,86 +1,46 @@
-# vehicle_metrics / _calc fields — maintenance guide
+# Sync proposal — analytics
 
-> The map for changing this concept without re-scanning the codebase. Paths + symbols only;
-> for current signatures/callers/callees, ask CodeGraph. Pin to file paths, never line numbers.
-> All KB links are relative to `kkpa/context/`.
+> Staged by `kkpa-context-curate from-spec`. This is a **draft** of KB edits derived from one
+> approved OpenSpec capability spec. Review/edit the blocks below, then run
+> `/kkpa-context-curate apply-sync` to write them into the real KB. Nothing here touches the
+> canonical KB until applied. This file is self-contained — it embeds the proposed content, so it
+> stays valid even after the OpenSpec change folder is archived/moved.
 
-## Glossary
+Target guide: `entities/vehicle-metrics/guide.md`
+Source spec:  `openspec/specs/analytics/spec.md`
+Generated:    `2026-09-15`
+Status: APPLIED 2026-09-15
 
-- **Known as:** `vehicle metrics`, `calc fields`, `calculated fields`, `metrics reconciliation`, `derived metrics`, `watermark source`, `vehicle status`, `latest vehicle status`, `battery level by day`, `per-day battery level`, `battery history`, `tire pressure`, `tyre pressure`, `TPMS`, `travel progress`, `battery drain`, `tyre pressure delta`, `tyre pressure variance`, `pressure change`
-- **Internal name:** `analytics.Recalculator` (`Recalculate` / `Reconcile`) — table `vehicle_metrics` (analytics-owned), watermarks in `vehicle_metric_watermarks`. Read side for latest-per-vehicle status: `analytics.Reader.LatestMetricsForVehicles` returning `analytics.VehicleStatus`. Read side for the per-day battery history: `analytics.Reader.BatteryLevelByDay` returning `analytics.DayBattery`. **Changed by RM31 tier 3:** the Supercharger input moved from `internal/telemetry`'s port over its own, still-`public`, `supercharger_sessions` to `internal/charging`'s `SuperchargerSessionAnalyticsReader` over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), and the watermark `source` vocabulary became `('vehicle_snapshots', 'charge_sessions', 'manual_charge_entries')` — later changed again by `RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b) to `('vehicle_snapshots', 'supercharger_sessions', 'manual_charge_entries')`, reusing the string that named `telemetry`'s table before RM31 to now name `charging`'s table instead (see that change's `design.md` §6). **Changed by RM38 tier 1:** `vehicle_metrics` gained eight raw vehicle-status observation columns and a latest-row-per-vehicle read port. **Changed by RM40 tier 1:** a bounded per-day battery-level/range read port was added over the same table — no new column, no migration. **Changed by RM50 tier 1:** `vehicle_metrics` gained four TPMS raw-observation columns (with a one-off backfill migration for pre-existing rows), and `LatestMetricsForVehicles`'s projection widened by two more columns that already existed on the table (`distance_traveled_km_calc`, `consumed_pct`) — no new query, no new index. **Changed by RM50 tier 3:** `vehicle_metrics` gained four TPMS **delta** (`_calc`) columns, one per wheel, backfilled for pre-existing rows by a self-join migration (not cross-module — the tier 1 raw columns already sit on the same table), and `LatestMetricsForVehicles`'s projection widened by these four new columns. In the UI the two travel-progress figures are called **Travel Progress** and **Battery Drain** (RM50 tier 2).
+---
 
-The `_calc` columns: `distance_traveled_km_calc`, `battery_used_pct_calc`, `km_per_pct_calc`,
-`estimated_range_km_calc`, `days_spanned_calc` — plus charge-corrected `consumed_pct` derived
-alongside them.
+## What changed in the spec
 
-The eight status observation columns (RM38): `locked`, `sentry_mode`, `car_version`,
-`inside_temp_c`, `outside_temp_c`, `charging_state`, `charge_limit_soc_pct`, `captured_at` —
-raw per-day observations, not derived figures.
+MAG-70 (`platform-sweep-tenancy-rule-docs`) touched two requirements:
 
-The per-day battery read (RM40) serves `battery_level_pct` and `battery_range_km` — both
-original `NOT NULL` columns of the table, both raw per-day observations like the RM38 eight,
-**not** derived `_calc` figures.
+1. **Recent Energy-Per-Kilometre Derivation** — MODIFIED. It now says the telemetry, Supercharger
+   and manual-charge-entry reads are scoped by the **vehicle identifier alone**, and the account
+   identifier is used for **exactly one** purpose: resolving the vehicle's car type for the
+   pack-capacity lookup. A new scenario states this. The spec records that the old wording was
+   never accurate, not that behaviour changed.
+2. **Multi-Tenant Scoping on Every Underlying Read** (the efficiency variant) — REMOVED. It
+   claimed every underlying read was scoped to the account as defense-in-depth. A different
+   requirement with a near-identical title still exists for **per-day consumption**; that one is
+   unchanged and says vehicle-identity scoping.
 
-The four TPMS (tire-pressure) columns (RM50 tier 1): `tpms_pressure_fl_psi`, `tpms_pressure_fr_psi`,
-`tpms_pressure_rl_psi`, `tpms_pressure_rr_psi` — raw per-day observations like the RM38 eight
-and `max_range_charge_counter`, not derived `_calc` figures. Names match
-`telemetry.vehicle_snapshots`' own column names exactly (front-left/front-right/rear-left/
-rear-right), already in PSI — no conversion at this layer.
+The guide's `## Conventions & gotchas` carries one bullet that the new spec makes false:
 
-The four TPMS **delta** columns (RM50 tier 3): `tpms_pressure_fl_psi_calc`,
-`tpms_pressure_fr_psi_calc`, `tpms_pressure_rl_psi_calc`, `tpms_pressure_rr_psi_calc` — one
-per wheel, `_calc` figures like `distance_traveled_km_calc`, **not** raw observations like the
-four columns above. Each is this row's raw reading minus the previous day's, in PSI.
+- "This capability takes no account identifier anywhere" — the recent-efficiency derivation does
+  take one, for the car-type lookup only.
 
-`analytics.VehicleStatus` (the `LatestMetricsForVehicles` result type) field list: `TeslaID`,
-`BatteryLevelPct`, `BatteryRangeKm`, `OdometerKm` (never nil — raw observations always
-present) plus these pointer fields, nil meaning "no value", never a fabricated default —
-`InsideTempC`, `OutsideTempC`, `Locked`, `SentryMode`, `CarVersion`, `ChargingState`,
-`ChargeLimitSocPct`, `CapturedAt`, `MaxRangeChargeCounter` (RM38/MAG-47), and, as of RM50 tier 1,
-`TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`, `TpmsPressureRRPSI`,
-`DistanceTraveledKmCalc`, `ConsumedPct`, `KmPerPctCalc`, and, as of RM50 tier 3, `TpmsPressureFLPSICalc`,
-`TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc`, `TpmsPressureRRPSICalc`.
+That bullet is rewritten, and one bullet is added recording that the removed defense-in-depth
+rule was never true (so nobody "restores" it). Everything else in the section is carried over
+unchanged, which is why this is a REPLACE and not an APPEND.
 
-## Component map
+No `## Glossary` block: the concept's aliases and internal names are unchanged. No
+`## Component map` block: a spec carries behaviour, not file paths. No `[index]` block: routing
+is unaffected.
 
-Files involved, grouped by layer. Each row: the file's role in this concept.
-
-### Owning module — internal/analytics
-
-| File | Role |
-|---|---|
-| `internal/analytics/analytics.go` | Port declarations: `Recalculator` interface (`Recalculate`, `Reconcile`), `GapReconciliationWindow` (30d), `Reader` (reads `vehicle_metrics` — `ConsumedByDay`, `OdometerDeltaByDay`). |
-| `internal/analytics/recalculate.go` | The ONLY writer to `vehicle_metrics`: `Recalculate` (bounded `[start,end]` window, idempotent UPSERT on `(tesla_id, metric_date)`) and `Reconcile` (watermark-driven). Also owns `recalcOverlap` (24h commit-skew guard) and the three watermark source labels. |
-| `internal/analytics/consumption.go` | Pure math: `deriveConsumption(prev, cur)` → `consumptionCalc` — the per-day deltas behind the five `_calc` fields (divisor guard: `km_per_pct`/`estimated_range` only when `battery_used_pct > 0`). |
-| `internal/analytics/consumed.go` | Pure assembly: `deriveVehicleMetrics(preceding, snapshots, sessions, entries, start, end)` builds the full row set, adding supercharger + manual-charge corrections into `consumed_pct`. |
-| `internal/analytics/db/query.sql` → `query.sql.go` | sqlc source of truth — the `vehicle_metrics` UPSERT + reads; `db/models.go` mirrors the columns. |
-| `internal/analytics/db/migrations/20260821000001_add_vehicle_metrics.sql` | Table DDL + the `_calc` column NULL-semantics comments (D13). |
-
-### Callers — who triggers the computation
-
-| File | Call | When |
-|---|---|---|
-| `internal/app/processor.go` (`recalculateAnalytics`, step 3 of `ProcessVehicleData`) | `Reconcile` per vehicle, then gap reconciliation reads the fresh rows | Nightly batch — **the only caller that keeps the table advancing**; driven by `internal/app/scheduler.go`. |
-| `internal/gateway/handlers/external_charges.go` (`recalculateAfterExternalChargeWrite`) | `Recalculate(uid, teslaID, chargedOn, chargedOn)` | After every manual-charge create/update/delete; errors logged and swallowed. |
-| `cmd/web/main.go` / `cmd/poller/main.go` | `analytics.NewRecalculator(pool, telemetryReader, superchargerReader, chargingReader)` | Composition roots injecting the port into gateway Deps / the nightly processor. |
-
-### Source data (read-only inputs — owned by other modules)
-
-| File | Role |
-|---|---|
-| `internal/telemetry` (`Reader`) | `vehicle_snapshots` reads — see `architecture/telemetry-ingest-only.md`. |
-| `internal/charging` (`Reader`, `SuperchargerSessionAnalyticsReader`) | `manual_charge_entries` reads + the Supercharger session reads over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3; RM31 tier 3 moved the Supercharger input here from `internal/telemetry`). |
-
-## How maintenance works
-
-- **Add a new `_calc`-style derived column:** migration in `internal/analytics/db/migrations/` → add column + UPSERT to `db/query.sql` → `make sqlc` → extend `consumptionCalc` (consumption.go) / `deriveVehicleMetrics` (consumed.go) → write it in `recalculate.go`. All math stays in the zero-I/O functions; `recalculate.go` only orchestrates reads + the UPSERT.
-- **Change the math of an existing field:** edit `deriveConsumption` / `deriveVehicleMetrics` only — the UPSERT is a full-row replace, so the next `Recalculate`/`Reconcile` run self-heals history (idempotent on `(tesla_id, metric_date)`).
-- **Add a new source table:** new watermark source label + `Reconcile` read branch in `recalculate.go`; the source's owning module exposes a bounded read port (never import another module's `db/`).
-- **Read the metrics:** `analytics.Reader` (`ConsumedByDay`, `OdometerDeltaByDay`) — the gateway history fragment reads these, never `vehicle_metrics` directly.
-- **Change where the Supercharger input comes from:** it is `internal/charging`'s `SuperchargerSessionAnalyticsReader`, **not** `internal/telemetry` — RM31 tier 3 moved it so that a human battery-% correction written to `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) reaches `vehicle_metrics`. `internal/telemetry` still supplies `vehicle_snapshots` and nothing else for this concept. Analytics must import only those modules' public interfaces.
-- **Change a watermark source label:** the closed vocabulary is `vehicle_snapshots`, `supercharger_sessions`, `manual_charge_entries`, enforced by a CHECK constraint on `vehicle_metric_watermarks.source` and mirrored in `recalculate.go`'s source labels. Renaming one means a migration that changes the CHECK **and** disposes of the existing rows — RM31 tier 3 DELETEd the then-retired (pre-RM31) `supercharger_sessions` rows in favor of `charge_sessions`, and `RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b) later reversed that, DELETEing `charge_sessions` rows and reusing `supercharger_sessions` — now naming `charging`'s table, not `telemetry`'s (see that change's `design.md` §6) — because an absent cursor is defined as the epoch and the next nightly `Reconcile` rebuilds that source's history in one pass.
-
-## Conventions & gotchas
+## [guide] ## Conventions & gotchas — REPLACE
 
 - **Ordering is a correctness requirement:** nightly `Reconcile` (step 1) MUST run before gap reconciliation (step 2) — `ConsumedByDay` is a plain SELECT over `vehicle_metrics`, and the gap writer DELETES flags for days that no longer flag, so reconciling against stale metrics destroys state. A vehicle whose `Reconcile` fails is skipped for the gap step entirely. _Source: `internal/app/processor.go` `recalculateAnalytics` doc comment._
 - **Predecessor-less days have NULL `_calc`s** — the first snapshot of a vehicle's history has no delta to derive; `days_spanned_calc`/`distance_traveled_km_calc`/`battery_used_pct_calc` are NULL, and `km_per_pct_calc`/`estimated_range_km_calc` share the same NULL plus the `battery_used_pct <= 0` divisor guard. _Source: migration `20260821000001` column comments._
@@ -166,113 +126,3 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   _Source: spec analytics — Requirement: Recent Energy-Per-Kilometre Derivation (which absorbed and corrected the removed Multi-Tenant Scoping on Every Underlying Read requirement)._
 - **The latest-status read returns nothing for a vehicle outside the given set.** The set you pass is the whole world of that call. A row exists for a vehicle you did not ask about; it must not appear in the result. This is what makes "authorize first, then pass the set" safe.
   _Source: spec analytics — Requirement: Latest Vehicle Status Per Account._
-
-## Column detail — the three analytics tables
-
-Moved here from `internal/analytics/AGENTS.md`, which every worker dispatched to that module
-re-reads in full. The ownership rules and the port contracts stayed there; this is the
-column-by-column detail.
-
-- `vehicle_metrics` — one row per `(tesla_id, metric_date)` for every day
-  the vehicle reported, holding both the raw observations and the five derived `_calc`
-  columns. It is a **precomputed read model**: written by `Recalculator`, read by
-  `Reader`. It is **dense** — a day with no computable predecessor still gets a row,
-  with its `_calc` columns and `consumed_pct` NULL and `flagged` an explicit `false`
-  (`design.md` D9/D10). That is why both `Reader` queries filter `IS NOT NULL` rather
-  than trusting a zero.
-  - **Eight more columns** (`locked`, `sentry_mode`, `car_version`, `inside_temp_c`,
-    `outside_temp_c`, `charging_state`, `charge_limit_soc_pct`, `captured_at`), added by
-    `RM38-analytics-add-vehicle-status-columns` (MAG-12 tier 1). All eight are copied
-    verbatim from the day's own `telemetry.Snapshot` and — unlike the five `_calc`
-    columns above — are always populated regardless of whether that day has a
-    computable predecessor. **All eight are nullable, and no backfill was run**
-    (roadmap D2): every row that existed before this migration keeps all eight NULL
-    forever, self-healing only on that vehicle's next `Reconcile`. `sentry_mode`'s NULL
-    is **ambiguous** — it can mean either "the vehicle did not report sentry" or
-    "this row predates the migration" — where every other column's NULL means only the
-    latter; do not attempt to disambiguate it here without first reading
-    `openspec/changes/RM38-analytics-add-vehicle-status-columns/design.md` D2/D3/D8,
-    which also documents the `captured_at`-as-proxy disambiguation a future consumer
-    can use.
-  - **`max_range_charge_counter`** (migration `20260905000001`) is a **ninth** column of
-    exactly that shape: copied verbatim from the day's own `telemetry.Snapshot`, always
-    populated regardless of a computable predecessor, nullable, **no backfill**. Two
-    things set it apart from the eight above. It carries **no unit suffix** because it
-    is a count, not a measurement (`ai/go-conventions.md` §display units). And its NULL
-    is **ambiguous like `sentry_mode`'s**, not like the other seven: the vehicle may not
-    have reported it (the telemetry source field is itself a `*int`) or the row may
-    predate the migration — disambiguate via `captured_at`. A reported `0` is stored as
-    `0`, never NULL.
-  - **`tpms_pressure_fl_psi`/`fr`/`rl`/`rr`** (migration `20260908000002`,
-    `RM50-analytics-add-tire-pressure-columns`) are four more columns of exactly the
-    same shape as `max_range_charge_counter`: copied verbatim from the day's own
-    `telemetry.Snapshot`, always populated regardless of a computable predecessor,
-    nullable. Names match `telemetry.vehicle_snapshots`' own column names exactly
-    (`fl`/`fr`/`rl`/`rr` = front-left/front-right/rear-left/rear-right), already in PSI —
-    no conversion at this layer. **Unlike** `max_range_charge_counter`, this migration
-    **DID backfill** every pre-existing row from `telemetry.vehicle_snapshots` in the
-    same migration (a one-off, user-confirmed deviation from "No Cross-Module Database
-    Access" — a `goose`-run SQL statement, never a Go import; see design.md Part C for
-    the full rationale). NULL still means one of two things — the vehicle did not report
-    TPMS at that capture, or the row predates the migration and had no matching
-    snapshot to backfill from — but no consumer needs to disambiguate them (unlike
-    `sentry_mode`/`max_range_charge_counter`, this NULL is not otherwise ambiguous:
-    `telemetry.Snapshot`'s own TPMS fields never had a fabricated non-nil default).
-  - **`tpms_pressure_fl_psi_calc`/`fr`/`rl`/`rr`** (migration `20260908000003`,
-    `RM50-analytics-add-tire-pressure-variance`) are four **derived delta** columns, one
-    per wheel: this row's raw reading minus the previous day's row, in PSI. **This is
-    the opposite NULL rule from the raw `tpms_pressure_*_psi` columns just above.** A raw
-    column is always populated regardless of a predecessor; a delta column is NULL when
-    EITHER of two things is true — the day has no predecessor row at all, OR either
-    day's own raw wheel reading is itself NULL (`design.md` D2) — the same rule
-    `distance_traveled_km_calc` already follows. Computed in `consumption.go`'s
-    `deriveConsumption` via the `tpmsDeltaPSI` helper, populated only in the
-    "has a predecessor" branch of `deriveVehicleMetrics`
-    (`consumed.go`), same as `DistanceTraveledKmCalc`. This delta partly reflects
-    ambient air temperature change (about 1 PSI per 5.5°C), not only a genuine
-    pressure change — accepted, not a defect (roadmap RD3); never add a threshold or a
-    target-pressure comparison to "fix" it. **This migration DID backfill** every
-    pre-existing row, but unlike tier 1's raw-column backfill, this one reads only
-    `analytics.vehicle_metrics` joined against itself (a self-join on
-    `metric_date - 1`) — not a cross-module read, so it needs no
-    `// boundary:allow:` comment. A row whose previous day is missing keeps all four
-    columns NULL after the backfill, never a fabricated `0`. Full rationale:
-    `openspec/changes/RM50-analytics-add-tire-pressure-variance/design.md` D1–D3.
-- `vehicle_metric_watermarks` — one recompute cursor per `(tesla_id, source)`,
-  three sources. Drives `Reconcile`'s incremental pass; no row means "epoch",
-  i.e. backfill the vehicle's full history (`design.md` D7).
-- `charge_gaps` — one row per flagged vehicle-day whose battery math does not add up
-  (migration `20260815000002`, originally `RM28-telemetry-add-charge-gap-storage`,
-  MAG-15; moved into this module, unchanged, by `RM29-analytics-own-charge-gaps`,
-  MAG-26 tier 5; re-keyed on `tesla_id` alone by migration `20260911000001`,
-  `analytics-rekey-charge-gaps-on-tesla-id`, MAG-64). Written through the `GapWriter` port, driven by this module's own
-  `ConsumedByDay`-derived flagging logic (D5/D5a) via `internal/app`'s nightly
-  reconciliation — this module both derives the gap AND stores the conclusion; no
-  other module writes or reads this table. Columns: `id UUID PRIMARY KEY`,
-  `tesla_id BIGINT NOT NULL` (**always resolved, NOT
-  NULL** — this module filters out any vehicle/session it cannot attribute to a
-  currently-registered vehicle before gap detection ever runs), `vin TEXT NOT NULL`,
-  `gap_date DATE NOT NULL` (the flagged calendar day, plain `DATE` — no time-of-day
-  component), `missing_charging_type TEXT NOT NULL CHECK (IN ('MANUAL',
-  'SUPERCHARGER'))` (which charge source is suspected missing — `SUPERCHARGER` when
-  a Supercharger session exists that day with NULL start/end battery percentages,
-  `MANUAL` otherwise), `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` (when FIRST
-  flagged — preserved across every re-upsert of the same still-flagged day),
-  `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` (refreshed to `now()` on every
-  re-confirmation). `UNIQUE (tesla_id, gap_date)` constraint
-  (`charge_gaps_tesla_date_unique`) is both the write-idempotency mechanism
-  (`ON CONFLICT DO UPDATE`) and the index that serves `GapWriter`'s own
-  read-before-diff query. **This table has no second index**, by design: the UNIQUE
-  index alone serves every query the module runs, and a `gap_date DESC` twin would
-  add nothing because Postgres reads the same index backward at no cost. **No FK** on `tesla_id` (same
-  no-cross-module-FK precedent as `vehicle_metrics`/`vehicle_metric_watermarks` —
-  referential integrity is upheld by flow, not a DB constraint,
-  `ai/architecture.md` §2). **No `raw_data` JSONB** — this table stores a
-  Go-computed conclusion (this module's own derivation), not an external API
-  response, so the mandatory-`raw_data` rule (`ai/go-conventions.md` §persistence)
-  does not apply here.
-
-## Related KB
-
-- Architecture: `architecture/telemetry-ingest-only.md` (the snapshot/supercharger sources this table derives from)
-- Workflows: `workflows/manual-charge-crud.md` (the post-write `Recalculate` trigger), `workflows/supercharger-stats-read.md`
