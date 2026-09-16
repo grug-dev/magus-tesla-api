@@ -41,7 +41,7 @@ human. See design.md **D1–D5** for the rationale behind each group.
 
 ## Wave 1 — schema + codegen (serialization point)
 
-- [ ] **1.1** **[module: charging worker]** Create
+- [x] **1.1** **[module: charging worker]** Create
   `internal/charging/db/migrations/20260915000001_add_start_battery_source.sql` with the DDL in
   design.md §"Database Changes" → "The migration", **verbatim, including its full header
   comment and the `COMMENT ON COLUMN` statement**. Points that must not be trimmed:
@@ -60,7 +60,7 @@ human. See design.md **D1–D5** for the rationale behind each group.
     guard block; there is no impossible state here to guard against.
   `depends_on`: the owner's design-gate confirmation · `parallel_ok`: with 1.2
 
-- [ ] **1.2** **[module: charging worker]** Edit `internal/charging/db/query.sql`:
+- [x] **1.2** **[module: charging worker]** Edit `internal/charging/db/query.sql`:
   - `CreateEntry` — add `start_battery_source` to the column list and
     `@start_battery_source` to the `VALUES`.
   - `UpdateEntry` — add `start_battery_source = @start_battery_source` to the `SET` clause.
@@ -79,7 +79,7 @@ human. See design.md **D1–D5** for the rationale behind each group.
     `ListValidSessionCapacitiesForPeriod` are in scope.
   `depends_on`: — · `parallel_ok`: with 1.1
 
-- [ ] **1.3** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md` §"Builds &
+- [x] **1.3** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md` §"Builds &
   local checks") and **review the diff against design.md §"Expected sqlc diff"**, which is this
   task's acceptance criterion — not "it ran":
   - `db/models.go` — `ManualChargeEntry` gains **exactly one** field:

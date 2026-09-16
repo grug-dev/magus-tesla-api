@@ -40,6 +40,8 @@ type ManualChargeEntry struct {
 	OdometerKm pgtype.Int4
 	// Provenance of price: USER when the amount is known to be real (a positive price, or a caller-confirmed zero), UNCONFIRMED when a zero price has not been confirmed as a real free charge (RM51/MAG-58). Always computed by internal/charging, never accepted from a caller -- the same shape energy_source already uses. Historical rows were backfilled by their price at migration time: positive -> USER, zero -> UNCONFIRMED. Not indexed: nothing predicates on it (design.md Index Plan).
 	PriceSource string
+	// Provenance of start_battery_pct: USER when the person typed it, ESTIMATED when this module derived it from the energy added and the ending percentage. NULL exactly when start_battery_pct is NULL -- a missing percentage has no provenance. Always computed by internal/charging, never accepted from a caller -- the same shape energy_source and price_source already use. Historical rows were backfilled at migration time: every row with a non-NULL start_battery_pct is USER, because no derivation existed before this column. Not indexed: the one query that filters on it already scans a bounded period range with no supporting index of its own.
+	StartBatterySource pgtype.Text
 }
 
 // One Supercharger-mirror cursor per account (RM44-platform-add-mirror-watermark, MAG-48). Holds the highest telemetry.supercharger_history.updated_at this module's nightly mirror has already synchronized for that account. No row yet for an account means "epoch": the next mirror run backfills that account's whole history once. Owned by internal/charging; no other module reads this table directly.
