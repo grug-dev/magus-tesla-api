@@ -176,7 +176,7 @@ Implementation may start immediately once this proposal is accepted.
   unaffected. Report this confirmation rather than skipping it silently.
   `depends_on`: — · `parallel_ok`: with 3.1
 
-- [ ] **3.3** **[leader]** Sync this change's own `specs/analytics/spec.md` delta into
+- [x] **3.3** **[leader]** Sync this change's own `specs/analytics/spec.md` delta into
   `openspec/specs/analytics/spec.md` via the project's normal spec-sync step, at the point the
   pipeline calls for it (not necessarily this wave). Confirm the sync touches only
   `openspec/specs/`, never `openspec/changes/archive/`.

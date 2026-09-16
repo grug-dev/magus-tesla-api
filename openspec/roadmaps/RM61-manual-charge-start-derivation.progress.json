@@ -4,9 +4,9 @@
   "roadmap": "RM61-manual-charge-start-derivation",
   "intention": "A manual charge can be saved without a start battery %, and the charging module derives it from the energy and the end % the same way the Supercharger path already does.",
   "request": "Source ticket: MAG-40 — Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": true,
-  "updated_at": "2026-09-16T20:01:23Z",
+  "updated_at": "2026-09-16T23:27:56Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -16,14 +16,13 @@
     "created_at": "2026-09-16T01:56:32Z"
   },
   "rollup": {
-    "current": [
-      3
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -170,14 +169,21 @@
       "module": "analytics",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T20:01:23Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "completed_at": "2026-09-16T23:27:56Z",
+      "duration_seconds": 12338,
+      "budget": {
+        "five_hour_pct_delta": 34.0,
+        "cost_usd_delta": 13.5,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts + one worker wave + leader wave B + two review rounds"
+      },
+      "notes": "Archived. Dead efficiency branch deleted; NewReader 6 args -> 1; analytics no longer imports account. Net -405 lines. Reviewer approved round 1 with one minor finding, fixed. The worker caught a wrong 'Tests removed' list in the proposal and kept six helpers that had live callers."
     }
   ],
   "events": [
@@ -265,6 +271,11 @@
       "at": "2026-09-16T20:01:23Z",
       "agent": "leader",
       "event": "resumed in a fresh session; bucket had reset (5h 2%, context 12%). Tier 3 artifacts created and validated. No DB object touched, so no design gate. Spanish briefing approved by the owner. Tier 3 not-started -> proposed. The owner asked whether /supercharger-stats and /external-charges share one formula: they do (derivedStartBatteryPct in charging), but that is NOT what this tier deletes -- it deletes analytics' deriveEfficiency, which has no caller."
+    },
+    {
+      "at": "2026-09-16T23:27:56Z",
+      "agent": "leader",
+      "event": "tier 3 archived. RM61 is COMPLETE: all three tiers archived. Roadmap files move to openspec/roadmaps/archive/RM61-manual-charge-start-derivation/ next. MAG-40 covers the whole roadmap, so it moves to Done now."
     }
   ]
 }

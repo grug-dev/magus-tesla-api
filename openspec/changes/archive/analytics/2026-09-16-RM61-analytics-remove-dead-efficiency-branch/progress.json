@@ -5,9 +5,12 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
   "request": "Delete the dead efficiency branch, and with it the platform's second pack-capacity definition. RecentEfficiency is never called by any handler, template or command. Roadmap decision RD9: no capacity port in charging, delete instead. NewReader collapses from six parameters to one.",
-  "status": "applied",
+  "status": "archived",
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "1.1",
       "1.2",
       "1.3",
@@ -17,23 +20,18 @@
       "2.2",
       "2.3",
       "2.4",
-      "2.5"
-    ],
-    "pending": [
-      "3.3",
-      "O1"
-    ],
-    "blocked": [],
-    "done": [
+      "2.5",
       "3.1",
       "3.2",
+      "3.3",
       "3.4",
+      "O1",
       "L1",
       "L2"
     ]
   },
   "created_at": "2026-09-16T20:01:23Z",
-  "updated_at": "2026-09-16T20:20:00Z",
+  "updated_at": "2026-09-16T23:27:56Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -53,7 +51,7 @@
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T20:02:18Z",
@@ -79,7 +77,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T20:06:00Z",
@@ -105,7 +103,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T20:08:00Z",
@@ -133,7 +131,7 @@
         "1.3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T20:10:00Z",
@@ -161,7 +159,7 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T20:11:00Z",
@@ -187,7 +185,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-16T20:12:19Z",
@@ -213,7 +211,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-16T20:12:19Z",
@@ -239,7 +237,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-16T20:12:19Z",
@@ -265,7 +263,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-16T20:12:19Z",
@@ -294,7 +292,7 @@
         "2.4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-16T20:12:19Z",
@@ -370,13 +368,13 @@
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T23:20:00Z",
+      "completed_at": "2026-09-16T23:27:56Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Spec synced by openspec archive: 2 requirements modified, 3 removed. 26 -> 23. No delta-only text leaked and no RENAMED requirement, so nothing was appended at the end.",
       "budget": null
     },
     {
@@ -413,13 +411,13 @@
         "2.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "owner",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "started_at": "2026-09-16T20:20:00Z",
+      "completed_at": "2026-09-16T20:50:40Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "The owner ran make check and reported it passed. Their verification, not the assistant's.",
       "budget": null
     },
     {
@@ -476,10 +474,37 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review the diff of commit b45a91b only, not the whole analytics module. This change is a DELETION: internal/analytics' dead efficiency branch, and with it the platform's second pack-capacity definition. Validate: (1) NOTHING deleted still has a caller -- grep RecentEfficiency, Efficiency, deriveEfficiency, socReadings, capacityFor, carTypeFor, vehicleLookup, DefaultWindow, chargingSourceLimit, sumSuperchargerKWh, sumManualKWh over internal/ and cmd/ and confirm zero production hits; (2) nothing SURVIVING was deleted by mistake -- the worker found proposal.md's 'Tests removed' list wrong and RESTORED six shared helpers (fakeTelemetryReader, fakeSuperchargerReader, fakeManualReader, fp, intPtr, approxEqual/epsilon) that have live callers in recalculate_test.go, db_integration_test.go, consumed_test.go and consumption_test.go; verify that deviation from the artifact was correct and complete; (3) module-boundary compliance -- internal/analytics must now import internal/account nowhere, test files included; (4) NewRecalculator and every surviving Reader method are untouched in behaviour (Test Contract T8); (5) the Test Contract T1-T8 in design.md actually holds; (6) no rewritten comment cites design.md, a decision id, RM61, RD9, MAG-40 or a tier number -- several comments were rewritten in this change; (7) docs track structural change -- analytics AGENTS.md, README structure tree, architecture table, dependency graph, and kkpa/context/; (8) anti-gaming -- no task title or acceptance criterion was weakened, no status self-approved. NOTE the three files that also carry the owner's UNRELATED uncommitted golangci-lint work (README.md, db_integration_test.go, processor_test.go): the owner chose to commit them whole. Do not report that unrelated work as a finding. Signals: go build ./..., go vet ./..., make lint (0 issues) and the boundary/archive/naming/i18n guards were ASSISTANT-run and clean. The test suite (make check) was USER-run; the owner reported it passed. Judge test quality by READING the tests, never by running them.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-16T21:15:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "tasks.md: tasks 2.1-2.5, 3.4, O1, L1, L2 are still unchecked ([ ]) even though progress.json marks them done and the commit b45a91b actually contains all of that work (cmd/web/main.go, cmd/poller/main.go, history_test.go, processor_test.go, the KB fix, the owner's make check run). ai/agentic-workflow.md says tasks.md wins on implementation done-ness. Check the boxes before archive so tasks.md matches reality.",
+            "status": "open"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-09-16T22:05:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "Fixed in c7e3acd. tasks.md 2.1-2.5, 3.4, O1, L1, L2 are now [x], matching progress.json. 3.3 correctly stays [ ] (spec sync runs at archive). Verified the diff directly, not just the claim.",
+            "status": "fixed"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -540,6 +565,21 @@
       "at": "2026-09-16T20:20:00Z",
       "agent": "leader",
       "event": "wave B (leader-owned) complete: 2.1-2.5, 3.4, L1, L2. go build ./... and go vet ./... clean repo-wide, make lint 0 issues, boundary/archive/naming/i18n guards pass. RecentEfficiency now has ZERO matches repo-wide (Test Contract T1)."
+    },
+    {
+      "at": "2026-09-16T20:50:40Z",
+      "agent": "leader",
+      "event": "the OWNER ran make check and reported it PASSED. Their verification, recorded as theirs. Tasks 1.1-1.5, 2.1-2.5 and O1 move awaiting-user-verification -> done. Change status verified. Reviewer gate next."
+    },
+    {
+      "at": "2026-09-16T23:27:56Z",
+      "agent": "leader",
+      "event": "reviewer approved round 1 (finding R1, minor: tasks.md checkboxes lagged progress.json). R1 accepted and fixed in c7e3acd, together with two comments still naming the deleted vehicleLookup type. Reviewer re-verified in round 2 and set reviewer-approved itself."
+    },
+    {
+      "at": "2026-09-16T23:27:56Z",
+      "agent": "leader",
+      "event": "archived into openspec/changes/archive/analytics/2026-09-16-RM61-analytics-remove-dead-efficiency-branch. Spec synced: analytics ~2 requirements, -3. The CLI dropped the folder at the archive root and outside git's index, so it was moved with plain mv, not git mv. This completes RM61: all three tiers archived."
     }
   ]
 }
