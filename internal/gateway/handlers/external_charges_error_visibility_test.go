@@ -38,15 +38,19 @@ func TestErrorFragmentsCarryOptInHeader(t *testing.T) {
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
-	// A form with start_battery_pct cleared — exactly the shape that produced the
-	// silent 422 on PUT /ui/external-charges/row/:id.
+	// A form whose only invalid field is an out-of-range start_battery_pct —
+	// the same 422 shape on PUT /ui/external-charges/row/:id that produced the
+	// silent failure. An EMPTY start_battery_pct is no longer a failure: the
+	// charging module derives the value, so it would return 200 and this guard
+	// would never see a 422 at all.
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-08-03"},
 		"energy_added_kwh":  {"0.79"},
 		"price":             {"2610.00"},
 		"location_kind":     {"HOME"},
-		"start_battery_pct": {""},
+		"start_battery_pct": {"150"},
 		"end_battery_pct":   {"100"},
 	}
 	w := httptest.NewRecorder()
@@ -56,16 +60,15 @@ func TestErrorFragmentsCarryOptInHeader(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("want 422 on empty start_battery_pct, got %d", w.Code)
+		t.Fatalf("want 422 on out-of-range start_battery_pct, got %d", w.Code)
 	}
 	if got := w.Header().Get("HX-Error-Fragment"); got != "true" {
 		t.Errorf("HX-Error-Fragment = %q, want \"true\" — htmx will DISCARD this 422 body and the user will see nothing", got)
 	}
 	// engineWithSession never wires handlers.LanguageMiddleware, so i18n.FromContext
-	// falls back to Spanish (KeyChargesErrorBatteryPctRequired's ES value) — assert
-	// the resolved-language string, not the pre-existing English literal
-	// (RM24-gateway-translate-all-pages, mirroring tier 2's T6.4 precedent).
-	if !strings.Contains(w.Body.String(), "El porcentaje de batería es obligatorio.") {
+	// falls back to Spanish — assert the resolved-language string of
+	// KeyChargesErrorStartBatteryPctRange, not an English literal.
+	if !strings.Contains(w.Body.String(), "El porcentaje de batería inicial debe ser un número entero entre 0 y 100.") {
 		t.Errorf("422 body must carry the field-level message; got:\n%s", w.Body.String())
 	}
 }

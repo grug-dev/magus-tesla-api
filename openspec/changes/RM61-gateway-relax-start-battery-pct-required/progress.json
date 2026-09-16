@@ -25,11 +25,12 @@
     ],
     "awaiting-user-verification": [
       "5.1",
-      "5.2"
+      "5.2",
+      "5.3"
     ]
   },
   "created_at": "2026-09-16T10:10:00Z",
-  "updated_at": "2026-09-16T14:27:59Z",
+  "updated_at": "2026-09-16T16:49:17Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -342,6 +343,23 @@
         "approx": true,
         "note": "one shared wave-B delta copied onto each task"
       }
+    },
+    {
+      "id": "5.3",
+      "title": "Fix TestErrorFragmentsCarryOptInHeader's 422 trigger (missed by the Group E sweep)",
+      "module": "gateway",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T16:49:17Z",
+      "completed_at": "2026-09-16T16:49:17Z",
+      "duration_seconds": null,
+      "notes": "The test used an empty start_battery_pct to cause a 422, which this change made legal. Trigger changed to an out-of-range 150, plus status=IN_PROGRESS so the 422 has one cause. Asserts the range message.",
+      "budget": null
     }
   ],
   "review": {
@@ -358,6 +376,14 @@
       "made_by": "autopilot",
       "decision": "Waves 1-4 batched into ONE serial worker dispatch; waves 5-7 into a second",
       "why": "All seven tasks are one module and one sandbox. Seven dispatches would re-read the ~11,900-token doc pack seven times for no parallelism gain."
+    },
+    {
+      "id": "D-B1",
+      "at": "2026-09-16T16:49:17Z",
+      "scope": "review:owner-suite-run",
+      "made_by": "user",
+      "decision": "Fix TestErrorFragmentsCarryOptInHeader's trigger; do not delete the test",
+      "why": "It guards the HX-Error-Fragment header, not appearance. Without that header htmx drops the 422 body and the page looks dead."
     }
   ],
   "events": [
@@ -405,6 +431,11 @@
       "at": "2026-09-16T14:27:59Z",
       "agent": "leader",
       "event": "wave B reconciled. Leader fixed the stale parseExternalChargeForm doc comment the worker reported (it still said start_battery_pct was unconditionally REQUIRED); go build and go vet re-run clean. Leader also did 6.2 (AGENTS.md check) and 6.3 (KB). L1 confirmed: build and vet green repo-wide. L2 confirmed: no module, no runnable, no Deps change, so the root README.md and cmd/README.md need no edit. budget delta 5h 15%, $6.72."
+    },
+    {
+      "at": "2026-09-16T16:49:17Z",
+      "agent": "leader",
+      "event": "owner ran make check: one failure, TestErrorFragmentsCarryOptInHeader in external_charges_error_visibility_test.go. Root cause: the Group E sweep in tasks.md 5.1 named only external_charges_test.go, so this file's empty-start_battery_pct 422 trigger was missed. Owner asked whether the test was cosmetic; it is not - it guards HX-Error-Fragment. Owner chose the fix over deletion. Task 5.3 appended. Swept every other _test.go: no further use of the field outside telemetry.supercharger_history."
     }
   ]
 }
