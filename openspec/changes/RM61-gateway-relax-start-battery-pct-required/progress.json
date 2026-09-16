@@ -5,17 +5,10 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
   "request": "Tier 2 of RM61 (MAG-40). Make start_battery_pct optional on /external-charges, render a derived value as a placeholder so Update re-derives it, and add the bilingual field help under the input.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "5.1",
-      "5.2",
-      "6.1",
-      "6.2",
-      "6.3",
-      "7.1"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
@@ -24,11 +17,19 @@
       "2.2",
       "3.1",
       "3.2",
-      "4.1"
+      "4.1",
+      "6.1",
+      "6.2",
+      "6.3",
+      "7.1"
+    ],
+    "awaiting-user-verification": [
+      "5.1",
+      "5.2"
     ]
   },
   "created_at": "2026-09-16T10:10:00Z",
-  "updated_at": "2026-09-16T14:17:02Z",
+  "updated_at": "2026-09-16T14:27:59Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -209,14 +210,20 @@
         "4.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:10:00Z",
+      "completed_at": "2026-09-16T14:24:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Contract groups B-F in handlers/external_charges_test.go: two tests renamed, C1 list moved, D3b trigger changed to out-of-range, four stale comments fixed.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
     },
     {
       "id": "5.2",
@@ -226,14 +233,20 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:00:00Z",
+      "completed_at": "2026-09-16T14:10:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "New templates/ui/field_test.go, package ui. Contract group A (A1-A3). go vet compiles it clean; the suite is not run.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
     },
     {
       "id": "6.1",
@@ -243,14 +256,20 @@
         "5.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:24:00Z",
+      "completed_at": "2026-09-16T14:25:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "One ui.FieldProps.Help bullet in internal/gateway/AGENTS.md. Kit-level only, no page detail - that lives in the KB.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
     },
     {
       "id": "6.2",
@@ -260,14 +279,20 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T14:30:00Z",
+      "completed_at": "2026-09-16T14:31:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Leader read the AGENTS.md diff: kit-level Help description only, no per-field list. No duplication of the KB.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
     },
     {
       "id": "6.3",
@@ -278,14 +303,20 @@
         "3.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T14:28:00Z",
+      "completed_at": "2026-09-16T14:30:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Leader edited kkpa/context/input-port/charging/external-charges.md: start_battery_pct added to the Optional list; new helper-copy paragraph with both new strings.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
     },
     {
       "id": "7.1",
@@ -297,14 +328,20 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:25:00Z",
+      "completed_at": "2026-09-16T14:26:56Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "All five signals clean: gofmt -l, go build ./..., go vet ./..., make i18n-guard, make ui-guard.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
     }
   ],
   "review": {
@@ -358,6 +395,16 @@
       "at": "2026-09-16T14:17:02Z",
       "agent": "leader",
       "event": "wave A reconciled: 1.1-4.1 done. Leader read the diff: D1-D7.1 compliance confirmed against design.md. gofmt/go build/go vet clean. budget delta 5h 11%, $4.11. Staged by path only - CLAUDE.md, Makefile, mise.toml, app.css, catalog_test.go, vehicle_image_test.go and other modules were dirty before this run and stay uncommitted."
+    },
+    {
+      "at": "2026-09-16T14:17:25Z",
+      "agent": "leader",
+      "event": "wave B dispatched: tasks 5.1, 5.2, 6.1, 7.1 to one serial gateway worker (sonnet). Tests are written against design.md's Test Contract, not against the implementation. budget_start: 5h 13%, cost $5.09."
+    },
+    {
+      "at": "2026-09-16T14:27:59Z",
+      "agent": "leader",
+      "event": "wave B reconciled. Leader fixed the stale parseExternalChargeForm doc comment the worker reported (it still said start_battery_pct was unconditionally REQUIRED); go build and go vet re-run clean. Leader also did 6.2 (AGENTS.md check) and 6.3 (KB). L1 confirmed: build and vet green repo-wide. L2 confirmed: no module, no runnable, no Deps change, so the root README.md and cmd/README.md need no edit. budget delta 5h 15%, $6.72."
     }
   ]
 }

@@ -135,7 +135,7 @@ immediately, no owner confirmation needed first.
 
 ## Wave 5 — tests (unit tests included, per the roadmap header)
 
-- [ ] **5.1** **[module: gateway worker]** `internal/gateway/handlers/external_charges_test.go`
+- [x] **5.1** **[module: gateway worker]** `internal/gateway/handlers/external_charges_test.go`
   — implement design.md §Test Contract Groups **B, C, D, E, F** exactly:
   - **Group B**: extend `TestExternalChargeEntryVMFromEntry` (or add a sibling test) with
     the three `StartBatterySource` mapping cases (nil / `USER` / `ESTIMATED`).
@@ -169,7 +169,7 @@ immediately, no owner confirmation needed first.
     comment-only.
   `depends_on`: 4.1 · `parallel_ok`: with 5.2
 
-- [ ] **5.2** **[module: gateway worker]** Create
+- [x] **5.2** **[module: gateway worker]** Create
   `internal/gateway/templates/ui/field_test.go`, package `ui`, mirroring
   `theme_switcher_test.go`'s render-to-`bytes.Buffer` pattern. Implement design.md §Test
   Contract Group **A** (A1–A3): `Help` renders a `fieldset-label` paragraph when non-empty,
@@ -181,7 +181,7 @@ immediately, no owner confirmation needed first.
 
 ## Wave 6 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)
 
-- [ ] **6.1** **[module: gateway worker]** `internal/gateway/AGENTS.md`, "UI stack (styling)"
+- [x] **6.1** **[module: gateway worker]** `internal/gateway/AGENTS.md`, "UI stack (styling)"
   section: add one short bullet for `ui.FieldProps.Help`, mirroring the existing
   `ui.FieldProps.Optional` bullet's shape and length — what it renders, and that it is
   independent of `Optional` (a field may carry either, both, or neither). Do not restate
@@ -216,7 +216,7 @@ immediately, no owner confirmation needed first.
 
 ## Wave 7 — signals
 
-- [ ] **7.1** **[module: gateway worker]** Run the cheap deterministic signals the
+- [x] **7.1** **[module: gateway worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/gateway`, `go build ./...`,
   `go vet ./...`, `make i18n-guard`, `make ui-guard`. **All five should be clean** after
   this tier — `go build ./...`/`go vet ./...` repo-wide (proposal.md §Breaking: nothing is

@@ -617,7 +617,7 @@ func TestExternalChargeCreate_MissingRequiredField(t *testing.T) {
 		"status":     {"IN_PROGRESS"},
 		"price":      {"5000"},
 		// deliberately omit charged_on, energy_added_kwh, location_kind,
-		// start_battery_pct, end_battery_pct — every required field.
+		// end_battery_pct — every required field.
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/external-charges/create", strings.NewReader(form.Encode()))
@@ -637,10 +637,11 @@ func TestExternalChargeCreate_MissingRequiredField(t *testing.T) {
 }
 
 // TestExternalChargeCreate_ValidInput verifies a valid POST creates an entry and returns the refreshed list.
-// MAG-5 D5: Currency is hardcoded "COP" even though the form no longer submits a
+// Currency is hardcoded "COP" even though the form no longer submits a
 // `currency` field (it renders a disabled, read-only COP input that is not
-// submitted). MAG-5 D6: start_battery_pct + end_battery_pct are REQUIRED and
-// persisted non-nil. D4: no `vehicle` form field — sourced from the session.
+// submitted). start_battery_pct and end_battery_pct are SUPPLIED here and
+// persisted non-nil with the submitted values — neither is required to be
+// supplied. The vehicle is sourced from the session, not a `vehicle` form field.
 func TestExternalChargeCreate_ValidInput(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
@@ -675,11 +676,11 @@ func TestExternalChargeCreate_ValidInput(t *testing.T) {
 	} else if *got != 10.5 {
 		t.Errorf("want energy 10.5 persisted, got %f", *got)
 	}
-	// D5: Currency hardcoded COP despite no `currency` form field.
+	// Currency is hardcoded COP despite no `currency` form field.
 	if writer.createEntry.Currency != "COP" {
 		t.Errorf("want Currency COP hardcoded, got %q", writer.createEntry.Currency)
 	}
-	// D6: required battery fields persisted non-nil with the submitted values.
+	// Battery fields SUPPLIED on this form persist non-nil with the submitted values.
 	if writer.createEntry.StartBatteryPct == nil || *writer.createEntry.StartBatteryPct != 50 {
 		t.Errorf("want StartBatteryPct=50 (non-nil), got %v", writer.createEntry.StartBatteryPct)
 	}
@@ -857,11 +858,11 @@ func TestExternalChargeRowUpdate_ValidInput(t *testing.T) {
 	if got := w.Header().Get("HX-Retarget"); got != "#external-charges-list" {
 		t.Errorf("want HX-Retarget=#external-charges-list on a successful update, got %q", got)
 	}
-	// D5: Currency hardcoded COP even for the edit path.
+	// Currency is hardcoded COP even for the edit path.
 	if writer.updateEntry.Currency != "COP" {
 		t.Errorf("want update Currency COP hardcoded, got %q", writer.updateEntry.Currency)
 	}
-	// D6: battery persisted non-nil.
+	// Battery fields SUPPLIED on this form persist non-nil.
 	if writer.updateEntry.StartBatteryPct == nil || *writer.updateEntry.StartBatteryPct != 40 {
 		t.Errorf("want update StartBatteryPct=40, got %v", writer.updateEntry.StartBatteryPct)
 	}
@@ -1205,6 +1206,43 @@ func TestExternalChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T)
 	}
 }
 
+// TestExternalChargeEntryVMFromEntry_StartBatterySource verifies
+// externalChargeEntryVMFromEntry maps charging.Entry.StartBatterySource to a
+// plain string on the VM: nil -> "", USER -> "USER", ESTIMATED -> "ESTIMATED".
+func TestExternalChargeEntryVMFromEntry_StartBatterySource(t *testing.T) {
+	userSource := charging.StartBatterySourceUser
+	estimatedSource := charging.StartBatterySourceEstimated
+
+	for _, tc := range []struct {
+		name   string
+		source *charging.StartBatterySource
+		want   string
+	}{
+		{"nil", nil, ""},
+		{"user", &userSource, "USER"},
+		{"estimated", &estimatedSource, "ESTIMATED"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := charging.Entry{
+				ID:                 uuid.New(),
+				CreatedByAccountID: uuid.New(),
+				TeslaID:            1001,
+				VIN:                "VIN1001",
+				ChargedOn:          time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
+				Currency:           "COP",
+				StartBatterySource: tc.source,
+			}
+			vehicles := []account.Vehicle{{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"}}
+
+			vm := externalChargeEntryVMFromEntry(e, vehicles)
+
+			if vm.StartBatterySource != tc.want {
+				t.Errorf("want StartBatterySource=%q, got %q", tc.want, vm.StartBatterySource)
+			}
+		})
+	}
+}
+
 // --- Sub-task D: required location_kind tests ---
 
 // TestExternalChargeCreate_MissingLocationKind verifies 422 when location_kind is absent.
@@ -1479,14 +1517,15 @@ func TestExternalChargePage_SubscribesToVehicleChanged(t *testing.T) {
 
 // --- MAG-5 D2/D6: start-battery suggestion + required battery fields (T4.5) ---
 
-// TestExternalChargePage_BatterySuggestionFromTelemetry verifies D2: when the selected
-// vehicle's latest status reports BatteryLevelPct=73, the create form's
-// start_battery_pct input carries a placeholder helper label "Latest: 73%"
-// built via analytics.Reader.LatestMetricsForVehicles (the same port the
-// dashboard uses — retyped from the retired snapshot-based reader (RM40) by
-// RM38-gateway-read-dashboard-from-metrics design.md D9). The
-// fakeAnalyticsReader seeds the status; the buildExternalChargesPage helper picks the
-// status for the session-selected TeslaID.
+// TestExternalChargePage_BatterySuggestionFromTelemetry verifies that when the
+// selected vehicle's latest status reports BatteryLevelPct=73, the create
+// form's start_battery_pct input carries a placeholder helper label
+// "Latest: 73%" built via analytics.Reader.LatestMetricsForVehicles (the same
+// port the dashboard uses). The fakeAnalyticsReader seeds the status; the
+// buildExternalChargesPage helper picks the status for the session-selected
+// TeslaID. It also asserts the field carries no `required` attribute and
+// still renders its (optional) legend and help text, now that the field
+// itself is optional.
 func TestExternalChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
@@ -1519,14 +1558,25 @@ func TestExternalChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 	body := w.Body.String()
 	// Resolved language is Spanish here (KeyChargesErrorBatterySuggestion's ES value).
 	if want := `placeholder="Última: 73%"`; !strings.Contains(body, want) {
-		t.Errorf("want %q in start_battery_pct placeholder (D2), got body:\n%s", want, body[:min(800, len(body))])
+		t.Errorf("want %q in start_battery_pct placeholder, got body:\n%s", want, body[:min(800, len(body))])
 	}
-	// Start AND end battery % must be Required (D6) — the input name="start_battery_pct"
-	// and name="end_battery_pct" rows should both carry the `required` boolean attr.
+	// Both the start and end battery % inputs must be present in the form,
+	// regardless of whether they are required — this loop only checks presence.
 	for _, name := range []string{"start_battery_pct", "end_battery_pct"} {
 		if !strings.Contains(body, `name="`+name+`"`) {
-			t.Errorf("D6: %q input missing in create form", name)
+			t.Errorf("%q input missing in create form", name)
 		}
+	}
+	// start_battery_pct is optional: no required attribute on the input, and
+	// its field still shows the (optional) legend suffix plus the new help text.
+	if attrs := tagAttrsFor(body, "start_battery_pct"); strings.Contains(attrs, "required") {
+		t.Errorf("want start_battery_pct to carry no required attribute, got %q", attrs)
+	}
+	if !strings.Contains(body, i18n.T(context.Background(), i18n.KeyFormOptional)) {
+		t.Errorf("want the (optional) legend suffix in the rendered form")
+	}
+	if !strings.Contains(body, i18n.T(context.Background(), i18n.KeyChargesFormStartBatteryPctHelp)) {
+		t.Errorf("want the start_battery_pct help text in the rendered form")
 	}
 }
 
@@ -1604,10 +1654,12 @@ func TestExternalChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
 	}
 }
 
-// TestExternalChargeCreate_MissingBatteryPct_Rejected verifies D6: submitting with
-// start_battery_pct or end_battery_pct empty is rejected (422) with a
-// "Battery percentage is required" message, and the Writer is not called.
-func TestExternalChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
+// TestExternalChargeCreate_MissingStartBatteryPct_Accepted verifies that an
+// omitted start_battery_pct now succeeds: the gateway passes a nil value
+// through to Writer.Create instead of rejecting the request. The charging
+// module derives the missing percentage on write; the gateway must not
+// duplicate or block that.
+func TestExternalChargeCreate_MissingStartBatteryPct_Accepted(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
@@ -1633,16 +1685,11 @@ func TestExternalChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 	}
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("want 422 on missing start_battery_pct, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 with start_battery_pct omitted, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
-	if writer.createEntry.EnergyAddedKWh != nil {
-		t.Errorf("Writer.Create must NOT be called when start_battery_pct is missing")
-	}
-	body := w.Body.String()
-	// Resolved language is Spanish here (KeyChargesErrorBatteryPctRequired's ES value).
-	if !strings.Contains(body, "El porcentaje de batería es obligatorio") {
-		t.Errorf("want battery-required message, got body=%q", body[:min(500, len(body))])
+	if writer.createEntry.StartBatteryPct != nil {
+		t.Errorf("want nil StartBatteryPct passed through (the gateway does not derive it), got %v", *writer.createEntry.StartBatteryPct)
 	}
 }
 
@@ -2253,10 +2300,10 @@ func TestExternalChargeCreate_A7_OdometerOptional(t *testing.T) {
 	}
 }
 
-// TestExternalChargeCreate_A8_StartBatteryPctRequired_BothStatuses verifies Test
-// Contract A8: start_battery_pct is unconditionally required, unchanged by
-// RM33, for BOTH status values.
-func TestExternalChargeCreate_A8_StartBatteryPctRequired_BothStatuses(t *testing.T) {
+// TestExternalChargeCreate_StartBatteryPctOptional_BothStatuses verifies that
+// an omitted start_battery_pct now succeeds for BOTH status values — the
+// charging module derives it on write, so the gateway must not block it.
+func TestExternalChargeCreate_StartBatteryPctOptional_BothStatuses(t *testing.T) {
 	uid := uuid.New()
 	for _, status := range []string{"IN_PROGRESS", "DONE"} {
 		t.Run(status, func(t *testing.T) {
@@ -2271,15 +2318,14 @@ func TestExternalChargeCreate_A8_StartBatteryPctRequired_BothStatuses(t *testing
 			}
 			w := submitForm(t, h, uid, http.MethodPost, "/ui/external-charges/create", form)
 
-			if w.Code != http.StatusUnprocessableEntity {
-				t.Fatalf("status=%s: want 422 on missing start_battery_pct, got %d", status, w.Code)
+			if w.Code != http.StatusOK {
+				t.Fatalf("status=%s: want 200 with start_battery_pct omitted, got %d", status, w.Code)
 			}
-			if writer.createCalls != 0 {
-				t.Errorf("status=%s: Writer.Create must NOT be called, got %d calls", status, writer.createCalls)
+			if writer.createCalls != 1 {
+				t.Errorf("status=%s: want Writer.Create called once, got %d calls", status, writer.createCalls)
 			}
-			// Resolved language is Spanish (KeyChargesErrorBatteryPctRequired's ES value).
-			if !strings.Contains(w.Body.String(), "El porcentaje de batería es obligatorio") {
-				t.Errorf("status=%s: want battery-required message, body=%q", status, w.Body.String()[:min(500, w.Body.Len())])
+			if writer.createEntry.StartBatteryPct != nil {
+				t.Errorf("status=%s: want nil StartBatteryPct passed through, got %v", status, *writer.createEntry.StartBatteryPct)
 			}
 		})
 	}
@@ -2646,9 +2692,9 @@ func tagAttrsFor(body, name string) string {
 }
 
 // TestExternalChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo
-// verifies Test Contract C1 for BOTH forms: energy_added_kwh and price carry
-// no `required` attribute; start_battery_pct, charged_on, location_kind still
-// carry `required` (unconditional fields, unchanged by RM33).
+// verifies Test Contract C1 for BOTH forms: energy_added_kwh, price, and
+// start_battery_pct carry no `required` attribute; charged_on and
+// location_kind still carry `required`.
 func TestExternalChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo(t *testing.T) {
 	createBody := renderCreateForm(t, fragments.ExternalChargesPageData{}, "")
 	editBody := renderEditRow(t, fragments.ExternalChargeEntryVM{}, "")
@@ -2658,14 +2704,71 @@ func TestExternalChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalField
 		body string
 	}{{"create", createBody}, {"edit", editBody}} {
 		t.Run(form.name, func(t *testing.T) {
-			for _, optional := range []string{"energy_added_kwh", "price"} {
+			for _, optional := range []string{"energy_added_kwh", "price", "start_battery_pct"} {
 				if attrs := tagAttrsFor(form.body, optional); strings.Contains(attrs, "required") {
 					t.Errorf("%s form: %s must NOT carry required, got %q", form.name, optional, attrs)
 				}
 			}
-			for _, unconditional := range []string{"start_battery_pct", "charged_on", "location_kind"} {
+			for _, unconditional := range []string{"charged_on", "location_kind"} {
 				if attrs := tagAttrsFor(form.body, unconditional); !strings.Contains(attrs, "required") {
 					t.Errorf("%s form: %s must carry required, got %q", form.name, unconditional, attrs)
+				}
+			}
+		})
+	}
+}
+
+// TestExternalChargeRowEdit_StartBatteryPct_PlaceholderVsValue verifies the
+// edit row's start_battery_pct input chooses a placeholder over a value when
+// the stored percentage was derived, not typed by the person: an ESTIMATED
+// source renders it as a placeholder (so a re-submission without edits
+// arrives empty and gets derived again), while USER or absent renders it as
+// a normal value, unchanged.
+func TestExternalChargeRowEdit_StartBatteryPct_PlaceholderVsValue(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		source         string
+		raw            string
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name:           "ESTIMATED",
+			source:         "ESTIMATED",
+			raw:            "64",
+			wantContains:   []string{`placeholder="64"`},
+			wantNotContain: []string{`value="64"`},
+		},
+		{
+			name:           "USER",
+			source:         "USER",
+			raw:            "50",
+			wantContains:   []string{`value="50"`},
+			wantNotContain: []string{"placeholder="},
+		},
+		{
+			name:           "absent",
+			source:         "",
+			raw:            "",
+			wantContains:   []string{`value=""`},
+			wantNotContain: []string{"placeholder="},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vm := fragments.ExternalChargeEntryVM{
+				StartBatterySource: tc.source,
+				RawStartBatteryPct: tc.raw,
+			}
+			body := renderEditRow(t, vm, "")
+			attrs := tagAttrsFor(body, "start_battery_pct")
+			for _, want := range tc.wantContains {
+				if !strings.Contains(attrs, want) {
+					t.Errorf("want %q in start_battery_pct input, got %q", want, attrs)
+				}
+			}
+			for _, notWant := range tc.wantNotContain {
+				if strings.Contains(attrs, notWant) {
+					t.Errorf("want %q absent from start_battery_pct input, got %q", notWant, attrs)
 				}
 			}
 		})
@@ -3052,21 +3155,21 @@ func TestExternalChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *
 // TestExternalChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow is the other
 // half of the amendment: only SUCCESS resets. A failed save must not move the
 // user's filter, so the re-rendered edit form still echoes the posted window
-// back through its hidden start/end inputs — which is the whole reason those
-// inputs exist (design.md §D-Include).
+// back through its hidden start/end inputs — preserving the user's filter
+// across a failed save is the reason those inputs exist.
 func TestExternalChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	h := newHandlerForExternalCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
 
 	form := url.Values{
-		"csrf_token":    {"tok"},
-		"status":        {"IN_PROGRESS"},
-		"charged_on":    {"2026-07-16"},
-		"location_kind": {"WORK"},
-		// start_battery_pct omitted -> validation failure
-		"start": {"2026-08-01"},
-		"end":   {"2026-08-31"},
+		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
+		"charged_on":        {"2026-07-16"},
+		"location_kind":     {"WORK"},
+		"start_battery_pct": {"150"}, // out of range -> validation failure
+		"start":             {"2026-08-01"},
+		"end":               {"2026-08-31"},
 	}
 	w := submitForm(t, h, uid, http.MethodPut, "/ui/external-charges/row/"+id.String(), form)
 	if w.Code != http.StatusUnprocessableEntity {

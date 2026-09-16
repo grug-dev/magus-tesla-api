@@ -1239,9 +1239,10 @@ func externalChargeEntryVMFromRawValues(id string, raw fragments.ExternalChargeF
 //     reading c.PostForm("currency") would always be ""). The
 //     charging.Entry.Currency column stays a column the gateway always
 //     sends COP down; no service change.
-//   - D6: start_battery_pct is REQUIRED (empty or non-int / out-of-range ->
-//     validation error), unconditionally, unchanged by RM33. end_battery_pct's
-//     required-ness is now conditioned on RequiredFieldsFor(status) — see
+//   - start_battery_pct is OPTIONAL: an empty field parses to a nil
+//     StartBatteryPct and the charging module derives the value. A typed
+//     value still fails on non-int or out-of-range. end_battery_pct's
+//     required-ness is conditioned on RequiredFieldsFor(status) — see
 //     RM33/D-Fields below.
 //   - D1: started_at / ended_at stay OPTIONAL — clearing either still persists
 //     nil StartedAt / EndedAt. The today's-date DEFAULT is a UI concern
