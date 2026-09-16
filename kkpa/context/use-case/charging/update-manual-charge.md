@@ -25,6 +25,11 @@
   out-of-band `#external-charges-list` refresh. `422` re-renders the edit row with per-field errors,
   `500` with a top-of-form error, `403` on CSRF failure, `400` on an unparseable id, `404` when the
   entry is not found among the account's registered vehicles.
+- **`start_battery_pct` is optional.** An empty value is accepted and passed to
+  `charging.Writer.Update` as absent, so the module derives it from the energy added and the
+  ending percentage. A supplied value is validated as an integer in 0–100. The same rule holds on
+  the create form.
+  _Source: spec gateway — Requirement: Inline Row Editing._
 
 ## Flow
 
@@ -101,3 +106,30 @@ Steps 4–7 repeat when the edit changed the date. **Not touched:** `charge_gaps
   successful write into an error — that is why this uses `bestEffortWindow`, not
   `parseExternalChargesRange`.
   _Source: `bestEffortWindow` doc comment._
+- **A derived starting percentage renders as a `placeholder`, never as a `value`.** When the
+  entry's stored `start_battery_pct` provenance is the `charging` module's estimated kind, the
+  edit form puts the number in the input's `placeholder`. A save that does not touch the field
+  then arrives empty, and `Update` derives it again. A person-typed percentage (or none) renders
+  as a normal `value`, as it always did. The gateway reads the provenance through
+  `ExternalChargeEntryVM.StartBatterySource`, a plain string — the view model never imports
+  `charging`.
+  _Source: spec gateway — Requirement: Inline Row Editing._
+- **Why the placeholder matters: `Update` requires every mutable field on every call.** A
+  pre-filled derived value would come back looking user-supplied and get stamped as the person's
+  own reading. The capacity job reads only person-supplied percentages, so that loop would feed
+  the computed value back into the constant it was computed from.
+  _Source: spec gateway — Requirement: Inline Row Editing._
+- **An out-of-range `start_battery_pct` is still rejected; an empty one is not.** When editing a
+  test that needs a 422 from this field, use a value like `150`. Omitting the field no longer
+  fails, so a test that omits it will pass for the wrong reason or fall through to a different
+  field's error.
+  _Source: spec gateway — Requirement: Create Charge Entry._
+- **`start_battery_pct` sits in the always-visible main grid, marked optional.** It is not moved
+  into the "More details" expander, which still holds only `charging_type`, `location_label` and
+  `notes`. The field carries its own help line explaining that an empty value is computed.
+  _Source: spec gateway — Requirement: location_kind Visible Without Expanding "More Details"._
+- **The telemetry battery suggestion is unrelated to the derivation.** The create form's
+  `start_battery_pct` placeholder suggestion comes from the vehicle's latest snapshot through
+  `analytics.Reader.LatestMetricsForVehicles`. It is a hint on a fresh form. It neither feeds nor
+  is fed by the value `charging` derives on save.
+  _Source: spec gateway — Requirement: Create Charge Entry._
