@@ -192,7 +192,7 @@ wave, so every derivation runs against the hardcoded default (62.0 kWh).
   - §Testing Notes — the two new test files and what each covers.
   `depends_on`: 2.2 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** **[leader — outside the charging sandbox; grant the path or do it]**
+- [x] **4.2** **[leader — outside the charging sandbox; grant the path or do it]**
   - `kkpa/context/architecture/charging-tables.md` — add the `start_battery_source` column
     beside the existing `energy_source`/`price_source` entries: its `CHECK`, its nullability
     (no default), and the "not indexed, revisit trigger" note from design.md §Index Plan.
@@ -211,7 +211,7 @@ wave, so every derivation runs against the hardcoded default (62.0 kWh).
     explicit grant.
   `depends_on`: 2.2 · `parallel_ok`: with 4.1
 
-- [ ] **4.3** **[leader]** Sync the two delta specs in this change's own `specs/` folder into
+- [x] **4.3** **[leader]** Sync the two delta specs in this change's own `specs/` folder into
   `openspec/specs/` — `manual-charge-log` (ADDED requirement) and `monthly-effective-capacity`
   (MODIFIED requirement) — via the project's normal spec-sync step, at the point the pipeline
   calls for it (not necessarily this wave). Confirm neither sync touches
@@ -234,7 +234,7 @@ wave, so every derivation runs against the hardcoded default (62.0 kWh).
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the
+- [x] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the
   assistant's say-so; work that is complete but unexecuted is **`awaiting-user-verification`**.
   ```bash
   make migrate-up
@@ -244,7 +244,7 @@ wave, so every derivation runs against the hardcoded default (62.0 kWh).
   boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard test`.
   `make test-with-db` if you want the `TEST_DATABASE_URL`-gated integration tests specifically.)
 
-- [ ] **O2** **[owner]** Confirm the real backfill of pre-existing rows after `make migrate-up` —
+- [x] **O2** **[owner]** Confirm the real backfill of pre-existing rows after `make migrate-up` —
   the package's test database is provisioned fresh with every migration applied before any row
   exists, so this cannot be a test (design.md §"Owner verification"):
   ```sql
@@ -258,9 +258,9 @@ wave, so every derivation runs against the hardcoded default (62.0 kWh).
 
 ## Cross-module tasks the leader owns
 
-- [ ] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green **outside**
+- [x] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green **outside**
   `internal/charging` once Wave 5 lands. Proposal.md §Breaking states no cross-module compile
   fix should be needed — verify rather than assume.
-- [ ] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change alters a
+- [x] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change alters a
   module's public surface but adds, removes, or renames no module and no runnable.
   `depends_on`: 4.1 · `parallel_ok`: yes

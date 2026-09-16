@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM61-manual-charge-start-derivation",
   "intention": "A manual charge can be saved without a start battery %, and the charging module derives it from the energy and the end % the same way the Supercharger path already does.",
-  "request": "Source ticket: MAG-40 — Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
+  "request": "Source ticket: MAG-40 \u2014 Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-16T08:05:46Z",
+  "updated_at": "2026-09-16T09:50:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -16,15 +16,15 @@
     "created_at": "2026-09-16T01:56:32Z"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2,
       3
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -51,7 +51,7 @@
       "scope": "tier:2",
       "made_by": "user",
       "decision": "The edit form renders a derived start % as a placeholder, not a filled value, so Update re-derives it",
-      "why": "Update requires every mutable field, so a pre-filled derived value returns looking user-supplied and gets stamped USER — the exact loop RD2 prevents.",
+      "why": "Update requires every mutable field, so a pre-filled derived value returns looking user-supplied and gets stamped USER \u2014 the exact loop RD2 prevents.",
       "covered_by": null
     },
     {
@@ -105,7 +105,7 @@
       "scope": "change",
       "made_by": "user",
       "decision": "RD8's design half superseded: no capacity port, no measured-capacity wiring. The whole dead efficiency branch is deleted instead (RecentEfficiency, Efficiency, deriveEfficiency, socReadings, carTypeFor, vehicleLookup, DefaultWindow, chargingSourceLimit, capacity.go). Tiers 3 and 4 collapse into one analytics tier.",
-      "why": "Nothing calls RecentEfficiency — the map's only consumer. history_test.go:146 panics saying so, and the dashboard tile reads KmPerPctCalc instead. Deleting removes the second capacity definition cheaper and with no risk.",
+      "why": "Nothing calls RecentEfficiency \u2014 the map's only consumer. history_test.go:146 panics saying so, and the dashboard tile reads KmPerPctCalc instead. Deleting removes the second capacity definition cheaper and with no risk.",
       "covered_by": null
     }
   ],
@@ -116,14 +116,21 @@
       "module": "charging",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T08:05:46Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts written and validated. Database design gate confirmed by the owner. Halted before implementation."
+      "completed_at": "2026-09-16T09:50:00Z",
+      "duration_seconds": 6254,
+      "budget": {
+        "five_hour_pct_delta": 33,
+        "cost_usd_delta": 13.3,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of the three wave deltas plus the T4 fix and the review round"
+      },
+      "notes": "Archived. start_battery_source column, derivation on Create and Update, capacity-query exclusion. Reviewer approved round 1 with no findings. The owner's first make check caught a stale test (T4), fixed with the owner's approval."
     },
     {
       "id": 2,
@@ -167,7 +174,7 @@
     {
       "at": "2026-09-16T01:56:32Z",
       "agent": "leader",
-      "event": "run scope: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers. autopilot disabled for this reason."
+      "event": "run scope: HALT AFTER STEP 4 \u2014 tier 1 artifacts + progress.json only, no implementation workers. autopilot disabled for this reason."
     },
     {
       "at": "2026-09-16T02:15:00Z",
@@ -183,6 +190,11 @@
       "at": "2026-09-16T08:05:46Z",
       "agent": "leader",
       "event": "tier 1 artifacts complete; design gate passed; change progress.json created. Run halts here per the pickup scope."
+    },
+    {
+      "at": "2026-09-16T09:50:00Z",
+      "agent": "leader",
+      "event": "tier 1 archived into openspec/changes/archive/charging/2026-09-16-RM61-charging-add-manual-entry-start-derivation. Specs synced: manual-charge-log +1 requirement, monthly-effective-capacity ~1. Leader removed the delta-only 'MODIFIED from its prior revision' paragraph from the LIVING spec and rejoined a scenario heading the archive step had wrapped. MAG-40 moved Todo -> In Progress (fired late; it was missed at the first dispatch)."
     }
   ]
 }

@@ -5,34 +5,33 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
   "request": "MAG-40 \u2014 Tier 1 of RM61: Writer.Create and Writer.Update derive a missing start_battery_pct from the energy and the end %, and a new start_battery_source column keeps a derived row out of the monthly capacity job. Unit tests: included.",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [
-      "4.3",
-      "O1",
-      "O2"
+      "4.3"
     ],
     "blocked": [],
     "done": [
-      "4.1",
-      "4.2",
-      "5.1",
-      "L1",
-      "L2"
-    ],
-    "awaiting-user-verification": [
       "1.1",
       "1.2",
       "1.3",
       "2.1",
       "2.2",
       "3.1",
-      "3.2"
-    ]
+      "3.2",
+      "4.1",
+      "4.2",
+      "5.1",
+      "L1",
+      "L2",
+      "O1",
+      "O2"
+    ],
+    "awaiting-user-verification": []
   },
   "created_at": "2026-09-16T08:05:46Z",
-  "updated_at": "2026-09-16T09:30:00Z",
+  "updated_at": "2026-09-16T09:45:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -52,7 +51,7 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T08:28:00Z",
@@ -77,7 +76,7 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T08:28:00Z",
@@ -105,7 +104,7 @@
         "1.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T08:28:00Z",
@@ -132,7 +131,7 @@
         "1.3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T08:58:00Z",
@@ -160,7 +159,7 @@
         "2.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T08:58:00Z",
@@ -187,7 +186,7 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T09:02:00Z",
@@ -214,7 +213,7 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-16T09:02:00Z",
@@ -340,14 +339,14 @@
         "5.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "owner",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
+      "started_at": "2026-09-16T09:45:00Z",
+      "completed_at": "2026-09-16T09:45:00Z",
+      "duration_seconds": 0,
       "budget": null,
-      "notes": null,
+      "notes": "Owner ran make migrate-up and make check. First run failed on T4; after the T4 fix the owner re-ran make check and reported it passing.",
       "owner": "owner"
     },
     {
@@ -358,14 +357,14 @@
         "O1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "owner",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
+      "started_at": "2026-09-16T09:40:00Z",
+      "completed_at": "2026-09-16T09:40:00Z",
+      "duration_seconds": 0,
       "budget": null,
-      "notes": null,
+      "notes": "Owner ran the GROUP BY on the real database: 3 rows with a NULL source, 12 USER, no ESTIMATED. Matches the backfill rule exactly.",
       "owner": "owner"
     },
     {
@@ -462,10 +461,18 @@
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": "not-started",
-    "rounds": []
+    "brief": "Review tier 1 of RM61 on branch ft/RM61-MAG-40-manual-charge-start-derivation, commits 02e4caa, f52425f, 7642fc4, 0532b97. Read the DIFF, not the whole module. Validate: (1) every write stays inside internal/charging (no other module touched except the root README line and kkpa/context/, both leader-owned); (2) the migration matches the owner-confirmed design EXACTLY \u2014 nullable TEXT, CHECK IN ('USER','ESTIMATED'), no NOT NULL, no DEFAULT, no cross-column CHECK, no index, separate backfill UPDATE to USER. Any deviation is a blocker finding; (3) resolveStartBatteryPct matches design.md D1 and is typed on packCapacityLookup, not store (D4), and runs after resolveEnergy in BOTH Create and Update; (4) a caller-supplied Entry.StartBatterySource is never read (D4), and a caller-typed StartBatteryPct is never recomputed (roadmap RD4); (5) the capacity query's new AND start_battery_source = 'USER' filter (D3) \u2014 and that the integration test proves the exclusion through MonthlyCapacityCalculator.Calculate, not through the resolver's return value; (6) the tests assert design.md \u00a7Test Contract's authored expectations, NOT whatever the implementation happens to return. Every contract row A1-A9, B1-B3, C1-C7, D1 must be covered; (7) T4 in db_inferred_capacity_entries_integration_test.go: the owner approved changing it (decision D-T4). Check the change is honest and loses no coverage \u2014 confirm T6 still covers NULL start giving a NULL generated column; (8) proposal.md's CORRECTED DURING IMPLEMENTATION note is accurate; (9) no code comment cites design.md, a decision id, RM61, MAG-40, or a tier number \u2014 the leader stripped these from the two new test files (decision D-COMMENTS); sibling test files still carry them and are OUT of scope; (10) docs track the change: internal/charging/AGENTS.md, the three kkpa/context/ files, and the root README provenance-column line; (11) anti-gaming: no task title or acceptance criterion was weakened or deleted; (12) openspec/changes/archive/ is untouched. Signals: go build ./..., go vet ./... and gofmt -l were run by the ASSISTANT and are clean. make migrate-up and make check were run by the OWNER, who reported them passing. Judge test quality by READING the tests \u2014 do not run the suite yourself.",
+    "agent": "charging-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-16T10:15:00Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
   },
   "events": [
     {
@@ -522,6 +529,16 @@
       "at": "2026-09-16T09:30:00Z",
       "agent": "leader",
       "event": "owner ran make check: TestCreate_InferredCapacity_TableCases/T4 FAILED (got 64, want nil). Root cause: the derivation fills a missing start, so the generated inferred_capacity_kwh_calc is no longer NULL for that shape. proposal.md wrongly listed that column as UNCHANGED \u2014 a design gap, not a worker error. T4 updated per D-T4; proposal.md corrected with a visible note. Awaiting the owner's re-run."
+    },
+    {
+      "at": "2026-09-16T09:40:00Z",
+      "agent": "leader",
+      "event": "O2 verified BY THE OWNER on the real database: start_battery_source is NULL on 3 rows and USER on 12, with no ESTIMATED row. The backfill's own WHERE clause makes the NULL-pairing structural."
+    },
+    {
+      "at": "2026-09-16T09:45:00Z",
+      "agent": "leader",
+      "event": "THE OWNER ran make migrate-up and make check and reported the suite PASSING. All implementation tasks promoted to done on the owner's report, not the assistant's. Change status -> verified. Dispatching charging-reviewer (Sonnet)."
     }
   ]
 }
