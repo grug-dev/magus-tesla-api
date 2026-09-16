@@ -23,14 +23,14 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
-// recalcOverlap is the D4 commit-skew guard (carries IO-4): every Reconcile
-// read queries a source with updated_at >= cursor - recalcOverlap, so a
-// transaction that commits after Reconcile's own cursor read is still picked
-// up on the next run. Recalculate's UPSERT is idempotent on
-// (tesla_id, metric_date), so a row this overlap re-reads
-// unchanged produces a byte-identical write -- a correctness no-op paid for
-// in a handful of extra read rows (design.md D4). Mirrors reader.go's own
-// chargingSourceLimit named-constant convention.
+// recalcOverlap is the commit-skew guard: every Reconcile read queries a
+// source with updated_at >= cursor - recalcOverlap, so a transaction that
+// commits after Reconcile's own cursor read is still picked up on the next
+// run. Recalculate's UPSERT is idempotent on (tesla_id, metric_date), so a
+// row this overlap re-reads unchanged produces a byte-identical write -- a
+// correctness no-op paid for in a handful of extra read rows. Named rather
+// than inlined so every call site states its intent instead of a bare
+// duration literal.
 const recalcOverlap = 24 * time.Hour
 
 // The three independent watermark sources (design.md D3, carries IO-3),

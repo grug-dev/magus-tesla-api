@@ -18,21 +18,14 @@ metric needs an external doc, e.g. a battery-chemistry reference, add it here.)
 ## Responsibility
 
 `internal/analytics/` is the platform's first **derived-metrics** module. It owns
-analytics computed FROM other modules' stored data, not the data itself. Its first
-(and currently only) metric is rolling energy-per-kilometre (Wh/km) over a fixed
-window, derived from `internal/telemetry/`'s snapshot history plus the two
-charging-cost sources the platform stores (`charging.SuperchargerSessionAnalyticsReader`
-and `charging.Reader`), with a pack-capacity correction sourced from a small
-in-package reference table keyed on the vehicle's `car_type`
-(`internal/account.Vehicle.CarType`).
+analytics computed FROM other modules' stored data, not the data itself. It derives
+and serves the precomputed `vehicle_metrics` figures — per-day battery-consumed,
+per-day odometer distance, per-day battery level, and each vehicle's latest status —
+through its `Reader` port. It also owns the `charge_gaps` worklist: vehicle-days
+whose battery math does not add up.
 
 It does the derivation; it does not render it — the gateway consumes this module's
-`Reader` port and formats the value for display (`apex-dashboard-efficiency-tile`,
-a separate follow-on change; not yet wired as of `battery-add-efficiency-metric`).
-
-Full design rationale (why hybrid energy, why consistent-pair SoC selection, why the
-capacity table is model-coarse, why `Approximate` exists instead of refusing to
-answer): `openspec/changes/battery-add-efficiency-metric/design.md`.
+`Reader` port and formats each value for display.
 
 Under the RM29 roadmap (tier 1 of 8), this module owns what the application
 calculates. Tier 3 gave it a database of its own (see "Data ownership" below).
@@ -47,12 +40,11 @@ The module's contract is a Go interface (`ai/go-conventions.md` — interface-fi
 **Signatures and the per-method doc comments live in `internal/analytics/analytics.go` — read
 them there.** They are deliberately not copied here.
 
-Three ports. `Reader` exposes five reads; `Recalculator` and `GapWriter` are the write side:
+Three ports. `Reader` exposes four reads; `Recalculator` and `GapWriter` are the write side:
 
 | Port | Method | Returns |
 |---|---|---|
-| `Reader` | `RecentEfficiency` | `Efficiency` — rolling Wh/km over the constructed window |
-| | `ConsumedByDay` | `[]DayConsumption` — corrected per-day battery-consumed % |
+| `Reader` | `ConsumedByDay` | `[]DayConsumption` — corrected per-day battery-consumed % |
 | | `OdometerDeltaByDay` | `[]DayDistance` — per-day distance from `vehicle_metrics` |
 | | `BatteryLevelByDay` | `[]DayBattery` — per-day battery level + estimated range |
 | | `LatestMetricsForVehicles` | `[]VehicleStatus` — latest row per vehicle in a given vehicle set |
@@ -61,9 +53,6 @@ Three ports. `Reader` exposes five reads; `Recalculator` and `GapWriter` are the
 
 What the source does not tell you:
 
-- **Never fabricate a number.** `RecentEfficiency` returns `ok=false` with no error when there
-  is not enough data. `Efficiency.Approximate=true` means the pack capacity was unknown and
-  the SoC-drift correction was dropped — the computation still ran.
 - **Results are SPARSE, and absence IS the "no data" signal.** A day with no computable value
   gets no entry — never a zero. Do not densify a result to make a chart simpler; the gateway
   already handles gaps.
@@ -96,8 +85,6 @@ What the source does not tell you:
   `ListSessionsByVehicleUpdatedSince`, `ListSessionsByVehicle`) and the domain type
   `charging.Session` — this module's Supercharger-session source, replacing the
   telemetry-backed port/type this section named before that tier.
-- `internal/account` — the narrow `RegisteredVehicles` method (satisfied by
-  `account.Service`) and the domain type `account.Vehicle`.
 - `internal/clock` — the platform's time primitives (`RM35-analytics-adopt-clock`).
   This module calls `clock.CalendarDay(t, time.UTC)` and `clock.Now()`. Note it still
   owns **no `*time.Location` of its own** (D-B12): every bucketing call passes
@@ -164,11 +151,7 @@ Two rules about this module's tables that are easy to break without opening them
   API response; these tables store this module's own Go-computed conclusions.
 
 The module owns no *domain* data: every input is another module's, read through its public
-port. What it owns is the **derivation** — which is the point of the boundary. The one
-non-database piece of module-local state is `capacity.go`'s `packCapacityKWh`, an in-package
-Go `map[string]float64` maintained from public Tesla spec sheets. It is **not** a database
-object and **not** subject to the `database` design gate — update the map directly, no
-migration.
+port. What it owns is the **derivation** — which is the point of the boundary.
 
 ### `GapWriter`'s upsert-and-delete lifecycle — **no `resolved_at`, ever**
 
@@ -193,11 +176,7 @@ for the rejected `resolved_at` alternative and its reasoning.
 
 The module still owns no *domain* data: every input is another module's, read through
 its public port. What it owns is the **derivation of that input** — which is the whole
-point of the boundary (`ai/architecture.md` §6). The one non-database piece of
-module-local state remains `capacity.go`'s `packCapacityKWh`, an in-package Go
-`map[string]float64` maintained from public Tesla spec sheets, not a database object
-and not subject to the `database` design gate. Update that map directly (a code
-change); it needs no migration.
+point of the boundary (`ai/architecture.md` §6).
 
 ## Testing
 
@@ -218,7 +197,8 @@ state.
 - **`GapWriter.ReconcileWindow` has no offline counterpart, by design.** It is a transactional
   read-diff-write, not a pure function, so there is nothing to unit-test without a database.
   Do not add a fake-backed "unit test" for it.
-- The pure derivation functions take plain inputs and need no fakes. `RecentEfficiency` is
-  tested against hand-written fakes of its four ports — fake *ports*, not a fake *store*.
+- `Recalculate`'s fetch half is tested offline against hand-written fakes of its three
+  ports (telemetry, supercharger, manual) — fake *ports*, not a fake *store*. Its write
+  half (the UPSERT/DELETE transaction) needs a real database instead.
 
 Run `go test ./internal/analytics/...`.

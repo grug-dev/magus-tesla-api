@@ -33,7 +33,7 @@ Implementation may start immediately once this proposal is accepted.
 
 ## Wave 1 — the deletion (module: analytics)
 
-- [ ] **1.1** **[module: analytics worker]** Re-run the verification grep first, as the gate on
+- [x] **1.1** **[module: analytics worker]** Re-run the verification grep first, as the gate on
   everything below:
   ```
   grep -rn RecentEfficiency --include="*.go" --include="*.templ" .
@@ -62,7 +62,7 @@ Implementation may start immediately once this proposal is accepted.
     `NewRecalculator`'s own four parameters are unrelated (design.md Context fact 3).
   `depends_on`: — (verification is the gate) · `parallel_ok`: no (blocks everything else)
 
-- [ ] **1.2** **[module: analytics worker]** Fix the one in-module file left referencing a
+- [x] **1.2** **[module: analytics worker]** Fix the one in-module file left referencing a
   deleted symbol or the old six-argument constructor:
   - `internal/analytics/db_integration_test.go`: shrink `newRealReader`
     (`func newRealReader(pool *pgxpool.Pool) Reader`) to call `NewReader(pool)` alone — drop
@@ -81,7 +81,7 @@ Implementation may start immediately once this proposal is accepted.
     without naming a deleted constant (design.md Context fact 7).
   `depends_on`: 1.1 · `parallel_ok`: with 1.4, 1.5
 
-- [ ] **1.3** **[module: analytics worker]** `internal/analytics/reader_test.go` — remove
+- [x] **1.3** **[module: analytics worker]** `internal/analytics/reader_test.go` — remove
   exactly the coverage proposal.md §"Tests removed" names and nothing else:
   - The eight `TestRecentEfficiency_*` functions.
   - The four fakes those tests alone construct: `fakeTelemetryReader`,
@@ -101,14 +101,14 @@ Implementation may start immediately once this proposal is accepted.
     own.
   `depends_on`: 1.1 · `parallel_ok`: with 1.2, 1.4, 1.5
 
-- [ ] **1.4** **[module: analytics worker]** Run the Test Contract's checks **T1–T8**
+- [x] **1.4** **[module: analytics worker]** Run the Test Contract's checks **T1–T8**
   (design.md §"Test Contract") after 1.1–1.3 land. Report each one's result — pass/fail, and
   for T1/T7 the actual grep output if non-empty. This is the acceptance check for the whole
   wave, not a formality: a task above is not "done" until its corresponding contract check
   passes.
   `depends_on`: 1.1, 1.2, 1.3 · `parallel_ok`: no
 
-- [ ] **1.5** **[module: analytics worker]** Run the cheap deterministic signals the
+- [x] **1.5** **[module: analytics worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows, scoped to this module first: `gofmt -l ./internal/analytics`,
   `go vet ./internal/analytics/...`, `go build ./internal/analytics/...`. These three should be
   clean at this point even though the **repo-wide** `go build ./...` is still red until Wave 2
@@ -150,7 +150,7 @@ Implementation may start immediately once this proposal is accepted.
 
 ## Wave 3 — documentation (`CLAUDE.md` §Non-negotiables: docs track structural change)
 
-- [ ] **3.1** **[module: analytics worker]** `internal/analytics/AGENTS.md`:
+- [x] **3.1** **[module: analytics worker]** `internal/analytics/AGENTS.md`:
   - §"Responsibility" — rewrite the paragraph that currently describes the module's "first
     (and currently only) metric" as rolling energy-per-kilometre with a `car_type` capacity
     table (design.md **D3**). State instead what the module does after this change: it derives
@@ -170,7 +170,7 @@ Implementation may start immediately once this proposal is accepted.
   `depends_on`: 1.1, 1.2, 1.3 (describe the post-deletion state, not the pre-deletion one) ·
   `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: analytics worker]** Confirm no other doc under `internal/analytics/`
+- [x] **3.2** **[module: analytics worker]** Confirm no other doc under `internal/analytics/`
   or the root `README.md` needs an edit. This change removes no module, no runnable, and no
   table — the root `README.md`'s "Project Structure" tree and "Architecture" table are
   unaffected. Report this confirmation rather than skipping it silently.

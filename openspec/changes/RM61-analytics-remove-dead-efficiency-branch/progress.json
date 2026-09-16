@@ -5,16 +5,39 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
   "request": "Delete the dead efficiency branch, and with it the platform's second pack-capacity definition. RecentEfficiency is never called by any handler, template or command. Roadmap decision RD9: no capacity port in charging, delete instead. NewReader collapses from six parameters to one.",
-  "status": "proposed",
+  "status": "applied",
   "rollup": {
-    "current": [],
-    "pending": ["1.1", "1.2", "1.3", "1.4", "1.5", "2.1", "2.2", "2.3", "2.4", "2.5", "3.1", "3.2", "3.3", "3.4", "O1", "L1", "L2"],
+    "current": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5"
+    ],
+    "pending": [
+      "3.3",
+      "O1"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "3.1",
+      "3.2",
+      "3.4",
+      "L1",
+      "L2"
+    ]
   },
   "created_at": "2026-09-16T20:01:23Z",
-  "updated_at": "2026-09-16T20:01:23Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-16T20:20:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -24,23 +47,433 @@
     "created_at": "2026-09-16T01:56:32Z"
   },
   "tasks": [
-    { "id": "1.1", "title": "Re-verify the grep, then delete derive.go, capacity.go, and the dead members of analytics.go and reader.go", "module": "analytics", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "1.2", "title": "Fix in-module references: db_integration_test.go newRealReader + two stale doc comments, recalculate.go:33", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "1.3", "title": "Trim reader_test.go (8 TestRecentEfficiency_* + 4 fakes) and delete derive_test.go", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "1.4", "title": "Run Test Contract checks T1-T8", "module": "analytics", "depends_on": ["1.1", "1.2", "1.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "1.5", "title": "Run the cheap signals: gofmt -l, go vet, go build, make lint (module-scoped)", "module": "analytics", "depends_on": ["1.1", "1.2", "1.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.1", "title": "LEADER: shrink analytics.NewReader call in cmd/web/main.go:70 + its comment", "module": "platform", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.2", "title": "LEADER: shrink analytics.NewReader call in cmd/poller/main.go:125 + its comment", "module": "platform", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.3", "title": "LEADER: remove the RecentEfficiency fake stub in internal/gateway/handlers/history_test.go", "module": "gateway", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.4", "title": "LEADER: remove the RecentEfficiency fake stub in internal/app/processor_test.go", "module": "app", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.5", "title": "LEADER: repo-wide go build ./... and go vet ./...", "module": "platform", "depends_on": ["2.1", "2.2", "2.3", "2.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.1", "title": "Rewrite internal/analytics/AGENTS.md: Responsibility, Reader table, imports, data-ownership sentences", "module": "analytics", "depends_on": ["1.1", "1.2", "1.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.2", "title": "Confirm no other doc under internal/analytics/ describes the deleted branch", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.3", "title": "LEADER: sync the specs/analytics delta into openspec/specs/analytics/spec.md", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.4", "title": "LEADER: grep kkpa/context/ for the deleted symbols and fix any stale guide", "module": "analytics", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "O1", "title": "OWNER: run the test suite (make check)", "module": "platform", "depends_on": ["2.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "L1", "title": "LEADER: confirm build/vet green repo-wide after every wave", "module": "platform", "depends_on": ["2.5"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "L2", "title": "LEADER: confirm the root README needs no edit", "module": "platform", "depends_on": ["3.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+    {
+      "id": "1.1",
+      "title": "Re-verify the grep, then delete derive.go, capacity.go, and the dead members of analytics.go and reader.go",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:02:18Z",
+      "completed_at": "2026-09-16T20:06:00Z",
+      "duration_seconds": null,
+      "notes": "Grep gate passed. Deleted derive.go, capacity.go; removed RecentEfficiency, Efficiency, DefaultWindow from analytics.go; reader struct collapsed to metrics, NewReader to NewReader(pool). Dropped the now-unused uuid import.",
+      "budget": {
+        "five_hour_pct_start": 18.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 5.91,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covering 1.1-1.5, 3.1, 3.2; delta copied onto each"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Fix in-module references: db_integration_test.go newRealReader + two stale doc comments, recalculate.go:33",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:06:00Z",
+      "completed_at": "2026-09-16T20:08:00Z",
+      "duration_seconds": null,
+      "notes": "newRealReader shrunk to NewReader(pool). Reworded recordingSuperchargerReader and recalcOverlap doc comments, dropping stale cross-references and design-doc citations.",
+      "budget": {
+        "five_hour_pct_start": 18.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 5.91,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covering 1.1-1.5, 3.1, 3.2; delta copied onto each"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "Trim reader_test.go (8 TestRecentEfficiency_* + 4 fakes) and delete derive_test.go",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:08:00Z",
+      "completed_at": "2026-09-16T20:10:00Z",
+      "duration_seconds": null,
+      "notes": "Deleted 8 TestRecentEfficiency_* and derive_test.go. Found the proposal's Tests-removed list wrong: six helpers have live callers elsewhere. Restored them. Only fakeVehicleLookup, sp, snap were truly dead.",
+      "budget": {
+        "five_hour_pct_start": 18.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 5.91,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covering 1.1-1.5, 3.1, 3.2; delta copied onto each"
+      }
+    },
+    {
+      "id": "1.4",
+      "title": "Run Test Contract checks T1-T8",
+      "module": "analytics",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:10:00Z",
+      "completed_at": "2026-09-16T20:11:00Z",
+      "duration_seconds": null,
+      "notes": "Test Contract T1-T8 run. T1 and T4 red as designed until the leader's wave B; every other check passed.",
+      "budget": {
+        "five_hour_pct_start": 18.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 5.91,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covering 1.1-1.5, 3.1, 3.2; delta copied onto each"
+      }
+    },
+    {
+      "id": "1.5",
+      "title": "Run the cheap signals: gofmt -l, go vet, go build, make lint (module-scoped)",
+      "module": "analytics",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:11:00Z",
+      "completed_at": "2026-09-16T20:12:19Z",
+      "duration_seconds": null,
+      "notes": "Module-scoped gofmt -l, go vet, go build and golangci-lint all clean.",
+      "budget": {
+        "five_hour_pct_start": 18.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 5.91,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covering 1.1-1.5, 3.1, 3.2; delta copied onto each"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "LEADER: shrink analytics.NewReader call in cmd/web/main.go:70 + its comment",
+      "module": "platform",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T20:12:19Z",
+      "completed_at": "2026-09-16T20:20:00Z",
+      "duration_seconds": 461,
+      "notes": "cmd/web/main.go: NewReader(pool) alone, comment rewritten to say the port reads vehicle_metrics only.",
+      "budget": {
+        "five_hour_pct_start": 32.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-executed wave B; measured at the wave commit"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "LEADER: shrink analytics.NewReader call in cmd/poller/main.go:125 + its comment",
+      "module": "platform",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T20:12:19Z",
+      "completed_at": "2026-09-16T20:20:00Z",
+      "duration_seconds": 461,
+      "notes": "cmd/poller/main.go: same shrink. Removed the stale window-argument paragraph; kept the shared-ports rationale.",
+      "budget": {
+        "five_hour_pct_start": 32.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-executed wave B; measured at the wave commit"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "LEADER: remove the RecentEfficiency fake stub in internal/gateway/handlers/history_test.go",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T20:12:19Z",
+      "completed_at": "2026-09-16T20:20:00Z",
+      "duration_seconds": 461,
+      "notes": "history_test.go: removed the panicking RecentEfficiency stub and the two doc comments that explained it.",
+      "budget": {
+        "five_hour_pct_start": 32.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-executed wave B; measured at the wave commit"
+      }
+    },
+    {
+      "id": "2.4",
+      "title": "LEADER: remove the RecentEfficiency fake stub in internal/app/processor_test.go",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T20:12:19Z",
+      "completed_at": "2026-09-16T20:20:00Z",
+      "duration_seconds": 461,
+      "notes": "processor_test.go: removed the no-op RecentEfficiency stub.",
+      "budget": {
+        "five_hour_pct_start": 32.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-executed wave B; measured at the wave commit"
+      }
+    },
+    {
+      "id": "2.5",
+      "title": "LEADER: repo-wide go build ./... and go vet ./...",
+      "module": "platform",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T20:12:19Z",
+      "completed_at": "2026-09-16T20:20:00Z",
+      "duration_seconds": 461,
+      "notes": "go build ./... and go vet ./... both clean repo-wide. make lint: 0 issues. boundary/archive/naming/i18n guards pass.",
+      "budget": {
+        "five_hour_pct_start": 32.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-executed wave B; measured at the wave commit"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "Rewrite internal/analytics/AGENTS.md: Responsibility, Reader table, imports, data-ownership sentences",
+      "module": "analytics",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:10:00Z",
+      "completed_at": "2026-09-16T20:12:00Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md rewritten: Responsibility, Reader table, imports, data ownership. Also fixed two stale bullets the task list did not name.",
+      "budget": {
+        "five_hour_pct_start": 18.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 5.91,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covering 1.1-1.5, 3.1, 3.2; delta copied onto each"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "Confirm no other doc under internal/analytics/ describes the deleted branch",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:12:00Z",
+      "completed_at": "2026-09-16T20:12:19Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md is the only doc under internal/analytics/. Flagged the root README dependency graph as stale; the leader found two more stale spots it missed.",
+      "budget": {
+        "five_hour_pct_start": 18.0,
+        "five_hour_pct_end": 32.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 5.91,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covering 1.1-1.5, 3.1, 3.2; delta copied onto each"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "LEADER: sync the specs/analytics delta into openspec/specs/analytics/spec.md",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "LEADER: grep kkpa/context/ for the deleted symbols and fix any stale guide",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T20:12:19Z",
+      "completed_at": "2026-09-16T20:20:00Z",
+      "duration_seconds": 461,
+      "notes": "One KB hit: charge-record-mutation.md listed analytics.RecentEfficiency as render-time-only. Removed.",
+      "budget": {
+        "five_hour_pct_start": 32.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-executed wave B; measured at the wave commit"
+      }
+    },
+    {
+      "id": "O1",
+      "title": "OWNER: run the test suite (make check)",
+      "module": "platform",
+      "depends_on": [
+        "2.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "L1",
+      "title": "LEADER: confirm build/vet green repo-wide after every wave",
+      "module": "platform",
+      "depends_on": [
+        "2.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T20:12:19Z",
+      "completed_at": "2026-09-16T20:20:00Z",
+      "duration_seconds": 461,
+      "notes": "Build and vet green repo-wide after wave B, confirming T4.",
+      "budget": {
+        "five_hour_pct_start": 32.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-executed wave B; measured at the wave commit"
+      }
+    },
+    {
+      "id": "L2",
+      "title": "LEADER: confirm the root README needs no edit",
+      "module": "platform",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T20:12:19Z",
+      "completed_at": "2026-09-16T20:20:00Z",
+      "duration_seconds": 461,
+      "notes": "README needed three edits, not one: the tree comment and the architecture row both said Wh/km, and the dependency graph listed account.",
+      "budget": {
+        "five_hour_pct_start": 32.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-executed wave B; measured at the wave commit"
+      }
+    }
   ],
   "review": {
     "status": "pending",
@@ -57,10 +490,56 @@
       "decision": "Spanish briefing approved; tier 3 proceeds. The owner asked whether the two pages share one formula.",
       "why": "They do share derivedStartBatteryPct in charging, but that is not what this tier deletes. This tier deletes analytics' deriveEfficiency, which nothing calls.",
       "covered_by": "roadmap RD9"
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-16T20:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Waves A and B land in ONE commit instead of two",
+      "why": "NewReader's signature and its four call sites cannot be split without leaving a commit whose build is red. Atomic beats one-commit-per-wave here.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-16T20:20:00Z",
+      "scope": "task:1.3",
+      "made_by": "user",
+      "decision": "The owner chose to commit the three shared files whole, pulling in their uncommitted golangci-lint work",
+      "why": "Splitting by hunk was offered and declined. The owner judged the hunk split not worth the risk.",
+      "covered_by": null
     }
   ],
   "events": [
-    { "at": "2026-09-16T20:01:23Z", "agent": "leader", "event": "resumed in a fresh session at the tier 2/3 boundary. budget 5h 2% (bucket reset), context 12%. Leader re-verified RD9's dead-code claim with a repo-wide grep before dispatching." },
-    { "at": "2026-09-16T20:01:23Z", "agent": "leader", "event": "tier 3 artifacts created and validated (openspec validate --strict passes). No database object touched, so no design gate. Spanish briefing posted; the owner approved and asked a premise question about the shared formula, answered before dispatch." }
+    {
+      "at": "2026-09-16T20:01:23Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session at the tier 2/3 boundary. budget 5h 2% (bucket reset), context 12%. Leader re-verified RD9's dead-code claim with a repo-wide grep before dispatching."
+    },
+    {
+      "at": "2026-09-16T20:01:23Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts created and validated (openspec validate --strict passes). No database object touched, so no design gate. Spanish briefing posted; the owner approved and asked a premise question about the shared formula, answered before dispatch."
+    },
+    {
+      "at": "2026-09-16T20:02:18Z",
+      "agent": "leader",
+      "event": "artifacts committed 7619eae. Wave A dispatched: ONE serial analytics worker (sonnet) for 1.1-1.5 + 3.1, 3.2. Budget start 5h 18%, context 17%. Batched serially per the skill default: the tasks share one module and one doc-pack read."
+    },
+    {
+      "at": "2026-09-16T20:12:19Z",
+      "agent": "leader",
+      "event": "wave A returned. The worker found proposal.md's 'Tests removed' list WRONG: fakeTelemetryReader, fakeSuperchargerReader, fakeManualReader, fp, intPtr and approxEqual/epsilon have live callers in recalculate_test.go, db_integration_test.go, consumed_test.go and consumption_test.go. It restored all six rather than following the artifact. Deleting them would have broken four test files. Leader accepts the deviation."
+    },
+    {
+      "at": "2026-09-16T20:12:19Z",
+      "agent": "leader",
+      "event": "worker reported fabricated timestamps (00:00:00Z-01:45:00Z); the wave actually ran 20:02:18Z-20:12:19Z. Leader transcribed real times, not the reported ones."
+    },
+    {
+      "at": "2026-09-16T20:20:00Z",
+      "agent": "leader",
+      "event": "wave B (leader-owned) complete: 2.1-2.5, 3.4, L1, L2. go build ./... and go vet ./... clean repo-wide, make lint 0 issues, boundary/archive/naming/i18n guards pass. RecentEfficiency now has ZERO matches repo-wide (Test Contract T1)."
+    }
   ]
 }

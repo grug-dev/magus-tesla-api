@@ -403,17 +403,6 @@ func nextSessionID() int64 {
 	return sessionIDSeq
 }
 
-// pgInt8FromPtr maps a *int64 to a nullable pgtype.Int8 — the
-// supercharger_sessions.tesla_id shape (nullable BIGINT). Test-local: this
-// column belongs to telemetry, not analytics, so the conversion does not
-// belong in mapping.go (analytics' own DB-facing mapping boundary).
-func pgInt8FromPtr(v *int64) pgtype.Int8 {
-	if v == nil {
-		return pgtype.Int8{Valid: false}
-	}
-	return pgtype.Int8{Int64: *v, Valid: true}
-}
-
 // pgInt2FromIntPtr maps a *int to a nullable pgtype.Int2 — the
 // supercharger_sessions.start_battery_pct/end_battery_pct shape (nullable
 // SMALLINT). Test-local for the same reason as pgInt8FromPtr above.
@@ -461,28 +450,10 @@ func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.Super
 	return sessionID
 }
 
-// reviseSuperchargerSession simulates a Tesla billing-state revision on an
-// already-seeded session (spec.md "A revised Supercharger session weeks old
-// is picked up"): charge_start_date_time/charge_stop_date_time are left
-// untouched (the session's own calendar day never moves), only
-// end_battery_pct and updated_at change — exactly what a real Tesla
-// re-fetch-and-UPSERT would do to a session whose fee/battery data was
-// corrected post-session (design DBS3 in telemetry's own migration comment).
-func reviseSuperchargerSession(t *testing.T, pool *pgxpool.Pool, sessionID int64, endBatteryPct int, updatedAt time.Time) {
-	t.Helper()
-	_, err := pool.Exec(context.Background(),
-		`UPDATE telemetry.supercharger_history SET end_battery_pct = $1, updated_at = $2 WHERE session_id = $3`,
-		int16(endBatteryPct), pgtype.Timestamptz{Time: updatedAt, Valid: true}, sessionID,
-	)
-	if err != nil {
-		t.Fatalf("revising supercharger_sessions: %v", err)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // RM31-analytics-read-sessions-from-charging (tier 3) seeding helpers —
 // charge_sessions is now this module's real Supercharger-session source
-// (design.md §3); seedSuperchargerSession/reviseSuperchargerSession above are
+// (design.md §3); seedSuperchargerSession above is
 // KEPT, not removed — Test Contract T3 (below) still legitimately seeds
 // telemetry.supercharger_sessions as the "stale telemetry copy" side of its
 // comparison (tasks.md 2.2's own acceptance note). Only this module's OWN
@@ -832,13 +803,11 @@ func newRealRecalculator(pool *pgxpool.Pool) Recalculator {
 	return NewRecalculator(pool, telemetry.NewReader(pool), charging.NewSuperchargerSessionAnalyticsReader(pool), charging.NewReader(pool))
 }
 
-// newRealReader builds a Reader the same way — real telemetry/charging
-// Readers, a fresh *pgxpool-backed analyticsdb.Queries via NewReader's own
-// pool parameter. account is a no-op fakeVehicleLookup (reader_test.go):
-// ConsumedByDay/OdometerDeltaByDay never call it. Same RM31 tier 3 retype as
-// newRealRecalculator above.
+// newRealReader builds a Reader over a fresh *pgxpool-backed
+// analyticsdb.Queries via NewReader's own pool parameter. Every Reader
+// method reads only vehicle_metrics, so no other dependency is needed.
 func newRealReader(pool *pgxpool.Pool) Reader {
-	return NewReader(pool, telemetry.NewReader(pool), charging.NewSuperchargerSessionAnalyticsReader(pool), charging.NewReader(pool), &fakeVehicleLookup{}, DefaultWindow)
+	return NewReader(pool)
 }
 
 // ===========================================================================
@@ -1274,15 +1243,11 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 // ===========================================================================
 
 // recordingSuperchargerReader is a fake charging.SuperchargerSessionAnalyticsReader
-// local to this file, distinct in PURPOSE from reader_test.go's own
-// fakeSuperchargerReader (which exists to test RecentEfficiency's own
-// call shape and simply returns every fixture session unconditionally): this
-// fake exists to (a) prove WHICH port method Reconcile actually calls
-// (design.md §5 T2's call-log assertion) and (b) when teslaScoped is true,
-// enforce the SAME "a session whose TeslaID is nil is never returned for any
-// teslaID" filter the real SQL implementation guarantees
-// (charging.go's SuperchargerSessionAnalyticsReader doc comment, design.md
-// §1c / T4) -- rather than trusting consumed.go to filter it, which it
+// local to this file. It exists to (a) prove WHICH port method Reconcile actually
+// calls and (b) when teslaScoped is true, enforce the SAME "a session whose
+// TeslaID is nil is never returned for any teslaID" filter the real SQL
+// implementation guarantees (charging.go's SuperchargerSessionAnalyticsReader
+// doc comment) -- rather than trusting consumed.go to filter it, which it
 // structurally cannot (neither sumSuperchargerPctBetween nor
 // inferMissingChargingType reads TeslaID at all).
 type recordingSuperchargerReader struct {

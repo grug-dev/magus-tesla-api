@@ -59,8 +59,11 @@ make sqlc      # sqlc generate → internal/{account,telemetry,charging,analytic
 # 2. Compile the whole monolith
 make build     # go build ./...   — all internal/ packages + every cmd/
 
-# 3. Full local gate
-make check     # build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard
+# 3. Lint (Go correctness: unchecked errors, dead code, resource leaks)
+make lint      # golangci-lint run ./...   — config in .golangci.yml
+
+# 4. Full local gate
+make check     # build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard
 #              # + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + test
 ```
 
@@ -69,8 +72,9 @@ Raw Go equivalents (no Make):
 ```bash
 go mod tidy
 sqlc generate
-go build ./...   # compile everything
-go vet ./...     # static analysis
+go build ./...        # compile everything
+go vet ./...          # static analysis
+golangci-lint run ./...  # lint — needs the tool; `mise install` gets the pinned version
 go test ./...    # tests — internal/testdb uses TEST_DATABASE_URL when set and reachable,
                  # otherwise a disposable postgres:16-alpine testcontainer
 ```
@@ -127,7 +131,7 @@ magus-tesla-api/
 │   ├── tesla/          # State-less Fleet API adapter (handed creds per call)
 │   ├── telemetry/      # Nightly vehicle snapshot collection + storage (poller)
 │   ├── charging/       # User-asserted charge entries (home/work/3rd-party sessions)
-│   ├── analytics/      # Derived vehicle metrics (Wh/km, consumed %/day, distance/day)
+│   ├── analytics/      # Derived vehicle metrics (consumed %/day, distance/day)
 │   │   └── db/             #   analyticsdb: vehicle_metrics read model + recompute watermarks
 │   ├── app/            # Application layer: ProcessVehicleData (one cycle = sync → charging → analytics) + the daily scheduler. Owns no data.
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
@@ -226,7 +230,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/tesla` | Stateless Fleet API adapter (handed credentials per call) |
 | `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
 | `internal/charging` | User-asserted charge entries (home/work/3rd-party), plus **`charging.supercharger_sessions`** — a mirror of each Supercharger session's window, site, energy and cost, and the home of the human-verified battery percentages. Owns all charge data the app treats as a charge, whoever reported it. Since RM52 tier 1 (MAG-32) it also **measures** each vehicle's effective pack capacity every month into **`charging.monthly_effective_capacity`**, which `packCapacityKWh` reads instead of a hardcoded constant. |
-| `internal/analytics` | Derived vehicle metrics computed over stored telemetry: rolling Wh/km, the per-day **battery consumed %** (raw SoC delta corrected by both charge sources) and per-day **distance**, plus the gap detection it stores through its own `GapWriter`. Owns **`vehicle_metrics`**, a precomputed read model written by `Recalculator` and read by `Reader` — the derivation is no longer recomputed per request. Since RM38 that table also mirrors the eight vehicle-status fields, which `Reader.LatestMetricsForVehicles` serves as the latest-row-per-vehicle status port. See [docs/battery-consumed-graph.md](docs/battery-consumed-graph.md). |
+| `internal/analytics` | Derived vehicle metrics computed over stored telemetry: the per-day **battery consumed %** (raw SoC delta corrected by both charge sources) and per-day **distance**, plus the gap detection it stores through its own `GapWriter`. Owns **`vehicle_metrics`**, a precomputed read model written by `Recalculator` and read by `Reader` — the derivation is no longer recomputed per request. Since RM38 that table also mirrors the eight vehicle-status fields, which `Reader.LatestMetricsForVehicles` serves as the latest-row-per-vehicle status port. See [docs/battery-consumed-graph.md](docs/battery-consumed-graph.md). |
 | `internal/app` | **Application layer.** Exposes one port, `Processor.ProcessVehicleData`, running one full cycle as four named steps — sync fleet data (`telemetry`) → process charging data (the Supercharger mirror into `charging`) → recalculate analytics → measure monthly vehicle capacity — and hosts the daily `Scheduler` that drives it. Step 4 (RM52 tier 2, MAG-32) runs only on the first day of the month, in the platform zone, and measures the previous month through `charging.MonthlyCapacityCalculator`. Owns **no data**: no table, no migration, no pool. Called by `cmd/poller`'s scheduler and its manual-rerun HTTP listener. |
 | `internal/gateway` | Gin + Templ + htmx web layer, styled with Node-less Tailwind + DaisyUI (drawer nav, typed `ui/` component kit). The only package allowed to produce HTML. |
 | `internal/googleauth` | Google OAuth for user login |
@@ -262,7 +266,7 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 ├─ LAYER 2.5 ── application layer ─────────────────────────────────────────┤
 │  app ────────────────► telemetry, charging, analytics, account, clock    │
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
-│  analytics ──────────► account, charging, telemetry, clock               │
+│  analytics ──────────► charging, telemetry, clock                        │
 ├─ LAYER 1 ── domain modules & config ─────────────────────────────────────┤
 │  telemetry ──────────► account, tesla, clock, telemetry/db               │
 │  charging ───────────► charging/db                                       │
@@ -360,7 +364,24 @@ hatch — only for something that is *not* a rewrite of the record, e.g. purging
 `ARCHIVE_GUARD_ALLOW=1 make archive-guard`, with the reason in the commit message.
 
 Before committing any change, run **`make generate`** (sqlc + templ + css) then **`make check`**
-(build + vet + guards + test). `make up` does generate + migrate + run.
+(build + vet + lint + guards + test). `make up` does generate + migrate + run.
+
+### Linting — `make lint`
+
+`make lint` runs **golangci-lint** (`.golangci.yml`). It is Go-correctness checking and is
+deliberately separate from the `*-guard` targets, which check this project's own rules.
+A rule belongs in `.golangci.yml` only when an off-the-shelf linter already implements it.
+
+It adds what `go vet` does not have: **errcheck** (an ignored error return), **unused** (dead
+code), and the resource-leak linters **bodyclose / rowserrcheck / sqlclosecheck** — the Fleet
+API response bodies and the SQL row loops. `misspell` is **off on purpose**: the i18n catalogue
+is bilingual and it reads Spanish words as misspelled English.
+
+The tool is pinned in `mise.toml`. Install it with **`mise install`**, or
+`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`. `make lint` finds it
+on `PATH`, through `mise which`, or in `$(go env GOPATH)/bin`, and tells you how to install it
+if it is missing. Bump the pinned version on purpose — never `latest`, or a linter upgrade turns
+a green `make check` red for something nobody changed.
 
 ---
 

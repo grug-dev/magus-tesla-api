@@ -93,8 +93,8 @@ known divergence lives there.
 | `source_updated_at` | max `updated_at` seen per source this run | `analytics/recalculate.go` `Reconcile` | `vehicle_metric_watermarks` — **nightly only** |
 
 Render-time only, never persisted: `Entry.CostPerKWh` / `.BatteryDelta` / `.SessionDuration`
-(`internal/charging/charging.go`), the page tiles (`external_charges_tiles.go`,
-`buildSuperchargerTiles`), and `analytics.RecentEfficiency`.
+(`internal/charging/charging.go`) and the page tiles (`external_charges_tiles.go`,
+`buildSuperchargerTiles`).
 
 ## Known divergences
 

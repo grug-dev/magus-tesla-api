@@ -239,10 +239,6 @@ var _ analytics.Recalculator = fakeRecalculator{}
 // Fixtures P3-P5 (design D9).
 type fakeAnalyticsReader struct{}
 
-func (fakeAnalyticsReader) RecentEfficiency(_ context.Context, _ uuid.UUID, _ int64) (analytics.Efficiency, bool, error) {
-	return analytics.Efficiency{}, false, nil
-}
-
 func (fakeAnalyticsReader) ConsumedByDay(_ context.Context, _ int64, _, _ time.Time) ([]analytics.DayConsumption, error) {
 	return nil, nil
 }
@@ -477,7 +473,6 @@ var _ charging.MirrorWatermarkStore = (*fakeMirrorWatermarkStore)(nil)
 // missing from byVehicle returns nothing, which is the normal "no new sessions"
 // case. failOn makes that one vehicle's read fail.
 type stubSuperchargerHistoryReader struct {
-	fakeSuperchargerHistoryReader
 	byVehicle    map[int64][]telemetry.SuperchargerHistory
 	failOn       int64
 	sinceSeen    []time.Time
