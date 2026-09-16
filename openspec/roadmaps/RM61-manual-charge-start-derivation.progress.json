@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM61-manual-charge-start-derivation",
+  "intention": "A manual charge can be saved without a start battery %, and the charging module derives it from the energy and the end % the same way the Supercharger path already does.",
+  "request": "Source ticket: MAG-40 — Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
+  "status": "in-progress",
+  "autopilot": false,
+  "updated_at": "2026-09-16T01:56:32Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
+    "base": "fc5efdfde6211a4478ba8bb89fc424c10d89647c",
+    "ticket": "MAG-40",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-40/recalculated-battery-start",
+    "created_at": "2026-09-16T01:56:32Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "REQ 1 changes no code; packCapacityKWh and LatestMeasuredCapacity stay exactly as they are",
+      "why": "RM52 already delivered it. Newest-non-NULL survives a thin month; previous-month-only would fall back to the hardcoded 62.0.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "New start_battery_source column ('USER'|'ESTIMATED'), module-computed; capacity query adds AND start_battery_source = 'USER'",
+      "why": "This table already has energy_source and price_source in that exact shape. Reusing status was rejected: status here is a user-picked dropdown, unlike on supercharger_sessions.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The edit form renders a derived start % as a placeholder, not a filled value, so Update re-derives it",
+      "why": "Update requires every mutable field, so a pre-filled derived value returns looking user-supplied and gets stamped USER — the exact loop RD2 prevents.",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "A start % the user typed is never recomputed or overwritten",
+      "why": "Same rule the Supercharger path already keeps. A person's own reading is never replaced by a computed guess.",
+      "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The optional-field text goes in the field help under the input, not a page-level card; one new ES/EN key",
+      "why": "The user reads it where they type. A card at the top of the page is read once and then ignored.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The internal/analytics 62-vs-75 capacity disagreement is out of scope; recorded as backlog item 31",
+      "why": "Analytics may not read charging's table, so it needs a new public port. That is its own change and it moves every efficiency number already shown.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unit tests are included in this roadmap",
+      "why": "The owner asked for them. They cover the derivation wiring, the start_battery_source values, and the capacity-query exclusion.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM61-charging-add-manual-entry-start-derivation",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "change": "RM61-gateway-relax-start-battery-pct-required",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-16T01:56:32Z",
+      "agent": "leader",
+      "event": "roadmap RM61 created from MAG-40 via kkpa-pickup-linear-ticket; work counter 61 -> 62; branch ft/RM61-MAG-40-manual-charge-start-derivation off main (fc5efdf)"
+    },
+    {
+      "at": "2026-09-16T01:56:32Z",
+      "agent": "leader",
+      "event": "run scope: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers. autopilot disabled for this reason."
+    }
+  ]
+}
