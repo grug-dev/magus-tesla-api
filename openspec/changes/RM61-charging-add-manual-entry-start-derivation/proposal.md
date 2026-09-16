@@ -1,7 +1,7 @@
 # Proposal — RM61-charging-add-manual-entry-start-derivation
 
 Source: MAG-40 — https://linear.app/magus-monitor/issue/MAG-40/recalculated-battery-start
-Roadmap: `openspec/roadmaps/RM61-manual-charge-start-derivation.md` — **tier 1 of 2**, module
+Roadmap: `openspec/roadmaps/RM61-manual-charge-start-derivation.md` — **tier 1 of 3**, module
 `charging`, implementing roadmap decision **RD2** (the new column) and the three facts the
 roadmap settled by reading the code (no precedence rule needed, no lock needed, status
 unaffected).
