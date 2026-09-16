@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
   "request": "Tier 2 of RM61 (MAG-40). Make start_battery_pct optional on /external-charges, render a derived value as a placeholder so Update re-derives it, and add the bilingual field help under the input.",
-  "status": "changes-requested",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -29,7 +29,7 @@
     "awaiting-user-verification": []
   },
   "created_at": "2026-09-16T10:10:00Z",
-  "updated_at": "2026-09-16T17:26:19Z",
+  "updated_at": "2026-09-16T17:28:43Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -379,7 +379,7 @@
     }
   ],
   "review": {
-    "status": "in-progress",
+    "status": "approved",
     "agent": "gateway-reviewer",
     "brief": "Validate tier 2 of RM61 (MAG-40) across commits df25e63, 6381a86, cb317a5 on ft/RM61-MAG-40-manual-charge-start-derivation. Read the DIFF, not the whole module. Checks: (1) module-boundary compliance - no HTML outside internal/gateway, no charging import in the VM file, no DB access from the gateway; (2) every doc-pack convention, especially ai/htmx-conventions.md and internal/gateway/AGENTS.md; (3) design.md D1-D7 each implemented as written, and the Test Contract groups A-F each covered by a real assertion; (4) the integration/handler tests assert design.md's authored expectations, NOT whatever the implementation happens to do - a test rewritten to match the code is a blocker finding; (5) i18n: every new user-facing string goes through i18n.T with both ES and EN non-empty; (6) Performance-Profile compliance (read-heavy); (7) no DB object changed - this tier has none, so any schema touch is a blocker; (8) B2 writing rule in every comment and doc, and NO comment citing design.md, a decision id, RM61, RD3, RD5 or MAG-40; (9) anti-gaming: no acceptance criterion weakened, no self-approved status, no test deleted to pass. Signals: gofmt -l, go build ./..., go vet ./..., make i18n-guard, make ui-guard were ASSISTANT-run and clean. make check was USER-run and reported passing by the owner. Judge test quality by READING the tests; never run the suite.",
     "rounds": [
@@ -415,6 +415,37 @@
           }
         ],
         "notes": "Every other brief item passed. Reviewer verified D1-D7 against design.md's code blocks and traced both test renames plus the 422-trigger change to real rule inversions. Test funcs 77 -> 79, none deleted."
+      },
+      {
+        "round": 2,
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-16T17:27:34Z",
+        "verdict": "approved",
+        "duration_seconds": 40,
+        "budget": {
+          "five_hour_pct_delta": 1,
+          "cost_usd_delta": 0.4,
+          "source": "statusline-cache",
+          "approx": true
+        },
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "status": "fixed",
+            "finding": "design.md citation in field_test.go's doc comment",
+            "resolution": "Fixed. Reviewer re-swept the whole fc5efdf..8b7932a diff for design.md / RM61 / RD3 / RD5 / MAG-40: zero hits."
+          },
+          {
+            "id": "F2",
+            "severity": "nit",
+            "status": "fixed",
+            "finding": "tasks.md missing 5.3; leader wrote module code directly",
+            "resolution": "tasks.md half fixed. The reviewer accepted the rejected half as a documented, non-hidden disagreement (D-C1), noting ai/agentic-workflow.md itself defers to the skill on this point."
+          }
+        ],
+        "notes": "No new issues in the round-2 diff. Reviewer re-ran gofmt, go vet, i18n-guard, ui-guard, archive-guard: all clean."
       }
     ]
   },
@@ -517,6 +548,16 @@
       "at": "2026-09-16T17:26:19Z",
       "agent": "leader",
       "event": "review round 1: changes-requested. F1 (minor) accepted and fixed. F2 (nit) accepted in part - tasks.md now carries 5.3 and 5.4; the worker-dispatch half rejected with a written reason (D-C1). Re-verifying with the same reviewer."
+    },
+    {
+      "at": "2026-09-16T17:27:34Z",
+      "agent": "leader",
+      "event": "review round 2: APPROVED by gateway-reviewer. Change status -> reviewer-approved. Next: task 6.4 spec sync, then archive."
+    },
+    {
+      "at": "2026-09-16T17:28:43Z",
+      "agent": "leader",
+      "event": "6.4 spec sync done: openspec archive applied 3 MODIFIED requirements to openspec/specs/gateway/spec.md (+57/-17). No delta-only text and no wrapped scenario heading left behind; the delta had no RENAMED requirement, so the end-of-file append problem did not apply. Folder moved from the archive root into archive/gateway/ per this repo's module grouping. tasks.md checkboxes 6.2, 6.3, 6.4, O1, L1, L2 ticked before the move; O2 (browser check) left open - it is the owner's."
     }
   ]
 }

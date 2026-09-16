@@ -207,14 +207,14 @@ immediately, no owner confirmation needed first.
   charge forms) as the worked example.
   `depends_on`: 5.2 · `parallel_ok`: with 6.2
 
-- [ ] **6.2** **[leader — outside the gateway worker's normal doc-pack scope, but the file IS
+- [x] **6.2** **[leader — outside the gateway worker's normal doc-pack scope, but the file IS
   inside `internal/gateway/`, so no grant is needed]** Confirm 6.1 did not duplicate content
   already moved to the KB by MAG-39 — the per-field "Optional fields in the main grid" list
   lives in `kkpa/context/`, not here (see 6.3). `internal/gateway/AGENTS.md` should gain only
   the kit-level `Help` prop description, nothing page-specific.
   `depends_on`: 6.1 · `parallel_ok`: no
 
-- [ ] **6.3** **[leader — outside `internal/gateway/`; grant the path or do it]**
+- [x] **6.3** **[leader — outside `internal/gateway/`; grant the path or do it]**
   `kkpa/context/input-port/charging/external-charges.md`, "Form layout & field rules"
   section: add `start_battery_pct` to the `ui.FieldProps.Optional` list (design.md **D7.2**)
   — it now reads `energy_added_kwh`, `price`, `started_at`, `start_battery_pct`,
@@ -224,7 +224,7 @@ immediately, no owner confirmation needed first.
   change (state the new sentence, not just that it changed).
   `depends_on`: 3.1, 3.2 · `parallel_ok`: with 6.1
 
-- [ ] **6.4** **[leader]** Sync this change's `specs/gateway/spec.md` delta into
+- [x] **6.4** **[leader]** Sync this change's `specs/gateway/spec.md` delta into
   `openspec/specs/gateway/spec.md` via the project's normal spec-sync step, at the point the
   pipeline calls for it. Confirm the sync does not touch `openspec/changes/archive/`.
   `depends_on`: — (tracked here so it is not forgotten; timing follows the pipeline's own
@@ -247,7 +247,7 @@ immediately, no owner confirmation needed first.
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the
+- [x] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the
   assistant's say-so; work that is complete but unexecuted is
   **`awaiting-user-verification`**.
   ```bash
@@ -266,10 +266,10 @@ immediately, no owner confirmation needed first.
 
 ## Cross-module tasks the leader owns
 
-- [ ] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green outside
+- [x] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green outside
   `internal/gateway` once Wave 7 lands. Proposal.md §Breaking states no cross-module fix
   should be needed — verify rather than assume.
-- [ ] **L2** **[leader]** Confirm the root `README.md` and `cmd/README.md` need no edit.
+- [x] **L2** **[leader]** Confirm the root `README.md` and `cmd/README.md` need no edit.
   This change adds no module, no runnable, and no change to `internal/gateway`'s `Deps`
   surface (no new port, no new field on `Deps`).
   `depends_on`: 7.1 · `parallel_ok`: yes
