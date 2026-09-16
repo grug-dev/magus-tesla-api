@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-40 — Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-16T02:40:00Z",
+  "updated_at": "2026-09-16T08:05:46Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -16,9 +16,10 @@
     "created_at": "2026-09-16T01:56:32Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      1
+    ],
     "pending": [
-      1,
       2,
       3
     ],
@@ -115,14 +116,14 @@
       "module": "charging",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "in-progress",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:05:46Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Artifacts written and validated. Database design gate confirmed by the owner. Halted before implementation."
     },
     {
       "id": 2,
@@ -177,6 +178,11 @@
       "at": "2026-09-16T02:40:00Z",
       "agent": "leader",
       "event": "RD9 supersedes RD8's design: RecentEfficiency proven dead (no handler/template/cmd caller; history_test.go:146 panics on it), so tiers 3+4 collapse into one analytics deletion tier. No charging capacity port. NewReader drops from 6 params to 1."
+    },
+    {
+      "at": "2026-09-16T08:05:46Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts complete; design gate passed; change progress.json created. Run halts here per the pickup scope."
     }
   ]
 }

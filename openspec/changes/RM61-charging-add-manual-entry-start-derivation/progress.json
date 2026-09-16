@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM61-charging-add-manual-entry-start-derivation",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
+  "request": "MAG-40 — Tier 1 of RM61: Writer.Create and Writer.Update derive a missing start_battery_pct from the energy and the end %, and a new start_battery_source column keeps a derived row out of the monthly capacity job. Unit tests: included.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1",
+      "O1",
+      "O2",
+      "L1",
+      "L2"
+    ],
+    "blocked": [],
+    "done": [],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-16T08:05:46Z",
+  "updated_at": "2026-09-16T08:05:46Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
+    "base": "fc5efdfde6211a4478ba8bb89fc424c10d89647c",
+    "ticket": "MAG-40",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-40/recalculated-battery-start",
+    "created_at": "2026-09-16T01:56:32Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Migration 20260915000001_add_start_battery_source.sql — nullable TEXT + CHECK, backfill to USER, no default, no cross-column CHECK, no index",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "1.2",
+      "title": "query.sql — bind start_battery_source on CreateEntry/UpdateEntry; add AND start_battery_source = 'USER' to ListValidManualEntryCapacitiesForPeriod",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "1.3",
+      "title": "make sqlc — verify the diff matches design.md's expected shape (one nullable field; ListValidManualEntryCapacitiesForPeriodRow unchanged)",
+      "module": "charging",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go — StartBatterySource type + two constants + Entry field; no interface changes",
+      "module": "charging",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "2.2",
+      "title": "service.go — resolveStartBatteryPct (typed on packCapacityLookup), wired after resolveEnergy in Create and Update, plus the two mapping helpers",
+      "module": "charging",
+      "depends_on": [
+        "1.3",
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "3.1",
+      "title": "start_battery_source_test.go — offline unit tests A1-A9 against design.md's Test Contract",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "3.2",
+      "title": "db_start_battery_source_integration_test.go — B1-B3, C1-C7, D1 (the capacity-query exclusion proof)",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "4.1",
+      "title": "internal/charging/AGENTS.md — public interface, data ownership, testing notes",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "4.2",
+      "title": "kkpa/context/ — charging-tables.md, manual-charge-crud.md, INDEX.md (outside the module sandbox)",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "leader"
+    },
+    {
+      "id": "4.3",
+      "title": "Sync the two delta specs into openspec/specs/ at the pipeline's sync step",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "leader"
+    },
+    {
+      "id": "5.1",
+      "title": "gofmt -l ./internal/charging, go build ./..., go vet ./... — must be clean repo-wide",
+      "module": "charging",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "charging worker"
+    },
+    {
+      "id": "O1",
+      "title": "Owner runs make migrate-up and make check",
+      "module": "charging",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "owner"
+    },
+    {
+      "id": "O2",
+      "title": "Owner confirms the real backfill with the GROUP BY query",
+      "module": "charging",
+      "depends_on": [
+        "O1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "owner"
+    },
+    {
+      "id": "L1",
+      "title": "Confirm build/vet green outside internal/charging",
+      "module": "charging",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "leader"
+    },
+    {
+      "id": "L2",
+      "title": "Confirm the root README.md needs no edit",
+      "module": "charging",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "leader"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-GATE",
+      "at": "2026-09-16T08:05:46Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate PASSED: start_battery_source TEXT nullable, no DEFAULT, CHECK IN ('USER','ESTIMATED'), backfill to USER where start_battery_pct IS NOT NULL, no cross-column CHECK, no index.",
+      "why": "Owner confirmed the DDL, the rationale and the index plan on 2026-09-16 after the Spanish briefing.",
+      "covered_by": null
+    },
+    {
+      "id": "D-SPEC",
+      "at": "2026-09-16T08:05:46Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Delta specs target manual-charge-log and monthly-effective-capacity, not the specs/charging capability the dispatch named.",
+      "why": "RM51 and RM58 both targeted manual-charge-log for this table. The worker flagged the deviation; the leader verified the precedent.",
+      "covered_by": null
+    }
+  ],
+  "review": {
+    "brief": null,
+    "agent": null,
+    "status": "not-started",
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-09-16T08:05:46Z",
+      "agent": "leader",
+      "event": "artifacts written by the charging worker (Sonnet); openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-16T08:05:46Z",
+      "agent": "leader",
+      "event": "Spanish design briefing posted (Step 3a); database design gate confirmed by the owner"
+    },
+    {
+      "at": "2026-09-16T08:05:46Z",
+      "agent": "leader",
+      "event": "run HALTS here per the pickup scope: no implementation worker dispatched, no reviewer, no archive"
+    }
+  ]
+}
