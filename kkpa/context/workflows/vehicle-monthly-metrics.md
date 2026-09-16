@@ -55,7 +55,7 @@ They differ on purpose. Without `candidate_count`, "twenty small top-ups, none b
 
 | Table | Which rows count |
 |---|---|
-| `charging.manual_charge_entries` | `energy_source = 'USER'` only, with a non-NULL `inferred_capacity_kwh_calc`. |
+| `charging.manual_charge_entries` | `energy_source = 'USER'` **and** `start_battery_source = 'USER'`, with a non-NULL `inferred_capacity_kwh_calc`. Two independent provenances; a row failing either one is not evidence. |
 | `charging.supercharger_sessions` | `status = 'DONE'` only, with a non-NULL `inferred_capacity_kwh_calc` and a non-NULL `tesla_id`. |
 
 ## How maintenance works
@@ -94,9 +94,18 @@ With no arguments it does the previous month, every vehicle. It needs `DATABASE_
   left NULL and only the counts are stored. NULL means "not enough evidence", never "we guessed".
   _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month._
 - **Only non-derived records count as evidence.** A manual entry counts only when the person gave
-  the energy. A Supercharger session counts only when it is complete and both percentages came
-  from the car. A row whose numbers were themselves derived from the 62.0 fallback would feed that
-  fallback back into the answer.
+  the energy **and** typed the starting percentage. A Supercharger session counts only when it is
+  complete and both percentages came from the car. A row whose numbers were themselves derived
+  from the 62.0 fallback would feed that fallback back into the answer.
+  _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month._
+- **A manual entry must pass BOTH provenance checks, not one.** The energy must have been typed by
+  the person, and so must the starting percentage. The two are recorded and computed separately,
+  so a row can fail either on its own.
+  _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month._
+- **Why the starting percentage matters here at all.** A derived starting percentage is computed by
+  dividing the energy by a pack capacity. The generated `inferred_capacity_kwh_calc` then comes
+  back equal to that same capacity, by algebra. Counting such a row would feed the measurement back
+  into itself, exactly like a derived energy does.
   _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month._
 - **Small battery changes are dropped, not corrected.** A record under `minDeltaPct` counts toward
   neither the capacity nor `sample_count`. Capacity error grows as the change shrinks, so a small
