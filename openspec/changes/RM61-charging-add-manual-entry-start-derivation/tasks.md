@@ -147,7 +147,7 @@ conventions: fresh `uuid.New()` account ids per test; never `pgtype` in any asse
 (`internal/charging/AGENTS.md` §Testing Notes); no measured-capacity row seeded anywhere in this
 wave, so every derivation runs against the hardcoded default (62.0 kWh).
 
-- [ ] **3.1** **[module: charging worker]** Create `internal/charging/start_battery_source_test.go`
+- [x] **3.1** **[module: charging worker]** Create `internal/charging/start_battery_source_test.go`
   — offline, no DB, package `charging` (the function under test is unexported). Reuse the
   existing `fakePackCapacityLookup` test double from `monthly_capacity_estimator_test.go`, fixed
   at 62.0 kWh. Cover design.md Test Contract **A1–A9** verbatim: every presence/absence
@@ -156,7 +156,7 @@ wave, so every derivation runs against the hardcoded default (62.0 kWh).
   derivation but the caller's own value still wins.
   `depends_on`: 2.2 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: charging worker]** Create
+- [x] **3.2** **[module: charging worker]** Create
   `internal/charging/db_start_battery_source_integration_test.go` — `TEST_DATABASE_URL`-gated,
   mirroring `db_promotion_price_source_integration_test.go`'s style and using the package's
   existing `testdb_test.go` pool. Cover design.md Test Contract:
@@ -180,7 +180,7 @@ wave, so every derivation runs against the hardcoded default (62.0 kWh).
 
 ## Wave 4 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)
 
-- [ ] **4.1** **[module: charging worker]** `internal/charging/AGENTS.md`:
+- [x] **4.1** **[module: charging worker]** `internal/charging/AGENTS.md`:
   - §Public Interface — the `StartBatterySource` type and its two constants, the new `Entry`
     field, and that it is module-computed and ignored when supplied, nullable exactly where
     `StartBatteryPct` is nullable. Place it beside the existing `EnergySource`/`PriceSource`
@@ -223,7 +223,7 @@ wave, so every derivation runs against the hardcoded default (62.0 kWh).
 
 ## Wave 5 — signals
 
-- [ ] **5.1** **[module: charging worker]** Run the cheap deterministic signals the
+- [x] **5.1** **[module: charging worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/charging`, `go build ./...`,
   `go vet ./...`. **`go build ./...` and `go vet ./...` should be clean repo-wide** after this
   tier (proposal.md §Breaking — every change is additive). If either fails outside

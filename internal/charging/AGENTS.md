@@ -168,6 +168,21 @@ points at `0`.
   which is what gets written and read back. A round-trip through `Reader` always
   returns `PriceConfirmed: false` on every entry.
 
+### Starting-percentage provenance
+
+**Type:** `StartBatterySource` (`StartBatterySourceUser` / `StartBatterySourceEstimated`), always
+computed by this module on Create/Update — a value set on the `Entry` passed to `Writer` is
+ignored and overwritten, the same shape `EnergySource` and `PriceSource` already use. See
+`internal/charging/charging.go`.
+
+`Entry` gained one more field: **`StartBatterySource *StartBatterySource`** -- module-computed
+output, `nil` exactly when `StartBatteryPct` is `nil`, because a missing percentage has no
+provenance to record. When a caller supplies no starting percentage but does supply an ending
+percentage and a resolved energy value, `Writer` fills the starting percentage in from the pack
+capacity and reports `StartBatterySourceEstimated`. A caller's own typed starting percentage is
+never recomputed or overwritten, regardless of what else is present -- it is always reported as
+`StartBatterySourceUser`.
+
 ### The Supercharger mirror port (RM29 tier 6)
 
 **Port:** `SessionWriter.MirrorSessions`, taking `SessionMirror` values. See `internal/charging/charging.go`.
@@ -467,6 +482,21 @@ Postgres schema. No other module may read or write any of them directly
 | `monthly_effective_capacity` | Measured pack capacity per vehicle per month | `MonthlyCapacityCalculator.Calculate` |
 | `mirror_watermarks` | One mirror cursor per vehicle | `AdvanceMirrorWatermark` |
 
+`manual_charge_entries.start_battery_source` (`TEXT CHECK (start_battery_source IN ('USER',
+'ESTIMATED'))`) is **nullable with no `DEFAULT`** -- unlike its two siblings `energy_source` and
+`price_source`, which are `NOT NULL` with a fallback value. A `NULL` `start_battery_pct` has no
+provenance to record, so there is no truthful default to give this column. **Not indexed**: the
+one query that filters on it (`ListValidManualEntryCapacitiesForPeriod`) already runs a full,
+unindexed scan of a bounded period range once a month, and adding a second equality filter to
+that scan changes nothing about its cost class. Revisit only if a future *user-facing* worklist
+reads this column on a request path — the right shape then is a partial index on
+`(tesla_id, charged_on) WHERE start_battery_source = 'ESTIMATED'`, mirroring `status`'s and
+`price_source`'s own revisit triggers. **The database does not enforce that this column's
+nullness matches `start_battery_pct`'s** — a row with `start_battery_pct IS NULL` and
+`start_battery_source = 'USER'` is a legal row at the schema level. The pairing holds in
+practice only because `Writer.Create`/`Writer.Update` are the table's only writers and they
+always set both columns from the same `resolveStartBatteryPct` result in one statement.
+
 Rules that hold for all four:
 
 - **The migration files are the single schema source of truth.** There is no `schema.sql`
@@ -525,6 +555,13 @@ re-argue a settled decision.
 - **No Tesla API call fires in any test.** This is structural — the module does not import
   `internal/tesla` — not disciplinary. The `tesla-exploration` no-tests exception
   (`CLAUDE.md`) does NOT apply here: tests for this module are welcome and required.
+- **`start_battery_source_test.go`** covers `resolveStartBatteryPct` offline, no DB, using the
+  same `fakePackCapacityLookup` double `packCapacityKWh`'s own tests already use.
+  **`db_start_battery_source_integration_test.go`** covers the column's schema (no `DEFAULT`,
+  the `CHECK`, the unenforced nullness pairing), the write path through `Writer`/`Reader`, and
+  the module's central invariant for this column: a manual entry whose starting percentage was
+  derived must never reach `MonthlyCapacityCalculator`'s evidence pool, proven by calling
+  `Calculate` itself, not by asserting on `resolveStartBatteryPct`'s return value alone.
 
 Which test file covers what: `ls internal/charging/*_test.go`. The names say it. That
 inventory is deliberately not duplicated here — it went stale three times.

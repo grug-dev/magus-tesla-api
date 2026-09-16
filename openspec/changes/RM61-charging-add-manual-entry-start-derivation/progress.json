@@ -5,33 +5,34 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
   "request": "MAG-40 \u2014 Tier 1 of RM61: Writer.Create and Writer.Update derive a missing start_battery_pct from the energy and the end %, and a new start_battery_source column keeps a derived row out of the monthly capacity job. Unit tests: included.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "3.2",
+      "4.3",
+      "O1",
+      "O2"
+    ],
+    "blocked": [],
+    "done": [
       "4.1",
       "4.2",
-      "4.3",
       "5.1",
-      "O1",
-      "O2",
       "L1",
       "L2"
     ],
-    "blocked": [],
-    "done": [],
     "awaiting-user-verification": [
       "1.1",
       "1.2",
       "1.3",
       "2.1",
-      "2.2"
+      "2.2",
+      "3.1",
+      "3.2"
     ]
   },
   "created_at": "2026-09-16T08:05:46Z",
-  "updated_at": "2026-09-16T09:01:44Z",
+  "updated_at": "2026-09-16T09:11:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -186,14 +187,23 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "Offline table test for resolveStartBatteryPct, reusing fakePackCapacityLookup at 62.0 kWh. Covers all nine contract rows: every presence combination, the out-of-range case, and the never-recompute guarantee.",
       "owner": "charging worker"
     },
     {
@@ -204,14 +214,23 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "TEST_DATABASE_URL-gated. Covers the schema group, the write path through Writer/Reader, and the capacity-query exclusion, which calls MonthlyCapacityCalculator.Calculate and asserts CandidateCount == 1.",
       "owner": "charging worker"
     },
     {
@@ -222,14 +241,23 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "Added a Starting-percentage provenance subsection, a Data Ownership paragraph on the column (nullable, no default, not indexed, unenforced pairing), and two Testing Notes bullets.",
       "owner": "charging worker"
     },
     {
@@ -240,14 +268,23 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "Added the column to charging-tables.md, the derivation rule and the new capacity filter to manual-charge-crud.md, and two glossary rows plus the provenance-column row to INDEX.md.",
       "owner": "leader"
     },
     {
@@ -276,14 +313,23 @@
         "4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "gofmt -l, go build ./... and go vet ./... all clean repo-wide. Worker fixed one vet error it introduced (address of a const). Leader re-ran all three after its own comment edits.",
       "owner": "charging worker"
     },
     {
@@ -330,14 +376,23 @@
         "5.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "go build ./... and go vet ./... are green repo-wide, so no cross-module compile fix was needed, as proposal.md predicted.",
       "owner": "leader"
     },
     {
@@ -348,14 +403,23 @@
         "4.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "The README DID need an edit, against the task's own expectation. Line 319 lists the provenance columns by name; start_battery_source added. No module or runnable changed, so the tree and tables stand.",
       "owner": "leader"
     }
   ],
@@ -376,6 +440,15 @@
       "made_by": "autopilot",
       "decision": "Delta specs target manual-charge-log and monthly-effective-capacity, not the specs/charging capability the dispatch named.",
       "why": "RM51 and RM58 both targeted manual-charge-log for this table. The worker flagged the deviation; the leader verified the precedent.",
+      "covered_by": null
+    },
+    {
+      "id": "D-COMMENTS",
+      "at": "2026-09-16T09:11:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Stripped every design.md / Test-Contract citation from the two new test files, against this module's existing convention.",
+      "why": "The pipeline's writing rule forbids citing archived docs. Sibling test files cite design.md 41 times; leaving them is out of scope, so the new files now differ from them.",
       "covered_by": null
     }
   ],
@@ -425,6 +498,16 @@
       "at": "2026-09-16T09:01:44Z",
       "agent": "leader",
       "event": "wave 2 complete (2.1, 2.2). Leader re-ran go build ./..., go vet ./... and gofmt -l internal/charging: all clean. resolveStartBatteryPct signature and both call sites verified against design.md D1/D4."
+    },
+    {
+      "at": "2026-09-16T09:02:00Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (Sonnet) for wave 3+4+5 (tasks 3.1, 3.2, 4.1, 5.1) \u2014 the two test files, AGENTS.md, and the cheap signals. Leader takes 4.2 (kkpa/context/) concurrently: disjoint files, outside the module sandbox."
+    },
+    {
+      "at": "2026-09-16T09:11:30Z",
+      "agent": "leader",
+      "event": "wave 3+4+5 complete (3.1, 3.2, 4.1, 5.1 by the worker; 4.2, L1, L2 by the leader). Leader rewrote the new test files' doc comments to drop design.md citations, then re-ran gofmt/build/vet: clean. L2 found the README DID need an edit."
     }
   ]
 }
