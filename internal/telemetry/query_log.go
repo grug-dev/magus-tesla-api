@@ -2,8 +2,9 @@ package telemetry
 
 import (
 	"context"
-	"log"
 	"time"
+
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 )
 
 // This file holds the four logging decorators instrumenting the module's
@@ -23,8 +24,10 @@ import (
 // the moment the wrapped interface gains a method this file does not also
 // gain.
 //
-// All log lines use stdlib log.Printf (no slog — roadmap D8) with the prefix
-// "telemetry query:". None of store/Reader/SuperchargerHistoryReader/
+// All log lines go through internal/logging.Note — the platform-wide
+// [Type] [Method] message format (ai/go-conventions.md § Logging), still stdlib
+// log under the hood (no slog — roadmap D8) — keeping the "telemetry query:"
+// topic in the message. None of store/Reader/SuperchargerHistoryReader/
 // RunWriter's methods take a tesla.Credentials (or any token) argument, so
 // these decorators have no credential value in scope to log, in any method,
 // by construction (design D3) — the entire credential-leak risk is confined
@@ -60,14 +63,14 @@ var _ store = (*loggingStore)(nil)
 
 // insertSnapshot implements store, logging before delegating (design D6).
 func (l *loggingStore) insertSnapshot(ctx context.Context, s Snapshot) error {
-	log.Printf("telemetry query: insertSnapshot tesla_id=%d captured_at=%s raw_data_bytes=%d",
+	logging.Note("loggingStore", "insertSnapshot", "telemetry query: tesla_id=%d captured_at=%s raw_data_bytes=%d",
 		s.TeslaID, s.CapturedAt.UTC().Format(time.RFC3339), len(s.RawData))
 	return l.inner.insertSnapshot(ctx, s)
 }
 
 // insertPollAttempt implements store, logging before delegating (design D6).
 func (l *loggingStore) insertPollAttempt(ctx context.Context, a Attempt) error {
-	log.Printf("telemetry query: insertPollAttempt polled_by_account=%s tesla_id=%d attempted_at=%s outcome=%s reason=%s",
+	logging.Note("loggingStore", "insertPollAttempt", "telemetry query: polled_by_account=%s tesla_id=%d attempted_at=%s outcome=%s reason=%s",
 		a.PolledByAccountID, a.TeslaID, a.AttemptedAt.UTC().Format(time.RFC3339), a.Outcome, a.Reason)
 	return l.inner.insertPollAttempt(ctx, a)
 }
@@ -99,7 +102,7 @@ func (l *loggingStore) snapshotsByVehicleUpdatedSince(ctx context.Context, tesla
 // upsertSuperchargerHistory implements store, logging before delegating
 // (design D6).
 func (l *loggingStore) upsertSuperchargerHistory(ctx context.Context, s SuperchargerHistory) error {
-	log.Printf("telemetry query: upsertSuperchargerHistory tesla_id=%d session_id=%d charge_start=%s charge_stop=%s raw_data_bytes=%d",
+	logging.Note("loggingStore", "upsertSuperchargerHistory", "telemetry query: tesla_id=%d session_id=%d charge_start=%s charge_stop=%s raw_data_bytes=%d",
 		s.TeslaID, s.SessionID,
 		s.ChargeStartDateTime.UTC().Format(time.RFC3339), s.ChargeStopDateTime.UTC().Format(time.RFC3339), len(s.RawData))
 	return l.inner.upsertSuperchargerHistory(ctx, s)
@@ -136,14 +139,14 @@ var _ Reader = (*loggingReader)(nil)
 // LatestSnapshotsByVehicles implements Reader, logging after delegating.
 func (l *loggingReader) LatestSnapshotsByVehicles(ctx context.Context, teslaIDs []int64) ([]Snapshot, error) {
 	result, err := l.inner.LatestSnapshotsByVehicles(ctx, teslaIDs)
-	log.Printf("telemetry query: LatestSnapshotsByVehicles tesla_ids=%v rows=%d", teslaIDs, len(result))
+	logging.Note("Reader", "LatestSnapshotsByVehicles", "telemetry query: tesla_ids=%v rows=%d", teslaIDs, len(result))
 	return result, err
 }
 
 // SnapshotsByVehicleSince implements Reader, logging after delegating.
 func (l *loggingReader) SnapshotsByVehicleSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
 	result, err := l.inner.SnapshotsByVehicleSince(ctx, teslaID, since)
-	log.Printf("telemetry query: SnapshotsByVehicleSince tesla_id=%d since=%s rows=%d",
+	logging.Note("Reader", "SnapshotsByVehicleSince", "telemetry query: tesla_id=%d since=%s rows=%d",
 		teslaID, since.UTC().Format(time.RFC3339), len(result))
 	return result, err
 }
@@ -151,7 +154,7 @@ func (l *loggingReader) SnapshotsByVehicleSince(ctx context.Context, teslaID int
 // SnapshotsByVehicleBetween implements Reader, logging after delegating.
 func (l *loggingReader) SnapshotsByVehicleBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]Snapshot, error) {
 	result, err := l.inner.SnapshotsByVehicleBetween(ctx, teslaID, start, end)
-	log.Printf("telemetry query: SnapshotsByVehicleBetween tesla_id=%d start=%s end=%s rows=%d",
+	logging.Note("Reader", "SnapshotsByVehicleBetween", "telemetry query: tesla_id=%d start=%s end=%s rows=%d",
 		teslaID, start.UTC().Format("2006-01-02"), end.UTC().Format("2006-01-02"), len(result))
 	return result, err
 }
@@ -159,7 +162,7 @@ func (l *loggingReader) SnapshotsByVehicleBetween(ctx context.Context, teslaID i
 // SnapshotsByVehicleUpdatedSince implements Reader, logging after delegating.
 func (l *loggingReader) SnapshotsByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]Snapshot, error) {
 	result, err := l.inner.SnapshotsByVehicleUpdatedSince(ctx, teslaID, since)
-	log.Printf("telemetry query: SnapshotsByVehicleUpdatedSince tesla_id=%d since=%s rows=%d",
+	logging.Note("Reader", "SnapshotsByVehicleUpdatedSince", "telemetry query: tesla_id=%d since=%s rows=%d",
 		teslaID, since.UTC().Format(time.RFC3339), len(result))
 	return result, err
 }
@@ -167,7 +170,7 @@ func (l *loggingReader) SnapshotsByVehicleUpdatedSince(ctx context.Context, tesl
 // SnapshotPrecedingDay implements Reader, logging after delegating.
 func (l *loggingReader) SnapshotPrecedingDay(ctx context.Context, teslaID int64, day time.Time) (*Snapshot, error) {
 	result, err := l.inner.SnapshotPrecedingDay(ctx, teslaID, day)
-	log.Printf("telemetry query: SnapshotPrecedingDay tesla_id=%d day=%s found=%t",
+	logging.Note("Reader", "SnapshotPrecedingDay", "telemetry query: tesla_id=%d day=%s found=%t",
 		teslaID, day.UTC().Format("2006-01-02"), result != nil)
 	return result, err
 }
@@ -196,7 +199,7 @@ var _ SuperchargerHistoryReader = (*loggingSuperchargerHistoryReader)(nil)
 // SuperchargerHistoryReader, logging after delegating.
 func (l *loggingSuperchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(ctx context.Context, teslaID int64, since time.Time) ([]SuperchargerHistory, error) {
 	result, err := l.inner.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, since)
-	log.Printf("telemetry query: SuperchargerHistoryByVehicleUpdatedSince tesla_id=%d since=%s rows=%d",
+	logging.Note("SuperchargerHistoryReader", "SuperchargerHistoryByVehicleUpdatedSince", "telemetry query: tesla_id=%d since=%s rows=%d",
 		teslaID, since.UTC().Format(time.RFC3339), len(result))
 	return result, err
 }
@@ -224,6 +227,6 @@ var _ RunWriter = (*loggingRunWriter)(nil)
 
 // RecordRun implements RunWriter, logging before delegating.
 func (l *loggingRunWriter) RecordRun(ctx context.Context, run PollRun) error {
-	log.Printf("telemetry query: RecordRun run_id=%s triggered_by=%s", run.RunID, run.TriggeredBy)
+	logging.Note("RunWriter", "RecordRun", "telemetry query: run_id=%s triggered_by=%s", run.RunID, run.TriggeredBy)
 	return l.inner.RecordRun(ctx, run)
 }

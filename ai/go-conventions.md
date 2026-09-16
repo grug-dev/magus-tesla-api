@@ -78,6 +78,40 @@ Standard Go project layout — modular monolith:
 
 ---
 
+## Logging
+
+- **stdlib `log` only — no `slog`, no third-party logger.** A deliberate hold, recorded in
+  `internal/telemetry/query_log.go` (roadmap D8).
+- **Every log line in a domain module goes through `internal/logging`.** Call
+  `logging.Note(typ, method, format, args…)` — never a raw `log.Printf`. It renders the
+  platform-wide format:
+
+  ```
+  [Type] [Method] message
+  ```
+
+  Example: `logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: %s → %s", start, end)`
+  logs `[Processor] [recalculateAnalytics] gap reconciliation: 2026-09-01 → 2026-09-14`.
+- **`Type`** is the receiver type's name. When the concrete type is unexported, use its
+  exported port name (`"Processor"` for `*processor`, `"Reader"` for `*loggingReader`);
+  when there is no exported port, the declared name (`"loggingStore"`). For a
+  package-level function, use the package name (`"telemetry"`).
+- **`Method`** is the enclosing function or method name as declared — unexported names stay
+  lowercase, so a log line maps 1:1 to the source.
+- **The message keeps a short topic prefix** (`gap reconciliation:`, `telemetry query:`,
+  `fleet api:`) after the brackets, so lines stay greppable by topic.
+- **`cmd/` may use `log.Printf` / `log.Fatalln` directly** for startup, shutdown, and fatal
+  exits — the composition root is exempt.
+- **`make logging-guard` enforces this repo-wide** (mirrors `tz-guard`'s shape): a raw
+  stdlib `log` call in `internal/` outside `internal/logging` fails `make check`. Escape
+  hatch: a trailing `// log:allow: <reason>` comment on the same line.
+- **Never log a credential or a `raw_data` payload** (`internal/telemetry`'s standing rule).
+  `logging.Note` changes nothing about that.
+- Gold standards: `internal/app/processor.go` (handler/orchestration style),
+  `internal/telemetry/query_log.go` (decorator style). Helper: `internal/logging`.
+
+---
+
 ## Persistence (Postgres + sqlc + goose)
 
 Conventions established by the `account` module — the project's first DB-backed module.
@@ -117,7 +151,7 @@ pipeline or not, and `CLAUDE.md` §"Builds & local checks" states the same rule.
 |---|---|
 | `go build ./...`, `go vet ./...`, `gofmt -l` | **Claude may run these**, unprompted |
 | `make build`, `make vet`, `make bins` | **Claude** |
-| `make ui-guard`, `make i18n-guard`, `make money-guard`, `tz-guard`, `make migration-guard`, `make boundary-guard`, `make theme-guard`, `make archive-guard` | **Claude** — standalone guards, no tests |
+| `make ui-guard`, `make i18n-guard`, `make money-guard`, `tz-guard`, `logging-guard`, `make migration-guard`, `make boundary-guard`, `make theme-guard`, `make archive-guard` | **Claude** — standalone guards, no tests |
 | `go test ./...`, `make test`, `make test-with-db`, `make check` | **Owner only** — Claude never runs them |
 
 Everything on Claude's side is a **cheap deterministic signal**: fails fast, prints a few
@@ -125,8 +159,9 @@ lines, needs no human. `go vet` in particular compiles `_test.go` files, so it c
 signature drift and API mistakes in tests that were never executed. Skipping such a signal
 saves nothing — it converts it into a round-trip costing more than the output it replaced.
 
-`make check` is `build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard
-theme-guard archive-guard test`; it is owner-only purely because of the trailing `test`. Claude
+`make check` is `build vet ui-guard i18n-guard money-guard tz-guard logging-guard
+migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard
+test`; it is owner-only purely because of the trailing `test`. Claude
 runs the other phases individually, so excluding `check` costs no guard coverage.
 
 **Reporting rules — these are the point of the split:**

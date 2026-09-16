@@ -13,7 +13,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"net/http"
 	"sort"
@@ -29,6 +28,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 )
 
 // csrfSuperchargerKey is the session key for the Supercharger Stats row-edit
@@ -310,7 +310,7 @@ func (h *Handler) buildSuperchargerStatsView(ctx context.Context, uid uuid.UUID,
 
 	sessions, err := h.superchargerReader.ListSessionsByVehicleBetween(ctx, teslaID, start, end)
 	if err != nil {
-		log.Printf("gateway: supercharger reader error for account %s vehicle %d: %v", uid, teslaID, err)
+		logging.Note("Handler", "buildSuperchargerStatsView", "supercharger reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Chart = fragments.HistoryChart{Empty: true}
 		v.Empty = true
 		return v
@@ -528,7 +528,7 @@ func (h *Handler) recalculateAfterSessionVerify(ctx context.Context, uid uuid.UU
 	from := day.AddDate(0, 0, -1)
 	to := day.AddDate(0, 0, 1)
 	if err := h.analyticsRecalculator.Recalculate(ctx, teslaID, from, to); err != nil {
-		log.Printf("gateway: analytics recalculate error for account %s, vehicle %d, session window %s..%s: %v",
+		logging.Note("Handler", "recalculateAfterSessionVerify", "analytics recalculate error for account %s, vehicle %d, session window %s..%s: %v",
 			uid, teslaID, from.Format("2006-01-02"), to.Format("2006-01-02"), err)
 	}
 }
@@ -695,7 +695,7 @@ func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
 
 	updated, err := h.superchargerVerifier.VerifySession(c.Request.Context(), ref, id, startPct, endPct)
 	if err != nil {
-		log.Printf("gateway: SuperchargerRowUpdate writer error for account %s, id %s: %v", uid, id, err)
+		logging.Note("Handler", "SuperchargerRowUpdate", "writer error for account %s, id %s: %v", uid, id, err)
 		// Distinguish 404 from 500 by RE-RESOLVING via
 		// fetchSuperchargerRowVM rather than inspecting the (possibly
 		// pgx.ErrNoRows-wrapping) error — the gateway does not import pgx.

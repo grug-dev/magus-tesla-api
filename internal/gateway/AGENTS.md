@@ -142,6 +142,9 @@ above):
   whenever present — only the fallback default changed, from `time.UTC` to
   `clock.Zone()` (`America/Bogota`) (RM35 D1). `internal/clock` imports nothing
   project-local, so this creates no cycle.
+- `internal/logging` — `Note`, the platform-wide `[Type] [Method] message` log-line format
+  (`ai/go-conventions.md` § Logging). Every handler log line goes through it
+  (`logging.Note("Handler", "<method>", ...)`); `make logging-guard` enforces it.
 
 ## UI stack (styling) — Node-less Tailwind + DaisyUI
 

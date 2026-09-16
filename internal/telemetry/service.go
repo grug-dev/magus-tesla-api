@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sort"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -546,7 +546,7 @@ func (s *service) captureVehicleConfig(ctx context.Context, v account.OwnedVehic
 // they are already self-explanatory in the summary. Remove once the failure is diagnosed.
 func (s *service) logAPIError(teslaID int64, step string, err error, reason Reason) Reason {
 	if reason == ReasonAPIError {
-		log.Printf("telemetry: vehicle %d %s failed: %v", teslaID, step, err)
+		logging.Note("Collector", "logAPIError", "vehicle %d %s failed: %v", teslaID, step, err)
 	}
 	return reason
 }

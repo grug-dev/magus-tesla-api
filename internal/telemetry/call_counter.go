@@ -3,8 +3,8 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
-	"log"
 
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
@@ -54,7 +54,7 @@ var _ tesla.VehicleService = (*callCounter)(nil)
 // creds carries a live bearer token, and logging it would leak a credential.
 func (c *callCounter) ListVehicles(ctx context.Context, creds tesla.Credentials) ([]tesla.VehicleTesla, error) {
 	c.calls++
-	log.Printf("fleet api: ListVehicles")
+	logging.Note("VehicleService", "ListVehicles", "fleet api: call")
 	return c.inner.ListVehicles(ctx, creds)
 }
 
@@ -62,7 +62,7 @@ func (c *callCounter) ListVehicles(ctx context.Context, creds tesla.Credentials)
 // Logs only vehicleID — never creds (design D3/D4).
 func (c *callCounter) VehicleData(ctx context.Context, creds tesla.Credentials, vehicleID int64) (*tesla.VehicleDataTesla, json.RawMessage, error) {
 	c.calls++
-	log.Printf("fleet api: VehicleData vehicle_id=%d", vehicleID)
+	logging.Note("VehicleService", "VehicleData", "fleet api: vehicle_id=%d", vehicleID)
 	return c.inner.VehicleData(ctx, creds, vehicleID)
 }
 
@@ -70,7 +70,7 @@ func (c *callCounter) VehicleData(ctx context.Context, creds tesla.Credentials, 
 // Logs only vehicleID — never creds (design D3/D4).
 func (c *callCounter) WakeUp(ctx context.Context, creds tesla.Credentials, vehicleID int64) (*tesla.VehicleTesla, error) {
 	c.calls++
-	log.Printf("fleet api: WakeUp vehicle_id=%d", vehicleID)
+	logging.Note("VehicleService", "WakeUp", "fleet api: vehicle_id=%d", vehicleID)
 	return c.inner.WakeUp(ctx, creds, vehicleID)
 }
 
@@ -79,7 +79,7 @@ func (c *callCounter) WakeUp(ctx context.Context, creds tesla.Credentials, vehic
 // never creds (design D3/D4).
 func (c *callCounter) ChargingHistory(ctx context.Context, creds tesla.Credentials, params tesla.ChargingHistoryParams) (*tesla.ChargingHistoryTesla, error) {
 	c.calls++
-	log.Printf("fleet api: ChargingHistory start_time=%q end_time=%q page_no=%d count=%d",
+	logging.Note("VehicleService", "ChargingHistory", "fleet api: start_time=%q end_time=%q page_no=%d count=%d",
 		params.StartTime, params.EndTime, params.PageNo, params.Count)
 	return c.inner.ChargingHistory(ctx, creds, params)
 }

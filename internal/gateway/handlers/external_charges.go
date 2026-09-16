@@ -10,7 +10,6 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
@@ -312,7 +312,7 @@ func (h *Handler) ExternalChargeCreate(c *gin.Context) {
 
 	created, err := h.chargingWriter.Create(c.Request.Context(), entry)
 	if err != nil {
-		log.Printf("gateway: ExternalChargeCreate writer error for account %s: %v", uid, err)
+		logging.Note("Handler", "ExternalChargeCreate", "writer error for account %s: %v", uid, err)
 		// Keep the picker on the vehicle the user submitted.
 		filterTeslaID := entry.TeslaID
 		if filterTeslaID == 0 {
@@ -405,7 +405,7 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 	// above. Empty on a lookup failure (rare); the template renders min="" then.
 	minChargedOn := ""
 	if minDate, err := h.acct.AnalysisStartDateFor(c.Request.Context(), uid); err != nil {
-		log.Printf("gateway: AnalysisStartDateFor error for account %s, id %s: %v", uid, id, err)
+		logging.Note("Handler", "ExternalChargeRowUpdate", "AnalysisStartDateFor error for account %s, id %s: %v", uid, id, err)
 	} else {
 		minChargedOn = minDate.Format("2006-01-02")
 	}
@@ -469,7 +469,7 @@ func (h *Handler) ExternalChargeRowUpdate(c *gin.Context) {
 
 	updated, err := h.chargingWriter.Update(c.Request.Context(), ref, entry)
 	if err != nil {
-		log.Printf("gateway: ExternalChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
+		logging.Note("Handler", "ExternalChargeRowUpdate", "writer error for account %s, id %s: %v", uid, id, err)
 		// Same value-preservation treatment on the 500 (writer-error) branch as
 		// the 422 (validation-error) branch above — design.md §D-Values. Same
 		// "unchanged shape, only add the window params" treatment as the 422
@@ -602,7 +602,7 @@ func (h *Handler) ExternalChargeRowDelete(c *gin.Context) {
 	err = h.chargingWriter.Delete(c.Request.Context(), ref, id)
 	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	if err != nil {
-		log.Printf("gateway: ExternalChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
+		logging.Note("Handler", "ExternalChargeRowDelete", "writer error for account %s, id %s: %v", uid, id, err)
 		d.Error = i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotDeleteEntry)
 		renderFragmentError(c, http.StatusInternalServerError, pages.ExternalChargesPage(d), "external-charges-list")
 		return
@@ -642,7 +642,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 	// then renders min="" which HTML5 treats as no constraint (design.md D4).
 	minChargedOn := ""
 	if minDate, err := h.acct.AnalysisStartDateFor(ctx, uid); err != nil {
-		log.Printf("gateway: AnalysisStartDateFor error for account %s: %v", uid, err)
+		logging.Note("Handler", "buildExternalChargesPage", "AnalysisStartDateFor error for account %s: %v", uid, err)
 	} else {
 		minChargedOn = minDate.Format("2006-01-02")
 	}
@@ -664,7 +664,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 
 	refs, vehicles, ok := h.ownedVehicles(ctx, uid)
 	if !ok {
-		log.Printf("gateway: ownedVehicles failed for account %s", uid)
+		logging.Note("Handler", "buildExternalChargesPage", "ownedVehicles failed for account %s", uid)
 		return fragments.ExternalChargesPageData{
 			CSRFToken: csrfToken,
 			Error:     i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadVehicles),
@@ -677,7 +677,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 	entries, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, teslaIDFilter, start, end)
 	var pageError string
 	if err != nil {
-		log.Printf("gateway: charging reader error for account %s: %v", uid, err)
+		logging.Note("Handler", "buildExternalChargesPage", "charging reader error for account %s: %v", uid, err)
 		pageError = i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadEntries)
 		entries = nil
 	}
@@ -720,7 +720,7 @@ func (h *Handler) buildExternalChargesPage(ctx context.Context, uid uuid.UUID, c
 	if teslaIDFilter != 0 && h.analyticsReader != nil {
 		statuses, snapErr := h.analyticsReader.LatestMetricsForVehicles(ctx, refs)
 		if snapErr != nil {
-			log.Printf("gateway: charges suggestion analytics reader error for account %s: %v", uid, snapErr)
+			logging.Note("Handler", "buildExternalChargesPage", "charges suggestion analytics reader error for account %s: %v", uid, snapErr)
 		} else {
 			for _, s := range statuses {
 				if s.TeslaID == teslaIDFilter {
@@ -887,7 +887,7 @@ func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry
 	}
 	existing, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, entry.TeslaID, entry.ChargedOn, entry.ChargedOn)
 	if err != nil {
-		log.Printf("gateway: in-progress conflict check reader error for account %s, vehicle %d, date %s: %v",
+		logging.Note("Handler", "inProgressConflictOn", "in-progress conflict check reader error for account %s, vehicle %d, date %s: %v",
 			uid, entry.TeslaID, entry.ChargedOn.Format("2006-01-02"), err)
 		return "", false
 	}
@@ -926,7 +926,7 @@ func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry
 // handler file.
 func (h *Handler) recalculateAfterExternalChargeWrite(ctx context.Context, uid uuid.UUID, teslaID int64, chargedOn time.Time) {
 	if err := h.analyticsRecalculator.Recalculate(ctx, teslaID, chargedOn, chargedOn); err != nil {
-		log.Printf("gateway: analytics recalculate error for account %s, vehicle %d, date %s: %v",
+		logging.Note("Handler", "recalculateAfterExternalChargeWrite", "analytics recalculate error for account %s, vehicle %d, date %s: %v",
 			uid, teslaID, chargedOn.Format("2006-01-02"), err)
 	}
 }
@@ -1345,7 +1345,7 @@ func (h *Handler) parseExternalChargeForm(c *gin.Context, uid uuid.UUID, vehicle
 			// cleanly. See design.md D1-D3.
 			minDate, err := h.acct.AnalysisStartDateFor(c.Request.Context(), uid)
 			if err != nil {
-				log.Printf("gateway: AnalysisStartDateFor error for account %s: %v", uid, err)
+				logging.Note("Handler", "parseExternalChargeForm", "AnalysisStartDateFor error for account %s: %v", uid, err)
 				errs["_top"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotValidateAnalysisStartDate)
 			} else if chargedOn.Before(minDate) {
 				errs["charged_on"] = fmt.Sprintf(

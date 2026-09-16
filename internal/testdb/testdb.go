@@ -31,9 +31,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"time"
+
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 
 	// Register the pgx driver as "pgx" for database/sql, which goose uses.
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -138,7 +139,7 @@ func provision(ctx context.Context, apply func(context.Context, string) error) (
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn != "" {
 		if err := retry(5, 2*time.Second, func() error { return apply(ctx, dsn) }); err != nil {
-			log.Printf("testdb: TEST_DATABASE_URL not usable (%v); provisioning testcontainer", err)
+			logging.Note("testdb", "provision", "TEST_DATABASE_URL not usable (%v); provisioning testcontainer", err)
 			dsn = ""
 		}
 	}

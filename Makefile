@@ -86,7 +86,7 @@ TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(pos
 TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard tidy build vet test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs docker-migrate backup-db
 
@@ -540,6 +540,38 @@ tz-guard: ## Fail if code outside internal/clock hand-rolls "now", a UTC/day-mid
 		echo "24h Truncate day-rounding, or hardcoded IANA zone name found outside internal/clock"; \
 	fi
 
+# logging-guard mirrors tz-guard's grep-based shape, enforcing ai/go-conventions.md's
+# Logging rule: internal/logging is the platform's single owner of the log-line format,
+# [Type] [Method] message (logging.Note). Scans `internal` only — cmd/ is the exempt
+# composition root (startup, shutdown, and fatal exits may use stdlib log directly,
+# simply by never being scanned), excluding internal/logging itself (the owner),
+# _test.go wholesale (skip notices and TestMain log.Fatalf are legitimate test-time
+# output), and comment-only lines (the convention is explained in prose that contains
+# the very literals being guarded, e.g. "log.Printf"). The pattern's leading boundary
+# `(^|[^[:alnum:]_.])` keeps it from matching slog-style identifiers embedded in other
+# words. Escape hatch: a trailing `// log:allow: <reason>` comment on the same line.
+logging-guard: ## Fail if a domain module calls stdlib log directly instead of internal/logging's Note (escape hatch: // log:allow: <reason>)
+	@fail=0; \
+	log_matches=$$(grep -rnE '(^|[^[:alnum:]_.])log\.(Print|Fprint|Sprint|Fatal|Panic|Set|New|Default|Output|Writer|Flags|Prefix)' internal --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v '^internal/logging/' \
+		| grep -v 'log:allow' \
+		| grep -vE '^[^:]+:[^:]+:[[:space:]]*//' \
+		|| true); \
+	if [ -n "$$log_matches" ]; then echo "$$log_matches"; fail=1; fi; \
+	if [ "$$fail" = "1" ]; then \
+		echo ""; \
+		echo "ERROR: raw stdlib log call found above, outside internal/logging. internal/logging"; \
+		echo "is the platform's single owner of the log-line format, [Type] [Method] message"; \
+		echo "(ai/go-conventions.md, § Logging). Call logging.Note(typ, method, format, args...)"; \
+		echo "instead. cmd/ is exempt (composition root). Genuinely deliberate exception?"; \
+		echo "Mark it with // log:allow: <reason> as a trailing comment on the same line."; \
+		echo "Never weaken this pattern to silence a true positive."; \
+		exit 1; \
+	else \
+		echo "logging-guard: no raw stdlib log calls found outside internal/logging"; \
+	fi
+
 tidy: ## Sync go.mod / go.sum (go mod tidy)
 	go mod tidy
 
@@ -857,7 +889,7 @@ archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or de
 		echo "archive-guard: no archived file edited or deleted since $$base"; \
 	fi
 
-check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + test
+check: build vet ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin
