@@ -9,8 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "2.1",
-      "2.2",
       "3.1",
       "3.2",
       "4.1",
@@ -27,11 +25,13 @@
     "awaiting-user-verification": [
       "1.1",
       "1.2",
-      "1.3"
+      "1.3",
+      "2.1",
+      "2.2"
     ]
   },
   "created_at": "2026-09-16T08:05:46Z",
-  "updated_at": "2026-09-16T08:29:46Z",
+  "updated_at": "2026-09-16T09:01:44Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -131,14 +131,23 @@
         "1.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:58:00Z",
+      "completed_at": "2026-09-16T09:01:44Z",
+      "duration_seconds": 224,
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 29,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.879,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran tasks 2.1 and 2.2; wave delta copied onto each"
+      },
+      "notes": "Added the StartBatterySource type, its two constants, and the Entry.StartBatterySource field with the ALWAYS-COMPUTED contract. Package and Entry doc comments updated. No interface method added, removed or re-signed.",
       "owner": "charging worker"
     },
     {
@@ -150,14 +159,23 @@
         "2.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:58:00Z",
+      "completed_at": "2026-09-16T09:01:44Z",
+      "duration_seconds": 224,
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 29,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.879,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran tasks 2.1 and 2.2; wave delta copied onto each"
+      },
+      "notes": "Added resolveStartBatteryPct typed on packCapacityLookup, called in Create and Update right after resolveEnergy. Bound the new param on both Params structs; rowToEntry maps the column back. pgtype stays in service.go.",
       "owner": "charging worker"
     },
     {
@@ -397,6 +415,16 @@
       "at": "2026-09-16T08:29:46Z",
       "agent": "leader",
       "event": "wave 1 complete (1.1, 1.2, 1.3). Leader verified the migration DDL and the query.sql diff against the confirmed design gate; sqlc diff matches design.md. Worker flagged that go build ./... stayed green \u2014 named-field struct literals default the new param to NULL, so the task text's 'build will fail' expectation was wrong, not the work."
+    },
+    {
+      "at": "2026-09-16T08:58:00Z",
+      "agent": "leader",
+      "event": "user chose to continue in-session at the wave boundary (context 14%, 5h 22%). dispatched charging worker (Sonnet) for wave 2 (tasks 2.1, 2.2) \u2014 StartBatterySource type and service.go wiring"
+    },
+    {
+      "at": "2026-09-16T09:01:44Z",
+      "agent": "leader",
+      "event": "wave 2 complete (2.1, 2.2). Leader re-ran go build ./..., go vet ./... and gofmt -l internal/charging: all clean. resolveStartBatteryPct signature and both call sites verified against design.md D1/D4."
     }
   ]
 }

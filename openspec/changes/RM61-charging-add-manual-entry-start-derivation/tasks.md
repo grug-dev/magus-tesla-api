@@ -98,7 +98,7 @@ human. See design.md **D1–D5** for the rationale behind each group.
 
 ## Wave 2 — domain surface and service wiring
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — the domain
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — the domain
   surface:
   - Add the exported `StartBatterySource` type and its two constants
     (`StartBatterySourceUser`, `StartBatterySourceEstimated`), doc comment from design.md **D4**
@@ -115,7 +115,7 @@ human. See design.md **D1–D5** for the rationale behind each group.
     missing starting battery percentage from the energy added and the ending percentage.
   `depends_on`: 1.3 · `parallel_ok`: no (2.2 depends on this)
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/service.go`:
+- [x] **2.2** **[module: charging worker]** `internal/charging/service.go`:
   - Add `resolveStartBatteryPct`, the full function from design.md **D1**, **verbatim including
     its doc comment** (with any decision-id citation stripped — state the reason plainly). Its
     second parameter is `packCapacityLookup`, **not** the wider `store` interface
