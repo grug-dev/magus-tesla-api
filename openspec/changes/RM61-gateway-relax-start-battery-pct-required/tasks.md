@@ -177,6 +177,24 @@ immediately, no owner confirmation needed first.
   `Help` appearing before `Error` in the output.
   `depends_on`: 1.1 · `parallel_ok`: with 5.1
 
+- [x] **5.3** **[leader]** `internal/gateway/handlers/external_charges_error_visibility_test.go`
+  — appended after the owner's `make check` run failed. `TestErrorFragmentsCarryOptInHeader`
+  used an EMPTY `start_battery_pct` to cause its 422, which this change makes legal; the 422
+  then came from a missing `status` instead, so the test no longer proved what it claims.
+  Change the trigger to `"start_battery_pct": {"150"}` with `"status": {"IN_PROGRESS"}`
+  supplied, and assert `KeyChargesErrorStartBatteryPctRange`'s ES string. The
+  `HX-Error-Fragment` assertion is untouched — that is the guard worth keeping.
+  Root cause of the miss: task 5.1's Group E sweep named only
+  `handlers/external_charges_test.go`. Every other `_test.go` was swept afterwards; no
+  further use of the field exists outside `telemetry.supercharger_history`.
+  `depends_on`: 5.1 · `parallel_ok`: no
+
+- [x] **5.4** **[leader]** `internal/gateway/templates/ui/field_test.go` — review round 1,
+  finding 1: one doc comment cited `design.md`. Replaced with the reason itself. Appended
+  because tasks and criteria are append-only; a review fix is recorded, never folded
+  silently into an existing task.
+  `depends_on`: 5.2 · `parallel_ok`: no
+
 ---
 
 ## Wave 6 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)

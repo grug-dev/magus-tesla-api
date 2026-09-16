@@ -23,9 +23,9 @@ func renderField(t *testing.T, p FieldProps) string {
 	return buf.String()
 }
 
-// TestField_Help_RendersFieldsetLabel covers design.md Test Contract Group A —
-// Field's new Help prop renders a muted fieldset-label line under the control,
-// distinct from Error, and empty renders nothing.
+// TestField_Help_RendersFieldsetLabel checks Field's Help prop: it renders a
+// muted fieldset-label line under the control, distinct from Error, and an
+// empty value renders nothing.
 func TestField_Help_RendersFieldsetLabel(t *testing.T) {
 	t.Run("A1_HelpSetNoError", func(t *testing.T) {
 		body := renderField(t, FieldProps{Help: "x"})
