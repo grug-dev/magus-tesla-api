@@ -50,6 +50,10 @@ MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migratio
 
 # goose binary: prefer one on PATH, else the `go install` location (GOPATH/bin).
 GOOSE ?= $(shell command -v goose 2>/dev/null || echo $$(go env GOPATH)/bin/goose)
+# Resolution order: PATH (a mise-activated interactive shell puts it there), then
+# `mise which` (a non-interactive shell — CI, a script, an agent — does NOT source
+# ~/.zshrc, so mise is installed but not on PATH), then a plain `go install` copy.
+GOLANGCI ?= $(shell command -v golangci-lint 2>/dev/null || mise which golangci-lint 2>/dev/null || echo $$(go env GOPATH)/bin/golangci-lint)
 
 # The application login role. `db-setup` creates it (if missing) and makes it the
 # OWNER of the database; it is the role the app connects as for all CRUD, so it is
@@ -86,7 +90,7 @@ TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(pos
 TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard tidy build vet test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard tidy build vet lint check-golangci test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs docker-migrate backup-db
 
@@ -583,6 +587,25 @@ build: ## Compile every package + command in the monolith (go build ./...)
 vet: ## Static analysis across all packages (go vet ./...)
 	go vet ./...
 
+check-golangci:
+	@command -v $(GOLANGCI) >/dev/null 2>&1 || { \
+		echo "ERROR: golangci-lint not found at '$(GOLANGCI)'."; \
+		echo "Install: mise install   (it is pinned in mise.toml)"; \
+		echo "Or:      go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"; \
+		echo "Then add \"$$(go env GOPATH)/bin\" to PATH, or run: make lint GOLANGCI=/path/to/golangci-lint"; \
+		exit 1; }
+
+# lint is Go-CORRECTNESS checking; the *-guard targets are PROJECT-RULE checking.
+# Keep them apart: a rule goes in .golangci.yml only when an off-the-shelf linter
+# already implements it, and in a guard when it is specific to this codebase.
+#
+# lint adds three things `go vet` does not: errcheck (an unchecked error return),
+# unused (dead code — vet never reports it), and the resource-leak linters
+# bodyclose / rowserrcheck / sqlclosecheck, which cover where a Fleet API call or
+# a row loop would actually leak. Config + rationale: .golangci.yml.
+lint: check-golangci ## Lint every package (golangci-lint run ./...; config in .golangci.yml)
+	$(GOLANGCI) run ./...
+
 test: ## Run all tests against disposable testcontainer Postgres (TEST_DATABASE_URL is never read from .env here)
 	go test ./...
 
@@ -843,6 +866,53 @@ tenancy-guard: ## Fail if a module's db/*.sql outside internal/account filters o
 		echo "tenancy-guard: no account_id filter in a db/*.sql outside internal/account"; \
 	fi
 
+# naming-guard mirrors boundary-guard's grep-based shape and warn/fail split,
+# enforcing ai/go-conventions.md §Coding Rules "Type names must carry the domain
+# word". A type declaration (struct or interface, exported or not) whose name ends
+# in a banned generic suffix — Processor, Manager, Handler, Helper, Data, Info,
+# Object, Thing — fails the guard: those names say nothing about the domain, so a
+# reader cannot guess what is inside (the exact smell that produced app.Processor).
+#
+# Six declarations pre-date the rule and only WARN (the BASELINE filter below), so
+# `make check` stays green today while any NEW banned name fails. When a baseline
+# name is renamed away, delete its entry — the baseline only ever shrinks. The
+# generated *_templ.go files are covered too: their type declarations live in the
+# .templ source, which is the file a rename actually edits.
+#
+# Escape hatch: a trailing `// naming:allow: <reason>` comment on the same line.
+# Never widen the pattern to silence a true positive.
+naming-guard: ## Fail if a NEW type declaration ends in a banned generic suffix (Processor/Manager/Handler/Helper/Data/Info/Object/Thing); pre-rule baseline names only warn (escape hatch: // naming:allow: <reason>)
+	@pattern='^type [A-Za-z0-9_]*(Processor|Manager|Handler|Helper|Data|Info|Object|Thing)(\[[^]]*\])? (struct|interface)'; \
+	baseline='type (Processor|guardedProcessor|DashboardData|ExternalChargesPageData|VehiclesData|Handler) '; \
+	hits=$$(grep -rnE "$$pattern" --include='*.go' internal cmd \
+		| grep -v 'naming:allow' || true); \
+	warn=$$(echo "$$hits" | grep -E "$$baseline" || true); \
+	fail=$$(echo "$$hits" | grep -vE "$$baseline" || true); \
+	if [ -n "$$warn" ]; then \
+		echo "$$warn"; \
+		echo ""; \
+		echo "WARNING: the pre-rule type names above end in a banned generic suffix."; \
+		echo "Not fatal — they pre-date ai/go-conventions.md's naming rule. Renaming"; \
+		echo "one is a deliberate change; when done, shrink the baseline in the"; \
+		echo "Makefile's naming-guard target."; \
+		echo ""; \
+	fi; \
+	if [ -n "$$fail" ]; then \
+		echo "$$fail"; \
+		echo ""; \
+		echo "ERROR: the type declarations above end in a banned generic suffix"; \
+		echo "(Processor/Manager/Handler/Helper/Data/Info/Object/Thing). The name says"; \
+		echo "nothing about the domain — write one sentence, \"this thing does X\","; \
+		echo "and name the type after X's key word (VehicleDataCycle, not Processor)."; \
+		echo "See ai/go-conventions.md §Coding Rules \"Type names must carry the domain"; \
+		echo "word\". Genuinely unavoidable (false positive)? Mark the line with"; \
+		echo "// naming:allow: <reason>. Never weaken this pattern to silence a true"; \
+		echo "positive."; \
+		exit 1; \
+	else \
+		echo "naming-guard: no new banned-suffix type declaration (baseline: $$(echo "$$warn" | grep -cE "$$baseline" || true) legacy name(s))"; \
+	fi
+
 # archive-guard is the one guard that reads git history instead of the working tree,
 # because the rule it enforces is about CHANGE, not about content: everything under
 # openspec/changes/archive/ is an immutable snapshot of what was decided at the time.
@@ -889,7 +959,7 @@ archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or de
 		echo "archive-guard: no archived file edited or deleted since $$base"; \
 	fi
 
-check: build vet ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + test
+check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

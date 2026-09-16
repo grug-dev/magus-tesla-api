@@ -733,15 +733,6 @@ func intPtrToPgInt4(v *int) pgtype.Int4 {
 	return pgtype.Int4{Int32: int32(*v), Valid: true}
 }
 
-// stringPtrToPgText maps a *string to a nullable pgtype.Text. nil → invalid
-// (SQL NULL); non-nil → valid with the concrete string. Mirrors boolPtrToPgBool.
-func stringPtrToPgText(v *string) pgtype.Text {
-	if v == nil {
-		return pgtype.Text{Valid: false}
-	}
-	return pgtype.Text{String: *v, Valid: true}
-}
-
 // runIDToPgUUID wraps a non-nullable uuid.UUID as a valid pgtype.UUID query
 // parameter. The run_id COLUMN is nullable (legacy pre-migration rows only,
 // design D7), but every Attempt written by this module carries a real RunID
@@ -778,7 +769,10 @@ func (d *dbStore) latestSnapshotsByVehicles(ctx context.Context, teslaIDs []int6
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		snaps = append(snaps, rowToSnapshot(snapshotRow(r)))
+		// No snapshotRow() wrap here: snapshotRow IS an alias of this query's
+		// own row type (mapping.go). The other call sites below convert a
+		// DIFFERENT query's structurally identical row, so they keep the wrap.
+		snaps = append(snaps, rowToSnapshot(r))
 	}
 	return snaps, nil
 }

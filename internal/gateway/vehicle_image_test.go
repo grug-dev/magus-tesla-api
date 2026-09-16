@@ -10,18 +10,18 @@ func ptr(s string) *string { return &s }
 func TestNewVehicleImageResolver(t *testing.T) {
 	// Fake embedded FS with two known images + the default.
 	fsys := fstest.MapFS{
-		"static/img/modelyPearlWhite.png":   {},
-		"static/img/model3SolidBlack.png":   {},
-		"static/img/defaultCar.png":         {},
-		"static/img/README.txt":             {}, // non-png, must be ignored
+		"static/img/modelyPearlWhite.png": {},
+		"static/img/model3SolidBlack.png": {},
+		"static/img/defaultCar.png":       {},
+		"static/img/README.txt":           {}, // non-png, must be ignored
 	}
 	resolver := newVehicleImageResolver(fsys)
 
 	cases := []struct {
-		name      string
-		carType   *string
-		color     *string
-		want      string
+		name    string
+		carType *string
+		color   *string
+		want    string
 	}{
 		{"known pair", ptr("modely"), ptr("PearlWhite"), "/static/img/modelyPearlWhite.png"},
 		{"known pair model3", ptr("model3"), ptr("SolidBlack"), "/static/img/model3SolidBlack.png"},

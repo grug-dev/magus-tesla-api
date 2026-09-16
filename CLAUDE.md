@@ -7,8 +7,8 @@
 (the owner has authorized it); it need not hand them back to the user. Allowed without asking:
 
 - `go build ./...`, `go vet ./...`, `gofmt -l`
-- `make build`, `make vet`, `make bins`
-- `make ui-guard`, `make i18n-guard`, `make money-guard`, `make tz-guard`, `make migration-guard`, `make boundary-guard`, `make theme-guard`, `make vehicleref-guard`, `make tenancy-guard`, `make archive-guard` — the standalone guards
+- `make build`, `make vet`, `make bins`, `make lint` (golangci-lint; config `.golangci.yml`)
+- `make ui-guard`, `make i18n-guard`, `make money-guard`, `make tz-guard`, `make migration-guard`, `make boundary-guard`, `make theme-guard`, `make vehicleref-guard`, `make tenancy-guard`, `make naming-guard`, `make archive-guard` — the standalone guards
 - `sqlc generate` / `make sqlc`, `go mod tidy` / `make tidy`
 
 **Claude does NOT run the test suite — the owner does.** Never run `go test ./...`,
@@ -19,11 +19,19 @@ inside and outside the pipeline.
 Why the line falls there: everything on the allowed list is a **cheap deterministic
 signal** — it fails fast, prints a few lines, and needs no human. `go vet` in particular
 compiles `_test.go` files, so it catches signature drift and API mistakes in tests nobody
-executed. Skipping a signal like that doesn't save anything; it converts it into a
-round-trip that costs more than the output it replaced.
+executed. `make lint` is the same kind of signal and catches three classes `go vet` cannot
+see: an ignored error return (`errcheck`), dead code (`unused`), and a leaked resource
+(`bodyclose`/`rowserrcheck`/`sqlclosecheck`). Skipping a signal like that doesn't save
+anything; it converts it into a round-trip that costs more than the output it replaced.
+
+**`make lint` and the `make *-guard` targets are different jobs — keep them apart.**
+`.golangci.yml` holds Go-correctness rules an off-the-shelf linter already implements; the
+guards hold rules specific to this project (i18n, boundaries, time zone, units, themes). Never
+hand-roll a grep guard for something golangci-lint already checks, and never move a project
+rule into `.golangci.yml`.
 
 `make check` is owner-only *only* because it ends in `test` — its other phases
-(`build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard`) are all on the allowed list and Claude runs
+(`build vet lint ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard`) are all on the allowed list and Claude runs
 them individually. So excluding `check` costs no guard coverage.
 
 Consequence: when Claude has written tests but not run them, the honest state is **awaiting
@@ -131,8 +139,8 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
   + resume at every wave boundary regardless of the percentage.
 - **Test-Execution-Policy:** `Claude writes tests but never runs the suite — never go test
   ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet
-  ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make
-  ui-guard / make i18n-guard / make money-guard /  make tz-guard / make migration-guard / make boundary-guard / make archive-guard. The owner runs the suite and reports
+  ./..., gofmt -l, make lint, make build, make vet, make bins, and the standalone guards make
+  ui-guard / make i18n-guard / make money-guard /  make tz-guard / make migration-guard / make boundary-guard / make naming-guard / make archive-guard. The owner runs the suite and reports
   results; work that is complete but unexecuted is awaiting-user-verification, never done,
   and a passing suite is recorded as the owner's report, never claimed by the assistant.`
 - **Design-Gates:** `database` — design areas whose artifacts require the user's explicit

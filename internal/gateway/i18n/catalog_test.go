@@ -10,7 +10,6 @@ import "testing"
 // check every new catalog entry.
 func TestCatalog_AllKeysHaveBothLanguages(t *testing.T) {
 	for key, e := range catalog {
-		key, e := key, e
 		t.Run(string(key), func(t *testing.T) {
 			if e.ES == "" {
 				t.Errorf("catalog[%q].ES is empty — every key needs a Spanish translation", key)

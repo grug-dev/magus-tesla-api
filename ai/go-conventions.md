@@ -34,6 +34,17 @@ Standard Go project layout — modular monolith:
 
 ## Coding Rules
 
+- **Type names must carry the domain word.** Before naming a new type, write one
+  sentence: "this thing does X". The name must contain X's key word. Generic
+  suffixes that say nothing about the domain are banned: `Processor`, `Manager`,
+  `Handler`, `Helper`, `Data`, `Info`, `Object`, `Thing`. Test: if the type moved
+  to another package, would the name still mean something? `app.Processor` fails —
+  `app.Processor` fails — it could process anything. `app.VehicleDataCycle` passes.
+  `make naming-guard` enforces this: a new type declaration ending in a banned
+  suffix fails `make check` (escape hatch: `// naming:allow: <reason>`); the six
+  pre-rule names warn only. (The existing `Processor` port in `internal/app`
+  predates this rule; renaming it is a separate, explicit decision, not a
+  drive-by fix.)
 - Every new Tesla API concern gets its own package under `internal/`. Never add charging commands to the vehicle package, never add telemetry to auth, etc.
 - `cmd/` files must stay thin — they wire packages together. Zero business logic in `cmd/`.
 - Never call `os.Getenv` outside of `internal/config/`. All other packages receive config via function arguments or the `Config` struct.
@@ -150,6 +161,7 @@ pipeline or not, and `CLAUDE.md` §"Builds & local checks" states the same rule.
 | Command | Who |
 |---|---|
 | `go build ./...`, `go vet ./...`, `gofmt -l` | **Claude may run these**, unprompted |
+| `make lint` / `golangci-lint run ./...` | **Claude** — lints only, runs no test |
 | `make build`, `make vet`, `make bins` | **Claude** |
 | `make ui-guard`, `make i18n-guard`, `make money-guard`, `tz-guard`, `logging-guard`, `make migration-guard`, `make boundary-guard`, `make theme-guard`, `make archive-guard` | **Claude** — standalone guards, no tests |
 | `go test ./...`, `make test`, `make test-with-db`, `make check` | **Owner only** — Claude never runs them |
@@ -159,8 +171,21 @@ lines, needs no human. `go vet` in particular compiles `_test.go` files, so it c
 signature drift and API mistakes in tests that were never executed. Skipping such a signal
 saves nothing — it converts it into a round-trip costing more than the output it replaced.
 
-`make check` is `build vet ui-guard i18n-guard money-guard tz-guard logging-guard
-migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard archive-guard
+**`make lint` (golangci-lint, config `.golangci.yml`) is the same kind of signal, and it
+catches three classes `go vet` cannot see**: an **ignored error return** (`errcheck`), **dead
+code** (`unused` — vet never reports it), and a **leaked resource** (`bodyclose`,
+`rowserrcheck`, `sqlclosecheck`). Run it before handing work back; a finding there is one a
+reviewer would otherwise have to raise by hand.
+
+Keep the two kinds of check apart. `.golangci.yml` holds **Go-correctness** rules that an
+off-the-shelf linter already implements. The `make *-guard` targets hold **this project's own**
+rules (i18n, boundaries, time zone, units, themes) — rules no public linter knows about. Do not
+re-implement a guard as a custom linter, and do not hand-roll a grep guard for something
+golangci-lint already checks.
+
+`make check` is `build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard
+migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard
+naming-guard archive-guard
 test`; it is owner-only purely because of the trailing `test`. Claude
 runs the other phases individually, so excluding `check` costs no guard coverage.
 

@@ -34,9 +34,6 @@ func ptrFloat64(v float64) *float64 { return &v }
 // ptrInt is a test helper to build a *int.
 func ptrInt(v int) *int { return &v }
 
-// ptrString is a test helper to build a *string.
-func ptrString(v string) *string { return &v }
-
 // The two helpers below replace the deleted telemetrydb.ListSnapshotsByVehicle
 // sqlc query (RM44-telemetry-add-query-logging D5/D13): each test that used to
 // call it now reads its row back with a raw SQL SELECT via the pool directly,

@@ -220,7 +220,6 @@ func TestEntryStatus_B7_OdometerKmCheckBothDirections(t *testing.T) {
 	assertPgErrorCode(t, err, "23514")
 
 	for _, v := range []int{0, 999999} {
-		v := v
 		t.Run(strconv.Itoa(v), func(t *testing.T) {
 			okArgs := append(minArgs(accountID, 310007), v)
 			if _, err := insertEntryColumns(ctx, pool, columns, okArgs...); err != nil {

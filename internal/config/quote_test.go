@@ -7,18 +7,18 @@ import (
 
 func TestEnvStripped(t *testing.T) {
 	cases := map[string]struct {
-		set string
+		set  string
 		want string
 	}{
-		"double-quoted":      {`"eyJfake"`, "eyJfake"},
-		"single-quoted":      {`'eyJfake'`, "eyJfake"},
-		"unquoted":           {"eyJfake", "eyJfake"},
-		"empty":              {"", ""},
-		"one-char":           {"x", "x"},
-		"two-unmatched-1":    {`"x`, `"x`},
-		"two-unmatched-2":    {`x"`, `x"`},
-		"internal-quotes":    {`ey"jf`, `ey"jf`},
-		"only-quotes":        {`""`, ""},
+		"double-quoted":   {`"eyJfake"`, "eyJfake"},
+		"single-quoted":   {`'eyJfake'`, "eyJfake"},
+		"unquoted":        {"eyJfake", "eyJfake"},
+		"empty":           {"", ""},
+		"one-char":        {"x", "x"},
+		"two-unmatched-1": {`"x`, `"x`},
+		"two-unmatched-2": {`x"`, `x"`},
+		"internal-quotes": {`ey"jf`, `ey"jf`},
+		"only-quotes":     {`""`, ""},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

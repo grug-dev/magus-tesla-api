@@ -1,2 +1,5 @@
 [tools]
 go = "latest"
+# Pinned, not "latest": a linter that silently gains rules on upgrade turns a
+# green `make check` red for reasons nobody changed. Bump it on purpose.
+golangci-lint = "2.13.2"
