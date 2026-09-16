@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-40 \u2014 Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-16T17:28:43Z",
+  "updated_at": "2026-09-16T17:41:58Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
@@ -250,6 +250,16 @@
       "at": "2026-09-16T17:28:43Z",
       "agent": "leader",
       "event": "tier 2 archived into openspec/changes/archive/gateway/2026-09-16-RM61-gateway-relax-start-battery-pct-required. Specs synced: gateway ~3 requirements. Autopilot continues to tier 3 (RM61-analytics-remove-dead-efficiency-branch, depends_on []). MAG-40 stays In Progress; it covers the whole roadmap, so it moves to Done only when the roadmap completes."
+    },
+    {
+      "at": "2026-09-16T17:41:58Z",
+      "agent": "leader",
+      "event": "KB sync done: use-case/charging/update-manual-charge.md gained the optional-start-% input note and five conventions; INDEX.md gained two alias rows. Proposal staged and applied in the same flow, archived as pending-spec-to-sync/applied/2026-09-16-gateway.md. Commit 21be44e."
+    },
+    {
+      "at": "2026-09-16T17:41:58Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the tier 2/3 boundary. Not a threshold trip: five_hour_pct 53 (threshold 90), context_pct 24 (threshold 40), seven_day_pct 94. Stopped on the skill's standing advice to prefer a fresh session per tier. The owner chose /clear + resume over continuing here. NO wake-up armed - this is a context-hygiene stop, not a budget trip. Tier 3 RM61-analytics-remove-dead-efficiency-branch is unblocked (depends_on []) and starts at Step 2. Resume with: /kkpa-dev-harness-pipeline resume RM61-manual-charge-start-derivation"
     }
   ]
 }
