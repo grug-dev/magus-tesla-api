@@ -69,10 +69,9 @@ func main() {
 		AnalyticsReader: analytics.NewReader(pool),
 		// The manual-charge write handlers call Recalculate through this port
 		// after their charging.Writer call succeeds, so the precomputed
-		// history charts stay current without a separate refresh
-		// (RM29-analytics-add-vehicle-metrics design D5). It takes no
-		// vehicleLookup and no window: the write path recomputes an explicit
-		// date range for one known vehicle.
+		// history charts stay current without a separate refresh. It needs
+		// the sibling ports the reader does not: it WRITES the rows, over an
+		// explicit date range for one known vehicle.
 		AnalyticsRecalculator: analytics.NewRecalculator(
 			pool,
 			telemetry.NewReader(pool),

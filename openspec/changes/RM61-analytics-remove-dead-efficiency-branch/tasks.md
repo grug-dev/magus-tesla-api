@@ -119,29 +119,29 @@ Implementation may start immediately once this proposal is accepted.
 
 ## Wave 2 — cross-module compile fix (leader-owned; outside the analytics sandbox)
 
-- [ ] **2.1** **[leader]** `cmd/web/main.go:70` — shrink the `analytics.NewReader(...)` call to
+- [x] **2.1** **[leader]** `cmd/web/main.go:70` — shrink the `analytics.NewReader(...)` call to
   `analytics.NewReader(pool)`. Rewrite the comment immediately above it (currently explains
   that the window argument is "required by the signature but unused by ConsumedByDay" — that
   argument no longer exists, so the comment's whole premise is gone; state instead, briefly,
   what the port is used for here).
   `depends_on`: 1.1 (analytics's `NewReader` signature must be final) · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[leader]** `cmd/poller/main.go:125` (and its own near-identical comment,
+- [x] **2.2** **[leader]** `cmd/poller/main.go:125` (and its own near-identical comment,
   around line 107) — same fix as 2.1: shrink the call to `analytics.NewReader(pool)`, rewrite
   the comment that explains the now-nonexistent window argument.
   `depends_on`: 1.1 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[leader]** `internal/gateway/handlers/history_test.go:145-146` — remove the
+- [x] **2.3** **[leader]** `internal/gateway/handlers/history_test.go:145-146` — remove the
   `(*fakeAnalyticsReader) RecentEfficiency` stub (the one that panics). `analytics.Reader` no
   longer declares this method, so leaving the stub is harmless to compilation but is dead code;
   remove it so the fake's method set matches the interface it implements, method for method.
   `depends_on`: 1.1 · `parallel_ok`: with 2.1, 2.2, 2.4
 
-- [ ] **2.4** **[leader]** `internal/app/processor_test.go:241-244` — remove the
+- [x] **2.4** **[leader]** `internal/app/processor_test.go:241-244` — remove the
   `(fakeAnalyticsReader) RecentEfficiency` stub (the no-op one), same reasoning as 2.3.
   `depends_on`: 1.1 · `parallel_ok`: with 2.1, 2.2, 2.3
 
-- [ ] **2.5** **[leader]** Run `go build ./...` and `go vet ./...` **repo-wide** once 2.1–2.4
+- [x] **2.5** **[leader]** Run `go build ./...` and `go vet ./...` **repo-wide** once 2.1–2.4
   are all done. This is design.md **T4** — expected clean. If either fails anywhere, stop and
   report; do not assume it is expected at this point in the tier.
   `depends_on`: 2.1, 2.2, 2.3, 2.4 · `parallel_ok`: no
@@ -182,7 +182,7 @@ Implementation may start immediately once this proposal is accepted.
   `openspec/specs/`, never `openspec/changes/archive/`.
   `depends_on`: — (tracked here so it is not forgotten)
 
-- [ ] **3.4** **[leader]** Grep `kkpa/context/` for `RecentEfficiency`, `Efficiency`,
+- [x] **3.4** **[leader]** Grep `kkpa/context/` for `RecentEfficiency`, `Efficiency`,
   `capacityFor`, `car_type` capacity, or `analytics.DefaultWindow`. If any guide describes the
   deleted branch, correct it in the same change (`CLAUDE.md` §Non-negotiables: the KB is
   included in "docs track structural change"). Report what was found, even if nothing was.
@@ -192,7 +192,7 @@ Implementation may start immediately once this proposal is accepted.
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the
+- [x] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the
   assistant's say-so; work that is complete but unexecuted is **`awaiting-user-verification`**.
   ```bash
   make check
@@ -204,10 +204,10 @@ Implementation may start immediately once this proposal is accepted.
 
 ## Cross-module tasks the leader owns
 
-- [ ] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green repo-wide once
+- [x] **L1** **[leader]** Confirm `go build ./...`/`go vet ./...` are green repo-wide once
   Wave 2 lands (design.md **T4** — tracked here as well as in task 2.5 so it is not missed at
   the wave boundary).
-- [ ] **L2** **[leader]** Confirm the root `README.md` needs no edit (task 3.2's finding,
+- [x] **L2** **[leader]** Confirm the root `README.md` needs no edit (task 3.2's finding,
   cross-checked): this change removes no module, no runnable, and no table from the schema it
   documents.
   `depends_on`: 3.2 · `parallel_ok`: yes

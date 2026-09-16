@@ -17,8 +17,7 @@ import (
 // now that both read exclusively from vehicle_metrics (design.md
 // D-precompute). Any *analyticsdb.Queries satisfies this automatically
 // (structural typing, no adapter needed at NewReader's call site); a test
-// fake supplies canned rows without a live database, mirroring this file's
-// vehicleLookup interface one level up.
+// fake supplies canned rows without a live database.
 type vehicleMetricsStore interface {
 	VehicleMetricsConsumedByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsConsumedByVehicleBetweenRow, error)
 	VehicleMetricsOdometerByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsOdometerByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsOdometerByVehicleBetweenRow, error)
