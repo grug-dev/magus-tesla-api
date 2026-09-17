@@ -227,7 +227,6 @@ services:
       - ./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-      - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:
       - web
     restart: unless-stopped

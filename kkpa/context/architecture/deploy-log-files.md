@@ -12,10 +12,8 @@
 
 ## Component map
 
-- `deploy/docker/compose.yaml` — `web` and `poller` services: the `entrypoint:` redirect and the
-  `MAGUS_LOGS_DIR` bind-mount. `caddy` service: the same bind-mount, no redirect.
-- `deploy/docker/Caddyfile` — the `log { output file ... }` block that writes `caddy.log` and
-  rotates it.
+- `deploy/docker/compose.yaml` — `web` and `poller` services only: the `entrypoint:` write test,
+  the redirect, and the `MAGUS_LOGS_DIR` bind-mount.
 - `deploy/docker/magus-logs.logrotate` — the host `logrotate` conf for `web.log`/`poller.log`,
   installed to `/etc/logrotate.d/magus-logs` on the VPS.
 - `.env.example` — `MAGUS_LOGS_DIR`, the host folder path (default
@@ -27,14 +25,14 @@
 
 ## How maintenance works
 
-Each of the five services in the stack sends its output to one of two places. Getting a
-service's place wrong is the most common mistake when reading logs on the VPS:
+Two of the five services write named files. The other three stay on Docker's own driver.
+Getting a service's place wrong is the most common mistake when reading logs on the VPS:
 
 | Service | Where its log goes | How to read it |
 |---|---|---|
 | `web` | `~/magus-logs/web.log`, a named file on the host | `tail -100 ~/magus-logs/web.log` or `make vps-logs` |
 | `poller` | `~/magus-logs/poller.log`, a named file on the host | `tail -100 ~/magus-logs/poller.log` or `make vps-logs` |
-| `caddy` | `~/magus-logs/caddy.log`, a named file on the host, written and rotated by Caddy itself | `tail -100 ~/magus-logs/caddy.log` or `make vps-logs` |
+| `caddy` | Docker's own `json-file` log driver | `docker compose ... logs caddy` |
 | `db` | Docker's own `json-file` log driver | `docker compose ... logs db` |
 | `migrate` | Docker's own `json-file` log driver | `docker compose ... logs migrate` |
 
@@ -47,9 +45,13 @@ host's `MAGUS_LOGS_DIR`. The `exec` matters: without it, the shell running the r
 process 1 inside the container, and `docker stop`'s shutdown signal never reaches the Go binary,
 so graceful shutdown would silently stop working.
 
-**`caddy` uses its own log directive instead of a redirect**, because Caddy already knows how to
-rotate its own log file by size and by age — a redirect would need a second mechanism (the host
-`logrotate` job) to do the same thing, and two rotators on one file corrupt it.
+**`caddy` is deliberately NOT in the shared folder.** It was, for one release, and it took the
+site down. Three facts collide: the folder must be owned by a single user; `caddy` runs as a
+different user from `web` and `poller`; and `cap_drop: ALL` removes `DAC_OVERRIDE`, so even a
+root process gets no exemption from the permission bits. Caddy could not create its file and
+crash-looped. Making the folder writable for both users then produced a `caddy.log` the host
+user could not read without `sudo` — a named log nobody can read is worse than no named log.
+One folder cannot serve two trust boundaries; `caddy` keeps Docker's driver.
 
 **`db` and `migrate` are deliberately left on Docker's driver.** Redirecting either risks losing
 a startup error that matters (a full disk, a bad permission) before the redirect even takes
@@ -79,22 +81,20 @@ known limit of `copytruncate`, accepted here because this is a log file, not a d
 because making the Go binaries reopen their log file on a signal is a code change, out of scope
 for what is a configuration-only concern.
 
-### Why `caddy.log` is not in the `logrotate` conf
+### Why the `logrotate` conf names files instead of a glob
 
 `deploy/docker/magus-logs.logrotate` names `web.log` and `poller.log` explicitly — never a glob
-like `*.log`. `caddy.log` already rotates itself through the Caddyfile's own `log` block. Adding
-it to the host `logrotate` conf too would mean two rotators fighting over one file: whichever
-runs second finds a file the first already renamed or truncated out from under it, corrupting or
-losing data.
+like `*.log`. A glob picks up whatever lands in the folder later, including a file that already
+rotates itself. Two rotators on one file lose data: whichever runs second finds a file the first
+already renamed or truncated out from under it.
 
 ### Two `make` targets, two log sources
 
-- **`make vps-logs`** — tails all three named files under `MAGUS_LOGS_DIR`
-  (`web.log`, `poller.log`, `caddy.log`). Use this for `web`, `poller`, or `caddy` on a normal
-  day.
-- **`make docker-logs`** — unchanged; still follows Docker's own log driver. Use this for `db`
-  or `migrate`, or to see a `web`/`poller` crash that happened *before* the redirect took
-  effect. Changing `docker-logs` to read the named files instead was considered and rejected —
+- **`make vps-logs`** — tails both named files under `MAGUS_LOGS_DIR` (`web.log`,
+  `poller.log`). Use this for `web` or `poller` on a normal day.
+- **`make docker-logs`** — unchanged; still follows Docker's own log driver. Use this for
+  `caddy`, `db` or `migrate`, or to see a `web`/`poller` crash that happened *before* the
+  redirect took effect. Changing `docker-logs` to read the named files instead was considered and rejected —
   it would hide `db` and `migrate`, the two services an operator reads first when the whole
   stack fails to start.
 
@@ -126,8 +126,11 @@ Full step-by-step runbook: `docs/1-deploy/docker.md` §10.
 - **`copytruncate` is mandatory for `web.log`/`poller.log`, not a style choice.** Removing it
   would make `web`'s or `poller`'s log output vanish silently after every rotation, because
   neither process reopens its log file on a signal.
-- **Never add `caddy.log` to the host `logrotate` conf.** Caddy rotates it itself; a second
-  rotator on the same file loses data.
+- **Never put a third service in the shared folder.** It is owned by one user on purpose. A
+  service that runs as a different user either cannot write, or forces permissions loose enough
+  that the files stop being readable by the host user. `caddy` already failed this way.
+- **Never widen the `logrotate` conf to a glob.** It names its two files so a self-rotating file
+  dropped in later can never get a second rotator.
 - **`docker-logs` and `vps-logs` read different things — do not merge them.** `db` and
   `migrate` only ever appear in `docker-logs`.
 - **The log folder is a hard startup dependency.** `web` and `poller` exit when they cannot
@@ -136,9 +139,10 @@ Full step-by-step runbook: `docs/1-deploy/docker.md` §10.
   ownership step first.
 - **A `web`/`poller` crash before the redirect takes effect still only shows up in
   `docker compose ... logs`**, not in the named file — check both when the named file is empty.
-- **`web`, `poller` and `caddy` must each keep a named log file at a fixed host path.** An
-  operator has to reach a service's log without first looking up a per-container id. `db` and
-  `migrate` are exempt and stay on the container runtime's own log command.
+- **`web` and `poller` must each keep a named log file at a fixed host path, readable by the
+  host user without `sudo`.** An operator has to reach a service's log without first looking up
+  a per-container id. `caddy`, `db` and `migrate` are exempt and stay on the container runtime's
+  own log command.
   _Source: spec platform — Requirement: Named And Located Deploy Logs._
 - **Named log data must be purged automatically past its retention period.** Without it the files
   grow until the host disk fills. Retention today is 14 days.

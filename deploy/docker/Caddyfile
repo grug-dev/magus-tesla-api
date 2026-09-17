@@ -12,16 +12,6 @@
 # to web:8080. Caddy forwards the whole subtree — it does not know the
 # secret; poller's own handler accepts or 404s the exact path.
 {$BASE_DOMAIN} {
-	# Named, rotated access log — matches web.log/poller.log's 14-day
-	# retention (336h). Caddy rotates this itself; keep it off the host
-	# logrotate conf so the two never fight over the same file.
-	log {
-		output file /var/log/magus/caddy.log {
-			roll_size 10mb
-			roll_keep 3
-			roll_keep_for 336h
-		}
-	}
 	handle /internal/rerun/* {
 		reverse_proxy poller:8081
 	}

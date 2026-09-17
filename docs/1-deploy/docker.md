@@ -136,8 +136,8 @@ plus these three new ones).
 
 `make docker-logs` follows Docker's own log driver — the only place `db`'s
 and `migrate`'s output goes. `make vps-logs` tails the named files under
-`MAGUS_LOGS_DIR` instead (`web.log`, `poller.log`, `caddy.log`) — use it to
-read `web`'s or `poller`'s logs on the VPS. See §10 for when to use each.
+`MAGUS_LOGS_DIR` instead (`web.log`, `poller.log`) — use it to read `web`'s or
+`poller`'s logs on the VPS. See §10 for when to use each.
 
 ---
 
@@ -292,9 +292,16 @@ gunzip -c backups/magus-2026-09-07.sql.gz | docker compose --project-directory .
 
 `web` and `poller` write their output to named files on the VPS host,
 `~/magus-logs/web.log` and `~/magus-logs/poller.log`, instead of Docker's
-own hard-to-read path. `caddy` writes `~/magus-logs/caddy.log` and rotates
-it itself. `db` and `migrate` are unchanged — read them with
-`docker compose ... logs db` / `logs migrate`, as in §9.
+own hard-to-read path. `caddy`, `db` and `migrate` are unchanged — read them
+with `docker compose ... logs <service>`, as in §9.
+
+**Why `caddy` is not in this folder.** It was, briefly, and it took the site
+down. `caddy` runs as a different user from `web` and `poller`, so one folder
+cannot be owned correctly for all three at once. Caddy could not create its
+file and crash-looped. Even once it could write, the file it produced was not
+readable by your own user — a log that needs `sudo` to read defeats the point.
+Caddy's access log stays on Docker's driver, capped at 10 MB × 3 like every
+other service.
 
 ### One-time VPS setup
 
@@ -352,7 +359,7 @@ redirect, which looked like an unrelated crash.
 ### Reading the logs
 
 ```bash
-# Tail all three named files at once.
+# Tail both named files at once.
 make vps-logs
 ```
 
@@ -360,7 +367,6 @@ make vps-logs
 # Or one file at a time.
 tail -100 ~/magus-logs/web.log
 tail -100 ~/magus-logs/poller.log
-tail -100 ~/magus-logs/caddy.log
 ```
 
 ### Case (a): one file grows fast and hits its 10 MB limit early

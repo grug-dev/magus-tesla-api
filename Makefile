@@ -90,7 +90,7 @@ TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(pos
 TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard tidy build vet lint check-golangci test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard tidy build vet lint check-golangci test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs vps-logs docker-migrate backup-db
 
@@ -936,6 +936,28 @@ naming-guard: ## Fail if a NEW type declaration ends in a banned generic suffix 
 # Escape hatch: ARCHIVE_GUARD_ALLOW=1 make archive-guard, only for something that is not
 # a rewrite of the record (e.g. purging a leaked secret). State the reason in the commit
 # message. Never widen the pattern to silence a true positive.
+logdir-guard: ## Fail if a service other than web/poller mounts the named-log folder in deploy/docker/compose.yaml
+	@bad=$$(awk '\
+		/^services:/ { in_services=1; next } \
+		in_services && /^  [a-zA-Z0-9_-]+:/ { svc=$$1; sub(":", "", svc) } \
+		in_services && /:\/var\/log\/magus/ { if (svc != "web" && svc != "poller") print svc }\
+	' deploy/docker/compose.yaml | sort -u); \
+	if [ -n "$$bad" ]; then \
+		echo "$$bad"; \
+		echo ""; \
+		echo "ERROR: the service(s) above mount the named-log folder (/var/log/magus)."; \
+		echo "Only web and poller may. That folder is owned by ONE user on the host."; \
+		echo "A container running as a different user either cannot write to it — which"; \
+		echo "crash-loops the service — or forces the permissions loose enough that the"; \
+		echo "files stop being readable by the host user without sudo. caddy was added"; \
+		echo "once and took the site down twice."; \
+		echo "Send the extra service's log to Docker's driver instead, and read it with"; \
+		echo "docker compose ... logs <service>."; \
+		exit 1; \
+	else \
+		echo "logdir-guard: only web and poller mount the named-log folder"; \
+	fi
+
 archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or deleted (archives are immutable; escape hatch: ARCHIVE_GUARD_ALLOW=1)
 	@if [ -n "$$ARCHIVE_GUARD_ALLOW" ]; then \
 		echo "archive-guard: SKIPPED via ARCHIVE_GUARD_ALLOW — state the reason in the commit message"; \
@@ -959,7 +981,7 @@ archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or de
 		echo "archive-guard: no archived file edited or deleted since $$base"; \
 	fi
 
-check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + test
+check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + logdir-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin
@@ -1032,7 +1054,7 @@ docker-down: ## Stop and remove the whole Docker Compose stack (deploy/docker/co
 docker-logs: ## Follow logs from every running service in deploy/docker/compose.yaml
 	$(COMPOSE) logs -f
 
-vps-logs: ## Tail the named log files under MAGUS_LOGS_DIR (web.log, poller.log, caddy.log) — VPS only
+vps-logs: ## Tail the named log files under MAGUS_LOGS_DIR (web.log, poller.log) — VPS only
 	tail -f $(MAGUS_LOGS_DIR)/*.log
 
 docker-migrate: ## Run the one-shot "migrate" service from deploy/docker/compose.yaml by hand (same program docker-up already runs automatically)
