@@ -5,7 +5,7 @@
   "intention": "One nightly poller log shows every database call the cycle makes, in every module it touches, the same cycle can be stepped through in the VS Code debugger, and two diagrams explain it without reading any Go.",
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
   "status": "in-progress",
-  "autopilot": false,
+  "autopilot": true,
   "updated_at": "2026-09-17T02:21:32Z",
   "git": {
     "strategy": "auto",
@@ -189,6 +189,11 @@
       "at": "2026-09-17T02:21:32Z",
       "agent": "leader",
       "event": "tier 1 archived after reviewer approval (round 1, no findings). Tiers 2, 3 and 4 remain not-started; autopilot is off, so the pipeline stops here."
+    },
+    {
+      "at": "2026-09-17T02:23:00Z",
+      "agent": "leader",
+      "event": "user turned autopilot ON; advancing to tier 2 RM62-analytics-add-query-logging"
     }
   ]
 }

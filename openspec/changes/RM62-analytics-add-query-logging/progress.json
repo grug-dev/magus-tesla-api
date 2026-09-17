@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM62-analytics-add-query-logging",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
+  "request": "MAG-57 tier 2. internal/analytics has zero logging.Note calls, so its work in step 3 of the nightly cycle is invisible in the log. Add internal/analytics/query_log.go mirroring internal/telemetry/query_log.go: one decorator per port (Reader, Recalculator, GapWriter), explicit interface implementation, compile-time assertion each, analytics query: topic. Wire at the module's own constructors.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-17T02:34:02Z",
+  "updated_at": "2026-09-17T02:34:02Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
+    "base": "main",
+    "ticket": "MAG-57",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-57/nightly-job-tests",
+    "created_at": "2026-09-17T01:57:25Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Create query_log.go with the package header comment stating the reasons itself",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "Add loggingReader: logs ConsumedByDay only, three silent pass-throughs",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "Add loggingRecalculator: logs Recalculate and Reconcile",
+      "module": "analytics",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "Add loggingGapWriter: logs ReconcileWindow",
+      "module": "analytics",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "reader.go NewReader: wrap in newLoggingReader",
+      "module": "analytics",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "recalculate.go NewRecalculator: wrap in newLoggingRecalculator",
+      "module": "analytics",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "analytics.go NewGapWriter: wrap in newLoggingGapWriter",
+      "module": "analytics",
+      "depends_on": [
+        "1.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-17T02:34:02Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design approved at the Step 3a briefing with no changes",
+      "why": "User read the Spanish briefing of D1-D6 and said si dale. No database change, so no design gate fired.",
+      "covered_by": "roadmap RD1, RD4"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-17T02:34:02Z",
+      "agent": "leader",
+      "event": "autopilot ON; tier 2 artifacts created by the analytics worker and validated with openspec validate --strict; worker acknowledged the doc pack; no database change; no KB update needed; user approved the briefing"
+    }
+  ]
+}
