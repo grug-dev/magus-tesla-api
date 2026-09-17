@@ -307,7 +307,9 @@ mkdir -p ~/magus-logs
 ```bash
 # 2. Find the real UID of the container's "app" user. Do not assume it is
 # 1000 — it is a system user, and its UID is not guaranteed.
-docker compose --project-directory . -f deploy/docker/compose.yaml run --rm web id -u app
+# --entrypoint is required: web's own entrypoint is a shell redirect, which
+# ignores any command you pass and would start the server instead.
+docker compose --project-directory . -f deploy/docker/compose.yaml run --rm --entrypoint id web -u app
 ```
 
 ```bash

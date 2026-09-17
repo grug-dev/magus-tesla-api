@@ -106,7 +106,7 @@ whose UID is **not guaranteed to be `1000`** — never assume it is. Find the re
 ownership:
 
 ```bash
-docker compose --project-directory . -f deploy/docker/compose.yaml run --rm web id -u app
+docker compose --project-directory . -f deploy/docker/compose.yaml run --rm --entrypoint id web -u app
 sudo chown -R <that-uid>:<that-uid> ~/magus-logs
 ```
 
@@ -117,7 +117,9 @@ Full step-by-step runbook: `docs/1-deploy/docker.md` §10.
 ## Conventions & gotchas
 
 - **Never assume the container `app` user's UID is `1000`.** It is a system user; its UID comes
-  from Alpine's system-UID range. Discover it with `docker compose ... run --rm web id -u app`
+  from Alpine's system-UID range. Discover it with `docker compose ... run --rm --entrypoint id web -u app` — the
+  `--entrypoint` is required, because `web`'s own entrypoint is a shell redirect that ignores
+  any command you pass and would start the server instead
   before `chown`-ing the log folder.
 - **`copytruncate` is mandatory for `web.log`/`poller.log`, not a style choice.** Removing it
   would make `web`'s or `poller`'s log output vanish silently after every rotation, because
