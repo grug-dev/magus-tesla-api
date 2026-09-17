@@ -110,8 +110,10 @@ docker compose --project-directory . -f deploy/docker/compose.yaml run --rm --en
 sudo chown -R <that-uid>:<that-uid> ~/magus-logs
 ```
 
-Skipping this step causes a silent permission failure inside a `read_only: true` container: the
-binary fails to open its log file and never starts, with no obvious error to point at the cause.
+Skipping this step stops the container from starting. `web` and `poller` test the log file
+before they exec their binary, so they exit with a `FATAL:` line naming the folder and the doc
+section that fixes it. Read it with `docker compose ... logs web` — `tail` cannot work here,
+because the named file is exactly what could not be created.
 Full step-by-step runbook: `docs/1-deploy/docker.md` §10.
 
 ## Conventions & gotchas
@@ -128,6 +130,10 @@ Full step-by-step runbook: `docs/1-deploy/docker.md` §10.
   rotator on the same file loses data.
 - **`docker-logs` and `vps-logs` read different things — do not merge them.** `db` and
   `migrate` only ever appear in `docker-logs`.
+- **The log folder is a hard startup dependency.** `web` and `poller` exit when they cannot
+  write their file, on purpose — a container that starts but logs nowhere hides the problem
+  until someone needs the log. Any new host, rebuilt VPS, or changed `MAGUS_LOGS_DIR` needs the
+  ownership step first.
 - **A `web`/`poller` crash before the redirect takes effect still only shows up in
   `docker compose ... logs`**, not in the named file — check both when the named file is empty.
 - **`web`, `poller` and `caddy` must each keep a named log file at a fixed host path.** An
