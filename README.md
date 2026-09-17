@@ -70,7 +70,7 @@ The cycle itself is drawn in `kkpa/docs/diagrams/nightly-job/`.
 > **Prerequisites:** Go 1.25+ (see `go.mod`). The DB-backed modules use **generated** code, but
 > that output is **committed**, so a fresh checkout compiles as-is. Install `sqlc`
 > (`brew install sqlc`) and, for migrations, `goose` before you *change* schema or queries —
-> full tooling list in [docs/0-set-up/deployment.md](docs/0-set-up/deployment.md).
+> full tooling list in [docs/0-set-up/deployment.md](kkpa/docs/0-set-up/deployment.md).
 
 The monolith is a single Go module: `go build ./...` compiles **every** package and command at
 once. Each DB-backed module has its own sqlc package — `accountdb`, `telemetrydb`,
@@ -131,7 +131,7 @@ make bins        # → bin/setup, bin/web, …  (go build -o bin/ ./cmd/...)
 
 > `make sqlc` is an explicit step, never part of `make build`. Re-run it whenever you edit a
 > `query.sql` or a migration, then rebuild. First-time database setup is separate — see
-> **[docs/0-set-up/deployment.md](docs/0-set-up/deployment.md)** (`make db-setup`).
+> **[docs/0-set-up/deployment.md](kkpa/docs/0-set-up/deployment.md)** (`make db-setup`).
 
 ---
 
@@ -212,16 +212,16 @@ It covers:
 Standing the project up on a fresh machine — including PostgreSQL, `sqlc`/`goose` tooling,
 and the one-command database setup (`make db-setup`) — is documented in:
 
-**[docs/0-set-up/deployment.md](docs/0-set-up/deployment.md)**
+**[docs/0-set-up/deployment.md](kkpa/docs/0-set-up/deployment.md)**
 
 The database is configured entirely through `DATABASE_URL` in `.env`; `make db-setup` creates
 the database (if needed) and applies migrations idempotently. Persistence coding conventions
 live in [ai/go-conventions.md](ai/go-conventions.md) → *Persistence (Postgres + sqlc + goose)*.
 
 **Deploying to a VPS with Docker** — a first-time runbook lives in
-[docs/0-set-up/deployment.md](docs/0-set-up/deployment.md) §8; the day-to-day command
+[docs/0-set-up/deployment.md](kkpa/docs/0-set-up/deployment.md) §8; the day-to-day command
 reference (logs, migrations, backups, troubleshooting) lives in
-[docs/1-deploy/docker.md](docs/1-deploy/docker.md). Use the first once, to stand up the
+[docs/1-deploy/docker.md](kkpa/docs/1-deploy/docker.md). Use the first once, to stand up the
 VPS; come back to the second every time after.
 
 ---
@@ -496,7 +496,7 @@ and embedded via `//go:embed static`, so a production build (`go build ./cmd/web
 self-contained — **no Node, npm, or Tailwind binary needed at build or run time**. The
 git-ignored Tailwind binary (`make ui-toolchain`) is only needed on a **dev machine that
 regenerates CSS** after editing templates or adding classes. See
-[`docs/0-set-up/deployment.md`](docs/0-set-up/deployment.md) → *Web UI CSS*.
+[`docs/0-set-up/deployment.md`](kkpa/docs/0-set-up/deployment.md) → *Web UI CSS*.
 
 **Date-filtered reads: `?start=&end=`, never `?days=N`.** Every gateway endpoint that filters
 by a date range takes absolute `?start=YYYY-MM-DD&end=YYYY-MM-DD` query params (both whole

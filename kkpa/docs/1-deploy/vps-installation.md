@@ -627,6 +627,13 @@ the domain over HTTPS, so the certificate must exist first. **Register the
 Tesla redirect URI after the first successful deploy, never before.**
 
 ---
+## Update and RUN
+
+```bash
+cd ~/magus-tesla-api && git pull && make docker-up
+```
+
+---
 
 ## Open follow-ups
 
