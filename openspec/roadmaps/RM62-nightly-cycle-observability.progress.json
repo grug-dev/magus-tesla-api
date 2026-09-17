@@ -6,7 +6,7 @@
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-17T01:57:25Z",
+  "updated_at": "2026-09-17T02:15:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
@@ -16,8 +16,14 @@
     "created_at": "2026-09-17T01:57:25Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2, 3, 4],
+    "current": [
+      1
+    ],
+    "pending": [
+      2,
+      3,
+      4
+    ],
     "blocked": [],
     "done": []
   },
@@ -102,10 +108,10 @@
       "module": "app",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T01:58:37Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -167,6 +173,11 @@
       "at": "2026-09-17T02:12:00Z",
       "agent": "leader",
       "event": "tier 4 RM62-platform-add-nightly-cycle-diagram added at the user's request (archify workflow + sequence diagrams in kkpa/docs/diagrams/nightly-job/, plus a KB reference); decisions RD5-RD8 recorded"
+    },
+    {
+      "at": "2026-09-17T02:15:00Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created by the app worker and validated (openspec validate --strict); user approved the design briefing; tier 1 -> proposed. Artifact dispatch cost: 5h 28->37 pct, $2.78"
     }
   ]
 }
