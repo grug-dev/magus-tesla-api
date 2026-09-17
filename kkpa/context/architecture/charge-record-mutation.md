@@ -86,8 +86,9 @@ known divergence lives there.
 | `inferred_capacity_kwh_calc` | energy ÷ ((end_pct − start_pct) ÷ 100), 3dp; NULL unless end > start | Postgres `GENERATED ALWAYS … STORED` | `manual_charge_entries`, `supercharger_sessions` |
 | `energy_added_kwh`, `energy_source` | derived from capacity × Δpct when the user supplied no energy → `ESTIMATED`, else `USER` | `charging/service.go` `resolveEnergy` | `manual_charge_entries` |
 | `battery_pct_source` | `user_verified` when either pct non-nil, else NULL | `charging/session_verifier.go` | `supercharger_sessions` |
-| `distance_traveled_km_calc`, `battery_used_pct_calc`, `km_per_pct_calc`, `estimated_range_km_calc`, `days_spanned_calc` | from the (predecessor, current) snapshot pair | `analytics/consumption.go` `deriveConsumption` | `vehicle_metrics` |
-| `consumed_pct` | `battery_used_pct` + Σ Supercharger Δpct + Σ manual Δpct over the span | `analytics/consumed.go` | `vehicle_metrics` |
+| `distance_traveled_km_calc`, `battery_used_pct_calc`, `days_spanned_calc` | from the (predecessor, current) snapshot pair | `analytics/consumption.go` `deriveConsumption` | `vehicle_metrics` |
+| `consumed_pct` | `battery_used_pct` + Σ Supercharger Δpct + Σ manual Δpct over the span. The two sums are matched in `analytics/consumed.go`; the addition itself moved into `deriveConsumption` (MAG-81), which needs the result as a divisor | `analytics/consumption.go` `deriveConsumption` | `vehicle_metrics` |
+| `km_per_pct_calc`, `estimated_range_km_calc` | distance ÷ **`consumed_pct`**, NULL unless `consumed_pct > 0` — MAG-81 changed this divisor from the raw `battery_used_pct_calc`, which NULLed every day the vehicle drove AND charged | `analytics/consumption.go` `deriveConsumption` | `vehicle_metrics` |
 | `flagged`, `missing_charging_type` | `consumed < 0`, or `consumed == 0` with distance > `minFlagDistanceKm` (10 km) | `analytics/consumed.go` | `vehicle_metrics` |
 | `charge_gaps` rows | one row per `flagged` day in a trailing 30-day window | `app/processor.go` → `GapWriter.ReconcileWindow` | `charge_gaps` — **nightly only** |
 | `source_updated_at` | max `updated_at` seen per source this run | `analytics/recalculate.go` `Reconcile` | `vehicle_metric_watermarks` — **nightly only** |

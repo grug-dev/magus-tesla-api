@@ -79,9 +79,15 @@ type DashboardData struct {
 	BatteryUsed string
 	// Efficiency is the latest computed day's driving efficiency ("2.8 km / %"),
 	// or "—". Its nil rule is STRICTER than the two fields above: a day with no
-	// predecessor has none, and so does a day whose battery used is zero or less,
-	// because the division has no meaning then. A parked-and-charging day can show
-	// a distance and a battery figure but no efficiency. Never a fabricated 0.
+	// predecessor has none, and so does a day whose CONSUMED percent (the battery
+	// used plus that day's recorded charges) is zero or less, because the division
+	// has no meaning then. Never a fabricated 0.
+	//
+	// MAG-81: a day the vehicle drove AND charged used to land here as "—",
+	// because the divisor was the raw battery drop, which goes negative when the
+	// pack ends fuller than it started. Such a day now shows a real figure. What
+	// still shows "—" is a day whose charge was never recorded — the charge-gap
+	// case, where no truthful divisor exists to recover.
 	Efficiency string
 
 	// --- Tire pressure (PSI) subsection (RM50 tier 4) ---

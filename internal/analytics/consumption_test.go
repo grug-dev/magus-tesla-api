@@ -78,12 +78,19 @@ func assertIntPtr(t *testing.T, field string, got, want *int) {
 }
 
 // TestDeriveConsumption is PORTED from internal/telemetry/consumption_test.go
-// (cases (a)-(e)), expected values UNCHANGED — the characterization bar
-// (roadmap D10). Only the receiving type changed: deriveConsumption now
+// (cases (a)-(e)). Only the receiving type changed: deriveConsumption now
 // returns a consumptionCalc value instead of mutating a Snapshot, since
 // Snapshot no longer carries the five fields (design.md D5, D-hard-constraint
 // of this dispatch: fixtures below use ONLY raw Snapshot fields — OdometerKm,
 // BatteryLevelPct, CapturedDate — never the deleted _calc fields).
+//
+// MAG-81 added the chargePct argument and the ConsumedPct field. Cases (a)-(e)
+// keep their original expected values by passing chargePct 0, which makes
+// ConsumedPct identical to BatteryUsedPctCalc and the divisor identical to
+// what it was — so the characterization bar (roadmap D10) still holds for
+// every input the old signature could express. Cases (f)-(g) are new and
+// cover what the old signature could NOT express: a day whose charge was
+// actually recorded.
 func TestDeriveConsumption(t *testing.T) {
 	day0 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	day1 := day0.AddDate(0, 0, 1)
@@ -92,12 +99,14 @@ func TestDeriveConsumption(t *testing.T) {
 	day5 := day0.AddDate(0, 0, 5)
 
 	tests := []struct {
-		name string
-		prev *telemetry.Snapshot
-		cur  telemetry.Snapshot
+		name      string
+		prev      *telemetry.Snapshot
+		cur       telemetry.Snapshot
+		chargePct float64
 
 		wantDistance    *float64
 		wantBatteryUsed *int
+		wantConsumed    *float64
 		wantKmPerPct    *float64
 		wantEstRange    *float64
 		wantDays        *int
@@ -111,21 +120,29 @@ func TestDeriveConsumption(t *testing.T) {
 
 			wantDistance:    fp(40),
 			wantBatteryUsed: intPtr(12),
+			wantConsumed:    fp(12),
 			wantKmPerPct:    fp(40.0 / 12.0),
 			wantEstRange:    fp((40.0 / 12.0) * 100),
 			wantDays:        intPtr(1),
 		},
 		{
-			// (b) Charging day — net battery INCREASE overnight (charged more than
-			// driven): BatteryUsedPctCalc goes negative, both efficiency fields
-			// stay nil (D2), while distance (a small drive before/after the
-			// charge) is still populated, non-nil.
-			name: "charging day - negative battery used, distance still populated",
+			// (b) Charging day with NO charge record — net battery INCREASE
+			// overnight (charged more than driven) and nothing to correct it
+			// with: ConsumedPct stays negative, both efficiency fields stay nil
+			// (D2), while distance (a small drive before/after the charge) is
+			// still populated, non-nil.
+			//
+			// MAG-81: this is the case that survives the fix. Without a charge
+			// record there is no truthful divisor to recover — this day is a
+			// charge GAP, which is what deriveVehicleMetrics flags. Case (f)
+			// below is the same shape WITH the record.
+			name: "charging day, charge not recorded - negative consumed, distance still populated",
 			prev: &telemetry.Snapshot{OdometerKm: 10040, BatteryLevelPct: 68, CapturedDate: day1},
 			cur:  telemetry.Snapshot{OdometerKm: 10045, BatteryLevelPct: 90, CapturedDate: day2},
 
 			wantDistance:    fp(5),
 			wantBatteryUsed: intPtr(-22),
+			wantConsumed:    fp(-22),
 			wantKmPerPct:    nil,
 			wantEstRange:    nil,
 			wantDays:        intPtr(1),
@@ -140,6 +157,7 @@ func TestDeriveConsumption(t *testing.T) {
 
 			wantDistance:    fp(0),
 			wantBatteryUsed: intPtr(0),
+			wantConsumed:    fp(0),
 			wantKmPerPct:    nil,
 			wantEstRange:    nil,
 			wantDays:        intPtr(1),
@@ -155,31 +173,80 @@ func TestDeriveConsumption(t *testing.T) {
 
 			wantDistance:    fp(80),
 			wantBatteryUsed: intPtr(30),
+			wantConsumed:    fp(30),
 			wantKmPerPct:    fp(80.0 / 30.0),
 			wantEstRange:    fp((80.0 / 30.0) * 100),
 			wantDays:        intPtr(2),
 		},
 		{
-			// (e) First-ever snapshot — no predecessor: all five fields stay nil
-			// (D8/D10), regardless of cur's own readings.
-			name: "no predecessor - all five nil",
-			prev: nil,
-			cur:  telemetry.Snapshot{OdometerKm: 10125, BatteryLevelPct: 60, CapturedDate: day5},
+			// (e) First-ever snapshot — no predecessor: all six fields stay nil
+			// (D8/D10), regardless of cur's own readings AND regardless of
+			// chargePct — a charge with no predecessor day has nothing to
+			// correct, so ConsumedPct stays nil rather than becoming the bare
+			// charge total.
+			name:      "no predecessor - all six nil",
+			prev:      nil,
+			cur:       telemetry.Snapshot{OdometerKm: 10125, BatteryLevelPct: 60, CapturedDate: day5},
+			chargePct: 30,
 
 			wantDistance:    nil,
 			wantBatteryUsed: nil,
+			wantConsumed:    nil,
 			wantKmPerPct:    nil,
 			wantEstRange:    nil,
 			wantDays:        nil,
+		},
+		{
+			// (f) MAG-81, the bug this change fixes: the vehicle drove AND
+			// charged, and the charge IS recorded. The raw battery figure is
+			// negative (the pack ended fuller than it started), but the day
+			// really consumed 17% — 30.28 km / 17% ≈ 1.78 km per point.
+			//
+			// Numbers are the owner's real 2026-09-14 row: before the fix this
+			// day stored NULL efficiency, because the divisor was the raw -40
+			// instead of the corrected 17.
+			name:      "drove and charged, charge recorded - efficiency now computable",
+			prev:      &telemetry.Snapshot{OdometerKm: 4544.121, BatteryLevelPct: 52, CapturedDate: day1},
+			cur:       telemetry.Snapshot{OdometerKm: 4574.396, BatteryLevelPct: 92, CapturedDate: day2},
+			chargePct: 57,
+
+			wantDistance:    fp(4574.396 - 4544.121),
+			wantBatteryUsed: intPtr(-40),
+			wantConsumed:    fp(17),
+			wantKmPerPct:    fp((4574.396 - 4544.121) / 17.0),
+			wantEstRange:    fp(((4574.396 - 4544.121) / 17.0) * 100),
+			wantDays:        intPtr(1),
+		},
+		{
+			// (g) Charge recorded but the day still ended net-positive — the
+			// owner topped the pack up beyond what the driving spent. The
+			// correction applies, ConsumedPct is still <= 0, and the divisor
+			// guard still holds: no truthful ratio exists for a day that gained
+			// charge on balance, so both efficiency fields stay nil.
+			//
+			// This is the guard's remaining job after MAG-81. It must not be
+			// "fixed" by taking an absolute value or clamping to a floor.
+			name:      "charged more than driven, charge recorded - guard still holds",
+			prev:      &telemetry.Snapshot{OdometerKm: 10000, BatteryLevelPct: 30, CapturedDate: day1},
+			cur:       telemetry.Snapshot{OdometerKm: 10012, BatteryLevelPct: 80, CapturedDate: day2},
+			chargePct: 45,
+
+			wantDistance:    fp(12),
+			wantBatteryUsed: intPtr(-50),
+			wantConsumed:    fp(-5),
+			wantKmPerPct:    nil,
+			wantEstRange:    nil,
+			wantDays:        intPtr(1),
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := deriveConsumption(tc.prev, tc.cur)
+			got := deriveConsumption(tc.prev, tc.cur, tc.chargePct)
 
 			assertFloatPtr(t, "DistanceTraveledKmCalc", got.DistanceTraveledKmCalc, tc.wantDistance)
 			assertIntPtr(t, "BatteryUsedPctCalc", got.BatteryUsedPctCalc, tc.wantBatteryUsed)
+			assertFloatPtr(t, "ConsumedPct", got.ConsumedPct, tc.wantConsumed)
 			assertFloatPtr(t, "KmPerPctCalc", got.KmPerPctCalc, tc.wantKmPerPct)
 			assertFloatPtr(t, "EstimatedRangeKmCalc", got.EstimatedRangeKmCalc, tc.wantEstRange)
 			assertIntPtr(t, "DaysSpannedCalc", got.DaysSpannedCalc, tc.wantDays)
@@ -191,6 +258,24 @@ func TestDeriveConsumption(t *testing.T) {
 				if math.Abs(*got.EstimatedRangeKmCalc-(*got.KmPerPctCalc*100)) > consumptionFloatTol {
 					t.Errorf("EstimatedRangeKmCalc (%v) != KmPerPctCalc*100 (%v)", *got.EstimatedRangeKmCalc, *got.KmPerPctCalc*100)
 				}
+			}
+
+			// MAG-81's invariant: the efficiency divides by ConsumedPct, the
+			// CORRECTED figure, never by the raw BatteryUsedPctCalc. Checked
+			// against the function's own two outputs so a future edit cannot
+			// swap the divisor back without failing here — case (f)'s negative
+			// BatteryUsedPctCalc makes that swap impossible to miss.
+			if got.KmPerPctCalc != nil {
+				want := *got.DistanceTraveledKmCalc / *got.ConsumedPct
+				if math.Abs(*got.KmPerPctCalc-want) > consumptionFloatTol {
+					t.Errorf("KmPerPctCalc (%v) != DistanceTraveledKmCalc/ConsumedPct (%v)", *got.KmPerPctCalc, want)
+				}
+			}
+
+			// The divisor guard, stated as a rule rather than per-case: the two
+			// efficiency fields exist if and only if ConsumedPct > 0.
+			if wantEfficiency := got.ConsumedPct != nil && *got.ConsumedPct > 0; wantEfficiency != (got.KmPerPctCalc != nil) {
+				t.Errorf("efficiency presence mismatch: ConsumedPct=%v, KmPerPctCalc=%v", got.ConsumedPct, got.KmPerPctCalc)
 			}
 		})
 	}
@@ -210,11 +295,12 @@ func TestDeriveConsumption_NilPrevReturnsCurUnchanged(t *testing.T) {
 		CarVersion:      "2026.20.1",
 	}
 
-	got := deriveConsumption(nil, cur)
+	got := deriveConsumption(nil, cur, 0)
 
 	if got.DistanceTraveledKmCalc != nil || got.BatteryUsedPctCalc != nil ||
+		got.ConsumedPct != nil ||
 		got.KmPerPctCalc != nil || got.EstimatedRangeKmCalc != nil || got.DaysSpannedCalc != nil {
-		t.Errorf("deriveConsumption(nil, cur): want all five derived fields nil, got %+v", got)
+		t.Errorf("deriveConsumption(nil, cur, 0): want all six derived fields nil, got %+v", got)
 	}
 	// RM50-analytics-add-tire-pressure-variance design.md D2, condition 1 —
 	// no predecessor at all, so all four tyre-pressure deltas stay nil too,
@@ -249,7 +335,7 @@ func TestDeriveConsumption_TpmsDeltas_AllFourWheelsPresent(t *testing.T) {
 		TpmsPressureRRPSI: fp(40.0), // +3.5
 	}
 
-	got := deriveConsumption(&prev, cur)
+	got := deriveConsumption(&prev, cur, 0)
 
 	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.5))
 	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(-1.5))
@@ -281,7 +367,7 @@ func TestDeriveConsumption_TpmsDeltas_WheelAbsentOnCur(t *testing.T) {
 		TpmsPressureRRPSI: fp(38.3),
 	}
 
-	got := deriveConsumption(&prev, cur)
+	got := deriveConsumption(&prev, cur, 0)
 
 	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.0))
 	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(0.5))
@@ -313,7 +399,7 @@ func TestDeriveConsumption_TpmsDeltas_WheelAbsentOnPrev(t *testing.T) {
 		TpmsPressureRRPSI: fp(40.3),
 	}
 
-	got := deriveConsumption(&prev, cur)
+	got := deriveConsumption(&prev, cur, 0)
 
 	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.0))
 	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(0.5))
@@ -337,7 +423,7 @@ func TestDeriveConsumption_MultiDayGap(t *testing.T) {
 		CapturedDate:    time.Date(2026, 8, 8, 0, 0, 0, 0, time.UTC),
 	}
 
-	got := deriveConsumption(&prev, cur)
+	got := deriveConsumption(&prev, cur, 0)
 
 	assertFloatPtr(t, "DistanceTraveledKmCalc", got.DistanceTraveledKmCalc, fp(210.0))
 	assertIntPtr(t, "BatteryUsedPctCalc", got.BatteryUsedPctCalc, intPtr(35))
@@ -364,7 +450,7 @@ func TestDeriveConsumption_ZeroDivisorGuard(t *testing.T) {
 		CapturedDate:    time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC),
 	}
 
-	got := deriveConsumption(&prev, cur)
+	got := deriveConsumption(&prev, cur, 0)
 
 	if got.DistanceTraveledKmCalc == nil {
 		t.Error("DistanceTraveledKmCalc: want non-nil (a truthful 0.0), got nil")
@@ -377,6 +463,10 @@ func TestDeriveConsumption_ZeroDivisorGuard(t *testing.T) {
 		assertIntPtr(t, "BatteryUsedPctCalc", got.BatteryUsedPctCalc, intPtr(0))
 	}
 	assertIntPtr(t, "DaysSpannedCalc", got.DaysSpannedCalc, intPtr(1))
+	// MAG-81: the divisor is ConsumedPct now, so the guard is asserted on the
+	// figure that actually divides. With no charge to correct it, it equals
+	// the truthful 0 BatteryUsedPctCalc reports above.
+	assertFloatPtr(t, "ConsumedPct", got.ConsumedPct, fp(0.0))
 	if got.KmPerPctCalc != nil {
 		t.Errorf("KmPerPctCalc: want nil (divisor 0 is not > 0), got %v", *got.KmPerPctCalc)
 	}
