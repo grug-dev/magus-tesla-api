@@ -5,10 +5,13 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
   "request": "MAG-57 tier 2. internal/analytics has zero logging.Note calls, so its work in step 3 of the nightly cycle is invisible in the log. Add internal/analytics/query_log.go mirroring internal/telemetry/query_log.go: one decorator per port (Reader, Recalculator, GapWriter), explicit interface implementation, compile-time assertion each, analytics query: topic. Wire at the module's own constructors.",
-  "status": "proposed",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [],
+    "done": [],
+    "awaiting-user-verification": [
       "1.1",
       "1.2",
       "1.3",
@@ -16,12 +19,10 @@
       "2.1",
       "2.2",
       "2.3"
-    ],
-    "blocked": [],
-    "done": []
+    ]
   },
   "created_at": "2026-09-17T02:34:02Z",
-  "updated_at": "2026-09-17T02:34:02Z",
+  "updated_at": "2026-09-17T02:36:42Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -41,14 +42,21 @@
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:34:30Z",
+      "completed_at": "2026-09-17T02:36:42Z",
+      "duration_seconds": 114,
+      "notes": "Created internal/analytics/query_log.go. Header comment states the reasons itself, with no change-doc citations.",
+      "budget": {
+        "five_hour_pct_start": 71,
+        "five_hour_pct_end": 76,
+        "cost_usd_start": 9.91,
+        "cost_usd_end": 11.85,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.2",
@@ -58,14 +66,21 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:34:30Z",
+      "completed_at": "2026-09-17T02:36:42Z",
+      "duration_seconds": 114,
+      "notes": "loggingReader: ConsumedByDay logs after delegating with rows and flagged counts. The other three methods pass through silently, each with a one-line reason.",
+      "budget": {
+        "five_hour_pct_start": 71,
+        "five_hour_pct_end": 76,
+        "cost_usd_start": 9.91,
+        "cost_usd_end": 11.85,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.3",
@@ -75,14 +90,21 @@
         "1.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:34:30Z",
+      "completed_at": "2026-09-17T02:36:42Z",
+      "duration_seconds": 114,
+      "notes": "loggingRecalculator: Recalculate and Reconcile both log before delegating. Reconcile's comment explains why its internal Recalculate call is not logged twice.",
+      "budget": {
+        "five_hour_pct_start": 71,
+        "five_hour_pct_end": 76,
+        "cost_usd_start": 9.91,
+        "cost_usd_end": 11.85,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.4",
@@ -92,14 +114,21 @@
         "1.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:34:30Z",
+      "completed_at": "2026-09-17T02:36:42Z",
+      "duration_seconds": 114,
+      "notes": "loggingGapWriter: ReconcileWindow logs before delegating.",
+      "budget": {
+        "five_hour_pct_start": 71,
+        "five_hour_pct_end": 76,
+        "cost_usd_start": 9.91,
+        "cost_usd_end": 11.85,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.1",
@@ -109,14 +138,21 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:34:30Z",
+      "completed_at": "2026-09-17T02:36:42Z",
+      "duration_seconds": 114,
+      "notes": "reader.go NewReader now wraps the reader in newLoggingReader. Leader also removed the doc comment's stale change-doc reference.",
+      "budget": {
+        "five_hour_pct_start": 71,
+        "five_hour_pct_end": 76,
+        "cost_usd_start": 9.91,
+        "cost_usd_end": 11.85,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.2",
@@ -126,14 +162,21 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:34:30Z",
+      "completed_at": "2026-09-17T02:36:42Z",
+      "duration_seconds": 114,
+      "notes": "recalculate.go NewRecalculator now wraps the recalculator in newLoggingRecalculator. Leader removed the design.md D11 citation from its doc comment.",
+      "budget": {
+        "five_hour_pct_start": 71,
+        "five_hour_pct_end": 76,
+        "cost_usd_start": 9.91,
+        "cost_usd_end": 11.85,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.3",
@@ -143,14 +186,21 @@
         "1.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:34:30Z",
+      "completed_at": "2026-09-17T02:36:42Z",
+      "duration_seconds": 114,
+      "notes": "analytics.go NewGapWriter now wraps newGapWriter in newLoggingGapWriter. Leader removed the RM27 citation from its doc comment.",
+      "budget": {
+        "five_hour_pct_start": 71,
+        "five_hour_pct_end": 76,
+        "cost_usd_start": 9.91,
+        "cost_usd_end": 11.85,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     }
   ],
   "review": {
@@ -168,6 +218,24 @@
       "decision": "Design approved at the Step 3a briefing with no changes",
       "why": "User read the Spanish briefing of D1-D6 and said si dale. No database change, so no design gate fired.",
       "covered_by": "roadmap RD1, RD4"
+    },
+    {
+      "id": "D-L2",
+      "at": "2026-09-17T02:34:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "All 7 tasks dispatched to ONE serial worker, not two waves",
+      "why": "Wave 2 is three one-line edits that depend on wave 1's new file. Two dispatches would re-read the ~11,900-token doc pack twice.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-17T02:36:42Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader rewrote the three edited constructors' doc comments to drop their change-doc citations",
+      "why": "The B2 rule makes that cleanup mandatory for a function you edit. The worker wrapped all three but left the citations. Cheaper to fix here than in a review round.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -175,6 +243,16 @@
       "at": "2026-09-17T02:34:02Z",
       "agent": "leader",
       "event": "autopilot ON; tier 2 artifacts created by the analytics worker and validated with openspec validate --strict; worker acknowledged the doc pack; no database change; no KB update needed; user approved the briefing"
+    },
+    {
+      "at": "2026-09-17T02:34:30Z",
+      "agent": "leader",
+      "event": "dispatched analytics worker (claude-sonnet-5) with tasks 1.1-1.4 and 2.1-2.3 in one serial wave. Budget start: 5h 71 pct, context 23 pct, $9.91"
+    },
+    {
+      "at": "2026-09-17T02:36:42Z",
+      "agent": "leader",
+      "event": "wave complete; all 7 tasks implemented. Leader ran go build, go vet, gofmt -l and make lint after its own comment fix \u2014 all clean, lint 0 issues. Tasks -> awaiting-user-verification pending the owner's suite run. Wave cost: 5h 71->76 pct, $9.91->$11.85"
     }
   ]
 }

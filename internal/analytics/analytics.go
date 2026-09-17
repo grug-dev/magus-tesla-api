@@ -477,10 +477,9 @@ type GapWriter interface {
 
 // NewGapWriter constructs a GapWriter backed by a real Postgres pool. Callers
 // (cmd/poller) depend on the GapWriter interface, never on the concrete type
-// or on analyticsdb directly. Implementation is in gap_writer.go
-// (forward-declared here so this file compiles before that one is parsed,
-// mirroring NewSuperchargerHistoryReader's identical pattern, design B6.3 of
-// RM27-telemetry-add-supercharger-battery-pct).
+// or on analyticsdb directly. Implementation is in gap_writer.go — declared
+// here rather than there so this file compiles before that one is parsed.
+// The returned value is wrapped so every call through the port is logged.
 func NewGapWriter(pool *pgxpool.Pool) GapWriter {
-	return newGapWriter(pool)
+	return newLoggingGapWriter(newGapWriter(pool))
 }

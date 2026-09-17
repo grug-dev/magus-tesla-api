@@ -63,15 +63,16 @@ var _ Recalculator = (*recalculator)(nil)
 
 // NewRecalculator constructs a Recalculator over the analytics module's own
 // database pool plus the three sibling ports it reads to derive each day's
-// row (design.md D11).
+// row. The returned value is wrapped so every call through the port is
+// logged; callers get the logging for free, without cmd/ knowing about it.
 func NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger charging.SuperchargerSessionAnalyticsReader, manual charging.Reader) Recalculator {
-	return &recalculator{
+	return newLoggingRecalculator(&recalculator{
 		pool:         pool,
 		q:            analyticsdb.New(pool),
 		telemetry:    telemetryReader,
 		supercharger: supercharger,
 		manual:       manual,
-	}
+	})
 }
 
 // Recalculate implements Recalculator (design.md D11). It fetches the

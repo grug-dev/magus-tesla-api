@@ -20,7 +20,7 @@ writes a `_test.go` file.
 
 ## Wave 1 — `internal/analytics/query_log.go` (new file)
 
-- [ ] **1.1** Create `internal/analytics/query_log.go`. Package header comment states,
+- [x] **1.1** Create `internal/analytics/query_log.go`. Package header comment states,
   in the file's own words, what the file does and why each decorator implements its
   interface explicitly rather than by embedding (a future port method added without a
   matching override must fail to compile, not silently skip logging) — do NOT cite this
@@ -30,7 +30,7 @@ writes a `_test.go` file.
   code-comment rule).
   `depends_on`: — · `parallel_ok`: no (first task, defines the file)
 
-- [ ] **1.2** In `query_log.go`, add `loggingReader` per design.md D1/D4/D5:
+- [x] **1.2** In `query_log.go`, add `loggingReader` per design.md D1/D4/D5:
   - `type loggingReader struct { inner Reader }` and `func newLoggingReader(inner
     Reader) *loggingReader`.
   - `var _ Reader = (*loggingReader)(nil)`.
@@ -45,7 +45,7 @@ writes a `_test.go` file.
     poller caller, off this tier's scope.
   `depends_on`: 1.1 · `parallel_ok`: no (same file as 1.1, sequential within the file)
 
-- [ ] **1.3** In `query_log.go`, add `loggingRecalculator` per design.md D2/D4/D5:
+- [x] **1.3** In `query_log.go`, add `loggingRecalculator` per design.md D2/D4/D5:
   - `type loggingRecalculator struct { inner Recalculator }` and `func
     newLoggingRecalculator(inner Recalculator) *loggingRecalculator`.
   - `var _ Recalculator = (*loggingRecalculator)(nil)`.
@@ -65,7 +65,7 @@ writes a `_test.go` file.
   as sequential edits within one session; no file conflict if split across agents that
   coordinate on append order)
 
-- [ ] **1.4** In `query_log.go`, add `loggingGapWriter` per design.md D2/D4/D5:
+- [x] **1.4** In `query_log.go`, add `loggingGapWriter` per design.md D2/D4/D5:
   - `type loggingGapWriter struct { inner GapWriter }` and `func newLoggingGapWriter(
     inner GapWriter) *loggingGapWriter`.
   - `var _ GapWriter = (*loggingGapWriter)(nil)`.
@@ -80,17 +80,17 @@ writes a `_test.go` file.
 
 ## Wave 2 — Wiring (three disjoint existing files)
 
-- [ ] **2.1** `internal/analytics/reader.go` — `NewReader`: wrap the returned `&reader{
+- [x] **2.1** `internal/analytics/reader.go` — `NewReader`: wrap the returned `&reader{
   metrics: analyticsdb.New(pool)}` in `newLoggingReader(...)`, per design.md D5's exact
   before/after diff. No other line in the function changes.
   `depends_on`: 1.2 · `parallel_ok`: with 2.2, 2.3
 
-- [ ] **2.2** `internal/analytics/recalculate.go` — `NewRecalculator`: wrap the returned
+- [x] **2.2** `internal/analytics/recalculate.go` — `NewRecalculator`: wrap the returned
   `&recalculator{...}` struct literal in `newLoggingRecalculator(...)`, per design.md
   D5's exact before/after diff. No other line in the function changes.
   `depends_on`: 1.3 · `parallel_ok`: with 2.1, 2.3
 
-- [ ] **2.3** `internal/analytics/analytics.go` — `NewGapWriter`: change `return
+- [x] **2.3** `internal/analytics/analytics.go` — `NewGapWriter`: change `return
   newGapWriter(pool)` to `return newLoggingGapWriter(newGapWriter(pool))`, per
   design.md D5's exact before/after diff.
   `depends_on`: 1.4 · `parallel_ok`: with 2.1, 2.2
