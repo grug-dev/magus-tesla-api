@@ -23,30 +23,30 @@ include .env
 export
 endif
 
-# Each module owns its goose migrations dir (ai/architecture.md §2). goose shares a
-# single goose_db_version table across ALL dirs, so the table's "current version" is
-# global while each dir's migrations are versioned independently — a module can easily
-# have a pending migration older than another module's already-applied one (e.g.
-# telemetry 20260802 pending while account 20260803 is applied). Ordering this list
-# CANNOT fix that: it orders directories, not the migrations inside them.
+# Each module owns its goose migrations dir (ai/architecture.md §2) AND its own goose
+# version ledger, <module>.goose_db_version, inside the Postgres schema it already owns.
+# Every goose invocation below therefore passes -table $$m.goose_db_version. Leave it off
+# and goose writes to public.goose_db_version instead, which silently puts that module's
+# history in the wrong place and disagrees with what cmd/migrate recorded.
 #
-# Both `up` loops therefore pass -allow-missing, which applies a pending migration even
-# when its version sits below the global current version. That is safe here because
-# modules never share tables or FKs (ai/architecture.md boundary rules), so cross-module
-# version order carries no meaning; within a dir, goose still applies in version order.
-# Add a module's dir here when it gains a DB — position no longer matters.
+# Consequences of the per-module ledger, all of them deliberate:
+#   - Two modules MAY use the same version number. All four baselines are 20260917000001.
+#     There is no longer a cross-module uniqueness rule to remember or to guard.
+#   - The order of this list does not affect the result. A module's migrations create only
+#     that module's objects and read nothing outside its own schema, so nothing can need
+#     another module to have run first. The order is kept stable only for readable logs.
+#   - No loop passes -allow-missing any more. It was needed only because the shared table
+#     made a module's own lower version look like a late migration. Within one module a
+#     late migration is a real mistake, so goose's own check is back on. Do not add the
+#     flag back to silence a complaint: read it instead.
 #
-# HARD RULE — a migration's version number must be unique across ALL dirs above, not
-# just within its own. The shared goose_db_version table is keyed by version, so two
-# modules using the same number is not an ordering problem that -allow-missing can
-# absorb: goose sees the number already recorded and silently SKIPS the second file,
-# reporting it as "applied" (with the other migration's timestamp) while its table is
-# never created. That is exactly what happened to telemetry's poll_runs migration,
-# which collided with account's 20260830000001 and had to be renumbered to
-# 20260830000002 (MAG-35). Before adding a migration, check the number is free:
-#   ls internal/*/db/migrations/ | grep <YYYYMMDD>
-# Same-day migrations in different modules must differ in the trailing counter.
-MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations internal/charging/db/migrations internal/analytics/db/migrations
+# MIGRATION_MODULES is the single source of both the directory and the ledger name, which
+# is why the loops below iterate modules rather than directories. Overriding
+# MIGRATIONS_DIRS alone no longer changes the goose CLI loops — override MIGRATION_MODULES.
+MIGRATION_MODULES ?= account telemetry charging analytics
+
+# MIGRATIONS_DIRS is derived, and still exported to cmd/migrate by migrate-run.
+MIGRATIONS_DIRS ?= $(foreach m,$(MIGRATION_MODULES),internal/$(m)/db/migrations)
 
 # goose binary: prefer one on PATH, else the `go install` location (GOPATH/bin).
 GOOSE ?= $(shell command -v goose 2>/dev/null || echo $$(go env GOPATH)/bin/goose)
@@ -90,7 +90,7 @@ TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(pos
 TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard tidy build vet lint check-golangci test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-boundary-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard tidy build vet lint check-golangci test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs vps-logs docker-migrate backup-db
 
@@ -117,22 +117,27 @@ check-goose:
 		echo "Then add \"$$(go env GOPATH)/bin\" to PATH, or run: make <target> GOOSE=/path/to/goose"; \
 		exit 1; }
 
-migrate-up: check-goose ## Apply all pending migrations (every module dir; -allow-missing, see MIGRATIONS_DIRS note)
-	@for dir in $(MIGRATIONS_DIRS); do \
-		echo "goose up: $$dir"; \
-		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" up -allow-missing; \
+migrate-up: check-goose ## Apply all pending migrations, each module into its own <module>.goose_db_version
+	@for m in $(MIGRATION_MODULES); do \
+		echo "goose up: $$m"; \
+		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(DATABASE_URL)" up; \
 	done
 
-migrate-down: check-goose ## Roll back the newest migration in each module dir (reverse order)
-	@for dir in $$(printf '%s\n' $(MIGRATIONS_DIRS) | awk '{a[NR]=$$0} END{for(i=NR;i>=1;i--)print a[i]}'); do \
-		echo "goose down: $$dir"; \
-		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" down; \
+# migrate-down STOPS at a module's baseline, which refuses to roll back: reversing it
+# would mean dropping the whole module schema and its data. That refusal is the point —
+# an empty rollback would mark the baseline un-applied while every object still exists,
+# and the next migrate-up would fail on "relation already exists". Recreate the database
+# (make db-reset) instead of rolling a baseline back.
+migrate-down: check-goose ## Roll back the newest migration in each module (stops at the baseline, which refuses)
+	@for m in $$(printf '%s\n' $(MIGRATION_MODULES) | awk '{a[NR]=$$0} END{for(i=NR;i>=1;i--)print a[i]}'); do \
+		echo "goose down: $$m"; \
+		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(DATABASE_URL)" down; \
 	done
 
-migrate-status: check-goose ## Show which migrations have been applied (per module dir)
-	@for dir in $(MIGRATIONS_DIRS); do \
-		echo "== $$dir =="; \
-		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" status; \
+migrate-status: check-goose ## Show which migrations have been applied (per module ledger)
+	@for m in $(MIGRATION_MODULES); do \
+		echo "== $$m ($$m.goose_db_version) =="; \
+		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(DATABASE_URL)" status; \
 	done
 
 # migrate-run does NOT depend on check-goose: it runs cmd/migrate (the same Go
@@ -191,9 +196,9 @@ db-setup: check-goose ## ONE COMMAND: create the app role + database (both if mi
 	echo "Applying migrations as '$$ROLE'..."; \
 	if [ -z "$$PW" ]; then PW="$$MAGUS_DB_PASSWORD"; fi; \
 	if [ -n "$$PW" ]; then export PGUSER="$$ROLE" PGPASSWORD="$$PW"; fi; \
-	for dir in $(MIGRATIONS_DIRS); do \
-		echo "goose up: $$dir"; \
-		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" up -allow-missing; \
+	for m in $(MIGRATION_MODULES); do \
+		echo "goose up: $$m"; \
+		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(DATABASE_URL)" up; \
 	done; \
 	echo; echo "✓ Database setup complete."; \
 	PRINT_DSN=$$(echo "$(DATABASE_URL)" | sed -E "s#^(postgres(ql)?://)([^/@]*@)?#\1$$ROLE:<password>@#"); \
@@ -227,15 +232,15 @@ db-setup-test: check-goose ## Bring TEST_DATABASE_URL current (create/re-own/mig
 		psql "$$ADMIN" -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$$DB\" OWNER \"$$ROLE\""; \
 	fi; \
 	echo "Re-owning module schemas to '$$ROLE' (a schema that doesn't exist yet is skipped)..."; \
-	for schema in account analytics charging telemetry; do \
+	for schema in $(MIGRATION_MODULES); do \
 		if psql "$(TEST_DATABASE_URL)" -tAc "SELECT 1 FROM pg_namespace WHERE nspname='$$schema'" | grep -q 1; then \
 			psql "$$ADMIN_ON_DB" -v ON_ERROR_STOP=1 -c "ALTER SCHEMA \"$$schema\" OWNER TO \"$$ROLE\""; \
 		fi; \
 	done; \
 	echo "Migrating '$$DB' to latest..."; \
-	for dir in $(MIGRATIONS_DIRS); do \
-		echo "goose up: $$dir"; \
-		$(GOOSE) -dir $$dir postgres "$(TEST_DATABASE_URL)" up -allow-missing; \
+	for m in $(MIGRATION_MODULES); do \
+		echo "goose up: $$m"; \
+		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(TEST_DATABASE_URL)" up; \
 	done; \
 	echo; echo "✓ $$DB ready. Point tests at it with:"; \
 	echo "    TEST_DATABASE_URL=$(TEST_DATABASE_URL) make test"
@@ -612,56 +617,48 @@ test: ## Run all tests against disposable testcontainer Postgres (TEST_DATABASE_
 test-with-db: ## Run all tests against TEST_DATABASE_URL (opt-in; point it at a throwaway or CI Postgres, never the real one)
 	TEST_DATABASE_URL="$(DATABASE_URL)" go test ./...
 
-# Every module's migrations share ONE goose_db_version table, keyed by version number
-# (see the MIGRATIONS_DIRS note near the top of this file). A number used by two modules
-# is therefore not an ordering problem -allow-missing can absorb: goose records the number
-# once, then SILENTLY SKIPS the second file while reporting it as applied. The table or
-# constraint it should have created never exists, and nothing fails loudly.
+# A module's migration may name only that module's own Postgres schema. The rule is the
+# same one that binds runtime code (ai/architecture.md boundary rules): a module that may
+# not read another module's tables through Go must not read them in SQL either.
 #
-# This has already bitten twice: telemetry's poll_runs vs account's 20260830000001 (MAG-35,
-# caught only by running the poller against a real DB), and charging's require_location_kind
-# vs account's 20260720000001 (found by the MAG-35 reviewer's sweep; that NOT NULL
-# constraint was never applied). Both cost a live database, not a test run — which is
-# exactly why this is a cheap deterministic guard rather than a comment.
+# It is guarded because breaking it is invisible until a live database is involved. Four
+# migrations used to read another module's schema, and they worked purely because the
+# dependency direction happened to match the order the directories were applied in. When
+# telemetry later re-keyed vehicle_snapshots, an analytics migration that joined the
+# dropped column failed on every fresh database and every test container — and the fix was
+# to abandon the drop (MAG-65). One baseline per module removed all four, and this guard is
+# what stops the fifth.
 #
-# KNOWN_DUPLICATE_MIGRATIONS is a deliberately short, shrinking list of collisions that
-# already exist in the applied history. They are NOT tolerated — each has a backlog entry
-# and must be renumbered — but failing `make check` on them would block every unrelated
-# change until they are fixed. The guard therefore warns on these and fails on anything
-# NEW, which is the point: stop the next one from ever being introduced. Delete a number
-# from this list the moment its migration is renumbered; never add to it to silence a
-# collision you just created.
-KNOWN_DUPLICATE_MIGRATIONS := 20260720000001
-
-migration-guard: ## Fail if two modules' migrations share a version number (they share one goose_db_version table, so the duplicate is silently skipped)
-	@all=$$(ls $(MIGRATIONS_DIRS:%=%/*.sql) 2>/dev/null \
-		| xargs -n1 basename \
-		| grep -oE '^[0-9]{14}' \
-		| sort | uniq -d); \
-	known="$(KNOWN_DUPLICATE_MIGRATIONS)"; \
-	dupes=""; \
-	for v in $$all; do \
-		case " $$known " in *" $$v "*) \
-			echo "WARNING: known un-renumbered migration collision $$v (see openspec/roadmaps/backlog.md) — its migration is NOT applied in any database";; \
-		*) dupes="$$dupes $$v";; esac; \
+# COMMENT ON statements are excluded. A table or column comment is documentation: it cannot
+# read a row, and the generated baselines carry comments that legitimately mention another
+# module's table by name to explain where a mirrored value came from. Everything else that
+# names another schema is a genuine read or write.
+migration-boundary-guard: ## Fail if a module's migration names another module's Postgres schema (escape hatch: -- migration:allow: <reason>)
+	@fail=0; \
+	for m in $(MIGRATION_MODULES); do \
+		others=$$(printf '%s\n' $(MIGRATION_MODULES) | grep -v "^$$m$$" | paste -sd'|' -); \
+		hits=$$(grep -rnE "\\b($$others)\\.[a-z_]" internal/$$m/db/migrations --include='*.sql' \
+			| grep -vE '^[^:]+:[0-9]+:[[:space:]]*--' \
+			| grep -viE 'COMMENT ON' \
+			| grep -v 'migration:allow' \
+			|| true); \
+		if [ -n "$$hits" ]; then echo "$$hits"; fail=1; fi; \
 	done; \
-	dupes=$$(echo $$dupes); \
-	if [ -n "$$dupes" ]; then \
-		echo "ERROR: duplicate migration version number(s) across modules:"; \
+	if [ "$$fail" = "1" ]; then \
 		echo ""; \
-		for v in $$dupes; do \
-			echo "  $$v:"; \
-			ls $(MIGRATIONS_DIRS:%=%/$$v*.sql) 2>/dev/null | sed 's/^/    /'; \
-		done; \
-		echo ""; \
-		echo "All modules share ONE goose_db_version table, keyed by version. goose records"; \
-		echo "the number once and SILENTLY SKIPS the second file, reporting it as applied —"; \
-		echo "so its table or constraint is never created and nothing fails loudly."; \
-		echo "Fix: renumber the newer file (bump the trailing counter, e.g. ...0001 -> ...0002),"; \
-		echo "then run 'make migrate-up'. Never silence this by weakening the check."; \
+		echo "ERROR: the migrations above name another module's Postgres schema."; \
+		echo "A module's migrations may touch only its own schema. Reading another module's"; \
+		echo "table in SQL recreates the ordering dependency that one baseline per module"; \
+		echo "exists to remove: it works only while the directories happen to be applied in"; \
+		echo "the right order, and it breaks silently the moment that module changes the table."; \
+		echo "Fix: move the data flow to the owning module's public Go interface, or have the"; \
+		echo "module that owns the table write the value itself."; \
+		echo "Genuinely unavoidable (false positive)? Mark it with -- migration:allow: <reason>"; \
+		echo "on the same line. Never weaken this pattern to silence a true positive."; \
 		exit 1; \
+	else \
+		echo "migration-boundary-guard: no migration names another module's schema ($(words $(MIGRATION_MODULES)) modules)"; \
 	fi
-	@echo "migration-guard: no duplicate version numbers across $(words $(MIGRATIONS_DIRS)) module dirs"
 
 # boundary-guard mirrors money-guard's grep-based shape and escape-hatch convention.
 # It enforces ONE rule: internal/gateway/ must not depend on internal/telemetry at
@@ -675,7 +672,7 @@ migration-guard: ## Fail if two modules' migrations share a version number (they
 #
 # The guard fails on non-test files (a real compile-time dependency of the gateway
 # package on telemetry) and separately WARNS on _test.go files, mirroring
-# migration-guard's warn/fail split: a fake in a test is the same dependency, but it
+# boundary-guard's warn/fail split: a fake in a test is the same dependency, but it
 # is mechanical to remove and should not block the production fix.
 #
 # Escape hatch: a trailing `// boundary:allow: <reason>` comment on the same line as
@@ -996,7 +993,7 @@ archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or de
 		echo "archive-guard: no archived file edited or deleted since $$base"; \
 	fi
 
-check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + logdir-guard + test
+check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-boundary-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-boundary-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + logdir-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

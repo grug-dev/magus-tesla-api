@@ -3,16 +3,20 @@
 // analytics).
 //
 // Two entry points:
-//   - Provision(ctx, fs) — one module's own embedded migrations. What a module
-//     whose DB-backed tests touch only its own tables uses.
+//   - Provision(ctx, module, fs) — one module's own embedded migrations. What a
+//     module whose DB-backed tests touch only its own tables uses.
 //   - ProvisionDirs(ctx, dirs...) — several modules' migration DIRECTORIES, for a
 //     package whose fixtures span more than one module's schema. Required because
 //     //go:embed cannot reach outside its own directory tree; see ProvisionDirs.
 //
+// Both take the owning module's name, because each module's applied versions are
+// recorded in its own <module>.goose_db_version ledger — the same place the
+// deploy's cmd/migrate records them.
+//
 // Provisioning policy (ai/go-conventions.md §persistence):
 //   - When TEST_DATABASE_URL is set AND reachable, it is used as-is (managed/CI
-//     Postgres). goose records applied versions in goose_db_version, so
-//     re-running against an already-migrated DB is a no-op.
+//     Postgres). goose records applied versions per module, so re-running
+//     against an already-migrated DB is a no-op.
 //   - Otherwise (TEST_DATABASE_URL unset, malformed, or unreachable — including the
 //     Makefile's `.env` include quirk where quoted DSNs arrive with literal
 //     quote characters), a disposable `postgres:16-alpine` container is started
@@ -34,6 +38,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/logging"
 
 	// Register the pgx driver as "pgx" for database/sql, which goose uses.
@@ -70,11 +75,23 @@ type Result struct {
 // migrations already applied. migrationsFS must be an fs.FS already rooted at
 // the migrations directory (typically `fs.Sub(embedMigrations, "db/migrations")`).
 //
+// module is the name of the module those migrations belong to — "telemetry" for
+// internal/telemetry, and so on. It names the version ledger goose records into
+// (<module>.goose_db_version), which is also where the deploy's cmd/migrate
+// records it, so a test database is migrated exactly the way a real one is. It
+// is a parameter rather than something derived from migrationsFS because an
+// fs.FS has no path to derive it from: a caller passing its own embedded
+// migrations knows its module, and guessing is how a module ends up recording
+// into another module's ledger.
+//
 // On success the caller owns any started container; on failure Provision
 // returns a non-nil error and has already cleaned up anything it started.
-func Provision(ctx context.Context, migrationsFS fs.FS) (Result, error) {
+func Provision(ctx context.Context, module string, migrationsFS fs.FS) (Result, error) {
+	if module == "" {
+		return Result{}, fmt.Errorf("testdb: Provision needs the owning module's name")
+	}
 	return provision(ctx, func(ctx context.Context, dsn string) error {
-		return applyMigrations(ctx, dsn, migrationsFS)
+		return applyMigrations(ctx, dsn, config.MigrationDir{Module: module}.VersionTable(), migrationsFS)
 	})
 }
 
@@ -92,39 +109,44 @@ func Provision(ctx context.Context, migrationsFS fs.FS) (Result, error) {
 // relative path like "../telemetry/db/migrations" resolves reliably from a
 // _test.go file. Each directory is read with os.DirFS at call time.
 //
-// Directories are applied IN THE ORDER GIVEN, each with its own goose provider
-// against the same database — exactly what the Makefile's migrate-up loop does
-// over MIGRATIONS_DIRS. They are deliberately NOT merged into one filesystem:
-// module migration versions are unique within a directory but NOT across the
-// repo (internal/account and internal/charging both ship a 20260720000001), and
-// a merged FS would fail on the collision that the per-directory sequence
-// handles fine. Order therefore matters only where one module's schema depends
-// on another's; today none do (there are no cross-module foreign keys —
-// ai/architecture.md §2), so any order works.
+// Each directory is applied with its own goose provider against the same
+// database, into its own module's version ledger — exactly what the Makefile's
+// migrate-up loop and the deploy's cmd/migrate do. They are deliberately NOT
+// merged into one filesystem: a merged FS would put several modules' files in
+// one sequence, which is the arrangement that lets two modules collide on a
+// version number and lets one module's migration read another's schema.
+//
+// The order given does not affect the result. Each module's migrations create
+// only that module's objects and read nothing outside its own schema, and each
+// module's versions are tracked separately, so no module needs another to have
+// run first. Pass them in whatever order reads most clearly.
 //
 // Every other behaviour — the TEST_DATABASE_URL-then-container policy, ErrUnavailable,
 // Result ownership — is identical to Provision.
-func ProvisionDirs(ctx context.Context, migrationDirs ...string) (Result, error) {
+func ProvisionDirs(ctx context.Context, migrationDirs ...config.MigrationDir) (Result, error) {
 	if len(migrationDirs) == 0 {
 		return Result{}, fmt.Errorf("testdb: ProvisionDirs needs at least one migration directory")
 	}
 	// Fail fast and specifically: a mistyped relative path would otherwise
 	// surface as an empty migration set and a mystifying "relation does not
 	// exist" much later, inside a test.
-	for _, dir := range migrationDirs {
-		info, err := os.Stat(dir)
+	for _, md := range migrationDirs {
+		if md.Module == "" {
+			return Result{}, fmt.Errorf("testdb: migration dir %q needs its owning module's name", md.Dir)
+		}
+		info, err := os.Stat(md.Dir)
 		if err != nil {
-			return Result{}, fmt.Errorf("testdb: migration dir %q (paths are relative to the calling package's directory): %w", dir, err)
+			return Result{}, fmt.Errorf("testdb: migration dir %q (paths are relative to the calling package's directory): %w", md.Dir, err)
 		}
 		if !info.IsDir() {
-			return Result{}, fmt.Errorf("testdb: migration path %q is not a directory", dir)
+			return Result{}, fmt.Errorf("testdb: migration path %q is not a directory", md.Dir)
 		}
 	}
 
 	return provision(ctx, func(ctx context.Context, dsn string) error {
-		for _, dir := range migrationDirs {
-			if err := applyMigrations(ctx, dsn, os.DirFS(dir)); err != nil {
-				return fmt.Errorf("migration dir %s: %w", dir, err)
+		for _, md := range migrationDirs {
+			if err := applyMigrations(ctx, dsn, md.VersionTable(), os.DirFS(md.Dir)); err != nil {
+				return fmt.Errorf("migration dir %s: %w", md.Dir, err)
 			}
 		}
 		return nil
@@ -186,22 +208,26 @@ func (r Result) Terminate(ctx context.Context) error {
 	return r.Container.Terminate(ctx)
 }
 
-func applyMigrations(ctx context.Context, dsn string, migrationsFS fs.FS) error {
+func applyMigrations(ctx context.Context, dsn, versionTable string, migrationsFS fs.FS) error {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return fmt.Errorf("open sql db: %w", err)
 	}
 	defer db.Close()
 
-	// WithAllowOutofOrder is the Provider API's equivalent of the goose CLI's
-	// -allow-missing, which the Makefile's migrate-up already passes for the same
-	// reason: every module applies its own directory against ONE shared
-	// goose_db_version table, so a directory's versions are routinely lower than
-	// versions another module already recorded. Without this, applying
-	// telemetry's dir to a database that already carries analytics' 20260821*
-	// rows is refused as out of order.
+	// WithTableName records this module's versions in its own ledger, inside its
+	// own Postgres schema — the same thing the deploy's cmd/migrate does, so a
+	// test database is migrated the way a real one is.
+	//
+	// There is deliberately no WithAllowOutofOrder. It used to be required,
+	// because every module wrote to one shared goose_db_version and a module's
+	// own versions were routinely lower than versions another module had
+	// recorded, which goose reads as a migration arriving late. Per-module
+	// ledgers remove that, so goose's protection against an actually-late
+	// migration is back on here too. A test setup that silences it would let a
+	// broken migration order reach the deploy unnoticed.
 	provider, err := goose.NewProvider(goose.DialectPostgres, db, migrationsFS,
-		goose.WithAllowOutofOrder(true))
+		goose.WithTableName(versionTable))
 	if err != nil {
 		return fmt.Errorf("goose provider: %w", err)
 	}

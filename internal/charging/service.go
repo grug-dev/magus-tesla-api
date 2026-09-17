@@ -179,9 +179,11 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		StartBatteryPct: intPtrToPgInt2(startPct),
 		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
 		ChargingType:    stringPtrToPgText(e.ChargingType),
-		// location_kind is now enforced via RequiredFieldsFor/missingFields above
-		// (design.md D5), not the ad-hoc nil/empty check this replaced.
-		LocationKind:  stringPtrToRequired(e.LocationKind),
+		// location_kind is enforced via RequiredFieldsFor/missingFields above,
+		// never by the column. The column is nullable, and required-field sets
+		// live in Go on purpose: as a database constraint, every change to the
+		// set would become a migration (see the status column's comment).
+		LocationKind:  stringPtrToPgText(e.LocationKind),
 		LocationLabel: stringPtrToPgText(e.LocationLabel),
 		Notes:         stringPtrToPgText(e.Notes),
 		// status, energy_source, price_source, and start_battery_source are all
@@ -258,9 +260,11 @@ func (w *writerService) Update(ctx context.Context, ref vehicleref.Ref, e Entry)
 		StartBatteryPct: intPtrToPgInt2(startPct),
 		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
 		ChargingType:    stringPtrToPgText(e.ChargingType),
-		// location_kind is now enforced via RequiredFieldsFor/missingFields above
-		// (design.md D5), not the ad-hoc nil/empty check this replaced.
-		LocationKind:  stringPtrToRequired(e.LocationKind),
+		// location_kind is enforced via RequiredFieldsFor/missingFields above,
+		// never by the column. The column is nullable, and required-field sets
+		// live in Go on purpose: as a database constraint, every change to the
+		// set would become a migration (see the status column's comment).
+		LocationKind:  stringPtrToPgText(e.LocationKind),
 		LocationLabel: stringPtrToPgText(e.LocationLabel),
 		Notes:         stringPtrToPgText(e.Notes),
 		// status, energy_source, price_source, and start_battery_source are all
@@ -595,7 +599,7 @@ func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 		ChargingType: pgTextToPtr(r.ChargingType),
 		// location_kind is NOT NULL in the DB; surfaced as *string for a uniform
 		// domain surface (always non-nil on the read path).
-		LocationKind:  requiredToStringPtr(r.LocationKind),
+		LocationKind:  pgTextToPtr(r.LocationKind),
 		LocationLabel: pgTextToPtr(r.LocationLabel),
 		Notes:         pgTextToPtr(r.Notes),
 		EnergySource:  EnergySource(r.EnergySource),
@@ -682,17 +686,6 @@ func stringPtrToPgText(v *string) pgtype.Text {
 		return pgtype.Text{Valid: false}
 	}
 	return pgtype.Text{String: *v, Valid: true}
-}
-
-// stringPtrToRequired maps a *string to a plain string for a NOT NULL column.
-// Callers must have validated the pointer is non-nil (e.g. location_kind is a
-// required field); a nil pointer defensively maps to "", which the column's
-// CHECK constraint would then reject at the database.
-func stringPtrToRequired(v *string) string {
-	if v == nil {
-		return ""
-	}
-	return *v
 }
 
 // startBatterySourcePtrToStringPtr converts *StartBatterySource to a *string so
@@ -786,11 +779,4 @@ func pgNumericToFloat64Ptr(v pgtype.Numeric) *float64 {
 		return nil
 	}
 	return &f8.Float64
-}
-
-// requiredToStringPtr maps a NOT NULL string column to *string, keeping the
-// domain surface uniform with the other nullable text fields. The value is
-// always present on the read path, so the returned pointer is never nil.
-func requiredToStringPtr(v string) *string {
-	return &v
 }

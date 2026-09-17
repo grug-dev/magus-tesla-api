@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -133,13 +135,73 @@ func Load() (*Config, error) {
 // D11). Overridable via MIGRATIONS_ROOT.
 const defaultMigrationsRoot = "/migrations"
 
-// defaultMigrationModules are the four migration directory names, applied in
-// this exact order, under MigrationsRoot when MIGRATIONS_DIRS is unset. This
-// mirrors the Makefile's MIGRATIONS_DIRS variable and the image layout the
-// Dockerfile COPYs (ai/go-conventions.md §Persistence): all four apply
-// against ONE shared goose_db_version table, and charging's backfill
-// migration reads telemetry's table, so telemetry must precede charging.
+// defaultMigrationModules are the four migration directory names, used under
+// MigrationsRoot when MIGRATIONS_DIRS is unset. This mirrors the Makefile's
+// MIGRATION_MODULES variable and the image layout the Dockerfile COPYs
+// (ai/go-conventions.md §Persistence).
+//
+// It is also the ONLY list of module names here, on purpose: it names the
+// default directories AND resolves a MIGRATIONS_DIRS path back to its module
+// (moduleForDir). A second list would be free to drift from this one, and the
+// module name decides which version ledger a migration is recorded in — so
+// drift would silently record a module's migrations in another module's ledger.
+//
+// The order is no longer significant. Each module records its versions in its
+// own <module>.goose_db_version, and each module's migrations create only that
+// module's objects and read nothing, so no module can depend on another having
+// run first. The order is kept stable only to make logs comparable between runs.
 var defaultMigrationModules = []string{"account", "telemetry", "charging", "analytics"}
+
+// MigrationDir is one module's migration directory, paired with the module that
+// owns it. The two always travel together because goose needs both: the
+// directory to read the files from, and the module to name the version ledger
+// (<module>.goose_db_version) it records them in. Deriving one from the other at
+// the point of use is what allowed them to disagree.
+type MigrationDir struct {
+	// Module is the owning module's name, which is also its Postgres schema
+	// and therefore the schema holding its version ledger.
+	Module string
+	// Dir is the directory holding that module's migration files.
+	Dir string
+}
+
+// VersionTable is the schema-qualified goose version table for this module.
+//
+// goose accepts a schema-qualified table name for both the library API
+// (goose.WithTableName) and the CLI (its -table flag), and its own README
+// documents this exact form for a non-public schema. Putting the ledger inside
+// the module's schema means `pg_dump --schema=<module>` carries the module's
+// objects and its migration history together, which is what makes a module
+// extractable into its own service.
+func (m MigrationDir) VersionTable() string {
+	return m.Module + ".goose_db_version"
+}
+
+// moduleForDir resolves a migration directory path to the module that owns it,
+// by finding the path segment that names a known module. It handles both
+// layouts with one rule: the image's "<root>/account" and a checkout's
+// "internal/account/db/migrations" both contain exactly one segment naming a
+// module.
+//
+// An unresolvable path is an error rather than a guess. A directory whose module
+// cannot be named has no ledger to record into, and picking a fallback (the last
+// path segment, say) would write "migrations.goose_db_version" or silently reuse
+// another module's ledger.
+func moduleForDir(dir string) (string, error) {
+	var found string
+	for _, seg := range strings.Split(filepath.ToSlash(dir), "/") {
+		if slices.Contains(defaultMigrationModules, seg) {
+			if found != "" && found != seg {
+				return "", fmt.Errorf("migration dir %q names two modules (%q and %q); it must name exactly one", dir, found, seg)
+			}
+			found = seg
+		}
+	}
+	if found == "" {
+		return "", fmt.Errorf("migration dir %q does not name any known module (%v); a migration directory must live under the module that owns it", dir, defaultMigrationModules)
+	}
+	return found, nil
+}
 
 // MigrationConfig is the config for the standalone migration tool
 // (cmd/migrate). It is a separate, smaller struct from Config because a
@@ -153,13 +215,15 @@ type MigrationConfig struct {
 	// default-path case; MigrationsDirs is what cmd/migrate actually loops
 	// over.
 	MigrationsRoot string
-	// MigrationsDirs is the ordered list of migration directories to apply.
-	// When MIGRATIONS_DIRS is set (space-separated, ordered), it comes from
-	// there verbatim, split on whitespace with empty entries dropped. When
-	// unset, it is MigrationsRoot + "/" + each of defaultMigrationModules, in
-	// order — the image-default behavior, unchanged. cmd/migrate loops this
-	// slice directly; it never builds paths itself.
-	MigrationsDirs []string
+	// MigrationsDirs is the list of migration directories to apply, each
+	// paired with the module that owns it. When MIGRATIONS_DIRS is set
+	// (space-separated), the directories come from there verbatim, split on
+	// whitespace with empty entries dropped, and each one's module is resolved
+	// by moduleForDir. When unset, it is MigrationsRoot + "/" + each of
+	// defaultMigrationModules — the image-default behavior, unchanged.
+	// cmd/migrate loops this slice directly; it never builds a path or a
+	// version-table name itself.
+	MigrationsDirs []MigrationDir
 }
 
 // LoadMigration reads config for cmd/migrate. Unlike Load, it does not
@@ -192,11 +256,20 @@ func LoadMigration() (*MigrationConfig, error) {
 		root = defaultMigrationsRoot
 	}
 
-	dirs := splitMigrationsDirs(envStripped("MIGRATIONS_DIRS"))
-	if len(dirs) == 0 {
-		dirs = make([]string, len(defaultMigrationModules))
+	var dirs []MigrationDir
+	if paths := splitMigrationsDirs(envStripped("MIGRATIONS_DIRS")); len(paths) > 0 {
+		dirs = make([]MigrationDir, len(paths))
+		for i, p := range paths {
+			module, err := moduleForDir(p)
+			if err != nil {
+				return nil, fmt.Errorf("MIGRATIONS_DIRS: %w", err)
+			}
+			dirs[i] = MigrationDir{Module: module, Dir: p}
+		}
+	} else {
+		dirs = make([]MigrationDir, len(defaultMigrationModules))
 		for i, name := range defaultMigrationModules {
-			dirs[i] = root + "/" + name
+			dirs[i] = MigrationDir{Module: name, Dir: root + "/" + name}
 		}
 	}
 

@@ -48,7 +48,7 @@ func runTests(m *testing.M) int {
 		log.Fatalf("telemetry testdb: sub migrations fs: %v", err)
 	}
 
-	result, err := testdb.Provision(ctx, subFS)
+	result, err := testdb.Provision(ctx, "telemetry", subFS)
 	switch {
 	case errors.Is(err, testdb.ErrUnavailable):
 		// No reachable Postgres and no Docker daemon to provision one. Skip the

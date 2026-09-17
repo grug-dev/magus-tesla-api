@@ -234,8 +234,9 @@ func TestLoadMigration_MigrationsRootSet(t *testing.T) {
 	})
 }
 
-// TestLoadMigration_MigrationsDirs* cover MigrationsDirs, the ordered
-// directory slice cmd/migrate loops directly (T8). unsetMigrationEnv already
+// TestLoadMigration_MigrationsDirs* cover MigrationsDirs, the directory slice
+// cmd/migrate loops directly, each entry paired with the module that owns it.
+// unsetMigrationEnv already
 // clears DATABASE_URL/MIGRATIONS_ROOT; these tests also clear/restore
 // MIGRATIONS_DIRS themselves, since unsetMigrationEnv predates this variable.
 
@@ -270,13 +271,16 @@ func TestLoadMigration_MigrationsDirsSet(t *testing.T) {
 		if err != nil {
 			t.Fatalf("LoadMigration() returned error: %v", err)
 		}
-		want := []string{"internal/account/db/migrations", "internal/telemetry/db/migrations"}
+		want := []MigrationDir{
+			{Module: "account", Dir: "internal/account/db/migrations"},
+			{Module: "telemetry", Dir: "internal/telemetry/db/migrations"},
+		}
 		if len(cfg.MigrationsDirs) != len(want) {
 			t.Fatalf("cfg.MigrationsDirs = %v, want %v", cfg.MigrationsDirs, want)
 		}
 		for i := range want {
 			if cfg.MigrationsDirs[i] != want[i] {
-				t.Fatalf("cfg.MigrationsDirs[%d] = %q, want %q", i, cfg.MigrationsDirs[i], want[i])
+				t.Fatalf("cfg.MigrationsDirs[%d] = %+v, want %+v", i, cfg.MigrationsDirs[i], want[i])
 			}
 		}
 	})
@@ -299,18 +303,18 @@ func TestLoadMigration_MigrationsDirsUnsetUsesDefault(t *testing.T) {
 		if err != nil {
 			t.Fatalf("LoadMigration() returned error: %v", err)
 		}
-		want := []string{
-			"/migrations/account",
-			"/migrations/telemetry",
-			"/migrations/charging",
-			"/migrations/analytics",
+		want := []MigrationDir{
+			{Module: "account", Dir: "/migrations/account"},
+			{Module: "telemetry", Dir: "/migrations/telemetry"},
+			{Module: "charging", Dir: "/migrations/charging"},
+			{Module: "analytics", Dir: "/migrations/analytics"},
 		}
 		if len(cfg.MigrationsDirs) != len(want) {
 			t.Fatalf("cfg.MigrationsDirs = %v, want %v", cfg.MigrationsDirs, want)
 		}
 		for i := range want {
 			if cfg.MigrationsDirs[i] != want[i] {
-				t.Fatalf("cfg.MigrationsDirs[%d] = %q, want %q", i, cfg.MigrationsDirs[i], want[i])
+				t.Fatalf("cfg.MigrationsDirs[%d] = %+v, want %+v", i, cfg.MigrationsDirs[i], want[i])
 			}
 		}
 	})
@@ -432,12 +436,15 @@ func TestLoadMigration_MigrationsDirsExtraWhitespace(t *testing.T) {
 		if err != nil {
 			t.Fatalf("LoadMigration() returned error: %v", err)
 		}
-		want := []string{"internal/account/db/migrations", "internal/telemetry/db/migrations"}
+		want := []MigrationDir{
+			{Module: "account", Dir: "internal/account/db/migrations"},
+			{Module: "telemetry", Dir: "internal/telemetry/db/migrations"},
+		}
 		if len(cfg.MigrationsDirs) != len(want) {
 			t.Fatalf("cfg.MigrationsDirs = %v, want %v (no empty entries from extra whitespace)", cfg.MigrationsDirs, want)
 		}
 		for _, d := range cfg.MigrationsDirs {
-			if d == "" {
+			if d.Dir == "" {
 				t.Fatalf("cfg.MigrationsDirs contains an empty entry: %v", cfg.MigrationsDirs)
 			}
 		}

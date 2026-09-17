@@ -28,6 +28,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/testdb"
 )
 
@@ -43,9 +44,12 @@ func TestMain(m *testing.M) {
 func runTests(m *testing.M) int {
 	ctx := context.Background()
 
-	// Telemetry's directory first, this module's own second — see the package
-	// doc comment above for why the order matters (design.md D8c).
-	result, err := testdb.ProvisionDirs(ctx, "../telemetry/db/migrations", "db/migrations")
+	// Each module's migrations go into that module's own version ledger, and a
+	// baseline reads nothing outside its own schema, so the order here is free.
+	result, err := testdb.ProvisionDirs(ctx,
+		config.MigrationDir{Module: "telemetry", Dir: "../telemetry/db/migrations"},
+		config.MigrationDir{Module: "charging", Dir: "db/migrations"},
+	)
 	if err != nil {
 		log.Fatalf("charging testdb: provision: %v", err)
 	}

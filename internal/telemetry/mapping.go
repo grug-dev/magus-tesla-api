@@ -68,12 +68,15 @@ func pgNullableInt16AsInt(v pgtype.Int2) *int {
 	return &r
 }
 
-// snapshotRow is the shape sqlc generates for the snapshot-reading queries.
-// They all select the same column list, and that list no longer covers the whole
-// table, so sqlc gives each query its own Row struct instead of reusing
-// VehicleSnapshot. Those structs are identical, so one name plus a struct
-// conversion at the call site replaces five copies of this mapper.
-type snapshotRow = telemetrydb.LatestSnapshotsByVehiclesRow
+// snapshotRow is the shape sqlc generates for the snapshot-reading queries. They
+// all select every column of the table, so sqlc reuses VehicleSnapshot for every
+// one of them and no call site needs a conversion.
+//
+// The alias is kept because that can change again: add a column that some query
+// does not select, and sqlc goes back to emitting a separate Row struct per
+// query. Pointing this one line at it is then the whole fix, and rowToSnapshot
+// keeps naming what it maps rather than a generated per-query type.
+type snapshotRow = telemetrydb.VehicleSnapshot
 
 // rowToSnapshot converts a generated snapshot row into the domain Snapshot type.
 // This is the DB→domain mapping boundary for the read path:

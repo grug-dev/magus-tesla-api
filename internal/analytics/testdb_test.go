@@ -36,6 +36,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/testdb"
 )
 
@@ -52,10 +53,10 @@ import (
 // fails with `relation "telemetry.vehicle_snapshots" does not exist`. Production
 // never had this problem — Makefile MIGRATIONS_DIRS already ordered telemetry
 // before analytics; only this list disagreed. Keep analytics LAST.
-var migrationDirs = []string{
-	"../telemetry/db/migrations",
-	"../charging/db/migrations",
-	"db/migrations",
+var migrationDirs = []config.MigrationDir{
+	{Module: "telemetry", Dir: "../telemetry/db/migrations"},
+	{Module: "charging", Dir: "../charging/db/migrations"},
+	{Module: "analytics", Dir: "db/migrations"},
 }
 
 // testDSN is the connection string provisioned by TestMain and used by

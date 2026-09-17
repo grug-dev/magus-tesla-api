@@ -46,7 +46,7 @@ func runTests(m *testing.M) int {
 		log.Fatalf("account testdb: sub migrations fs: %v", err)
 	}
 
-	result, err := testdb.Provision(ctx, subFS)
+	result, err := testdb.Provision(ctx, "account", subFS)
 	if err != nil {
 		log.Fatalf("account testdb: provision: %v", err)
 	}

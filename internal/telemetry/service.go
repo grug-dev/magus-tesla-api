@@ -769,9 +769,6 @@ func (d *dbStore) latestSnapshotsByVehicles(ctx context.Context, teslaIDs []int6
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		// No snapshotRow() wrap here: snapshotRow IS an alias of this query's
-		// own row type (mapping.go). The other call sites below convert a
-		// DIFFERENT query's structurally identical row, so they keep the wrap.
 		snaps = append(snaps, rowToSnapshot(r))
 	}
 	return snaps, nil
@@ -793,7 +790,7 @@ func (d *dbStore) snapshotsByVehicleSince(ctx context.Context, teslaID int64, si
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		snaps = append(snaps, rowToSnapshot(snapshotRow(r)))
+		snaps = append(snaps, rowToSnapshot(r))
 	}
 	return snaps, nil
 }
@@ -845,7 +842,7 @@ func (d *dbStore) snapshotsByVehicleBetween(ctx context.Context, teslaID int64, 
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		snaps = append(snaps, rowToSnapshot(snapshotRow(r)))
+		snaps = append(snaps, rowToSnapshot(r))
 	}
 	return snaps, nil
 }
@@ -869,7 +866,7 @@ func (d *dbStore) snapshotsByVehicleUpdatedSince(ctx context.Context, teslaID in
 	}
 	snaps := make([]Snapshot, 0, len(rows))
 	for _, r := range rows {
-		snaps = append(snaps, rowToSnapshot(snapshotRow(r)))
+		snaps = append(snaps, rowToSnapshot(r))
 	}
 	return snaps, nil
 }
