@@ -1896,6 +1896,19 @@ func TestRecalculate_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 	if !row.ConsumedPct.Valid || !approxEqual(row.ConsumedPct.Float64, wantConsumed) {
 		t.Errorf("ConsumedPct: want %v -- an implementation that widened the predecessor lookup (D2/D7) but not the charge-source fetches (D8b) produces 35.0 here, got %+v", wantConsumed, row.ConsumedPct)
 	}
+	// MAG-81, end to end: the efficiency divides by the CORRECTED 55, not by
+	// the raw 35. This fixture is Fixture D plus one manual charge, so the
+	// contrast is exact -- TestRecalculate_FixtureD_MultiDayGap, the same
+	// snapshots with no charge, stores 210/35 = 6.0 here. A regression that
+	// restored the raw divisor would store 6.0 in this test too, which is why
+	// the two fixtures must keep asserting different numbers.
+	wantKmPerPct := 210.0 / wantConsumed // ~3.818
+	if !row.KmPerPctCalc.Valid || !approxEqual(row.KmPerPctCalc.Float64, wantKmPerPct) {
+		t.Errorf("KmPerPctCalc: want %v (210.0/55, the charge-corrected divisor) -- 6.0 means the raw battery delta was used, got %+v", wantKmPerPct, row.KmPerPctCalc)
+	}
+	if !row.EstimatedRangeKmCalc.Valid || !approxEqual(row.EstimatedRangeKmCalc.Float64, wantKmPerPct*100) {
+		t.Errorf("EstimatedRangeKmCalc: want %v (KmPerPctCalc*100), got %+v", wantKmPerPct*100, row.EstimatedRangeKmCalc)
+	}
 	if row.Flagged != false {
 		t.Errorf("Flagged: want false, got %v", row.Flagged)
 	}
@@ -1907,9 +1920,11 @@ func TestRecalculate_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 // ===========================================================================
 
 // metricsFixtureE returns design.md's Test Contract Fixture E: the
-// battery_used_pct_calc == 0 divisor guard (a parked day) -- distinct from
-// Fixture B's negative-divisor case: the guard is `batteryUsed > 0`, so zero
-// is excluded exactly like a negative. Raw observations only (D1/D10).
+// consumed_pct == 0 divisor guard (a parked day) -- distinct from Fixture B's
+// negative-divisor case: the guard is `consumed > 0` (MAG-81; `batteryUsed > 0`
+// before it), so zero is excluded exactly like a negative. No charge is seeded,
+// so the corrected figure equals the raw one here. Raw observations only
+// (D1/D10).
 func metricsFixtureE(teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
 		TeslaID:         teslaID,
@@ -1966,7 +1981,7 @@ func TestRecalculate_ZeroDivisorGuard(t *testing.T) {
 		t.Errorf("BatteryUsedPctCalc: want 0 (stored, non-NULL), got %+v", row.BatteryUsedPctCalc)
 	}
 	if row.KmPerPctCalc.Valid {
-		t.Errorf("KmPerPctCalc: want NULL -- the guard is batteryUsed > 0, zero is excluded exactly like a negative, got %v", row.KmPerPctCalc.Float64)
+		t.Errorf("KmPerPctCalc: want NULL -- the guard is consumedPct > 0 (MAG-81; batteryUsed > 0 before it), and with no charge to correct it the zero is excluded exactly like a negative, got %v", row.KmPerPctCalc.Float64)
 	}
 	if row.EstimatedRangeKmCalc.Valid {
 		t.Errorf("EstimatedRangeKmCalc: want NULL (same guard), got %v", row.EstimatedRangeKmCalc.Float64)

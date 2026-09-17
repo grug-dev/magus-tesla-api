@@ -83,8 +83,11 @@ type vehicleMetricRow struct {
 	// deriveConsumption from this row's snapshot pair. They used to be copied
 	// verbatim off telemetry.Snapshot's own _calc fields; RM29 tier 4 moved
 	// the derivation into this module and dropped those fields, so this is
-	// now the only place they are produced. nil iff this row's day has no
-	// predecessor snapshot at all (design.md D6).
+	// now the only place they are produced. The first three are nil iff this
+	// row's day has no predecessor snapshot at all (design.md D6); the two
+	// efficiency figures carry that condition plus the divisor guard -- nil
+	// also when ConsumedPct <= 0 (MAG-81; it was BatteryUsedPctCalc <= 0
+	// before, which NULLed every day the vehicle drove AND charged).
 	DistanceTraveledKmCalc *float64
 	BatteryUsedPctCalc     *int
 	KmPerPctCalc           *float64
@@ -247,13 +250,19 @@ func sumManualPctBetween(entries []charging.Entry, fromDay, toDay time.Time) flo
 // derived/consumed field left nil -- the D5/D5a flag comparison never runs
 // for this row (design.md D9's dedicated rationale: a stored 0 would falsely
 // flag a vehicle's first day as a suspected charge gap). For every other row,
-// the row is computed EXACTLY as the pre-dense derivation computed it
-// (unchanged formulas, unchanged charge-event matching against
-// prev.CapturedAt/effectiveDay(prev)), carrying cur.BatteryLevelPct,
-// cur.OdometerKm, cur.BatteryRangeKm plus the five figures deriveConsumption
-// (consumption.go) computes from the (prev, cur) pair -- which is where they
-// used to be copied verbatim off cur's own _calc fields (no fallback-to-1
-// then, none now).
+// the charge-event matching is unchanged (still against
+// prev.CapturedAt/effectiveDay(prev)), and the row carries
+// cur.BatteryLevelPct, cur.OdometerKm, cur.BatteryRangeKm plus the six
+// figures deriveConsumption (consumption.go) computes from the (prev, cur)
+// pair and that span's charge total -- which is where they used to be copied
+// verbatim off cur's own _calc fields (no fallback-to-1 then, none now).
+//
+// MAG-81 moved ONE thing out of this function: the charge-corrected
+// percentage. It is still matched and summed here (chargePct), but the
+// addition that turns it into consumed_pct now happens once inside
+// deriveConsumption, which needs that same number as the divisor for the
+// efficiency ratio. This function reads the result back off
+// calc.ConsumedPct rather than computing the identical sum a second time.
 func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.Snapshot, sessions []charging.Session, entries []charging.Entry, start, end time.Time) []vehicleMetricRow {
 	out := make([]vehicleMetricRow, 0, len(snapshots))
 	for i := 0; i < len(snapshots); i++ {
@@ -300,12 +309,19 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			continue
 		}
 
-		calc := deriveConsumption(prev, cur)
-
+		// The charge total for this day's span, matched here and summed here --
+		// this file owns WHICH records count (the two interval rules below);
+		// consumption.go owns what the total is then used for (MAG-81).
 		chargePct := sumSuperchargerPctBetween(sessions, prev.CapturedAt, cur.CapturedAt) +
 			sumManualPctBetween(entries, effectiveDay(*prev), day)
 
-		consumed := float64(*calc.BatteryUsedPctCalc) + chargePct
+		calc := deriveConsumption(prev, cur, chargePct)
+
+		// Never re-added here. calc.ConsumedPct IS BatteryUsedPctCalc +
+		// chargePct, computed once in consumption.go, which also divides by it
+		// (MAG-81). Non-nil whenever prev != nil, which the branch above
+		// guarantees.
+		consumed := *calc.ConsumedPct
 
 		var distanceKm float64
 		if calc.DistanceTraveledKmCalc != nil {
@@ -347,7 +363,7 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			TpmsPressureFRPSICalc:  calc.TpmsPressureFRPSICalc,
 			TpmsPressureRLPSICalc:  calc.TpmsPressureRLPSICalc,
 			TpmsPressureRRPSICalc:  calc.TpmsPressureRRPSICalc,
-			ConsumedPct:            &consumed,
+			ConsumedPct:            calc.ConsumedPct,
 			Flagged:                flagged,
 			MissingChargingType:    missingType,
 		})

@@ -354,13 +354,18 @@ type VehicleStatus struct {
 	DistanceTraveledKmCalc *float64
 	ConsumedPct            *float64
 	// KmPerPctCalc is the day's driving efficiency in kilometres per battery
-	// percent -- distance_traveled_km_calc divided by battery_used_pct_calc,
-	// computed by deriveConsumption, not here. Pointer because nullable, under
-	// a STRICTER rule than its two siblings above: nil on a predecessor-less
-	// day AND nil whenever that day's battery_used_pct_calc is <= 0, because
-	// the division has no meaning then (the divisor guard in consumption.go).
-	// A day the vehicle sat parked and charged therefore has a distance and a
-	// consumed percent but no efficiency. Never substitute 0.
+	// percent -- distance_traveled_km_calc divided by consumed_pct, computed by
+	// deriveConsumption, not here. Pointer because nullable, under a STRICTER
+	// rule than its two siblings above: nil on a predecessor-less day AND nil
+	// whenever that day's consumed_pct is <= 0, because the division has no
+	// meaning then (the divisor guard in consumption.go). Never substitute 0.
+	//
+	// MAG-81 changed the divisor from battery_used_pct_calc (the RAW battery
+	// drop) to consumed_pct (that same drop plus the day's recorded charges).
+	// A day the vehicle both drove and charged ends with a fuller pack, so the
+	// raw figure was negative and this field was NULL even though the day had
+	// a perfectly good efficiency. Now it is NULL only when the day's charge
+	// was never recorded at all -- which is the case charge_gaps flags.
 	KmPerPctCalc *float64
 	// TpmsPressureFLPSICalc/FR/RL/RR are the four tyre-pressure day-over-day
 	// deltas (RM50-analytics-add-tire-pressure-variance), one per wheel, in
@@ -477,10 +482,9 @@ type GapWriter interface {
 
 // NewGapWriter constructs a GapWriter backed by a real Postgres pool. Callers
 // (cmd/poller) depend on the GapWriter interface, never on the concrete type
-// or on analyticsdb directly. Implementation is in gap_writer.go
-// (forward-declared here so this file compiles before that one is parsed,
-// mirroring NewSuperchargerHistoryReader's identical pattern, design B6.3 of
-// RM27-telemetry-add-supercharger-battery-pct).
+// or on analyticsdb directly. Implementation is in gap_writer.go — declared
+// here rather than there so this file compiles before that one is parsed.
+// The returned value is wrapped so every call through the port is logged.
 func NewGapWriter(pool *pgxpool.Pool) GapWriter {
-	return newGapWriter(pool)
+	return newLoggingGapWriter(newGapWriter(pool))
 }

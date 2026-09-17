@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Nightly Cycle — Call Sequence",
+    "quality_profile": "showcase",
+    "viewBox": [1045, 650],
+    "column_fit": "spread"
+  },
+  "participants": [
+    { "id": "app", "type": "backend", "label": "app.Processor", "sublabel": "orchestrator" },
+    { "id": "telemetry", "type": "backend", "label": "telemetry", "sublabel": "step 1" },
+    { "id": "teslaApi", "type": "external", "label": "Tesla Fleet API", "sublabel": "paid, external" },
+    { "id": "db", "type": "database", "label": "Database", "sublabel": "Postgres" },
+    { "id": "charging", "type": "backend", "label": "charging", "sublabel": "steps 2 + 4" },
+    { "id": "analytics", "type": "backend", "label": "analytics", "sublabel": "step 3" }
+  ],
+  "segments": [
+    { "from": 168, "to": 386, "label": "Step 1 — sync fleet data" },
+    { "from": 394, "to": 442, "label": "Step 2 — mirror charging data" },
+    { "from": 450, "to": 526, "label": "Step 3 — recalculate analytics" },
+    { "from": 534, "to": 552, "label": "Step 4 — monthly capacity" }
+  ],
+  "messages": [
+    { "id": "m1", "from": "app", "to": "telemetry", "y": 176, "label": "CollectAll()", "variant": "emphasis" },
+    { "id": "m2", "from": "telemetry", "to": "teslaApi", "y": 204, "label": "ListVehicles", "note": "paid Fleet API call" },
+    { "id": "m3", "from": "telemetry", "to": "teslaApi", "y": 232, "label": "WakeUp", "variant": "dashed", "note": "paid Fleet API call, only if asleep" },
+    { "id": "m4", "from": "telemetry", "to": "teslaApi", "y": 260, "label": "VehicleData", "note": "paid Fleet API call" },
+    { "id": "m5", "from": "telemetry", "to": "db", "y": 288, "label": "INSERT vehicle_snapshots", "variant": "emphasis", "note": "database write" },
+    { "id": "m6", "from": "telemetry", "to": "db", "y": 316, "label": "INSERT poll_attempts", "note": "database write" },
+    { "id": "m7", "from": "telemetry", "to": "teslaApi", "y": 344, "label": "ChargingHistory", "note": "paid Fleet API call, per account" },
+    { "id": "m8", "from": "telemetry", "to": "db", "y": 372, "label": "UPSERT supercharger_history", "note": "database write" },
+    { "id": "m9", "from": "app", "to": "telemetry", "y": 400, "label": "SuperchargerHistoryByVehicleUpdatedSince", "note": "database read" },
+    { "id": "m10", "from": "app", "to": "charging", "y": 428, "label": "MirrorSessions", "variant": "emphasis", "note": "database write" },
+    { "id": "m11", "from": "app", "to": "analytics", "y": 456, "label": "Reconcile", "variant": "emphasis", "note": "database read + write" },
+    { "id": "m12", "from": "app", "to": "analytics", "y": 484, "label": "ConsumedByDay", "note": "database read" },
+    { "id": "m13", "from": "app", "to": "analytics", "y": 512, "label": "ReconcileWindow", "note": "database write" },
+    { "id": "m14", "from": "app", "to": "charging", "y": 540, "label": "Calculate", "note": "database read + write, day 1 only" }
+  ],
+  "activations": [
+    { "participant": "app", "from": 172, "to": 548 },
+    { "participant": "telemetry", "from": 172, "to": 380 },
+    { "participant": "charging", "from": 424, "to": 432 },
+    { "participant": "charging", "from": 536, "to": 548 },
+    { "participant": "analytics", "from": 452, "to": 516 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "One Paid Surface", "items": ["Only telemetry calls the Fleet API", "Four calls: ListVehicles, WakeUp, VehicleData, ChargingHistory", "Every other module reads or writes the database only"] },
+    { "dot": "emerald", "title": "Three Writes Inside Step 1", "items": ["vehicle_snapshots and poll_attempts, one pair per vehicle", "supercharger_history, one upsert per session", "All three land before CollectAll returns"] },
+    { "dot": "amber", "title": "Steps 2-4 Never Call Tesla", "items": ["charging and analytics read and write Postgres only", "Step 3 first reconciles metrics, then charge gaps", "Step 4 runs last, reading data steps 2-3 just refreshed"] }
+  ]
+}

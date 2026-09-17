@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM62-app-improve-cycle-step-logging",
+  "module": "app",
+  "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
+  "request": "MAG-57 tier 1. Fix the misleading gap-reconciliation log line in internal/app/processor.go: it prints once before the vehicle loop, so the telemetry queries that follow look like they belong to the gap step when they belong to Recalculator.Reconcile. Replace it with per-vehicle labels for both halves. Also add a VS Code launch configuration that runs cmd/poller --once under the debugger, mirroring the existing cmd/web entry.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "3.1",
+      "3.2"
+    ]
+  },
+  "created_at": "2026-09-17T02:15:00Z",
+  "updated_at": "2026-09-17T02:21:32Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
+    "base": "main",
+    "ticket": "MAG-57",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-57/nightly-job-tests",
+    "created_at": "2026-09-17T01:57:25Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Delete the pre-loop gap-reconciliation log line in recalculateAnalytics",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Removed the pre-loop gap reconciliation line. start/end values kept; still used by the per-vehicle gap line and ConsumedByDay.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Add the per-vehicle metrics-reconciliation line before Reconcile",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Added metrics reconciliation: vehicle %d before p.recalculator.Reconcile. Topic matches the existing error line below it.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "Add the per-vehicle gap-reconciliation line with the window before ConsumedByDay",
+      "module": "app",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Added gap reconciliation: vehicle %d: %s -> %s before p.analyticsReader.ConsumedByDay. Topic matches the two error lines below.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
+    },
+    {
+      "id": "1.4",
+      "title": "Update recalculateAnalytics's own doc comment for the per-vehicle lines",
+      "module": "app",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Doc comment now says each half logs its vehicle once per vehicle, and why: a query line traces back to vehicle and half. No decision IDs cited.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "Add the cmd/poller --once launch entry to .vscode/launch.json",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Added Debug poller (cmd/poller --once) entry after Launch web in .vscode/launch.json. Exact fields, no env block. JSONC parses.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "Document the launch entry in internal/app/AGENTS.md Testing notes, with the paid-API warning",
+      "module": "app",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Testing notes now names the VS Code launch entry beside go run ./cmd/poller --once, and warns both wake the real car and cost paid Fleet API calls.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "Note the per-vehicle log behaviour in internal/app/AGENTS.md, one sentence",
+      "module": "app",
+      "depends_on": [
+        "1.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "One sentence under Responsibility: the two halves log per vehicle, not once per step; points to the processor.go doc comment for detail.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "app-reviewer",
+    "brief": "Review the diff of commit b30dc59 only \u2014 not the whole module. Validate: (1) module-boundary compliance (internal/app plus the two granted paths .vscode/launch.json and internal/app/AGENTS.md; nothing else touched); (2) every doc-pack convention, especially the code-comment rule \u2014 no design.md/decision-ID/roadmap-ID citation in any comment the change wrote; (3) the two new logging.Note calls use the exact topics design.md D2 specifies and match the topics the existing error lines already use; (4) the pre-loop line is gone and start/end are still correct for ConsumedByDay; (5) .vscode/launch.json matches D4 field for field, with no env block, and the file is valid JSONC; (6) tasks.md coverage \u2014 every task actually shipped; (7) no test file was added (this change excludes tests by roadmap decision RD1); (8) Performance-Profile compliance \u2014 two log lines per vehicle instead of one per step is the accepted cost (D3), not a regression to flag as new; (9) anti-gaming: no acceptance criterion weakened, no self-approved status. Signals: go build ./..., go vet ./..., gofmt -l . and make lint were ASSISTANT-run and all clean. make test was USER-run and reported passing by the user. Judge test quality by reading, never by running.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-16T21:25:00-05:00",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Read doc pack (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/app/AGENTS.md) and change artifacts (proposal.md, design.md, tasks.md, specs/process-vehicle-data/spec.md) before reviewing commit b30dc59 cold. Boundaries: only internal/app/processor.go, internal/app/AGENTS.md, .vscode/launch.json (granted path), plus this change's own progress.json/tasks.md were touched. Comments added by this change (processor.go doc comment, both AGENTS.md additions) cite no design.md, decision ID, change/roadmap ID, or tier number, and are shorter than the code they explain. The two new logging.Note calls use topics 'metrics reconciliation:' and 'gap reconciliation:' matching the existing error lines in the same function exactly. The pre-loop gap-reconciliation line is gone; start/end are still computed once above the loop and used unchanged by ConsumedByDay and ReconcileWindow. .vscode/launch.json's new entry matches design.md D4 field for field (name, type, request, mode, program, cwd, args, envFile), has no env block, and the file remains valid JSONC (comments only inside the pre-existing cmd/web block). All 7 tasks (1.1-1.4, 2.1, 3.1, 3.2) are reflected in the diff; tasks.md checkboxes match. No test file added, consistent with roadmap RD1. Two log lines per vehicle instead of one per step is the accepted D3 cost, not flagged. progress.json shows honest awaiting-user-verification status on all tasks, no self-approval, no criterion edited.",
+        "budget": {
+          "five_hour_pct_start": 51,
+          "five_hour_pct_end": 57,
+          "cost_usd_start": 2.21,
+          "cost_usd_end": 4.34,
+          "approx": true
+        }
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-17T02:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design approved at the Step 3a briefing with no changes",
+      "why": "User reviewed the Spanish briefing of design.md D1-D6 and approved. No database change, so no design gate fired.",
+      "covered_by": "roadmap Decision 4"
+    },
+    {
+      "id": "D-L2",
+      "at": "2026-09-17T02:15:00Z",
+      "scope": "task:1.1",
+      "made_by": "leader",
+      "decision": "Tasks 1.1-1.4 will be dispatched to ONE worker, not four",
+      "why": "All four edit the same function in one file and are strictly sequential. Four dispatches would re-read the doc pack four times for a six-line edit.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-17T02:15:31Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "All 7 tasks dispatched to ONE serial worker, not three waves",
+      "why": "Total edit is ~6 lines in one file, one JSON entry, two doc sentences. Three dispatches would re-read the ~11,900-token doc pack three times.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-17T01:58:37Z",
+      "agent": "leader",
+      "event": "dispatched app worker (claude-sonnet-5) to create the OpenSpec artifacts"
+    },
+    {
+      "at": "2026-09-17T02:04:30Z",
+      "agent": "leader",
+      "event": "artifacts returned and validated with openspec validate --strict; worker acknowledged the doc pack; no database change; no KB update needed"
+    },
+    {
+      "at": "2026-09-17T02:15:00Z",
+      "agent": "leader",
+      "event": "Step 3a Spanish briefing posted; user approved; artifacts committed; progress.json created. Pipeline HALTS here by the invocation's own scope instruction \u2014 no implementation worker is dispatched."
+    },
+    {
+      "at": "2026-09-17T02:15:31Z",
+      "agent": "leader",
+      "event": "resumed at Step 5; dispatched app worker (claude-sonnet-5) with tasks 1.1-1.4, 2.1, 3.1-3.2 in one serial wave. Budget start: 5h 44 pct, context 10 pct, $0.72"
+    },
+    {
+      "at": "2026-09-17T02:17:27Z",
+      "agent": "leader",
+      "event": "wave complete; all 7 tasks implemented. Leader ran go build ./..., go vet ./..., gofmt -l . and make lint \u2014 all clean (0 issues). Worker reported placeholder timestamps; leader recorded the real bracket times. Tasks -> awaiting-user-verification pending the owner's suite run. Wave cost: 5h 44->51 pct, $0.72->$2.21"
+    },
+    {
+      "at": "2026-09-17T02:19:26Z",
+      "agent": "leader",
+      "event": "USER ran make test and reported it passing; change -> verified. The user is the verifier; the leader did not run the suite. MAG-57 moved Todo -> In Progress in Linear."
+    },
+    {
+      "at": "2026-09-17T02:21:32Z",
+      "agent": "leader",
+      "event": "reviewer approved round 1 with no findings; archived to openspec/changes/archive/app/2026-09-17-RM62-app-improve-cycle-step-logging and the delta spec synced into openspec/specs/process-vehicle-data/spec.md. Review cost: 5h 51->57 pct, $2.21->$4.34"
+    }
+  ]
+}

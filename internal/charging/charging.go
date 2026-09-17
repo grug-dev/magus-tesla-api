@@ -312,9 +312,10 @@ func NewWriter(pool *pgxpool.Pool) Writer {
 
 // NewReader constructs a Reader backed by the given pgxpool. The implementation
 // lives in service.go where the chargingdb generated package is used.
-// This is the only publicly exported constructor for the Reader port.
+// This is the only publicly exported constructor for the Reader port. The
+// returned value logs one of its four methods — see query_log.go.
 func NewReader(pool *pgxpool.Pool) Reader {
-	return newReader(pool)
+	return newLoggingReader(newReader(pool))
 }
 
 // SessionMirror is the mirrorable subset of one Supercharger charge session: the
@@ -352,8 +353,9 @@ type SessionWriter interface {
 // implementation lives in session_writer.go where the chargingdb generated
 // package is used. This is the only publicly exported constructor for the
 // SessionWriter port.
+// The returned value logs its single method — see query_log.go.
 func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
-	return newSessionWriter(pool)
+	return newLoggingSessionWriter(newSessionWriter(pool))
 }
 
 // SessionStatus is the lifecycle status of one supercharger_sessions row's
@@ -548,10 +550,13 @@ type SuperchargerSessionAnalyticsReader interface {
 // NewSuperchargerSessionAnalyticsReader constructs a SuperchargerSessionAnalyticsReader
 // backed by the given pgxpool, returning the same underlying *sessionReader
 // NewSessionReader returns — one concrete type satisfies both interfaces, so
-// session_reader.go's method implementations are not duplicated (design.md D8). This is
+// session_reader.go's method implementations are not duplicated. This is
 // the only publicly exported constructor for the SuperchargerSessionAnalyticsReader port.
+// The returned value logs two of its three methods — see query_log.go. NewSessionReader,
+// the sibling constructor over the same concrete type, stays unwrapped: it is wired only
+// into the gateway, and this module must add no log line to a live page render.
 func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessionAnalyticsReader {
-	return newSessionReader(pool)
+	return newLoggingSuperchargerSessionAnalyticsReader(newSessionReader(pool))
 }
 
 // SessionVerifier is the human-write port over supercharger_sessions' verification channel
@@ -685,9 +690,10 @@ type MirrorWatermarkStore interface {
 // NewMirrorWatermarkStore constructs a MirrorWatermarkStore backed by the given
 // pgxpool. The implementation lives in mirror_watermark.go where the chargingdb
 // generated package is used. This is the only publicly exported constructor for
-// the MirrorWatermarkStore port.
+// the MirrorWatermarkStore port. The returned value logs both of its methods —
+// see query_log.go.
 func NewMirrorWatermarkStore(pool *pgxpool.Pool) MirrorWatermarkStore {
-	return newMirrorWatermarkStore(pool)
+	return newLoggingMirrorWatermarkStore(newMirrorWatermarkStore(pool))
 }
 
 // MonthlyCapacityReport summarizes one Calculate call: how many distinct
@@ -716,7 +722,8 @@ type MonthlyCapacityCalculator interface {
 // NewMonthlyCapacityCalculator constructs a MonthlyCapacityCalculator backed by
 // the given pgxpool. The implementation lives in monthly_capacity.go where the
 // chargingdb generated package is used. This is the only publicly exported
-// factory function for this port.
+// factory function for this port. The returned value logs its single method —
+// see query_log.go.
 func NewMonthlyCapacityCalculator(pool *pgxpool.Pool) MonthlyCapacityCalculator {
-	return newMonthlyCapacityCalculator(pool)
+	return newLoggingMonthlyCapacityCalculator(newMonthlyCapacityCalculator(pool))
 }

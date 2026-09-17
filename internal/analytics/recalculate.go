@@ -20,6 +20,7 @@ import (
 	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -63,15 +64,16 @@ var _ Recalculator = (*recalculator)(nil)
 
 // NewRecalculator constructs a Recalculator over the analytics module's own
 // database pool plus the three sibling ports it reads to derive each day's
-// row (design.md D11).
+// row. The returned value is wrapped so every call through the port is
+// logged; callers get the logging for free, without cmd/ knowing about it.
 func NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger charging.SuperchargerSessionAnalyticsReader, manual charging.Reader) Recalculator {
-	return &recalculator{
+	return newLoggingRecalculator(&recalculator{
 		pool:         pool,
 		q:            analyticsdb.New(pool),
 		telemetry:    telemetryReader,
 		supercharger: supercharger,
 		manual:       manual,
-	}
+	})
 }
 
 // Recalculate implements Recalculator (design.md D11). It fetches the
@@ -163,6 +165,11 @@ func (r *recalculator) Recalculate(ctx context.Context, teslaID int64, start, en
 	if err != nil {
 		return fmt.Errorf("fetching manual charge entries: %w", err)
 	}
+	// Logged here, not inside charging's own reader: that read port has one
+	// shared constructor serving both this nightly path and two live gateway
+	// call sites, so logging it there would log every gateway page render too.
+	logging.Note("Recalculator", "Recalculate", "manual entries read: tesla_id=%d start=%s end=%s rows=%d",
+		teslaID, chargeStart.UTC().Format("2006-01-02"), end.UTC().Format("2006-01-02"), len(entries))
 
 	rows := deriveVehicleMetrics(preceding, snapshots, sessions, entries, start, end)
 

@@ -173,16 +173,109 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
   here would re-pool the same rows once per vehicle.
   _Source: spec process-vehicle-data — Requirement: Monthly Vehicle Capacity Is Measured Only On The First Day Of The Month, For The Previous Month._
 
+- **Step 3 logs per vehicle and per half — one line before each half's queries.** The step's
+  two halves are metrics reconciliation (`Recalculator.Reconcile`) and gap reconciliation
+  (`ConsumedByDay` + `ReconcileWindow`). Each logs its own line naming the vehicle, right
+  before the work; the gap line also carries the window. So every query line in the log
+  belongs to a known vehicle and a known half. Before this, one line printed before the
+  vehicle loop, and the queries that followed it read as if they belonged to the gap half
+  when they belonged to `Reconcile`. Do not move either line back out of the loop, and do not
+  merge them: a single line cannot say which half caused the query that follows.
+  _Source: spec process-vehicle-data — Requirement: Analytics Recalculation Logs Are Attributable Per Vehicle And Per Half._
+
+- **`internal/analytics` logs its own queries, but only on the nightly path.** Three
+  decorators in `internal/analytics/query_log.go` carry the `analytics query:` topic:
+  `Recalculator` (both methods), `GapWriter.ReconcileWindow`, and `Reader.ConsumedByDay`
+  — the one `Reader` method the poller calls. The write methods log **before** delegating,
+  so the line survives a failed write; `ConsumedByDay` logs **after**, because it reports
+  the row and flagged counts it got back.
+  _Source: spec analytics — Requirement: Nightly-Path Query Logging._
+
+- **The other three `Reader` methods log nothing, and that is deliberate — do not "finish"
+  it.** `OdometerDeltaByDay`, `BatteryLevelByDay` and `LatestMetricsForVehicles` have no
+  poller caller. Every caller is a gateway dashboard or history page on a live HTTP
+  request, so logging them would add a line to nearly every page load. They are silent
+  pass-throughs inside the same decorator, not missing work.
+  _Source: spec analytics — Requirement: Dashboard-Only Reads Are Not Logged._
+
+- **Each decorator implements its port explicitly, never by embedding.** Embedding would
+  let a method added later to `Reader`, `Recalculator` or `GapWriter` be satisfied
+  silently by promotion, and that call would never be logged. The compile-time assertion
+  per decorator turns that into a build error instead. `internal/telemetry/query_log.go`
+  uses the same shape for the same reason — mirror it when adding a port.
+  _Source: spec analytics — Requirement: Nightly-Path Query Logging._
+
+- **`Reconcile`'s internal call to `Recalculate` is not logged, by design.** It is a method
+  call on the concrete type, so it never re-enters the decorator. The window it derived is
+  still readable: the `telemetry query:` line for `SnapshotsByVehicleBetween` on the very
+  next line carries the same `start`/`end`. Do not add an interface field to a type just to
+  make a self-call re-enter its own wrapper.
+  _Source: spec analytics — Requirement: Nightly-Path Query Logging._
+
+- **`internal/charging` logs its own nightly-path queries too, in one decorator file.**
+  Five decorators in `internal/charging/query_log.go` carry the `charging query:` topic.
+  Three ports log every method: `SessionWriter.MirrorSessions`, both
+  `MirrorWatermarkStore` methods, and `MonthlyCapacityCalculator.Calculate`. Two ports log
+  only part of their methods: `Reader.ListEntriesByVehicleUpdatedSince` (1 of 4) and
+  `SuperchargerSessionAnalyticsReader.ListSessionsByVehicleBetween`/
+  `ListSessionsByVehicleUpdatedSince` (2 of 3). Write methods log **before** delegating, so
+  the line survives a failed write; read methods log **after**, so the row count or cursor
+  value is real. _Source: spec charging — Requirement: Nightly-Path Query Logging._
+
+- **Three ports get no decorator at all, and that is deliberate — do not "finish" it.**
+  `Writer`, `SessionReader`, and `SessionVerifier` are excluded entirely: every caller of
+  all three is `internal/gateway`, on a live page render or form submission, with no
+  nightly-path caller. `Reader`'s other three methods and
+  `SuperchargerSessionAnalyticsReader.ListSessionsByVehicle` stay silent inside their own
+  decorator for the same reason, or because nothing calls them yet.
+  _Source: spec charging — Requirement: Gateway-Facing Reads And Writes Are Not Logged._
+
+- **`SessionReader` and `SuperchargerSessionAnalyticsReader` wrap the same concrete type
+  through two separate constructors — only one is decorated.** `NewSessionReader` (wired
+  into the gateway's Supercharger-stats page) stays unwrapped.
+  `NewSuperchargerSessionAnalyticsReader` (wired into `analytics.Recalculator`) is
+  decorated. A gateway page load and a nightly `Reconcile` call the identical method on the
+  identical concrete type, yet only one produces a log line — the constructor used decides
+  this, not the method called. _Source: `internal/charging/charging.go`,
+  `internal/charging/query_log.go`._
+
+- **Each `charging` decorator implements its port explicitly, never by embedding** — the
+  same rule and the same reason `internal/analytics`'s own decorators follow above: a
+  method added later without a matching override fails to compile instead of silently
+  skipping logging. _Source: spec charging — Requirement: Nightly-Path Query Logging._
+
+- **The nightly manual-entry read logs from its caller, in `internal/analytics`, not from
+  a `charging` decorator.** `charging.Reader.ListEntriesByVehicleBetween` has one shared
+  constructor serving both the nightly path and two live gateway reads, so `charging`
+  cannot log this method selectively. `internal/analytics/recalculate.go`'s `Recalculate`
+  logs the read itself, right after it returns, under the topic `manual entries read:` —
+  deliberately not `charging query:` or `analytics query:`, so a grep for either topic
+  never returns a line the wrong module emitted.
+  _Source: spec analytics — Requirement: The Nightly Manual-Entry Read Is Logged By Its
+  Caller._
+
 ## Rendered view (visual map)
 
-A published Artifact renders this same cycle as a diagram — tier map, per-step call traces, the
-CRUD matrix, and the failure blast-radius table:
+Three local diagrams live under `kkpa/docs/diagrams/nightly-job/`, each an interactive HTML file:
+
+- **`nightly-cycle-workflow.html`** — the four nightly steps in order: sync fleet data, mirror
+  charging data, recalculate analytics, measure monthly capacity. Shows the step-1 failure
+  short-circuit, the per-vehicle loops, and the `poll_runs` summary recorded on every exit path.
+- **`nightly-cycle-sequence.html`** — every call the cycle makes, marked plainly as a paid Fleet
+  API call or a database read/write. Shows that `analytics` never calls the Fleet API.
+- **`nightly-cycle-derivation.html`** — how `Recalculate` turns one snapshot pair plus a day's
+  charge total into the `vehicle_metrics` row. Shows `chargePct`, `consumed_pct`, and the
+  charge-corrected efficiency figures.
+
+A published Artifact also renders this same cycle as a diagram — tier map, per-step call traces,
+the CRUD matrix, and the failure blast-radius table:
 
 **https://claude.ai/code/artifact/22187391-35c9-4ad3-a71c-8aae03a3a5e9** — *Nightly Cycle Map*
 
 **Precedence, when they disagree:** the **code** is the source of truth, then **this guide**, then
-the artifact. The artifact is a rendering for humans, not an input to implementation — never
-implement from it, and never treat it as evidence that a fact is current.
+any rendering — the three local files or the published Artifact alike. Every rendering is a
+picture for humans, not an input to implementation — never implement from one, and never treat
+one as evidence that a fact is current.
 
 **It does not self-update.** Any change that touches this guide's port map, table effects, or
 failure table must refresh the artifact in the same change, exactly as `CLAUDE.md`'s

@@ -291,6 +291,8 @@
 | `telemetry query logging` (every live query + Fleet API call logs its arguments; credentials and raw payloads never logged) | `architecture/telemetry-ingest-only.md` |
 | `fleet api logging` | synonym of `telemetry query logging` → `architecture/telemetry-ingest-only.md` |
 | `why is my query not logged` | the four decorated ports + the callCounter seam → `architecture/telemetry-ingest-only.md` |
+| `analytics query logging` (the nightly path only — `Recalculator`, `GapWriter`, and `Reader.ConsumedByDay`; dashboard reads stay silent) | `architecture/nightly-cycle.md` |
+| `analytics query:` | the log topic of `analytics query logging` → `architecture/nightly-cycle.md` |
 | `mirror watermark` (the per-vehicle cursor bounding step 2 of the nightly cycle; holds telemetry's `updated_at`, owned by `internal/charging`) | `architecture/nightly-cycle.md` |
 | `mirror cursor` | synonym of `mirror watermark` → `architecture/nightly-cycle.md` |
 | `charging.mirror_watermarks` | the table behind `mirror watermark` → `architecture/nightly-cycle.md` |

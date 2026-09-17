@@ -1,0 +1,502 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM62-platform-add-nightly-cycle-diagram",
+  "module": "platform",
+  "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
+  "request": "MAG-57 tier 4. Two archify diagrams of the nightly cycle in kkpa/docs/diagrams/nightly-job/ \u2014 a workflow one and a sequence one \u2014 plus a KB reference. The user then required the diagrams to also show the Recalculate process and the vehicle_metrics attributes it derives, consumed and derived consumption included (RD9), which the design lands as a third dataflow diagram.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "2.6",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "3.6",
+      "4.1",
+      "4.2"
+    ]
+  },
+  "created_at": "2026-09-17T11:04:21Z",
+  "updated_at": "2026-09-17T15:10:41Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
+    "base": "main",
+    "ticket": "MAG-57",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-57/nightly-job-tests",
+    "created_at": "2026-09-17T01:57:25Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "workflow diagram step 1",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "workflow diagram step 2",
+      "module": "platform",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "workflow diagram step 3",
+      "module": "platform",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "workflow diagram step 4",
+      "module": "platform",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "1.5",
+      "title": "workflow diagram step 5",
+      "module": "platform",
+      "depends_on": [
+        "1.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "1.6",
+      "title": "workflow diagram step 6",
+      "module": "platform",
+      "depends_on": [
+        "1.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "sequence diagram step 1",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "sequence diagram step 2",
+      "module": "platform",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "sequence diagram step 3",
+      "module": "platform",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "sequence diagram step 4",
+      "module": "platform",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "2.5",
+      "title": "sequence diagram step 5",
+      "module": "platform",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "2.6",
+      "title": "sequence diagram step 6",
+      "module": "platform",
+      "depends_on": [
+        "2.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "derivation dataflow diagram step 1",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "derivation dataflow diagram step 2",
+      "module": "platform",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "derivation dataflow diagram step 3",
+      "module": "platform",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "derivation dataflow diagram step 4",
+      "module": "platform",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
+      "budget": null
+    },
+    {
+      "id": "3.5",
+      "title": "derivation dataflow diagram step 5",
+      "module": "platform",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
+      "duration_seconds": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
+      "budget": null
+    },
+    {
+      "id": "3.6",
+      "title": "derivation dataflow diagram step 6",
+      "module": "platform",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T15:06:11Z",
+      "duration_seconds": null,
+      "notes": "Visual check now passes. The real fault was vertical overflow plus geometry errors left mid-edit, not the text size the leader first read off the JSON. Smallest text 6.03px -> 7px.",
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "KB: add the three diagrams to the Rendered view section",
+      "module": "platform",
+      "depends_on": [
+        "1.6",
+        "2.6",
+        "3.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-09-17T15:06:11Z",
+      "duration_seconds": null,
+      "notes": "Rendered view section now lists the three local diagrams and extends the precedence rule to cover any rendering. The stale Artifact paragraph was left alone.",
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "Confirm INDEX.md needs no new row",
+      "module": "platform",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-09-17T15:06:11Z",
+      "duration_seconds": null,
+      "notes": "Confirmed no INDEX.md row is needed. Every nightly-cycle alias already routes to this guide. No row added.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "platform-reviewer",
+    "brief": "Review the diff of the tier 4 commit. Validate: (1) scope \u2014 only kkpa/docs/diagrams/nightly-job/, the Rendered view section of kkpa/context/architecture/nightly-cycle.md, and the change's own files; (2) THE USER'S OWN REQUIREMENT: nightly-cycle-derivation must show the Recalculate inputs, the formula, and the vehicle_metrics attributes derived, consumed and derived consumption included. Open the .json and check; (3) it must draw the CURRENT shape: deriveConsumption takes chargePct, and km_per_pct_calc divides by consumed_pct, NOT by battery_used_pct_calc. A stale diagram here is the exact failure this tier waited on MAG-81 to avoid; (4) all three visual-check JSONs report status pass; (5) the file set mirrors kkpa/docs/diagrams/runtime-architecture/; (6) B2 rule on every label and caption \u2014 a label needing a glossary defeats the diagram; (7) no change-doc citation in any caption, label or KB prose; (8) the KB edit states the precedence rule and leaves the stale published-Artifact paragraph alone (that staleness is out of scope, do NOT report it as a finding); (9) tasks.md coverage; (10) no test file \u2014 this tier ships no code; (11) anti-gaming. Signals: make archive-guard was assistant-run and clean. NO suite run: this tier ships no Go code, so there was nothing for it to execute \u2014 that is the leader's recorded decision, not an omission. Context for you: the first worker was killed by a rate limit mid-tier and left the derivation spec failing validation. A second worker fixed the geometry and re-delivered. Check the final state, not that history.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-17T15:45:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "openspec/changes/RM62-platform-add-nightly-cycle-diagram/tasks.md wave 4 (tasks 4.1 and 4.2) still show '- [ ]' (unchecked) at HEAD (commit df7169c), even though both shipped: the KB edit landed (kkpa/context/architecture/nightly-cycle.md, confirmed in the same commit) and progress.json records both as status 'done' with completed_at timestamps. ai/agentic-workflow.md states tasks.md wins on implementation done-ness. Once this change is archived, openspec/changes/archive/ is immutable (CLAUDE.md), so a tasks.md that permanently shows finished work as not done becomes a wrong historical record nobody can fix later. Check both boxes before archiving.",
+            "status": "open"
+          }
+        ],
+        "summary": "Scope, the user's RD9 requirement, the post-MAG-81 derivation shape, all three visual-check passes, the file-set naming, the KB precedence edit, and anti-gaming on the diagram content are all clean. One process defect: tasks.md wave 4 checkboxes were never flipped despite the work shipping and progress.json recording it done. Fix and re-request review."
+      },
+      {
+        "round": 2,
+        "at": "2026-09-17T15:50:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "openspec/changes/RM62-platform-add-nightly-cycle-diagram/tasks.md wave 4 (tasks 4.1 and 4.2) still show '- [ ]' (unchecked) at HEAD (commit df7169c), even though both shipped: the KB edit landed (kkpa/context/architecture/nightly-cycle.md, confirmed in the same commit) and progress.json records both as status 'done' with completed_at timestamps. ai/agentic-workflow.md states tasks.md wins on implementation done-ness. Once this change is archived, openspec/changes/archive/ is immutable (CLAUDE.md), so a tasks.md that permanently shows finished work as not done becomes a wrong historical record nobody can fix later. Check both boxes before archiving.",
+            "status": "fixed"
+          }
+        ],
+        "summary": "Re-verified against commit cb4dc9a. The diff is exactly the two checkbox flips in tasks.md (4.1, 4.2 now [x]) plus a matching progress.json append (round 1 findings, decision D-L5, and an event entry) \u2014 no diagram JSON, spec, or task text changed. grep -c \"^- \\[ \\]\" tasks.md returns 0, confirming no other task was silently left or newly unchecked. Everything else was cleared in round 1: scope stayed inside kkpa/docs/diagrams/nightly-job/, the KB Rendered-view section, and the change's own files; the derivation diagram teaches the Recalculate mechanism to a non-Go reader and matches consumption.go's current shape (chargePct argument, consumed_pct divisor, not battery_used_pct_calc); all three visual-check JSONs report status pass; the file set mirrors runtime-architecture's naming; no change-doc citation appears in any label or KB prose (the MAG-81 tag is a permanent Linear ticket reference, not an archived OpenSpec artifact pointer); the KB edit states the precedence rule and leaves the stale published-Artifact paragraph untouched; no test file, correctly, since this tier ships no Go code. Approved."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-17T11:04:21Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design approved at the Step 3a briefing, third diagram included",
+      "why": "User was shown that RD7 decided two diagrams and this adds a third, with its maintenance cost stated. They approved.",
+      "covered_by": "RD9"
+    },
+    {
+      "id": "D-L2",
+      "at": "2026-09-17T11:04:21Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader verified the MAG-81 quote in consumption.go before approving the briefing",
+      "why": "The whole reason tier 4 waited was that this derivation was mid-rewrite. A quote that did not match the code would have reintroduced the exact risk.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-17T11:05:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "All 20 tasks to ONE serial worker",
+      "why": "Each diagram is read-author-validate-deliver in sequence, and the KB edit needs all three done. Splitting would re-read the doc pack and the same source files three times.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L4",
+      "at": "2026-09-17T15:06:11Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "No suite run was requested for this tier",
+      "why": "It ships no Go code at all \u2014 three diagrams and one doc section. The suite has nothing new to execute, so asking for it would cost a round trip and prove nothing.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L5",
+      "at": "2026-09-17T15:09:27Z",
+      "scope": "review:F1",
+      "made_by": "leader",
+      "decision": "Finding F1 accepted and fixed by the leader, not re-dispatched",
+      "why": "It is two checkbox flips on work already verified shipped. A worker dispatch would re-read the doc pack for that.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-17T11:04:21Z",
+      "agent": "leader",
+      "event": "tier 4 artifacts created and validated. Leader verified the design's MAG-81 code quote against consumption.go:147 \u2014 it matches. User approved the briefing, including the third diagram."
+    },
+    {
+      "at": "2026-09-17T11:05:00Z",
+      "agent": "leader",
+      "event": "dispatched platform worker (claude-sonnet-5) with all 20 tasks in one serial wave."
+    },
+    {
+      "at": "2026-09-17T14:56:36Z",
+      "agent": "leader",
+      "event": "worker terminated mid-run by a session rate limit, at task 3.6. Leader checked the filesystem rather than trusting the partial report: all three diagrams exist with the full file set, and the derivation one carries the post-MAG-81 shape. But its visual check FAILED \u2014 minimum projected node text 6.03px on the label 'day before'. 3.6 recorded blocked; 4.1 and 4.2 never started."
+    },
+    {
+      "at": "2026-09-17T15:06:11Z",
+      "agent": "leader",
+      "event": "tier 4 complete. Leader independently verified all three visual checks report pass, that the derivation diagram still carries chargePct and the consumed_pct divisor after the geometry fix, and that no battery_used_pct_calc divisor appears. The second worker corrected the leader's diagnosis: the fault was vertical overflow and mid-edit geometry errors, not primarily text size."
+    },
+    {
+      "at": "2026-09-17T15:09:27Z",
+      "agent": "leader",
+      "event": "review round 1 returned changes-requested with one major finding (F1): tasks.md 4.1 and 4.2 still unticked at HEAD though both shipped. Verified against HEAD \u2014 the finding is correct. Fixed and committed; reviewer signalled for round 2."
+    },
+    {
+      "at": "2026-09-17T15:10:41Z",
+      "agent": "leader",
+      "event": "reviewer approved at round 2 after F1 (two unticked tasks.md checkboxes) was fixed. Archived to openspec/changes/archive/platform/; delta spec synced (+1 platform). No post-archive KB sync staged: task 4.1 already wrote the Rendered view entry in-change."
+    }
+  ]
+}

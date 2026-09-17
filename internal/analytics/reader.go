@@ -38,9 +38,10 @@ var _ Reader = (*reader)(nil)
 
 // NewReader constructs a Reader over the module's own database pool. Every
 // method on the returned Reader reads exclusively from vehicle_metrics,
-// precomputed ahead of time by Recalculator — see recalculate.go.
+// precomputed ahead of time by Recalculator — see recalculate.go. The
+// returned value is wrapped so the nightly poller's read is logged.
 func NewReader(pool *pgxpool.Pool) Reader {
-	return &reader{metrics: analyticsdb.New(pool)}
+	return newLoggingReader(&reader{metrics: analyticsdb.New(pool)})
 }
 
 // ConsumedByDay implements Reader (design.md D13, D-precompute). It SELECTs

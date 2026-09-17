@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Nightly Cycle — Workflow",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "cycle", "label": "Nightly Cycle" },
+    { "id": "perVehicle", "label": "Per-Vehicle Loop (steps 2–3)" },
+    { "id": "summary", "label": "Poll Run Summary" },
+    { "id": "exceptions", "label": "Failure Path", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "phaseSync", "label": "Sync + Mirror", "fromCol": 0, "toCol": 2 },
+    { "id": "phaseAnalytics", "label": "Recalculate Analytics", "fromCol": 3, "toCol": 4, "variant": "emphasis" },
+    { "id": "phaseWrapUp", "label": "Monthly Capacity + Summary", "fromCol": 5, "toCol": 5 }
+  ],
+  "groups": [
+    { "id": "loopGroup", "label": "Runs once per distinct vehicle", "lane": "perVehicle", "fromCol": 2, "toCol": 4, "variant": "emphasis" }
+  ],
+  "mainPath": ["trigger", "syncFleet", "mirrorCharging", "recalcMetrics", "recalcGaps", "monthlyCapacity", "recordRun"],
+  "nodes": [
+    { "id": "trigger", "lane": "cycle", "col": 0, "type": "external", "label": "Nightly Trigger", "sublabel": "one poll run starts", "width": 112 },
+    { "id": "syncFleet", "lane": "cycle", "col": 1, "type": "backend", "label": "Sync Fleet Data", "sublabel": "step 1 · fetch and store", "width": 132 },
+    { "id": "mirrorCharging", "lane": "perVehicle", "col": 2, "type": "backend", "label": "Session Mirror", "sublabel": "step 2 · per vehicle", "width": 112 },
+    { "id": "recalcMetrics", "lane": "perVehicle", "col": 3, "type": "backend", "label": "Metrics Reconciliation", "sublabel": "step 3a · per vehicle", "width": 164 },
+    { "id": "recalcGaps", "lane": "perVehicle", "col": 4, "type": "backend", "label": "Gap Reconciliation", "sublabel": "step 3b · per vehicle", "width": 140 },
+    { "id": "monthlyCapacity", "lane": "cycle", "col": 5, "type": "backend", "label": "Monthly Capacity", "sublabel": "step 4 · day 1 only", "width": 124 },
+    { "id": "recordRun", "lane": "summary", "col": 5, "type": "database", "label": "Record Poll Run", "sublabel": "always runs · one row", "width": 124 },
+    { "id": "cycleFailed", "lane": "exceptions", "col": 2, "type": "security", "label": "Sync Failed", "sublabel": "skip steps 2–4", "tag": "short-circuit", "width": 100 }
+  ],
+  "edges": [
+    { "from": "trigger", "to": "syncFleet", "variant": "default" },
+    { "from": "syncFleet", "to": "mirrorCharging", "label": "sync ok", "variant": "emphasis" },
+    { "from": "syncFleet", "to": "cycleFailed", "label": "sync failed", "variant": "security", "role": "error" },
+    { "from": "cycleFailed", "to": "recordRun", "label": "skip to summary", "variant": "security", "role": "error" },
+    { "from": "mirrorCharging", "to": "recalcMetrics", "label": "per vehicle", "variant": "default" },
+    { "from": "recalcMetrics", "to": "recalcGaps", "label": "metrics ok", "variant": "emphasis" },
+    { "from": "recalcMetrics", "to": "monthlyCapacity", "label": "metrics failed: skip this vehicle's gaps", "variant": "security", "role": "error" },
+    { "from": "recalcGaps", "to": "monthlyCapacity", "label": "all vehicles done", "variant": "emphasis" },
+    { "from": "recalcGaps", "to": "recordRun", "label": "not day 1: skip step 4", "variant": "security", "role": "error" },
+    { "from": "monthlyCapacity", "to": "recordRun", "label": "always", "variant": "default" }
+  ],
+  "cards": [
+    { "dot": "rose", "title": "Step 1 Gates Everything", "items": ["If sync fails, steps 2-4 do not run", "One poll_runs row is still recorded", "A missed cycle self-heals the next night"] },
+    { "dot": "emerald", "title": "Per-Vehicle Isolation", "items": ["Steps 2 and 3 loop once per distinct vehicle", "One vehicle's failure never stops another vehicle", "A failed metrics step skips only that vehicle's gap step"] },
+    { "dot": "cyan", "title": "Order Is Correctness", "items": ["Charging data mirrors before analytics recalculates", "Step 4 runs only on the first day of the month", "It measures the previous month, once for all vehicles"] }
+  ]
+}

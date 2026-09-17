@@ -20,6 +20,16 @@
             }
         },
         {
+            "name": "Debug poller (cmd/poller --once)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/poller",
+            "cwd": "${workspaceFolder}",
+            "args": ["--once"],
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
             "name": "Attach to Process",
             "type": "go",
             "request": "attach",

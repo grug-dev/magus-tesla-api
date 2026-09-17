@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM62-nightly-cycle-observability",
+  "intention": "One nightly poller log shows every database call the cycle makes, in every module it touches, the same cycle can be stepped through in the VS Code debugger, and two diagrams explain it without reading any Go.",
+  "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
+  "status": "complete",
+  "autopilot": true,
+  "updated_at": "2026-09-17T15:10:41Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
+    "base": "main",
+    "ticket": "MAG-57",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-57/nightly-job-tests",
+    "created_at": "2026-09-17T01:57:25Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-17T01:56:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "No unit tests in any RM62 tier",
+      "why": "Work is logging decorators plus a launch config. The telemetry precedent uses a compile-time assertion, so a missed method is a build error.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-17T01:56:00Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "Label both halves of recalculateAnalytics per vehicle",
+      "why": "The single pre-loop window line reads as if it owns the Reconcile queries that follow it. Per-vehicle labels put every query under its own step.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-17T01:56:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Tier order app then analytics then charging",
+      "why": "No technical dependency between tiers. User wants the VS Code debug setup first so they can step through the poller while the logging tiers are written.",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-17T01:56:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Mirror internal/telemetry/query_log.go in both logging tiers",
+      "why": "It is the only query-logging precedent in the repo. Explicit interface implementation, never embedding, so a new interface method becomes a compile error, not a silent unlogged call.",
+      "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-17T02:12:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Nightly-cycle diagrams become tier 4, not a plain doc commit",
+      "why": "The existing runtime-architecture diagram landed outside any pipeline. User chose the tier so the diagram and its KB reference get a reviewer gate and stay recorded as MAG-57 work.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-17T02:12:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Diagrams go in kkpa/docs/diagrams/nightly-job/, not kkpa/docs/nightly-job/",
+      "why": "The ticket asked for the shallower path. Changed with the user's agreement so it sits beside kkpa/docs/diagrams/runtime-architecture/ and every diagram lives at one depth.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-17T02:12:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Two archify diagrams: one workflow, one sequence",
+      "why": "Neither type carries both facts. Workflow shows the four steps and their gates; sequence shows the cross-module call chain. User accepted the double maintenance cost.",
+      "covered_by": null
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-17T02:12:00Z",
+      "scope": "tier:4",
+      "made_by": "leader",
+      "decision": "Tier 4 has no depends_on",
+      "why": "Tiers 1 to 3 change what the cycle logs, never what it does. The diagrams describe steps and calls, so no logging tier can invalidate them. Tier 4 may be pulled forward.",
+      "covered_by": "roadmap Decision 9"
+    },
+    {
+      "id": "RD9",
+      "at": "2026-09-17T10:51:47Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "The diagrams MUST illustrate the Recalculate process and the attributes it computes for vehicle_metrics, including consumed and derived consumption",
+      "why": "User asked for it directly. The four-step workflow view alone does not show what Recalculate actually derives, which is the part they want to explain without reading Go.",
+      "covered_by": null
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-17T10:51:47Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Tier 4 is BLOCKED until MAG-81 lands. Do not start it before then",
+      "why": "MAG-81 is uncommitted in the working tree and changes exactly what RD9 asks to draw: deriveConsumption gains a chargePct argument and KmPerPctCalc's divisor moves from battery_used_pct_calc to consumed_pct.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM62-app-improve-cycle-step-logging",
+      "module": "app",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T01:58:37Z",
+      "completed_at": "2026-09-17T02:21:32Z",
+      "duration_seconds": 1362,
+      "budget": {
+        "five_hour_pct_start": 28,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 6.4,
+        "approx": true,
+        "note": "artifacts + one implementation wave + one review round"
+      },
+      "notes": "Approved round 1, no findings. User ran make test and reported it passing."
+    },
+    {
+      "id": 2,
+      "change": "RM62-analytics-add-query-logging",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:23:00Z",
+      "completed_at": "2026-09-17T02:44:57Z",
+      "duration_seconds": 1300,
+      "budget": {
+        "five_hour_pct_start": 59,
+        "five_hour_pct_end": 82,
+        "cost_usd_delta": 7.83,
+        "approx": true,
+        "note": "artifacts + one implementation wave + one review round"
+      },
+      "notes": "Approved round 1, no findings. User ran make test and reported it passing. Leader fixed three stale doc-comment citations."
+    },
+    {
+      "id": 3,
+      "change": "RM62-charging-add-query-logging",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T09:40:27Z",
+      "completed_at": "2026-09-17T10:38:48Z",
+      "duration_seconds": 3300,
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 51,
+        "approx": true,
+        "note": "artifacts + one implementation wave + one review round; statusline cache went foreign mid-tier, so figures are unreliable"
+      },
+      "notes": "Approved round 1, no findings. User ran make test and reported it passing. Scope grew by one task: the user rejected design D4's accepted gap, so task 4.1 logs the nightly manual-entries read from its caller in analytics."
+    },
+    {
+      "id": 4,
+      "change": "RM62-platform-add-nightly-cycle-diagram",
+      "module": "platform",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:52:30Z",
+      "completed_at": "2026-09-17T15:10:41Z",
+      "duration_seconds": null,
+      "budget": {
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "not reliably measured: a session rate limit killed the first worker mid-tier and the bucket reset, so no single start/end pair covers this tier"
+      },
+      "notes": "Approved at round 2. One finding, F1: two tasks.md checkboxes shipped unticked, fixed by the leader. The first worker was killed by a rate limit at task 3.6 and left the derivation diagram failing its visual check; a second worker fixed the geometry and it passes."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-17T01:57:25Z",
+      "agent": "leader",
+      "event": "roadmap RM62 created from MAG-57; branch ft/RM62-MAG-57-nightly-cycle-observability off main 5a63cc9; work counter 62 -> 63"
+    },
+    {
+      "at": "2026-09-17T02:12:00Z",
+      "agent": "leader",
+      "event": "tier 4 RM62-platform-add-nightly-cycle-diagram added at the user's request (archify workflow + sequence diagrams in kkpa/docs/diagrams/nightly-job/, plus a KB reference); decisions RD5-RD8 recorded"
+    },
+    {
+      "at": "2026-09-17T02:15:00Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created by the app worker and validated (openspec validate --strict); user approved the design briefing; tier 1 -> proposed. Artifact dispatch cost: 5h 28->37 pct, $2.78"
+    },
+    {
+      "at": "2026-09-17T02:21:32Z",
+      "agent": "leader",
+      "event": "tier 1 archived after reviewer approval (round 1, no findings). Tiers 2, 3 and 4 remain not-started; autopilot is off, so the pipeline stops here."
+    },
+    {
+      "at": "2026-09-17T02:23:00Z",
+      "agent": "leader",
+      "event": "user turned autopilot ON; advancing to tier 2 RM62-analytics-add-query-logging"
+    },
+    {
+      "at": "2026-09-17T02:44:57Z",
+      "agent": "leader",
+      "event": "tier 2 archived after reviewer approval (round 1, no findings). Checkpoint gate evaluated before tier 3: 5h at 82 pct, past the practical start cost of a tier."
+    },
+    {
+      "at": "2026-09-17T02:46:05Z",
+      "agent": "leader",
+      "event": "CHECKPOINT before tier 3: 5h bucket 83 pct, context 26 pct, resets at 2026-09-17T04:20:00Z (23:20 local). Tier 2 cost 23 points of the bucket, so tier 3 is projected to cross 100 mid-tier. Autopilot paused for the user to choose. No wake-up armed: the 90 pct trip did not fire, and a context clear would not refill the bucket."
+    },
+    {
+      "at": "2026-09-17T02:47:00Z",
+      "agent": "leader",
+      "event": "user chose to wait for the 5h reset (23:20 local) before tier 3. Autopilot stays ON and picks up at tier 3 on resume. No wake-up armed: it would die with this session, and the user is resuming by hand."
+    },
+    {
+      "at": "2026-09-17T09:40:27Z",
+      "agent": "leader",
+      "event": "resumed after the 5h reset (five_hour_pct now null, context 26 pct). User committed the tier 1 and tier 2 KB sync in 74d40e8. Tier 3 RM62-charging-add-query-logging starting; autopilot still ON."
+    },
+    {
+      "at": "2026-09-17T10:38:48Z",
+      "agent": "leader",
+      "event": "tier 3 archived. Only tier 4 remains. Note for tier 4 and beyond: the working tree carries the owner's unrelated uncommitted work in internal/analytics and internal/gateway; every pipeline commit from here must stage by path, never git add -A."
+    },
+    {
+      "at": "2026-09-17T10:51:47Z",
+      "agent": "leader",
+      "event": "tier 4 NOT started. The user asked the diagram to show Recalculate and its derived consumption (RD9). The leader found that code is mid-rewrite in the working tree under MAG-81 \u2014 deriveConsumption gains chargePct, KmPerPctCalc's divisor changes \u2014 and put the choice to the user, who chose to wait (RD10). Autopilot stays ON but has nothing unblocked to advance to."
+    },
+    {
+      "at": "2026-09-17T10:52:30Z",
+      "agent": "leader",
+      "event": "RD10's blocker lifted: the user committed MAG-81 as 48f7944, verified in code (deriveConsumption now takes chargePct, ConsumedPct field exists). Tier 4 started; RD9 carried verbatim into the dispatch."
+    },
+    {
+      "at": "2026-09-17T15:10:41Z",
+      "agent": "leader",
+      "event": "tier 4 archived. Every tier archived, so RM62 is complete; both roadmap files move to openspec/roadmaps/archive/RM62-nightly-cycle-observability/. Cost coverage: only tiers 1 and 2 have a recorded cost_usd_delta. Tier 3's statusline cache reported a foreign session id, and tier 4 spanned a rate limit and a bucket reset, so neither has a defensible figure."
+    }
+  ]
+}
