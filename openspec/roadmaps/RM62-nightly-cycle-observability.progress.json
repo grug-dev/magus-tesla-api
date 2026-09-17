@@ -6,7 +6,7 @@
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-17T02:21:32Z",
+  "updated_at": "2026-09-17T02:44:57Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
@@ -18,13 +18,13 @@
   "rollup": {
     "current": [],
     "pending": [
-      2,
       3,
       4
     ],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -129,14 +129,20 @@
       "module": "analytics",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:23:00Z",
+      "completed_at": "2026-09-17T02:44:57Z",
+      "duration_seconds": 1300,
+      "budget": {
+        "five_hour_pct_start": 59,
+        "five_hour_pct_end": 82,
+        "cost_usd_delta": 7.83,
+        "approx": true,
+        "note": "artifacts + one implementation wave + one review round"
+      },
+      "notes": "Approved round 1, no findings. User ran make test and reported it passing. Leader fixed three stale doc-comment citations."
     },
     {
       "id": 3,
@@ -194,6 +200,11 @@
       "at": "2026-09-17T02:23:00Z",
       "agent": "leader",
       "event": "user turned autopilot ON; advancing to tier 2 RM62-analytics-add-query-logging"
+    },
+    {
+      "at": "2026-09-17T02:44:57Z",
+      "agent": "leader",
+      "event": "tier 2 archived after reviewer approval (round 1, no findings). Checkpoint gate evaluated before tier 3: 5h at 82 pct, past the practical start cost of a tier."
     }
   ]
 }
