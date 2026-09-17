@@ -10,7 +10,7 @@ the app will ever talk to.
 Nothing in this layer grants access to a specific car. It only establishes that Tesla
 recognizes your app (identified by its Client ID / Secret and its registered public key) as a
 legitimate Fleet API partner. Granting a *user's* vehicle data to the app is a separate step —
-see **[Layer 2 — User & Vehicle Access](./layer2-user-vehicle-access.md)** for the OAuth login
+see **[Layer 2 — User & Vehicle Access](layer2-user-vehicle-access.md)** for the OAuth login
 and vehicle-data phase that comes after this one.
 
 > **Mental model:** Layer 1 produces **app credentials** (Client ID/Secret) and a **registered
@@ -204,5 +204,5 @@ Replace `PARTNER_TOKEN_FROM_5A` with the `access_token` from 5a. A successful re
 | 5 | Public key registered via Partner Token + Fleet API call | ✅ |
 
 **Next:** the app is now trusted by Tesla. Proceed to
-**[Layer 2 — User & Vehicle Access](./layer2-user-vehicle-access.md)** to log in a Tesla account
+**[Layer 2 — User & Vehicle Access](layer2-user-vehicle-access.md)** to log in a Tesla account
 and start fetching Magus's data.

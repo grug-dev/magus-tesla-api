@@ -4,7 +4,7 @@ First deploy of `magus-tesla-api` to a Hostinger VPS with Docker.
 
 This file is the **progress log**. Each step is filled in when you finish it.
 For the full reference after the deploy, see
-[`docs/1-deploy/docker.md`](1-deploy/docker.md).
+[`docs/1-deploy/docker.md`](docker.md).
 
 ---
 
