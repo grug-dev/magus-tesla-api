@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Nightly Cycle — Consumption Derivation",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 600]
+  },
+  "stages": [
+    { "label": "Inputs" },
+    { "label": "Charge Total" },
+    { "label": "Derive" },
+    { "label": "Figures" },
+    { "label": "Stored" }
+  ],
+  "nodes": [
+    { "id": "prevSnapshot", "type": "database", "label": "Prev Snapshot", "sublabel": "day before", "stage": 0, "row": 0, "width": 132, "height": 36, "yOffset": -24 },
+    { "id": "curSnapshot", "type": "database", "label": "Current Snapshot", "sublabel": "this day", "stage": 0, "row": 0, "width": 132, "height": 36, "yOffset": 24 },
+    { "id": "superchargerSessions", "type": "database", "label": "Supercharger Sessions", "sublabel": "matching span", "stage": 0, "row": 1, "width": 132 },
+    { "id": "manualEntries", "type": "database", "label": "Manual Entries", "sublabel": "matching span", "stage": 0, "row": 2, "width": 132 },
+    { "id": "chargeTotal", "type": "backend", "label": "Charge Total", "sublabel": "chargePct", "tag": "sum of gains", "stage": 1, "row": 2 },
+    { "id": "deriveConsumption", "type": "backend", "label": "deriveConsumption", "sublabel": "one pure function", "tag": "consumption.go", "stage": 2, "row": 1, "width": 130 },
+    { "id": "rawFigures", "type": "backend", "label": "Raw Figures", "sublabel": "distance + raw drop", "stage": 3, "row": 0, "width": 150 },
+    { "id": "consumedPct", "type": "backend", "label": "consumed_pct", "sublabel": "raw drop + charge total", "tag": "MAG-81", "stage": 3, "row": 1, "width": 150 },
+    { "id": "efficiencyFigures", "type": "backend", "label": "Efficiency Figures", "sublabel": "km/pct + range, if > 0", "stage": 3, "row": 2, "width": 150 },
+    { "id": "vehicleMetricsRow", "type": "database", "label": "vehicle_metrics row", "sublabel": "one row per day, per vehicle", "tag": "Recalculate's UPSERT", "stage": 4, "row": 1, "width": 170 }
+  ],
+  "flows": [
+    { "id": "prevIn", "from": "prevSnapshot", "to": "deriveConsumption", "label": "prev", "variant": "default", "labelSegment": 0 },
+    { "id": "curIn", "from": "curSnapshot", "to": "deriveConsumption", "label": "cur", "variant": "default", "labelSegment": 0 },
+    { "id": "superIn", "from": "superchargerSessions", "to": "chargeTotal", "label": "Supercharger gains", "variant": "default", "labelAt": [213, 314] },
+    { "id": "manualIn", "from": "manualEntries", "to": "chargeTotal", "label": "manual gains", "variant": "default", "labelAt": [280, 428] },
+    { "id": "chargeOut", "from": "chargeTotal", "to": "deriveConsumption", "label": "chargePct", "variant": "emphasis" },
+    { "id": "toRaw", "from": "deriveConsumption", "to": "rawFigures", "label": "distance, raw battery drop", "variant": "default" },
+    { "id": "toConsumed", "from": "deriveConsumption", "to": "consumedPct", "label": "raw drop + chargePct", "variant": "emphasis", "route": "vertical-channel", "labelAt": [633, 314] },
+    { "id": "consumedToEfficiency", "from": "consumedPct", "to": "efficiencyFigures", "label": "divisor, only if > 0", "variant": "emphasis", "labelAt": [745, 230] },
+    { "id": "rawToRow", "from": "rawFigures", "to": "vehicleMetricsRow", "label": "stored as-is", "variant": "default", "route": "top-channel" },
+    { "id": "consumedToRow", "from": "consumedPct", "to": "vehicleMetricsRow", "label": "stores", "variant": "emphasis" },
+    { "id": "efficiencyToRow", "from": "efficiencyFigures", "to": "vehicleMetricsRow", "label": "stored when computable", "variant": "default", "route": "bottom-channel" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "MAG-81: Charge-Corrected Efficiency", "items": ["A day that both drove and charged used to show no efficiency number", "Now it does — the number uses what the battery really spent"] },
+    { "dot": "cyan", "title": "One Pure Function", "items": ["deriveConsumption takes prev, cur, and chargePct", "No database call and no Fleet API call inside it"] },
+    { "dot": "amber", "title": "Not Shown Here", "items": ["Four tire-pressure deltas, one per wheel", "Missing-charging-type flag detection"] }
+  ]
+}

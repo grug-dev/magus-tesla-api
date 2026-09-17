@@ -256,14 +256,26 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 
 ## Rendered view (visual map)
 
-A published Artifact renders this same cycle as a diagram — tier map, per-step call traces, the
-CRUD matrix, and the failure blast-radius table:
+Three local diagrams live under `kkpa/docs/diagrams/nightly-job/`, each an interactive HTML file:
+
+- **`nightly-cycle-workflow.html`** — the four nightly steps in order: sync fleet data, mirror
+  charging data, recalculate analytics, measure monthly capacity. Shows the step-1 failure
+  short-circuit, the per-vehicle loops, and the `poll_runs` summary recorded on every exit path.
+- **`nightly-cycle-sequence.html`** — every call the cycle makes, marked plainly as a paid Fleet
+  API call or a database read/write. Shows that `analytics` never calls the Fleet API.
+- **`nightly-cycle-derivation.html`** — how `Recalculate` turns one snapshot pair plus a day's
+  charge total into the `vehicle_metrics` row. Shows `chargePct`, `consumed_pct`, and the
+  charge-corrected efficiency figures.
+
+A published Artifact also renders this same cycle as a diagram — tier map, per-step call traces,
+the CRUD matrix, and the failure blast-radius table:
 
 **https://claude.ai/code/artifact/22187391-35c9-4ad3-a71c-8aae03a3a5e9** — *Nightly Cycle Map*
 
 **Precedence, when they disagree:** the **code** is the source of truth, then **this guide**, then
-the artifact. The artifact is a rendering for humans, not an input to implementation — never
-implement from it, and never treat it as evidence that a fact is current.
+any rendering — the three local files or the published Artifact alike. Every rendering is a
+picture for humans, not an input to implementation — never implement from one, and never treat
+one as evidence that a fact is current.
 
 **It does not self-update.** Any change that touches this guide's port map, table effects, or
 failure table must refresh the artifact in the same change, exactly as `CLAUDE.md`'s

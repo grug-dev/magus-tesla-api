@@ -5,10 +5,12 @@
   "module": "platform",
   "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
   "request": "MAG-57 tier 4. Two archify diagrams of the nightly cycle in kkpa/docs/diagrams/nightly-job/ \u2014 a workflow one and a sequence one \u2014 plus a KB reference. The user then required the diagrams to also show the Recalculate process and the vehicle_metrics attributes it derives, consumed and derived consumption included (RD9), which the design lands as a third dataflow diagram.",
-  "status": "proposed",
+  "status": "verified",
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [],
+    "done": [
       "1.1",
       "1.2",
       "1.3",
@@ -29,12 +31,10 @@
       "3.6",
       "4.1",
       "4.2"
-    ],
-    "blocked": [],
-    "done": []
+    ]
   },
   "created_at": "2026-09-17T11:04:21Z",
-  "updated_at": "2026-09-17T11:04:21Z",
+  "updated_at": "2026-09-17T15:06:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -54,13 +54,13 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -71,13 +71,13 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -88,13 +88,13 @@
         "1.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -105,13 +105,13 @@
         "1.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -122,13 +122,13 @@
         "1.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -139,13 +139,13 @@
         "1.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -154,13 +154,13 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -171,13 +171,13 @@
         "2.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -188,13 +188,13 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -205,13 +205,13 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -222,13 +222,13 @@
         "2.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -239,13 +239,13 @@
         "2.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Diagram authored, validated and delivered at showcase quality. Visual check passed.",
       "budget": null
     },
     {
@@ -254,13 +254,13 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
       "budget": null
     },
     {
@@ -271,13 +271,13 @@
         "3.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
       "budget": null
     },
     {
@@ -288,13 +288,13 @@
         "3.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
       "budget": null
     },
     {
@@ -305,13 +305,13 @@
         "3.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
       "budget": null
     },
     {
@@ -322,13 +322,13 @@
         "3.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T14:56:36Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Files exist on disk and carry the post-MAG-81 shape (chargePct, consumed_pct, no battery_used_pct_calc divisor). Verified by the leader.",
       "budget": null
     },
     {
@@ -339,13 +339,13 @@
         "3.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T11:05:00Z",
+      "completed_at": "2026-09-17T15:06:11Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Visual check now passes. The real fault was vertical overflow plus geometry errors left mid-edit, not the text size the leader first read off the JSON. Smallest text 6.03px -> 7px.",
       "budget": null
     },
     {
@@ -358,13 +358,13 @@
         "3.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
+      "status": "done",
       "agent": null,
       "model": null,
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-09-17T15:06:11Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Rendered view section now lists the three local diagrams and extends the precedence rule to cover any rendering. The stale Artifact paragraph was left alone.",
       "budget": null
     },
     {
@@ -375,20 +375,20 @@
         "4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
+      "status": "done",
       "agent": null,
       "model": null,
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-09-17T15:06:11Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Confirmed no INDEX.md row is needed. Every nightly-cycle alias already routes to this guide. No row added.",
       "budget": null
     }
   ],
   "review": {
     "status": "pending",
     "agent": null,
-    "brief": null,
+    "brief": "Review the diff of the tier 4 commit. Validate: (1) scope \u2014 only kkpa/docs/diagrams/nightly-job/, the Rendered view section of kkpa/context/architecture/nightly-cycle.md, and the change's own files; (2) THE USER'S OWN REQUIREMENT: nightly-cycle-derivation must show the Recalculate inputs, the formula, and the vehicle_metrics attributes derived, consumed and derived consumption included. Open the .json and check; (3) it must draw the CURRENT shape: deriveConsumption takes chargePct, and km_per_pct_calc divides by consumed_pct, NOT by battery_used_pct_calc. A stale diagram here is the exact failure this tier waited on MAG-81 to avoid; (4) all three visual-check JSONs report status pass; (5) the file set mirrors kkpa/docs/diagrams/runtime-architecture/; (6) B2 rule on every label and caption \u2014 a label needing a glossary defeats the diagram; (7) no change-doc citation in any caption, label or KB prose; (8) the KB edit states the precedence rule and leaves the stale published-Artifact paragraph alone (that staleness is out of scope, do NOT report it as a finding); (9) tasks.md coverage; (10) no test file \u2014 this tier ships no code; (11) anti-gaming. Signals: make archive-guard was assistant-run and clean. NO suite run: this tier ships no Go code, so there was nothing for it to execute \u2014 that is the leader's recorded decision, not an omission. Context for you: the first worker was killed by a rate limit mid-tier and left the derivation spec failing validation. A second worker fixed the geometry and re-delivered. Check the final state, not that history.",
     "rounds": []
   },
   "decisions": [
@@ -409,6 +409,24 @@
       "decision": "Leader verified the MAG-81 quote in consumption.go before approving the briefing",
       "why": "The whole reason tier 4 waited was that this derivation was mid-rewrite. A quote that did not match the code would have reintroduced the exact risk.",
       "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-17T11:05:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "All 20 tasks to ONE serial worker",
+      "why": "Each diagram is read-author-validate-deliver in sequence, and the KB edit needs all three done. Splitting would re-read the doc pack and the same source files three times.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L4",
+      "at": "2026-09-17T15:06:11Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "No suite run was requested for this tier",
+      "why": "It ships no Go code at all \u2014 three diagrams and one doc section. The suite has nothing new to execute, so asking for it would cost a round trip and prove nothing.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -416,6 +434,21 @@
       "at": "2026-09-17T11:04:21Z",
       "agent": "leader",
       "event": "tier 4 artifacts created and validated. Leader verified the design's MAG-81 code quote against consumption.go:147 \u2014 it matches. User approved the briefing, including the third diagram."
+    },
+    {
+      "at": "2026-09-17T11:05:00Z",
+      "agent": "leader",
+      "event": "dispatched platform worker (claude-sonnet-5) with all 20 tasks in one serial wave."
+    },
+    {
+      "at": "2026-09-17T14:56:36Z",
+      "agent": "leader",
+      "event": "worker terminated mid-run by a session rate limit, at task 3.6. Leader checked the filesystem rather than trusting the partial report: all three diagrams exist with the full file set, and the derivation one carries the post-MAG-81 shape. But its visual check FAILED \u2014 minimum projected node text 6.03px on the label 'day before'. 3.6 recorded blocked; 4.1 and 4.2 never started."
+    },
+    {
+      "at": "2026-09-17T15:06:11Z",
+      "agent": "leader",
+      "event": "tier 4 complete. Leader independently verified all three visual checks report pass, that the derivation diagram still carries chargePct and the consumed_pct divisor after the geometry fix, and that no battery_used_pct_calc divisor appears. The second worker corrected the leader's diagnosis: the fault was vertical overflow and mid-edit geometry errors, not primarily text size."
     }
   ]
 }

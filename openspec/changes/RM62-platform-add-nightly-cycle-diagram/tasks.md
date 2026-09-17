@@ -24,20 +24,20 @@ three, so it is sequenced last.
 
 ## Wave 1 — `nightly-cycle-workflow` (workflow diagram)
 
-- [ ] **1.1** Read `internal/app/processor.go`'s `ProcessVehicleData`,
+- [x] **1.1** Read `internal/app/processor.go`'s `ProcessVehicleData`,
   `processChargingData`, `recalculateAnalytics`, `monthlyCapacityPeriod`,
   `callMonthlyCapacityCalculator`, `recordRun` — confirm design.md D4's fact
   table against the current file (index lag / prior edits could have moved
   something). Do not start authoring before this read.
   `depends_on`: — · `parallel_ok`: with 2.1, 3.1
 
-- [ ] **1.2** Read `~/.claude/skills/archify/schemas/workflow.schema.json`,
+- [x] **1.2** Read `~/.claude/skills/archify/schemas/workflow.schema.json`,
   `~/.claude/skills/archify/schemas/common.schema.json`, and one workflow
   example under `~/.claude/skills/archify/examples/` (`*.workflow.json`).
   Read only those files, per archify's fast-authoring path.
   `depends_on`: — · `parallel_ok`: with 2.2, 3.2
 
-- [ ] **1.3** Author `kkpa/docs/diagrams/nightly-job/nightly-cycle-workflow.json`
+- [x] **1.3** Author `kkpa/docs/diagrams/nightly-job/nightly-cycle-workflow.json`
   (schema `workflow`, `meta.quality_profile: "showcase"`). Content, per
   design.md D4/D6 and roadmap tier-4 scope:
   - Four steps in order: sync fleet data (step 1), mirror charging data (step
@@ -59,19 +59,19 @@ three, so it is sequenced last.
     fit (design.md D9).
   `depends_on`: 1.1, 1.2 · `parallel_ok`: no
 
-- [ ] **1.4** Validate:
+- [x] **1.4** Validate:
   `node bin/archify.mjs validate workflow kkpa/docs/diagrams/nightly-job/nightly-cycle-workflow.json --quality showcase --json`
   (run from `~/.claude/skills/archify/`). Fix diagnosed issues and re-validate
   until a showcase pass: all artifact checks, 0 composition errors, 0
   warnings.
   `depends_on`: 1.3 · `parallel_ok`: no
 
-- [ ] **1.5** Deliver:
+- [x] **1.5** Deliver:
   `node bin/archify.mjs deliver workflow kkpa/docs/diagrams/nightly-job/nightly-cycle-workflow.json kkpa/docs/diagrams/nightly-job/nightly-cycle-workflow.html --quality showcase --json`.
   A non-zero exit is not success — fix and retry.
   `depends_on`: 1.4 · `parallel_ok`: no
 
-- [ ] **1.6** Run
+- [x] **1.6** Run
   `node bin/archify.mjs visual-check kkpa/docs/diagrams/nightly-job/nightly-cycle-workflow.html --json`
   and record the result (pass/fail, any overflow at the checked viewports).
   `depends_on`: 1.5 · `parallel_ok`: no
@@ -80,7 +80,7 @@ three, so it is sequenced last.
 
 ## Wave 2 — `nightly-cycle-sequence` (sequence diagram)
 
-- [ ] **2.1** Read `internal/app/processor.go` (all four `p.<port>.<Method>`
+- [x] **2.1** Read `internal/app/processor.go` (all four `p.<port>.<Method>`
   call sites), `internal/telemetry/service.go` (`listStates`,
   `attemptVehicle`, `collectChargingHistory` — the four paid Fleet API calls
   and the three DB writes inside `CollectAll`), and
@@ -89,12 +89,12 @@ three, so it is sequenced last.
   D4's fact table against the current files before authoring.
   `depends_on`: — · `parallel_ok`: with 1.1, 3.1
 
-- [ ] **2.2** Read `~/.claude/skills/archify/schemas/sequence.schema.json`,
+- [x] **2.2** Read `~/.claude/skills/archify/schemas/sequence.schema.json`,
   `~/.claude/skills/archify/schemas/common.schema.json`, and one sequence
   example under `~/.claude/skills/archify/examples/` (`*.sequence.json`).
   `depends_on`: — · `parallel_ok`: with 1.2, 3.2
 
-- [ ] **2.3** Author
+- [x] **2.3** Author
   `kkpa/docs/diagrams/nightly-job/nightly-cycle-sequence.json` (schema
   `sequence`, `meta.quality_profile: "showcase"`). Content, per design.md
   D4:
@@ -116,16 +116,16 @@ three, so it is sequenced last.
     asks this diagram to carry.
   `depends_on`: 2.1, 2.2 · `parallel_ok`: no
 
-- [ ] **2.4** Validate:
+- [x] **2.4** Validate:
   `node bin/archify.mjs validate sequence kkpa/docs/diagrams/nightly-job/nightly-cycle-sequence.json --quality showcase --json`.
   Fix and re-validate to a showcase pass.
   `depends_on`: 2.3 · `parallel_ok`: no
 
-- [ ] **2.5** Deliver:
+- [x] **2.5** Deliver:
   `node bin/archify.mjs deliver sequence kkpa/docs/diagrams/nightly-job/nightly-cycle-sequence.json kkpa/docs/diagrams/nightly-job/nightly-cycle-sequence.html --quality showcase --json`.
   `depends_on`: 2.4 · `parallel_ok`: no
 
-- [ ] **2.6** Run
+- [x] **2.6** Run
   `node bin/archify.mjs visual-check kkpa/docs/diagrams/nightly-job/nightly-cycle-sequence.html --json`
   and record the result.
   `depends_on`: 2.5 · `parallel_ok`: no
@@ -134,7 +134,7 @@ three, so it is sequenced last.
 
 ## Wave 3 — `nightly-cycle-derivation` (dataflow diagram, RD9)
 
-- [ ] **3.1** Read `internal/analytics/consumption.go`'s `deriveConsumption`
+- [x] **3.1** Read `internal/analytics/consumption.go`'s `deriveConsumption`
   and `consumed.go`'s `deriveVehicleMetrics`/`sumSuperchargerPctBetween`/
   `sumManualPctBetween` in full. Confirm design.md D5's two quoted facts
   (the `chargePct` parameter; `KmPerPctCalc` dividing by `consumed`, not the
@@ -142,12 +142,12 @@ three, so it is sequenced last.
   diagram would repeat.
   `depends_on`: — · `parallel_ok`: with 1.1, 2.1
 
-- [ ] **3.2** Read `~/.claude/skills/archify/schemas/dataflow.schema.json`,
+- [x] **3.2** Read `~/.claude/skills/archify/schemas/dataflow.schema.json`,
   `~/.claude/skills/archify/schemas/common.schema.json`, and one dataflow
   example under `~/.claude/skills/archify/examples/` (`*.dataflow.json`).
   `depends_on`: — · `parallel_ok`: with 1.2, 2.2
 
-- [ ] **3.3** Author
+- [x] **3.3** Author
   `kkpa/docs/diagrams/nightly-job/nightly-cycle-derivation.json` (schema
   `dataflow`, `meta.quality_profile: "showcase"`). Content, per design.md D6:
   - Inputs: the previous day's snapshot, the current day's snapshot, the
@@ -166,16 +166,16 @@ three, so it is sequenced last.
     explains why.
   `depends_on`: 3.1, 3.2 · `parallel_ok`: no
 
-- [ ] **3.4** Validate:
+- [x] **3.4** Validate:
   `node bin/archify.mjs validate dataflow kkpa/docs/diagrams/nightly-job/nightly-cycle-derivation.json --quality showcase --json`.
   Fix and re-validate to a showcase pass.
   `depends_on`: 3.3 · `parallel_ok`: no
 
-- [ ] **3.5** Deliver:
+- [x] **3.5** Deliver:
   `node bin/archify.mjs deliver dataflow kkpa/docs/diagrams/nightly-job/nightly-cycle-derivation.json kkpa/docs/diagrams/nightly-job/nightly-cycle-derivation.html --quality showcase --json`.
   `depends_on`: 3.4 · `parallel_ok`: no
 
-- [ ] **3.6** Run
+- [x] **3.6** Run
   `node bin/archify.mjs visual-check kkpa/docs/diagrams/nightly-job/nightly-cycle-derivation.html --json`
   and record the result.
   `depends_on`: 3.5 · `parallel_ok`: no
