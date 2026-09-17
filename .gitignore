@@ -21,6 +21,11 @@ cmd/explore-tesla-api/output/
 
 bin/
 
+# Delve debug binaries, one per debug session, ~17 MB each. The VS Code launch
+# entries drop them beside the package being debugged, so no single folder rule
+# catches them.
+__debug_bin*
+
 # Air (live-reload) build outputs and log — created by `make dev`.
 tmp/
 .air/
