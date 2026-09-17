@@ -36,6 +36,33 @@ go run ./cmd/poller          # nightly scheduled collection (blocks)
 go run ./cmd/poller --once   # one immediate collection cycle, then exit
 ```
 
+### Debugging one poller cycle in VS Code
+
+`.vscode/launch.json` has an entry that runs the same one-shot cycle under the debugger,
+so you can stop inside it and read the values the log only summarises.
+
+1. Open **Run and Debug** (`Cmd+Shift+D` on macOS, `Ctrl+Shift+D` elsewhere).
+2. Pick **`Debug poller (cmd/poller --once)`** in the dropdown.
+3. Set your breakpoints.
+4. Press `F5`.
+
+It runs `cmd/poller` with `--once` — one cycle, not the scheduler. It reads your `.env`
+through `envFile`, so the database must be up and the credentials set, exactly as for
+`go run ./cmd/poller --once`.
+
+**It wakes the real car and makes paid Fleet API calls.** Both paths do. This is not a
+safe way to explore the code; read the poller log or the diagrams for that.
+
+Useful places to break, if you want to see which date window each step passes down:
+
+| File | What you see there |
+|---|---|
+| `internal/app/processor.go` — `recalculateAnalytics` | the gap window, and the per-vehicle loop |
+| `internal/analytics/recalculate.go` — `Recalculate` | the window `Reconcile` derived, and the charge total |
+| `internal/analytics/consumption.go` — `deriveConsumption` | how `consumed_pct` and the efficiency figures are computed |
+
+The cycle itself is drawn in `kkpa/docs/diagrams/nightly-job/`.
+
 ---
 
 ## Building the modular monolith

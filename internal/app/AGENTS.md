@@ -178,10 +178,10 @@ Rules for the tests that exist:
 
 The verification signal for the two uncovered steps is the owner's own
 `go run ./cmd/poller --once`. `go build ./...` and `go vet ./...` are the only automated
-signals that logic gets today. The same command also runs under the VS Code debugger, via
-the "Debug poller (cmd/poller --once)" entry in `.vscode/launch.json`. Running it — from
-either path — wakes the real car and makes paid Fleet API calls. It is not a safe
-"explore the code" action.
+signals that logic gets today. **Running that command wakes the real car and makes paid
+Fleet API calls**, so it is never a way to explore the code — it is the owner's call, not
+yours. A VS Code launch entry runs the same cycle under a debugger at the same cost; the
+steps are in the root `README.md`.
 
 **Never run the suite here.** You write tests; the owner runs them. `go build`, `go vet` and
 `gofmt -l` are yours — vet compiles `_test.go`, so it catches signature drift in the fake
