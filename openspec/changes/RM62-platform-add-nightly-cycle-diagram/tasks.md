@@ -184,7 +184,7 @@ three, so it is sequenced last.
 
 ## Wave 4 — Knowledge-base reference
 
-- [ ] **4.1** Edit `kkpa/context/architecture/nightly-cycle.md`'s existing
+- [x] **4.1** Edit `kkpa/context/architecture/nightly-cycle.md`'s existing
   `## Rendered view (visual map)` section: add the three local files
   delivered above (`nightly-cycle-workflow.html`, `nightly-cycle-sequence.html`,
   `nightly-cycle-derivation.html`, relative to
@@ -197,7 +197,7 @@ three, so it is sequenced last.
   scope.
   `depends_on`: 1.5, 2.5, 3.5 · `parallel_ok`: no
 
-- [ ] **4.2** Confirm `kkpa/context/INDEX.md` needs no new row — design.md D8
+- [x] **4.2** Confirm `kkpa/context/INDEX.md` needs no new row — design.md D8
   already reasons through this; re-check it against the file as it stands at
   implementation time (a later change could have added new nightly-cycle
   rows since this design was written) and note the outcome in the final
