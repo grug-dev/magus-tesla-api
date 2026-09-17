@@ -6,7 +6,7 @@
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-17T10:38:48Z",
+  "updated_at": "2026-09-17T10:51:47Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
@@ -17,10 +17,10 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [
       4
     ],
-    "blocked": [],
     "done": [
       1,
       2,
@@ -99,6 +99,24 @@
       "decision": "Tier 4 has no depends_on",
       "why": "Tiers 1 to 3 change what the cycle logs, never what it does. The diagrams describe steps and calls, so no logging tier can invalidate them. Tier 4 may be pulled forward.",
       "covered_by": "roadmap Decision 9"
+    },
+    {
+      "id": "RD9",
+      "at": "2026-09-17T10:51:47Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "The diagrams MUST illustrate the Recalculate process and the attributes it computes for vehicle_metrics, including consumed and derived consumption",
+      "why": "User asked for it directly. The four-step workflow view alone does not show what Recalculate actually derives, which is the part they want to explain without reading Go.",
+      "covered_by": null
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-17T10:51:47Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Tier 4 is BLOCKED until MAG-81 lands. Do not start it before then",
+      "why": "MAG-81 is uncommitted in the working tree and changes exactly what RD9 asks to draw: deriveConsumption gains a chargePct argument and KmPerPctCalc's divisor moves from battery_used_pct_calc to consumed_pct.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -170,14 +188,14 @@
       "module": "platform",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "blocked",
       "assistant": null,
       "model": null,
       "started_at": null,
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Blocked on MAG-81, by the user's decision (RD10). MAG-81 is uncommitted work in internal/analytics that rewrites the consumption derivation RD9 requires the diagram to show. Start tier 4 only after MAG-81 is committed, and draw the post-MAG-81 state."
     }
   ],
   "events": [
@@ -230,6 +248,11 @@
       "at": "2026-09-17T10:38:48Z",
       "agent": "leader",
       "event": "tier 3 archived. Only tier 4 remains. Note for tier 4 and beyond: the working tree carries the owner's unrelated uncommitted work in internal/analytics and internal/gateway; every pipeline commit from here must stage by path, never git add -A."
+    },
+    {
+      "at": "2026-09-17T10:51:47Z",
+      "agent": "leader",
+      "event": "tier 4 NOT started. The user asked the diagram to show Recalculate and its derived consumption (RD9). The leader found that code is mid-rewrite in the working tree under MAG-81 \u2014 deriveConsumption gains chargePct, KmPerPctCalc's divisor changes \u2014 and put the choice to the user, who chose to wait (RD10). Autopilot stays ON but has nothing unblocked to advance to."
     }
   ]
 }
