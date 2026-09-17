@@ -6,7 +6,7 @@
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-17T02:44:57Z",
+  "updated_at": "2026-09-17T10:38:48Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
@@ -18,13 +18,13 @@
   "rollup": {
     "current": [],
     "pending": [
-      3,
       4
     ],
     "blocked": [],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -150,14 +150,19 @@
       "module": "charging",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T09:40:27Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "completed_at": "2026-09-17T10:38:48Z",
+      "duration_seconds": 3300,
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 51,
+        "approx": true,
+        "note": "artifacts + one implementation wave + one review round; statusline cache went foreign mid-tier, so figures are unreliable"
+      },
+      "notes": "Approved round 1, no findings. User ran make test and reported it passing. Scope grew by one task: the user rejected design D4's accepted gap, so task 4.1 logs the nightly manual-entries read from its caller in analytics."
     },
     {
       "id": 4,
@@ -220,6 +225,11 @@
       "at": "2026-09-17T09:40:27Z",
       "agent": "leader",
       "event": "resumed after the 5h reset (five_hour_pct now null, context 26 pct). User committed the tier 1 and tier 2 KB sync in 74d40e8. Tier 3 RM62-charging-add-query-logging starting; autopilot still ON."
+    },
+    {
+      "at": "2026-09-17T10:38:48Z",
+      "agent": "leader",
+      "event": "tier 3 archived. Only tier 4 remains. Note for tier 4 and beyond: the working tree carries the owner's unrelated uncommitted work in internal/analytics and internal/gateway; every pipeline commit from here must stage by path, never git add -A."
     }
   ]
 }

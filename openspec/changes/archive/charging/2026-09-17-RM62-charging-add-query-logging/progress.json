@@ -5,13 +5,12 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
   "request": "MAG-57 tier 3. internal/charging has zero logging.Note calls, so its work in step 2 of the nightly cycle is invisible. Add internal/charging/query_log.go mirroring telemetry and analytics. Eight public ports; design decides which are in scope. Plus, by the user's decision, one caller-side log line in internal/analytics for the nightly manual-entries read.",
-  "status": "applied",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
     "blocked": [],
-    "done": [],
-    "awaiting-user-verification": [
+    "done": [
       "1.1",
       "1.2",
       "1.3",
@@ -28,7 +27,7 @@
     ]
   },
   "created_at": "2026-09-17T10:23:44Z",
-  "updated_at": "2026-09-17T10:29:02Z",
+  "updated_at": "2026-09-17T10:38:48Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -48,7 +47,7 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -72,7 +71,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -96,7 +95,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -120,7 +119,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -144,7 +143,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -168,7 +167,7 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -192,7 +191,7 @@
         "1.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -216,7 +215,7 @@
         "1.3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -240,7 +239,7 @@
         "1.4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -264,7 +263,7 @@
         "1.5"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -288,7 +287,7 @@
         "1.6"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -316,7 +315,7 @@
         "2.5"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -338,7 +337,7 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:24:00Z",
@@ -356,10 +355,22 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "charging-reviewer",
+    "brief": "Review the diff of commit d75c55b only. Validate: (1) boundaries \u2014 internal/charging plus TWO granted paths: internal/analytics/recalculate.go (task 4.1 only) and kkpa/context/architecture/nightly-cycle.md (task 3.1). Nothing else. Note: make boundary-guard only checks that gateway does not import telemetry, so it does NOT validate task 4.1's cross-module edit \u2014 you must judge that boundary by reading. (2) code-comment rule \u2014 no design.md, decision-ID, change-ID or tier citation in any comment this change wrote, including the doc comment the worker cleaned in NewSuperchargerSessionAnalyticsReader; (3) D3 is the highest-risk item \u2014 NewSuperchargerSessionAnalyticsReader must be wrapped and NewSessionReader must be byte-for-byte unchanged. Both return the same concrete type. Wrapping both would log every Supercharger stats page render; (4) D1, D2 \u2014 Writer, SessionReader and SessionVerifier have NO decorator at all, not a silent one; (5) D7 \u2014 every format string, argument order and before/after delegation choice matches the table; (6) D10 / task 4.1 \u2014 the line is in Recalculate, logs AFTER the read, reports len(entries), and its topic is exactly 'manual entries read:', NOT charging query: and NOT analytics query:; (7) D9 \u2014 no decorator transforms a result or error; no credential or raw payload is logged; (8) task 3.1's KB prose is correct and written for a reader who never saw this change; (9) tasks.md coverage; (10) no test file \u2014 RD1 excludes tests, a missing test is NOT a finding; (11) anti-gaming. IMPORTANT: the working tree carries UNRELATED uncommitted work by the owner in internal/analytics/{analytics,consumed,consumption}.go, two analytics test files, internal/gateway/templates/fragments/dashboard_vm.go, and two kkpa/context guides. That work is NOT part of this change and must NOT be reviewed or reported. Review the commit's diff, not the working tree. Signals: go build, go vet, gofmt -l, make lint (0 issues) and make boundary-guard were ASSISTANT-run, but over a tree that also held that unrelated work, so they are not a clean statement about this change alone. make test was USER-run and reported passing by the user. Judge test quality by reading, never by running.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "findings": [],
+        "budget": {
+          "five_hour_pct_start": 44,
+          "five_hour_pct_end": 51,
+          "approx": true,
+          "note": "statusline cache reported a foreign session id during this tier, so these figures are unreliable"
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -414,6 +425,16 @@
       "at": "2026-09-17T10:29:02Z",
       "agent": "leader",
       "event": "wave complete; all 13 tasks implemented. Signals clean: go build, go vet, gofmt -l, make lint (0 issues), make boundary-guard. CAVEAT recorded by the leader: the working tree also carries unrelated in-progress work by the owner in internal/analytics/{analytics,consumed,consumption}.go, its two test files, and internal/gateway/templates/fragments/dashboard_vm.go. Those signals therefore cover the combined tree, not this change alone. The commit stages only this change's own paths."
+    },
+    {
+      "at": "2026-09-17T10:35:08Z",
+      "agent": "leader",
+      "event": "USER ran make test and reported it passing; change -> verified. The user is the verifier. The user did not answer whether the unrelated uncommitted work is theirs; the leader leaves it untouched either way."
+    },
+    {
+      "at": "2026-09-17T10:38:48Z",
+      "agent": "leader",
+      "event": "reviewer approved round 1 with no findings, and judged task 4.1's cross-module log line an acceptable boundary: it logs a value analytics already held, through a public port call that predates the change, importing only internal/logging. Archived to openspec/changes/archive/charging/; delta specs synced (+2 charging, +1 analytics). Post-archive KB sync SKIPPED on purpose: task 3.1 already wrote the bullets in-change, including the manual entries read line, so a from-spec proposal would only duplicate them."
     }
   ]
 }
