@@ -140,10 +140,16 @@ services:
       # would silently break without this override winning inside the
       # container.
       - PORT=8080
+    # The log file is tested before the binary starts, so an unwritable host
+    # folder fails with a message naming the fix instead of a bare shell error
+    # that is easy to miss in a deploy that otherwise looks fine. sh prints its
+    # own reason first (permission denied, or folder missing) and that reason is
+    # kept on purpose - the two causes need different fixes.
+    # `>>` creates the file without truncating an existing one.
     # exec replaces sh as PID 1, so SIGTERM from `docker stop` still reaches
     # the Go binary directly for graceful shutdown. A plain (non-exec) redirect
     # would leave sh as PID 1 and the binary as an unreachable child.
-    entrypoint: ["sh", "-c", "exec /usr/local/bin/web >> /var/log/magus/web.log 2>&1"]
+    entrypoint: ["sh", "-c", "if ! : >> /var/log/magus/web.log; then echo 'FATAL: cannot write /var/log/magus/web.log - the host log folder is not writable by this container. Fix: docs/1-deploy/docker.md, section \"Named log files and log rotation\".' >&2; exit 1; fi; exec /usr/local/bin/web >> /var/log/magus/web.log 2>&1"]
     volumes:
       - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:
@@ -189,9 +195,8 @@ services:
     # to the host.
     expose:
       - "8081"
-    # Same exec-redirect shape as web, so SIGTERM still reaches the binary
-    # directly for graceful shutdown.
-    entrypoint: ["sh", "-c", "exec /usr/local/bin/poller >> /var/log/magus/poller.log 2>&1"]
+    # Same write test and exec-redirect shape as web, for the same reasons.
+    entrypoint: ["sh", "-c", "if ! : >> /var/log/magus/poller.log; then echo 'FATAL: cannot write /var/log/magus/poller.log - the host log folder is not writable by this container. Fix: docs/1-deploy/docker.md, section \"Named log files and log rotation\".' >&2; exit 1; fi; exec /usr/local/bin/poller >> /var/log/magus/poller.log 2>&1"]
     volumes:
       - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:

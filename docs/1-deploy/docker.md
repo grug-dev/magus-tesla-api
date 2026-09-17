@@ -280,6 +280,7 @@ gunzip -c backups/magus-2026-09-07.sql.gz | docker compose --project-directory .
 | Symptom | Command to run | Likely cause |
 |---|---|---|
 | `web` will not start | `tail -100 ~/magus-logs/web.log` | `migrate` did not finish successfully (see the next row), or a bad value in `.env` (e.g. `DATABASE_URL`). |
+| `web` will not start AND `web.log` is missing or empty | `docker compose --project-directory . -f deploy/docker/compose.yaml logs web` | The container died before it could write the file. Almost always the log folder is missing or not writable — see §10. The named file cannot exist in this case, so read Docker's own log instead. |
 | `migrate` exits non-zero | `docker compose --project-directory . -f deploy/docker/compose.yaml logs migrate` | `DATABASE_URL` is wrong or `db` is not reachable. Check `db`'s health with `docker compose --project-directory . -f deploy/docker/compose.yaml ps`. |
 | Caddy cannot get a certificate | `docker compose --project-directory . -f deploy/docker/compose.yaml logs caddy` | The DNS A record (deployment.md §8.2) does not point at this VPS yet, or ports 80/443 are blocked by a firewall. |
 | `poller` collects nothing | `tail -100 ~/magus-logs/poller.log` | Check the Tesla token is valid, and that the scheduled time (`POLLER_SCHEDULE_HOUR`/`POLLER_SCHEDULE_MINUTE`) has not passed yet today. |
@@ -327,6 +328,26 @@ sudo cp deploy/docker/magus-logs.logrotate /etc/logrotate.d/magus-logs
 # 5. Confirm the conf parses with no error (dry run — makes no change).
 sudo logrotate -d /etc/logrotate.d/magus-logs
 ```
+
+### If the stack will not start after this change
+
+`web` and `poller` refuse to start when they cannot write their log file. The
+container prints two lines and exits:
+
+```
+sh: /var/log/magus/web.log: Permission denied
+FATAL: cannot write /var/log/magus/web.log - the host log folder is not writable by this container. Fix: docs/1-deploy/docker.md, section "Named log files and log rotation".
+```
+
+Read them with `docker compose ... logs web` — **not** with `tail`, because the
+file does not exist yet. The first line names the real cause:
+
+- **`Permission denied`** — the folder exists but the container's user does not
+  own it. Redo steps 2 and 3 above.
+- **`No such file or directory`** — the folder was never created. Redo step 1.
+
+This is deliberate. An earlier version started the binary anyway and died on the
+redirect, which looked like an unrelated crash.
 
 ### Reading the logs
 
