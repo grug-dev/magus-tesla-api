@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "platform-add-named-deploy-logs",
+  "module": "platform",
+  "roadmap": null,
+  "request": "MAG-84 — Store Docker deploy logs as named, rotated files under ~/magus-logs. On the Hostinger VPS the stack's logs live at /var/lib/docker/containers/<64-hex-id>/<id>-json.log; the ID names mean nothing to a human. Disk safety is already solved by the x-logging anchor (10m x 3 = 30 MB per service). The gap is naming and location only. Goal: named, rotated files under ~/magus-logs (web.log, poller.log), rotated on the host with logrotate using copytruncate, Caddy using its native log directive, db and migrate keeping the Docker driver. Plus (added by the user mid-run): a KB guide in English, and documentation for what to do when the log files reach the maximum assigned space.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1.1", "T1.2", "T1.3", "T1.4", "T1.5", "T2.1", "T3.1", "T4.1", "T4.2", "T4.3", "T4.4", "T4.5", "T5.1", "T5.2", "T5.3", "T6.1", "T6.2", "T6.3", "T6.4"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-17T17:08:24Z",
+  "updated_at": "2026-09-17T17:08:24Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH63-MAG-84-platform-add-named-deploy-logs",
+    "base": "main",
+    "ticket": "MAG-84",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-84/store-docker-deploy-logs-as-named-rotated-files-under-magus-logs",
+    "created_at": "2026-09-17T16:45:00Z"
+  },
+  "tasks": [
+    { "id": "T1.1", "title": "Add MAGUS_LOGS_DIR to .env.example", "module": "platform", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T1.2", "title": "compose.yaml: web entrypoint redirect + bind-mount", "module": "platform", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T1.3", "title": "compose.yaml: poller entrypoint redirect + bind-mount", "module": "platform", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T1.4", "title": "compose.yaml: add log bind-mount to caddy volumes", "module": "platform", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T1.5", "title": "Caddyfile: native log block writing caddy.log", "module": "platform", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T2.1", "title": "Create deploy/docker/magus-logs.logrotate (14-day, copytruncate)", "module": "platform", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T3.1", "title": "Makefile: new vps-logs target, docker-logs unchanged", "module": "platform", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4.1", "title": "docker.md: troubleshooting table switches web/poller rows to tail", "module": "platform", "depends_on": ["T1.2", "T1.3", "T2.1", "T3.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4.2", "title": "docker.md: two-case runbook for log size and disk full", "module": "platform", "depends_on": ["T1.2", "T1.3", "T2.1", "T3.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4.3", "title": "docker.md: document make vps-logs next to make docker-logs", "module": "platform", "depends_on": ["T3.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4.4", "title": "docker.md: VPS setup steps (mkdir, discover app UID, chown, install logrotate)", "module": "platform", "depends_on": ["T2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4.5", "title": "Fix two more docs pointing at docker compose logs poller; leave F6 untouched", "module": "platform", "depends_on": ["T1.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T5.1", "title": "KB: create architecture/deploy-log-files.md (English)", "module": "platform", "depends_on": ["T1.2", "T1.3", "T2.1", "T3.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T5.2", "title": "KB: add INDEX.md rows resolving to the new guide", "module": "platform", "depends_on": ["T5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T5.3", "title": "KB: update deployment-stack.md log-cap bullet + Related KB", "module": "platform", "depends_on": ["T5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T6.1", "title": "Verify docker compose config parses", "module": "platform", "depends_on": ["T1.1", "T1.2", "T1.3", "T1.4", "T1.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T6.2", "title": "Verify logrotate -d dry run has no syntax error", "module": "platform", "depends_on": ["T2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T6.3", "title": "Verify make help lists vps-logs", "module": "platform", "depends_on": ["T3.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T6.4", "title": "Grep repo for remaining docker compose logs web/poller references", "module": "platform", "depends_on": ["T4.1", "T4.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    { "id": "D1", "at": "2026-09-17T16:40:00Z", "scope": "change", "made_by": "user", "decision": "named files under ~/magus-logs; Docker local driver rejected", "why": "the local driver still writes 64-hex container-ID paths, which is the whole problem", "covered_by": null },
+    { "id": "D2", "at": "2026-09-17T16:40:00Z", "scope": "change", "made_by": "user", "decision": "14-day retention via host logrotate with copytruncate", "why": "~25 MB per service, close to today's 30 MB cap; copytruncate is forced because the Go binaries never reopen their output", "covered_by": null },
+    { "id": "D3", "at": "2026-09-17T16:44:00Z", "scope": "change", "made_by": "user", "decision": "unit tests excluded", "why": "configuration-only change: YAML, Caddyfile, logrotate conf, docs. No Go code to test", "covered_by": null },
+    { "id": "D4", "at": "2026-09-17T16:47:00Z", "scope": "change", "made_by": "user", "decision": "owning module is platform, not logging", "why": "internal/logging owns the Go log-line format only; this change edits zero Go code. Precedent: platform-add-docker-compose-deploy", "covered_by": null },
+    { "id": "D5", "at": "2026-09-17T16:52:00Z", "scope": "change", "made_by": "user", "decision": "add make vps-logs; leave make docker-logs unchanged", "why": "retargeting docker-logs at files would hide db and migrate, which are what you read when the stack will not start", "covered_by": null },
+    { "id": "D6", "at": "2026-09-17T16:55:00Z", "scope": "change", "made_by": "user", "decision": "runbook covers both limits; no cron monitoring script", "why": "a cron script that fails silently is worse than none", "covered_by": null },
+    { "id": "D7", "at": "2026-09-17T16:56:00Z", "scope": "change", "made_by": "user", "decision": "KB documentation in scope, written in English", "why": "user asked for it mid-run; deployment-stack.md's log bullet is now incomplete", "covered_by": null },
+    { "id": "D8", "at": "2026-09-17T17:05:00Z", "scope": "change", "made_by": "user", "decision": "design approved at the Step 3a Spanish briefing", "why": "user answered approved after seeing D1 (new MAGUS_LOGS_DIR env var) and D6 (app UID discovered, not assumed 1000)", "covered_by": null }
+  ],
+  "events": [
+    { "at": "2026-09-17T16:45:00Z", "agent": "leader", "event": "created branch ft/CH63-MAG-84-platform-add-named-deploy-logs off main; bumped openspec/.work-counter 63 -> 64" },
+    { "at": "2026-09-17T16:47:00Z", "agent": "leader", "event": "module-ownership gate: user chose platform over logging" },
+    { "at": "2026-09-17T16:58:00Z", "agent": "leader", "event": "dispatched worker 'platform' on claude-sonnet to create artifacts (Step 3)" },
+    { "at": "2026-09-17T17:04:00Z", "agent": "leader", "event": "artifacts returned; openspec validate --strict passed (2 ADDED requirements). Budget for this dispatch: five_hour 68% -> 82%, cost_usd_delta ~4.00, context 18%" },
+    { "at": "2026-09-17T17:05:00Z", "agent": "leader", "event": "Step 3a Spanish design briefing posted; user approved" },
+    { "at": "2026-09-17T17:08:24Z", "agent": "leader", "event": "progress.json created (Step 4). Run halts here by instruction from kkpa-pickup-linear-ticket: no implementation workers, no reviewer, no archive. User reviews the proposal before implementation." }
+  ]
+}
