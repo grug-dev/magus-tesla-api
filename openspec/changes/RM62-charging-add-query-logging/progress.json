@@ -5,10 +5,13 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
   "request": "MAG-57 tier 3. internal/charging has zero logging.Note calls, so its work in step 2 of the nightly cycle is invisible. Add internal/charging/query_log.go mirroring telemetry and analytics. Eight public ports; design decides which are in scope. Plus, by the user's decision, one caller-side log line in internal/analytics for the nightly manual-entries read.",
-  "status": "proposed",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [],
+    "done": [],
+    "awaiting-user-verification": [
       "1.1",
       "1.2",
       "1.3",
@@ -22,12 +25,10 @@
       "2.5",
       "3.1",
       "4.1"
-    ],
-    "blocked": [],
-    "done": []
+    ]
   },
   "created_at": "2026-09-17T10:23:44Z",
-  "updated_at": "2026-09-17T10:23:44Z",
+  "updated_at": "2026-09-17T10:29:02Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -47,14 +48,21 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Created internal/charging/query_log.go: package, imports, header comment. No change-doc citation.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.2",
@@ -64,14 +72,21 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "loggingReader: only ListEntriesByVehicleUpdatedSince logs. The other three pass through silently, each with a reason comment.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.3",
@@ -81,14 +96,21 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "loggingSessionWriter plus a firstTeslaID helper. Logs before delegating.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.4",
@@ -98,14 +120,21 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "loggingSuperchargerSessionAnalyticsReader: two of three methods log. Type comment says it wires only into the analytics constructor.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.5",
@@ -115,14 +144,21 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "loggingMirrorWatermarkStore: both methods log. Read logs after, write logs before.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.6",
@@ -132,14 +168,21 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "loggingMonthlyCapacityCalculator: logs after delegating, with the scope value.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.1",
@@ -149,14 +192,21 @@
         "1.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "charging.go NewReader wraps newLoggingReader.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.2",
@@ -166,14 +216,21 @@
         "1.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "charging.go NewSessionWriter wraps newLoggingSessionWriter.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.3",
@@ -183,14 +240,21 @@
         "1.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "charging.go NewSuperchargerSessionAnalyticsReader wraps its decorator. NewSessionReader verified unchanged. Worker also removed a design.md citation from the doc comment.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.4",
@@ -200,14 +264,21 @@
         "1.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "charging.go NewMirrorWatermarkStore wraps newLoggingMirrorWatermarkStore.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.5",
@@ -217,14 +288,21 @@
         "1.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "charging.go NewMonthlyCapacityCalculator wraps newLoggingMonthlyCapacityCalculator.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "3.1",
@@ -238,14 +316,21 @@
         "2.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Six bullets added to kkpa/context/architecture/nightly-cycle.md. Worker read the linked Artifact and found it renders no gotcha prose, so no republish is needed.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "4.1",
@@ -253,14 +338,21 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:24:00Z",
+      "completed_at": "2026-09-17T10:29:02Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "logging.Note added in internal/analytics/recalculate.go after the manual entries read, topic manual entries read:, plus the logging import and a short reason comment.",
+      "budget": {
+        "five_hour_pct_start": 33,
+        "five_hour_pct_end": 44,
+        "cost_usd_start": 25.5,
+        "cost_usd_end": 28.6,
+        "approx": true,
+        "note": "single serial worker ran all 13 tasks; one wave delta shared across them"
+      }
     }
   ],
   "review": {
@@ -296,6 +388,15 @@
       "decision": "Task 4.1 rides in tier 3 under an explicit path grant, not a new tier",
       "why": "The edit belongs to analytics, not charging. A separate tier would cost a full artifacts and review cycle for one line.",
       "covered_by": null
+    },
+    {
+      "id": "D-L4",
+      "at": "2026-09-17T10:24:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "All 13 tasks dispatched to ONE serial worker",
+      "why": "One new file, five one-line wraps in one file, one doc edit and one line in another module. Four dispatches would re-read the doc pack four times.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -303,6 +404,16 @@
       "at": "2026-09-17T10:23:44Z",
       "agent": "leader",
       "event": "tier 3 artifacts created by the charging worker and validated. Leader then revised design.md (D4 gap closed, D10 added), added specs/analytics/spec.md, and added Wave 4 task 4.1 with an explicit internal/analytics path grant \u2014 all from the user's answers at the briefing. Revalidated: valid."
+    },
+    {
+      "at": "2026-09-17T10:24:00Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (claude-sonnet-5) with all 13 tasks in one serial wave, including the granted internal/analytics/recalculate.go edit."
+    },
+    {
+      "at": "2026-09-17T10:29:02Z",
+      "agent": "leader",
+      "event": "wave complete; all 13 tasks implemented. Signals clean: go build, go vet, gofmt -l, make lint (0 issues), make boundary-guard. CAVEAT recorded by the leader: the working tree also carries unrelated in-progress work by the owner in internal/analytics/{analytics,consumed,consumption}.go, its two test files, and internal/gateway/templates/fragments/dashboard_vm.go. Those signals therefore cover the combined tree, not this change alone. The commit stages only this change's own paths."
     }
   ]
 }

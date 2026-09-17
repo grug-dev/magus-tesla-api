@@ -10,7 +10,7 @@ single agent can do them in order; splitting across agents needs them to coordin
 append order within the one file (mirrors
 `RM62-analytics-add-query-logging`'s tasks.md wave 1 note).
 
-- [ ] **1.1** Create `internal/charging/query_log.go` with the package declaration,
+- [x] **1.1** Create `internal/charging/query_log.go` with the package declaration,
   imports (`context`, `time`, `internal/logging`), and a header comment stating what the
   file holds (five logging decorators over the module's nightly-path seams) and the
   explicit-implementation-never-embedding rule and why (a future interface method added
@@ -19,7 +19,7 @@ append order within the one file (mirrors
   code-comment rule.
   `depends_on`: — · `parallel_ok`: no (first task, defines the file)
 
-- [ ] **1.2** In `query_log.go`, add `loggingReader` per design.md D4/D7/D8:
+- [x] **1.2** In `query_log.go`, add `loggingReader` per design.md D4/D7/D8:
   - `type loggingReader struct { inner Reader }` and `func newLoggingReader(inner
     Reader) *loggingReader`.
   - `var _ Reader = (*loggingReader)(nil)`.
@@ -34,7 +34,7 @@ append order within the one file (mirrors
     D4).
   `depends_on`: 1.1 · `parallel_ok`: no (same file as 1.1, sequential within the file)
 
-- [ ] **1.3** In `query_log.go`, add `loggingSessionWriter` per design.md D6/D7/D8:
+- [x] **1.3** In `query_log.go`, add `loggingSessionWriter` per design.md D6/D7/D8:
   - `type loggingSessionWriter struct { inner SessionWriter }` and `func
     newLoggingSessionWriter(inner SessionWriter) *loggingSessionWriter`.
   - `var _ SessionWriter = (*loggingSessionWriter)(nil)`.
@@ -46,7 +46,7 @@ append order within the one file (mirrors
     delegating, then `return l.inner.MirrorSessions(ctx, sessions)` unchanged.
   `depends_on`: 1.1 · `parallel_ok`: with 1.2 (different methods, same new file)
 
-- [ ] **1.4** In `query_log.go`, add `loggingSuperchargerSessionAnalyticsReader` per
+- [x] **1.4** In `query_log.go`, add `loggingSuperchargerSessionAnalyticsReader` per
   design.md D3/D5/D7/D8:
   - `type loggingSuperchargerSessionAnalyticsReader struct { inner
     SuperchargerSessionAnalyticsReader }` and `func
@@ -72,7 +72,7 @@ append order within the one file (mirrors
     constructor over the same concrete type stays undecorated (design.md D2/D3).
   `depends_on`: 1.1 · `parallel_ok`: with 1.2, 1.3 (different methods, same new file)
 
-- [ ] **1.5** In `query_log.go`, add `loggingMirrorWatermarkStore` per design.md
+- [x] **1.5** In `query_log.go`, add `loggingMirrorWatermarkStore` per design.md
   D6/D7/D8:
   - `type loggingMirrorWatermarkStore struct { inner MirrorWatermarkStore }` and `func
     newLoggingMirrorWatermarkStore(inner MirrorWatermarkStore)
@@ -89,7 +89,7 @@ append order within the one file (mirrors
     unchanged.
   `depends_on`: 1.1 · `parallel_ok`: with 1.2, 1.3, 1.4 (different methods, same new file)
 
-- [ ] **1.6** In `query_log.go`, add `loggingMonthlyCapacityCalculator` per design.md
+- [x] **1.6** In `query_log.go`, add `loggingMonthlyCapacityCalculator` per design.md
   D6/D7/D8:
   - `type loggingMonthlyCapacityCalculator struct { inner MonthlyCapacityCalculator }`
     and `func newLoggingMonthlyCapacityCalculator(inner MonthlyCapacityCalculator)
@@ -113,29 +113,29 @@ All five edits are in the same existing file, at disjoint line ranges (each cons
 own `return` statement). List with explicit `depends_on` on the matching Wave 1 task; a
 single agent applies them in any order since each touches a different function body.
 
-- [ ] **2.1** `NewReader` — change `return newReader(pool)` to `return
+- [x] **2.1** `NewReader` — change `return newReader(pool)` to `return
   newLoggingReader(newReader(pool))`. No other line in the function changes.
   `depends_on`: 1.2 · `parallel_ok`: with 2.2, 2.3, 2.4, 2.5
 
-- [ ] **2.2** `NewSessionWriter` — change `return newSessionWriter(pool)` to `return
+- [x] **2.2** `NewSessionWriter` — change `return newSessionWriter(pool)` to `return
   newLoggingSessionWriter(newSessionWriter(pool))`. No other line in the function
   changes.
   `depends_on`: 1.3 · `parallel_ok`: with 2.1, 2.3, 2.4, 2.5
 
-- [ ] **2.3** `NewSuperchargerSessionAnalyticsReader` — change `return
+- [x] **2.3** `NewSuperchargerSessionAnalyticsReader` — change `return
   newSessionReader(pool)` to `return
   newLoggingSuperchargerSessionAnalyticsReader(newSessionReader(pool))`. Confirm
   `NewSessionReader` (the sibling constructor, a few lines above) is left byte-for-byte
   unchanged — design.md D2/D3's entire point depends on this.
   `depends_on`: 1.4 · `parallel_ok`: with 2.1, 2.2, 2.4, 2.5
 
-- [ ] **2.4** `NewMirrorWatermarkStore` — change `return
+- [x] **2.4** `NewMirrorWatermarkStore` — change `return
   newMirrorWatermarkStore(pool)` to `return
   newLoggingMirrorWatermarkStore(newMirrorWatermarkStore(pool))`. No other line in the
   function changes.
   `depends_on`: 1.5 · `parallel_ok`: with 2.1, 2.2, 2.3, 2.5
 
-- [ ] **2.5** `NewMonthlyCapacityCalculator` — change `return
+- [x] **2.5** `NewMonthlyCapacityCalculator` — change `return
   newMonthlyCapacityCalculator(pool)` to `return
   newLoggingMonthlyCapacityCalculator(newMonthlyCapacityCalculator(pool))`. No other
   line in the function changes.
@@ -148,7 +148,7 @@ exact current bodies — no task in this wave (or any wave) edits them (design.m
 
 ## Wave 3 — Knowledge base
 
-- [ ] **3.1** Update `kkpa/context/architecture/nightly-cycle.md`'s "Conventions &
+- [x] **3.1** Update `kkpa/context/architecture/nightly-cycle.md`'s "Conventions &
   gotchas" section: add bullets for `internal/charging`'s own query logging, mirroring
   the three existing bullets for tier 2's analytics logging (which ports/methods log
   and why, which stay silent and why — including the `SessionReader` vs
@@ -172,7 +172,7 @@ is OUTSIDE this change's module. The worker is granted that single file for this
 only. Nothing else under `internal/analytics/` may be touched — in particular not
 `query_log.go`, whose decorators are already archived work.
 
-- [ ] **4.1** In `internal/analytics/recalculate.go`, inside `Recalculate`, immediately
+- [x] **4.1** In `internal/analytics/recalculate.go`, inside `Recalculate`, immediately
   after the `r.manual.ListEntriesByVehicleBetween(ctx, teslaID, chargeStart, end)` call
   returns and its error is handled, add:
   `logging.Note("Recalculator", "Recalculate", "manual entries read: tesla_id=%d start=%s end=%s rows=%d", teslaID, chargeStart.UTC().Format("2006-01-02"), end.UTC().Format("2006-01-02"), len(entries))`

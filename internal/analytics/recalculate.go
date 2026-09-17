@@ -20,6 +20,7 @@ import (
 	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -164,6 +165,11 @@ func (r *recalculator) Recalculate(ctx context.Context, teslaID int64, start, en
 	if err != nil {
 		return fmt.Errorf("fetching manual charge entries: %w", err)
 	}
+	// Logged here, not inside charging's own reader: that read port has one
+	// shared constructor serving both this nightly path and two live gateway
+	// call sites, so logging it there would log every gateway page render too.
+	logging.Note("Recalculator", "Recalculate", "manual entries read: tesla_id=%d start=%s end=%s rows=%d",
+		teslaID, chargeStart.UTC().Format("2006-01-02"), end.UTC().Format("2006-01-02"), len(entries))
 
 	rows := deriveVehicleMetrics(preceding, snapshots, sessions, entries, start, end)
 
