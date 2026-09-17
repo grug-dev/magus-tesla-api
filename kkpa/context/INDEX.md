@@ -305,7 +305,7 @@
 | `deploy stack` | synonym of `deployment stack` → `architecture/deployment-stack.md` |
 | `deploy logs` (named, rotated log files for `web`, `poller`, and `caddy` on the VPS, and the host `logrotate` job) | `architecture/deploy-log-files.md` |
 | `magus-logs` | the `~/magus-logs` host folder → `architecture/deploy-log-files.md` |
-| `log rotation` | the host `logrotate` job for `web.log`/`poller.log` → `architecture/deploy-log-files.md` |
+| `log rotation` | the host `logrotate` job for `web.log`/`poller.log`, and Caddy's own rotation for `caddy.log` → `architecture/deploy-log-files.md` |
 | `logrotate` | synonym of `log rotation` → `architecture/deploy-log-files.md` |
 | `vehicle ownership proof` (the gateway proves the signed-in user owns a vehicle once and passes the proof down; modules below do not re-check tenancy) | `architecture/vehicle-ownership-proof.md` |
 | `authorization seam` | synonym of `vehicle ownership proof` → `architecture/vehicle-ownership-proof.md` |

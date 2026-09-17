@@ -936,26 +936,41 @@ naming-guard: ## Fail if a NEW type declaration ends in a banned generic suffix 
 # Escape hatch: ARCHIVE_GUARD_ALLOW=1 make archive-guard, only for something that is not
 # a rewrite of the record (e.g. purging a leaked secret). State the reason in the commit
 # message. Never widen the pattern to silence a true positive.
-logdir-guard: ## Fail if a service other than web/poller mounts the named-log folder in deploy/docker/compose.yaml
+logdir-guard: ## Fail if an unexpected service mounts the named-log folder, or if Caddy's log file mode is not host-readable
 	@bad=$$(awk '\
 		/^services:/ { in_services=1; next } \
 		in_services && /^  [a-zA-Z0-9_-]+:/ { svc=$$1; sub(":", "", svc) } \
-		in_services && /:\/var\/log\/magus/ { if (svc != "web" && svc != "poller") print svc }\
+		in_services && /:\/var\/log\/magus/ { if (svc != "web" && svc != "poller" && svc != "caddy") print svc }\
 	' deploy/docker/compose.yaml | sort -u); \
 	if [ -n "$$bad" ]; then \
 		echo "$$bad"; \
 		echo ""; \
 		echo "ERROR: the service(s) above mount the named-log folder (/var/log/magus)."; \
-		echo "Only web and poller may. That folder is owned by ONE user on the host."; \
-		echo "A container running as a different user either cannot write to it — which"; \
-		echo "crash-loops the service — or forces the permissions loose enough that the"; \
-		echo "files stop being readable by the host user without sudo. caddy was added"; \
-		echo "once and took the site down twice."; \
-		echo "Send the extra service's log to Docker's driver instead, and read it with"; \
-		echo "docker compose ... logs <service>."; \
+		echo "Only web, poller and caddy may. The folder is owned by ONE host user,"; \
+		echo "and every extra container that writes there is another user that must be"; \
+		echo "granted access by hand on every host. Send the service's log to Docker's"; \
+		echo "driver instead, and read it with docker compose ... logs <service>."; \
 		exit 1; \
+	fi
+	@if grep -q 'output file /var/log/magus/' deploy/docker/Caddyfile; then \
+		mode=$$(awk '/output file \/var\/log\/magus\//,/^\t\t}/' deploy/docker/Caddyfile | awk '/^[ \t]*mode[ \t]+[0-7]+/ { print $$2 }'); \
+		if [ -z "$$mode" ]; then \
+			echo "ERROR: deploy/docker/Caddyfile writes a log file but sets no mode."; \
+			echo "Caddy defaults to 0600, so the file would be unreadable by the host"; \
+			echo "user even when the folder itself is writable - which is exactly what"; \
+			echo "a named log is supposed to avoid. Add: mode 0644"; \
+			exit 1; \
+		fi; \
+		group=$$(echo "$$mode" | sed 's/.*\(.\)\(.\)$$/\1/'); \
+		case "$$group" in \
+			4|5|6|7) ;; \
+			*) echo "ERROR: Caddyfile log mode $$mode is not group-readable."; \
+			   echo "The host user reads this file through its group. Use 0644."; \
+			   exit 1 ;; \
+		esac; \
+		echo "logdir-guard: named-log folder mounted only by web/poller/caddy; Caddy log mode $$mode is host-readable"; \
 	else \
-		echo "logdir-guard: only web and poller mount the named-log folder"; \
+		echo "logdir-guard: named-log folder mounted only by web/poller/caddy; Caddy writes no log file"; \
 	fi
 
 archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or deleted (archives are immutable; escape hatch: ARCHIVE_GUARD_ALLOW=1)
@@ -1029,7 +1044,7 @@ cmd-monthly-capacity: ## Build cmd/monthly-capacity into ./bin and run it. Optio
 	./bin/monthly-capacity $(if $(PERIOD),-period $(PERIOD)) $(if $(TESLA_ID),-tesla-id $(TESLA_ID))
 
 # --- Docker Compose deploy (VPS / production) --------------------------------
-# See docs/0-set-up/deployment.md §8 (first deploy) and docs/1-deploy/docker.md
+# See kkpa/docs/0-set-up/deployment.md §8 (first deploy) and kkpa/docs/1-deploy/docker.md
 # (day-to-day commands) for the full runbook. These targets are thin wrappers
 # around `docker compose` — they build/start/stop the whole stack (db, migrate,
 # web, poller, caddy) defined in deploy/docker/compose.yaml.
@@ -1054,7 +1069,7 @@ docker-down: ## Stop and remove the whole Docker Compose stack (deploy/docker/co
 docker-logs: ## Follow logs from every running service in deploy/docker/compose.yaml
 	$(COMPOSE) logs -f
 
-vps-logs: ## Tail the named log files under MAGUS_LOGS_DIR (web.log, poller.log) — VPS only
+vps-logs: ## Tail the named log files under MAGUS_LOGS_DIR (web.log, poller.log, caddy.log) — VPS only
 	tail -f $(MAGUS_LOGS_DIR)/*.log
 
 docker-migrate: ## Run the one-shot "migrate" service from deploy/docker/compose.yaml by hand (same program docker-up already runs automatically)

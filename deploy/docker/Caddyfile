@@ -12,6 +12,19 @@
 # to web:8080. Caddy forwards the whole subtree — it does not know the
 # secret; poller's own handler accepts or 404s the exact path.
 {$BASE_DOMAIN} {
+	# Named, rotated access log. Caddy rotates this file itself, so it is kept
+	# off the host logrotate conf - two rotators on one file lose data.
+	# mode 0644 is REQUIRED, not cosmetic: caddy creates the file as its own
+	# container user and defaults to 0600, which the host user cannot read even
+	# when the folder is writable. 336h is 14 days, matching web.log/poller.log.
+	log {
+		output file /var/log/magus/caddy.log {
+			mode 0644
+			roll_size 10mb
+			roll_keep 3
+			roll_keep_for 336h
+		}
+	}
 	handle /internal/rerun/* {
 		reverse_proxy poller:8081
 	}
