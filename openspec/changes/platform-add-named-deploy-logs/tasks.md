@@ -82,7 +82,7 @@
 
 ## T4. Docs — depends on T1, T2, T3
 
-- [ ] T4.1 In `docs/1-deploy/docker.md`, update the troubleshooting table
+- [x] T4.1 In `docs/1-deploy/docker.md`, update the troubleshooting table
       (§9): the `web` and `poller` rows' command column changes from
       `docker compose ... logs web` / `logs poller` to
       `tail -100 ~/magus-logs/web.log` / `tail -100 ~/magus-logs/poller.log`
@@ -91,7 +91,7 @@
       ... logs <service>` (design.md D3).
       Acceptance: the two updated rows no longer contain `docker compose ...
       logs web` / `logs poller`; the other three rows are unchanged.
-- [ ] T4.2 In `docs/1-deploy/docker.md`, add a new numbered section (after
+- [x] T4.2 In `docs/1-deploy/docker.md`, add a new numbered section (after
       §9 Troubleshooting) with the two-case runbook from design.md D13: (a)
       one file hits `size 10M` early — force `logrotate -f`, lower `size`,
       find the noisy log line; (b) the VPS disk fills up — `df -h`, `du -sh
@@ -100,14 +100,14 @@
       rejected one) and why.
       Acceptance: the new section exists, covers both cases (a) and (b) by
       name, and states the no-cron-script decision with its reason.
-- [ ] T4.3 In `docs/1-deploy/docker.md`'s §4 "Everyday commands" table (or
+- [x] T4.3 In `docs/1-deploy/docker.md`'s §4 "Everyday commands" table (or
       immediately after it), add a row/line for `make vps-logs`
       alongside the existing `make docker-logs` shortcut note, and one
       sentence distinguishing the two (Docker's own driver vs. the named
       files) — mirrors design.md D9.
       Acceptance: `make vps-logs` appears in the doc, with a one-line
       description distinct from `make docker-logs`'s existing description.
-- [ ] T4.4 Add the VPS setup steps from design.md D6 to
+- [x] T4.4 Add the VPS setup steps from design.md D6 to
       `docs/1-deploy/docker.md`'s new section (T4.2) or its own short
       subsection: `mkdir -p ~/magus-logs`; discover the container `app`
       user's real UID with `docker compose ... run --rm web id -u app`
@@ -117,7 +117,7 @@
       `logrotate -d /etc/logrotate.d/magus-logs`.
       Acceptance: every one of the five steps above appears, in this order,
       with a runnable command for each.
-- [ ] T4.5 Found while grounding this change (dispatch catch 7): two more
+- [x] T4.5 Found while grounding this change (dispatch catch 7): two more
       doc lines point at `docker compose ... logs poller` and will mislead
       once `poller`'s output moves to a named file. Update both to the
       named-file command from T4.1:
@@ -138,7 +138,7 @@
 
 ## T5. Knowledge base — depends on T1, T2, T3
 
-- [ ] T5.1 Create `kkpa/context/architecture/deploy-log-files.md`, in the
+- [x] T5.1 Create `kkpa/context/architecture/deploy-log-files.md`, in the
       same section shape as `kkpa/context/architecture/deployment-stack.md`
       (Glossary / Component map / How maintenance works / Conventions &
       gotchas / Related KB). Cover: which services write named files and
@@ -151,7 +151,7 @@
       Acceptance: the file exists with all five section headers; every
       named service (`web`, `poller`, `caddy`, `db`, `migrate`) is
       mentioned with its actual log destination.
-- [ ] T5.2 Add rows to `kkpa/context/INDEX.md`'s `## Architecture topics`
+- [x] T5.2 Add rows to `kkpa/context/INDEX.md`'s `## Architecture topics`
       table for `deploy logs`, `magus-logs`, `log rotation`, and
       `logrotate`, each pointing at
       `architecture/deploy-log-files.md`, in the same row format as the
@@ -159,7 +159,7 @@
       `→ path` or `| path |` per the table's own column style).
       Acceptance: `grep -n "deploy-log-files.md" kkpa/context/INDEX.md`
       shows at least four rows.
-- [ ] T5.3 Update `kkpa/context/architecture/deployment-stack.md`'s
+- [x] T5.3 Update `kkpa/context/architecture/deployment-stack.md`'s
       "Conventions & gotchas" entry "Every service needs a log size cap" —
       it currently describes only the `x-logging` cap and says nothing
       about naming or rotation, which is now incomplete. Add one sentence
@@ -172,15 +172,15 @@
 
 ## T6. Verification — depends on T1–T5
 
-- [ ] T6.1 Run `docker compose --project-directory . -f
+- [x] T6.1 Run `docker compose --project-directory . -f
       deploy/docker/compose.yaml config` and confirm it exits 0 with no
       warning about the new `entrypoint`, `volumes`, or `${MAGUS_LOGS_DIR}`
       lines.
 - [ ] T6.2 Run `logrotate -d deploy/docker/magus-logs.logrotate` and confirm
       no syntax error.
-- [ ] T6.3 Run `make help` and confirm `vps-logs` is listed with its
+- [x] T6.3 Run `make help` and confirm `vps-logs` is listed with its
       description, next to `docker-logs`.
-- [ ] T6.4 Grep the repo for `docker compose ... logs web` and
+- [x] T6.4 Grep the repo for `docker compose ... logs web` and
       `docker compose ... logs poller` outside
       `openspec/changes/archive/` and confirm every remaining hit is
       intentional (the unchanged database/migrate/caddy rows in

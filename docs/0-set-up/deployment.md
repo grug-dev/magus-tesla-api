@@ -554,7 +554,7 @@ docker compose --project-directory . -f deploy/docker/compose.yaml up -d
 Check the poller log to confirm the listener started:
 
 ```bash
-docker compose --project-directory . -f deploy/docker/compose.yaml logs poller --tail=20
+tail -100 ~/magus-logs/poller.log
 ```
 
 You should see one of two lines:

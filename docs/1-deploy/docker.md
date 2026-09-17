@@ -134,6 +134,11 @@ shortcuts note below the table).
 for the first three rows above (`Makefile` targets, unchanged existing ones
 plus these three new ones).
 
+`make docker-logs` follows Docker's own log driver — the only place `db`'s
+and `migrate`'s output goes. `make vps-logs` tails the named files under
+`MAGUS_LOGS_DIR` instead (`web.log`, `poller.log`, `caddy.log`) — use it to
+read `web`'s or `poller`'s logs on the VPS. See §10 for when to use each.
+
 ---
 
 ## 5. Deploying an update
@@ -233,7 +238,7 @@ docker compose --project-directory . -f deploy/docker/compose.yaml exec -T db pg
 
 ```bash
 # Restore a dump file into the running database. This OVERWRITES existing
-# rows that the dump also contains — see the safety section (§10) first.
+# rows that the dump also contains — see the safety section (§11) first.
 cat manual-dump.sql | docker compose --project-directory . -f deploy/docker/compose.yaml exec -T db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
 ```
 
@@ -274,15 +279,122 @@ gunzip -c backups/magus-2026-09-07.sql.gz | docker compose --project-directory .
 
 | Symptom | Command to run | Likely cause |
 |---|---|---|
-| `web` will not start | `docker compose --project-directory . -f deploy/docker/compose.yaml logs web` | `migrate` did not finish successfully (see the next row), or a bad value in `.env` (e.g. `DATABASE_URL`). |
+| `web` will not start | `tail -100 ~/magus-logs/web.log` | `migrate` did not finish successfully (see the next row), or a bad value in `.env` (e.g. `DATABASE_URL`). |
 | `migrate` exits non-zero | `docker compose --project-directory . -f deploy/docker/compose.yaml logs migrate` | `DATABASE_URL` is wrong or `db` is not reachable. Check `db`'s health with `docker compose --project-directory . -f deploy/docker/compose.yaml ps`. |
 | Caddy cannot get a certificate | `docker compose --project-directory . -f deploy/docker/compose.yaml logs caddy` | The DNS A record (deployment.md §8.2) does not point at this VPS yet, or ports 80/443 are blocked by a firewall. |
-| `poller` collects nothing | `docker compose --project-directory . -f deploy/docker/compose.yaml logs poller` | Check the Tesla token is valid, and that the scheduled time (`POLLER_SCHEDULE_HOUR`/`POLLER_SCHEDULE_MINUTE`) has not passed yet today. |
+| `poller` collects nothing | `tail -100 ~/magus-logs/poller.log` | Check the Tesla token is valid, and that the scheduled time (`POLLER_SCHEDULE_HOUR`/`POLLER_SCHEDULE_MINUTE`) has not passed yet today. |
 | Database connection refused | `docker compose --project-directory . -f deploy/docker/compose.yaml ps` | `db` is not healthy yet (wait for its healthcheck), or `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` in `.env` do not match what `DATABASE_URL` expects. |
 
 ---
 
-## 10. Safety
+## 10. Named log files and log rotation
+
+`web` and `poller` write their output to named files on the VPS host,
+`~/magus-logs/web.log` and `~/magus-logs/poller.log`, instead of Docker's
+own hard-to-read path. `caddy` writes `~/magus-logs/caddy.log` and rotates
+it itself. `db` and `migrate` are unchanged — read them with
+`docker compose ... logs db` / `logs migrate`, as in §9.
+
+### One-time VPS setup
+
+Do this once, the first time this stack starts on a VPS:
+
+```bash
+# 1. Create the host folder the containers write into.
+mkdir -p ~/magus-logs
+```
+
+```bash
+# 2. Find the real UID of the container's "app" user. Do not assume it is
+# 1000 — it is a system user, and its UID is not guaranteed.
+docker compose --project-directory . -f deploy/docker/compose.yaml run --rm web id -u app
+```
+
+```bash
+# 3. Give that UID ownership of the folder. Replace <uid> with the number
+# the command above printed.
+sudo chown -R <uid>:<uid> ~/magus-logs
+```
+
+```bash
+# 4. Install the logrotate conf that keeps 14 days of web.log/poller.log.
+sudo cp deploy/docker/magus-logs.logrotate /etc/logrotate.d/magus-logs
+```
+
+```bash
+# 5. Confirm the conf parses with no error (dry run — makes no change).
+sudo logrotate -d /etc/logrotate.d/magus-logs
+```
+
+### Reading the logs
+
+```bash
+# Tail all three named files at once.
+make vps-logs
+```
+
+```bash
+# Or one file at a time.
+tail -100 ~/magus-logs/web.log
+tail -100 ~/magus-logs/poller.log
+tail -100 ~/magus-logs/caddy.log
+```
+
+### Case (a): one file grows fast and hits its 10 MB limit early
+
+`logrotate` checks once a day, but a file also rotates as soon as it passes
+10 MB, even between daily checks. If this keeps happening:
+
+```bash
+# Force an immediate rotation instead of waiting for the next check.
+sudo logrotate -f /etc/logrotate.d/magus-logs
+```
+
+Find which log line repeats so often it fills the file:
+
+```bash
+tail -f ~/magus-logs/web.log
+# then grep the text that keeps repeating, e.g.:
+grep -c "some repeating line" ~/magus-logs/web.log
+```
+
+If the noise is expected to continue, lower `size 10M` in
+`deploy/docker/magus-logs.logrotate` to rotate sooner, and re-install it
+(step 4 above).
+
+### Case (b): the VPS disk fills up
+
+```bash
+# Confirm the disk really is close to full.
+df -h
+```
+
+```bash
+# Confirm the logs are the cause, not backups or the database.
+du -sh ~/magus-logs
+```
+
+If the logs are the cause, delete old rotated files by hand as an
+immediate fix:
+
+```bash
+# Removes gzipped rotations older than 14 days — logrotate would have
+# deleted these on its own eventually; this just does it now.
+find ~/magus-logs -name '*.gz' -mtime +14 -delete
+```
+
+As a lasting fix, lower `rotate 14` in `deploy/docker/magus-logs.logrotate`
+to keep fewer generations, and re-install it (step 4 above).
+
+**There is no automated disk-usage alert.** A cron script that silently
+stops working — a wrong path after a move, a missing dependency after an
+OS update — is worse than no script: nobody notices it is broken until the
+disk is already full. This runbook, read when disk use is already a
+concern, has no failure mode of its own.
+
+---
+
+## 11. Safety
 
 Always safe to run at any time:
 
@@ -308,7 +420,7 @@ and certificates survive.
 
 ---
 
-## 11. Switching to a managed database later
+## 12. Switching to a managed database later
 
 You can move from the bundled `db` service to a managed Postgres (RDS, Cloud
 SQL, Supabase, or similar) at any time, with no code change:
