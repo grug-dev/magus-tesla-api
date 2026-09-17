@@ -90,7 +90,7 @@ make build     # go build ./...   — all internal/ packages + every cmd/
 make lint      # golangci-lint run ./...   — config in .golangci.yml
 
 # 4. Full local gate
-make check     # build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard
+make check     # build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + migration-boundary-guard
 #              # + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + test
 ```
 
@@ -335,8 +335,10 @@ go list -f '{{.ImportPath}}|{{join .Imports ","}}' ./cmd/... ./internal/... \
 
 Every table is owned by **exactly one** module: only that module's sqlc package queries it, and
 another module reads it **only** through the owner's public Go interface — never a cross-module
-join. Migrations live with the owner (`internal/<module>/db/migrations/*.sql`, goose) and the dir
-must be listed in `MIGRATIONS_DIRS` in the `Makefile`.
+join. Migrations live with the owner (`internal/<module>/db/migrations/*.sql`, goose) and the
+module must be listed in `MIGRATION_MODULES` in the `Makefile` — that one list gives both the
+directory and the module's own `<module>.goose_db_version` ledger. A migration may name only
+its own module's schema; `make migration-boundary-guard` enforces it.
 
 | Module | sqlc package | Schema | Table | What it stores |
 |---|---|---|---|---|
@@ -355,7 +357,7 @@ must be listed in `MIGRATIONS_DIRS` in the `Makefile`.
 | | | `analytics` | `vehicle_metric_watermarks` | One recompute cursor per (account, vehicle, source), three sources. Drives `Reconcile`'s incremental pass; **no row means epoch** — backfill the vehicle's full history. |
 | | | `analytics` | `charge_gaps` | Vehicle-days whose battery math doesn't add up because a charge record is missing or incomplete — **one row per (account, vehicle, day)**, with the suspected missing source (`MANUAL` / `SUPERCHARGER`). A live worklist, not an audit trail: no `resolved_at`, a day that stops flagging is deleted by the next nightly reconciliation. Written by `internal/analytics` through its own `GapWriter` port. |
 | `internal/gateway` | — | — | *(none)* | Renders HTML; calls module interfaces, never a database. |
-| *(tooling)* | — | `public` | `goose_db_version` | Not owned by any module — goose's own ledger, a **single shared table** across all migration dirs. That is why `make migrate-up` runs each dir with `-allow-missing`. |
+| *(tooling)* | — | `<module>` | `goose_db_version` | **One per module**, inside that module's own schema — `account.goose_db_version`, `telemetry.…`, and so on. Every goose call passes `-table <module>.goose_db_version`. Because each module has its own ledger, two modules may use the same version number (all four baselines are `20260917000001`) and the order the directories are applied in does not matter. `public.goose_db_version` still exists, holding the 54 versions applied before the squash; nothing reads it, and it is kept as that history. |
 
 > Every column, CHECK, generated column and index decision for the four `charging` tables —
 > including the reason each un-indexed column was left un-indexed, and its revisit trigger —
@@ -376,7 +378,7 @@ and [`ai/go-conventions.md`](ai/go-conventions.md).
 | **A new page** (HTML using data a module already exposes) | `internal/gateway/` only — `templates/pages/*.templ` + `fragments/*.templ` composing the `templates/ui/` kit, a thin `handlers/*.go`, and a route in `gateway.go`. Prefer `kkpa-goth-scaffold-ui scaffold`. | `make templ` (+ `make css` if you used a new class) → `make check` |
 | **A new UI endpoint** (an htmx `/ui/...` fragment or a write action) | `internal/gateway/` — handler + fragment + `/ui/...` route; **CSRF + tenant check on writes** (see AGENTS.md). If it needs data no module exposes yet, also add a method to the **owning** module's `Service`/`Reader`/`Writer`. | `make sqlc` (if new query) → `make templ` (+ `make css`) → `make check` |
 | **A new upstream (Tesla Fleet) API call** | `internal/tesla/vehicles.go` (typed method) **and** `raw.go` (the `Raw*` sibling) **and** `cmd/explore-tesla-api/main.go` + its README — required by CLAUDE.md. Miles→km companions mandatory; **never** add tests that hit the live paid API. | `make check` |
-| **A new database table / column** | The **owning** `internal/<module>/` only — `db/migrations/*.sql` (goose) + `db/queries.sql`, exposed through the module's `Service`. Add the module's dir to `MIGRATIONS_DIRS` in the Makefile if it's the module's first table, and add the table to the README **Database tables by module** list in the same change. **`database` is a design-gate — confirm the design first.** | `make sqlc` → `make migrate-up` → `make check` |
+| **A new database table / column** | The **owning** `internal/<module>/` only — `db/migrations/*.sql` (goose) + `db/queries.sql`, exposed through the module's `Service`. Add the module's name to `MIGRATION_MODULES` in the Makefile if it's the module's first table, and add the table to the README **Database tables by module** list in the same change. **`database` is a design-gate — confirm the design first.** | `make sqlc` → `make migrate-up` → `make check` |
 | **A new module** (a new subsystem/concern) | New `internal/<module>/` with a `Service` interface + DTOs; wire into the gateway **only** via `Deps` + its interface. Update the README **Project Structure** tree, the **Architecture** table, and (if it owns tables) **Database tables by module** in the same change. | `make sqlc` / `make templ` as needed → `make check` |
 
 **`openspec/changes/archive/` is immutable.** An archived change records what was proposed and

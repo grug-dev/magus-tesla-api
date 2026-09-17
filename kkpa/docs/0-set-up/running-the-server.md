@@ -22,8 +22,8 @@ make up
 `make up` is the single entrypoint. It runs, in order:
 
 1. `make generate` — regenerate **all** codegen (`sqlc generate` + `go tool templ generate ./...`),
-2. `make migrate-up` — apply any pending goose migrations (all module dirs; each dir in its
-   own version order, `-allow-missing` so cross-module version order can't block one),
+2. `make migrate-up` — apply any pending goose migrations (every module, each into its own
+   `<module>.goose_db_version` ledger),
 3. `go build -o bin/web ./cmd/web` and run `./bin/web` (listens on `$PORT`, default `8080`).
 
 Because it always regenerates and migrates, `make up` is safe after **any** change —
@@ -49,29 +49,30 @@ Prereqs on the host: a running PostgreSQL, and the `sqlc` and `goose` binaries o
 
 ## Adding a *new* module with its own database (one extra manual step)
 
-Migrations live per module under `internal/<module>/db/migrations`, and goose shares
-a **single** version table across them. So when a new module gains a DB:
+Migrations live per module under `internal/<module>/db/migrations`, and each module keeps
+its own version ledger in `<module>.goose_db_version`. So when a new module gains a DB:
 
-1. Add its migrations dir to `MIGRATIONS_DIRS` in the `Makefile` — **position does not
-   matter**. goose keeps ONE `goose_db_version` table for the whole database, so its
-   "current version" is global while each module versions its migrations independently;
-   a module can hold a pending migration older than another module's applied one. No
-   ordering of *directories* can fix that, so both `up` loops pass `-allow-missing`,
-   which applies a pending migration even when its version sits below the global
-   current version. Safe here because modules share no tables or FKs, so cross-module
-   version order is meaningless; within a dir, goose still applies in version order.
-2. Then `make up` (or `make migrate-up` + `make sqlc`) picks it up.
+1. Add the module's name to `MIGRATION_MODULES` in the `Makefile` — **position does not
+   matter**, and it is the only list to edit. `MIGRATIONS_DIRS` is derived from it, and so
+   is the `-table <module>.goose_db_version` every goose call passes. Note this is the list
+   to override, not `MIGRATIONS_DIRS`: overriding the dirs alone no longer changes the goose
+   CLI loops.
+2. Write the module's first migration as a **baseline** — one file creating its whole schema,
+   reading nothing outside its own Postgres schema. Any version number is fine; it need not
+   be unique across modules.
+3. Then `make up` (or `make migrate-up` + `make sqlc`) picks it up.
 
-If you ever see `goose run: error: found N missing migrations before current version`,
-that is this situation on a checkout predating the `-allow-missing` fix. Apply the
-stragglers with:
+Two consequences worth knowing:
 
-```bash
-goose -dir internal/<module>/db/migrations postgres "$DATABASE_URL" up -allow-missing
-```
+- `goose run: error: found N missing migrations before current version` now means what it
+  says: a migration in **that module** arrived behind that module's current version. Nothing
+  passes `-allow-missing` any more, on purpose — within one module, a late migration is a
+  real mistake. Renumber it above the module's highest applied version.
+- `make migrate-down` stops at a module's baseline, which refuses to roll back: reversing it
+  would mean dropping the whole module schema and its data. Recreate the database with
+  `make db-reset` instead.
 
-Current list: `internal/account/db/migrations`, `internal/telemetry/db/migrations`,
-`internal/charging/db/migrations`.
+Current list: `account`, `telemetry`, `charging`, `analytics`.
 
 ## First-time / fresh environment
 

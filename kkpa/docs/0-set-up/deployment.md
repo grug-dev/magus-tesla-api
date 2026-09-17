@@ -190,8 +190,8 @@ OS superuser. `make db-setup` provisions everything and is idempotent:
 2. **Creates the database** `magus` **owned by `magusadmindb`** if it doesn't exist
    (guarded by a `pg_database` check against the maintenance `postgres` DB).
 3. **Applies all migrations** with goose, connecting *as `magusadmindb`* so every
-   table is owned by the app role (tracked in `goose_db_version`, so re-runs only
-   apply what's pending).
+   table is owned by the app role (tracked per module in `<module>.goose_db_version`,
+   so re-runs only apply what's pending).
 4. **Prints the final `DATABASE_URL`** to paste back into `.env`:
 
    ```
@@ -518,8 +518,14 @@ ALTER TABLE account.settings DROP COLUMN analysis_start_date;
 -- 3. Tell goose the migration no longer counts as applied, so the next
 --    deploy re-runs it instead of skipping it. version_id is the
 --    migration's filename timestamp (the 14 digits at the start).
-DELETE FROM goose_db_version WHERE version_id = 20260908000001;
+--    The ledger is the OWNING MODULE's, not public: account here, because
+--    the migration lives in internal/account/db/migrations.
+DELETE FROM account.goose_db_version WHERE version_id = 20260908000001;
 ```
+
+Never do this to a **baseline** (`20260917000001`). Deleting its row makes goose re-run a
+file that creates the module's whole schema against a database that already has it, so the
+migration step fails on `relation already exists` and `web` and `poller` never start.
 
 Step 3 matters: skip it, and the next `migrate` run believes this migration already ran
 and will not re-apply it — the schema and the code then quietly disagree.

@@ -53,11 +53,15 @@ container exits non-zero, neither starts.
 **Non-Goals:**
 
 - `charging.manual_charge_entries.location_kind` nullability. Waived by the owner: no
-  row is NULL today and the Go insert path always sends a string. The baseline records
-  the column exactly as the database has it.
+  row is NULL today, and both write paths reject a missing value in Go before any SQL
+  runs. The baseline records the column exactly as the database has it — which makes
+  `sqlc` type it `pgtype.Text`, the truth, instead of the `string` it inferred from a
+  migration that never ran. See "Backlog items this change absorbs" below.
 - Any change to the deploy path's shape. The four `COPY` lines in
-  `deploy/docker/Dockerfile`, the `migrate` service, and `MIGRATIONS_DIRS` all keep
-  working unchanged.
+  `deploy/docker/Dockerfile` and the one-shot `migrate` service are untouched, and the
+  image's default layout still works with no environment set. The `Makefile` variables
+  DO change: `MIGRATION_MODULES` is now the single list and `MIGRATIONS_DIRS` is derived
+  from it, so overriding the dirs alone no longer changes the goose CLI loops.
 - Data migration of any kind. A baseline creates objects and backfills nothing.
 - New unit tests. `internal/testdb` builds every test container's schema from these
   folders, so a wrong baseline fails the whole suite at setup. That existing signal is
@@ -298,6 +302,37 @@ image does not read that column, so the previous image still runs. The four new 
 tables are inert to it.
 
 The exact SQL for steps 3, 4 and 5 is written out in `tasks.md`, as text to paste.
+
+## Backlog items this change absorbs
+
+Both are removed from `openspec/roadmaps/backlog.md`, per its own rule that an item moves into
+the change that picks it up. Their substance is recorded here so nothing is lost.
+
+**Item 23 — "Per-module goose version table (retires `make migration-guard`)."** Done exactly
+as proposed, by D5 and D7. Its one stated blocker — that doing this alone would force a
+`make db-reset`, because goose would see an empty ledger and try to replay every migration
+against tables that already exist — is what the stamp (Migration Plan, steps 3 and 4) exists to
+avoid, and is why it is done together with the squash rather than on its own.
+
+**Item 21 — "Renumber `20260720000001_require_location_kind.sql`; its `NOT NULL` was never
+applied."** The collision is gone: the file no longer exists, each module has its own ledger,
+and two modules sharing a number is now normal. The `NOT NULL` it wanted is **deliberately not
+applied**, by the owner's decision on 2026-09-17. The reasons, recorded because the backlog
+entry that carried them is being deleted:
+
+- No row is NULL today, and the item said so itself when it was written.
+- Both write paths reject a missing `location_kind` through `RequiredFieldsFor` before building
+  the query, and both have tests (`TestCreate_RejectsNilLocationKind`,
+  `TestUpdate_RejectsNilLocationKind`).
+- This module keeps required-field sets in Go **on purpose** — the `status` column's own comment
+  says a CHECK backstop would turn every future change to the set into a migration. A `NOT NULL`
+  on `location_kind` would sit against that decision, not with it.
+- The item's stated risk was "any future write path that bypasses that validation". That risk is
+  unchanged by this change and remains open; it is a Go-side concern, not a schema one.
+
+One visible consequence: `sqlc` had typed `LocationKind` as non-null only because it parsed the
+migration goose never applied. Reading the live schema instead makes it `pgtype.Text`, which is
+what the column has always been.
 
 ## Open Questions
 

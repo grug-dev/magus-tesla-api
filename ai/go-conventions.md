@@ -163,7 +163,7 @@ pipeline or not, and `CLAUDE.md` §"Builds & local checks" states the same rule.
 | `go build ./...`, `go vet ./...`, `gofmt -l` | **Claude may run these**, unprompted |
 | `make lint` / `golangci-lint run ./...` | **Claude** — lints only, runs no test |
 | `make build`, `make vet`, `make bins` | **Claude** |
-| `make ui-guard`, `make i18n-guard`, `make money-guard`, `tz-guard`, `logging-guard`, `make migration-guard`, `make boundary-guard`, `make theme-guard`, `make archive-guard` | **Claude** — standalone guards, no tests |
+| `make ui-guard`, `make i18n-guard`, `make money-guard`, `tz-guard`, `logging-guard`, `make migration-boundary-guard`, `make boundary-guard`, `make theme-guard`, `make archive-guard` | **Claude** — standalone guards, no tests |
 | `go test ./...`, `make test`, `make test-with-db`, `make check` | **Owner only** — Claude never runs them |
 
 Everything on Claude's side is a **cheap deterministic signal**: fails fast, prints a few
@@ -184,7 +184,7 @@ re-implement a guard as a custom linter, and do not hand-roll a grep guard for s
 golangci-lint already checks.
 
 `make check` is `build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard
-migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard
+migration-boundary-guard boundary-guard theme-guard vehicleref-guard tenancy-guard
 naming-guard archive-guard
 test`; it is owner-only purely because of the trailing `test`. Claude
 runs the other phases individually, so excluding `check` costs no guard coverage.
@@ -259,36 +259,53 @@ restriction on the directive, not on the filesystem — and `go test` always run
 with its own package directory as the working directory, so a relative `../<module>/db/migrations`
 resolves reliably from a `_test.go` file.
 
-`ProvisionDirs` applies each directory with its **own goose provider, in the order given**. It
-deliberately does not merge them into one filesystem: migration versions are unique within a
-module but **not across the repo** (`internal/account` and `internal/charging` both ship a
-`20260720000001`), so a merged filesystem dies on the collision. Per-directory sequencing is
-also exactly what the Makefile's `migrate-up` loop over `MIGRATIONS_DIRS` already does, and for
-the same reason both pass goose's allow-missing/out-of-order option: every module applies its
-own directory against ONE shared `goose_db_version` table, so a directory's versions are
-routinely lower than versions another module already recorded.
+`ProvisionDirs` applies each directory with its **own goose provider**, into that module's own
+version ledger. It deliberately does not merge them into one filesystem: a merged filesystem
+puts several modules' files in one sequence, which is the arrangement that lets two modules
+collide on a version number and lets one module's migration read another's schema. This is
+exactly what the Makefile's `migrate-up` loop and the deploy's `cmd/migrate` do.
 
-Ordering between directories matters where one module's migration READS another's table. There
-are still no cross-module foreign keys ([`architecture.md`](./architecture.md) §2), but since
-RM29 tier 6 there is one such read: `internal/charging`'s `20260823000001_add_charge_sessions`
-backfills the table it creates — then `public.charge_sessions`, since RM39 tier 3
-`charging.supercharger_sessions` — from `telemetry.supercharger_history` (named
-`telemetry.supercharger_sessions` until RM39 tier 4 moved and renamed it), so `telemetry` must
-precede `charging` for that data to land. The migration filename and its own SQL still say
-`charge_sessions`: historic migrations are never edited (RM39 D1), so they keep the names that
-were current when they ran. `MIGRATIONS_DIRS` already orders them that way.
+### Migrations: one baseline per module, one ledger per module
 
-This is a **soft** dependency, deliberately. The backfill sits inside a
-`to_regclass`-guarded `DO $$ … $$` block, so on a database where telemetry's table is absent it
-emits a NOTICE and moves on instead of failing. Ordering therefore affects **data completeness,
-never migration success** — a fresh database provisioned in the wrong order still migrates
-green, it just backfills nothing.
+Each module's migration history starts from a single **baseline** — one file that creates that
+module's whole schema and reads nothing. Each module records its applied versions in
+**`<module>.goose_db_version`**, inside the Postgres schema it already owns. Everything below
+follows from those two facts.
 
-Ordering is also why a cross-module **DROP** must never share a change with the backfill that
-reads the dropped columns: goose walks the directories in `MIGRATIONS_DIRS` order, each to
-completion, so version numbers cannot reorder work across modules. A `telemetry` DROP would run
-before a `charging` backfill no matter how the two files are numbered. Split the two across
-changes — expand first, contract once the expand is confirmed applied.
+- **Two modules MAY use the same version number.** All four baselines are `20260917000001`.
+  There is no cross-module uniqueness rule any more, and no guard for one. Number a new
+  migration however you like within your own module; only your module's numbers must increase.
+- **The order the directories are applied in does not matter.** Nothing can need another module
+  to have run first. `MIGRATION_MODULES` in the `Makefile` keeps a stable order only so two
+  runs produce comparable logs.
+- **A migration may name only its own module's schema.** This is the same boundary rule that
+  binds runtime code: a module that may not read another module's tables through Go must not
+  read them in SQL either. `make migration-boundary-guard` fails any migration that does, and
+  `COMMENT ON` statements are excluded because a comment cannot read a row. Need another
+  module's data in a backfill? Route it through that module's public Go interface, or have the
+  owning module write the value itself.
+- **Nothing passes goose's allow-missing / out-of-order option.** It used to be required,
+  because the shared ledger made a module's own lower version look like a late migration. With
+  per-module ledgers a late migration is a real mistake, so goose's own check is on. Do not add
+  the flag back to silence a complaint — read the complaint.
+- **A baseline's `Down` raises an exception instead of doing nothing.** An empty `Down` would
+  mark the baseline un-applied while every object it created still exists, and the next
+  `migrate-up` would fail on `relation already exists` — which stops `web` and `poller`,
+  because both wait for the migration step to succeed. `make migrate-down` therefore stops at a
+  baseline. Recreate the database (`make db-reset`) instead of rolling one back.
+- **A baseline never runs on an existing database.** Dev and prod have the baseline version
+  recorded as applied without it ever executing. So a change made **inside a baseline** reaches
+  new databases only. Anything that must also reach dev and prod is an ordinary migration after
+  the baseline — this is why dropping a column means writing a `DROP COLUMN` migration, not
+  deleting the line from the baseline.
+
+Why this replaced the previous arrangement: all four directories used to share one
+`public.goose_db_version`, so a version number used twice was recorded once and the second file
+**skipped in silence**, reported as applied. `charging/20260720000001_require_location_kind.sql`
+was never run in any database for that reason. Four migrations also read another module's
+schema, which worked only while the folder order happened to match the dependency direction —
+and when `telemetry` later re-keyed `vehicle_snapshots`, an `analytics` migration joining the
+dropped column failed on every fresh database, so the drop was abandoned (MAG-65).
 
 **Seeding another module's tables.** Prefer that module's public writer where one exists (e.g.
 `charging.NewWriter(pool).Create`). Where none exists, **direct `INSERT`s from the `_test.go`
