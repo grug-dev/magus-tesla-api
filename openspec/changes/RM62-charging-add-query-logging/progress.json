@@ -1,0 +1,308 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM62-charging-add-query-logging",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
+  "request": "MAG-57 tier 3. internal/charging has zero logging.Note calls, so its work in step 2 of the nightly cycle is invisible. Add internal/charging/query_log.go mirroring telemetry and analytics. Eight public ports; design decides which are in scope. Plus, by the user's decision, one caller-side log line in internal/analytics for the nightly manual-entries read.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "3.1",
+      "4.1"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-17T10:23:44Z",
+  "updated_at": "2026-09-17T10:23:44Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
+    "base": "main",
+    "ticket": "MAG-57",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-57/nightly-job-tests",
+    "created_at": "2026-09-17T01:57:25Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Create query_log.go with the package header",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "loggingReader: log ListEntriesByVehicleUpdatedSince only",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "loggingSessionWriter: log MirrorSessions",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "loggingSuperchargerSessionAnalyticsReader: log two of three methods",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.5",
+      "title": "loggingMirrorWatermarkStore: log both methods",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.6",
+      "title": "loggingMonthlyCapacityCalculator: log Calculate",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go NewReader: wrap",
+      "module": "charging",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "charging.go NewSessionWriter: wrap",
+      "module": "charging",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "charging.go NewSuperchargerSessionAnalyticsReader: wrap (NewSessionReader stays bare)",
+      "module": "charging",
+      "depends_on": [
+        "1.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "charging.go NewMirrorWatermarkStore: wrap",
+      "module": "charging",
+      "depends_on": [
+        "1.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.5",
+      "title": "charging.go NewMonthlyCapacityCalculator: wrap",
+      "module": "charging",
+      "depends_on": [
+        "1.6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "KB: charging query-logging bullets in architecture/nightly-cycle.md",
+      "module": "charging",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "Caller-side manual-entries log in internal/analytics/recalculate.go",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-17T10:23:44Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design approved at the Step 3a briefing, with one change: D4's gap is closed, not accepted",
+      "why": "User asked why ListEntriesByVehicleBetween could not be logged from the caller. The call site in analytics is nightly-and-post-write only, never a page render, so it can.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L2",
+      "at": "2026-09-17T10:23:44Z",
+      "scope": "task:4.1",
+      "made_by": "user",
+      "decision": "A direct logging.Note in recalculate.go, not a second decorator in analytics",
+      "why": "User chose one line over a new type plus a wiring change, after being shown both. Cost: the only RM62 log line outside a query_log.go.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-17T10:23:44Z",
+      "scope": "task:4.1",
+      "made_by": "user",
+      "decision": "Task 4.1 rides in tier 3 under an explicit path grant, not a new tier",
+      "why": "The edit belongs to analytics, not charging. A separate tier would cost a full artifacts and review cycle for one line.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-17T10:23:44Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts created by the charging worker and validated. Leader then revised design.md (D4 gap closed, D10 added), added specs/analytics/spec.md, and added Wave 4 task 4.1 with an explicit internal/analytics path grant \u2014 all from the user's answers at the briefing. Revalidated: valid."
+    }
+  ]
+}
