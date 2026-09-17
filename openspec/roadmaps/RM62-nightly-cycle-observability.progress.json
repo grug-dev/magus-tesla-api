@@ -6,7 +6,7 @@
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-17T02:15:00Z",
+  "updated_at": "2026-09-17T02:21:32Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
@@ -16,16 +16,16 @@
     "created_at": "2026-09-17T01:57:25Z"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2,
       3,
       4
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -108,14 +108,20 @@
       "module": "app",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T01:58:37Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "completed_at": "2026-09-17T02:21:32Z",
+      "duration_seconds": 1362,
+      "budget": {
+        "five_hour_pct_start": 28,
+        "five_hour_pct_end": 57,
+        "cost_usd_delta": 6.4,
+        "approx": true,
+        "note": "artifacts + one implementation wave + one review round"
+      },
+      "notes": "Approved round 1, no findings. User ran make test and reported it passing."
     },
     {
       "id": 2,
@@ -178,6 +184,11 @@
       "at": "2026-09-17T02:15:00Z",
       "agent": "leader",
       "event": "tier 1 artifacts created by the app worker and validated (openspec validate --strict); user approved the design briefing; tier 1 -> proposed. Artifact dispatch cost: 5h 28->37 pct, $2.78"
+    },
+    {
+      "at": "2026-09-17T02:21:32Z",
+      "agent": "leader",
+      "event": "tier 1 archived after reviewer approval (round 1, no findings). Tiers 2, 3 and 4 remain not-started; autopilot is off, so the pipeline stops here."
     }
   ]
 }
