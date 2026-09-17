@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "roadmap",
   "roadmap": "RM62-nightly-cycle-observability",
-  "intention": "One nightly poller log shows every database call the cycle makes, in every module it touches, and the same cycle can be stepped through in the VS Code debugger.",
+  "intention": "One nightly poller log shows every database call the cycle makes, in every module it touches, the same cycle can be stepped through in the VS Code debugger, and two diagrams explain it without reading any Go.",
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
   "status": "in-progress",
   "autopilot": false,
@@ -17,7 +17,7 @@
   },
   "rollup": {
     "current": [],
-    "pending": [1, 2, 3],
+    "pending": [1, 2, 3, 4],
     "blocked": [],
     "done": []
   },
@@ -57,6 +57,42 @@
       "decision": "Mirror internal/telemetry/query_log.go in both logging tiers",
       "why": "It is the only query-logging precedent in the repo. Explicit interface implementation, never embedding, so a new interface method becomes a compile error, not a silent unlogged call.",
       "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-17T02:12:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Nightly-cycle diagrams become tier 4, not a plain doc commit",
+      "why": "The existing runtime-architecture diagram landed outside any pipeline. User chose the tier so the diagram and its KB reference get a reviewer gate and stay recorded as MAG-57 work.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-17T02:12:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Diagrams go in kkpa/docs/diagrams/nightly-job/, not kkpa/docs/nightly-job/",
+      "why": "The ticket asked for the shallower path. Changed with the user's agreement so it sits beside kkpa/docs/diagrams/runtime-architecture/ and every diagram lives at one depth.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-17T02:12:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Two archify diagrams: one workflow, one sequence",
+      "why": "Neither type carries both facts. Workflow shows the four steps and their gates; sequence shows the cross-module call chain. User accepted the double maintenance cost.",
+      "covered_by": null
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-17T02:12:00Z",
+      "scope": "tier:4",
+      "made_by": "leader",
+      "decision": "Tier 4 has no depends_on",
+      "why": "Tiers 1 to 3 change what the cycle logs, never what it does. The diagrams describe steps and calls, so no logging tier can invalidate them. Tier 4 may be pulled forward.",
+      "covered_by": "roadmap Decision 9"
     }
   ],
   "tiers": [
@@ -104,6 +140,21 @@
       "duration_seconds": null,
       "budget": null,
       "notes": null
+    },
+    {
+      "id": 4,
+      "change": "RM62-platform-add-nightly-cycle-diagram",
+      "module": "platform",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
     }
   ],
   "events": [
@@ -111,6 +162,11 @@
       "at": "2026-09-17T01:57:25Z",
       "agent": "leader",
       "event": "roadmap RM62 created from MAG-57; branch ft/RM62-MAG-57-nightly-cycle-observability off main 5a63cc9; work counter 62 -> 63"
+    },
+    {
+      "at": "2026-09-17T02:12:00Z",
+      "agent": "leader",
+      "event": "tier 4 RM62-platform-add-nightly-cycle-diagram added at the user's request (archify workflow + sequence diagrams in kkpa/docs/diagrams/nightly-job/, plus a KB reference); decisions RD5-RD8 recorded"
     }
   ]
 }
