@@ -45,7 +45,7 @@ cmd/
 **`cmd/web` and `cmd/poller` are the two long-running binaries built into containers** by
 `deploy/docker/Dockerfile`, for production. `cmd/migrate` is also built into a container
 (the one-shot `migrate` service). See
-[`docs/1-deploy/docker.md`](../docs/1-deploy/docker.md) for the full Docker deploy
+[`docs/1-deploy/docker.md`](../kkpa/docs/1-deploy/docker.md) for the full Docker deploy
 reference.
 
 For details on a specific binary, see its own README (when present):

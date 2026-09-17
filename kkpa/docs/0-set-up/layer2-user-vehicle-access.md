@@ -7,7 +7,7 @@ with their personal Tesla account, consents on a browser screen, and the app rec
 tokens** that let it read that account's vehicles. Unlike Layer 1 (one-time, app-wide), this layer
 is **per user** — every account that wants Magus Monitor to see its cars runs the OAuth flow once.
 
-> **Prerequisite:** [Layer 1 — Application Registration](./layer1-app-registration.md) must be
+> **Prerequisite:** [Layer 1 — Application Registration](layer1-app-registration.md) must be
 > complete. Layer 2 uses the `TESLA_CLIENT_ID` / `TESLA_CLIENT_SECRET` created there, but it does
 > **not** re-do any of the app-level setup.
 
@@ -306,5 +306,5 @@ What the vehicle dashboard does:
 | 7 | Virtual key paired with Magus (for commands) | ⬜ |
 | 8 | First API call made successfully | ⬜ |
 
-**Back to:** [Layer 1 — Application Registration](./layer1-app-registration.md) for the one-time
+**Back to:** [Layer 1 — Application Registration](layer1-app-registration.md) for the one-time
 app-level setup that must precede this layer.

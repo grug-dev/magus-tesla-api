@@ -4,7 +4,7 @@ First deploy of `magus-tesla-api` to a Hostinger VPS with Docker.
 
 This file is the **progress log**. Each step is filled in when you finish it.
 For the full reference after the deploy, see
-[`docs/1-deploy/docker.md`](1-deploy/docker.md).
+[`docs/1-deploy/docker.md`](docker.md).
 
 ---
 
@@ -625,6 +625,13 @@ The earlier rejection — *"El dominio no es válido... registrado ante una
 autoridad certificadora"* — was ordering, not misconfiguration. Tesla verifies
 the domain over HTTPS, so the certificate must exist first. **Register the
 Tesla redirect URI after the first successful deploy, never before.**
+
+---
+## Update and RUN
+
+```bash
+cd ~/magus-tesla-api && git pull && make docker-up
+```
 
 ---
 

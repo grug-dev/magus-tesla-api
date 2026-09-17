@@ -296,10 +296,16 @@ each diagram from the guide without searching the repository.
 The platform's deployment stack SHALL make the web gateway's, the poller's,
 and the reverse proxy's log output available as a named file at a fixed,
 predictable location, rather than requiring an operator to discover a
-per-container internal storage path before reading a service's log. The
-database service and the one-shot migration step are exempt from this
-requirement and MAY continue to expose their log output only through the
-container runtime's own log inspection command.
+per-container internal storage path before reading a service's log. A named
+log file SHALL be readable by the host user who operates the deployment,
+without elevated privileges — a file the operator cannot open does not satisfy
+this requirement merely by existing under the right name. Where a service's
+container runs as a different user than the one owning the named-log location,
+the stack SHALL configure both the location's access and the file's mode so
+that the service can write it and the host user can read it. The database
+service and the one-shot migration step are exempt from this requirement and
+MAY continue to expose their log output only through the container runtime's
+own log inspection command.
 
 #### Scenario: An operator finds the web gateway's log by name
 - **GIVEN** the deployment stack is running
@@ -321,6 +327,18 @@ container runtime's own log inspection command.
 - **THEN** it is available at a fixed, named location on the host
 - **AND** the operator does not need to look up any per-container internal
   identifier first
+
+#### Scenario: An operator reads a named log without elevated privileges
+- **GIVEN** a service writes its log to the named location
+- **WHEN** the host user who operates the deployment reads that file
+- **THEN** it is readable without `sudo` or any other privilege escalation
+
+#### Scenario: A service running as a different user still produces a readable file
+- **GIVEN** a service whose container runs as a different user than the one
+  owning the named-log location
+- **WHEN** it writes its named log file
+- **THEN** the location grants that service write access
+- **AND** the file is created with a mode the host user can read
 
 #### Scenario: The database and migration services keep their existing log access
 - **GIVEN** the deployment stack is running

@@ -90,7 +90,7 @@ TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(pos
 TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard tidy build vet lint check-golangci test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard tidy build vet lint check-golangci test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs vps-logs docker-migrate backup-db
 
@@ -936,6 +936,43 @@ naming-guard: ## Fail if a NEW type declaration ends in a banned generic suffix 
 # Escape hatch: ARCHIVE_GUARD_ALLOW=1 make archive-guard, only for something that is not
 # a rewrite of the record (e.g. purging a leaked secret). State the reason in the commit
 # message. Never widen the pattern to silence a true positive.
+logdir-guard: ## Fail if an unexpected service mounts the named-log folder, or if Caddy's log file mode is not host-readable
+	@bad=$$(awk '\
+		/^services:/ { in_services=1; next } \
+		in_services && /^  [a-zA-Z0-9_-]+:/ { svc=$$1; sub(":", "", svc) } \
+		in_services && /:\/var\/log\/magus/ { if (svc != "web" && svc != "poller" && svc != "caddy") print svc }\
+	' deploy/docker/compose.yaml | sort -u); \
+	if [ -n "$$bad" ]; then \
+		echo "$$bad"; \
+		echo ""; \
+		echo "ERROR: the service(s) above mount the named-log folder (/var/log/magus)."; \
+		echo "Only web, poller and caddy may. The folder is owned by ONE host user,"; \
+		echo "and every extra container that writes there is another user that must be"; \
+		echo "granted access by hand on every host. Send the service's log to Docker's"; \
+		echo "driver instead, and read it with docker compose ... logs <service>."; \
+		exit 1; \
+	fi
+	@if grep -q 'output file /var/log/magus/' deploy/docker/Caddyfile; then \
+		mode=$$(awk '/output file \/var\/log\/magus\//,/^\t\t}/' deploy/docker/Caddyfile | awk '/^[ \t]*mode[ \t]+[0-7]+/ { print $$2 }'); \
+		if [ -z "$$mode" ]; then \
+			echo "ERROR: deploy/docker/Caddyfile writes a log file but sets no mode."; \
+			echo "Caddy defaults to 0600, so the file would be unreadable by the host"; \
+			echo "user even when the folder itself is writable - which is exactly what"; \
+			echo "a named log is supposed to avoid. Add: mode 0644"; \
+			exit 1; \
+		fi; \
+		group=$$(echo "$$mode" | sed 's/.*\(.\)\(.\)$$/\1/'); \
+		case "$$group" in \
+			4|5|6|7) ;; \
+			*) echo "ERROR: Caddyfile log mode $$mode is not group-readable."; \
+			   echo "The host user reads this file through its group. Use 0644."; \
+			   exit 1 ;; \
+		esac; \
+		echo "logdir-guard: named-log folder mounted only by web/poller/caddy; Caddy log mode $$mode is host-readable"; \
+	else \
+		echo "logdir-guard: named-log folder mounted only by web/poller/caddy; Caddy writes no log file"; \
+	fi
+
 archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or deleted (archives are immutable; escape hatch: ARCHIVE_GUARD_ALLOW=1)
 	@if [ -n "$$ARCHIVE_GUARD_ALLOW" ]; then \
 		echo "archive-guard: SKIPPED via ARCHIVE_GUARD_ALLOW — state the reason in the commit message"; \
@@ -959,7 +996,7 @@ archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or de
 		echo "archive-guard: no archived file edited or deleted since $$base"; \
 	fi
 
-check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + test
+check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + logdir-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin
@@ -1007,7 +1044,7 @@ cmd-monthly-capacity: ## Build cmd/monthly-capacity into ./bin and run it. Optio
 	./bin/monthly-capacity $(if $(PERIOD),-period $(PERIOD)) $(if $(TESLA_ID),-tesla-id $(TESLA_ID))
 
 # --- Docker Compose deploy (VPS / production) --------------------------------
-# See docs/0-set-up/deployment.md §8 (first deploy) and docs/1-deploy/docker.md
+# See kkpa/docs/0-set-up/deployment.md §8 (first deploy) and kkpa/docs/1-deploy/docker.md
 # (day-to-day commands) for the full runbook. These targets are thin wrappers
 # around `docker compose` — they build/start/stop the whole stack (db, migrate,
 # web, poller, caddy) defined in deploy/docker/compose.yaml.

@@ -137,7 +137,7 @@ plus these three new ones).
 `make docker-logs` follows Docker's own log driver — the only place `db`'s
 and `migrate`'s output goes. `make vps-logs` tails the named files under
 `MAGUS_LOGS_DIR` instead (`web.log`, `poller.log`, `caddy.log`) — use it to
-read `web`'s or `poller`'s logs on the VPS. See §10 for when to use each.
+read those three on the VPS. See §10 for when to use each.
 
 ---
 
@@ -292,9 +292,17 @@ gunzip -c backups/magus-2026-09-07.sql.gz | docker compose --project-directory .
 
 `web` and `poller` write their output to named files on the VPS host,
 `~/magus-logs/web.log` and `~/magus-logs/poller.log`, instead of Docker's
-own hard-to-read path. `caddy` writes `~/magus-logs/caddy.log` and rotates
-it itself. `db` and `migrate` are unchanged — read them with
+own hard-to-read path. `caddy` writes `~/magus-logs/caddy.log` and rotates it
+itself. `db` and `migrate` are unchanged — read them with
 `docker compose ... logs db` / `logs migrate`, as in §9.
+
+**`caddy` needs two extra things, and both are easy to miss.** It runs as a
+different user from `web` and `poller`, so the folder must be group-writable
+for it (step 4 below) — without that it crash-loops and the site goes down.
+And Caddy creates its log file as mode `0600` unless told otherwise, so the
+Caddyfile sets `mode 0644`; without that you cannot read `caddy.log` with your
+own user. `make logdir-guard` checks the mode. The folder permission is host
+state, so no guard can check it — that one is on the setup steps below.
 
 ### One-time VPS setup
 
@@ -320,12 +328,21 @@ sudo chown -R <uid>:<uid> ~/magus-logs
 ```
 
 ```bash
-# 4. Install the logrotate conf that keeps 14 days of web.log/poller.log.
+# 4. caddy runs as a different user than web and poller, so give the folder
+# group 0 and group-write. Without this caddy cannot create caddy.log, it
+# crash-loops, and the site goes down — caddy is the only service serving
+# traffic.
+sudo chgrp 0 ~/magus-logs && sudo chmod 775 ~/magus-logs
+```
+
+```bash
+# 5. Install the logrotate conf that keeps 14 days of web.log/poller.log.
+# caddy.log is deliberately not in it — Caddy rotates that file itself.
 sudo cp deploy/docker/magus-logs.logrotate /etc/logrotate.d/magus-logs
 ```
 
 ```bash
-# 5. Confirm the conf parses with no error (dry run — makes no change).
+# 6. Confirm the conf parses with no error (dry run — makes no change).
 sudo logrotate -d /etc/logrotate.d/magus-logs
 ```
 
@@ -336,7 +353,7 @@ container prints two lines and exits:
 
 ```
 sh: /var/log/magus/web.log: Permission denied
-FATAL: cannot write /var/log/magus/web.log - the host log folder is not writable by this container. Fix: docs/1-deploy/docker.md, section "Named log files and log rotation".
+FATAL: cannot write /var/log/magus/web.log - the host log folder is not writable by this container. Fix: kkpa/docs/1-deploy/docker.md, section "Named log files and log rotation".
 ```
 
 Read them with `docker compose ... logs web` — **not** with `tail`, because the
@@ -348,6 +365,26 @@ file does not exist yet. The first line names the real cause:
 
 This is deliberate. An earlier version started the binary anyway and died on the
 redirect, which looked like an unrelated crash.
+
+**`caddy` fails differently, and it takes the site down.** `caddy` is the only
+service serving traffic, so when it crash-loops nothing answers. `docker ps`
+shows `Restarting (1)` and `docker compose ... logs caddy` ends in:
+
+```
+Error: loading initial config: ... open /var/log/magus/caddy.log: permission denied
+```
+
+That is step 4 above missing. `caddy` runs as a different user than `web`, so
+owning the folder to `web`'s user is not enough:
+
+```bash
+sudo chgrp 0 ~/magus-logs && sudo chmod 775 ~/magus-logs
+docker compose --project-directory . -f deploy/docker/compose.yaml up -d --force-recreate caddy
+```
+
+If instead `caddy` runs but `cat ~/magus-logs/caddy.log` says *Permission
+denied*, the file mode is wrong, not the folder. The Caddyfile must set
+`mode 0644`; Caddy defaults to `0600`. `make logdir-guard` catches that one.
 
 ### Reading the logs
 

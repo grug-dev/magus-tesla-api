@@ -157,7 +157,7 @@ result:
 
 - **Building and deploying need nothing extra** — `go build ./cmd/web` embeds the existing
   `app.css`. **No Node, no npm, no `package.json`, no Tailwind binary** at build or run time.
-  This is the whole point of the Node-less setup (see [`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) → *Styling*).
+  This is the whole point of the Node-less setup (see [`ai/htmx-conventions.md`](../../../ai/htmx-conventions.md) → *Styling*).
 - **Only when you edit templates or add DaisyUI/Tailwind classes** do you regenerate CSS:
   `make ui-toolchain` (once per machine — downloads the git-ignored native Tailwind binary for
   your OS/arch: macOS/Linux, arm64/x64), then `make css` (or `make generate`, which runs

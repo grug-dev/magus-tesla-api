@@ -149,7 +149,7 @@ services:
     # exec replaces sh as PID 1, so SIGTERM from `docker stop` still reaches
     # the Go binary directly for graceful shutdown. A plain (non-exec) redirect
     # would leave sh as PID 1 and the binary as an unreachable child.
-    entrypoint: ["sh", "-c", "if ! : >> /var/log/magus/web.log; then echo 'FATAL: cannot write /var/log/magus/web.log - the host log folder is not writable by this container. Fix: docs/1-deploy/docker.md, section \"Named log files and log rotation\".' >&2; exit 1; fi; exec /usr/local/bin/web >> /var/log/magus/web.log 2>&1"]
+    entrypoint: ["sh", "-c", "if ! : >> /var/log/magus/web.log; then echo 'FATAL: cannot write /var/log/magus/web.log - the host log folder is not writable by this container. Fix: kkpa/docs/1-deploy/docker.md, section \"Named log files and log rotation\".' >&2; exit 1; fi; exec /usr/local/bin/web >> /var/log/magus/web.log 2>&1"]
     volumes:
       - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:
@@ -196,7 +196,7 @@ services:
     expose:
       - "8081"
     # Same write test and exec-redirect shape as web, for the same reasons.
-    entrypoint: ["sh", "-c", "if ! : >> /var/log/magus/poller.log; then echo 'FATAL: cannot write /var/log/magus/poller.log - the host log folder is not writable by this container. Fix: docs/1-deploy/docker.md, section \"Named log files and log rotation\".' >&2; exit 1; fi; exec /usr/local/bin/poller >> /var/log/magus/poller.log 2>&1"]
+    entrypoint: ["sh", "-c", "if ! : >> /var/log/magus/poller.log; then echo 'FATAL: cannot write /var/log/magus/poller.log - the host log folder is not writable by this container. Fix: kkpa/docs/1-deploy/docker.md, section \"Named log files and log rotation\".' >&2; exit 1; fi; exec /usr/local/bin/poller >> /var/log/magus/poller.log 2>&1"]
     volumes:
       - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:
@@ -227,6 +227,8 @@ services:
       - ./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      # caddy runs as a different user than web/poller, so the host folder must
+      # be group-writable for it. See kkpa/docs/1-deploy/docker.md for the setup.
       - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:
       - web

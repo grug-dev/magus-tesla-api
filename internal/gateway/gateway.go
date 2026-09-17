@@ -224,7 +224,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	// HEAD, and Gin answers a HEAD on a GET-only route with 404 — which reads as
 	// "site down" even while the service is perfectly healthy. That is exactly
 	// what the Docker healthcheck hit on the first VPS deploy (see
-	// docs/vps-installation.md step 14). Healthz itself needs no change: Go's
+	// kkpa/docs/1-deploy/vps-installation.md step 14). Healthz itself needs no change: Go's
 	// HTTP server drops the body for a HEAD response, and the status code is the
 	// only thing a monitor reads.
 	r.GET("/healthz", h.Healthz)
