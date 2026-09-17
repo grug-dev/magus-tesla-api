@@ -205,6 +205,16 @@
       "at": "2026-09-17T02:44:57Z",
       "agent": "leader",
       "event": "tier 2 archived after reviewer approval (round 1, no findings). Checkpoint gate evaluated before tier 3: 5h at 82 pct, past the practical start cost of a tier."
+    },
+    {
+      "at": "2026-09-17T02:46:05Z",
+      "agent": "leader",
+      "event": "CHECKPOINT before tier 3: 5h bucket 83 pct, context 26 pct, resets at 2026-09-17T04:20:00Z (23:20 local). Tier 2 cost 23 points of the bucket, so tier 3 is projected to cross 100 mid-tier. Autopilot paused for the user to choose. No wake-up armed: the 90 pct trip did not fire, and a context clear would not refill the bucket."
+    },
+    {
+      "at": "2026-09-17T02:47:00Z",
+      "agent": "leader",
+      "event": "user chose to wait for the 5h reset (23:20 local) before tier 3. Autopilot stays ON and picks up at tier 3 on resume. No wake-up armed: it would die with this session, and the user is resuming by hand."
     }
   ]
 }

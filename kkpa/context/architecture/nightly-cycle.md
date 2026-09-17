@@ -173,6 +173,45 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
   here would re-pool the same rows once per vehicle.
   _Source: spec process-vehicle-data — Requirement: Monthly Vehicle Capacity Is Measured Only On The First Day Of The Month, For The Previous Month._
 
+- **Step 3 logs per vehicle and per half — one line before each half's queries.** The step's
+  two halves are metrics reconciliation (`Recalculator.Reconcile`) and gap reconciliation
+  (`ConsumedByDay` + `ReconcileWindow`). Each logs its own line naming the vehicle, right
+  before the work; the gap line also carries the window. So every query line in the log
+  belongs to a known vehicle and a known half. Before this, one line printed before the
+  vehicle loop, and the queries that followed it read as if they belonged to the gap half
+  when they belonged to `Reconcile`. Do not move either line back out of the loop, and do not
+  merge them: a single line cannot say which half caused the query that follows.
+  _Source: spec process-vehicle-data — Requirement: Analytics Recalculation Logs Are Attributable Per Vehicle And Per Half._
+
+- **`internal/analytics` logs its own queries, but only on the nightly path.** Three
+  decorators in `internal/analytics/query_log.go` carry the `analytics query:` topic:
+  `Recalculator` (both methods), `GapWriter.ReconcileWindow`, and `Reader.ConsumedByDay`
+  — the one `Reader` method the poller calls. The write methods log **before** delegating,
+  so the line survives a failed write; `ConsumedByDay` logs **after**, because it reports
+  the row and flagged counts it got back.
+  _Source: spec analytics — Requirement: Nightly-Path Query Logging._
+
+- **The other three `Reader` methods log nothing, and that is deliberate — do not "finish"
+  it.** `OdometerDeltaByDay`, `BatteryLevelByDay` and `LatestMetricsForVehicles` have no
+  poller caller. Every caller is a gateway dashboard or history page on a live HTTP
+  request, so logging them would add a line to nearly every page load. They are silent
+  pass-throughs inside the same decorator, not missing work.
+  _Source: spec analytics — Requirement: Dashboard-Only Reads Are Not Logged._
+
+- **Each decorator implements its port explicitly, never by embedding.** Embedding would
+  let a method added later to `Reader`, `Recalculator` or `GapWriter` be satisfied
+  silently by promotion, and that call would never be logged. The compile-time assertion
+  per decorator turns that into a build error instead. `internal/telemetry/query_log.go`
+  uses the same shape for the same reason — mirror it when adding a port.
+  _Source: spec analytics — Requirement: Nightly-Path Query Logging._
+
+- **`Reconcile`'s internal call to `Recalculate` is not logged, by design.** It is a method
+  call on the concrete type, so it never re-enters the decorator. The window it derived is
+  still readable: the `telemetry query:` line for `SnapshotsByVehicleBetween` on the very
+  next line carries the same `start`/`end`. Do not add an interface field to a type just to
+  make a self-call re-enter its own wrapper.
+  _Source: spec analytics — Requirement: Nightly-Path Query Logging._
+
 ## Rendered view (visual map)
 
 A published Artifact renders this same cycle as a diagram — tier map, per-step call traces, the
