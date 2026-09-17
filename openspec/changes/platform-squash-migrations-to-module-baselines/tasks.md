@@ -119,15 +119,28 @@ Findings, one per item. "I did not think about it" is not a finding.
 
 ## 9. Prove the baselines before any live database is touched **[owner]**
 
-- [ ] 9.1 Build a scratch database and dump it:
+- [ ] 9.1 Build a scratch database and dump it. `DUMP_A` is the `pg_dump --schema-only` of dev
+  taken on 2026-09-17; re-take it if it is gone.
+
+**The variable MUST go after the target**, as a make command-line variable:
+`make migrate-up DATABASE_URL=...`. The env-var form `DATABASE_URL=... make migrate-up`
+does **not** work here and is dangerous — the `Makefile` does `include .env` at line 22, and
+in make a file assignment beats an environment variable, so the env form silently keeps the
+real dev DSN and runs the baselines against the live dev database. Verified with `make -n`:
+the env form never mentions the scratch database, the command-line form does.
 
 ```bash
+set -a; . ./.env; set +a
+SCRATCH=$(printf '%s' "$DATABASE_URL" | sed 's#/[^/?]*?#/magus_baseline_check?#')
+
 createdb magus_baseline_check
-DATABASE_URL="postgres://localhost:5432/magus_baseline_check?sslmode=disable" make migrate-up
-pg_dump --schema-only --no-owner --no-privileges \
-  -d "postgres://localhost:5432/magus_baseline_check?sslmode=disable" -f /tmp/dump-B.sql
-diff /tmp/dump-A.sql /tmp/dump-B.sql
+make migrate-up DATABASE_URL="$SCRATCH"          # variable AFTER the target
+pg_dump --schema-only --no-owner --no-privileges -d "$SCRATCH" -f /tmp/dump-B.sql
+diff "$DUMP_A" /tmp/dump-B.sql
 ```
+
+Sourcing `.env` keeps the password out of the shell history. Note `make -n` on any migrate
+target prints the DSN in full, password included — avoid it on a shared screen.
 
 - [ ] 9.2 Confirm the diff is **exactly** these three things and nothing else:
   1. `account_id uuid,` gone from `telemetry.vehicle_snapshots`
