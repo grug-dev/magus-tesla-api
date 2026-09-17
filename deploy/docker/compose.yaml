@@ -140,6 +140,12 @@ services:
       # would silently break without this override winning inside the
       # container.
       - PORT=8080
+    # exec replaces sh as PID 1, so SIGTERM from `docker stop` still reaches
+    # the Go binary directly for graceful shutdown. A plain (non-exec) redirect
+    # would leave sh as PID 1 and the binary as an unreachable child.
+    entrypoint: ["sh", "-c", "exec /usr/local/bin/web >> /var/log/magus/web.log 2>&1"]
+    volumes:
+      - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -183,6 +189,11 @@ services:
     # to the host.
     expose:
       - "8081"
+    # Same exec-redirect shape as web, so SIGTERM still reaches the binary
+    # directly for graceful shutdown.
+    entrypoint: ["sh", "-c", "exec /usr/local/bin/poller >> /var/log/magus/poller.log 2>&1"]
+    volumes:
+      - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -211,6 +222,7 @@ services:
       - ./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
     depends_on:
       - web
     restart: unless-stopped

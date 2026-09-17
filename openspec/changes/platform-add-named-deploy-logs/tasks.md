@@ -26,13 +26,13 @@
 
 ## T1. `compose.yaml` + `Caddyfile` + `.env.example` — no dependency, parallel-ok with T2/T3
 
-- [ ] T1.1 Add `MAGUS_LOGS_DIR=/home/magus/magus-logs` to `.env.example`, with
+- [x] T1.1 Add `MAGUS_LOGS_DIR=/home/magus/magus-logs` to `.env.example`, with
       a one-line comment: the host folder bind-mounted into `web`, `poller`,
       and `caddy` for named log files (design.md D1).
       Acceptance: `.env.example` has the new line; the default value matches
       the VPS's actual home directory (`/home/magus`, per
       `docs/vps-installation.md`).
-- [ ] T1.2 In `deploy/docker/compose.yaml`, add to the `web` service:
+- [x] T1.2 In `deploy/docker/compose.yaml`, add to the `web` service:
       `entrypoint: ["sh", "-c", "exec /usr/local/bin/web >> /var/log/magus/web.log 2>&1"]`
       and a `volumes:` entry `${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus`.
       Do not remove or change `logging: *default-logging`, `read_only: true`,
@@ -40,17 +40,17 @@
       Acceptance: `docker compose --project-directory . -f
       deploy/docker/compose.yaml config` parses the file without error and
       shows the new `entrypoint` and `volumes` lines for `web`.
-- [ ] T1.3 Same as T1.2, for the `poller` service: `entrypoint` redirects to
+- [x] T1.3 Same as T1.2, for the `poller` service: `entrypoint` redirects to
       `/var/log/magus/poller.log`, same `volumes:` entry, same guard against
       removing `logging:`/`read_only:`/`tmpfs:`.
       Acceptance: same as T1.2, for `poller`.
-- [ ] T1.4 In `deploy/docker/compose.yaml`, add the same
+- [x] T1.4 In `deploy/docker/compose.yaml`, add the same
       `${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus` line to the
       `caddy` service's existing `volumes:` list (alongside the Caddyfile
       mount and the two named volumes — do not remove those).
       Acceptance: `docker compose ... config` shows all four `caddy` volume
       entries, including the new one.
-- [ ] T1.5 In `deploy/docker/Caddyfile`, add a `log { output file
+- [x] T1.5 In `deploy/docker/Caddyfile`, add a `log { output file
       /var/log/magus/caddy.log { roll_size 10mb roll_keep 3 roll_keep_for
       336h } }` block inside the `{$BASE_DOMAIN} { ... }` site block, above
       the existing `handle` blocks. Do not change either `handle` block.
@@ -60,7 +60,7 @@
 
 ## T2. `logrotate` conf — no dependency, parallel-ok with T1/T3
 
-- [ ] T2.1 Create `deploy/docker/magus-logs.logrotate`, matching exactly
+- [x] T2.1 Create `deploy/docker/magus-logs.logrotate`, matching exactly
       `/home/magus/magus-logs/web.log` and
       `/home/magus/magus-logs/poller.log` (never a glob — design.md D8),
       with the block: `daily`, `rotate 14`, `size 10M`, `compress`,
@@ -72,7 +72,7 @@
 
 ## T3. `Makefile` — new `vps-logs` target — no dependency, parallel-ok with T1/T2
 
-- [ ] T3.1 Add `vps-logs: ## Tail the named log files under MAGUS_LOGS_DIR
+- [x] T3.1 Add `vps-logs: ## Tail the named log files under MAGUS_LOGS_DIR
       (web.log, poller.log, caddy.log) — VPS only` running
       `tail -f $(MAGUS_LOGS_DIR)/*.log`, next to the existing `docker-logs`
       target. Add `vps-logs` to the `.PHONY` list alongside `docker-logs`.
