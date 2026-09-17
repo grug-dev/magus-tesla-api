@@ -24,7 +24,9 @@ store the result together with how many valid records supported it.
 
 A charge record SHALL count as valid evidence only when its own energy or battery-percentage
 figures were not themselves derived from an assumed capacity. A user-logged charge record SHALL
-count only when its energy was supplied by the person, not estimated. A Supercharger session
+count only when its energy was supplied by the person, not estimated, **and its starting battery
+percentage was supplied by the person, not derived** — a record can fail either condition on its
+own, since the two provenances are recorded and computed independently. A Supercharger session
 record SHALL count only when it is complete and its battery percentages were both supplied
 directly, not calculated from an assumed capacity.
 
@@ -68,6 +70,15 @@ capacity figures. A monthly measurement is a new, separate fact; it never rewrit
   person
 - **WHEN** the capability computes that month's effective capacity
 - **THEN** that record does not contribute to the measured capacity or the sample count
+
+#### Scenario: A record whose starting percentage was derived is not evidence
+
+- **GIVEN** a user-logged charge record whose energy was supplied by the person, but whose
+  starting battery percentage was derived from an assumed capacity rather than supplied by the
+  person
+- **WHEN** the capability computes that month's effective capacity
+- **THEN** that record does not contribute to the measured capacity or the sample count, even
+  though its energy alone would otherwise qualify it
 
 #### Scenario: A Supercharger session with a calculated starting percentage is not evidence
 

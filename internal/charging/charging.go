@@ -4,7 +4,9 @@
 // the date, energy added (kWh), cost, and optional metadata (battery before/after,
 // timing, charging type, location, odometer). Every entry carries a lifecycle
 // Status (IN_PROGRESS or DONE, MAG-18/RM33), and energy may be omitted and derived
-// on write from the pack capacity and the battery delta (design.md D3). A charge
+// on write from the pack capacity and the battery delta (design.md D3). A missing
+// starting battery percentage is filled in the same way, from the energy added and
+// the ending percentage, and its provenance is recorded on StartBatterySource. A charge
 // entry submitted as IN_PROGRESS that already carries every DONE-required fact is
 // auto-promoted to DONE on both Create and Update (RM51 design.md D1), and a zero
 // price records whether it is a confirmed real amount or an unconfirmed placeholder
@@ -70,6 +72,18 @@ const (
 	PriceSourceUnconfirmed PriceSource = "UNCONFIRMED"
 )
 
+// StartBatterySource is the provenance of Entry.StartBatteryPct: StartBatterySourceUser
+// when the person typed it, StartBatterySourceEstimated when this module derived it
+// from the energy added and the ending percentage on write. ALWAYS COMPUTED BY THIS
+// MODULE on Create/Update -- a value set here is ignored and overwritten, the same
+// shape EnergySource and PriceSource already use.
+type StartBatterySource string
+
+const (
+	StartBatterySourceUser      StartBatterySource = "USER"
+	StartBatterySourceEstimated StartBatterySource = "ESTIMATED"
+)
+
 // Field names one field of an Entry whose presence RequiredFieldsFor can evaluate.
 // Its string value is the database COLUMN NAME, which is ALSO the gateway's form
 // input name and its validation-error map key (handlers/external_charges.go) — so the
@@ -90,7 +104,10 @@ const (
 // supply the value and it is stored as NULL in the database. A submission that is
 // IN_PROGRESS but already carries every DONE-required fact is auto-promoted to
 // DONE on Create/Update (RM51 design.md D1), and the entry's price provenance
-// (PriceSource) is always module-computed (RM51 design.md D3).
+// (PriceSource) is always module-computed (RM51 design.md D3). A missing
+// StartBatteryPct is filled in from the energy added and EndBatteryPct when both
+// are present, and its provenance (StartBatterySource) is always module-computed
+// too -- a caller's own typed value is never recomputed or overwritten.
 //
 // pgtype is confined to the DB boundary inside service.go — it never appears here.
 // Timestamps map to time.Time; DATE maps to time.Time (midnight UTC).
@@ -159,6 +176,12 @@ type Entry struct {
 	// the same way InferredCapacityKWhCalc below is ignored on write
 	// (design.md D4).
 	EnergySource EnergySource
+
+	// StartBatterySource records where StartBatteryPct came from. nil exactly when
+	// StartBatteryPct is nil -- a missing percentage has no provenance to record.
+	// ALWAYS COMPUTED BY THIS MODULE on Create/Update -- a value set here is ignored
+	// and overwritten, the same rule EnergySource and PriceSource already follow.
+	StartBatterySource *StartBatterySource
 
 	// OdometerKm is the odometer reading, in kilometres, observed AT this
 	// charge event — an observation belonging to the event, not current

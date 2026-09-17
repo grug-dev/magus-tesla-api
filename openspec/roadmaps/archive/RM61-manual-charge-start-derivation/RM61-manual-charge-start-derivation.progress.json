@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM61-manual-charge-start-derivation",
+  "intention": "A manual charge can be saved without a start battery %, and the charging module derives it from the energy and the end % the same way the Supercharger path already does.",
+  "request": "Source ticket: MAG-40 — Recalculated Battery start. REQ 1 (point packCapacityKWh at the MAG-32 effective capacity) is already delivered by RM52 and changes no code; the owner confirmed keeping it as is. REQ 2 is the work: derive start_battery_pct on manual charge Create and Update, mark the derived rows so they never feed the monthly capacity job, make the field optional in the gateway, and add the field help text. Unit tests: included.",
+  "status": "complete",
+  "autopilot": true,
+  "updated_at": "2026-09-16T23:27:56Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
+    "base": "fc5efdfde6211a4478ba8bb89fc424c10d89647c",
+    "ticket": "MAG-40",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-40/recalculated-battery-start",
+    "created_at": "2026-09-16T01:56:32Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3
+    ]
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "REQ 1 changes no code; packCapacityKWh and LatestMeasuredCapacity stay exactly as they are",
+      "why": "RM52 already delivered it. Newest-non-NULL survives a thin month; previous-month-only would fall back to the hardcoded 62.0.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "New start_battery_source column ('USER'|'ESTIMATED'), module-computed; capacity query adds AND start_battery_source = 'USER'",
+      "why": "This table already has energy_source and price_source in that exact shape. Reusing status was rejected: status here is a user-picked dropdown, unlike on supercharger_sessions.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The edit form renders a derived start % as a placeholder, not a filled value, so Update re-derives it",
+      "why": "Update requires every mutable field, so a pre-filled derived value returns looking user-supplied and gets stamped USER — the exact loop RD2 prevents.",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "A start % the user typed is never recomputed or overwritten",
+      "why": "Same rule the Supercharger path already keeps. A person's own reading is never replaced by a computed guess.",
+      "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The optional-field text goes in the field help under the input, not a page-level card; one new ES/EN key",
+      "why": "The user reads it where they type. A card at the top of the page is read once and then ignored.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The internal/analytics 62-vs-75 capacity disagreement is out of scope; recorded as backlog item 31",
+      "why": "Analytics may not read charging's table, so it needs a new public port. That is its own change and it moves every efficiency number already shown.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-16T01:56:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unit tests are included in this roadmap",
+      "why": "The owner asked for them. They cover the derivation wiring, the start_battery_source values, and the capacity-query exclusion.",
+      "covered_by": null
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-16T02:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "RD6 reversed: the capacity fix IS in scope. charging exposes MeasuredCapacityKWh (measured or nil, never 62.0); analytics uses it and keeps its car_type map as fallback. Two new tiers, 3 and 4.",
+      "why": "Returning 62.0 would be worse than the model-aware map for an unmeasured car. Moving the map into charging fails: charging may not import account, so it cannot resolve car_type.",
+      "covered_by": null
+    },
+    {
+      "id": "RD9",
+      "at": "2026-09-16T02:40:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "RD8's design half superseded: no capacity port, no measured-capacity wiring. The whole dead efficiency branch is deleted instead (RecentEfficiency, Efficiency, deriveEfficiency, socReadings, carTypeFor, vehicleLookup, DefaultWindow, chargingSourceLimit, capacity.go). Tiers 3 and 4 collapse into one analytics tier.",
+      "why": "Nothing calls RecentEfficiency — the map's only consumer. history_test.go:146 panics saying so, and the dashboard tile reads KmPerPctCalc instead. Deleting removes the second capacity definition cheaper and with no risk.",
+      "covered_by": null
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-16T09:55:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Autopilot turned ON after tier 1 archived. Tier 2 (gateway) runs next, then tier 3 (analytics), without asking between tiers.",
+      "why": "The owner asked for it. Tier 1 settled the design questions the later tiers depend on, so there is less left to stop for.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM61-charging-add-manual-entry-start-derivation",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:05:46Z",
+      "completed_at": "2026-09-16T09:50:00Z",
+      "duration_seconds": 6254,
+      "budget": {
+        "five_hour_pct_delta": 33,
+        "cost_usd_delta": 13.3,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of the three wave deltas plus the T4 fix and the review round"
+      },
+      "notes": "Archived. start_battery_source column, derivation on Create and Update, capacity-query exclusion. Reviewer approved round 1 with no findings. The owner's first make check caught a stale test (T4), fixed with the owner's approval."
+    },
+    {
+      "id": 2,
+      "change": "RM61-gateway-relax-start-battery-pct-required",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T10:10:00Z",
+      "completed_at": "2026-09-16T17:28:43Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 45,
+        "cost_usd_delta": 19.4,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "two implementation waves, one owner test-failure fix, two review rounds; spans two sessions"
+      },
+      "notes": "Archived. start_battery_pct optional on both charge forms, ui.FieldProps.Help, ESTIMATED renders as placeholder so Update re-derives. Reviewer approved round 2. The owner's make check caught a guard test whose 422 trigger this change made legal."
+    },
+    {
+      "id": 3,
+      "change": "RM61-analytics-remove-dead-efficiency-branch",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T20:01:23Z",
+      "completed_at": "2026-09-16T23:27:56Z",
+      "duration_seconds": 12338,
+      "budget": {
+        "five_hour_pct_delta": 34.0,
+        "cost_usd_delta": 13.5,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts + one worker wave + leader wave B + two review rounds"
+      },
+      "notes": "Archived. Dead efficiency branch deleted; NewReader 6 args -> 1; analytics no longer imports account. Net -405 lines. Reviewer approved round 1 with one minor finding, fixed. The worker caught a wrong 'Tests removed' list in the proposal and kept six helpers that had live callers."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-16T01:56:32Z",
+      "agent": "leader",
+      "event": "roadmap RM61 created from MAG-40 via kkpa-pickup-linear-ticket; work counter 61 -> 62; branch ft/RM61-MAG-40-manual-charge-start-derivation off main (fc5efdf)"
+    },
+    {
+      "at": "2026-09-16T01:56:32Z",
+      "agent": "leader",
+      "event": "run scope: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers. autopilot disabled for this reason."
+    },
+    {
+      "at": "2026-09-16T02:15:00Z",
+      "agent": "leader",
+      "event": "RD6 superseded by RD8 at the owner's request: the analytics/charging capacity disagreement moves from backlog item 31 into this roadmap as tiers 3 and 4. Backlog item 31 removed. Tier 1 scope unchanged; its worker was already in flight."
+    },
+    {
+      "at": "2026-09-16T02:40:00Z",
+      "agent": "leader",
+      "event": "RD9 supersedes RD8's design: RecentEfficiency proven dead (no handler/template/cmd caller; history_test.go:146 panics on it), so tiers 3+4 collapse into one analytics deletion tier. No charging capacity port. NewReader drops from 6 params to 1."
+    },
+    {
+      "at": "2026-09-16T08:05:46Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts complete; design gate passed; change progress.json created. Run halts here per the pickup scope."
+    },
+    {
+      "at": "2026-09-16T09:50:00Z",
+      "agent": "leader",
+      "event": "tier 1 archived into openspec/changes/archive/charging/2026-09-16-RM61-charging-add-manual-entry-start-derivation. Specs synced: manual-charge-log +1 requirement, monthly-effective-capacity ~1. Leader removed the delta-only 'MODIFIED from its prior revision' paragraph from the LIVING spec and rejoined a scenario heading the archive step had wrapped. MAG-40 moved Todo -> In Progress (fired late; it was missed at the first dispatch)."
+    },
+    {
+      "at": "2026-09-16T09:55:00Z",
+      "agent": "leader",
+      "event": "owner turned autopilot ON and asked for a fresh session. Next: tier 2 RM61-gateway-relax-start-battery-pct-required (depends_on 1, now archived). Tier 3 is also unblocked (depends_on []). The Spanish design briefing and any design gate still pause autopilot."
+    },
+    {
+      "at": "2026-09-16T09:58:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session. budget 5h 68% / context 10%, both under threshold. tier 2 artifact worker dispatched (gateway, sonnet). internal/gateway/static/app.css is dirty from an unrelated tailwind rebuild; left untouched."
+    },
+    {
+      "at": "2026-09-16T10:10:00Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created and validated. No database change, so no design gate. Spanish briefing posted and the owner approved. Tier 2 status pending -> proposed."
+    },
+    {
+      "at": "2026-09-16T09:58:00Z",
+      "agent": "leader",
+      "event": "resume-armed — budget-only checkpoint before wave A. five_hour_pct 85 (threshold 90, projected to cross mid-wave), context_pct 14 (threshold 40). five_hour_resets_at 1789563600; wake epoch 1789563720 (+120s slack). Owner chose auto-resume over a manual stop. Nothing dispatched; all tier 2 tasks still pending."
+    },
+    {
+      "at": "2026-09-16T10:36:34Z",
+      "agent": "leader",
+      "event": "the armed wake-up was killed at 05:36 local, before it fired. The bucket has NOT reset: five_hour_pct 87, five_hour_resets_at 1789563600 (08:00 local). Not re-armed — a kill is treated as deliberate. Tier 2 still at the wave-A checkpoint, all tasks pending."
+    },
+    {
+      "at": "2026-09-16T10:40:00Z",
+      "agent": "leader",
+      "event": "resume-armed — re-armed at the owner's explicit request after the first wake-up was killed. Same target: five_hour_resets_at 1789563600, wake epoch 1789563720 (08:02 local). five_hour_pct 87, context_pct 15. Second attempt; the first survived ~40 minutes before being killed."
+    },
+    {
+      "at": "2026-09-16T11:57:33Z",
+      "agent": "leader",
+      "event": "second wake-up killed at 06:57 local, again before firing; the bucket still has not reset (five_hour_pct 97, up from 87, reset 08:00). Two misses, so the leader stops arming per the skill's own rule and hands the resume back to the owner. Tier 2 unchanged: all tasks pending at the wave-A checkpoint."
+    },
+    {
+      "at": "2026-09-16T17:28:43Z",
+      "agent": "leader",
+      "event": "tier 2 archived into openspec/changes/archive/gateway/2026-09-16-RM61-gateway-relax-start-battery-pct-required. Specs synced: gateway ~3 requirements. Autopilot continues to tier 3 (RM61-analytics-remove-dead-efficiency-branch, depends_on []). MAG-40 stays In Progress; it covers the whole roadmap, so it moves to Done only when the roadmap completes."
+    },
+    {
+      "at": "2026-09-16T17:41:58Z",
+      "agent": "leader",
+      "event": "KB sync done: use-case/charging/update-manual-charge.md gained the optional-start-% input note and five conventions; INDEX.md gained two alias rows. Proposal staged and applied in the same flow, archived as pending-spec-to-sync/applied/2026-09-16-gateway.md. Commit 21be44e."
+    },
+    {
+      "at": "2026-09-16T17:41:58Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the tier 2/3 boundary. Not a threshold trip: five_hour_pct 53 (threshold 90), context_pct 24 (threshold 40), seven_day_pct 94. Stopped on the skill's standing advice to prefer a fresh session per tier. The owner chose /clear + resume over continuing here. NO wake-up armed - this is a context-hygiene stop, not a budget trip. Tier 3 RM61-analytics-remove-dead-efficiency-branch is unblocked (depends_on []) and starts at Step 2. Resume with: /kkpa-dev-harness-pipeline resume RM61-manual-charge-start-derivation"
+    },
+    {
+      "at": "2026-09-16T20:01:23Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; bucket had reset (5h 2%, context 12%). Tier 3 artifacts created and validated. No DB object touched, so no design gate. Spanish briefing approved by the owner. Tier 3 not-started -> proposed. The owner asked whether /supercharger-stats and /external-charges share one formula: they do (derivedStartBatteryPct in charging), but that is NOT what this tier deletes -- it deletes analytics' deriveEfficiency, which has no caller."
+    },
+    {
+      "at": "2026-09-16T23:27:56Z",
+      "agent": "leader",
+      "event": "tier 3 archived. RM61 is COMPLETE: all three tiers archived. Roadmap files move to openspec/roadmaps/archive/RM61-manual-charge-start-derivation/ next. MAG-40 covers the whole roadmap, so it moves to Done now."
+    }
+  ]
+}

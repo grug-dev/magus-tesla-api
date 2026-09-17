@@ -82,11 +82,7 @@ var errTestHistory = errors.New("test history reader error")
 // buildConsumedChart/buildOdometerChart/buildBatteryChart integration path
 // (buildHistoryView) and the Deps forwarding test (design.md Test Contract
 // (o)). ConsumedByDay, OdometerDeltaByDay, and BatteryLevelByDay each record
-// their call args so tests can assert wiring. RecentEfficiency PANICS:
-// design.md's "cmd/web wiring" section states the gateway's history fragment
-// never calls it (only RecentEfficiency reads analytics.DefaultWindow, and
-// the gateway never calls that method) — an intentionally-unused-method
-// panic guard.
+// their call args so tests can assert wiring.
 type fakeAnalyticsReader struct {
 	days []analytics.DayConsumption
 	err  error
@@ -142,10 +138,6 @@ type fakeAnalyticsReader struct {
 	statusesErr error
 }
 
-func (f *fakeAnalyticsReader) RecentEfficiency(context.Context, uuid.UUID, int64) (analytics.Efficiency, bool, error) {
-	panic("fakeAnalyticsReader: RecentEfficiency is never called by the gateway's history fragment")
-}
-
 // BatteryLevelByDay records the call and returns the configured fixture or
 // error. It is the battery chart's sole read since
 // RM40-gateway-drop-telemetry-dependency retargeted it off the retired
@@ -159,10 +151,10 @@ func (f *fakeAnalyticsReader) BatteryLevelByDay(_ context.Context, teslaID int64
 }
 
 // LatestMetricsForVehicles returns the fixture statuses/error the test set
-// up. The history fragment itself never calls this method (RecentEfficiency
-// above still panics for that reason). The dashboard, vehicles, nav-header
-// and charges-suggestion tests in this package share this same fake and do
-// call it -- all four read the latest stored metrics row from here.
+// up. The history fragment itself never calls this method. The dashboard,
+// vehicles, nav-header and charges-suggestion tests in this package share
+// this same fake and do call it -- all four read the latest stored metrics
+// row from here.
 func (f *fakeAnalyticsReader) LatestMetricsForVehicles(context.Context, []vehicleref.Ref) ([]analytics.VehicleStatus, error) {
 	return f.statuses, f.statusesErr
 }

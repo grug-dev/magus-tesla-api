@@ -43,6 +43,8 @@
 | `price source` | `charging.PriceSource` (`USER` / `UNCONFIRMED`) / `manual_charge_entries.price_source` — module-computed, never caller-supplied | entity | `workflows/manual-charge-crud.md` |
 | `price provenance` | synonym of `price source` | entity | `workflows/manual-charge-crud.md` |
 | `zero price confirmation` | synonym of `price source` | entity | `workflows/manual-charge-crud.md` |
+| `start battery source` | `charging.StartBatterySource` (`USER` / `ESTIMATED`) / `manual_charge_entries.start_battery_source` — module-computed, nullable, never caller-supplied | entity | `workflows/manual-charge-crud.md` |
+| `start battery provenance` | synonym of `start battery source` | entity | `workflows/manual-charge-crud.md` |
 | `battery level by day` | `analytics.Reader.BatteryLevelByDay` / `analytics.DayBattery` (`vehicle_metrics.battery_level_pct`, `battery_range_km`) | entity | `entities/vehicle-metrics/guide.md` |
 | `per-day battery level` | synonym of `battery level by day` | entity | `entities/vehicle-metrics/guide.md` |
 | `battery history` | synonym of `battery level by day` | entity | `entities/vehicle-metrics/guide.md` |
@@ -107,6 +109,8 @@
 |---|---|---|---|
 | `edit a manual charge record` | `PUT /ui/external-charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
 | `update manual charge` | `PUT /ui/external-charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
+| `derived start battery percentage` | `PUT /ui/external-charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
+| `optional start battery percentage` | `PUT /ui/external-charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
 | `delete a manual charge record` | `DELETE /ui/external-charges/row/:id` | `charging` | `use-case/charging/delete-manual-charge.md` |
 | `edit a Supercharger session` | `PATCH /ui/supercharger-stats/row/:id` | `charging` | `use-case/charging/verify-session-battery.md` |
 | `read dashboard bento` | `GET /dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
@@ -139,7 +143,7 @@
 | `measured pack capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `monthly capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `effective capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
-| `pack capacity` | `charging`'s `packCapacityKWh` + its `62.0` fallback → `workflows/vehicle-monthly-metrics.md` (the `analytics` `car_type` table is a different thing — see that guide's last section) |
+| `pack capacity` | `charging`'s `packCapacityKWh` + its `62.0` fallback → `workflows/vehicle-monthly-metrics.md`. The `analytics` `car_type` table was DELETED by RM61 — there is only one definition now. |
 | `capacity backfill` | re-run one month — `cmd/monthly-capacity` / `make cmd-monthly-capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `cmd/monthly-capacity` | synonym of `capacity backfill` → `workflows/vehicle-monthly-metrics.md` |
 | `monthly_effective_capacity` | the table → `workflows/vehicle-monthly-metrics.md` |
@@ -271,7 +275,7 @@
 | `monthly_effective_capacity` | the measured per-vehicle pack capacity, one row per month → `architecture/charging-tables.md` |
 | `mirror_watermarks` | the per-vehicle mirror cursor (`tesla_id`); never advances to `now()` → `architecture/charging-tables.md` |
 | `inferred_capacity_kwh_calc` | the `GENERATED ALWAYS AS … STORED` capacity column on both charge tables → `architecture/charging-tables.md` |
-| `energy_source` / `price_source` | module-computed provenance columns, ignored when supplied by a caller → `architecture/charging-tables.md` |
+| `energy_source` / `price_source` / `start_battery_source` | module-computed provenance columns, ignored when supplied by a caller → `architecture/charging-tables.md` |
 | `_calc` suffix | the `<what>_<unit>_calc` naming rule for a stored derived column → `architecture/charging-tables.md` |
 | `schema-qualified query` | why every `query.sql` table reference carries its schema (sqlc codegen requirement) → `architecture/schema-per-module.md` |
 | `gen.go.rename` | the `sqlc.yaml` block that keeps generated Go type names stable across a schema move → `architecture/schema-per-module.md` |

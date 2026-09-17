@@ -28,8 +28,9 @@ import (
 //     DefaultEndedAt — one day value in buildExternalChargesPage feeds all three, so they
 //     cannot drift. charged_on is REQUIRED; started_at / ended_at stay OPTIONAL —
 //     clearing either still submits.
-//   - D2/D6: start_battery_pct is unconditionally REQUIRED (UI + handler); the
-//     start input carries a telemetry-sourced suggestion via its placeholder
+//   - start_battery_pct is OPTIONAL — the charging module derives it from
+//     the energy added and the end percentage when left empty. The start
+//     input still carries a telemetry-sourced suggestion via its placeholder
 //     (ExternalChargesPageData.StartBatteryPctSuggestion); empty placeholder when no
 //     snapshot — no fabricated value (graceful empty). end_battery_pct's
 //     required-ness is conditional as of RM33 (see below).
@@ -110,7 +111,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormCreateHint))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 64, Col: 121}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 65, Col: 121}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -136,7 +137,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(d.Notice)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 67, Col: 15}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 68, Col: 15}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -169,7 +170,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(validationErrors["_top"])
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 72, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 73, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -189,7 +190,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(d.CSRFToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 82, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 83, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
@@ -240,7 +241,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormStatusInProgress))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 86, Col: 136}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 87, Col: 136}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
@@ -263,7 +264,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormStatusDone))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 87, Col: 116}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 88, Col: 116}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -420,18 +421,17 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 				}
 				ctx = templ.InitializeContext(ctx)
 				templ_7745c5c3_Err = ui.Input(ui.InputProps{
-					Type:     "number",
-					Name:     "start_battery_pct",
-					Value:    d.FormValues.StartBatteryPct,
-					Required: true,
-					Attrs:    templ.Attributes{"min": "0", "max": "100", "step": "1", "placeholder": d.StartBatteryPctSuggestion},
+					Type:  "number",
+					Name:  "start_battery_pct",
+					Value: d.FormValues.StartBatteryPct,
+					Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1", "placeholder": d.StartBatteryPctSuggestion},
 				}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"]}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"], Optional: true, Help: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPctHelp)}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -498,7 +498,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormHome))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 123, Col: 116}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 126, Col: 116}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 					if templ_7745c5c3_Err != nil {
@@ -521,7 +521,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormWork))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 124, Col: 116}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 127, Col: 116}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 					if templ_7745c5c3_Err != nil {
@@ -544,7 +544,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormOther))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 125, Col: 119}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 128, Col: 119}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
@@ -599,7 +599,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormOptionalDetails))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 134, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 137, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
@@ -650,7 +650,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var29 string
 					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormAC))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 139, Col: 111}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 142, Col: 111}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -673,7 +673,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var30 string
 					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormDC))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 140, Col: 111}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 143, Col: 111}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 					if templ_7745c5c3_Err != nil {
@@ -744,7 +744,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 					var templ_7745c5c3_Var34 string
 					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(d.FormValues.Notes)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 148, Col: 75}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 151, Col: 75}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 					if templ_7745c5c3_Err != nil {
@@ -781,7 +781,7 @@ func ExternalChargeCreateForm(d ExternalChargesPageData, validationErrors map[st
 				var templ_7745c5c3_Var36 string
 				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesFormLogCharge))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 154, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/external_charge_create_form.templ`, Line: 157, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 				if templ_7745c5c3_Err != nil {

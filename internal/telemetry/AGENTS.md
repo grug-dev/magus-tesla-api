@@ -105,6 +105,10 @@ No HTTP/JSON surface in this module (`ai/architecture.md` §3).
 - `internal/clock` — `Zone()`/`Now()`/`CalendarDay()`, the platform's default-zone "now" and
   calendar-day primitives (`RM35-telemetry-adopt-clock`, roadmap D4). `internal/clock` imports
   stdlib `time` only, so this creates no import cycle.
+- `internal/logging` — `Note`, the platform-wide `[Type] [Method] message` log-line format
+  (`ai/go-conventions.md` § Logging). Every log line in this module (query_log.go's
+  decorators, call_counter.go, service.go, report.go's LogCycle) goes through it;
+  `make logging-guard` enforces it.
 - `github.com/jackc/pgx/v5` + `pgxpool` for this module's own store, and the module-scoped
   `internal/telemetry/db` (`telemetrydb`), `github.com/google/uuid`, stdlib.
 

@@ -64,23 +64,14 @@ func main() {
 		ChargingWriter:       charging.NewWriter(pool),
 		ChargingReader:       charging.NewReader(pool),
 		// The history fragment's battery-consumed chart reads through this port.
-		// analytics.NewReader's window argument is required by the signature but
-		// unused by ConsumedByDay — only RecentEfficiency reads it, and the
-		// gateway never calls that (mirrors cmd/poller's own construction).
-		AnalyticsReader: analytics.NewReader(
-			pool,
-			telemetry.NewReader(pool),
-			charging.NewSuperchargerSessionAnalyticsReader(pool),
-			charging.NewReader(pool),
-			acct,
-			analytics.DefaultWindow,
-		),
+		// Every method it exposes reads vehicle_metrics alone, so the pool is
+		// the only dependency it needs.
+		AnalyticsReader: analytics.NewReader(pool),
 		// The manual-charge write handlers call Recalculate through this port
 		// after their charging.Writer call succeeds, so the precomputed
-		// history charts stay current without a separate refresh
-		// (RM29-analytics-add-vehicle-metrics design D5). It takes no
-		// vehicleLookup and no window: the write path recomputes an explicit
-		// date range for one known vehicle.
+		// history charts stay current without a separate refresh. It needs
+		// the sibling ports the reader does not: it WRITES the rows, over an
+		// explicit date range for one known vehicle.
 		AnalyticsRecalculator: analytics.NewRecalculator(
 			pool,
 			telemetry.NewReader(pool),

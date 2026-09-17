@@ -16,7 +16,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"net/http"
 	"time"
@@ -29,6 +28,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 )
 
 // historyRangeWindowDays is the default window size in days applied when both
@@ -361,7 +361,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 	// (roadmap D5). No lookback: the port returns exactly [start, end].
 	batteryDays, err := h.analyticsReader.BatteryLevelByDay(ctx, teslaID, start, end)
 	if err != nil {
-		log.Printf("gateway: history reader error for account %s vehicle %d: %v", uid, teslaID, err)
+		logging.Note("Handler", "buildHistoryView", "history reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Battery = fragments.HistoryChart{Empty: true}
 	} else {
 		v.Battery = buildBatteryChart(ctx, batteryDays, start, end)
@@ -372,7 +372,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 	// ONLY v.Odometer, never the already-populated v.Battery above.
 	distances, err := h.analyticsReader.OdometerDeltaByDay(ctx, teslaID, start, end)
 	if err != nil {
-		log.Printf("gateway: odometer-chart reader error for account %s vehicle %d: %v", uid, teslaID, err)
+		logging.Note("Handler", "buildHistoryView", "odometer-chart reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Odometer = fragments.HistoryChart{Empty: true}
 	} else {
 		v.Odometer = buildOdometerChart(ctx, distances, start, end)
@@ -383,7 +383,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 	// v.Odometer/v.Battery above (design.md D-G10).
 	days, err := h.analyticsReader.ConsumedByDay(ctx, teslaID, start, end)
 	if err != nil {
-		log.Printf("gateway: consumed-chart reader error for account %s vehicle %d: %v", uid, teslaID, err)
+		logging.Note("Handler", "buildHistoryView", "consumed-chart reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Consumed = fragments.HistoryChart{Empty: true}
 	} else {
 		v.Consumed = buildConsumedChart(ctx, days, start, end)

@@ -22,6 +22,10 @@
 -- service.go's resolvePriceSource computes USER/UNCONFIRMED before binding this
 -- param; the query itself has no way to tell the two apart.
 --
+-- start_battery_source is ALSO COMPUTED IN GO, never accepted from the caller --
+-- the identical precedent energy_source above already sets. service.go's
+-- resolveStartBatteryPct computes USER/ESTIMATED/NULL before binding this param.
+--
 -- created_by_account_id records who typed the entry and is never read back as a
 -- filter.
 INSERT INTO charging.manual_charge_entries (
@@ -43,7 +47,8 @@ INSERT INTO charging.manual_charge_entries (
     status,
     energy_source,
     odometer_km,
-    price_source
+    price_source,
+    start_battery_source
 ) VALUES (
     @created_by_account_id,
     @tesla_id,
@@ -63,7 +68,8 @@ INSERT INTO charging.manual_charge_entries (
     @status,
     @energy_source,
     @odometer_km,
-    @price_source
+    @price_source,
+    @start_battery_source
 )
 RETURNING *;
 
@@ -86,25 +92,31 @@ RETURNING *;
 -- from the caller -- the identical precedent energy_source above already sets.
 -- Recomputed on every Update, never sticky: service.go's resolvePriceSource runs
 -- again against the entry's current price and confirmation intent.
+--
+-- start_battery_source is ALSO COMPUTED IN GO, never accepted from the caller --
+-- the identical precedent energy_source above already sets. Recomputed on every
+-- Update, never sticky: service.go's resolveStartBatteryPct runs again against
+-- the entry's current percentages and (possibly just-resolved) energy.
 UPDATE charging.manual_charge_entries
 SET
-    charged_on        = @charged_on,
-    energy_added_kwh  = @energy_added_kwh,
-    price             = @price,
-    currency          = @currency,
-    started_at        = @started_at,
-    ended_at          = @ended_at,
-    start_battery_pct = @start_battery_pct,
-    end_battery_pct   = @end_battery_pct,
-    charging_type     = @charging_type,
-    location_kind     = @location_kind,
-    location_label    = @location_label,
-    notes             = @notes,
-    status            = @status,
-    energy_source     = @energy_source,
-    odometer_km       = @odometer_km,
-    price_source      = @price_source,
-    updated_at        = now()
+    charged_on            = @charged_on,
+    energy_added_kwh      = @energy_added_kwh,
+    price                 = @price,
+    currency              = @currency,
+    started_at            = @started_at,
+    ended_at              = @ended_at,
+    start_battery_pct     = @start_battery_pct,
+    end_battery_pct       = @end_battery_pct,
+    charging_type         = @charging_type,
+    location_kind         = @location_kind,
+    location_label        = @location_label,
+    notes                 = @notes,
+    status                = @status,
+    energy_source         = @energy_source,
+    odometer_km           = @odometer_km,
+    price_source          = @price_source,
+    start_battery_source  = @start_battery_source,
+    updated_at            = now()
 WHERE id = @id
   AND tesla_id = @tesla_id
 RETURNING *;
@@ -434,12 +446,18 @@ ON CONFLICT (tesla_id) DO UPDATE SET
 -- a NULL capacity or a NULL percentage -- the caller (monthly_capacity.go) does
 -- not need to re-check that. tesla_id is BIGINT NOT NULL on this table (roadmap
 -- F5) -- no NULL-skip needed here, unlike the session query below.
+--
+-- start_battery_source = 'USER' excludes a row whose starting percentage was
+-- itself derived from a capacity: its inferred_capacity_kwh_calc comes back
+-- equal to the capacity the derivation divided by, so counting it as evidence
+-- would feed that same capacity's own measurement back into itself.
 SELECT tesla_id,
        inferred_capacity_kwh_calc,
        start_battery_pct,
        end_battery_pct
   FROM charging.manual_charge_entries
  WHERE energy_source = 'USER'
+   AND start_battery_source = 'USER'
    AND inferred_capacity_kwh_calc IS NOT NULL
    AND charged_on >= @period_start
    AND charged_on <  @period_end;

@@ -1,0 +1,544 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM61-charging-add-manual-entry-start-derivation",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
+  "request": "MAG-40 \u2014 Tier 1 of RM61: Writer.Create and Writer.Update derive a missing start_battery_pct from the energy and the end %, and a new start_battery_source column keeps a derived row out of the monthly capacity job. Unit tests: included.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "4.3"
+    ],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "5.1",
+      "L1",
+      "L2",
+      "O1",
+      "O2"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-16T08:05:46Z",
+  "updated_at": "2026-09-16T09:45:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
+    "base": "fc5efdfde6211a4478ba8bb89fc424c10d89647c",
+    "ticket": "MAG-40",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-40/recalculated-battery-start",
+    "created_at": "2026-09-16T01:56:32Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Migration 20260915000001_add_start_battery_source.sql \u2014 nullable TEXT + CHECK, backfill to USER, no default, no cross-column CHECK, no index",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:28:00Z",
+      "completed_at": "2026-09-16T08:29:46Z",
+      "duration_seconds": 106,
+      "budget": {
+        "five_hour_pct_start": 15,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.905,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran tasks 1.1, 1.2, 1.3; wave delta copied onto each"
+      },
+      "notes": "Migration 20260915000001 created verbatim from design.md. Nullable TEXT + CHECK, no DEFAULT, no cross-column CHECK, no index. Separate backfill UPDATE to USER. Down is a single DROP COLUMN IF EXISTS.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "1.2",
+      "title": "query.sql \u2014 bind start_battery_source on CreateEntry/UpdateEntry; add AND start_battery_source = 'USER' to ListValidManualEntryCapacitiesForPeriod",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:28:00Z",
+      "completed_at": "2026-09-16T08:29:46Z",
+      "duration_seconds": 106,
+      "budget": {
+        "five_hour_pct_start": 15,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.905,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran tasks 1.1, 1.2, 1.3; wave delta copied onto each"
+      },
+      "notes": "Bound start_battery_source on CreateEntry and UpdateEntry with plain-reason comments mirroring energy_source. Added AND start_battery_source = 'USER' to ListValidManualEntryCapacitiesForPeriod. No other query touched.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "1.3",
+      "title": "make sqlc \u2014 verify the diff matches design.md's expected shape (one nullable field; ListValidManualEntryCapacitiesForPeriodRow unchanged)",
+      "module": "charging",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:28:00Z",
+      "completed_at": "2026-09-16T08:29:46Z",
+      "duration_seconds": 106,
+      "budget": {
+        "five_hour_pct_start": 15,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.905,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran tasks 1.1, 1.2, 1.3; wave delta copied onto each"
+      },
+      "notes": "make sqlc diff matches design.md exactly: one nullable field on ManualChargeEntry and both Params structs, ListValidManualEntryCapacitiesForPeriodRow unchanged, sqlc.yaml untouched.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go \u2014 StartBatterySource type + two constants + Entry field; no interface changes",
+      "module": "charging",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:58:00Z",
+      "completed_at": "2026-09-16T09:01:44Z",
+      "duration_seconds": 224,
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 29,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.879,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran tasks 2.1 and 2.2; wave delta copied onto each"
+      },
+      "notes": "Added the StartBatterySource type, its two constants, and the Entry.StartBatterySource field with the ALWAYS-COMPUTED contract. Package and Entry doc comments updated. No interface method added, removed or re-signed.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "2.2",
+      "title": "service.go \u2014 resolveStartBatteryPct (typed on packCapacityLookup), wired after resolveEnergy in Create and Update, plus the two mapping helpers",
+      "module": "charging",
+      "depends_on": [
+        "1.3",
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T08:58:00Z",
+      "completed_at": "2026-09-16T09:01:44Z",
+      "duration_seconds": 224,
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 29,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.879,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran tasks 2.1 and 2.2; wave delta copied onto each"
+      },
+      "notes": "Added resolveStartBatteryPct typed on packCapacityLookup, called in Create and Update right after resolveEnergy. Bound the new param on both Params structs; rowToEntry maps the column back. pgtype stays in service.go.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "3.1",
+      "title": "start_battery_source_test.go \u2014 offline unit tests A1-A9 against design.md's Test Contract",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "Offline table test for resolveStartBatteryPct, reusing fakePackCapacityLookup at 62.0 kWh. Covers all nine contract rows: every presence combination, the out-of-range case, and the never-recompute guarantee.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "3.2",
+      "title": "db_start_battery_source_integration_test.go \u2014 B1-B3, C1-C7, D1 (the capacity-query exclusion proof)",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "TEST_DATABASE_URL-gated. Covers the schema group, the write path through Writer/Reader, and the capacity-query exclusion, which calls MonthlyCapacityCalculator.Calculate and asserts CandidateCount == 1.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "4.1",
+      "title": "internal/charging/AGENTS.md \u2014 public interface, data ownership, testing notes",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "Added a Starting-percentage provenance subsection, a Data Ownership paragraph on the column (nullable, no default, not indexed, unenforced pairing), and two Testing Notes bullets.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "4.2",
+      "title": "kkpa/context/ \u2014 charging-tables.md, manual-charge-crud.md, INDEX.md (outside the module sandbox)",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "Added the column to charging-tables.md, the derivation rule and the new capacity filter to manual-charge-crud.md, and two glossary rows plus the provenance-column row to INDEX.md.",
+      "owner": "leader"
+    },
+    {
+      "id": "4.3",
+      "title": "Sync the two delta specs into openspec/specs/ at the pipeline's sync step",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null,
+      "owner": "leader"
+    },
+    {
+      "id": "5.1",
+      "title": "gofmt -l ./internal/charging, go build ./..., go vet ./... \u2014 must be clean repo-wide",
+      "module": "charging",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "gofmt -l, go build ./... and go vet ./... all clean repo-wide. Worker fixed one vet error it introduced (address of a const). Leader re-ran all three after its own comment edits.",
+      "owner": "charging worker"
+    },
+    {
+      "id": "O1",
+      "title": "Owner runs make migrate-up and make check",
+      "module": "charging",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "owner",
+      "model": null,
+      "started_at": "2026-09-16T09:45:00Z",
+      "completed_at": "2026-09-16T09:45:00Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": "Owner ran make migrate-up and make check. First run failed on T4; after the T4 fix the owner re-ran make check and reported it passing.",
+      "owner": "owner"
+    },
+    {
+      "id": "O2",
+      "title": "Owner confirms the real backfill with the GROUP BY query",
+      "module": "charging",
+      "depends_on": [
+        "O1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "owner",
+      "model": null,
+      "started_at": "2026-09-16T09:40:00Z",
+      "completed_at": "2026-09-16T09:40:00Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": "Owner ran the GROUP BY on the real database: 3 rows with a NULL source, 12 USER, no ESTIMATED. Matches the backfill rule exactly.",
+      "owner": "owner"
+    },
+    {
+      "id": "L1",
+      "title": "Confirm build/vet green outside internal/charging",
+      "module": "charging",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "go build ./... and go vet ./... are green repo-wide, so no cross-module compile fix was needed, as proposal.md predicted.",
+      "owner": "leader"
+    },
+    {
+      "id": "L2",
+      "title": "Confirm the root README.md needs no edit",
+      "module": "charging",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T09:02:00Z",
+      "completed_at": "2026-09-16T09:11:30Z",
+      "duration_seconds": 570,
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 45,
+        "five_hour_pct_delta": 16,
+        "cost_usd_delta": 6.298,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 3.1, 3.2, 4.1, 5.1; the leader ran 4.2, L1, L2 concurrently"
+      },
+      "notes": "The README DID need an edit, against the task's own expectation. Line 319 lists the provenance columns by name; start_battery_source added. No module or runnable changed, so the tree and tables stand.",
+      "owner": "leader"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-GATE",
+      "at": "2026-09-16T08:05:46Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate PASSED: start_battery_source TEXT nullable, no DEFAULT, CHECK IN ('USER','ESTIMATED'), backfill to USER where start_battery_pct IS NOT NULL, no cross-column CHECK, no index.",
+      "why": "Owner confirmed the DDL, the rationale and the index plan on 2026-09-16 after the Spanish briefing.",
+      "covered_by": null
+    },
+    {
+      "id": "D-SPEC",
+      "at": "2026-09-16T08:05:46Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Delta specs target manual-charge-log and monthly-effective-capacity, not the specs/charging capability the dispatch named.",
+      "why": "RM51 and RM58 both targeted manual-charge-log for this table. The worker flagged the deviation; the leader verified the precedent.",
+      "covered_by": null
+    },
+    {
+      "id": "D-COMMENTS",
+      "at": "2026-09-16T09:11:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Stripped every design.md / Test-Contract citation from the two new test files, against this module's existing convention.",
+      "why": "The pipeline's writing rule forbids citing archived docs. Sibling test files cite design.md 41 times; leaving them is out of scope, so the new files now differ from them.",
+      "covered_by": null
+    },
+    {
+      "id": "D-T4",
+      "at": "2026-09-16T09:30:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "T4 in db_inferred_capacity_entries_integration_test.go now asserts the derived behaviour (start filled, source ESTIMATED, column non-nil) instead of the exact 64.000 or a raw-SQL reseed.",
+      "why": "Asserting 64.000 would tie that file to defaultPackCapacityKWh = 62.0. T6 still covers NULL start giving a NULL column, so no coverage is lost.",
+      "covered_by": null
+    }
+  ],
+  "review": {
+    "brief": "Review tier 1 of RM61 on branch ft/RM61-MAG-40-manual-charge-start-derivation, commits 02e4caa, f52425f, 7642fc4, 0532b97. Read the DIFF, not the whole module. Validate: (1) every write stays inside internal/charging (no other module touched except the root README line and kkpa/context/, both leader-owned); (2) the migration matches the owner-confirmed design EXACTLY \u2014 nullable TEXT, CHECK IN ('USER','ESTIMATED'), no NOT NULL, no DEFAULT, no cross-column CHECK, no index, separate backfill UPDATE to USER. Any deviation is a blocker finding; (3) resolveStartBatteryPct matches design.md D1 and is typed on packCapacityLookup, not store (D4), and runs after resolveEnergy in BOTH Create and Update; (4) a caller-supplied Entry.StartBatterySource is never read (D4), and a caller-typed StartBatteryPct is never recomputed (roadmap RD4); (5) the capacity query's new AND start_battery_source = 'USER' filter (D3) \u2014 and that the integration test proves the exclusion through MonthlyCapacityCalculator.Calculate, not through the resolver's return value; (6) the tests assert design.md \u00a7Test Contract's authored expectations, NOT whatever the implementation happens to return. Every contract row A1-A9, B1-B3, C1-C7, D1 must be covered; (7) T4 in db_inferred_capacity_entries_integration_test.go: the owner approved changing it (decision D-T4). Check the change is honest and loses no coverage \u2014 confirm T6 still covers NULL start giving a NULL generated column; (8) proposal.md's CORRECTED DURING IMPLEMENTATION note is accurate; (9) no code comment cites design.md, a decision id, RM61, MAG-40, or a tier number \u2014 the leader stripped these from the two new test files (decision D-COMMENTS); sibling test files still carry them and are OUT of scope; (10) docs track the change: internal/charging/AGENTS.md, the three kkpa/context/ files, and the root README provenance-column line; (11) anti-gaming: no task title or acceptance criterion was weakened or deleted; (12) openspec/changes/archive/ is untouched. Signals: go build ./..., go vet ./... and gofmt -l were run by the ASSISTANT and are clean. make migrate-up and make check were run by the OWNER, who reported them passing. Judge test quality by READING the tests \u2014 do not run the suite yourself.",
+    "agent": "charging-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-16T10:15:00Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-16T08:05:46Z",
+      "agent": "leader",
+      "event": "artifacts written by the charging worker (Sonnet); openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-16T08:05:46Z",
+      "agent": "leader",
+      "event": "Spanish design briefing posted (Step 3a); database design gate confirmed by the owner"
+    },
+    {
+      "at": "2026-09-16T08:05:46Z",
+      "agent": "leader",
+      "event": "run HALTS here per the pickup scope: no implementation worker dispatched, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-16T08:24:49Z",
+      "agent": "leader",
+      "event": "checkpoint (context) \u2014 context_pct 36 vs Context-Checkpoint-At 40, five_hour_pct 11, resets_at 1789563600. Stopped BEFORE dispatching Wave 1: one wave would cross the threshold and force the clear anyway, and this change has five waves. No wake-up armed \u2014 a context trip must not resume in the same session. Resume with: /kkpa-dev-harness-pipeline resume RM61-charging-add-manual-entry-start-derivation"
+    },
+    {
+      "at": "2026-09-16T08:28:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session (context 11%, 5h 15%). dispatched charging worker (Sonnet) for wave 1 (tasks 1.1, 1.2, 1.3) \u2014 migration, query.sql, sqlc generate"
+    },
+    {
+      "at": "2026-09-16T08:29:46Z",
+      "agent": "leader",
+      "event": "wave 1 complete (1.1, 1.2, 1.3). Leader verified the migration DDL and the query.sql diff against the confirmed design gate; sqlc diff matches design.md. Worker flagged that go build ./... stayed green \u2014 named-field struct literals default the new param to NULL, so the task text's 'build will fail' expectation was wrong, not the work."
+    },
+    {
+      "at": "2026-09-16T08:58:00Z",
+      "agent": "leader",
+      "event": "user chose to continue in-session at the wave boundary (context 14%, 5h 22%). dispatched charging worker (Sonnet) for wave 2 (tasks 2.1, 2.2) \u2014 StartBatterySource type and service.go wiring"
+    },
+    {
+      "at": "2026-09-16T09:01:44Z",
+      "agent": "leader",
+      "event": "wave 2 complete (2.1, 2.2). Leader re-ran go build ./..., go vet ./... and gofmt -l internal/charging: all clean. resolveStartBatteryPct signature and both call sites verified against design.md D1/D4."
+    },
+    {
+      "at": "2026-09-16T09:02:00Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (Sonnet) for wave 3+4+5 (tasks 3.1, 3.2, 4.1, 5.1) \u2014 the two test files, AGENTS.md, and the cheap signals. Leader takes 4.2 (kkpa/context/) concurrently: disjoint files, outside the module sandbox."
+    },
+    {
+      "at": "2026-09-16T09:11:30Z",
+      "agent": "leader",
+      "event": "wave 3+4+5 complete (3.1, 3.2, 4.1, 5.1 by the worker; 4.2, L1, L2 by the leader). Leader rewrote the new test files' doc comments to drop design.md citations, then re-ran gofmt/build/vet: clean. L2 found the README DID need an edit."
+    },
+    {
+      "at": "2026-09-16T09:30:00Z",
+      "agent": "leader",
+      "event": "owner ran make check: TestCreate_InferredCapacity_TableCases/T4 FAILED (got 64, want nil). Root cause: the derivation fills a missing start, so the generated inferred_capacity_kwh_calc is no longer NULL for that shape. proposal.md wrongly listed that column as UNCHANGED \u2014 a design gap, not a worker error. T4 updated per D-T4; proposal.md corrected with a visible note. Awaiting the owner's re-run."
+    },
+    {
+      "at": "2026-09-16T09:40:00Z",
+      "agent": "leader",
+      "event": "O2 verified BY THE OWNER on the real database: start_battery_source is NULL on 3 rows and USER on 12, with no ESTIMATED row. The backfill's own WHERE clause makes the NULL-pairing structural."
+    },
+    {
+      "at": "2026-09-16T09:45:00Z",
+      "agent": "leader",
+      "event": "THE OWNER ran make migrate-up and make check and reported the suite PASSING. All implementation tasks promoted to done on the owner's report, not the assistant's. Change status -> verified. Dispatching charging-reviewer (Sonnet)."
+    }
+  ]
+}

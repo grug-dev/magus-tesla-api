@@ -85,5 +85,7 @@ func startCallbackServer(codeCh chan<- string) *http.Server {
 func shutdown(srv *http.Server) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	srv.Shutdown(ctx)
+	if err := srv.Shutdown(ctx); err != nil {
+		fmt.Printf("[setup] callback server did not shut down cleanly: %v\n", err)
+	}
 }

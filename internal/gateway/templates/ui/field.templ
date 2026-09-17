@@ -19,11 +19,18 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 // attribute is toggled client-side by RD13 as the status select changes) must
 // NOT set it — the server-rendered hint would go stale the moment the user
 // switches status, which is worse than no hint at all.
+//
+// Help renders a muted line under the control (DaisyUI's fieldset-label
+// class) explaining a rule about the field's VALUE — e.g. that an empty
+// field will be computed instead of left blank. Distinct from Optional,
+// which marks the field as not required, on the LABEL. A field may carry
+// either, both, or neither. Empty renders nothing (mirrors Error).
 type FieldProps struct {
 	Label    string
 	Error    string
 	Class    string
 	Optional bool
+	Help     string
 }
 
 // Field wraps a single form control with its legend label and optional error.
@@ -40,6 +47,9 @@ templ Field(p FieldProps) {
 			</legend>
 		}
 		{ children... }
+		if p.Help != "" {
+			<p class="fieldset-label">{ p.Help }</p>
+		}
 		if p.Error != "" {
 			<p class="text-error text-sm">{ p.Error }</p>
 		}

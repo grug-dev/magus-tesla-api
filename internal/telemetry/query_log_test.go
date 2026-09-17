@@ -147,7 +147,7 @@ func TestLoggingStore_InsertSnapshot_LogsExpectedLine(t *testing.T) {
 	}
 
 	want := fmt.Sprintf(
-		"telemetry query: insertSnapshot tesla_id=%d captured_at=%s raw_data_bytes=%d\n",
+		"[loggingStore] [insertSnapshot] telemetry query: tesla_id=%d captured_at=%s raw_data_bytes=%d\n",
 		qlTeslaID, capturedAt.Format(time.RFC3339), len(rawData))
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -171,7 +171,7 @@ func TestLoggingStore_InsertPollAttempt_LogsExpectedLine(t *testing.T) {
 	}
 
 	want := fmt.Sprintf(
-		"telemetry query: insertPollAttempt polled_by_account=%s tesla_id=%d attempted_at=%s outcome=%s reason=%s\n",
+		"[loggingStore] [insertPollAttempt] telemetry query: polled_by_account=%s tesla_id=%d attempted_at=%s outcome=%s reason=%s\n",
 		qlAccountID, qlTeslaID, attemptedAt.Format(time.RFC3339), OutcomeSuccess, ReasonOK)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -197,7 +197,7 @@ func TestLoggingStore_UpsertSuperchargerHistory_LogsExpectedLine(t *testing.T) {
 	}
 
 	want := fmt.Sprintf(
-		"telemetry query: upsertSuperchargerHistory tesla_id=%d session_id=%d charge_start=%s charge_stop=%s raw_data_bytes=%d\n",
+		"[loggingStore] [upsertSuperchargerHistory] telemetry query: tesla_id=%d session_id=%d charge_start=%s charge_stop=%s raw_data_bytes=%d\n",
 		qlTeslaID, int64(987654), start.Format(time.RFC3339), stop.Format(time.RFC3339), len(rawData))
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -264,7 +264,7 @@ func TestLoggingReader_LatestSnapshotsByVehicles_LogsExpectedLine(t *testing.T) 
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: LatestSnapshotsByVehicles tesla_ids=%v rows=%d\n", teslaIDs, 2)
+	want := fmt.Sprintf("[Reader] [LatestSnapshotsByVehicles] telemetry query: tesla_ids=%v rows=%d\n", teslaIDs, 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}
@@ -279,7 +279,7 @@ func TestLoggingReader_SnapshotsByVehicleSince_LogsExpectedLine(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleSince tesla_id=%d since=%s rows=%d\n",
+	want := fmt.Sprintf("[Reader] [SnapshotsByVehicleSince] telemetry query: tesla_id=%d since=%s rows=%d\n",
 		qlTeslaID, since.Format(time.RFC3339), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -296,7 +296,7 @@ func TestLoggingReader_SnapshotsByVehicleBetween_LogsExpectedLine(t *testing.T) 
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleBetween tesla_id=%d start=%s end=%s rows=%d\n",
+	want := fmt.Sprintf("[Reader] [SnapshotsByVehicleBetween] telemetry query: tesla_id=%d start=%s end=%s rows=%d\n",
 		qlTeslaID, start.Format("2006-01-02"), end.Format("2006-01-02"), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -312,7 +312,7 @@ func TestLoggingReader_SnapshotsByVehicleUpdatedSince_LogsExpectedLine(t *testin
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SnapshotsByVehicleUpdatedSince tesla_id=%d since=%s rows=%d\n",
+	want := fmt.Sprintf("[Reader] [SnapshotsByVehicleUpdatedSince] telemetry query: tesla_id=%d since=%s rows=%d\n",
 		qlTeslaID, since.Format(time.RFC3339), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -330,7 +330,7 @@ func TestLoggingReader_SnapshotPrecedingDay_LogsExpectedLine(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		want := fmt.Sprintf("telemetry query: SnapshotPrecedingDay tesla_id=%d day=%s found=%t\n",
+		want := fmt.Sprintf("[Reader] [SnapshotPrecedingDay] telemetry query: tesla_id=%d day=%s found=%t\n",
 			qlTeslaID, day.Format("2006-01-02"), true)
 		if got := buf.String(); got != want {
 			t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -345,7 +345,7 @@ func TestLoggingReader_SnapshotPrecedingDay_LogsExpectedLine(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		want := fmt.Sprintf("telemetry query: SnapshotPrecedingDay tesla_id=%d day=%s found=%t\n",
+		want := fmt.Sprintf("[Reader] [SnapshotPrecedingDay] telemetry query: tesla_id=%d day=%s found=%t\n",
 			qlTeslaID, day.Format("2006-01-02"), false)
 		if got := buf.String(); got != want {
 			t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -366,7 +366,7 @@ func TestLoggingSuperchargerHistoryReader_ByVehicleUpdatedSince_LogsExpectedLine
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: SuperchargerHistoryByVehicleUpdatedSince tesla_id=%d since=%s rows=%d\n",
+	want := fmt.Sprintf("[SuperchargerHistoryReader] [SuperchargerHistoryByVehicleUpdatedSince] telemetry query: tesla_id=%d since=%s rows=%d\n",
 		qlTeslaID, since.Format(time.RFC3339), 2)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
@@ -389,7 +389,7 @@ func TestLoggingRunWriter_RecordRun_LogsExpectedLine(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	want := fmt.Sprintf("telemetry query: RecordRun run_id=%s triggered_by=%s\n", runID, TriggeredByScheduler)
+	want := fmt.Sprintf("[RunWriter] [RecordRun] telemetry query: run_id=%s triggered_by=%s\n", runID, TriggeredByScheduler)
 	if got := buf.String(); got != want {
 		t.Fatalf("log line mismatch:\n got:  %q\n want: %q", got, want)
 	}

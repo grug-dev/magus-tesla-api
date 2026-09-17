@@ -148,6 +148,10 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 	if err != nil {
 		return Entry{}, err
 	}
+	startPct, startSource, err := resolveStartBatteryPct(ctx, w.store, e, energy)
+	if err != nil {
+		return Entry{}, err
+	}
 
 	// Build NUMERIC params. energy_added_kwh is now optional (design.md D2):
 	// numericPtrFromFloat64 maps a nil *float64 to SQL NULL.
@@ -172,7 +176,7 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		// Nullable fields — nil → invalid pgtype (SQL NULL); non-nil → valid.
 		StartedAt:       timestamptzPtrToPg(e.StartedAt),
 		EndedAt:         timestamptzPtrToPg(e.EndedAt),
-		StartBatteryPct: intPtrToPgInt2(e.StartBatteryPct),
+		StartBatteryPct: intPtrToPgInt2(startPct),
 		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
 		ChargingType:    stringPtrToPgText(e.ChargingType),
 		// location_kind is now enforced via RequiredFieldsFor/missingFields above
@@ -180,15 +184,16 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		LocationKind:  stringPtrToRequired(e.LocationKind),
 		LocationLabel: stringPtrToPgText(e.LocationLabel),
 		Notes:         stringPtrToPgText(e.Notes),
-		// status, energy_source, and price_source are all module-computed —
-		// status by normalizeStatus/promoteIfComplete above, energy_source by
-		// resolveEnergy (design.md D4), price_source by resolvePriceSource
-		// (RM51 design.md D3). The caller's own e.EnergySource/e.PriceSource
-		// is never read.
-		Status:       string(e.Status),
-		EnergySource: string(source),
-		OdometerKm:   intPtrToPgInt4(e.OdometerKm),
-		PriceSource:  string(priceSource),
+		// status, energy_source, price_source, and start_battery_source are all
+		// module-computed — status by normalizeStatus/promoteIfComplete above,
+		// energy_source by resolveEnergy, price_source by resolvePriceSource,
+		// start_battery_source by resolveStartBatteryPct. The caller's own
+		// e.EnergySource/e.PriceSource/e.StartBatterySource is never read.
+		Status:             string(e.Status),
+		EnergySource:       string(source),
+		OdometerKm:         intPtrToPgInt4(e.OdometerKm),
+		PriceSource:        string(priceSource),
+		StartBatterySource: stringPtrToPgText(startBatterySourcePtrToStringPtr(startSource)),
 	}
 
 	row, err := w.store.createEntry(ctx, params)
@@ -226,6 +231,10 @@ func (w *writerService) Update(ctx context.Context, ref vehicleref.Ref, e Entry)
 	if err != nil {
 		return Entry{}, err
 	}
+	startPct, startSource, err := resolveStartBatteryPct(ctx, w.store, e, energy)
+	if err != nil {
+		return Entry{}, err
+	}
 
 	energyParam, err := numericPtrFromFloat64(energy)
 	if err != nil {
@@ -246,7 +255,7 @@ func (w *writerService) Update(ctx context.Context, ref vehicleref.Ref, e Entry)
 		Currency:        e.Currency,
 		StartedAt:       timestamptzPtrToPg(e.StartedAt),
 		EndedAt:         timestamptzPtrToPg(e.EndedAt),
-		StartBatteryPct: intPtrToPgInt2(e.StartBatteryPct),
+		StartBatteryPct: intPtrToPgInt2(startPct),
 		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
 		ChargingType:    stringPtrToPgText(e.ChargingType),
 		// location_kind is now enforced via RequiredFieldsFor/missingFields above
@@ -254,13 +263,14 @@ func (w *writerService) Update(ctx context.Context, ref vehicleref.Ref, e Entry)
 		LocationKind:  stringPtrToRequired(e.LocationKind),
 		LocationLabel: stringPtrToPgText(e.LocationLabel),
 		Notes:         stringPtrToPgText(e.Notes),
-		// status, energy_source, and price_source are all module-computed
-		// (design.md D4; RM51 design.md D3) — the caller's own
-		// e.EnergySource/e.PriceSource is never read.
-		Status:       string(e.Status),
-		EnergySource: string(source),
-		OdometerKm:   intPtrToPgInt4(e.OdometerKm),
-		PriceSource:  string(priceSource),
+		// status, energy_source, price_source, and start_battery_source are all
+		// module-computed — the caller's own
+		// e.EnergySource/e.PriceSource/e.StartBatterySource is never read.
+		Status:             string(e.Status),
+		EnergySource:       string(source),
+		OdometerKm:         intPtrToPgInt4(e.OdometerKm),
+		PriceSource:        string(priceSource),
+		StartBatterySource: stringPtrToPgText(startBatterySourcePtrToStringPtr(startSource)),
 	}
 
 	row, err := w.store.updateEntry(ctx, params)
@@ -308,6 +318,36 @@ func resolveEnergy(ctx context.Context, s store, e Entry) (*float64, EnergySourc
 		return nil, EnergySourceUser, nil
 	}
 	return e.EnergyAddedKWh, EnergySourceUser, nil
+}
+
+// resolveStartBatteryPct applies the derivation rule for Create/Update: when the
+// caller supplied no starting percentage, supplied an ending percentage, and the
+// entry's own energy (possibly just resolved by resolveEnergy) is known, it derives
+// a starting percentage from the pack capacity, the energy, and the ending
+// percentage. A non-nil derivation is reported as StartBatterySourceEstimated. In
+// every other case it returns exactly what the caller supplied -- nil included --
+// and reports StartBatterySourceUser only when a percentage is actually present.
+// The caller's own Entry.StartBatterySource is never read.
+//
+// Runs AFTER resolveEnergy: the energy this function divides by may itself have
+// just been derived by resolveEnergy in the same write.
+func resolveStartBatteryPct(ctx context.Context, lookup packCapacityLookup, e Entry, energy *float64) (*int, *StartBatterySource, error) {
+	if e.StartBatteryPct == nil && e.EndBatteryPct != nil && energy != nil {
+		capacity, err := packCapacityKWh(ctx, lookup, e.TeslaID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("charging: resolving pack capacity: %w", err)
+		}
+		if derived := derivedStartBatteryPct(capacity, energy, e.EndBatteryPct); derived != nil {
+			source := StartBatterySourceEstimated
+			return derived, &source, nil
+		}
+		return nil, nil, nil
+	}
+	if e.StartBatteryPct == nil {
+		return nil, nil, nil
+	}
+	source := StartBatterySourceUser
+	return e.StartBatteryPct, &source, nil
 }
 
 // resolvePriceSource applies the RD3 rule table: a positive price is always
@@ -521,6 +561,9 @@ func newReader(pool *pgxpool.Pool) Reader {
 //     on write (RM51 design.md D3). PriceConfirmed is NOT set here and stays the
 //     Go zero value (false) on every read: it is a caller-supplied write-only
 //     intent, not a stored fact (design.md D3's "not persisted directly").
+//   - StartBatterySource: pgtype.Text → *StartBatterySource via
+//     pgTextToStartBatterySourcePtr (nullable, module-computed on write). nil
+//     exactly when StartBatteryPct is nil.
 func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 	// Price: NUMERIC → float64 (required column; Float64Value returns a
 	// pgtype.Float8 wrapper — use its Float64 field after error check, design D9).
@@ -567,6 +610,9 @@ func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 		// (RM51 design.md D3). PriceConfirmed stays false (Go zero value) —
 		// not persisted directly, see the mapping-rules comment above.
 		PriceSource: PriceSource(r.PriceSource),
+		// StartBatterySource: nullable module-computed provenance, see the
+		// mapping-rules comment above.
+		StartBatterySource: pgTextToStartBatterySourcePtr(r.StartBatterySource),
 	}, nil
 }
 
@@ -649,6 +695,17 @@ func stringPtrToRequired(v *string) string {
 	return *v
 }
 
+// startBatterySourcePtrToStringPtr converts *StartBatterySource to a *string so
+// stringPtrToPgText can turn it into the nullable pgtype.Text the write query
+// needs. nil → nil (SQL NULL); non-nil → a pointer to the underlying string.
+func startBatterySourcePtrToStringPtr(source *StartBatterySource) *string {
+	if source == nil {
+		return nil
+	}
+	s := string(*source)
+	return &s
+}
+
 // --- DB→domain helpers (read path, pgtype → domain) ---
 
 // pgTimestamptzToPtr converts a nullable pgtype.Timestamptz to *time.Time.
@@ -689,6 +746,17 @@ func pgTextToPtr(v pgtype.Text) *string {
 		return nil
 	}
 	s := v.String
+	return &s
+}
+
+// pgTextToStartBatterySourcePtr converts a nullable pgtype.Text to
+// *StartBatterySource. !Valid → nil (SQL NULL); Valid → pointer to the value cast
+// to StartBatterySource.
+func pgTextToStartBatterySourcePtr(v pgtype.Text) *StartBatterySource {
+	if !v.Valid {
+		return nil
+	}
+	s := StartBatterySource(v.String)
 	return &s
 }
 

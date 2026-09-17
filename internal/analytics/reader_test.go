@@ -6,37 +6,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/cristianpena/magus-tesla-api/internal/account"
 	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
-// The reader tests exercise RecentEfficiency fully OFFLINE: one hand-written fake per
-// consumed port (telemetry.Reader, charging.SuperchargerSessionAnalyticsReader, charging.Reader,
-// vehicleLookup), constructed directly as &reader{...} rather than through NewReader —
-// mirrors fakeReadStore/newFakeReader in internal/telemetry/reader_test.go one level up
-// (fake ports instead of a fake store, since this module owns no store of its own).
+// fakeTelemetryReader, fakeSuperchargerReader and fakeManualReader are hand-written
+// fakes for telemetry.Reader, charging.SuperchargerSessionAnalyticsReader and
+// charging.Reader. They back Recalculate's own offline tests (recalculate_test.go)
+// and Wave 6's DB-integration tests (db_integration_test.go), neither of which needs
+// a live upstream module -- only this module's own vehicle_metrics writes do.
 
-// fakeTelemetryReader is a fake telemetry.Reader. SnapshotsByVehicleSince is exercised by
-// RecentEfficiency; SnapshotsByVehicleBetween is exercised by ConsumedByDay (RM28 tier 3,
-// design.md D-B13) — both share the snapshots/err fixture fields (safe: no existing
-// RecentEfficiency test calls the Between path, so nothing observes the reuse).
-// LatestSnapshotsByVehicles is not called by anything in this module and still panics.
+// fakeTelemetryReader is a fake telemetry.Reader.
 type fakeTelemetryReader struct {
 	snapshots []telemetry.Snapshot
 	err       error
 
 	// preceding/precedingErr drive SnapshotPrecedingDay independently of the
-	// snapshots/err pair above (RM29 tier 4, task 2.5): the zero value is the
-	// no-gap case — (nil, nil), "this vehicle has no earlier snapshot" — while
-	// a gap fixture (design.md Fixture D) sets preceding to the row that sits
-	// before the fetched window. Kept separate from err so the existing
-	// "SnapshotsByVehicleBetween error propagates" test keeps driving exactly
-	// one port's failure.
+	// snapshots/err pair above: the zero value is the no-gap case —
+	// (nil, nil), "this vehicle has no earlier snapshot" — while a gap
+	// fixture sets preceding to the row that sits before the fetched window.
 	preceding    *telemetry.Snapshot
 	precedingErr error
 
@@ -50,7 +41,7 @@ type fakeTelemetryReader struct {
 }
 
 func (f *fakeTelemetryReader) LatestSnapshotsByVehicles(_ context.Context, _ []int64) ([]telemetry.Snapshot, error) {
-	panic("fakeTelemetryReader: LatestSnapshotsByVehicles must not be called from RecentEfficiency")
+	panic("fakeTelemetryReader: LatestSnapshotsByVehicles must not be called from a Recalculate path")
 }
 
 func (f *fakeTelemetryReader) SnapshotsByVehicleSince(_ context.Context, teslaID int64, since time.Time) ([]telemetry.Snapshot, error) {
@@ -62,9 +53,7 @@ func (f *fakeTelemetryReader) SnapshotsByVehicleSince(_ context.Context, teslaID
 	return f.snapshots, nil
 }
 
-// SnapshotsByVehicleBetween implements the bounded-window fetch ConsumedByDay issues
-// (design.md D-B13 — start-1/end+1). Un-panicked by RM28 tier 3 (task T5.1); previously a
-// defensive stub since RecentEfficiency never called it.
+// SnapshotsByVehicleBetween implements the bounded-window fetch Recalculate issues.
 func (f *fakeTelemetryReader) SnapshotsByVehicleBetween(_ context.Context, teslaID int64, start, end time.Time) ([]telemetry.Snapshot, error) {
 	f.gotTeslaID = teslaID
 	f.gotBetweenStart = start
@@ -75,23 +64,20 @@ func (f *fakeTelemetryReader) SnapshotsByVehicleBetween(_ context.Context, tesla
 	return f.snapshots, nil
 }
 
-// SnapshotsByVehicleUpdatedSince satisfies the telemetry.Reader method added by
-// RM29-analytics-add-vehicle-metrics task 1.2. It panics because only
-// Recalculate/Reconcile call this path, and the tests in this file exercise
-// ConsumedByDay/RecentEfficiency only -- a call here means a read path reached
-// for the watermark port by mistake. Wave 4 replaces this with recording
-// behaviour when the Reconcile tests need it.
+// SnapshotsByVehicleUpdatedSince satisfies telemetry.Reader. It panics because
+// this fake backs Recalculate's offline tests, which never call it -- only
+// Reconcile does, and Reconcile is exercised against a real database instead
+// (db_integration_test.go).
 func (f *fakeTelemetryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
-	panic("fakeTelemetryReader: SnapshotsByVehicleUpdatedSince must not be called from a Reader path")
+	panic("fakeTelemetryReader: SnapshotsByVehicleUpdatedSince must not be called from a Recalculate path")
 }
 
-// SnapshotPrecedingDay satisfies the telemetry.Reader method added by
-// RM29-telemetry-drop-derived-columns task 1.2. Unlike
+// SnapshotPrecedingDay satisfies telemetry.Reader. Unlike
 // SnapshotsByVehicleUpdatedSince above it does NOT panic: Recalculate calls it
-// unconditionally on every run whose snapshot window returned rows (design.md
-// D7), so panicking would break every Recalculate-driven test rather than
-// catch a mistake. The zero-value fake returns (nil, nil) — the correct answer
-// for a fixture with no capture gap.
+// unconditionally on every run whose snapshot window returned rows, so
+// panicking would break every Recalculate-driven test rather than catch a
+// mistake. The zero-value fake returns (nil, nil) — the correct answer for a
+// fixture with no capture gap.
 func (f *fakeTelemetryReader) SnapshotPrecedingDay(_ context.Context, teslaID int64, day time.Time) (*telemetry.Snapshot, error) {
 	f.gotTeslaID = teslaID
 	f.gotPrecedingDay = day
@@ -101,15 +87,9 @@ func (f *fakeTelemetryReader) SnapshotPrecedingDay(_ context.Context, teslaID in
 	return f.preceding, nil
 }
 
-// fakeSuperchargerReader is a fake charging.SuperchargerSessionAnalyticsReader
-// (RM31-analytics-read-sessions-from-charging tier 3 retype — was a fake
-// telemetry.SuperchargerReader before this tier). ListSessionsByVehicle is
-// exercised by RecentEfficiency; ListSessionsByVehicleBetween/
-// ListSessionsByVehicleUpdatedSince are not called from any Reader path today
-// and remain defensive panics — both share the sessions/err fixture fields
-// with ListSessionsByVehicle (safe: no existing RecentEfficiency test calls
-// the Between/UpdatedSince paths). These three ports are keyed on tesla_id
-// alone, so the fake records the vehicle and no account.
+// fakeSuperchargerReader is a fake charging.SuperchargerSessionAnalyticsReader.
+// These three ports are keyed on tesla_id alone, so the fake records the
+// vehicle and no account.
 type fakeSuperchargerReader struct {
 	sessions []charging.Session
 	err      error
@@ -121,11 +101,7 @@ type fakeSuperchargerReader struct {
 	gotBetweenEnd   time.Time
 }
 
-// ListSessionsByVehicleBetween implements the SessionReader half of
-// charging.SuperchargerSessionAnalyticsReader. Not called by any Reader path
-// today (ConsumedByDay reads precomputed vehicle_metrics rows instead, per
-// AGENTS.md D-precompute) — recorded here defensively, matching the sibling
-// panics below for the paths RecentEfficiency truly never calls.
+// ListSessionsByVehicleBetween implements the bounded-window fetch Recalculate issues.
 func (f *fakeSuperchargerReader) ListSessionsByVehicleBetween(_ context.Context, teslaID int64, start, end time.Time) ([]charging.Session, error) {
 	f.gotTeslaID = teslaID
 	f.gotBetweenStart = start
@@ -136,12 +112,11 @@ func (f *fakeSuperchargerReader) ListSessionsByVehicleBetween(_ context.Context,
 	return f.sessions, nil
 }
 
-// ListSessionsByVehicleUpdatedSince satisfies
-// charging.SuperchargerSessionAnalyticsReader (Recalculator's Reconcile path
-// calls this, not Reader). Panics for the same reason as
-// fakeTelemetryReader's sibling above.
+// ListSessionsByVehicleUpdatedSince satisfies charging.SuperchargerSessionAnalyticsReader
+// (Reconcile's path, not Recalculate's -- panics for the same reason as
+// fakeTelemetryReader's sibling above).
 func (f *fakeSuperchargerReader) ListSessionsByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]charging.Session, error) {
-	panic("fakeSuperchargerReader: ListSessionsByVehicleUpdatedSince must not be called from a Reader path")
+	panic("fakeSuperchargerReader: ListSessionsByVehicleUpdatedSince must not be called from a Recalculate path")
 }
 
 func (f *fakeSuperchargerReader) ListSessionsByVehicle(_ context.Context, teslaID int64, limit int) ([]charging.Session, error) {
@@ -153,13 +128,9 @@ func (f *fakeSuperchargerReader) ListSessionsByVehicle(_ context.Context, teslaI
 	return f.sessions, nil
 }
 
-// fakeManualReader is a fake charging.Reader. ListEntriesByVehicle is exercised
-// by RecentEfficiency; ListEntriesByVehicleBetween is exercised by ConsumedByDay.
-// Both share the entries/err fixture fields. That is safe, because no
-// RecentEfficiency test calls the Between path.
-//
-// The manual-charge reads are keyed on the vehicle only, so this fake records
-// the tesla id and never an account id.
+// fakeManualReader is a fake charging.Reader. The manual-charge reads are
+// keyed on the vehicle only, so this fake records the tesla id and never an
+// account id.
 type fakeManualReader struct {
 	entries []charging.Entry
 	err     error
@@ -181,10 +152,10 @@ func (f *fakeManualReader) ListEntriesByVehicle(_ context.Context, teslaID int64
 }
 
 func (f *fakeManualReader) ListEntriesByVehicles(_ context.Context, _ []int64, _ int) ([]charging.Entry, error) {
-	panic("fakeManualReader: ListEntriesByVehicles must not be called from RecentEfficiency")
+	panic("fakeManualReader: ListEntriesByVehicles must not be called from a Recalculate path")
 }
 
-// ListEntriesByVehicleBetween implements the bounded-window fetch ConsumedByDay
+// ListEntriesByVehicleBetween implements the bounded-window fetch Recalculate
 // issues: start-1 to end, with no tail.
 func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, teslaID int64, start, end time.Time) ([]charging.Entry, error) {
 	f.gotTeslaID = teslaID
@@ -197,317 +168,30 @@ func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, teslaI
 }
 
 // ListEntriesByVehicleUpdatedSince completes the charging.Reader interface. It
-// panics for the same reason as the two telemetry siblings above: no Reader path
-// calls it.
+// panics for the same reason as the two telemetry siblings above: this fake
+// backs Recalculate's offline tests, and only Reconcile calls this path.
 func (f *fakeManualReader) ListEntriesByVehicleUpdatedSince(_ context.Context, _ int64, _ time.Time) ([]charging.Entry, error) {
-	panic("fakeManualReader: ListEntriesByVehicleUpdatedSince must not be called from a Reader path")
+	panic("fakeManualReader: ListEntriesByVehicleUpdatedSince must not be called from a Recalculate path")
 }
 
-// fakeVehicleLookup is a fake vehicleLookup (the narrow account.Service consumer
-// interface) — only RegisteredVehicles exists on the interface, so there is nothing
-// else to panic-guard.
-type fakeVehicleLookup struct {
-	vehicles []account.Vehicle
-	err      error
-
-	gotAccountID uuid.UUID
-}
-
-func (f *fakeVehicleLookup) RegisteredVehicles(_ context.Context, accountID uuid.UUID) ([]account.Vehicle, error) {
-	f.gotAccountID = accountID
-	if f.err != nil {
-		return nil, f.err
-	}
-	return f.vehicles, nil
-}
-
+// fp returns a pointer to v -- a small literal-to-pointer helper shared by
+// every test in this package that builds a nullable float64 field.
 func fp(v float64) *float64 { return &v }
-func sp(v string) *string   { return &v }
 
-// TestRecentEfficiency_HappyPath_ComputesValue covers spec.md "A vehicle with two or
-// more snapshots, known capacity, and net consumption gets a computed value" through
-// the full port-wiring path (fetch, filter, resolve capacity, derive).
-func TestRecentEfficiency_HappyPath_ComputesValue(t *testing.T) {
-	accountID := uuid.New()
-	const teslaID = int64(42)
-	fixedNow := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	window := 30 * 24 * time.Hour
-	since := fixedNow.Add(-window)
+// intPtr returns a pointer to v -- the int counterpart of fp, shared by every
+// test in this package that builds a nullable int field.
+func intPtr(v int) *int { return &v }
 
-	start := snap(1000, 80, nil) // km
-	end := snap(1100, 60, nil)   // km
+// epsilon is the tolerance approxEqual below uses for floating-point
+// comparisons, so a test asserts "close enough" rather than bit-exact
+// equality on a value computed through division.
+const epsilon = 1e-9
 
-	// One supercharger session and one manual entry, both inside the window.
-	sessionEnergy := 3.0
-	entryEnergy := 2.0
-	telemetryFake := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{start, end}}
-	superchargerFake := &fakeSuperchargerReader{sessions: []charging.Session{
-		{ChargeStartDateTime: since.Add(24 * time.Hour), EnergyKWh: fp(sessionEnergy)},
-	}}
-	manualFake := &fakeManualReader{entries: []charging.Entry{
-		{ChargedOn: since.Add(48 * time.Hour), EnergyAddedKWh: fp(entryEnergy)},
-	}}
-	vehicleFake := &fakeVehicleLookup{vehicles: []account.Vehicle{
-		{TeslaID: teslaID, CarType: sp("model3")},
-	}}
-
-	r := &reader{
-		telemetry:    telemetryFake,
-		supercharger: superchargerFake,
-		manual:       manualFake,
-		account:      vehicleFake,
-		window:       window,
-		now:          func() time.Time { return fixedNow },
-	}
-
-	// Hand-computed: kWhIn = 3 + 2 = 5; capacity known ("model3" = 75 kWh);
-	// deltaSoC = 60-80 = -20; energy = 5 - 75*(-20)/100 = 20;
-	// distance = 1100-1000 = 100 km; WhPerKm = 20*1000/100 = 200.
-	wantDistance := 100.0
-	wantWhPerKm := 20.0 * 1000 / wantDistance
-
-	got, ok, err := r.RecentEfficiency(context.Background(), accountID, teslaID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Fatal("want ok=true")
-	}
-	if got.Approximate {
-		t.Error("want Approximate=false: model3 is in the capacity table")
-	}
-	if !approxEqual(got.WhPerKm, wantWhPerKm) {
-		t.Errorf("WhPerKm: want %v, got %v", wantWhPerKm, got.WhPerKm)
-	}
-}
-
-// TestRecentEfficiency_WindowExcludesOldEntries covers design.md D6: sessions/entries
-// dated before the window's since boundary must be excluded from the summed kWhIn.
-func TestRecentEfficiency_WindowExcludesOldEntries(t *testing.T) {
-	accountID := uuid.New()
-	const teslaID = int64(42)
-	fixedNow := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	window := 30 * 24 * time.Hour
-	since := fixedNow.Add(-window)
-
-	start := snap(1000, 80, nil) // km
-	end := snap(1100, 60, nil)   // km
-
-	// One in-window session/entry, one out-of-window (before since) each.
-	telemetryFake := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{start, end}}
-	superchargerFake := &fakeSuperchargerReader{sessions: []charging.Session{
-		{ChargeStartDateTime: since.Add(24 * time.Hour), EnergyKWh: fp(3.0)},    // in window
-		{ChargeStartDateTime: since.Add(-24 * time.Hour), EnergyKWh: fp(100.0)}, // before window
-	}}
-	manualFake := &fakeManualReader{entries: []charging.Entry{
-		{ChargedOn: since.Add(48 * time.Hour), EnergyAddedKWh: fp(2.0)},   // in window
-		{ChargedOn: since.Add(-48 * time.Hour), EnergyAddedKWh: fp(50.0)}, // before window
-	}}
-	vehicleFake := &fakeVehicleLookup{vehicles: []account.Vehicle{
-		{TeslaID: teslaID, CarType: sp("model3")},
-	}}
-
-	r := &reader{
-		telemetry:    telemetryFake,
-		supercharger: superchargerFake,
-		manual:       manualFake,
-		account:      vehicleFake,
-		window:       window,
-		now:          func() time.Time { return fixedNow },
-	}
-
-	// If the out-of-window rows had been included, kWhIn would be 3+100+2+50=155,
-	// giving energy = 155-75*(-20)/100 = 170. With correct filtering kWhIn=5, energy=20.
-	// distance = 1100-1000 = 100 km.
-	wantDistance := 100.0
-	wantWhPerKm := 20.0 * 1000 / wantDistance
-	excludedWhPerKm := 170.0 * 1000 / wantDistance
-
-	got, ok, err := r.RecentEfficiency(context.Background(), accountID, teslaID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Fatal("want ok=true")
-	}
-	if !approxEqual(got.WhPerKm, wantWhPerKm) {
-		t.Errorf("WhPerKm: want %v (old entries excluded), got %v", wantWhPerKm, got.WhPerKm)
-	}
-	if approxEqual(got.WhPerKm, excludedWhPerKm) {
-		t.Errorf("WhPerKm equals the value you'd get by including old entries (%v) — window filter did not run", excludedWhPerKm)
-	}
-}
-
-// TestRecentEfficiency_UnknownVehicle_ApproximateTrue covers spec.md "Unknown car_type
-// still returns a value, marked approximate", via the not-found-in-registry path.
-func TestRecentEfficiency_UnknownVehicle_ApproximateTrue(t *testing.T) {
-	accountID := uuid.New()
-	const teslaID = int64(42)
-	fixedNow := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	window := 30 * 24 * time.Hour
-	since := fixedNow.Add(-window)
-
-	start := snap(1000, 80, nil)
-	end := snap(1100, 60, nil)
-
-	telemetryFake := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{start, end}}
-	superchargerFake := &fakeSuperchargerReader{sessions: []charging.Session{
-		{ChargeStartDateTime: since.Add(time.Hour), EnergyKWh: fp(5.0)},
-	}}
-	manualFake := &fakeManualReader{}
-	// The registry has vehicles, but none matching teslaID — carTypeFor falls back to "".
-	vehicleFake := &fakeVehicleLookup{vehicles: []account.Vehicle{
-		{TeslaID: 999, CarType: sp("models")},
-	}}
-
-	r := &reader{
-		telemetry:    telemetryFake,
-		supercharger: superchargerFake,
-		manual:       manualFake,
-		account:      vehicleFake,
-		window:       window,
-		now:          func() time.Time { return fixedNow },
-	}
-
-	got, ok, err := r.RecentEfficiency(context.Background(), accountID, teslaID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Fatal("want ok=true")
-	}
-	if !got.Approximate {
-		t.Error("want Approximate=true: vehicle not found in registry, capacity unknown")
-	}
-}
-
-// TestRecentEfficiency_TelemetryError_Propagates, ...SuperchargerError_Propagates,
-// ...ChargingError_Propagates, ...AccountError_Propagates cover error propagation:
-// a port error is returned via errors.Is, unwrapped, matching
-// TestReader_StoreError_PropagatesError in internal/telemetry/reader_test.go.
-
-func TestRecentEfficiency_TelemetryError_Propagates(t *testing.T) {
-	wantErr := errors.New("telemetry: connection lost")
-	r := &reader{
-		telemetry:    &fakeTelemetryReader{err: wantErr},
-		supercharger: &fakeSuperchargerReader{},
-		manual:       &fakeManualReader{},
-		account:      &fakeVehicleLookup{},
-		window:       30 * 24 * time.Hour,
-		now:          time.Now,
-	}
-
-	_, _, err := r.RecentEfficiency(context.Background(), uuid.New(), 1)
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("want error %v propagated unwrapped, got %v", wantErr, err)
-	}
-}
-
-func TestRecentEfficiency_SuperchargerError_Propagates(t *testing.T) {
-	wantErr := errors.New("supercharger: connection lost")
-	r := &reader{
-		telemetry:    &fakeTelemetryReader{},
-		supercharger: &fakeSuperchargerReader{err: wantErr},
-		manual:       &fakeManualReader{},
-		account:      &fakeVehicleLookup{},
-		window:       30 * 24 * time.Hour,
-		now:          time.Now,
-	}
-
-	_, _, err := r.RecentEfficiency(context.Background(), uuid.New(), 1)
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("want error %v propagated unwrapped, got %v", wantErr, err)
-	}
-}
-
-func TestRecentEfficiency_ChargingError_Propagates(t *testing.T) {
-	wantErr := errors.New("charging: connection lost")
-	r := &reader{
-		telemetry:    &fakeTelemetryReader{},
-		supercharger: &fakeSuperchargerReader{},
-		manual:       &fakeManualReader{err: wantErr},
-		account:      &fakeVehicleLookup{},
-		window:       30 * 24 * time.Hour,
-		now:          time.Now,
-	}
-
-	_, _, err := r.RecentEfficiency(context.Background(), uuid.New(), 1)
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("want error %v propagated unwrapped, got %v", wantErr, err)
-	}
-}
-
-func TestRecentEfficiency_AccountError_Propagates(t *testing.T) {
-	wantErr := errors.New("account: connection lost")
-	r := &reader{
-		telemetry:    &fakeTelemetryReader{},
-		supercharger: &fakeSuperchargerReader{},
-		manual:       &fakeManualReader{},
-		account:      &fakeVehicleLookup{err: wantErr},
-		window:       30 * 24 * time.Hour,
-		now:          time.Now,
-	}
-
-	_, _, err := r.RecentEfficiency(context.Background(), uuid.New(), 1)
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("want error %v propagated unwrapped, got %v", wantErr, err)
-	}
-}
-
-// TestRecentEfficiency_AccountIDScoping_PassedToEveryPort checks that each port
-// receives the identity it is keyed on, unchanged. Only the vehicle lookup is
-// still keyed on the account; telemetry, supercharger and manual charges are all
-// keyed on the vehicle alone.
-func TestRecentEfficiency_AccountIDScoping_PassedToEveryPort(t *testing.T) {
-	accountID := uuid.New()
-	const teslaID = int64(77)
-
-	telemetryFake := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{snap(1000, 80, nil), snap(1100, 60, nil)}}
-	superchargerFake := &fakeSuperchargerReader{}
-	manualFake := &fakeManualReader{}
-	vehicleFake := &fakeVehicleLookup{}
-
-	r := &reader{
-		telemetry:    telemetryFake,
-		supercharger: superchargerFake,
-		manual:       manualFake,
-		account:      vehicleFake,
-		window:       30 * 24 * time.Hour,
-		now:          time.Now,
-	}
-
-	// Result may be ok=false (no charging data), but every port must still have
-	// been called with the same accountID before that outcome is reached.
-	_, _, err := r.RecentEfficiency(context.Background(), accountID, teslaID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// The telemetry port is deliberately absent here. Its reads are keyed on
-	// tesla_id alone now, so there is no accountID argument left to check.
-	// telemetryFake.gotTeslaID below covers the identity it does receive.
-	if telemetryFake.gotTeslaID != teslaID {
-		t.Errorf("telemetry: teslaID not passed through: want %d, got %d", teslaID, telemetryFake.gotTeslaID)
-	}
-	// The supercharger port is keyed on tesla_id alone now, so it has no
-	// accountID to check. superchargerFake.gotTeslaID below covers it.
-	// The manual-charge port is keyed the same way.
-	if manualFake.gotTeslaID != teslaID {
-		t.Errorf("charging: teslaID not passed through: want %d, got %d", teslaID, manualFake.gotTeslaID)
-	}
-	if vehicleFake.gotAccountID != accountID {
-		t.Errorf("account: accountID not passed through: want %v, got %v", accountID, vehicleFake.gotAccountID)
-	}
-
-	if telemetryFake.gotTeslaID != teslaID {
-		t.Errorf("telemetry: teslaID not passed through: want %d, got %d", teslaID, telemetryFake.gotTeslaID)
-	}
-	if superchargerFake.gotTeslaID != teslaID {
-		t.Errorf("supercharger: teslaID not passed through: want %d, got %d", teslaID, superchargerFake.gotTeslaID)
-	}
-	if manualFake.gotTeslaID != teslaID {
-		t.Errorf("charging: teslaID not passed through: want %d, got %d", teslaID, manualFake.gotTeslaID)
-	}
+// approxEqual reports whether a and b differ by less than epsilon -- shared
+// by every test in this package that compares a computed float64 result.
+func approxEqual(a, b float64) bool {
+	diff := a - b
+	return diff < epsilon && diff > -epsilon
 }
 
 // --- ConsumedByDay/OdometerDeltaByDay precomputed-read tests (RM29 tier 3, design.md

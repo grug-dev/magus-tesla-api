@@ -3,128 +3,24 @@
 ## Purpose
 Derived analytics over stored telemetry — the platform's metrics layer, sitting between
 what `telemetry` captures and what the dashboard renders. It owns no database and no capture: it
-reads sibling modules' public ports and computes values none of them store. Its first metric is
-rolling energy-per-kilometre (Wh/km).
+reads sibling modules' public ports and computes values none of them store. It derives the
+per-day battery-consumed percentage, distance, battery level and tyre-pressure figures the
+dashboard and history charts read, and flags the days whose battery maths does not add up.
 ## Requirements
-### Requirement: Recent Energy-Per-Kilometre Derivation
-
-The analytics capability SHALL derive a rolling energy-per-kilometre (Wh/km) value for a given
-vehicle over a fixed window (default 30 days, fixed at construction time), from that vehicle's
-stored telemetry snapshots plus its Supercharger sessions and manually-logged charge entries
-within the window. The capability SHALL consume the distance values in the unit the telemetry read
-port already provides them in, and SHALL NOT perform any unit conversion of its own. The
-capability SHALL compute the energy numerator as measured charging energy (kWh) minus a
-pack-capacity correction for net SoC drift over the window, using whichever of
-`UsableBatteryLevel` or `BatteryLevel` is consistently available at BOTH window endpoints (never a
-mixed pair). The capability SHALL scope its telemetry, Supercharger, and manual-charge-entry
-reads by the given vehicle identifier alone. The capability SHALL use the given account
-identifier for exactly one purpose — resolving the vehicle's car type, the pack-capacity lookup —
-and SHALL NOT use it to scope the telemetry, Supercharger, or manual-charge-entry reads.
-
-**This is a CHANGE from the prior revision of this requirement, under which it stated that the
-capability scoped every underlying read to the given account, even when the vehicle identifier
-alone would suffice, as defense-in-depth tenant isolation.** That statement was never accurate:
-the capability's telemetry, Supercharger, and manual-charge-entry reads
-(`SnapshotsByVehicleSince`, `ListSessionsByVehicle`, `ListEntriesByVehicle`) have always taken a
-vehicle identifier alone. The account identifier the capability receives is real and still used —
-it resolves the vehicle's car type for the pack-capacity lookup — but it was never a scoping
-parameter on the other three reads.
-
-#### Scenario: A vehicle with two or more snapshots, known capacity, and net consumption gets a computed value
-- **GIVEN** a vehicle with at least two telemetry snapshots inside the window, whose Fleet API
-  `car_type` is present in the platform's pack-capacity reference table
-- **AND** the vehicle's net battery state-of-charge decreased over the window (it consumed more
-  than it charged)
-- **WHEN** the capability derives recent efficiency for that vehicle
-- **THEN** it returns a Wh/km value derived from measured charging energy corrected by the
-  pack-capacity SoC-drift term, `ok=true`, and `Approximate=false`
-
-#### Scenario: Distance is read, not converted
-- **GIVEN** a vehicle with at least two telemetry snapshots inside the window
-- **WHEN** the capability computes the distance travelled over the window
-- **THEN** it takes the kilometre values directly from the snapshots returned by the telemetry
-  read port
-- **AND** it applies no unit-conversion factor and calls no conversion method to obtain them
-- **AND** the derived Wh/km value is the same as it was when the conversion was performed on read
-
-#### Scenario: Usable battery level is used only when present at both window endpoints
-- **GIVEN** a vehicle whose first snapshot in the window has a non-nil `UsableBatteryLevel` and
-  whose last snapshot in the window has a nil `UsableBatteryLevel`
-- **WHEN** the capability computes the state-of-charge delta for that window
-- **THEN** it uses `BatteryLevel` at BOTH endpoints (never usable at one endpoint and nominal at
-  the other)
-
-#### Scenario: Usable battery level is used when present at both window endpoints
-- **GIVEN** a vehicle whose first and last snapshots in the window both have a non-nil
-  `UsableBatteryLevel`
-- **WHEN** the capability computes the state-of-charge delta for that window
-- **THEN** it uses `UsableBatteryLevel` at both endpoints
-
-#### Scenario: The account identifier resolves car type only, never scopes the vehicle reads
-- **GIVEN** a request to derive recent efficiency for a specific account and vehicle
-- **WHEN** the capability performs its underlying reads
-- **THEN** the telemetry, Supercharger, and manual-charge-entry reads are scoped to the vehicle
-  identifier alone
-- **AND** the account identifier is used only to resolve that vehicle's car type
-
-### Requirement: Unknown Pack Capacity Yields an Approximate Value, Never a Blank Tile
-The analytics capability SHALL NOT refuse to return an efficiency value solely because the
-vehicle's pack capacity is unknown (its `car_type` is absent, or not present in the
-pack-capacity reference table). In that case the capability SHALL compute energy from measured
-charging energy alone (no SoC-drift correction) and SHALL mark the result `Approximate=true`.
-
-#### Scenario: Unknown car_type still returns a value, marked approximate
-- **GIVEN** a vehicle whose registered `CarType` is nil, or whose `CarType` is not present in the
-  pack-capacity reference table
-- **AND** the vehicle otherwise has enough snapshots and positive net consumption to compute a
-  value
-- **WHEN** the capability derives recent efficiency for that vehicle
-- **THEN** it returns a Wh/km value computed from measured charging energy without any
-  capacity correction, `ok=true`, and `Approximate=true`
-
-#### Scenario: Known car_type applies the capacity correction and is not marked approximate
-- **GIVEN** a vehicle whose registered `CarType` is present in the pack-capacity reference table
-- **WHEN** the capability derives recent efficiency for that vehicle
-- **THEN** the returned value's `Approximate` field is `false`
-
-### Requirement: Insufficient Data Returns ok=false, Never a Fabricated Value
-The analytics capability SHALL return `ok=false` with no error — never a fabricated or
-divide-by-near-zero value — in each of these cases: fewer than two telemetry snapshots exist in
-the window; the vehicle's odometer reading did not increase over the window (parked, or a
-non-increasing reading); or the derived energy consumed is zero or negative (net charge over the
-window exceeded consumption).
-
-#### Scenario: Fewer than two snapshots in the window
-- **GIVEN** a vehicle with zero or exactly one telemetry snapshot inside the window
-- **WHEN** the capability derives recent efficiency for that vehicle
-- **THEN** it returns `ok=false` and no error
-
-#### Scenario: No distance moved over the window
-- **GIVEN** a vehicle with at least two snapshots in the window whose odometer reading at the
-  window's end is not greater than its odometer reading at the window's start
-- **WHEN** the capability derives recent efficiency for that vehicle
-- **THEN** it returns `ok=false` and no error
-
-#### Scenario: Net charge exceeds consumption over the window
-- **GIVEN** a vehicle with at least two snapshots and positive distance moved over the window
-- **AND** the derived energy consumed (measured charging energy minus the SoC-drift correction,
-  or measured charging energy alone when capacity is unknown) is zero or negative
-- **WHEN** the capability derives recent efficiency for that vehicle
-- **THEN** it returns `ok=false` and no error
-
 ### Requirement: No Cross-Module Database Access
-The analytics capability SHALL own no database of its own and SHALL access telemetry, manual
-charge, and account data exclusively through those modules' public read ports — never through a
-shared database connection, another module's generated query package, or any other bypass of the
-module boundary.
+
+The analytics capability SHALL own no database of its own and SHALL access telemetry and
+manual charge data exclusively through those modules' public read ports — never through a
+shared database connection, another module's generated query package, or any other bypass of
+the module boundary.
 
 #### Scenario: The capability owns no database
+
 - **GIVEN** the analytics capability's implementation
 - **WHEN** its data dependencies are inspected
-- **THEN** it imports only the public `Reader` interface of `internal/telemetry`, the public
-  `Reader` and `SuperchargerSessionAnalyticsReader` interfaces of `internal/charging`, and the
-  public `Service` interface of `internal/account` — never `internal/telemetry/db`,
-  `internal/charging/db`, or `internal/account/db`
+- **THEN** it imports only the public `Reader` interface of `internal/telemetry` and the public
+  `Reader` and `SuperchargerSessionAnalyticsReader` interfaces of `internal/charging` — never
+  `internal/telemetry/db`, `internal/charging/db`, `internal/account`, or `internal/account/db`
 
 ### Requirement: Per-Day Battery-Consumed Derivation
 
@@ -826,6 +722,7 @@ for this read — it is scoped by vehicle identity alone.
 - **THEN** it returns an empty result and no error
 
 ### Requirement: Module-Scoped Database Schema
+
 The analytics module's `vehicle_metrics`, `vehicle_metric_watermarks`, and `charge_gaps` tables SHALL live in a PostgreSQL schema named `analytics`, distinct from the `public` schema and from
 every other module's schema. This SHALL be a namespacing change only: it SHALL NOT alter any
 stored data, any constraint (primary key, unique, or check), any index, or any behavior of the
@@ -845,6 +742,11 @@ retired in favour of `'supercharger_sessions'` once `internal/charging` renamed 
 names. That later change is governed by "Incremental Recompute Via An Analytics-Owned
 Watermark" above; this requirement's own claim — that the *schema move* left the vocabulary
 untouched — remains true and is deliberately not rewritten.)
+
+**This requirement and its migration are historical and unaffected by
+`RM61-analytics-remove-dead-efficiency-branch`.** Only the "public interface is unaffected"
+scenario's example method list is corrected below, because it named `RecentEfficiency`, a
+method that change deletes.
 
 #### Scenario: The three tables resolve under the analytics schema
 - **GIVEN** the analytics module's migrations have been applied
@@ -866,9 +768,10 @@ untouched — remains true and is deliberately not rewritten.)
   exactly as before
 
 #### Scenario: The module's public interface is unaffected by the schema move
-- **GIVEN** a caller of the analytics module's public interface (e.g. `RecentEfficiency`,
-  `ConsumedByDay`, `OdometerDeltaByDay`, `BatteryLevelByDay`, `LatestMetricsByAccount`,
-  `Recalculate`, `Reconcile`, `ReconcileWindow`)
+
+- **GIVEN** a caller of the analytics module's public interface (e.g. `ConsumedByDay`,
+  `OdometerDeltaByDay`, `BatteryLevelByDay`, `LatestMetricsForVehicles`, `Recalculate`,
+  `Reconcile`, `ReconcileWindow`)
 - **WHEN** the schema move is applied
 - **THEN** every exported type name, method name, and method signature is unchanged
 - **AND** the returned data is identical to what the same call returned before the move

@@ -593,10 +593,14 @@ SHALL derive the target vehicle from the session-selected vehicle (the sidebar s
 enforce tenant ownership of that resolved vehicle before writing. The handler SHALL require a
 valid CSRF token and call `charging.Writer.Create` on success. `location_kind` is a
 **required** field; the handler SHALL reject a missing or unrecognized value with a 422 and a
-field-level error message. `start_battery_pct` is a **required** field, validated as an integer
-in the 0–100 range, regardless of the entry's status. The `start_battery_pct` input SHALL carry
-a suggestion label built from the session-selected vehicle's latest telemetry snapshot battery
-percentage when one exists (graceful empty otherwise, no fabricated value). `currency` is fixed
+field-level error message. `start_battery_pct` is an **optional** field: when supplied, it
+SHALL be validated as an integer in the 0–100 range regardless of the entry's status; when
+absent, the handler SHALL pass no value to `charging.Writer.Create` and SHALL NOT reject the
+submission, so the `charging` module may derive it from the energy added and the ending
+percentage. The `start_battery_pct` input SHALL carry a suggestion label built from the
+session-selected vehicle's latest telemetry snapshot battery percentage when one exists
+(graceful empty otherwise, no fabricated value) — this suggestion is independent of, and
+unaffected by, any value the `charging` module later derives. `currency` is fixed
 to `COP` and is not user-editable; it SHALL be presented as a suffix on the price input rather
 than as a separate field. `energy_added_kwh` and `price` are **optional**: an empty
 `energy_added_kwh` SHALL be stored as absent (no fabricated value), and an empty `price` SHALL be
@@ -704,14 +708,16 @@ free" checkbox's checked state**, not only the fields that already had a today's
 - **THEN** the gateway calls `charging.Writer.Create` with the entry's confirmed-price intent
   set to false
 
-#### Scenario: Start battery percentage is required regardless of status
+#### Scenario: Start battery percentage is optional and, when present, bounded to 0-100
 
 - **GIVEN** a signed-in user on the External charges page
-- **WHEN** they submit the create form with `start_battery_pct` empty, non-integer, or
-  outside the 0–100 range, for either an `IN_PROGRESS` or a `DONE` status
-- **THEN** the server rejects the submission with a field-level validation error
-  indicating the required/invalid battery field
-- **AND** the `charging.Writer.Create` port is not called
+- **WHEN** they submit the create form with `start_battery_pct` left empty, for either an
+  `IN_PROGRESS` or a `DONE` status, and every other required field valid
+- **THEN** the server accepts the submission and calls `charging.Writer.Create` with no
+  starting battery percentage supplied
+- **WHEN** they instead submit `start_battery_pct` as non-integer or outside the 0–100 range
+- **THEN** the server rejects the submission with a field-level validation error, and
+  `charging.Writer.Create` is not called
 - **WHEN** `start_battery_pct` is supplied as an integer in 0–100
 - **THEN** the entry is persisted with a non-nil `start_battery_pct` matching the
   submitted value
@@ -749,7 +755,7 @@ free" checkbox's checked state**, not only the fields that already had a today's
   selected vehicle's latest snapshot battery percentage (e.g. a helper label or
   placeholder derived from `73`)
 - **AND** the suggestion is a hint, not a forced value — the user may type any
-  integer in 0–100 and the field submits whatever the user typed
+  integer in 0–100, leave it empty, and the field submits whatever the user typed
 - **AND** the suggestion is built from the `analytics.Reader.LatestMetricsForVehicles`
   port (the same port the dashboard uses), picking the status whose `TeslaID`
   matches the session-selected vehicle
@@ -764,7 +770,9 @@ free" checkbox's checked state**, not only the fields that already had a today's
 - **WHEN** the External charges create form renders
 - **THEN** the `start_battery_pct` input carries no suggestion label (no fabricated
   value is shown)
-- **AND** the field still renders as a normal required integer input (0–100)
+- **AND** the field still renders as a normal optional integer input (0–100), with a
+  help line explaining that an empty value is computed from the energy added and the
+  ending percentage
 - **AND** the page renders without error
 
 #### Scenario: Optional started_at and ended_at fields appear in the main card and default to today
@@ -813,10 +821,22 @@ render a status control (`IN_PROGRESS` / `DONE`) pre-selected to the entry's per
 and moving that control between the two values SHALL be the mechanism by which a user completes
 an in-progress entry or reopens a done one — no other UI on this row does so. `ended_at` and
 `end_battery_pct` are required only when the submitted status is `DONE`, mirroring the create
-form's rule. `energy_added_kwh` and `price` are optional on the edit form, and `currency` renders
+form's rule. `start_battery_pct` is an **optional** field on the edit form, mirroring the create
+form's rule: when supplied it is validated as an integer in the 0–100 range; when absent, no
+value is passed to `charging.Writer.Update` and the submission is not rejected.
+`energy_added_kwh` and `price` are optional on the edit form, and `currency` renders
 as a `COP` suffix on the price input rather than a separate field, mirroring the create form. A
 validation failure on this form SHALL preserve every value the user submitted, exactly as the
 create form does.
+
+**When the entry's currently stored starting battery percentage was itself computed by the
+`charging` module (its provenance is the module's "estimated" value, not a value the person
+typed), the edit form SHALL render that stored percentage as the input's placeholder rather
+than as its value.** A save submitted without editing that field then arrives with
+`start_battery_pct` empty, and `charging.Writer.Update` derives it again from the entry's
+current energy added and ending percentage. When the stored percentage's provenance is instead
+the person's own typed value (or no percentage is stored at all), the edit form SHALL render it
+as a normal pre-filled value, exactly as it does today.
 
 **The price field on the edit form SHALL be paired with the same "this charge was free"
 checkbox as the create form.** On a normal (non-error) open, the checkbox's checked state SHALL
@@ -863,6 +883,27 @@ this form.
   `ended_at` or `end_battery_pct`
 - **THEN** the save is rejected with a field-level validation error naming the missing field(s)
 - **AND** the stored entry is unchanged
+
+#### Scenario: A derived starting percentage renders as a placeholder, and clearing it re-derives on save
+
+- **GIVEN** an existing entry whose stored `start_battery_pct` was computed by the `charging`
+  module (not typed by a person)
+- **WHEN** the user opens its inline edit form
+- **THEN** the `start_battery_pct` input renders that stored percentage as its `placeholder`
+  attribute, not as its `value`
+- **WHEN** the user saves the form without typing anything into that field
+- **THEN** the submitted `start_battery_pct` is empty
+- **AND** `charging.Writer.Update` receives no starting battery percentage, so the module
+  derives it again from the entry's current energy added and ending percentage
+
+#### Scenario: A person-typed starting percentage renders as a normal value
+
+- **GIVEN** an existing entry whose stored `start_battery_pct` was typed by a person, or an
+  entry with no stored `start_battery_pct` at all
+- **WHEN** the user opens its inline edit form
+- **THEN** the `start_battery_pct` input renders that stored percentage (or empty string, if
+  none is stored) as its `value` attribute, carrying no `placeholder`
+- **AND** saving the form without changing that field submits it unchanged
 
 #### Scenario: Edit form's free-charge checkbox reflects the entry's stored confirmation
 
@@ -1000,8 +1041,9 @@ the project's boundary-nil convention.
 In the create form, `location_kind` SHALL be visible in the always-visible required fields
 section, not inside the `<details>` expander. The always-visible section also SHALL include
 `started_at` and `ended_at` (both optional, pre-filled with today's date by default — see
-`Requirement: Create Charge Entry`) and `start_battery_pct` / `end_battery_pct` (both
-required — see `Requirement: Create Charge Entry`). The "More details" expander SHALL retain
+`Requirement: Create Charge Entry`), `start_battery_pct` (optional — see `Requirement: Create
+Charge Entry`), and `end_battery_pct` (required only when the status is `DONE` — see
+`Requirement: Create Charge Entry`). The "More details" expander SHALL retain
 only the remaining optional fields (`charging_type`, `location_label`, `notes`).
 
 #### Scenario: location_kind is always visible in the create form
@@ -1010,8 +1052,6 @@ only the remaining optional fields (`charging_type`, `location_label`, `notes`).
 - **WHEN** it is rendered (before any user interaction with the expander)
 - **THEN** the `location_kind` picker is visible without expanding "More details"
 - **AND** the "More details" expander still exists and reveals the remaining optional fields
-
----
 
 ### Requirement: Authenticated Navigation Shell
 

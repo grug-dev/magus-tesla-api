@@ -1,0 +1,563 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM61-gateway-relax-start-battery-pct-required",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM61-manual-charge-start-derivation.md",
+  "request": "Tier 2 of RM61 (MAG-40). Make start_battery_pct optional on /external-charges, render a derived value as a placeholder so Update re-derives it, and add the bilingual field help under the input.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "4.1",
+      "5.1",
+      "5.2",
+      "6.1",
+      "6.2",
+      "6.3",
+      "7.1",
+      "5.3"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-16T10:10:00Z",
+  "updated_at": "2026-09-16T17:28:43Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM61-MAG-40-manual-charge-start-derivation",
+    "base": "fc5efdfde6211a4478ba8bb89fc424c10d89647c",
+    "ticket": "MAG-40",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-40/recalculated-battery-start",
+    "created_at": "2026-09-16T01:56:32Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Add Help prop to ui.FieldProps and render it in Field",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:10:00Z",
+      "completed_at": "2026-09-16T14:15:00Z",
+      "duration_seconds": null,
+      "notes": "Added Help string to ui.FieldProps, renders a fieldset-label paragraph before Error.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-A delta copied onto each task"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Add the bilingual charges_form.start_battery_pct_help key",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:15:00Z",
+      "completed_at": "2026-09-16T14:20:00Z",
+      "duration_seconds": null,
+      "notes": "Added KeyChargesFormStartBatteryPctHelp (ES/EN). Corrected KeyChargesFormCreateHint's second sentence to drop the battery-% mention.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-A delta copied onto each task"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "Add StartBatterySource to ExternalChargeEntryVM",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:20:00Z",
+      "completed_at": "2026-09-16T14:22:00Z",
+      "duration_seconds": null,
+      "notes": "Added StartBatterySource string to ExternalChargeEntryVM next to RawStartBatteryPct. No charging import.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-A delta copied onto each task"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "Map StartBatterySource in the VM builder; make startPct a *int in parseExternalChargeForm",
+      "module": "gateway",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:22:00Z",
+      "completed_at": "2026-09-16T14:30:00Z",
+      "duration_seconds": null,
+      "notes": "Mapped StartBatterySource in externalChargeEntryVMFromEntry. parseExternalChargeForm: startPct is now *int, empty means nil, range check unchanged.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-A delta copied onto each task"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "Create form: drop Required, add Optional + Help",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:30:00Z",
+      "completed_at": "2026-09-16T14:33:00Z",
+      "duration_seconds": null,
+      "notes": "Create form: dropped Required, added Optional + Help. Fixed the stale doc-comment bullet.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-A delta copied onto each task"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "Edit form: drop Required, add Optional + Help, placeholder-vs-value branch",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:33:00Z",
+      "completed_at": "2026-09-16T14:37:00Z",
+      "duration_seconds": null,
+      "notes": "Edit form: added the ESTIMATED placeholder-vs-value branch, Optional + Help. Fixed the stale doc comment.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-A delta copied onto each task"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "Run make templ to regenerate the _templ.go files",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:37:00Z",
+      "completed_at": "2026-09-16T14:45:00Z",
+      "duration_seconds": null,
+      "notes": "make templ regenerated exactly the 3 touched _templ.go files. make css was a no-op for this change; app.css left at its pre-existing dirty state.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-A delta copied onto each task"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "Rewrite the handler tests that assert the old required rule (Groups B, D, E, F)",
+      "module": "gateway",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:10:00Z",
+      "completed_at": "2026-09-16T14:24:00Z",
+      "duration_seconds": null,
+      "notes": "Contract groups B-F in handlers/external_charges_test.go: two tests renamed, C1 list moved, D3b trigger changed to out-of-range, four stale comments fixed.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "Tests for ui.FieldProps.Help and the edit-form render branch (Groups A, C)",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:00:00Z",
+      "completed_at": "2026-09-16T14:10:00Z",
+      "duration_seconds": null,
+      "notes": "New templates/ui/field_test.go, package ui. Contract group A (A1-A3). go vet compiles it clean; the suite is not run.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "Update internal/gateway/AGENTS.md for the new Help prop",
+      "module": "gateway",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:24:00Z",
+      "completed_at": "2026-09-16T14:25:00Z",
+      "duration_seconds": null,
+      "notes": "One ui.FieldProps.Help bullet in internal/gateway/AGENTS.md. Kit-level only, no page detail - that lives in the KB.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "Fix the KeyChargesFormCreateHint copy that states the old required rule",
+      "module": "gateway",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T14:30:00Z",
+      "completed_at": "2026-09-16T14:31:00Z",
+      "duration_seconds": null,
+      "notes": "Leader read the AGENTS.md diff: kit-level Help description only, no per-field list. No duplication of the KB.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
+    },
+    {
+      "id": "6.3",
+      "title": "Fix kkpa/context/input-port/charging/external-charges.md optional-field list",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T14:28:00Z",
+      "completed_at": "2026-09-16T14:30:00Z",
+      "duration_seconds": null,
+      "notes": "Leader edited kkpa/context/input-port/charging/external-charges.md: start_battery_pct added to the Optional list; new helper-copy paragraph with both new strings.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
+    },
+    {
+      "id": "7.1",
+      "title": "Run the permitted signals: gofmt, go build, go vet, make i18n-guard, make ui-guard",
+      "module": "gateway",
+      "depends_on": [
+        "5.1",
+        "5.2",
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-16T14:25:00Z",
+      "completed_at": "2026-09-16T14:26:56Z",
+      "duration_seconds": null,
+      "notes": "All five signals clean: gofmt -l, go build ./..., go vet ./..., make i18n-guard, make ui-guard.",
+      "budget": {
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 6.72,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-B delta copied onto each task"
+      }
+    },
+    {
+      "id": "5.3",
+      "title": "Fix TestErrorFragmentsCarryOptInHeader's 422 trigger (missed by the Group E sweep)",
+      "module": "gateway",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T16:49:17Z",
+      "completed_at": "2026-09-16T16:49:17Z",
+      "duration_seconds": null,
+      "notes": "The test used an empty start_battery_pct to cause a 422, which this change made legal. Trigger changed to an out-of-range 150, plus status=IN_PROGRESS so the 422 has one cause. Asserts the range message.",
+      "budget": null
+    },
+    {
+      "id": "5.4",
+      "title": "Review round 1 finding 1: drop the design.md citation in field_test.go",
+      "module": "gateway",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-16T17:26:19Z",
+      "completed_at": "2026-09-16T17:26:19Z",
+      "duration_seconds": null,
+      "notes": "One doc comment cited design.md. Replaced with the reason itself. Swept the file: no other citation.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Validate tier 2 of RM61 (MAG-40) across commits df25e63, 6381a86, cb317a5 on ft/RM61-MAG-40-manual-charge-start-derivation. Read the DIFF, not the whole module. Checks: (1) module-boundary compliance - no HTML outside internal/gateway, no charging import in the VM file, no DB access from the gateway; (2) every doc-pack convention, especially ai/htmx-conventions.md and internal/gateway/AGENTS.md; (3) design.md D1-D7 each implemented as written, and the Test Contract groups A-F each covered by a real assertion; (4) the integration/handler tests assert design.md's authored expectations, NOT whatever the implementation happens to do - a test rewritten to match the code is a blocker finding; (5) i18n: every new user-facing string goes through i18n.T with both ES and EN non-empty; (6) Performance-Profile compliance (read-heavy); (7) no DB object changed - this tier has none, so any schema touch is a blocker; (8) B2 writing rule in every comment and doc, and NO comment citing design.md, a decision id, RM61, RD3, RD5 or MAG-40; (9) anti-gaming: no acceptance criterion weakened, no self-approved status, no test deleted to pass. Signals: gofmt -l, go build ./..., go vet ./..., make i18n-guard, make ui-guard were ASSISTANT-run and clean. make check was USER-run and reported passing by the owner. Judge test quality by READING the tests; never run the suite.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-16T17:26:19Z",
+        "verdict": "changes-requested",
+        "duration_seconds": 282,
+        "budget": {
+          "five_hour_pct_delta": 6,
+          "cost_usd_delta": 2.9,
+          "source": "statusline-cache",
+          "approx": true
+        },
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "internal/gateway/templates/ui/field_test.go:26",
+            "finding": "A doc comment in a file this change created cites design.md. The file is archived and frozen later, so the pointer cannot be resolved.",
+            "triage": "accepted",
+            "resolution": "Leader rewrote the comment to state the behavior itself. Task 5.4. Re-swept the file for design.md / RM61 / RD3 / RD5 / MAG-40: no other hit."
+          },
+          {
+            "id": "F2",
+            "severity": "nit",
+            "file": "progress.json / tasks.md",
+            "finding": "Task 5.3 was in progress.json but never in tasks.md, and the leader wrote the 5.3 gateway code itself instead of dispatching the worker.",
+            "triage": "accepted in part",
+            "resolution": "tasks.md half accepted and fixed: 5.3 and 5.4 appended to tasks.md, so the two files agree. Worker-dispatch half rejected: the skill's Step 7.3 lets the leader fix review findings itself, and a full worker dispatch for a six-line test edit costs a doc-pack re-read for no gain. Recorded as decision D-C1."
+          }
+        ],
+        "notes": "Every other brief item passed. Reviewer verified D1-D7 against design.md's code blocks and traced both test renames plus the 422-trigger change to real rule inversions. Test funcs 77 -> 79, none deleted."
+      },
+      {
+        "round": 2,
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-16T17:27:34Z",
+        "verdict": "approved",
+        "duration_seconds": 40,
+        "budget": {
+          "five_hour_pct_delta": 1,
+          "cost_usd_delta": 0.4,
+          "source": "statusline-cache",
+          "approx": true
+        },
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "status": "fixed",
+            "finding": "design.md citation in field_test.go's doc comment",
+            "resolution": "Fixed. Reviewer re-swept the whole fc5efdf..8b7932a diff for design.md / RM61 / RD3 / RD5 / MAG-40: zero hits."
+          },
+          {
+            "id": "F2",
+            "severity": "nit",
+            "status": "fixed",
+            "finding": "tasks.md missing 5.3; leader wrote module code directly",
+            "resolution": "tasks.md half fixed. The reviewer accepted the rejected half as a documented, non-hidden disagreement (D-C1), noting ai/agentic-workflow.md itself defers to the skill on this point."
+          }
+        ],
+        "notes": "No new issues in the round-2 diff. Reviewer re-ran gofmt, go vet, i18n-guard, ui-guard, archive-guard: all clean."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-A1",
+      "at": "2026-09-16T14:10:35Z",
+      "scope": "dispatch",
+      "made_by": "autopilot",
+      "decision": "Waves 1-4 batched into ONE serial worker dispatch; waves 5-7 into a second",
+      "why": "All seven tasks are one module and one sandbox. Seven dispatches would re-read the ~11,900-token doc pack seven times for no parallelism gain."
+    },
+    {
+      "id": "D-B1",
+      "at": "2026-09-16T16:49:17Z",
+      "scope": "review:owner-suite-run",
+      "made_by": "user",
+      "decision": "Fix TestErrorFragmentsCarryOptInHeader's trigger; do not delete the test",
+      "why": "It guards the HX-Error-Fragment header, not appearance. Without that header htmx drops the 422 body and the page looks dead."
+    },
+    {
+      "id": "D-B2",
+      "at": "2026-09-16T17:20:05Z",
+      "scope": "verification",
+      "made_by": "user",
+      "decision": "The owner ran make check and reported it passing",
+      "why": "Test-Execution-Policy: the assistant never runs the suite. The pass is the owner's report, recorded as theirs."
+    },
+    {
+      "id": "D-C1",
+      "at": "2026-09-16T17:26:19Z",
+      "scope": "review:F2",
+      "made_by": "autopilot",
+      "decision": "The leader fixes small in-module review findings itself instead of dispatching a worker",
+      "why": "Step 7.3 allows it. A worker dispatch for a one-line comment costs an ~11,900-token doc-pack re-read and buys nothing."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-16T10:10:00Z",
+      "agent": "leader",
+      "event": "artifacts created by the gateway worker and validated with openspec validate --strict. No database change, so the design gate does not apply. Spanish briefing posted; the owner said continue."
+    },
+    {
+      "at": "2026-09-16T09:58:00Z",
+      "agent": "leader",
+      "event": "resume-armed \u2014 budget-only checkpoint before wave A. five_hour_pct 85 (threshold 90, projected to cross mid-wave), context_pct 14 (threshold 40). five_hour_resets_at 1789563600; wake epoch 1789563720 (+120s slack). Owner chose auto-resume over a manual stop. Nothing dispatched; all tier 2 tasks still pending."
+    },
+    {
+      "at": "2026-09-16T10:36:34Z",
+      "agent": "leader",
+      "event": "the armed wake-up was killed at 05:36 local, before it fired. The bucket has NOT reset: five_hour_pct 87, five_hour_resets_at 1789563600 (08:00 local). Not re-armed \u2014 a kill is treated as deliberate. Tier 2 still at the wave-A checkpoint, all tasks pending."
+    },
+    {
+      "at": "2026-09-16T10:40:00Z",
+      "agent": "leader",
+      "event": "resume-armed \u2014 re-armed at the owner's explicit request after the first wake-up was killed. Same target: five_hour_resets_at 1789563600, wake epoch 1789563720 (08:02 local). five_hour_pct 87, context_pct 15. Second attempt; the first survived ~40 minutes before being killed."
+    },
+    {
+      "at": "2026-09-16T11:57:33Z",
+      "agent": "leader",
+      "event": "second wake-up killed at 06:57 local, again before firing; the bucket still has not reset (five_hour_pct 97, up from 87, reset 08:00). Two misses, so the leader stops arming per the skill's own rule and hands the resume back to the owner. Tier 2 unchanged: all tasks pending at the wave-A checkpoint."
+    },
+    {
+      "at": "2026-09-16T14:10:35Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; bucket reset (five_hour_pct 2, context_pct 10). Wave A dispatched: tasks 1.1-4.1 to one serial gateway worker (sonnet). budget_start: 5h 2%, cost $0.979."
+    },
+    {
+      "at": "2026-09-16T14:17:02Z",
+      "agent": "leader",
+      "event": "wave A reconciled: 1.1-4.1 done. Leader read the diff: D1-D7.1 compliance confirmed against design.md. gofmt/go build/go vet clean. budget delta 5h 11%, $4.11. Staged by path only - CLAUDE.md, Makefile, mise.toml, app.css, catalog_test.go, vehicle_image_test.go and other modules were dirty before this run and stay uncommitted."
+    },
+    {
+      "at": "2026-09-16T14:17:25Z",
+      "agent": "leader",
+      "event": "wave B dispatched: tasks 5.1, 5.2, 6.1, 7.1 to one serial gateway worker (sonnet). Tests are written against design.md's Test Contract, not against the implementation. budget_start: 5h 13%, cost $5.09."
+    },
+    {
+      "at": "2026-09-16T14:27:59Z",
+      "agent": "leader",
+      "event": "wave B reconciled. Leader fixed the stale parseExternalChargeForm doc comment the worker reported (it still said start_battery_pct was unconditionally REQUIRED); go build and go vet re-run clean. Leader also did 6.2 (AGENTS.md check) and 6.3 (KB). L1 confirmed: build and vet green repo-wide. L2 confirmed: no module, no runnable, no Deps change, so the root README.md and cmd/README.md need no edit. budget delta 5h 15%, $6.72."
+    },
+    {
+      "at": "2026-09-16T16:49:17Z",
+      "agent": "leader",
+      "event": "owner ran make check: one failure, TestErrorFragmentsCarryOptInHeader in external_charges_error_visibility_test.go. Root cause: the Group E sweep in tasks.md 5.1 named only external_charges_test.go, so this file's empty-start_battery_pct 422 trigger was missed. Owner asked whether the test was cosmetic; it is not - it guards HX-Error-Fragment. Owner chose the fix over deletion. Task 5.3 appended. Swept every other _test.go: no further use of the field outside telemetry.supercharger_history."
+    },
+    {
+      "at": "2026-09-16T17:20:05Z",
+      "agent": "leader",
+      "event": "THE OWNER ran make check and reported it PASSING (= build vet lint ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard test). Tasks 5.1, 5.2, 5.3 move from awaiting-user-verification to done. Change status -> verified. Assistant-run signals this tier: gofmt, go build, go vet, make i18n-guard, make ui-guard. Everything else is the owner's report."
+    },
+    {
+      "at": "2026-09-16T17:20:16Z",
+      "agent": "leader",
+      "event": "review brief written; gateway-reviewer dispatched (sonnet). budget_start: 5h 34%, cost $14.87."
+    },
+    {
+      "at": "2026-09-16T17:26:19Z",
+      "agent": "leader",
+      "event": "review round 1: changes-requested. F1 (minor) accepted and fixed. F2 (nit) accepted in part - tasks.md now carries 5.3 and 5.4; the worker-dispatch half rejected with a written reason (D-C1). Re-verifying with the same reviewer."
+    },
+    {
+      "at": "2026-09-16T17:27:34Z",
+      "agent": "leader",
+      "event": "review round 2: APPROVED by gateway-reviewer. Change status -> reviewer-approved. Next: task 6.4 spec sync, then archive."
+    },
+    {
+      "at": "2026-09-16T17:28:43Z",
+      "agent": "leader",
+      "event": "6.4 spec sync done: openspec archive applied 3 MODIFIED requirements to openspec/specs/gateway/spec.md (+57/-17). No delta-only text and no wrapped scenario heading left behind; the delta had no RENAMED requirement, so the end-of-file append problem did not apply. Folder moved from the archive root into archive/gateway/ per this repo's module grouping. tasks.md checkboxes 6.2, 6.3, 6.4, O1, L1, L2 ticked before the move; O2 (browser check) left open - it is the owner's."
+    }
+  ]
+}

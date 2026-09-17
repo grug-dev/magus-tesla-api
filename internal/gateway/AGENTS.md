@@ -142,6 +142,9 @@ above):
   whenever present — only the fallback default changed, from `time.UTC` to
   `clock.Zone()` (`America/Bogota`) (RM35 D1). `internal/clock` imports nothing
   project-local, so this creates no cycle.
+- `internal/logging` — `Note`, the platform-wide `[Type] [Method] message` log-line format
+  (`ai/go-conventions.md` § Logging). Every handler log line goes through it
+  (`logging.Note("Handler", "<method>", ...)`); `make logging-guard` enforces it.
 
 ## UI stack (styling) — Node-less Tailwind + DaisyUI
 
@@ -171,6 +174,12 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   required one (`ended_at` / `end_battery_pct`, whose `required` attribute RD13 toggles
   client-side as the status select changes), because the server-rendered hint would go stale
   the instant the user switches status.
+- **`ui.FieldProps.Help`** (`templates/ui/field.templ`) — renders a muted line under the
+  control (DaisyUI's `fieldset-label` class) explaining a rule about the field's *value*,
+  e.g. that an empty field gets computed instead of left blank. Independent of `Optional`:
+  `Optional` marks the field as not required, on the legend; `Help` explains the value, under
+  the control. A field may carry either, both, or neither. Worked example: the charge forms'
+  `start_battery_pct` field carries both.
 - **`ui.Dot`** (`templates/ui/dot.templ`, `DotProps{Variant, Tooltip, Class}`) — a small
   colour-only completeness/status indicator with a native hover tooltip, for a spot where
   `ui.Badge`'s mandatory text would be redundant with an adjacent label. `Variant` is one of

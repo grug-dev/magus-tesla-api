@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"log"
 	"slices"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -137,7 +137,7 @@ func buildPollRun(run telemetry.RunContext, report telemetry.CycleReport, start,
 // change a cycle's own reported outcome (design.md D5, roadmap-driven).
 func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, report telemetry.CycleReport, start, finish time.Time) {
 	if err := p.runWriter.RecordRun(ctx, buildPollRun(run, report, start, finish)); err != nil {
-		log.Printf("poll run: recording run %s: %v", run.RunID, err)
+		logging.Note("Processor", "recordRun", "recording run %s: %v", run.RunID, err)
 	}
 }
 
@@ -183,13 +183,14 @@ func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, rep
 // reconciler: one vehicle's failure never aborts another's, and a missed mirror
 // self-heals next cycle because MirrorSessions is idempotent — it upserts, rather
 // than accumulating, and a failed run leaves the watermark unadvanced, so the next
-// run re-reads the same window. Log lines are prefixed "session mirror:" so they
-// stay greppable alongside "metrics reconciliation:" and "gap reconciliation:".
+// run reads the same window. Log lines go through logging.Note and keep a
+// "session mirror" message topic so they stay greppable alongside the
+// reconciliation halves.
 func (p *processor) processChargingData(ctx context.Context) {
 	vehicles, err := p.acct.AllRegisteredVehicles(ctx)
 	if err != nil {
 		// Whole-cycle failure, mirroring the reconciler's enumeration-failure shape.
-		log.Printf("session mirror: listing vehicles: %v", err)
+		logging.Note("Processor", "processChargingData", "listing vehicles: %v", err)
 		return
 	}
 
@@ -211,7 +212,7 @@ func (p *processor) processChargingData(ctx context.Context) {
 		// below starts at the epoch and copies the whole history once.
 		cursor, err := p.mirrorWatermarks.MirrorWatermark(ctx, teslaID)
 		if err != nil {
-			log.Printf("session mirror: vehicle %d: reading watermark: %v", teslaID, err)
+			logging.Note("Processor", "processChargingData", "vehicle %d: reading watermark: %v", teslaID, err)
 			continue
 		}
 
@@ -222,7 +223,7 @@ func (p *processor) processChargingData(ctx context.Context) {
 		// that run read it. Re-reading it is free — MirrorSessions is idempotent.
 		sessions, err := p.superchargerHistoryReader.SuperchargerHistoryByVehicleUpdatedSince(ctx, teslaID, cursor.Add(-mirrorOverlap))
 		if err != nil {
-			log.Printf("session mirror: vehicle %d: reading sessions: %v", teslaID, err)
+			logging.Note("Processor", "processChargingData", "vehicle %d: reading sessions: %v", teslaID, err)
 			continue
 		}
 		if len(sessions) == 0 {
@@ -256,17 +257,17 @@ func (p *processor) processChargingData(ctx context.Context) {
 		}
 
 		if err := p.sessionWriter.MirrorSessions(ctx, mirrored); err != nil {
-			log.Printf("session mirror: vehicle %d: %v", teslaID, err)
+			logging.Note("Processor", "processChargingData", "vehicle %d: %v", teslaID, err)
 			continue
 		}
 		// Advance only after a successful mirror. A crash or an error between the
 		// two leaves the cursor behind, so the next run re-reads the same window.
 		// That repeats work; it never loses a row.
 		if err := p.mirrorWatermarks.AdvanceMirrorWatermark(ctx, teslaID, maxUpdated); err != nil {
-			log.Printf("session mirror: vehicle %d: advancing watermark: %v", teslaID, err)
+			logging.Note("Processor", "processChargingData", "vehicle %d: advancing watermark: %v", teslaID, err)
 			continue
 		}
-		log.Printf("session mirror: vehicle %d: %d session(s)", teslaID, len(mirrored))
+		logging.Note("Processor", "processChargingData", "vehicle %d: %d session(s)", teslaID, len(mirrored))
 	}
 }
 
@@ -299,8 +300,9 @@ func (p *processor) processChargingData(ctx context.Context) {
 //
 // Errors are logged, never fatal: a missed reconciliation self-heals on the next
 // cycle, because both halves are recomputed from scratch every run rather than
-// accumulated. Log lines stay prefixed by their half ("metrics reconciliation:",
-// "gap reconciliation:") so they remain greppable and unambiguous.
+// accumulated. Log lines go through logging.Note and keep their half ("metrics
+// reconciliation:", "gap reconciliation:") in the message so they remain
+// greppable and unambiguous.
 func (p *processor) recalculateAnalytics(ctx context.Context) {
 	// "Yesterday" is resolved in the POLLER'S OWN ZONE, not UTC (roadmap D6/D18,
 	// tier-3 design D-B12): this composition owns the zone that answers "which days
@@ -321,13 +323,13 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 	end := clock.CalendarDay(clock.Now(), p.loc).AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -int(analytics.GapReconciliationWindow.Hours()/24)+1)
 
-	log.Printf("gap reconciliation: %s → %s", start, end)
+	logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: %s → %s", start, end)
 
 	vehicles, err := p.acct.AllRegisteredVehicles(ctx)
 	if err != nil {
 		// Whole-cycle failure, mirroring ProcessVehicleData's own enumeration-failure
 		// shape.
-		log.Printf("gap reconciliation: listing vehicles: %v", err)
+		logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: listing vehicles: %v", err)
 		return
 	}
 
@@ -353,7 +355,7 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 			// Per-vehicle isolation. Skips this vehicle's gap step too — see the doc
 			// comment: reconciling gaps against metrics we just failed to refresh
 			// would delete gap rows on stale evidence.
-			log.Printf("metrics reconciliation: vehicle %d: %v", v.TeslaID, err)
+			logging.Note("Processor", "recalculateAnalytics", "metrics reconciliation: vehicle %d: %v", v.TeslaID, err)
 			continue
 		}
 
@@ -362,7 +364,7 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 		if err != nil {
 			// Per-vehicle isolation: one vehicle's failure never aborts another
 			// vehicle's reconciliation.
-			log.Printf("gap reconciliation: vehicle %d: consumed-by-day: %v", v.TeslaID, err)
+			logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: vehicle %d: consumed-by-day: %v", v.TeslaID, err)
 			continue
 		}
 
@@ -380,7 +382,7 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 		}
 
 		if err := p.gapWriter.ReconcileWindow(ctx, v.TeslaID, start, end, flagged); err != nil {
-			log.Printf("gap reconciliation: vehicle %d: reconcile window: %v", v.TeslaID, err)
+			logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: vehicle %d: reconcile window: %v", v.TeslaID, err)
 			continue
 		}
 	}
@@ -422,7 +424,7 @@ func monthlyCapacityPeriod(now time.Time, loc *time.Location) (period time.Time,
 func (p *processor) runMonthlyCapacityStep(ctx context.Context) {
 	zone := clock.Zone()
 	if p.loc.String() != zone.String() {
-		log.Printf("monthly capacity: poller zone %s differs from platform zone %s; the monthly gate follows the platform zone", p.loc, zone)
+		logging.Note("Processor", "runMonthlyCapacityStep", "poller zone %s differs from platform zone %s; the monthly gate follows the platform zone", p.loc, zone)
 	}
 
 	period, run := monthlyCapacityPeriod(clock.Now(), zone)
@@ -442,9 +444,9 @@ func (p *processor) runMonthlyCapacityStep(ctx context.Context) {
 func (p *processor) callMonthlyCapacityCalculator(ctx context.Context, period time.Time) {
 	report, err := p.monthlyCapacityCalculator.Calculate(ctx, period, nil)
 	if err != nil {
-		log.Printf("monthly capacity: period %s: %v", period.Format("2006-01"), err)
+		logging.Note("Processor", "callMonthlyCapacityCalculator", "monthly capacity: period %s: %v", period.Format("2006-01"), err)
 		return
 	}
-	log.Printf("monthly capacity: period %s: %d vehicle(s) found, %d measured, %d thin",
+	logging.Note("Processor", "callMonthlyCapacityCalculator", "monthly capacity: period %s: %d vehicle(s) found, %d measured, %d thin",
 		period.Format("2006-01"), report.VehiclesFound, report.Measured, report.Thin)
 }

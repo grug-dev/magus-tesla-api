@@ -55,7 +55,7 @@ They differ on purpose. Without `candidate_count`, "twenty small top-ups, none b
 
 | Table | Which rows count |
 |---|---|
-| `charging.manual_charge_entries` | `energy_source = 'USER'` only, with a non-NULL `inferred_capacity_kwh_calc`. |
+| `charging.manual_charge_entries` | `energy_source = 'USER'` **and** `start_battery_source = 'USER'`, with a non-NULL `inferred_capacity_kwh_calc`. Two independent provenances; a row failing either one is not evidence. |
 | `charging.supercharger_sessions` | `status = 'DONE'` only, with a non-NULL `inferred_capacity_kwh_calc` and a non-NULL `tesla_id`. |
 
 ## How maintenance works
@@ -94,9 +94,18 @@ With no arguments it does the previous month, every vehicle. It needs `DATABASE_
   left NULL and only the counts are stored. NULL means "not enough evidence", never "we guessed".
   _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month._
 - **Only non-derived records count as evidence.** A manual entry counts only when the person gave
-  the energy. A Supercharger session counts only when it is complete and both percentages came
-  from the car. A row whose numbers were themselves derived from the 62.0 fallback would feed that
-  fallback back into the answer.
+  the energy **and** typed the starting percentage. A Supercharger session counts only when it is
+  complete and both percentages came from the car. A row whose numbers were themselves derived
+  from the 62.0 fallback would feed that fallback back into the answer.
+  _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month._
+- **A manual entry must pass BOTH provenance checks, not one.** The energy must have been typed by
+  the person, and so must the starting percentage. The two are recorded and computed separately,
+  so a row can fail either on its own.
+  _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month._
+- **Why the starting percentage matters here at all.** A derived starting percentage is computed by
+  dividing the energy by a pack capacity. The generated `inferred_capacity_kwh_calc` then comes
+  back equal to that same capacity, by algebra. Counting such a row would feed the measurement back
+  into itself, exactly like a derived energy does.
   _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Effective Pack Capacity Is Measured Once Per Month._
 - **Small battery changes are dropped, not corrected.** A record under `minDeltaPct` counts toward
   neither the capacity nor `sample_count`. Capacity error grows as the change shrinks, so a small
@@ -158,6 +167,15 @@ With no arguments it does the previous month, every vehicle. It needs `DATABASE_
   and `migrate`. Do not add it: it is an operator tool for re-running a month, not a service.
   _Source: spec monthly-capacity-cli — Requirement: The Tool Is Not Part Of The Deployed Production Image._
 
+- **`analytics` imports no `internal/account` symbol at all** — production and test files alike.
+  Its reads are scoped by vehicle identifier. Do not add an `account` import to resolve a vehicle
+  attribute; that dependency was removed on purpose.
+- **`analytics.NewReader` takes the pool and nothing else.** Every surviving `Reader` method reads
+  `vehicle_metrics` alone. The sibling ports belong to `NewRecalculator`, which writes those rows.
+- **The dashboard efficiency tile is not an `analytics` metric.** It reads
+  `vehicle_metrics.km_per_pct_calc` through `LatestMetricsForVehicles`. The Wh/km derivation that
+  once shared the word "efficiency" is deleted; searching for it finds nothing.
+
 ## Adding a second monthly metric
 
 The plural name is a placeholder, not a promise of a shared table. When a second metric arrives,
@@ -169,10 +187,15 @@ decide then — do not pre-build for it:
   put this one in `charging`. A wider cross-module `monthly_metrics` table owned by `analytics`
   was considered and deferred for exactly one reason: one metric does not justify it.
 
-`internal/analytics/capacity.go` holds a **different**, model-coarse capacity table keyed on
-`car_type`. This workflow never touched it. Before extending that one, weigh reading the measured
-value instead — `analytics` already imports `charging`, so there is no cycle. See
-`openspec/roadmaps/backlog.md` item 7.
+`internal/charging` now holds the platform's **only** pack-capacity definition. `internal/analytics`
+used to hold a second one — a model-coarse table keyed on `car_type`, in
+`internal/analytics/capacity.go`. That file is gone. It was deleted with the unused efficiency
+branch that was its only consumer, so no displayed number changed. A future model-aware capacity
+starts from `charging`'s definition, not from a second table.
+
+One limit stays open: `charging`'s `62.0` fallback is model-blind for a vehicle with no measured
+value yet. `internal/charging` may not import `internal/account`, so it cannot resolve a `car_type`
+by itself. That is a new ticket, not a leftover.
 
 ## Related KB
 

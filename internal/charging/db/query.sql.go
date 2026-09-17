@@ -33,7 +33,8 @@ INSERT INTO charging.manual_charge_entries (
     status,
     energy_source,
     odometer_km,
-    price_source
+    price_source,
+    start_battery_source
 ) VALUES (
     $1,
     $2,
@@ -53,9 +54,10 @@ INSERT INTO charging.manual_charge_entries (
     $16,
     $17,
     $18,
-    $19
+    $19,
+    $20
 )
-RETURNING id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source
+RETURNING id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source, start_battery_source
 `
 
 type CreateEntryParams struct {
@@ -78,6 +80,7 @@ type CreateEntryParams struct {
 	EnergySource       string
 	OdometerKm         pgtype.Int4
 	PriceSource        string
+	StartBatterySource pgtype.Text
 }
 
 // Queries for the manualcharge module. sqlc generates package `manualchargedb` from
@@ -102,6 +105,10 @@ type CreateEntryParams struct {
 // service.go's resolvePriceSource computes USER/UNCONFIRMED before binding this
 // param; the query itself has no way to tell the two apart.
 //
+// start_battery_source is ALSO COMPUTED IN GO, never accepted from the caller --
+// the identical precedent energy_source above already sets. service.go's
+// resolveStartBatteryPct computes USER/ESTIMATED/NULL before binding this param.
+//
 // created_by_account_id records who typed the entry and is never read back as a
 // filter.
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (ManualChargeEntry, error) {
@@ -125,6 +132,7 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Manua
 		arg.EnergySource,
 		arg.OdometerKm,
 		arg.PriceSource,
+		arg.StartBatterySource,
 	)
 	var i ManualChargeEntry
 	err := row.Scan(
@@ -151,6 +159,7 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Manua
 		&i.EnergySource,
 		&i.OdometerKm,
 		&i.PriceSource,
+		&i.StartBatterySource,
 	)
 	return i, err
 }
@@ -220,7 +229,7 @@ func (q *Queries) LatestMeasuredCapacity(ctx context.Context, teslaID int64) (pg
 }
 
 const listEntriesByVehicle = `-- name: ListEntriesByVehicle :many
-SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
+SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source, start_battery_source FROM charging.manual_charge_entries
 WHERE tesla_id = $1
 ORDER BY charged_on DESC
 LIMIT $2
@@ -270,6 +279,7 @@ func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVeh
 			&i.EnergySource,
 			&i.OdometerKm,
 			&i.PriceSource,
+			&i.StartBatterySource,
 		); err != nil {
 			return nil, err
 		}
@@ -282,7 +292,7 @@ func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVeh
 }
 
 const listEntriesByVehicleBetween = `-- name: ListEntriesByVehicleBetween :many
-SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
+SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source, start_battery_source FROM charging.manual_charge_entries
 WHERE tesla_id = $1
   AND charged_on BETWEEN $2 AND $3
 ORDER BY charged_on DESC
@@ -335,6 +345,7 @@ func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntri
 			&i.EnergySource,
 			&i.OdometerKm,
 			&i.PriceSource,
+			&i.StartBatterySource,
 		); err != nil {
 			return nil, err
 		}
@@ -347,7 +358,7 @@ func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntri
 }
 
 const listEntriesByVehicleUpdatedSince = `-- name: ListEntriesByVehicleUpdatedSince :many
-SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
+SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source, start_battery_source FROM charging.manual_charge_entries
 WHERE tesla_id = $1
   AND updated_at >= $2
 ORDER BY charged_on DESC
@@ -398,6 +409,7 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 			&i.EnergySource,
 			&i.OdometerKm,
 			&i.PriceSource,
+			&i.StartBatterySource,
 		); err != nil {
 			return nil, err
 		}
@@ -410,7 +422,7 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 }
 
 const listEntriesByVehicles = `-- name: ListEntriesByVehicles :many
-SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source FROM charging.manual_charge_entries
+SELECT id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source, start_battery_source FROM charging.manual_charge_entries
 WHERE tesla_id = ANY($1::bigint[])
 ORDER BY charged_on DESC
 LIMIT $2
@@ -459,6 +471,7 @@ func (q *Queries) ListEntriesByVehicles(ctx context.Context, arg ListEntriesByVe
 			&i.EnergySource,
 			&i.OdometerKm,
 			&i.PriceSource,
+			&i.StartBatterySource,
 		); err != nil {
 			return nil, err
 		}
@@ -701,6 +714,7 @@ SELECT tesla_id,
        end_battery_pct
   FROM charging.manual_charge_entries
  WHERE energy_source = 'USER'
+   AND start_battery_source = 'USER'
    AND inferred_capacity_kwh_calc IS NOT NULL
    AND charged_on >= $1
    AND charged_on <  $2
@@ -728,6 +742,11 @@ type ListValidManualEntryCapacitiesForPeriodRow struct {
 // a NULL capacity or a NULL percentage -- the caller (monthly_capacity.go) does
 // not need to re-check that. tesla_id is BIGINT NOT NULL on this table (roadmap
 // F5) -- no NULL-skip needed here, unlike the session query below.
+//
+// start_battery_source = 'USER' excludes a row whose starting percentage was
+// itself derived from a capacity: its inferred_capacity_kwh_calc comes back
+// equal to the capacity the derivation divided by, so counting it as evidence
+// would feed that same capacity's own measurement back into itself.
 func (q *Queries) ListValidManualEntryCapacitiesForPeriod(ctx context.Context, arg ListValidManualEntryCapacitiesForPeriodParams) ([]ListValidManualEntryCapacitiesForPeriodRow, error) {
 	rows, err := q.db.Query(ctx, listValidManualEntryCapacitiesForPeriod, arg.PeriodStart, arg.PeriodEnd)
 	if err != nil {
@@ -965,47 +984,49 @@ func (q *Queries) MirrorSuperchargerSession(ctx context.Context, arg MirrorSuper
 const updateEntry = `-- name: UpdateEntry :one
 UPDATE charging.manual_charge_entries
 SET
-    charged_on        = $1,
-    energy_added_kwh  = $2,
-    price             = $3,
-    currency          = $4,
-    started_at        = $5,
-    ended_at          = $6,
-    start_battery_pct = $7,
-    end_battery_pct   = $8,
-    charging_type     = $9,
-    location_kind     = $10,
-    location_label    = $11,
-    notes             = $12,
-    status            = $13,
-    energy_source     = $14,
-    odometer_km       = $15,
-    price_source      = $16,
-    updated_at        = now()
-WHERE id = $17
-  AND tesla_id = $18
-RETURNING id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source
+    charged_on            = $1,
+    energy_added_kwh      = $2,
+    price                 = $3,
+    currency              = $4,
+    started_at            = $5,
+    ended_at              = $6,
+    start_battery_pct     = $7,
+    end_battery_pct       = $8,
+    charging_type         = $9,
+    location_kind         = $10,
+    location_label        = $11,
+    notes                 = $12,
+    status                = $13,
+    energy_source         = $14,
+    odometer_km           = $15,
+    price_source          = $16,
+    start_battery_source  = $17,
+    updated_at            = now()
+WHERE id = $18
+  AND tesla_id = $19
+RETURNING id, created_by_account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km, price_source, start_battery_source
 `
 
 type UpdateEntryParams struct {
-	ChargedOn       pgtype.Date
-	EnergyAddedKwh  pgtype.Numeric
-	Price           pgtype.Numeric
-	Currency        string
-	StartedAt       pgtype.Timestamptz
-	EndedAt         pgtype.Timestamptz
-	StartBatteryPct pgtype.Int2
-	EndBatteryPct   pgtype.Int2
-	ChargingType    pgtype.Text
-	LocationKind    string
-	LocationLabel   pgtype.Text
-	Notes           pgtype.Text
-	Status          string
-	EnergySource    string
-	OdometerKm      pgtype.Int4
-	PriceSource     string
-	ID              uuid.UUID
-	TeslaID         int64
+	ChargedOn          pgtype.Date
+	EnergyAddedKwh     pgtype.Numeric
+	Price              pgtype.Numeric
+	Currency           string
+	StartedAt          pgtype.Timestamptz
+	EndedAt            pgtype.Timestamptz
+	StartBatteryPct    pgtype.Int2
+	EndBatteryPct      pgtype.Int2
+	ChargingType       pgtype.Text
+	LocationKind       string
+	LocationLabel      pgtype.Text
+	Notes              pgtype.Text
+	Status             string
+	EnergySource       string
+	OdometerKm         pgtype.Int4
+	PriceSource        string
+	StartBatterySource pgtype.Text
+	ID                 uuid.UUID
+	TeslaID            int64
 }
 
 // Update mutable fields of an existing charge entry. The real check is the caller
@@ -1026,6 +1047,11 @@ type UpdateEntryParams struct {
 // from the caller -- the identical precedent energy_source above already sets.
 // Recomputed on every Update, never sticky: service.go's resolvePriceSource runs
 // again against the entry's current price and confirmation intent.
+//
+// start_battery_source is ALSO COMPUTED IN GO, never accepted from the caller --
+// the identical precedent energy_source above already sets. Recomputed on every
+// Update, never sticky: service.go's resolveStartBatteryPct runs again against
+// the entry's current percentages and (possibly just-resolved) energy.
 func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (ManualChargeEntry, error) {
 	row := q.db.QueryRow(ctx, updateEntry,
 		arg.ChargedOn,
@@ -1044,6 +1070,7 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 		arg.EnergySource,
 		arg.OdometerKm,
 		arg.PriceSource,
+		arg.StartBatterySource,
 		arg.ID,
 		arg.TeslaID,
 	)
@@ -1072,6 +1099,7 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 		&i.EnergySource,
 		&i.OdometerKm,
 		&i.PriceSource,
+		&i.StartBatterySource,
 	)
 	return i, err
 }

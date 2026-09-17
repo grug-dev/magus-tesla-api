@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/url"
 
@@ -11,6 +10,7 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 )
 
 // langCookieName is the anonymous-visitor language cookie (design.md D3/D8).
@@ -117,7 +117,7 @@ func (h *Handler) syncLoginLanguageCookie(c *gin.Context, acctID uuid.UUID) {
 		return
 	}
 	if err := h.acct.SetLanguage(c.Request.Context(), acctID, normalizeLang(cookieVal)); err != nil {
-		log.Printf("google callback: language sync failed for account %s: %v", acctID, err)
+		logging.Note("Handler", "syncLoginLanguageCookie", "google callback: language sync failed for account %s: %v", acctID, err)
 	}
 }
 

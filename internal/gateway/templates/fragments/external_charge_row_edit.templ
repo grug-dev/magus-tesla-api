@@ -20,12 +20,14 @@ import (
 // the button, every `Required: true` below was inert and an empty required field
 // went straight to the server as a 422. Keep the request on the form.
 //
-// MAG-5 alignment with the create form (D4/D6/D7): start_battery_pct is
-// unconditionally REQUIRED (D6; end_battery_pct's required-ness is conditional
-// as of RM33, see below); energy is 3-decimal (step=0.001, D7). The hidden
-// `vehicle` form input was removed (D4 — parseExternalChargeForm sources the vehicle
-// from the session selection); the read-only VehicleLabel span stays for
-// display transparency.
+// MAG-5 alignment with the create form: start_battery_pct is OPTIONAL — an
+// ESTIMATED (module-derived) stored value renders as a placeholder, so an
+// unedited re-submission arrives empty and the charging module derives it
+// again; a USER value (or none) renders as a normal value, same as today
+// (end_battery_pct's required-ness is conditional as of RM33, see below);
+// energy is 3-decimal (step=0.001). The hidden `vehicle` form input was
+// removed (parseExternalChargeForm sources the vehicle from the session
+// selection); the read-only VehicleLabel span stays for display transparency.
 //
 // RM33 (MAG-18) additions, design.md §D-Fields/§D-Suffix/§D-Values: a status
 // <select> (IN_PROGRESS/DONE) is the first field, defaulting to vm.RawStatus
@@ -99,8 +101,12 @@ templ ExternalChargeRowEdit(vm ExternalChargeEntryVM, csrfToken string, validati
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndedAt), Error: validationErrors["ended_at"]}) {
 						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: vm.RawEndedAt, Required: vm.RequiredEndedAt})
 					}
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"], Optional: true, Help: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPctHelp)}) {
+						if vm.StartBatterySource == "ESTIMATED" {
+							@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1", "placeholder": vm.RawStartBatteryPct}})
+						} else {
+							@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+						}
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndBatteryPct), Error: validationErrors["end_battery_pct"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: vm.RawEndBatteryPct, Required: vm.RequiredEndBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})

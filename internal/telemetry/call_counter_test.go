@@ -120,10 +120,10 @@ func TestCallCounter_LogsExpectedLines(t *testing.T) {
 
 	got := buf.String()
 	wantLines := []string{
-		"fleet api: ListVehicles",
-		fmt.Sprintf("fleet api: VehicleData vehicle_id=%d", 99),
-		fmt.Sprintf("fleet api: WakeUp vehicle_id=%d", 99),
-		fmt.Sprintf("fleet api: ChargingHistory start_time=%q end_time=%q page_no=%d count=%d",
+		"[VehicleService] [ListVehicles] fleet api: call",
+		fmt.Sprintf("[VehicleService] [VehicleData] fleet api: vehicle_id=%d", 99),
+		fmt.Sprintf("[VehicleService] [WakeUp] fleet api: vehicle_id=%d", 99),
+		fmt.Sprintf("[VehicleService] [ChargingHistory] fleet api: start_time=%q end_time=%q page_no=%d count=%d",
 			params.StartTime, params.EndTime, params.PageNo, params.Count),
 	}
 	for _, want := range wantLines {

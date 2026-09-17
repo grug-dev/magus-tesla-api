@@ -116,6 +116,28 @@ owned by this module may have a name beginning `charge_sessions`. Verify with
     `price > 0 ⇒ USER` half of the rule is enforced in exactly two places: the
     migration's own one-time backfill `UPDATE` (for rows that existed before this
     change) and `resolvePriceSource` in Go (on every future write, via `Writer`).
+- **`start_battery_source`** (RM61 tier 1, MAG-40,
+  RM61-charging-add-manual-entry-start-derivation,
+  `internal/charging/db/migrations/20260915000001_add_start_battery_source.sql`):
+  - `start_battery_source TEXT CHECK (start_battery_source IN ('USER','ESTIMATED'))`
+    — always computed by this module (`resolveStartBatteryPct` in `service.go`), never
+    accepted from a caller.
+  - **Nullable, with NO `DEFAULT`** — unlike its two siblings above, which are
+    `NOT NULL DEFAULT`. A row whose `start_battery_pct` is `NULL` has no provenance to
+    record, so there is no third value that belongs in the `CHECK` set, and a `DEFAULT`
+    would claim provenance for a row that carries none.
+  - **No cross-column `CHECK`** ties this column's nullness to `start_battery_pct`'s.
+    The pairing is real — `NULL` percentage means `NULL` source — but it is enforced in
+    Go, at the single place that writes both columns. The database accepts an
+    inconsistent pair if you write one by raw SQL.
+  - Pre-existing rows were backfilled to `'USER'` by a separate `UPDATE ... WHERE
+    start_battery_pct IS NOT NULL`. That is exact, not a guess: no derivation existed
+    before this column, so every stored percentage was typed by a person.
+  - **Not indexed.** `ListValidManualEntryCapacitiesForPeriod` is the one query that
+    filters on it, it runs once a month, and it already scans a bounded `charged_on`
+    range with no supporting index of its own. Revisit trigger: the same **partial**,
+    `tesla_id`-leading shape the `status` and `price_source` bullets name — never a
+    standalone `(start_battery_source)` index.
 
 ### `supercharger_sessions` (renamed from `charge_sessions` in RM39 tier 3, D5b; RM29 tier 6,
 RM29-charging-add-charge-sessions)

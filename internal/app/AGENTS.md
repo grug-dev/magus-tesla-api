@@ -108,9 +108,13 @@ sub-package or internals:
   `cmd/` binaries call it) and `account` sits at the **bottom** already, so this is a
   forward, one-way dependency with no cycle risk
   (`ai/architecture.md` §"Dependency direction").
-- `github.com/google/uuid`, stdlib (`context`, `time`, `log`). `time` is load-bearing
+- `github.com/google/uuid`, stdlib (`context`, `time`). `time` is load-bearing
   twice over: the reconcile step's "yesterday in `loc`" math and `Scheduler`'s
   timer/`nextRun` logic.
+- `internal/logging` — `Note`, the platform-wide `[Type] [Method] message` log-line
+  format (`ai/go-conventions.md` § Logging). Every log line in this module goes
+  through it; `processor.go` is the gold standard. Imports stdlib `log` and `fmt`
+  only, so no cycle risk, same reasoning as `clock`.
 - `internal/clock` — `ProcessVehicleData` reads `clock.Now()` for its `start`/`finish`
   measurement points (`RM36-app-record-poll-run` design D2/D3). Imports stdlib `time`
   and nothing else, so it creates no cycle risk, same reasoning as every other allowed

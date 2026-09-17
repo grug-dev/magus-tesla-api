@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -32,6 +31,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/logging"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
@@ -234,7 +234,7 @@ func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.Vehi
 		statusMap := mergeVehicleStatuses(statuses)
 		var notice string
 		if statusErr != nil {
-			log.Printf("gateway: analytics reader error for account %s: %v", uid, statusErr)
+			logging.Note("Handler", "vehiclesFor", "analytics reader error for account %s: %v", uid, statusErr)
 			notice = i18n.T(ctx, i18n.KeyVehiclesNoticeTelemetryUnavailable)
 		}
 		return fragments.VehiclesData{
@@ -421,7 +421,7 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	}
 	statuses, statusErr := h.analyticsReader.LatestMetricsForVehicles(ctx, vehicleref.All(teslaIDsOf(registered)))
 	if statusErr != nil {
-		log.Printf("gateway: dashboard analytics reader error for account %s: %v", uid, statusErr)
+		logging.Note("Handler", "dashboardFor", "dashboard analytics reader error for account %s: %v", uid, statusErr)
 		vm.TelemetryUnavailable = true
 		// Reuses the vehicles_notice key (leader amendment): byte-identical copy to
 		// vehiclesFor's telemetry-unavailable notice — no separate dashboard_notice
@@ -672,7 +672,7 @@ func (h *Handler) VehicleSelectFragment(c *gin.Context) {
 	vm := h.vehicleSelectFor(c.Request.Context(), uid, selectedTeslaID)
 	csrf, err := generateCSRFToken()
 	if err != nil {
-		log.Printf("gateway: vehicle-select csrf token error for account %s: %v", uid, err)
+		logging.Note("Handler", "VehicleSelectFragment", "vehicle-select csrf token error for account %s: %v", uid, err)
 		// No token → the switcher form still renders but will 403 on submit.
 		// Degrade gracefully (the select itself is unaffected).
 	} else {
@@ -787,7 +787,7 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64, today time.Time) fragments.NavHeaderVM {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
-		log.Printf("gateway: nav-header RegisteredVehicles error for account %s: %v", uid, err)
+		logging.Note("Handler", "navHeaderFor", "nav-header RegisteredVehicles error for account %s: %v", uid, err)
 		// No vehicles, no name — degraded empty block. NeedsConnect stays false:
 		// we don't know the account state, so the connect-prompt is misleading.
 		return fragments.NavHeaderVM{}
@@ -818,7 +818,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	// keep the vehicle name, no battery. Never return early with a 500.
 	statuses, statusErr := h.analyticsReader.LatestMetricsForVehicles(ctx, vehicleref.All(teslaIDsOf(registered)))
 	if statusErr != nil {
-		log.Printf("gateway: nav-header analytics reader error for account %s: %v", uid, statusErr)
+		logging.Note("Handler", "navHeaderFor", "nav-header analytics reader error for account %s: %v", uid, statusErr)
 		return vm
 	}
 
@@ -918,7 +918,7 @@ func dataAgeLabel(ctx context.Context, days int) string {
 func (h *Handler) vehicleSelectFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64) fragments.VehicleSelectVM {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
-		log.Printf("gateway: vehicle-select RegisteredVehicles error for account %s: %v", uid, err)
+		logging.Note("Handler", "vehicleSelectFor", "vehicle-select RegisteredVehicles error for account %s: %v", uid, err)
 		return fragments.VehicleSelectVM{}
 	}
 	if len(registered) == 0 {

@@ -1,0 +1,50 @@
+# golangci-lint configuration for magus-tesla-api.
+#
+# Run it with `make lint`; it is also part of `make check`.
+#
+# Scope: this file guards *Go correctness* only. The project's own rules
+# (i18n, boundaries, time zone, units, themes) are enforced by the hand-written
+# `make *-guard` targets in the Makefile, not here. Keep the two apart — a rule
+# belongs here only when an off-the-shelf Go linter already checks it.
+version: "2"
+
+linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    # --- resource leaks: the failure mode this project actually has ---
+    - bodyclose      # every http.Response.Body is closed (Tesla Fleet API calls)
+    - rowserrcheck   # sql.Rows.Err() is checked after a row loop
+    - sqlclosecheck  # sql.Rows / sql.Stmt are closed
+    # --- error handling ---
+    - nilerr         # never `return nil` when err is non-nil
+    - errorlint      # use errors.Is/As instead of == and type asserts on errors
+    # --- dead weight ---
+    - unconvert      # no conversion of a value to the type it already has
+    - wastedassign   # no assignment that is overwritten before it is read
+    - copyloopvar    # no `x := x` loop-variable copy (pointless since Go 1.22)
+    - durationcheck  # no accidental time.Duration multiplication
+
+    # NOT enabled, on purpose:
+    #   misspell — the i18n catalogue is bilingual, and it reads Spanish words as
+    #   misspelled English ("calcular" -> "calculator"). It would fail on correct text.
+
+  settings:
+    errcheck:
+      exclude-functions:
+        # `defer tx.Rollback(ctx) // no-op once committed` is this codebase's
+        # transaction idiom (account, charging, analytics all use it). After a
+        # successful Commit the deferred call returns pgx.ErrTxDone, which is
+        # expected and not actionable — wrapping four call sites in
+        # `func() { _ = ... }()` would cost readability and buy no signal.
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+
+  exclusions:
+    # Keep the default exemptions golangci-lint ships — they cover well-known
+    # always-safe cases, such as an unchecked Close on a read-only os.File.
+    presets:
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt

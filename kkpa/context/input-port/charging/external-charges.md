@@ -142,8 +142,8 @@ assertion.
   section; the optional `location_label` follows it as the grid's final field.
 - **The section heading carries the optional signal for its own three fields**; the
   per-field `ui.FieldProps.Optional` hint marks the optional fields that live in the MAIN
-  grid (`energy_added_kwh`, `price`, `started_at`, `location_label`), so the two signals
-  never duplicate each other.
+  grid (`energy_added_kwh`, `price`, `started_at`, `start_battery_pct`, `location_label`), so
+  the two signals never duplicate each other.
 - **`location_label` is disabled unless `location_kind` is `OTHER`** (RD14) — the server
   renders the initial `disabled` state and the `static/app.js` listener keeps it live on
   select change; a disabled input is not submitted, so a label typed under HOME/WORK is
@@ -220,6 +220,15 @@ until the copy follows:
   entry gets no estimate until it is completed — and the IN_PROGRESS required set;
 - the edit hint states `charging.RequiredFieldsFor(StatusDone)`'s extra fields (`ended_at`,
   `end_battery_pct`).
+
+`start_battery_pct` carries its OWN help line under the input —
+`KeyChargesFormStartBatteryPctHelp`, rendered through `ui.FieldProps.Help` on both forms.
+It tells the user an empty field is computed, not rejected: ES *"Opcional. Déjalo vacío y
+lo calculamos con la energía y el % final."* / EN *"Optional. Leave it empty and we
+calculate it from the energy and the end %."* The create hint's IN_PROGRESS sentence was
+corrected in the same change and now reads *"Una carga En progreso solo requiere Fecha y
+Ubicación."* / *"An In progress charge only requires Date and Location."* — the start
+percentage is no longer in that required set.
 
 ## Manual charge rule: one IN_PROGRESS entry per (vehicle, charged_on)
 

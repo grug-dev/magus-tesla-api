@@ -103,14 +103,9 @@ func main() {
 	// The sibling ports internal/app's Processor composes. Both paths get all
 	// three steps by construction now, because both call the same port — the
 	// decorator that used to guarantee that is gone with tier 7.
-	// analytics.NewReader's window argument is required by the signature but
-	// unused by ConsumedByDay — only RecentEfficiency reads it, and this command
-	// never calls that.
-	//
-	// The three sibling ports are built once and shared by the reader and the
-	// recalculator: they are stateless handles over the same pool, and building
-	// them twice would only obscure that both halves of the step read exactly the
-	// same sources.
+	// The three sibling ports are built once and shared: they are stateless
+	// handles over the same pool, and building them twice would only obscure
+	// that both halves of the step read exactly the same sources.
 	telemetryReader := telemetry.NewReader(pool)
 	// Two Supercharger-session ports, deliberately, reading two different tables.
 	// superchargerHistoryReader is telemetry's, and stays: the mirror step reads
@@ -122,14 +117,9 @@ func main() {
 	sessionAnalyticsReader := charging.NewSuperchargerSessionAnalyticsReader(pool)
 	chargingReader := charging.NewReader(pool)
 
-	analyticsReader := analytics.NewReader(
-		pool,
-		telemetryReader,
-		sessionAnalyticsReader,
-		chargingReader,
-		acct,
-		analytics.DefaultWindow,
-	)
+	// The reader serves vehicle_metrics only, so it takes the pool alone. The
+	// recalculator is what needs the sibling ports -- it writes those rows.
+	analyticsReader := analytics.NewReader(pool)
 	recalculator := analytics.NewRecalculator(pool, telemetryReader, sessionAnalyticsReader, chargingReader)
 
 	// The use case itself. Since RM29 tier 7 the three-step cycle lives behind
