@@ -4,9 +4,9 @@
   "roadmap": "RM62-nightly-cycle-observability",
   "intention": "One nightly poller log shows every database call the cycle makes, in every module it touches, the same cycle can be stepped through in the VS Code debugger, and two diagrams explain it without reading any Go.",
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": true,
-  "updated_at": "2026-09-17T10:52:30Z",
+  "updated_at": "2026-09-17T15:10:41Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
@@ -16,15 +16,14 @@
     "created_at": "2026-09-17T01:57:25Z"
   },
   "rollup": {
-    "current": [
-      4
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       1,
       2,
-      3
+      3,
+      4
     ]
   },
   "decisions": [
@@ -188,14 +187,18 @@
       "module": "platform",
       "optional": false,
       "depends_on": [],
-      "status": "in-flight",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-17T10:52:30Z",
-      "completed_at": null,
+      "completed_at": "2026-09-17T15:10:41Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Unblocked: MAG-81 landed in 48f7944. RD9 still binds \u2014 the diagrams must show Recalculate and the vehicle_metrics attributes it derives, in the post-MAG-81 shape."
+      "budget": {
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "not reliably measured: a session rate limit killed the first worker mid-tier and the bucket reset, so no single start/end pair covers this tier"
+      },
+      "notes": "Approved at round 2. One finding, F1: two tasks.md checkboxes shipped unticked, fixed by the leader. The first worker was killed by a rate limit at task 3.6 and left the derivation diagram failing its visual check; a second worker fixed the geometry and it passes."
     }
   ],
   "events": [
@@ -258,6 +261,11 @@
       "at": "2026-09-17T10:52:30Z",
       "agent": "leader",
       "event": "RD10's blocker lifted: the user committed MAG-81 as 48f7944, verified in code (deriveConsumption now takes chargePct, ConsumedPct field exists). Tier 4 started; RD9 carried verbatim into the dispatch."
+    },
+    {
+      "at": "2026-09-17T15:10:41Z",
+      "agent": "leader",
+      "event": "tier 4 archived. Every tier archived, so RM62 is complete; both roadmap files move to openspec/roadmaps/archive/RM62-nightly-cycle-observability/. Cost coverage: only tiers 1 and 2 have a recorded cost_usd_delta. Tier 3's statusline cache reported a foreign session id, and tier 4 spanned a rate limit and a bucket reset, so neither has a defensible figure."
     }
   ]
 }
