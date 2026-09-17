@@ -128,6 +128,20 @@ Full step-by-step runbook: `docs/1-deploy/docker.md` §10.
   `migrate` only ever appear in `docker-logs`.
 - **A `web`/`poller` crash before the redirect takes effect still only shows up in
   `docker compose ... logs`**, not in the named file — check both when the named file is empty.
+- **`web`, `poller` and `caddy` must each keep a named log file at a fixed host path.** An
+  operator has to reach a service's log without first looking up a per-container id. `db` and
+  `migrate` are exempt and stay on the container runtime's own log command.
+  _Source: spec platform — Requirement: Named And Located Deploy Logs._
+- **Named log data must be purged automatically past its retention period.** Without it the files
+  grow until the host disk fills. Retention today is 14 days.
+  _Source: spec platform — Requirement: Time-Bounded Named Log Retention._
+- **A fast-growing log must rotate on size, not only on the daily check.** A noisy failure loop
+  can fill a file long before the next scheduled run, so the size threshold has to fire on its
+  own.
+  _Source: spec platform — Requirement: Time-Bounded Named Log Retention._
+- **Exactly one rotation mechanism may govern a log file.** A file that rotates itself is never
+  also handled by the host mechanism. Two rotators on one file lose data.
+  _Source: spec platform — Requirement: Time-Bounded Named Log Retention._
 
 ## Related KB
 
