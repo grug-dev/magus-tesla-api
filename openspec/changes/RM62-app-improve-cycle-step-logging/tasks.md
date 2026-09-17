@@ -27,14 +27,14 @@ them at the same time.
 
 ## Wave 1 — Per-vehicle log labels (`internal/app/processor.go`)
 
-- [ ] **1.1** In `recalculateAnalytics`, delete the pre-loop line:
+- [x] **1.1** In `recalculateAnalytics`, delete the pre-loop line:
   `logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: %s → %s", start, end)`.
   The `start`/`end` values it used stay — they are still needed by the
   per-vehicle gap line (task 1.3) and by `ConsumedByDay`/`ReconcileWindow`,
   unchanged.
   `depends_on`: — · `parallel_ok`: no (first edit in the function)
 
-- [ ] **1.2** Inside the per-vehicle loop, immediately before
+- [x] **1.2** Inside the per-vehicle loop, immediately before
   `p.recalculator.Reconcile(ctx, v.TeslaID)`, add:
   `logging.Note("Processor", "recalculateAnalytics", "metrics reconciliation: vehicle %d", v.TeslaID)`.
   Keep the `metrics reconciliation:` topic exactly as design.md D2 specifies —
@@ -42,7 +42,7 @@ them at the same time.
   (`"metrics reconciliation: vehicle %d: %v"`) already uses, a few lines below.
   `depends_on`: 1.1 · `parallel_ok`: no
 
-- [ ] **1.3** Inside the per-vehicle loop, immediately before the gap work
+- [x] **1.3** Inside the per-vehicle loop, immediately before the gap work
   starts (before `p.analyticsReader.ConsumedByDay(ctx, v.TeslaID, start, end)`),
   add:
   `logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: vehicle %d: %s -> %s", v.TeslaID, start, end)`.
@@ -51,7 +51,7 @@ them at the same time.
   use it.
   `depends_on`: 1.2 · `parallel_ok`: no
 
-- [ ] **1.4** Update `recalculateAnalytics`'s own doc comment: it currently
+- [x] **1.4** Update `recalculateAnalytics`'s own doc comment: it currently
   says log lines "keep their half (...) in the message so they remain
   greppable" — add one sentence stating each half's line now also names the
   vehicle and is printed once per vehicle, replacing the old single
@@ -64,7 +64,7 @@ them at the same time.
 
 ## Wave 2 — VS Code launch entry (`.vscode/launch.json`)
 
-- [ ] **2.1** Add a new configuration to the `configurations` array, after the
+- [x] **2.1** Add a new configuration to the `configurations` array, after the
   existing `"Launch web (cmd/web)"` entry, exactly as design.md D4 specifies:
   `name: "Debug poller (cmd/poller --once)"`, `type: "go"`,
   `request: "launch"`, `mode: "auto"`,
@@ -78,7 +78,7 @@ them at the same time.
 
 ## Wave 3 — Docs (`internal/app/AGENTS.md`)
 
-- [ ] **3.1** In the "Testing notes" section, next to the existing sentence
+- [x] **3.1** In the "Testing notes" section, next to the existing sentence
   *"The verification signal for the two uncovered steps is the owner's own
   `go run ./cmd/poller --once`"*, add: this same command now also runs under
   the VS Code debugger via the "Debug poller (cmd/poller --once)" launch
@@ -87,7 +87,7 @@ them at the same time.
   command from a terminal, per design.md D4's warning.
   `depends_on`: 2.1 · `parallel_ok`: no
 
-- [ ] **3.2** In whichever section documents `recalculateAnalytics`'s log
+- [x] **3.2** In whichever section documents `recalculateAnalytics`'s log
   behavior (or add one short line to "Responsibility" if none exists yet),
   note that its two halves each log per vehicle now, not once for the whole
   step. Keep this to one sentence — the full behavior is in the function's

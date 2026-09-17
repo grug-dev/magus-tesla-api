@@ -302,7 +302,10 @@ func (p *processor) processChargingData(ctx context.Context) {
 // cycle, because both halves are recomputed from scratch every run rather than
 // accumulated. Log lines go through logging.Note and keep their half ("metrics
 // reconciliation:", "gap reconciliation:") in the message so they remain
-// greppable and unambiguous.
+// greppable and unambiguous. Each half also logs the vehicle it is about to
+// process, once per vehicle, right before doing the work — so a query line
+// that follows in the log can be traced back to the vehicle and half that
+// caused it, not just to the step as a whole.
 func (p *processor) recalculateAnalytics(ctx context.Context) {
 	// "Yesterday" is resolved in the POLLER'S OWN ZONE, not UTC (roadmap D6/D18,
 	// tier-3 design D-B12): this composition owns the zone that answers "which days
@@ -322,8 +325,6 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 	// is not a behavior change (design.md D-app-2).
 	end := clock.CalendarDay(clock.Now(), p.loc).AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -int(analytics.GapReconciliationWindow.Hours()/24)+1)
-
-	logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: %s → %s", start, end)
 
 	vehicles, err := p.acct.AllRegisteredVehicles(ctx)
 	if err != nil {
@@ -351,6 +352,7 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 		// derives its own affected window from its watermarks, so it takes no
 		// start/end from here: the [start, end] below is the gap step's trailing
 		// window, a different and unrelated question.
+		logging.Note("Processor", "recalculateAnalytics", "metrics reconciliation: vehicle %d", v.TeslaID)
 		if err := p.recalculator.Reconcile(ctx, v.TeslaID); err != nil {
 			// Per-vehicle isolation. Skips this vehicle's gap step too — see the doc
 			// comment: reconciling gaps against metrics we just failed to refresh
@@ -360,6 +362,7 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 		}
 
 		// Step 2 — charge gaps, now reading the model step 1 just advanced.
+		logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: vehicle %d: %s -> %s", v.TeslaID, start, end)
 		days, err := p.analyticsReader.ConsumedByDay(ctx, v.TeslaID, start, end)
 		if err != nil {
 			// Per-vehicle isolation: one vehicle's failure never aborts another

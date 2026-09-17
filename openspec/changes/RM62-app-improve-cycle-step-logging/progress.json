@@ -5,15 +5,24 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
   "request": "MAG-57 tier 1. Fix the misleading gap-reconciliation log line in internal/app/processor.go: it prints once before the vehicle loop, so the telemetry queries that follow look like they belong to the gap step when they belong to Recalculator.Reconcile. Replace it with per-vehicle labels for both halves. Also add a VS Code launch configuration that runs cmd/poller --once under the debugger, mirroring the existing cmd/web entry.",
-  "status": "proposed",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": ["1.1", "1.2", "1.3", "1.4", "2.1", "3.1", "3.2"],
+    "pending": [],
     "blocked": [],
-    "done": []
+    "done": [],
+    "awaiting-user-verification": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "3.1",
+      "3.2"
+    ]
   },
   "created_at": "2026-09-17T02:15:00Z",
-  "updated_at": "2026-09-17T02:15:00Z",
+  "updated_at": "2026-09-17T02:17:27Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -33,59 +42,93 @@
       "module": "app",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Removed the pre-loop gap reconciliation line. start/end values kept; still used by the per-vehicle gap line and ConsumedByDay.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.2",
       "title": "Add the per-vehicle metrics-reconciliation line before Reconcile",
       "module": "app",
-      "depends_on": ["1.1"],
+      "depends_on": [
+        "1.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Added metrics reconciliation: vehicle %d before p.recalculator.Reconcile. Topic matches the existing error line below it.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.3",
       "title": "Add the per-vehicle gap-reconciliation line with the window before ConsumedByDay",
       "module": "app",
-      "depends_on": ["1.2"],
+      "depends_on": [
+        "1.2"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Added gap reconciliation: vehicle %d: %s -> %s before p.analyticsReader.ConsumedByDay. Topic matches the two error lines below.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "1.4",
       "title": "Update recalculateAnalytics's own doc comment for the per-vehicle lines",
       "module": "app",
-      "depends_on": ["1.3"],
+      "depends_on": [
+        "1.3"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Doc comment now says each half logs its vehicle once per vehicle, and why: a query line traces back to vehicle and half. No decision IDs cited.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "2.1",
@@ -93,44 +136,69 @@
       "module": "app",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Added Debug poller (cmd/poller --once) entry after Launch web in .vscode/launch.json. Exact fields, no env block. JSONC parses.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "3.1",
       "title": "Document the launch entry in internal/app/AGENTS.md Testing notes, with the paid-API warning",
       "module": "app",
-      "depends_on": ["2.1"],
+      "depends_on": [
+        "2.1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "Testing notes now names the VS Code launch entry beside go run ./cmd/poller --once, and warns both wake the real car and cost paid Fleet API calls.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     },
     {
       "id": "3.2",
       "title": "Note the per-vehicle log behaviour in internal/app/AGENTS.md, one sentence",
       "module": "app",
-      "depends_on": ["1.4"],
+      "depends_on": [
+        "1.4"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T02:15:31Z",
+      "completed_at": "2026-09-17T02:17:27Z",
+      "duration_seconds": 116,
+      "notes": "One sentence under Responsibility: the two halves log per vehicle, not once per step; points to the processor.go doc comment for detail.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 51,
+        "cost_usd_start": 0.72,
+        "cost_usd_end": 2.21,
+        "approx": true,
+        "note": "single serial worker ran all 7 tasks; one wave delta shared across them"
+      }
     }
   ],
   "review": {
@@ -157,6 +225,15 @@
       "decision": "Tasks 1.1-1.4 will be dispatched to ONE worker, not four",
       "why": "All four edit the same function in one file and are strictly sequential. Four dispatches would re-read the doc pack four times for a six-line edit.",
       "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-17T02:15:31Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "All 7 tasks dispatched to ONE serial worker, not three waves",
+      "why": "Total edit is ~6 lines in one file, one JSON entry, two doc sentences. Three dispatches would re-read the ~11,900-token doc pack three times.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -173,7 +250,17 @@
     {
       "at": "2026-09-17T02:15:00Z",
       "agent": "leader",
-      "event": "Step 3a Spanish briefing posted; user approved; artifacts committed; progress.json created. Pipeline HALTS here by the invocation's own scope instruction — no implementation worker is dispatched."
+      "event": "Step 3a Spanish briefing posted; user approved; artifacts committed; progress.json created. Pipeline HALTS here by the invocation's own scope instruction \u2014 no implementation worker is dispatched."
+    },
+    {
+      "at": "2026-09-17T02:15:31Z",
+      "agent": "leader",
+      "event": "resumed at Step 5; dispatched app worker (claude-sonnet-5) with tasks 1.1-1.4, 2.1, 3.1-3.2 in one serial wave. Budget start: 5h 44 pct, context 10 pct, $0.72"
+    },
+    {
+      "at": "2026-09-17T02:17:27Z",
+      "agent": "leader",
+      "event": "wave complete; all 7 tasks implemented. Leader ran go build ./..., go vet ./..., gofmt -l . and make lint \u2014 all clean (0 issues). Worker reported placeholder timestamps; leader recorded the real bracket times. Tasks -> awaiting-user-verification pending the owner's suite run. Wave cost: 5h 44->51 pct, $0.72->$2.21"
     }
   ]
 }
