@@ -1,0 +1,421 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM62-platform-add-nightly-cycle-diagram",
+  "module": "platform",
+  "roadmap": "openspec/roadmaps/RM62-nightly-cycle-observability.md",
+  "request": "MAG-57 tier 4. Two archify diagrams of the nightly cycle in kkpa/docs/diagrams/nightly-job/ \u2014 a workflow one and a sequence one \u2014 plus a KB reference. The user then required the diagrams to also show the Recalculate process and the vehicle_metrics attributes it derives, consumed and derived consumption included (RD9), which the design lands as a third dataflow diagram.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "2.6",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "3.6",
+      "4.1",
+      "4.2"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-17T11:04:21Z",
+  "updated_at": "2026-09-17T11:04:21Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
+    "base": "main",
+    "ticket": "MAG-57",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-57/nightly-job-tests",
+    "created_at": "2026-09-17T01:57:25Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "workflow diagram step 1",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "workflow diagram step 2",
+      "module": "platform",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "workflow diagram step 3",
+      "module": "platform",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "workflow diagram step 4",
+      "module": "platform",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.5",
+      "title": "workflow diagram step 5",
+      "module": "platform",
+      "depends_on": [
+        "1.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.6",
+      "title": "workflow diagram step 6",
+      "module": "platform",
+      "depends_on": [
+        "1.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "sequence diagram step 1",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "sequence diagram step 2",
+      "module": "platform",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "sequence diagram step 3",
+      "module": "platform",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "sequence diagram step 4",
+      "module": "platform",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.5",
+      "title": "sequence diagram step 5",
+      "module": "platform",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.6",
+      "title": "sequence diagram step 6",
+      "module": "platform",
+      "depends_on": [
+        "2.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "derivation dataflow diagram step 1",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "derivation dataflow diagram step 2",
+      "module": "platform",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "derivation dataflow diagram step 3",
+      "module": "platform",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "derivation dataflow diagram step 4",
+      "module": "platform",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.5",
+      "title": "derivation dataflow diagram step 5",
+      "module": "platform",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.6",
+      "title": "derivation dataflow diagram step 6",
+      "module": "platform",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "KB: add the three diagrams to the Rendered view section",
+      "module": "platform",
+      "depends_on": [
+        "1.6",
+        "2.6",
+        "3.6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "Confirm INDEX.md needs no new row",
+      "module": "platform",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-17T11:04:21Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design approved at the Step 3a briefing, third diagram included",
+      "why": "User was shown that RD7 decided two diagrams and this adds a third, with its maintenance cost stated. They approved.",
+      "covered_by": "RD9"
+    },
+    {
+      "id": "D-L2",
+      "at": "2026-09-17T11:04:21Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader verified the MAG-81 quote in consumption.go before approving the briefing",
+      "why": "The whole reason tier 4 waited was that this derivation was mid-rewrite. A quote that did not match the code would have reintroduced the exact risk.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-17T11:04:21Z",
+      "agent": "leader",
+      "event": "tier 4 artifacts created and validated. Leader verified the design's MAG-81 code quote against consumption.go:147 \u2014 it matches. User approved the briefing, including the third diagram."
+    }
+  ]
+}

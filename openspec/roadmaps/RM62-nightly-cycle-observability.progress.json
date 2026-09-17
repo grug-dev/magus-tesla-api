@@ -6,7 +6,7 @@
   "request": "MAG-57 Nightly Job Tests. The ticket asks questions about the nightly cycle, not a change. Every question was answered from the code and posted to Linear. The user then chose the scope: add query logging to analytics and charging (mirroring internal/telemetry/query_log.go), add a VS Code launch config for cmd/poller --once, and fix the misleading gap-reconciliation log line placement in internal/app/processor.go.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-17T10:51:47Z",
+  "updated_at": "2026-09-17T10:52:30Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM62-MAG-57-nightly-cycle-observability",
@@ -16,11 +16,11 @@
     "created_at": "2026-09-17T01:57:25Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [],
-    "blocked": [
+    "current": [
       4
     ],
+    "pending": [],
+    "blocked": [],
     "done": [
       1,
       2,
@@ -188,14 +188,14 @@
       "module": "platform",
       "optional": false,
       "depends_on": [],
-      "status": "blocked",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-flight",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-17T10:52:30Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Blocked on MAG-81, by the user's decision (RD10). MAG-81 is uncommitted work in internal/analytics that rewrites the consumption derivation RD9 requires the diagram to show. Start tier 4 only after MAG-81 is committed, and draw the post-MAG-81 state."
+      "notes": "Unblocked: MAG-81 landed in 48f7944. RD9 still binds \u2014 the diagrams must show Recalculate and the vehicle_metrics attributes it derives, in the post-MAG-81 shape."
     }
   ],
   "events": [
@@ -253,6 +253,11 @@
       "at": "2026-09-17T10:51:47Z",
       "agent": "leader",
       "event": "tier 4 NOT started. The user asked the diagram to show Recalculate and its derived consumption (RD9). The leader found that code is mid-rewrite in the working tree under MAG-81 \u2014 deriveConsumption gains chargePct, KmPerPctCalc's divisor changes \u2014 and put the choice to the user, who chose to wait (RD10). Autopilot stays ON but has nothing unblocked to advance to."
+    },
+    {
+      "at": "2026-09-17T10:52:30Z",
+      "agent": "leader",
+      "event": "RD10's blocker lifted: the user committed MAG-81 as 48f7944, verified in code (deriveConsumption now takes chargePct, ConsumedPct field exists). Tier 4 started; RD9 carried verbatim into the dispatch."
     }
   ]
 }
