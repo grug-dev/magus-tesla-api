@@ -1,0 +1,26 @@
+# Host logrotate conf for web.log and poller.log (installed to
+# /etc/logrotate.d/magus-logs on the VPS — see docs/1-deploy/docker.md).
+#
+# Only these two files, never a glob: caddy.log rotates itself (see the
+# Caddyfile's own log block) and two rotators fighting over one file
+# corrupts or loses data.
+#
+# copytruncate is mandatory, not a style choice: web and poller hold one
+# open file descriptor to their log for their whole process lifetime (a
+# plain shell redirect gives them no signal to reopen it), so a rename-based
+# rotation would make their output invisible until the next restart.
+# copytruncate keeps the same inode open and truncates it in place instead.
+# Accepted cost: a log line written between the copy and the truncate can be
+# lost — a fair trade for a log file, not a data store.
+/home/magus/magus-logs/web.log
+/home/magus/magus-logs/poller.log
+{
+	daily
+	rotate 14
+	size 10M
+	compress
+	delaycompress
+	copytruncate
+	missingok
+	notifempty
+}

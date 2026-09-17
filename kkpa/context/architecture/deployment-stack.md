@@ -78,7 +78,9 @@ re-downloaded and an unchanged package is not recompiled.
   _Source: spec platform — Requirement: A Single Configuration Value Selects the Database Host._
 - **Every service needs a log size cap.** Without one, a crash-restart loop grows log data until
   the host disk fills, which takes down every service including the database. Adding a new
-  service without a log cap reintroduces this.
+  service without a log cap reintroduces this. For how `web`, `poller`, and `caddy` also get
+  named, rotated log files on the VPS — not just a size cap — see
+  `architecture/deploy-log-files.md`.
   _Source: spec platform — Requirement: Bounded Container Log Growth._
 - **Every service needs a CPU limit and a memory limit.** The purpose is isolation, not tuning:
   one runaway service must not be able to starve another — in particular the database — of what
@@ -109,3 +111,5 @@ without recounting `../..` segments.
   one-shot migration step applies, in order.
 - Architecture: `architecture/nightly-cycle.md` — what the poller service actually runs once it
   has started.
+- Architecture: `architecture/deploy-log-files.md` — named, rotated log files for `web`,
+  `poller`, and `caddy`, and the host `logrotate` job that keeps them.

@@ -689,7 +689,7 @@ still the live source and it works.
 It has not run yet. After 03:30 Bogota:
 
 ```bash
-docker compose --project-directory . -f deploy/docker/compose.yaml logs poller
+tail -100 ~/magus-logs/poller.log
 ```
 
 ### F5 — SSH hardening
@@ -806,7 +806,7 @@ process inside the existing container; those settings belong to the container
 itself. Use `up -d`.
 
 `make docker-down` stops everything and **keeps** the named volumes, so data
-survives. `down -v` deletes them — see `docs/1-deploy/docker.md` §10.
+survives. `down -v` deletes them — see `docs/1-deploy/docker.md` §11.
 
 ---
 

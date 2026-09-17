@@ -92,7 +92,7 @@ TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(q
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
         db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard tidy build vet lint check-golangci test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
-        docker-up docker-down docker-logs docker-migrate backup-db
+        docker-up docker-down docker-logs vps-logs docker-migrate backup-db
 
 # --- Help -------------------------------------------------------------------
 
@@ -1031,6 +1031,9 @@ docker-down: ## Stop and remove the whole Docker Compose stack (deploy/docker/co
 
 docker-logs: ## Follow logs from every running service in deploy/docker/compose.yaml
 	$(COMPOSE) logs -f
+
+vps-logs: ## Tail the named log files under MAGUS_LOGS_DIR (web.log, poller.log, caddy.log) — VPS only
+	tail -f $(MAGUS_LOGS_DIR)/*.log
 
 docker-migrate: ## Run the one-shot "migrate" service from deploy/docker/compose.yaml by hand (same program docker-up already runs automatically)
 	$(COMPOSE) run --rm migrate
