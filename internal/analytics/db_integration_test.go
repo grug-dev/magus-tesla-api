@@ -96,12 +96,27 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 // function can remove them.
 func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, teslaID int64) {
 	t.Helper()
-	t.Cleanup(func() {
+	purge := func() {
 		ctx := context.Background()
-		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metrics WHERE tesla_id = $1", teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metric_watermarks WHERE tesla_id = $1", teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE tesla_id = $1", teslaID)
-	})
+		for _, stmt := range []string{
+			"DELETE FROM analytics.vehicle_metrics WHERE tesla_id = $1",
+			"DELETE FROM analytics.vehicle_metric_watermarks WHERE tesla_id = $1",
+			"DELETE FROM telemetry.vehicle_snapshots WHERE tesla_id = $1",
+			// The three charge sources. A seeded charge that outlives its test
+			// is counted again by the next run, which silently doubles
+			// ConsumedPct instead of failing on the row it came from.
+			"DELETE FROM charging.manual_charge_entries WHERE tesla_id = $1",
+			"DELETE FROM charging.supercharger_sessions WHERE tesla_id = $1",
+			"DELETE FROM telemetry.supercharger_history WHERE tesla_id = $1",
+		} {
+			_, _ = pool.Exec(ctx, stmt, teslaID)
+		}
+	}
+	// Purge on the way in as well as on the way out. Cleanup alone cannot undo
+	// what an earlier interrupted run already left behind, and every caller
+	// runs this before it seeds anything.
+	purge()
+	t.Cleanup(purge)
 }
 
 // fixtureAPair returns a (predecessor, current) telemetry.Snapshot pair
