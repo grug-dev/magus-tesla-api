@@ -5,28 +5,31 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Create analytics.vehicle_monthly_metrics and the SyncMonth use case that rewrites the row for one (tesla_id, period). One migration creates all 32 columns, including the ext_*, sc_* and JSONB columns tier 3 fills. Tier 2 fills the vehicle_metrics figures for all days / weekdays / weekends and copies the capacity through tier 1's port. All maths in Go. Tier 2 of 4 of roadmap RM67 (Linear MAG-73).",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "TASK-1",
-      "TASK-2",
-      "TASK-3",
-      "TASK-4",
-      "TASK-5",
-      "TASK-6",
       "TASK-7",
-      "TASK-8",
       "TASK-9",
       "TASK-10",
       "TASK-11",
       "TASK-12"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "TASK-1",
+      "TASK-2",
+      "TASK-3",
+      "TASK-5",
+      "TASK-6",
+      "TASK-8"
+    ],
+    "awaiting-user-verification": [
+      "TASK-4"
+    ]
   },
   "created_at": "2026-09-18T23:35:59Z",
-  "updated_at": "2026-09-18T23:36:21Z",
+  "updated_at": "2026-09-18T23:57:03Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -46,13 +49,13 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "LEADER-OWNED: sqlc.yaml is outside the analytics sandbox.",
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:50:54Z",
+      "duration_seconds": 0,
+      "notes": "Added analytics_vehicle_monthly_metric: \"VehicleMonthlyMetric\" to the analytics rename block in sqlc.yaml. Unblocks TASK-5.",
       "budget": null
     },
     {
@@ -61,14 +64,20 @@
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "32 columns. Cost columns are NUMERIC(14,2) per RD11.",
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Migration 20260918000002 written: 32 columns, UNIQUE (tesla_id, period), month-start CHECK, per-column COMMENTs written fresh, real Down that drops the table.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
     },
     {
       "id": "TASK-3",
@@ -76,14 +85,20 @@
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Public types stay plain Go. No pgtype.",
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Added EndingBatteryDist, VehicleMonthlyMetrics, MonthlySyncer and NewMonthlySyncer. The newMonthlySyncer forward reference is left unresolved on purpose for the next wave.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
     },
     {
       "id": "TASK-4",
@@ -93,14 +108,20 @@
         "TASK-3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "RD2 efficiency rule and RD6 weekday/weekend split. Pure function, no DB.",
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "monthly_figures.go plus its offline test for T-PURE-1..3. Test written, not run: the owner runs the suite.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
     },
     {
       "id": "TASK-5",
@@ -111,14 +132,20 @@
         "TASK-2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Blocks TASK-7 and TASK-9.",
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Both queries added to query.sql and make sqlc ran clean. Generated VehicleMonthlyMetric, UpsertVehicleMonthlyMetricParams and VehicleMetricsForVehicleAndMonthRow.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
     },
     {
       "id": "TASK-6",
@@ -128,14 +155,20 @@
         "TASK-3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "mapping.go is the module's only pgtype boundary.",
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Added the JSON and pgtype.Numeric conversion pairs to mapping.go, matching the file's one-pair-per-type convention. pgtype stays inside this file.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
     },
     {
       "id": "TASK-7",
@@ -164,14 +197,20 @@
         "TASK-3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Follows the module's explicit-implementation decorator pattern.",
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Added loggingMonthlySyncer to query_log.go, mirroring loggingMonthlyCapacityReader.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
     },
     {
       "id": "TASK-9",
@@ -239,7 +278,7 @@
       "started_at": null,
       "completed_at": null,
       "duration_seconds": null,
-      "notes": "LEADER-OWNED: outside the analytics sandbox.",
+      "notes": "Check done: the README DOES need an edit (data-ownership table lists every analytics table; Architecture table names the ports). Edit deferred to the final wave.",
       "budget": null
     }
   ],
@@ -267,6 +306,15 @@
       "decision": "The copied capacity keeps two states, not three (roadmap RD12).",
       "why": "Owner accepted that 'no row' and 'thin month' both store capacity_measured=false.",
       "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-18T23:57:03Z",
+      "scope": "TASK-12",
+      "made_by": "autopilot",
+      "decision": "TASK-12's guess was wrong: the root README DOES need an edit. The edit is deferred to the final wave, after TASK-7 fixes the port shape.",
+      "why": "The data-ownership table lists every analytics table by name. Writing the row before MonthlySyncer is final would mean writing it twice.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -279,6 +327,16 @@
       "at": "2026-09-18T23:36:21Z",
       "agent": "leader",
       "event": "budget checkpoint at the wave-0/wave-1 boundary, BEFORE any dispatch: five_hour 95% (threshold 90), context 31% (threshold 40), seven_day 92%, five_hour_resets_at 1789775400 (2026-09-18 18:50 -05). Budget-only trip, so no auto-resume was armed: the 7-day bucket is at 92% and spending more is the owner's call, not autopilot's. All 12 tasks still pending - nothing was dispatched."
+    },
+    {
+      "at": "2026-09-18T23:50:54Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; owner chose to run all 4 waves despite seven_day 92%; five_hour bucket had reset to 1%, context 12%. TASK-1 done by the leader (sqlc.yaml is outside the analytics sandbox). Dispatching wave 1 as ONE serial analytics worker on claude-sonnet: TASK-2, TASK-3, TASK-5, TASK-4, TASK-6, TASK-8 in dependency order."
+    },
+    {
+      "at": "2026-09-18T23:57:03Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled. Six tasks by one serial analytics worker. Leader verified independently: go build fails ONLY on undefined newMonthlySyncer (by design, TASK-7 supplies it), gofmt clean, 12 files changed. Worker reported all six done; leader corrected TASK-4 to awaiting-user-verification because its deliverable includes an unrun unit test. Worker's reported per-task timestamps were placeholders and were replaced with the real dispatch window. Budget five_hour 1 to 11 pct, seven_day 93 pct, context 14 pct."
     }
   ]
 }

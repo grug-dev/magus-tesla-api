@@ -16,6 +16,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -499,4 +500,100 @@ type GapWriter interface {
 // The returned value is wrapped so every call through the port is logged.
 func NewGapWriter(pool *pgxpool.Pool) GapWriter {
 	return newLoggingGapWriter(newGapWriter(pool))
+}
+
+// --- vehicle_monthly_metrics (one precomputed row per vehicle per month) ---
+
+// EndingBatteryDist counts charge events by their ending battery
+// percentage, in five fixed 20-point ranges. The zero value (every count 0)
+// is what this version writes for all three charging sources; a later
+// change computes the real counts from charging's own entries and
+// sessions.
+type EndingBatteryDist struct {
+	Bucket0To20   int `json:"0-20"`
+	Bucket20To40  int `json:"20-40"`
+	Bucket40To60  int `json:"40-60"`
+	Bucket60To80  int `json:"60-80"`
+	Bucket80To100 int `json:"80-100"`
+}
+
+// VehicleMonthlyMetrics is one precomputed month for one vehicle -- the row
+// analytics.vehicle_monthly_metrics stores under (TeslaID, Period). Every
+// numeric field holds a real number, never a sentinel: an empty month
+// reports zero everywhere, and each bucket's own DayCount is what tells a
+// genuine zero apart from a month with nothing to compute (see the table's
+// own column comments in the migration for the full contract).
+//
+// ExtAC*, ExtDC*, SC*, and Currency hold their documented zero value until a
+// later change computes them from charging's own entries and sessions --
+// every other field holds a real figure as of this port.
+type VehicleMonthlyMetrics struct {
+	TeslaID int64
+	Period  time.Time // first day of the month
+
+	AllDistanceKm   float64
+	AllConsumedPct  float64
+	AllKmPerPctCalc float64
+	AllDayCount     int
+
+	WeekdayDistanceKm   float64
+	WeekdayConsumedPct  float64
+	WeekdayKmPerPctCalc float64
+	WeekdayDayCount     int
+
+	WeekendDistanceKm   float64
+	WeekendConsumedPct  float64
+	WeekendKmPerPctCalc float64
+	WeekendDayCount     int
+
+	CapacityKWh      float64
+	CapacityMeasured bool
+
+	Currency string
+
+	ExtACEnergyKWh         float64
+	ExtACCost              float64
+	ExtACEntryCount        int
+	ExtACEndingBatteryDist EndingBatteryDist
+
+	ExtDCEnergyKWh         float64
+	ExtDCCost              float64
+	ExtDCEntryCount        int
+	ExtDCEndingBatteryDist EndingBatteryDist
+
+	SCEnergyKWh         float64
+	SCCost              float64
+	SCSessionCount      int
+	SCEndingBatteryDist EndingBatteryDist
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// MonthlySyncer derives and stores one vehicle_monthly_metrics row for one
+// vehicle and one calendar month, from this module's own vehicle_metrics
+// table plus the pack capacity charging measured for that month. Running it
+// again for the same (teslaID, period) rewrites the row -- this is a sync,
+// not an append, so any caller may re-run one month at any time to pick up
+// a later edit to that month's telemetry or charging data.
+type MonthlySyncer interface {
+	// SyncMonth computes and upserts the row for teslaID and the calendar
+	// month containing period -- only period's year and calendar month
+	// matter; any day within that month gives the same result, matching
+	// charging.MonthlyCapacityReader.CapacityForMonth's identical
+	// any-day-in-month contract. Returns the row as stored.
+	//
+	// ExtAC*, ExtDC*, SC*, and Currency come back at their documented zero
+	// value as of this version -- a later change fills them from charging's
+	// own range reads. Every other field reflects this month's real
+	// figures.
+	SyncMonth(ctx context.Context, teslaID int64, period time.Time) (VehicleMonthlyMetrics, error)
+}
+
+// NewMonthlySyncer constructs a MonthlySyncer over the analytics module's
+// own database pool plus the one sibling port it reads to copy the pack
+// capacity. The implementation lives in monthly_sync.go. The returned value
+// logs its single method -- see query_log.go.
+func NewMonthlySyncer(pool *pgxpool.Pool, capacity charging.MonthlyCapacityReader) MonthlySyncer {
+	return newLoggingMonthlySyncer(newMonthlySyncer(pool, capacity))
 }

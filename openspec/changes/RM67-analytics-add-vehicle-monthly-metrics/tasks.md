@@ -14,7 +14,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   Files: `sqlc.yaml`.
   depends_on: none. parallel_ok: yes.
 
-- [ ] **TASK-2** — Create the migration
+- [x] **TASK-2** — Create the migration
   `internal/analytics/db/migrations/20260918000002_add_vehicle_monthly_metrics.sql`:
   the full `CREATE TABLE analytics.vehicle_monthly_metrics` from `design.md`
   "Database Changes" (all 32 columns, the `UNIQUE (tesla_id, period)`
@@ -28,7 +28,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   Files: `internal/analytics/db/migrations/20260918000002_add_vehicle_monthly_metrics.sql`.
   depends_on: none. parallel_ok: yes.
 
-- [ ] **TASK-3** — Add to `internal/analytics/analytics.go`: the
+- [x] **TASK-3** — Add to `internal/analytics/analytics.go`: the
   `EndingBatteryDist` struct, the `VehicleMonthlyMetrics` struct, the
   `MonthlySyncer` interface, and `NewMonthlySyncer` — exactly as specified
   in `design.md` "The Go Port". `NewMonthlySyncer` takes
@@ -39,7 +39,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   Files: `internal/analytics/analytics.go`.
   depends_on: none. parallel_ok: yes.
 
-- [ ] **TASK-4** — New file `internal/analytics/monthly_figures.go`: the
+- [x] **TASK-4** — New file `internal/analytics/monthly_figures.go`: the
   `monthDay` type, `bucketAccumulator` (with `add`/`kmPerPct`), `isWeekend`,
   and `deriveMonthlyFigures` — exactly as specified in `design.md` "The Pure
   Derivation". No database import. Plus the offline unit test
@@ -50,7 +50,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   depends_on: TASK-3 (needs `VehicleMonthlyMetrics`'s field names).
   parallel_ok: yes (with TASK-1, TASK-2).
 
-- [ ] **TASK-5** — Add the two queries (`VehicleMetricsForVehicleAndMonth`,
+- [x] **TASK-5** — Add the two queries (`VehicleMetricsForVehicleAndMonth`,
   `UpsertVehicleMonthlyMetric`) to `internal/analytics/db/query.sql` exactly
   as specified in `design.md` "The SQL", then run `make sqlc` to regenerate
   `internal/analytics/db/{models.go,query.sql.go}`.
@@ -59,7 +59,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   `internal/analytics/db/query.sql.go` (generated).
   depends_on: TASK-1, TASK-2. parallel_ok: no.
 
-- [ ] **TASK-6** — Add mapping helpers to `internal/analytics/mapping.go`:
+- [x] **TASK-6** — Add mapping helpers to `internal/analytics/mapping.go`:
   - `jsonFromEndingBatteryDist(EndingBatteryDist) []byte` and
     `endingBatteryDistFromJSON([]byte) (EndingBatteryDist, error)`, using
     `encoding/json`.
@@ -95,7 +95,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   Files: `internal/analytics/monthly_sync.go`.
   depends_on: TASK-4, TASK-5, TASK-6. parallel_ok: no.
 
-- [ ] **TASK-8** — Add `loggingMonthlySyncer` to
+- [x] **TASK-8** — Add `loggingMonthlySyncer` to
   `internal/analytics/query_log.go`, wrapping `MonthlySyncer` and logging
   `SyncMonth` (teslaID, the requested period, and the stored row's
   `AllDayCount`/`CapacityMeasured` — mirroring this file's existing

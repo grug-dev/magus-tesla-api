@@ -114,6 +114,7 @@ sql:
           analytics_charge_gap:               "ChargeGap"
           analytics_vehicle_metric:            "VehicleMetric"
           analytics_vehicle_metric_watermark:  "VehicleMetricWatermark"
+          analytics_vehicle_monthly_metric:    "VehicleMonthlyMetric"
         overrides:
           - db_type: "uuid"
             go_type:

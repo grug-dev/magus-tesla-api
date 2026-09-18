@@ -331,3 +331,88 @@ SELECT gap_date FROM analytics.charge_gaps
 WHERE tesla_id = @tesla_id
   AND gap_date >= @start
   AND gap_date <= @end_date;
+
+-- name: VehicleMetricsForVehicleAndMonth :many
+-- Backs MonthlySyncer.SyncMonth: the ONE query that fetches a month's
+-- vehicle_metrics rows -- every subsequent figure is derived from this
+-- slice in Go (monthly_figures.go), never in a second query. No IS NOT
+-- NULL filter, unlike the daily Reader's own two filtered reads: this query
+-- must see a predecessor-less row too, so the Go derivation can skip it and
+-- still count it toward nothing, rather than the SQL silently hiding it.
+-- period accepts any day inside the target month; date_trunc normalizes it
+-- to the month's own bounds in SQL, matching CapacityForMonth's identical
+-- any-day-in-month contract.
+-- Served by an index on (tesla_id, metric_date), never a seq scan -- no
+-- separate CREATE INDEX. Two indexes already lead on those columns
+-- (vehicle_metrics_tesla_date_unique, idx_vehicle_metrics_latest); which one
+-- the planner picks is its choice, not a contract.
+SELECT
+    metric_date, distance_traveled_km_calc, consumed_pct
+FROM analytics.vehicle_metrics
+WHERE tesla_id = @tesla_id
+  AND metric_date >= date_trunc('month', @period::date)::date
+  AND metric_date <  (date_trunc('month', @period::date) + interval '1 month')::date
+ORDER BY metric_date;
+
+-- name: UpsertVehicleMonthlyMetric :one
+-- Upsert one vehicle_monthly_metrics row. Always sets every column --
+-- including the ext_*/sc_*/currency columns this version fills with their
+-- documented zero value -- so a later change can widen what the Go side
+-- computes without ever widening this statement's own column list.
+-- period is normalized here, in SQL, from whatever day-in-month the caller
+-- passed in -- the Go caller never constructs a first-of-month value
+-- itself. RETURNING * hands the normalized period, and both timestamps,
+-- straight back so the Go layer never recomputes what this statement just
+-- decided.
+-- created_at is DELIBERATELY ABSENT from the SET clause -- it must record
+-- this (tesla_id, period)'s first sync, not its latest one, mirroring
+-- UpsertVehicleMetric's identical convention on the daily table.
+INSERT INTO analytics.vehicle_monthly_metrics (
+    tesla_id, period,
+    all_distance_km, all_consumed_pct, all_km_per_pct_calc, all_day_count,
+    weekday_distance_km, weekday_consumed_pct, weekday_km_per_pct_calc, weekday_day_count,
+    weekend_distance_km, weekend_consumed_pct, weekend_km_per_pct_calc, weekend_day_count,
+    capacity_kwh, capacity_measured, currency,
+    ext_ac_energy_kwh, ext_ac_cost, ext_ac_entry_count, ext_ac_ending_battery_dist,
+    ext_dc_energy_kwh, ext_dc_cost, ext_dc_entry_count, ext_dc_ending_battery_dist,
+    sc_energy_kwh, sc_cost, sc_session_count, sc_ending_battery_dist
+) VALUES (
+    @tesla_id, date_trunc('month', @period::date)::date,
+    @all_distance_km, @all_consumed_pct, @all_km_per_pct_calc, @all_day_count,
+    @weekday_distance_km, @weekday_consumed_pct, @weekday_km_per_pct_calc, @weekday_day_count,
+    @weekend_distance_km, @weekend_consumed_pct, @weekend_km_per_pct_calc, @weekend_day_count,
+    @capacity_kwh, @capacity_measured, @currency,
+    @ext_ac_energy_kwh, @ext_ac_cost, @ext_ac_entry_count, @ext_ac_ending_battery_dist,
+    @ext_dc_energy_kwh, @ext_dc_cost, @ext_dc_entry_count, @ext_dc_ending_battery_dist,
+    @sc_energy_kwh, @sc_cost, @sc_session_count, @sc_ending_battery_dist
+)
+ON CONFLICT (tesla_id, period) DO UPDATE SET
+    all_distance_km             = EXCLUDED.all_distance_km,
+    all_consumed_pct            = EXCLUDED.all_consumed_pct,
+    all_km_per_pct_calc         = EXCLUDED.all_km_per_pct_calc,
+    all_day_count               = EXCLUDED.all_day_count,
+    weekday_distance_km         = EXCLUDED.weekday_distance_km,
+    weekday_consumed_pct        = EXCLUDED.weekday_consumed_pct,
+    weekday_km_per_pct_calc     = EXCLUDED.weekday_km_per_pct_calc,
+    weekday_day_count           = EXCLUDED.weekday_day_count,
+    weekend_distance_km         = EXCLUDED.weekend_distance_km,
+    weekend_consumed_pct        = EXCLUDED.weekend_consumed_pct,
+    weekend_km_per_pct_calc     = EXCLUDED.weekend_km_per_pct_calc,
+    weekend_day_count           = EXCLUDED.weekend_day_count,
+    capacity_kwh                = EXCLUDED.capacity_kwh,
+    capacity_measured           = EXCLUDED.capacity_measured,
+    currency                    = EXCLUDED.currency,
+    ext_ac_energy_kwh           = EXCLUDED.ext_ac_energy_kwh,
+    ext_ac_cost                 = EXCLUDED.ext_ac_cost,
+    ext_ac_entry_count          = EXCLUDED.ext_ac_entry_count,
+    ext_ac_ending_battery_dist  = EXCLUDED.ext_ac_ending_battery_dist,
+    ext_dc_energy_kwh           = EXCLUDED.ext_dc_energy_kwh,
+    ext_dc_cost                 = EXCLUDED.ext_dc_cost,
+    ext_dc_entry_count          = EXCLUDED.ext_dc_entry_count,
+    ext_dc_ending_battery_dist  = EXCLUDED.ext_dc_ending_battery_dist,
+    sc_energy_kwh               = EXCLUDED.sc_energy_kwh,
+    sc_cost                     = EXCLUDED.sc_cost,
+    sc_session_count            = EXCLUDED.sc_session_count,
+    sc_ending_battery_dist      = EXCLUDED.sc_ending_battery_dist,
+    updated_at                  = now()
+RETURNING *;
