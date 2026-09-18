@@ -7,7 +7,7 @@
   "request": "MAG-59 tier 2: store the day-over-day deltas of the three Travel Progress figures, and rename the four tyre-pressure delta columns to _delta_calc.",
   "status": "applied",
   "created_at": "2026-09-18T09:46:31Z",
-  "updated_at": "2026-09-18T10:34:00Z",
+  "updated_at": "2026-09-18T10:36:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -388,6 +388,10 @@
     {
       "at": "2026-09-18T10:34:00Z",
       "event": "wave 3 complete (T7, T8, T9). All 10 sub-tasks implemented. Leader re-ran the signals: go build, go vet, gofmt -l clean; delta-guard, boundary-guard, naming-guard, tz-guard all pass. Status -> applied. The suite is the owner's step."
+    },
+    {
+      "at": "2026-09-18T10:36:00Z",
+      "event": "Step 6 gate posted. User chose: apply the migration and run the full suite. Waiting on the owner's report. Nothing advances to the reviewer until it arrives. Budget 5h=84% ctx=17%."
     }
   ]
 }
