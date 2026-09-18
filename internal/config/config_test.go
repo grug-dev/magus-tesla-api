@@ -597,3 +597,25 @@ func TestMigrationDir_StampBaselineSQLMatchesGooseDDL(t *testing.T) {
 		t.Fatalf("CREATE TABLE is not guarded with IF NOT EXISTS:\n%s", create)
 	}
 }
+
+// NeedsBaselineStampSQL must ask about the module's OWN tables and exclude the ledger.
+// Including the ledger would make an already-stamped database look like it still needs a
+// stamp; asking about the schema instead of its tables would be true on a fresh database,
+// which is the bug this probe exists to prevent.
+func TestMigrationDir_NeedsBaselineStampSQL(t *testing.T) {
+	m := MigrationDir{Module: "charging", Dir: "internal/charging/db/migrations"}
+	got := m.NeedsBaselineStampSQL()
+
+	for _, want := range []string{
+		"pg_tables",
+		`schemaname = 'charging'`,
+		`tablename <> 'goose_db_version'`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("NeedsBaselineStampSQL() is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "pg_namespace") {
+		t.Fatalf("NeedsBaselineStampSQL() asks about the schema, not its tables:\n%s", got)
+	}
+}

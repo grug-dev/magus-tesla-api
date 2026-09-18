@@ -192,15 +192,29 @@ func applyDir(ctx context.Context, dsn string, m config.MigrationDir) error {
 	return nil
 }
 
-// stampBaseline records this module's baseline as already applied when the
-// module's tables exist but its ledger does not — the one shape a pre-squash
-// database has. It is a no-op in every other case.
+// stampBaseline records this module's baseline as already applied when the module's
+// tables already exist — the one shape a pre-squash database has. It is a no-op in every
+// other case, and on a fresh database it touches nothing at all, not even the ledger.
 //
 // The work is entirely in config.MigrationDir.StampBaselineSQL, which carries
 // the reasoning and the safety argument; this function only runs the statements
 // and reports what happened, per the "cmd/ stays thin" rule. It is one-time
 // code and gets deleted with the SQL it runs.
 func stampBaseline(ctx context.Context, db *sql.DB, m config.MigrationDir) error {
+	// Ask FIRST, and do nothing at all when the answer is no. Creating the ledger
+	// unconditionally looks harmless — the INSERT below would record nothing on a fresh
+	// database — but it breaks goose: goose writes its version-0 marker only when it
+	// creates the ledger itself, so an empty ledger left here makes it report "no next
+	// version found" and no fresh database can be built. See
+	// config.MigrationDir.NeedsBaselineStampSQL.
+	var needed bool
+	if err := db.QueryRowContext(ctx, m.NeedsBaselineStampSQL()).Scan(&needed); err != nil {
+		return fmt.Errorf("check baseline stamp %s: %w", m.Module, err)
+	}
+	if !needed {
+		return nil
+	}
+
 	version, err := m.BaselineVersion()
 	if err != nil {
 		return err

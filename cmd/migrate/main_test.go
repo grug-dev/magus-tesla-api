@@ -22,6 +22,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -204,12 +205,15 @@ func TestStampBaseline_IsIdempotent(t *testing.T) {
 	}
 }
 
-// A FRESH database: the schema exists (the runner creates it one line earlier) but
-// holds no tables. Nothing may be recorded — otherwise goose would skip a baseline
-// that never ran, and the database would end up with no tables at all. This is the
-// case that makes running the stamp unconditionally safe, and the reason its guard
-// tests for TABLES rather than for the schema.
-func TestStampBaseline_FreshSchemaIsNotStamped(t *testing.T) {
+// A FRESH database: the schema exists (the runner creates it one line earlier) but holds
+// no tables. The stamp must touch NOTHING — not even create the ledger.
+//
+// Asserting "no rows" is what an earlier version of this test did, and it passed while the
+// code was broken. The ledger WAS being created, empty, and goose writes its version-0
+// marker only when it creates the ledger itself. Finding a table it did not create, goose
+// wrote no marker and then failed with "no next version found", so no fresh database could
+// be built. The assertion has to be that the TABLE is absent.
+func TestStampBaseline_FreshSchemaIsUntouched(t *testing.T) {
 	db := newTestDB(t)
 	m := newSchema(t, db, "stamp_fresh", false)
 
@@ -217,8 +221,94 @@ func TestStampBaseline_FreshSchemaIsNotStamped(t *testing.T) {
 		t.Fatalf("stampBaseline() returned error: %v", err)
 	}
 
-	if got := ledgerRows(t, db, m.Module); len(got) != 0 {
-		t.Fatalf("ledger on a fresh schema = %v, want no rows", got)
+	var exists bool
+	err := db.QueryRow(
+		`SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = $1 AND tablename = 'goose_db_version')`,
+		m.Module).Scan(&exists)
+	if err != nil {
+		t.Fatalf("check ledger existence: %v", err)
+	}
+	if exists {
+		t.Fatal("stampBaseline created a ledger on a fresh schema; goose must create it, or it never writes its version-0 marker")
+	}
+}
+
+// The regression tests for the bug above, one level up: applyDir is stamp-then-goose, the
+// path the deploy and `make db-setup-test` actually take. The unit tests pin the cause;
+// these pin the symptom, and they are what fails loudly if the two steps stop fitting.
+//
+// They use their OWN migration fixture rather than a real module's. A real baseline names
+// its own schema in the SQL, so pointing it at a test schema would create tables somewhere
+// else entirely and prove nothing.
+
+// fixtureDir writes a one-file migration directory whose baseline creates a table inside
+// the given schema, and returns the MigrationDir for it.
+func fixtureDir(t *testing.T, schema string) config.MigrationDir {
+	t.Helper()
+	dir := t.TempDir()
+	body := "-- +goose Up\nCREATE SCHEMA IF NOT EXISTS " + schema + ";\n" +
+		"CREATE TABLE " + schema + ".thing (id integer);\n"
+	if err := os.WriteFile(filepath.Join(dir, "20260101000001_baseline.sql"), []byte(body), 0o600); err != nil {
+		t.Fatalf("write fixture migration: %v", err)
+	}
+	return config.MigrationDir{Module: schema, Dir: dir}
+}
+
+// A FRESH schema must migrate end to end: the stamp records nothing, goose creates its own
+// ledger with its version-0 marker, and the baseline actually RUNS.
+func TestApplyDir_FreshSchemaMigratesEndToEnd(t *testing.T) {
+	if testDSN == "" {
+		t.Skip("no test database available")
+	}
+	db := newTestDB(t)
+	const schema = "applydir_fresh"
+	newSchema(t, db, schema, false)
+	m := fixtureDir(t, schema)
+
+	if err := applyDir(context.Background(), testDSN, m); err != nil {
+		t.Fatalf("applyDir() on a fresh schema returned error: %v", err)
+	}
+
+	if got := ledgerRows(t, db, schema); len(got) == 0 || got[len(got)-1] != 20260101000001 {
+		t.Fatalf("ledger = %v, want it to end at 20260101000001", got)
+	}
+
+	// The baseline must have RUN, not merely been recorded.
+	var tables int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM pg_tables WHERE schemaname = $1 AND tablename <> 'goose_db_version'`,
+		schema).Scan(&tables); err != nil {
+		t.Fatalf("count tables: %v", err)
+	}
+	if tables == 0 {
+		t.Fatal("applyDir recorded the baseline but created no tables — it was stamped instead of run")
+	}
+}
+
+// A PRE-SQUASH schema must also migrate end to end: the table is already there, so the
+// stamp records the baseline and goose must then skip it rather than fail on
+// "relation already exists".
+func TestApplyDir_PreSquashSchemaIsStampedNotRun(t *testing.T) {
+	if testDSN == "" {
+		t.Skip("no test database available")
+	}
+	db := newTestDB(t)
+	const schema = "applydir_presquash"
+	newSchema(t, db, schema, false)
+	m := fixtureDir(t, schema)
+
+	// Stand in for a database built before the baseline existed: the object is there, with
+	// no ledger recording how it got there.
+	if _, err := db.Exec(`CREATE TABLE ` + schema + `.thing (id integer)`); err != nil {
+		t.Fatalf("create pre-existing table: %v", err)
+	}
+
+	if err := applyDir(context.Background(), testDSN, m); err != nil {
+		t.Fatalf("applyDir() on a pre-squash schema returned error: %v", err)
+	}
+
+	if got := ledgerRows(t, db, schema); len(got) != 2 || got[0] != 0 || got[1] != 20260101000001 {
+		t.Fatalf("ledger = %v, want [0 20260101000001]", got)
 	}
 }
 

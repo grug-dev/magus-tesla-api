@@ -237,6 +237,26 @@ func (m MigrationDir) BaselineVersion() (int64, error) {
 	return lowest, nil
 }
 
+// NeedsBaselineStampSQL asks whether this module's schema already holds a table of its
+// own — the one shape that means "this database predates the baseline".
+//
+// The caller MUST run this first and skip StampBaselineSQL entirely when it answers false.
+// The reason is goose, not tidiness. goose creates its ledger AND writes a version-0 marker
+// row into it in one step, and it only does that when the table is absent. Create an empty
+// ledger ahead of it on a fresh database and goose finds a table, writes no marker, and then
+// fails with `no next version found` — a fresh database that can never be built.
+//
+// `tablename <> 'goose_db_version'` matters: the ledger is not one of the module's own
+// tables, and counting it would make a stamped database look like it still needs stamping.
+//
+// One-time code — see StampBaselineSQL.
+func (m MigrationDir) NeedsBaselineStampSQL() string {
+	lit := strings.ReplaceAll(m.Module, `'`, `''`)
+	return fmt.Sprintf(
+		`SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = '%s' AND tablename <> 'goose_db_version')`,
+		lit)
+}
+
 // StampBaselineSQL records the baseline as already applied on a database that
 // already has this module's tables, WITHOUT running it.
 //
@@ -248,12 +268,16 @@ func (m MigrationDir) BaselineVersion() (int64, error) {
 // (service_completed_successfully). goose v3.27.3 has no stamp or force command,
 // so the ledger row has to be written directly. This is the SQL that does it.
 //
-// It is safe on a FRESH database, which is the property that lets the migration
-// runner execute it unconditionally. The INSERT is guarded on the schema already
-// holding a table other than the ledger. A fresh database fails that guard —
-// EnsureSchemaSQL has just created an EMPTY schema — so nothing is recorded and
-// goose runs the baseline normally. Note the guard must test for TABLES, not for
-// the schema: the schema always exists by the time this runs.
+// PRECONDITION: run these ONLY when NeedsBaselineStampSQL answered true. They are not
+// safe unconditionally, and that was a real bug. The CREATE TABLE fires even on a fresh
+// database, where the INSERT then correctly records nothing — leaving an EMPTY ledger.
+// goose writes its version-0 marker only when it creates the ledger itself, so it finds
+// the table, writes no marker, and fails with `no next version found`. A fresh database
+// could not be built at all. The guard therefore belongs in the caller, before the
+// CREATE — not only inside the INSERT.
+//
+// The INSERT keeps its own copy of that guard anyway. It costs nothing, and it keeps the
+// two statements correct for someone running them by hand.
 //
 // It is idempotent, and the second guard is "no REAL migration recorded", not "the
 // ledger is empty". The difference is not academic. goose writes a version-0 marker
