@@ -5,9 +5,9 @@
   "module": "platform",
   "roadmap": "openspec/roadmaps/RM66-travel-progress-trends.md",
   "request": "MAG-59 tier 1: write the delta-column naming rule in ai/go-conventions.md and enforce it with a make delta-guard target.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "created_at": "2026-09-18T03:40:11Z",
-  "updated_at": "2026-09-18T08:48:03Z",
+  "updated_at": "2026-09-18T08:56:25Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -131,13 +131,73 @@
       "at": "2026-09-18T08:48:03Z",
       "decision": "make check passes with delta-guard included.",
       "why": "The owner ran the suite and reported the result. The assistant never ran it."
+    },
+    {
+      "id": "D-J",
+      "scope": "review:F1",
+      "made_by": "autopilot",
+      "at": "2026-09-18T08:56:25Z",
+      "decision": "Accepted the reviewer's minor finding F1 and fixed it in the Makefile success line.",
+      "why": "It printed 11 SQL / 83 Go, not the real 10 / 15. The baseline size is the signal tier 2 tracks."
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Review tier 1 of RM66 (module: platform, cross-cutting \u2014 no internal/ module). Scope: Makefile (delta-guard target, .PHONY, check wiring), ai/go-conventions.md, README.md, CLAUDE.md, and the two spec deltas (platform ADDED, unit-of-measure MODIFIED). Read the diff of commits f4f0ec4, 77df17a, a819a7a \u2014 not the whole repo. Validate: (1) the guard's two legs match design.md D-plat-1/D-plat-2 patterns exactly and the baselines match D-plat-5 (10 SQL, 15 Go); (2) the Test Contract in design.md holds \u2014 run `make delta-guard` (clean pass) and inject one scratch bare `_calc` SQL column and one bare `Calc` Go field to prove it FAILS, then remove them and prove it is clean again; leave the tree clean; (3) re-run design.md's two measurement greps yourself and confirm the baseline lists still match the tree \u2014 a baseline entry for a name that no longer exists, or a missing entry, is a blocker; (4) the escape hatch `-- delta:allow:` / `// delta:allow:` works on both legs and the error text tells the reader what to do; (5) `check:` lists delta-guard immediately before `test`, and its ## help comment and README.md:93-94 both list it; (6) CLAUDE.md's allowed-guards bullet, 'its other phases' sentence, and the Test-Execution-Policy block all name make delta-guard; (7) the spec deltas cover the implemented behaviour and the unit-of-measure MODIFIED requirement does not contradict the schema that exists today; (8) ai/go-conventions.md's new bullet is additive \u2014 it must not restate or weaken the existing unit-suffix bullet; (9) doc-completeness per CLAUDE.md's workflow-documentation rule \u2014 a new required make target must be documented where a human or agent looks; (10) anti-gaming \u2014 no acceptance criterion was weakened or deleted, no status self-approved, the archive folder is untouched. Performance-Profile is NOT engaged: the guard is a make-time static grep, never runtime. No database object is created or changed by this tier \u2014 confirm that claim against the diff. Signals: the ASSISTANT ran go build ./..., go vet ./..., gofmt -l and make delta-guard. THE OWNER ran `make check` and reported it PASSED \u2014 that pass is the owner's, not the assistant's. You do NOT run the test suite: judge test quality by reading, per the Test-Execution-Policy. This tier adds no new _test.go on purpose (Non-Goals) \u2014 say whether you accept that.",
+    "agent": "platform-reviewer",
+    "status": "reviewer-approved",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "platform-reviewer",
+        "at": "2026-09-18T08:54:27Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "openspec/changes/RM66-platform-add-delta-column-naming-rule/proposal.md",
+          "openspec/changes/RM66-platform-add-delta-column-naming-rule/design.md",
+          "openspec/changes/RM66-platform-add-delta-column-naming-rule/tasks.md",
+          "openspec/changes/RM66-platform-add-delta-column-naming-rule/specs/platform/spec.md",
+          "openspec/changes/RM66-platform-add-delta-column-naming-rule/specs/unit-of-measure/spec.md"
+        ],
+        "commands_run": [
+          "make delta-guard (clean tree, pass, exit 0)",
+          "scratch injection: one bare _calc SQL column + one bare Calc Go field -> make delta-guard (FAIL, exit 1, both lines named)",
+          "same scratch lines + delta:allow marker on each -> make delta-guard (pass, exit 0)",
+          "scratch files removed -> make delta-guard (clean pass again)",
+          "design.md SQL measurement grep (grep -rnoE column names) -> 10 distinct names, matches D-plat-5/D-plat-6 exactly",
+          "design.md Go measurement grep -> 15 distinct names, matches D-plat-5/D-plat-6 exactly",
+          "go build ./... (clean)",
+          "go vet ./... (clean)",
+          "gofmt -l . (no output)",
+          "make archive-guard (clean, confirms no archived file touched)",
+          "openspec validate RM66-platform-add-delta-column-naming-rule --strict (valid)",
+          "git status --porcelain (clean at end, aside from the leader's own progress.json edit that pre-dated this review)"
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "Makefile:1009 (delta-guard success line) counts WARN-bucket occurrence lines with grep -c, not distinct baseline names. On the current clean tree it prints 'baseline: 11 SQL / 83 Go legacy name(s)' while the true baseline is 10 SQL / 15 Go names (D-plat-5). The Go leg also matches composite-literal field assignments by design (D-plat-4), so one field name can show up dozens of times. naming-guard's identical count idiom (Makefile:936) does not have this problem because it only scans type declarations, which appear once each. Guard correctness (pass/fail/escape-hatch) is unaffected \u2014 verified directly. Suggest counting distinct names (sort -u) or renaming the label from 'name(s)' to 'occurrence(s)', so a future engineer tracking baseline shrinkage after tier 2 is not misled by the printed count.",
+            "status": "open"
+          }
+        ],
+        "accepted_non_goals": [
+          "No new _test.go added by this tier. Accepted \u2014 the change is Makefile/prose/doc only, matches design.md's own Non-Goals, and go vet/build/gofmt confirm nothing broke."
+        ],
+        "summary": "Two grep legs and both baselines match design.md D-plat-1/D-plat-2/D-plat-5 verbatim (checked by diff, not by eye). Both independent measurement greps (SQL: 10 names, Go: 15 names) match the baseline lists exactly \u2014 no stale or missing entry, so item 3 clears with no blocker. Test Contract (a)-(d) all verified live: clean pass, FAIL with both offending lines named on injected violations, escape hatch clears both legs, clean again after removal, tree left exactly as found. check: and its help comment both list delta-guard immediately before test; README.md:93-94 and all three named CLAUDE.md locations list it. Spec deltas (platform ADDED, unit-of-measure MODIFIED) match the implemented guard and do not contradict the current schema. ai/go-conventions.md's new bullet is additive, does not restate or weaken the unit-suffix bullet. No database object touched (git diff --stat shows zero migration files across all three commits). No file outside the declared platform sandbox was touched. tasks.md shows only checkbox flips, no criterion text changed; progress.json task notes are consistent with the owner's make check report (D-I) \u2014 no self-approved status. Archive folder untouched (archive-guard confirms). One minor finding (F1, cosmetic count message) does not block approval.",
+        "budget": {
+          "five_hour_pct_start": 7,
+          "five_hour_pct_end": 17,
+          "cost_usd_delta": 4.2,
+          "approx": true,
+          "note": "round 1 dispatch plus the leader's own triage and fix"
+        },
+        "duration_seconds": 334
+      }
+    ]
   },
   "events": [
     {
@@ -155,6 +215,14 @@
     {
       "at": "2026-09-18T08:48:03Z",
       "event": "THE USER ran `make check` and reported it PASSED. Verification is the owner's, not the assistant's. Tier 1 is verified and ready for the reviewer gate (Step 7)."
+    },
+    {
+      "at": "2026-09-18T08:49:15Z",
+      "event": "resumed at Step 7 (status verified). Budget clear: 5h=7% ctx=10%. Review brief written; dispatching platform-reviewer (sonnet)."
+    },
+    {
+      "at": "2026-09-18T08:56:25Z",
+      "event": "review round 1: platform-reviewer returned APPROVED with one minor finding (F1, misleading baseline count). Leader accepted and fixed it; guard now prints 10 SQL / 15 Go. Re-verified both directions, build/vet/gofmt clean."
     }
   ]
 }

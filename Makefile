@@ -953,6 +953,8 @@ naming-guard: ## Fail if a NEW type declaration ends in a banned generic suffix 
 #     ...Calc identifier) under internal/ and cmd/, excluding _test.go. A struct
 #     literal field assignment has the identical shape and also matches; that is
 #     accepted — it lands in the same bucket the real declaration already would.
+#     It is also why the success line counts distinct names, not matched lines:
+#     one baselined name matches dozens of times.
 #
 # The baseline lists every _calc/Calc name that existed before this rule. It
 # only ever shrinks: when a name is renamed to *_delta_calc/DeltaCalc, or proven
@@ -1006,7 +1008,7 @@ delta-guard: ## Fail if a NEW day-over-day delta column/field is named _calc/Cal
 		echo "positive."; \
 		exit 1; \
 	else \
-		echo "delta-guard: no new bare _calc/Calc name (baseline: $$(echo "$$sqlwarn" | grep -cE "$$sqlbaseline" || true) SQL / $$(echo "$$gowarn" | grep -cE "$$gobaseline" || true) Go legacy name(s))"; \
+		echo "delta-guard: no new bare _calc/Calc name (baseline: $$(echo "$$sqlwarn" | grep -oE "$$sqlbaseline" | sort -u | wc -l | tr -d ' ') SQL / $$(echo "$$gowarn" | grep -oE "$$gobaseline" | sort -u | wc -l | tr -d ' ') Go legacy name(s))"; \
 	fi
 
 # archive-guard is the one guard that reads git history instead of the working tree,
