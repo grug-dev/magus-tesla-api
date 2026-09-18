@@ -150,7 +150,12 @@ pg_dump --schema-only --no-owner --no-privileges -d "$DATABASE_URL" -f "$DUMP_A"
 createdb magus_baseline_check
 make migrate-up DATABASE_URL="$SCRATCH"          # variable AFTER the target
 pg_dump --schema-only --no-owner --no-privileges -d "$SCRATCH" -f /tmp/dump-B.sql
-diff "$DUMP_A" /tmp/dump-B.sql
+
+# Filter the \restrict / \unrestrict lines: pg_dump writes a fresh random token on
+# every run, so two dumps of the SAME schema always differ on those two lines. Left in,
+# they look like drift and would stop a run that is actually correct.
+diff <(grep -vE '^\\(un)?restrict ' "$DUMP_A") \
+     <(grep -vE '^\\(un)?restrict ' /tmp/dump-B.sql)
 ```
 
   `make migrate-up` needs **`psql` on PATH as well as `goose`** now: it creates each
