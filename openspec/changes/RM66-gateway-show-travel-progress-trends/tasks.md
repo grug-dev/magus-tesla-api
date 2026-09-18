@@ -37,17 +37,17 @@
 
 Decisions: D1
 
-- [ ] T1.1 In `internal/gateway/templates/ui/stat_tile.templ`, update
+- [x] T1.1 In `internal/gateway/templates/ui/stat_tile.templ`, update
       `StatTileProps.Trend`'s doc comment to the five-value table in
       design.md ("The third `Trend` value" section): `""`, `"up"`, `"down"`,
       `"up-neutral"`, `"down-neutral"`. Remove the "a third value is not
       modeled" sentence — it now is, twice over, and say why two values were
       needed instead of one (direction and colour are separate facts here).
-- [ ] T1.2 In the same file, extend `statTrendIcon`'s `switch` with the two
+- [x] T1.2 In the same file, extend `statTrendIcon`'s `switch` with the two
       new cases from design.md, reusing the existing `trending_up`/
       `trending_down` glyph names (`ui/icon.templ` — unchanged, no new
       glyph) with `text-neutral` instead of `text-success`/`text-error`.
-- [ ] T1.3 Run `make templ` (regenerates `stat_tile_templ.go`).
+- [x] T1.3 Run `make templ` (regenerates `stat_tile_templ.go`).
       Acceptance: `go build ./internal/gateway/...` still compiles (no other
       file references the new cases yet — this task only adds them).
 
@@ -55,10 +55,10 @@ Decisions: D1
 
 Decisions: D5
 
-- [ ] T2.1 In `internal/gateway/templates/fragments/dashboard_vm.go`, add the
+- [x] T2.1 In `internal/gateway/templates/fragments/dashboard_vm.go`, add the
       `TravelStatVM` struct from design.md (same shape as `TireWheelVM`:
       `Value`, `Trend`, `Delta`), placed next to `TireWheelVM`.
-- [ ] T2.2 In the same file, change `DashboardData.DistanceTraveled`,
+- [x] T2.2 In the same file, change `DashboardData.DistanceTraveled`,
       `.BatteryUsed`, `.Efficiency` from `string` to `TravelStatVM`. Keep
       each field's existing doc comment describing what the value means and
       its nil rule; add one sentence noting `.Trend`/`.Delta` follow
@@ -74,13 +74,13 @@ Decisions: D5
 
 Decisions: none
 
-- [ ] T3.1 Factor `formatSignedPSI`'s existing body into a new
+- [x] T3.1 Factor `formatSignedPSI`'s existing body into a new
       `formatSigned1(v float64) string` per design.md, and make
       `formatSignedPSI` call it. Behaviour for every existing input is
       unchanged — this is a pure refactor, not a logic change.
-- [ ] T3.2 Add `formatSignedPct` and `formatSignedKmPerPct`, both calling
+- [x] T3.2 Add `formatSignedPct` and `formatSignedKmPerPct`, both calling
       `formatSigned1` (design.md "New format helpers").
-- [ ] T3.3 Add `formatSignedKm` (whole-km rounding via `math.Round`, mirrors
+- [x] T3.3 Add `formatSignedKm` (whole-km rounding via `math.Round`, mirrors
       `formatKm`'s own rounding — NOT `formatSigned1`, since it needs zero
       decimals and `formatKm`'s exact rounding behaviour, not
       `strconv.FormatFloat`'s).
@@ -92,7 +92,7 @@ Decisions: none
 
 Decisions: D3
 
-- [ ] T4.1 In `internal/gateway/i18n/catalog.go`, rename
+- [x] T4.1 In `internal/gateway/i18n/catalog.go`, rename
       `KeyDashboardTireDeltaDesc` (`"dashboard.tire_delta_desc"`) to
       `KeyDashboardDeltaDesc` (`"dashboard.delta_desc"`) — both the `Key`
       constant declaration and its one `catalog` map entry. The two
@@ -107,19 +107,19 @@ Decisions: D3
 
 Decisions: D1, D2, D4, D5
 
-- [ ] T5.1 Rename `dashTireTrend` to `dashColoredTrend` (body unchanged).
+- [x] T5.1 Rename `dashTireTrend` to `dashColoredTrend` (body unchanged).
       Update its doc comment per design.md ("shared by every tyre wheel and
       by Efficiency"). Update its four existing call sites inside
       `dashTireWheel`.
-- [ ] T5.2 Add `dashNeutralTrend` exactly as specified in design.md.
-- [ ] T5.3 Generalise `dashTireDelta` into `dashDeltaDesc(ctx
+- [x] T5.2 Add `dashNeutralTrend` exactly as specified in design.md.
+- [x] T5.3 Generalise `dashTireDelta` into `dashDeltaDesc(ctx
       context.Context, v *float64, format func(float64) string) string` per
       design.md, using the renamed `i18n.KeyDashboardDeltaDesc`. Update
       `dashTireWheel` to call `dashColoredTrend(delta)` and
       `dashDeltaDesc(ctx, delta, formatSignedPSI)`.
-- [ ] T5.4 Add `dashTravelStat` exactly as specified in design.md ("one small
+- [x] T5.4 Add `dashTravelStat` exactly as specified in design.md ("one small
       builder, mirroring `dashTireWheel`'s own shape").
-- [ ] T5.5 Update `mapDashboardSnapshot`'s three assignment lines (today
+- [x] T5.5 Update `mapDashboardSnapshot`'s three assignment lines (today
       `vm.DistanceTraveled = dashDistanceOrDash(...)` etc.) to the three
       `dashTravelStat(...)` calls in design.md, reading each tile's matching
       `*DeltaCalc` field alongside its existing value field.
@@ -133,11 +133,11 @@ Decisions: D1, D2, D4, D5
 
 Decisions: D1, D5
 
-- [ ] T6.1 Replace the three hardcoded-`Trend` `StatTile` calls at
+- [x] T6.1 Replace the three hardcoded-`Trend` `StatTile` calls at
       `dashboard.templ:81-83` with the `.Value`/`.Trend`/`.Delta` reads from
       design.md's "Template wiring" section, mirroring the four tyre tiles
       two sections below in the same file.
-- [ ] T6.2 Run `make templ && make css` (new class, if any — `text-neutral`
+- [x] T6.2 Run `make templ && make css` (new class, if any — `text-neutral`
       is already used elsewhere in this module by `ui.Dot`/`ui.Badge`'s
       `"neutral"` variant, so this is likely a no-op for `app.css`, but run
       it regardless per the module's own regeneration cheatsheet).

@@ -252,15 +252,15 @@ func Dashboard(d fragments.DashboardData) templ.Component {
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardDistanceTraveled), Value: dashStat(d.HasSnapshot, d.DistanceTraveled), Trend: "up"}).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardDistanceTraveled), Value: dashStat(d.HasSnapshot, d.DistanceTraveled.Value), Trend: d.DistanceTraveled.Trend, Desc: d.DistanceTraveled.Delta}).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardBatteryUsed), Value: dashStat(d.HasSnapshot, d.BatteryUsed), Trend: "down"}).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardBatteryUsed), Value: dashStat(d.HasSnapshot, d.BatteryUsed.Value), Trend: d.BatteryUsed.Trend, Desc: d.BatteryUsed.Delta}).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardEfficiency), Value: dashStat(d.HasSnapshot, d.Efficiency)}).Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardEfficiency), Value: dashStat(d.HasSnapshot, d.Efficiency.Value), Trend: d.Efficiency.Trend, Desc: d.Efficiency.Delta}).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}

@@ -8,11 +8,20 @@ type StatTileProps struct {
 	Value string
 	Desc  string
 	Class string
-	// Trend renders a small up/down trend glyph beside the value: "up"
-	// (text-success) or "down" (text-error). Empty (the zero value) renders no
-	// icon — every existing call site is unaffected. A third value is not
-	// modeled; add it here, not as a raw ui.Icon call at a page, if a future
-	// caller needs one (RM50-gateway-add-travel-progress-subsection D3).
+	// Trend renders a small up/down trend glyph beside the value, from a
+	// closed five-value vocabulary. Direction and colour are separate facts
+	// here, so two tiles can point the same way but mean different things:
+	//
+	//   ""             no icon
+	//   "up"           trending_up, text-success (a positive change is good)
+	//   "down"         trending_down, text-error (a negative change is bad)
+	//   "up-neutral"   trending_up, text-neutral (a positive change, neither
+	//                  good nor bad)
+	//   "down-neutral" trending_down, text-neutral (a negative change,
+	//                  neither good nor bad)
+	//
+	// Empty (the zero value) renders no icon — every existing call site is
+	// unaffected.
 	Trend string
 }
 
@@ -72,14 +81,18 @@ templ StatTile(p StatTileProps) {
 
 // statTrendIcon renders a small up/down trend glyph beside a stat value, from a
 // closed vocabulary mirroring iconMarkup's own closed-switch shape (icon.templ).
-// "" (the zero value) renders nothing, so a StatTile with no Trend set is
-// unchanged (RM50-gateway-add-travel-progress-subsection D3).
+// "" (the zero value) renders nothing, so a tile that sets no Trend draws no
+// icon. The default case is what keeps every such call site unchanged.
 templ statTrendIcon(trend string) {
 	switch trend {
 	case "up":
 		@Icon(IconProps{Name: "trending_up", Class: "h-5 w-5 text-success shrink-0"})
 	case "down":
 		@Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-error shrink-0"})
+	case "up-neutral":
+		@Icon(IconProps{Name: "trending_up", Class: "h-5 w-5 text-neutral shrink-0"})
+	case "down-neutral":
+		@Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-neutral shrink-0"})
 	default:
 	}
 }

@@ -21,6 +21,16 @@ type TireWheelVM struct {
 	Delta string
 }
 
+// TravelStatVM is one Travel Progress tile: its current value, trend
+// direction, and formatted day-over-day delta line. Same shape as
+// TireWheelVM (Value/Trend/Delta) — the two subsections share one pattern,
+// not two.
+type TravelStatVM struct {
+	Value string
+	Trend string
+	Delta string
+}
+
 // DashboardData drives the single-vehicle dashboard page (the SELECTED vehicle's
 // latest telemetry, rendered as the Apex/Kinetic bento grid). Every display field
 // is a pre-computed string produced by the handler — the template does no
@@ -72,23 +82,26 @@ type DashboardData struct {
 	// --- Travel Progress subsection (RM50 tier 2) ---
 	// DistanceTraveled is the latest computed day's driven distance ("45 km"), or "—"
 	// when the day has no predecessor (nil DistanceTraveledKmCalc) or there is no
-	// snapshot at all. Never a fabricated 0.
-	DistanceTraveled string
+	// snapshot at all. Never a fabricated 0. Its .Trend/.Delta follow the same
+	// nil/zero rule TireWheelVM's own fields already document.
+	DistanceTraveled TravelStatVM
 	// BatteryUsed is the latest computed day's battery percent used ("12.3%"), or "—"
-	// under the same nil rule as DistanceTraveled.
-	BatteryUsed string
+	// under the same nil rule as DistanceTraveled. Its .Trend/.Delta follow the
+	// same nil/zero rule TireWheelVM's own fields already document.
+	BatteryUsed TravelStatVM
 	// Efficiency is the latest computed day's driving efficiency ("2.8 km / %"),
 	// or "—". Its nil rule is STRICTER than the two fields above: a day with no
 	// predecessor has none, and so does a day whose CONSUMED percent (the battery
 	// used plus that day's recorded charges) is zero or less, because the division
-	// has no meaning then. Never a fabricated 0.
+	// has no meaning then. Never a fabricated 0. Its .Trend/.Delta follow the same
+	// nil/zero rule TireWheelVM's own fields already document.
 	//
 	// MAG-81: a day the vehicle drove AND charged used to land here as "—",
 	// because the divisor was the raw battery drop, which goes negative when the
 	// pack ends fuller than it started. Such a day now shows a real figure. What
 	// still shows "—" is a day whose charge was never recorded — the charge-gap
 	// case, where no truthful divisor exists to recover.
-	Efficiency string
+	Efficiency TravelStatVM
 
 	// --- Tire pressure (PSI) subsection (RM50 tier 4) ---
 	TirePressureFL TireWheelVM
