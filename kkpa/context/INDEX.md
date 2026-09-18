@@ -63,9 +63,12 @@
 | `tire pressure` | the four `tpms_pressure_*_psi` columns of `vehicle_metrics` (RM50 tier 1), raw per-day observations read via `analytics.Reader.LatestMetricsForVehicles` | entity | `entities/vehicle-metrics/guide.md` |
 | `tyre pressure` | synonym of `tire pressure` | entity | `entities/vehicle-metrics/guide.md` |
 | `TPMS` | synonym of `tire pressure` (tire-pressure monitoring system) | entity | `entities/vehicle-metrics/guide.md` |
-| `tyre pressure delta` | the four `tpms_pressure_*_psi_calc` columns of `vehicle_metrics` (RM50 tier 3) — each day's wheel pressure minus the previous day's, NULL without a predecessor or a raw reading | entity | `entities/vehicle-metrics/guide.md` |
+| `tyre pressure delta` | the four `tpms_pressure_*_psi_delta_calc` columns of `vehicle_metrics` (RM50 tier 3, renamed in RM66 tier 2) — each day's wheel pressure minus the previous day's, NULL without a predecessor or a raw reading | entity | `entities/vehicle-metrics/guide.md` |
 | `tyre pressure variance` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `pressure change` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
+| `travel progress delta` | the three `*_delta_calc` columns of `vehicle_metrics` — each day's travel-progress figure minus the previous day's, absent without a predecessor in the same pass | entity | `entities/vehicle-metrics/guide.md` |
+| `travel progress trend` | synonym of `travel progress delta` | entity | `entities/vehicle-metrics/guide.md` |
+| `day-over-day delta` | synonym of `travel progress delta`; see also `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `travel progress` | UI name for `vehicle_metrics.distance_traveled_km_calc`, exposed on `analytics.VehicleStatus.DistanceTraveledKmCalc` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
 | `battery drain` | UI name for `vehicle_metrics.consumed_pct`, exposed on `analytics.VehicleStatus.ConsumedPct` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
 | `charge authorship` | `charging.Entry.CreatedByAccountID` / `manual_charge_entries.created_by_account_id` — stored and returned, never a read filter | entity | `workflows/manual-charge-crud.md` |
