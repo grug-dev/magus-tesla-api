@@ -73,6 +73,7 @@
 | `battery drain` | UI name for `vehicle_metrics.consumed_pct`, exposed on `analytics.VehicleStatus.ConsumedPct` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
 | `charge authorship` | `charging.Entry.CreatedByAccountID` / `manual_charge_entries.created_by_account_id` — stored and returned, never a read filter | entity | `workflows/manual-charge-crud.md` |
 | `entry author` | synonym of `charge authorship` | entity | `workflows/manual-charge-crud.md` |
+| `efficiency tile` | UI name for `vehicle_metrics.km_per_pct_calc`, exposed on `analytics.VehicleStatus.KmPerPctCalc` | entity | `use-case/gateway/read-dashboard-bento.md` |
 
 ## Input ports — pages & endpoints
 
