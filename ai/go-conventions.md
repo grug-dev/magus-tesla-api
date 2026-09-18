@@ -375,6 +375,14 @@ module:
   the suffix by design: vendor adapter DTOs (native units — see §Coding Rules) and monetary
   amounts, which take no suffix and must instead be paired with a `currency` column. Full rule:
   `openspec/specs/unit-of-measure/spec.md`.
+- **A day-over-day delta column or Go field is named `_delta_calc` / `DeltaCalc`, never a bare
+  `_calc` / `Calc`.** A column or field holds a "delta" when it stores today's value of a metric
+  minus yesterday's value of the *same* metric. Name it so the reader can tell from the name
+  alone, without opening the migration. A bare `_calc` / `Calc` name stays valid for a derived
+  value that is **not** itself a day-over-day difference — for example `km_per_pct_calc` (a
+  same-day rate) and `inferred_capacity_kwh_calc` (a same-row ratio). `make delta-guard` enforces
+  this (escape hatch: `-- delta:allow: <reason>` in SQL, `// delta:allow: <reason>` in Go). Full
+  rule: `openspec/specs/unit-of-measure/spec.md`.
 - **Always store raw `JSONB` when ingesting external API responses — it is the
   insurance policy, not an optional companion.** Any table that persists a response
   from an external API (Tesla Fleet API, any third-party) MUST include a

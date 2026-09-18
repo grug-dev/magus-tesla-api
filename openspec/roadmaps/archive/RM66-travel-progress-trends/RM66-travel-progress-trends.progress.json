@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM66-travel-progress-trends",
+  "request": "MAG-59 \u2014 Travel Progress: drive the up/down arrows from the previous day. Also rename the tyre-pressure delta columns to carry a _delta suffix, and write that naming rule where an AI assistant reads it.",
+  "status": "complete",
+  "autopilot": true,
+  "created_at": "2026-09-18T03:21:25Z",
+  "updated_at": "2026-09-18T15:35:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "Opus 5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM66-MAG-59-travel-progress-trends",
+    "base": "main",
+    "ticket": "MAG-59",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-59/travel-progress-drive-the-updown-arrows-from-the-previous-day",
+    "created_at": "2026-09-18T03:21:25Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1",
+      "2",
+      "3"
+    ]
+  },
+  "tiers": [
+    {
+      "tier": 1,
+      "change": "RM66-platform-add-delta-column-naming-rule",
+      "module": "platform",
+      "depends_on": [],
+      "status": "archived",
+      "budget": {
+        "five_hour_pct_start": 69,
+        "five_hour_pct_end": 79,
+        "context_pct_end": 19,
+        "cost_usd_delta": 10.27,
+        "approx": true,
+        "note": "artifacts wave 3.34 + implementation wave 2.73 + review round 1 and its fix 4.20"
+      },
+      "notes": "Artifacts written and openspec validate --strict passes. Waiting on the Spanish briefing before implementation.",
+      "started_at": "2026-09-18T03:23:04Z",
+      "agent": "platform",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T08:57:07Z",
+      "archive_path": "openspec/changes/archive/platform/2026-09-18-RM66-platform-add-delta-column-naming-rule"
+    },
+    {
+      "tier": 2,
+      "change": "RM66-analytics-add-travel-progress-deltas",
+      "module": "analytics",
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "budget": {
+        "five_hour_pct_start": 42,
+        "five_hour_pct_end": 100,
+        "context_pct_end": 19,
+        "cost_usd_delta": 15.4,
+        "approx": true,
+        "note": "artifacts + 3 waves + 2 review rounds; the bucket hit its limit during review round 2 and reset"
+      },
+      "notes": "Three new _delta_calc columns plus the four tyre renames, one migration. Owner ran migrate-up and the suite; both passed. Two review findings, both fixed.",
+      "started_at": "2026-09-18T09:46:31Z",
+      "completed_at": "2026-09-18T13:50:00Z",
+      "agent": "analytics",
+      "model": "sonnet",
+      "archive_path": "openspec/changes/archive/analytics/2026-09-18-RM66-analytics-add-travel-progress-deltas"
+    },
+    {
+      "tier": 3,
+      "change": "RM66-gateway-show-travel-progress-trends",
+      "module": "gateway",
+      "depends_on": [
+        2
+      ],
+      "status": "archived",
+      "budget": {
+        "five_hour_pct_start": 17,
+        "five_hour_pct_end": 51,
+        "context_pct_end": 19,
+        "cost_usd_delta": 14.2,
+        "approx": true,
+        "spanned_sessions": 2,
+        "note": "artifacts + 2 waves + 1 review round and its fix; resumed in a fresh session"
+      },
+      "notes": "Two neutral Trend values, the mapping, the template, the i18n rename, tests and the KB fix. Owner ran the suite and reported it passing. One review round, approved with four minor comment findings, all fixed.",
+      "started_at": "2026-09-18T14:05:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T15:35:00Z",
+      "archive_path": "openspec/changes/archive/gateway/2026-09-18-RM66-gateway-show-travel-progress-trends"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-A",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "Arrows, tyre-column rename and naming rule ship together as one roadmap.",
+      "why": "User chose to keep MAG-59 whole rather than split the rename into its own ticket."
+    },
+    {
+      "id": "D-B",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "Store day-over-day deltas in new columns, computed from the row the loop built one step earlier. LAG rejected.",
+      "why": "Postgres runs window functions before DISTINCT ON, so LAG would read each vehicle's whole history on a page load and lose the one-row read."
+    },
+    {
+      "id": "D-C",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "All three tiles show direction. Only Efficiency carries a good/bad colour; Distance and Battery are neutral.",
+      "why": "Driving more or using more charge is neither good nor bad, so a green arrow would praise a neutral fact."
+    },
+    {
+      "id": "D-D",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "Delta columns are named _delta_calc, including the four renamed tyre columns.",
+      "why": "One naming rule across the whole database, so a later reader cannot mistake a delta for the day's own figure."
+    },
+    {
+      "id": "D-E",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "The naming rule goes in ai/go-conventions.md and is enforced by a make guard.",
+      "why": "A guard is a deterministic signal, so the mistake fails fast instead of costing a human review round."
+    },
+    {
+      "id": "D-F",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "Tier order is guard first, then analytics, then gateway.",
+      "why": "Gateway cannot read columns analytics has not stored. Guard first matches the owner's stated preference and its baseline keeps make check green."
+    },
+    {
+      "id": "D-G",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-18T03:32:12Z",
+      "decision": "Guard baseline covers all ten pre-existing _calc names, not only the four tyre ones.",
+      "why": "A repo-wide grep found ten columns across analytics and charging. The roadmap's four-name claim was wrong and is corrected."
+    },
+    {
+      "id": "D-K",
+      "scope": "tier-2:backfill",
+      "made_by": "user",
+      "at": "2026-09-18T09:15:05Z",
+      "decision": "The tier 2 backfill joins on metric_date - 1, not on the previous stored row.",
+      "why": "Same rule the tyre-pressure backfill used. After a gap the historical value stays NULL."
+    },
+    {
+      "id": "D-R1",
+      "scope": "tier-3:review",
+      "made_by": "autopilot",
+      "at": "2026-09-18T15:25:00Z",
+      "decision": "No second review round after fixing the four round-1 findings.",
+      "why": "The verdict was already approved and every finding was comment-only. A re-review would cost a full round and change nothing."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-18T03:21:25Z",
+      "event": "roadmap created from MAG-59; branch ft/RM66-MAG-59-travel-progress-trends off main; work counter 66 -> 67"
+    },
+    {
+      "at": "2026-09-18T03:21:25Z",
+      "event": "autopilot enabled by user mid-run; overrides the pickup skill's halt-after-artifacts scope. Blocking gates unchanged: Spanish briefing per tier, database gate at tier 2, user-run test suite, push/PR."
+    },
+    {
+      "at": "2026-09-18T03:21:25Z",
+      "event": "user away (asleep). Plan: complete tier 1 (no database gate), then write tier 2 artifacts and stop at the Spanish briefing + database gate."
+    },
+    {
+      "at": "2026-09-18T03:23:04Z",
+      "event": "tier 1 artifacts worker dispatched (platform, sonnet); budget start 5h=69% ctx=18%"
+    },
+    {
+      "at": "2026-09-18T03:32:12Z",
+      "event": "tier 1 artifacts complete; validate --strict passes. Roadmap fact corrected: 10 _calc columns in 2 modules, not 4 in 1."
+    },
+    {
+      "at": "2026-09-18T08:57:07Z",
+      "event": "tier 1 reviewer-approved and archived. Tier 2 (analytics) is now unblocked."
+    },
+    {
+      "at": "2026-09-18T09:15:05Z",
+      "event": "tier 2 artifacts written and valid. Spanish briefing posted. User chose metric_date - 1 for the backfill, and is reading design.md before answering the database design gate. NOTHING implemented; tier 2 has no progress.json yet (Step 4 waits on the gate)."
+    },
+    {
+      "at": "2026-09-18T13:50:00Z",
+      "event": "tier 2 reviewer-approved and archived under archive/analytics/. The owner ran make migrate-up, the analytics tests and make check, all passing. Tier 3 (gateway) is now unblocked."
+    },
+    {
+      "at": "2026-09-18T13:59:00Z",
+      "event": "CHECKPOINT at the tier 2 / tier 3 boundary, by the user's choice. Budget 5h=15% ctx=23% - neither threshold was reached; a fresh session is simply cheaper before the gateway tier, whose AGENTS.md is the largest in the repo. Tree is clean, tier 2 archived, KB synced and committed at 0e1ad58. Resume with: /kkpa-dev-harness-pipeline resume RM66-travel-progress-trends. Next step is tier 3 artifacts (Step 2), then the Spanish briefing gate before any code."
+    },
+    {
+      "at": "2026-09-18T14:05:00Z",
+      "event": "resumed in a fresh session; tier 3 artifacts worker dispatched (gateway, sonnet); budget start 5h=17% ctx=10%. No fresh interview: roadmap D-B/D-C and the tier 3 proposal prompt cover every open decision."
+    },
+    {
+      "at": "2026-09-18T14:45:00Z",
+      "event": "tier 3 artifacts complete and valid. Spanish briefing posted and approved by the user. Decision IDs D1-D6 added to design.md so workers can enumerate them. Implementation starts at wave 1."
+    },
+    {
+      "at": "2026-09-18T15:35:00Z",
+      "event": "tier 3 reviewer-approved and archived under archive/gateway/. Spec delta synced in place at spec.md:3652, no duplicate and nothing appended at EOF. Every tier archived, so RM66 is complete and its files move to openspec/roadmaps/archive/RM66-travel-progress-trends/."
+    }
+  ]
+}

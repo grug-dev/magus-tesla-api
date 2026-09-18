@@ -109,7 +109,7 @@ TEST_ADMIN_DATABASE_URL := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(pos
 TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)([^/@]*@)?([^/?]+)/([^/?]+)|\1\4/\5|')
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
-        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-boundary-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard tidy build vet lint check-golangci test check bins \
+        db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-boundary-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard delta-guard tidy build vet lint check-golangci test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs vps-logs docker-migrate backup-db
 
@@ -936,6 +936,81 @@ naming-guard: ## Fail if a NEW type declaration ends in a banned generic suffix 
 		echo "naming-guard: no new banned-suffix type declaration (baseline: $$(echo "$$warn" | grep -cE "$$baseline" || true) legacy name(s))"; \
 	fi
 
+# delta-guard enforces ai/go-conventions.md's delta-column naming rule: a column
+# or Go field that holds today's value of a metric minus yesterday's value of the
+# SAME metric must end in _delta_calc / DeltaCalc, never a bare _calc / Calc. A
+# grep cannot tell a delta from a same-day rate or ratio (km_per_pct_calc,
+# inferred_capacity_kwh_calc are both legitimate non-deltas) — it only checks the
+# naming shape, the same honest limit every guard below accepts.
+#
+# Two legs, each warn/fail-split against its own baseline, mirroring
+# naming-guard above:
+#   - SQL leg scans column DEFINITION lines only (CREATE TABLE / ADD COLUMN, in
+#     db/migrations/*.sql) — a column is named once, at definition, so query.sql
+#     and COMMENT ON prose are never scanned. A guard that read prose could flag
+#     its own English documentation quoting a column name.
+#   - Go leg scans field-declaration-shaped lines (a tab, then a capitalized
+#     ...Calc identifier) under internal/ and cmd/, excluding _test.go. A struct
+#     literal field assignment has the identical shape and also matches; that is
+#     accepted — it lands in the same bucket the real declaration already would.
+#     It is also why the success line counts distinct names, not matched lines:
+#     one baselined name matches dozens of times.
+#
+# The baseline lists every _calc/Calc name that existed before this rule. It
+# only ever shrinks: when a name is renamed to *_delta_calc/DeltaCalc, or proven
+# to be a genuine non-delta and marked delta:allow instead, delete its entry
+# here. Never add a name to the baseline — a new bare _calc/Calc name must
+# either become a delta name or carry the escape hatch.
+#
+# Escape hatch: a trailing `-- delta:allow: <reason>` (SQL) or
+# `// delta:allow: <reason>` (Go) comment on the same line. Never widen a
+# pattern to silence a true positive.
+delta-guard: ## Fail if a NEW day-over-day delta column/field is named _calc/Calc instead of _delta_calc/DeltaCalc; pre-rule baseline names only warn (escape hatch: -- delta:allow: / // delta:allow: <reason>)
+	@sqlpattern='^[[:space:]]*(ADD COLUMN[[:space:]]+)?[a-z][a-z0-9_]*_calc\b'; \
+	sqldeltapattern='(^|:)[[:space:]]*(ADD COLUMN[[:space:]]+)?[a-z][a-z0-9_]*_delta_calc\b'; \
+	sqlbaseline='(distance_traveled_km_calc|battery_used_pct_calc|days_spanned_calc|km_per_pct_calc|estimated_range_km_calc|tpms_pressure_fl_psi_calc|tpms_pressure_fr_psi_calc|tpms_pressure_rl_psi_calc|tpms_pressure_rr_psi_calc|inferred_capacity_kwh_calc)\b'; \
+	sqlhits=$$(grep -rnE "$$sqlpattern" --include='*.sql' internal/*/db/migrations \
+		| grep -vE "$$sqldeltapattern" \
+		| grep -v 'delta:allow' || true); \
+	sqlwarn=$$(echo "$$sqlhits" | grep -E "$$sqlbaseline" || true); \
+	sqlfail=$$(echo "$$sqlhits" | grep -vE "$$sqlbaseline" || true); \
+	gopattern='^\t+[A-Z][A-Za-z0-9]*Calc\b'; \
+	godeltapattern='(^|:)\t+[A-Z][A-Za-z0-9]*DeltaCalc\b'; \
+	gobaseline='(DistanceTraveledKmCalc|BatteryUsedPctCalc|DaysSpannedCalc|KmPerPctCalc|EstimatedRangeKmCalc|InferredCapacityKWhCalc|InferredCapacityKwhCalc)\b'; \
+	gohits=$$(grep -rnE "$$gopattern" --include='*.go' internal cmd \
+		| grep -v '_test.go' \
+		| grep -vE "$$godeltapattern" \
+		| grep -v 'delta:allow' || true); \
+	gowarn=$$(echo "$$gohits" | grep -E "$$gobaseline" || true); \
+	gofail=$$(echo "$$gohits" | grep -vE "$$gobaseline" || true); \
+	if [ -n "$$sqlwarn" ] || [ -n "$$gowarn" ]; then \
+		[ -n "$$sqlwarn" ] && echo "$$sqlwarn"; \
+		[ -n "$$gowarn" ] && echo "$$gowarn"; \
+		echo ""; \
+		echo "WARNING: the pre-rule _calc/Calc names above are not named as deltas, but"; \
+		echo "pre-date the naming rule. Not fatal. Renaming one to *_delta_calc/DeltaCalc,"; \
+		echo "or confirming it is a genuine non-delta and marking it delta:allow, is a"; \
+		echo "deliberate change; when done, shrink the baseline in the Makefile's"; \
+		echo "delta-guard target."; \
+		echo ""; \
+	fi; \
+	if [ -n "$$sqlfail" ] || [ -n "$$gofail" ]; then \
+		[ -n "$$sqlfail" ] && echo "$$sqlfail"; \
+		[ -n "$$gofail" ] && echo "$$gofail"; \
+		echo ""; \
+		echo "ERROR: the names above end in a bare _calc/Calc and are not in the"; \
+		echo "baseline. If this column or field holds today's value of a metric minus"; \
+		echo "yesterday's value of the SAME metric, rename it to end in"; \
+		echo "_delta_calc/DeltaCalc instead. See ai/go-conventions.md \"Read optimization"; \
+		echo "(project-wide)\". Genuinely not a delta (a rate or ratio, like"; \
+		echo "km_per_pct_calc)? Mark the line with -- delta:allow: <reason> (SQL) or"; \
+		echo "// delta:allow: <reason> (Go). Never weaken this pattern to silence a true"; \
+		echo "positive."; \
+		exit 1; \
+	else \
+		echo "delta-guard: no new bare _calc/Calc name (baseline: $$(echo "$$sqlwarn" | grep -oE "$$sqlbaseline" | sort -u | wc -l | tr -d ' ') SQL / $$(echo "$$gowarn" | grep -oE "$$gobaseline" | sort -u | wc -l | tr -d ' ') Go legacy name(s))"; \
+	fi
+
 # archive-guard is the one guard that reads git history instead of the working tree,
 # because the rule it enforces is about CHANGE, not about content: everything under
 # openspec/changes/archive/ is an immutable snapshot of what was decided at the time.
@@ -1019,7 +1094,7 @@ archive-guard: ## Fail if a file under openspec/changes/archive/ is edited or de
 		echo "archive-guard: no archived file edited or deleted since $$base"; \
 	fi
 
-check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-boundary-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-boundary-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + logdir-guard + test
+check: build vet lint ui-guard i18n-guard money-guard tz-guard logging-guard migration-boundary-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard delta-guard test ## Full local gate: build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + logging-guard + migration-boundary-guard + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + naming-guard + archive-guard + logdir-guard + delta-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

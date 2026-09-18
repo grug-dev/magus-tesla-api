@@ -507,13 +507,13 @@ func dashPSIOrDash(v *float64) string {
 	return formatPSI(*v)
 }
 
-// dashTireTrend maps a tyre-pressure delta to a StatTile Trend value. nil (no
-// predecessor day, or either day's raw wheel reading missing — analytics.
-// VehicleStatus.TpmsPressureFLPSICalc's own doc comment) and exactly 0.0 (a
-// real "no change" reading, RD13) both render no icon: ui.StatTileProps.Trend
-// only models "up"/"down"/"", and the roadmap explicitly forbids inventing a
-// third, neutral glyph. Positive -> "up", negative -> "down".
-func dashTireTrend(v *float64) string {
+// dashColoredTrend maps a delta to a StatTile Trend value where the direction
+// itself carries good/bad meaning: nil (no predecessor day, or either day's
+// raw reading missing) and exactly 0.0 (a real "no change" reading) both
+// render no icon. Positive -> "up" (text-success), negative -> "down"
+// (text-error). Shared by every tyre wheel and by Efficiency — the one
+// mechanism for a coloured trend, never duplicated per caller.
+func dashColoredTrend(v *float64) string {
 	if v == nil || *v == 0 {
 		return ""
 	}
@@ -523,17 +523,34 @@ func dashTireTrend(v *float64) string {
 	return "down"
 }
 
-// dashTireDelta formats a tyre-pressure delta as the tile's stat-desc line
-// (RD10), e.g. "+0.4 vs prev. day". nil -> "" (no line at all) — never a
-// fabricated "0.0 vs prev. day" for an unknown delta. A real 0.0 DOES render
-// ("0.0 vs prev. day"), because it is a known value, not an absent one (RD13)
-// — distinct from dashTireTrend's own "0.0 gets no icon" rule; the two
-// functions answer different questions from the same input.
-func dashTireDelta(ctx context.Context, v *float64) string {
+// dashNeutralTrend is dashColoredTrend's direction rule with a neutral
+// colour instead of success/error: nil or an exact zero still renders no
+// icon, but a real positive or negative delta renders "up-neutral" /
+// "down-neutral" instead of "up"/"down". Distance travelled and Battery
+// used both use this — driving more or less is not itself good or bad
+// news, so neither earns a colour, but both still point a real direction.
+func dashNeutralTrend(v *float64) string {
+	if v == nil || *v == 0 {
+		return ""
+	}
+	if *v > 0 {
+		return "up-neutral"
+	}
+	return "down-neutral"
+}
+
+// dashDeltaDesc formats any day-over-day delta as a tile's stat-desc line
+// ("+0.4 vs prev. day"), using format to render the signed number. nil ->
+// "" (no line at all) — never a fabricated "0 vs prev. day" for an unknown
+// delta. A real zero DOES render its line, because it is a known value,
+// not an absent one — distinct from the trend functions' own "zero gets no
+// icon" rule; this function and they answer different questions from the
+// same input. Shared by every tile that shows a day-over-day change.
+func dashDeltaDesc(ctx context.Context, v *float64, format func(float64) string) string {
 	if v == nil {
 		return ""
 	}
-	return fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardTireDeltaDesc), formatSignedPSI(*v))
+	return fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardDeltaDesc), format(*v))
 }
 
 // dashTireWheel builds one wheel's TireWheelVM from its raw reading and delta.
@@ -542,8 +559,22 @@ func dashTireDelta(ctx context.Context, v *float64) string {
 func dashTireWheel(ctx context.Context, raw, delta *float64) fragments.TireWheelVM {
 	return fragments.TireWheelVM{
 		Value: dashPSIOrDash(raw),
-		Trend: dashTireTrend(delta),
-		Delta: dashTireDelta(ctx, delta),
+		Trend: dashColoredTrend(delta),
+		Delta: dashDeltaDesc(ctx, delta, formatSignedPSI),
+	}
+}
+
+// dashTravelStat builds one Travel Progress tile's TravelStatVM from its
+// own day's value and its day-over-day delta. formatValue is the tile's
+// existing value formatter; formatDelta is its signed-delta formatter;
+// trend picks dashNeutralTrend or dashColoredTrend depending on whether the
+// tile's direction carries good/bad meaning. Mirrors dashTireWheel's own
+// "one small builder, several thin call sites" shape.
+func dashTravelStat(ctx context.Context, value, delta *float64, formatValue func(*float64) string, formatDelta func(float64) string, trend func(*float64) string) fragments.TravelStatVM {
+	return fragments.TravelStatVM{
+		Value: formatValue(value),
+		Trend: trend(delta),
+		Delta: dashDeltaDesc(ctx, delta, formatDelta),
 	}
 }
 
@@ -574,13 +605,13 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, vs a
 	vm.InsideTemp = dashTempOrDash(vs.InsideTempC)
 	vm.OutsideTemp = dashTempOrDash(vs.OutsideTempC)
 	vm.MaxRangeCharges = dashCountOrDash(vs.MaxRangeChargeCounter)
-	vm.DistanceTraveled = dashDistanceOrDash(vs.DistanceTraveledKmCalc)
-	vm.BatteryUsed = dashBatteryUsedOrDash(vs.ConsumedPct)
-	vm.Efficiency = dashEfficiencyOrDash(vs.KmPerPctCalc)
-	vm.TirePressureFL = dashTireWheel(ctx, vs.TpmsPressureFLPSI, vs.TpmsPressureFLPSICalc)
-	vm.TirePressureFR = dashTireWheel(ctx, vs.TpmsPressureFRPSI, vs.TpmsPressureFRPSICalc)
-	vm.TirePressureRL = dashTireWheel(ctx, vs.TpmsPressureRLPSI, vs.TpmsPressureRLPSICalc)
-	vm.TirePressureRR = dashTireWheel(ctx, vs.TpmsPressureRRPSI, vs.TpmsPressureRRPSICalc)
+	vm.DistanceTraveled = dashTravelStat(ctx, vs.DistanceTraveledKmCalc, vs.DistanceTraveledKmDeltaCalc, dashDistanceOrDash, formatSignedKm, dashNeutralTrend)
+	vm.BatteryUsed = dashTravelStat(ctx, vs.ConsumedPct, vs.ConsumedPctDeltaCalc, dashBatteryUsedOrDash, formatSignedPct, dashNeutralTrend)
+	vm.Efficiency = dashTravelStat(ctx, vs.KmPerPctCalc, vs.KmPerPctDeltaCalc, dashEfficiencyOrDash, formatSignedKmPerPct, dashColoredTrend)
+	vm.TirePressureFL = dashTireWheel(ctx, vs.TpmsPressureFLPSI, vs.TpmsPressureFLPSIDeltaCalc)
+	vm.TirePressureFR = dashTireWheel(ctx, vs.TpmsPressureFRPSI, vs.TpmsPressureFRPSIDeltaCalc)
+	vm.TirePressureRL = dashTireWheel(ctx, vs.TpmsPressureRLPSI, vs.TpmsPressureRLPSIDeltaCalc)
+	vm.TirePressureRR = dashTireWheel(ctx, vs.TpmsPressureRRPSI, vs.TpmsPressureRRPSIDeltaCalc)
 	vm.Battery = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
 	vm.BatteryPct = strconv.Itoa(vs.BatteryLevelPct)
 	vm.RangeNow = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)

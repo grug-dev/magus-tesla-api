@@ -16,11 +16,20 @@ type StatTileProps struct {
 	Value string
 	Desc  string
 	Class string
-	// Trend renders a small up/down trend glyph beside the value: "up"
-	// (text-success) or "down" (text-error). Empty (the zero value) renders no
-	// icon — every existing call site is unaffected. A third value is not
-	// modeled; add it here, not as a raw ui.Icon call at a page, if a future
-	// caller needs one (RM50-gateway-add-travel-progress-subsection D3).
+	// Trend renders a small up/down trend glyph beside the value, from a
+	// closed five-value vocabulary. Direction and colour are separate facts
+	// here, so two tiles can point the same way but mean different things:
+	//
+	//   ""             no icon
+	//   "up"           trending_up, text-success (a positive change is good)
+	//   "down"         trending_down, text-error (a negative change is bad)
+	//   "up-neutral"   trending_up, text-neutral (a positive change, neither
+	//                  good nor bad)
+	//   "down-neutral" trending_down, text-neutral (a negative change,
+	//                  neither good nor bad)
+	//
+	// Empty (the zero value) renders no icon — every existing call site is
+	// unaffected.
 	Trend string
 }
 
@@ -111,7 +120,7 @@ func StatTile(p StatTileProps) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 62, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 71, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -124,7 +133,7 @@ func StatTile(p StatTileProps) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.Value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 64, Col: 120}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 73, Col: 120}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -150,7 +159,7 @@ func StatTile(p StatTileProps) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.Desc)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 68, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 77, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -171,8 +180,8 @@ func StatTile(p StatTileProps) templ.Component {
 
 // statTrendIcon renders a small up/down trend glyph beside a stat value, from a
 // closed vocabulary mirroring iconMarkup's own closed-switch shape (icon.templ).
-// "" (the zero value) renders nothing, so a StatTile with no Trend set is
-// unchanged (RM50-gateway-add-travel-progress-subsection D3).
+// "" (the zero value) renders nothing, so a tile that sets no Trend draws no
+// icon. The default case is what keeps every such call site unchanged.
 func statTrendIcon(trend string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -202,6 +211,16 @@ func statTrendIcon(trend string) templ.Component {
 			}
 		case "down":
 			templ_7745c5c3_Err = Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-error shrink-0"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		case "up-neutral":
+			templ_7745c5c3_Err = Icon(IconProps{Name: "trending_up", Class: "h-5 w-5 text-neutral shrink-0"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		case "down-neutral":
+			templ_7745c5c3_Err = Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-neutral shrink-0"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

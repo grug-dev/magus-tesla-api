@@ -33,34 +33,42 @@
 -- follow the identical rule: raw observations copied verbatim from the day's own
 -- telemetry.Snapshot, refreshed on every re-derivation, populated with or without
 -- a predecessor (design.md D2).
--- The four tpms_pressure_*_psi_calc columns (RM50-analytics-add-tire-pressure-variance)
--- are DELTAS, not raw observations: refreshed on every re-derivation like every other
--- column above, but NULL whenever this day has no predecessor at all, OR either day's
--- own raw wheel reading is itself NULL (design.md D2) -- the same rule
--- distance_traveled_km_calc and its four siblings already follow, never the raw-TPMS
--- rule the four columns above it follow.
+-- The four tpms_pressure_*_psi_delta_calc columns (renamed from
+-- tpms_pressure_*_psi_calc so every day-over-day delta on this table shares
+-- one naming convention) are DELTAS, not raw observations: refreshed on
+-- every re-derivation like every other column above, but NULL whenever this
+-- day has no predecessor at all, OR either day's own raw wheel reading is
+-- itself NULL -- the same rule distance_traveled_km_calc and its siblings
+-- follow, never the raw-TPMS rule the four columns above it follow.
+-- distance_traveled_km_delta_calc, consumed_pct_delta_calc and
+-- km_per_pct_delta_calc are the three newest deltas, following the
+-- identical refresh-and-nullability rule: NULL whenever this day was the
+-- first day a recalculation pass considered, or when either side of the
+-- subtraction is itself NULL.
 INSERT INTO analytics.vehicle_metrics (
     tesla_id, metric_date,
     battery_level_pct, odometer_km, battery_range_km,
     distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
     estimated_range_km_calc, days_spanned_calc,
+    distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc,
     consumed_pct, flagged, missing_charging_type,
     locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
     charging_state, charge_limit_soc_pct, captured_at,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
+    tpms_pressure_fl_psi_delta_calc, tpms_pressure_fr_psi_delta_calc, tpms_pressure_rl_psi_delta_calc, tpms_pressure_rr_psi_delta_calc
 ) VALUES (
     @tesla_id, @metric_date,
     @battery_level_pct, @odometer_km, @battery_range_km,
     @distance_traveled_km_calc, @battery_used_pct_calc, @km_per_pct_calc,
     @estimated_range_km_calc, @days_spanned_calc,
+    @distance_traveled_km_delta_calc, @consumed_pct_delta_calc, @km_per_pct_delta_calc,
     @consumed_pct, @flagged, @missing_charging_type,
     @locked, @sentry_mode, @car_version, @inside_temp_c, @outside_temp_c,
     @charging_state, @charge_limit_soc_pct, @captured_at,
     @max_range_charge_counter,
     @tpms_pressure_fl_psi, @tpms_pressure_fr_psi, @tpms_pressure_rl_psi, @tpms_pressure_rr_psi,
-    @tpms_pressure_fl_psi_calc, @tpms_pressure_fr_psi_calc, @tpms_pressure_rl_psi_calc, @tpms_pressure_rr_psi_calc
+    @tpms_pressure_fl_psi_delta_calc, @tpms_pressure_fr_psi_delta_calc, @tpms_pressure_rl_psi_delta_calc, @tpms_pressure_rr_psi_delta_calc
 )
 ON CONFLICT (tesla_id, metric_date) DO UPDATE SET
     battery_level_pct         = EXCLUDED.battery_level_pct,
@@ -71,6 +79,9 @@ ON CONFLICT (tesla_id, metric_date) DO UPDATE SET
     km_per_pct_calc             = EXCLUDED.km_per_pct_calc,
     estimated_range_km_calc     = EXCLUDED.estimated_range_km_calc,
     days_spanned_calc           = EXCLUDED.days_spanned_calc,
+    distance_traveled_km_delta_calc = EXCLUDED.distance_traveled_km_delta_calc,
+    consumed_pct_delta_calc          = EXCLUDED.consumed_pct_delta_calc,
+    km_per_pct_delta_calc            = EXCLUDED.km_per_pct_delta_calc,
     consumed_pct               = EXCLUDED.consumed_pct,
     flagged                    = EXCLUDED.flagged,
     missing_charging_type      = EXCLUDED.missing_charging_type,
@@ -87,10 +98,10 @@ ON CONFLICT (tesla_id, metric_date) DO UPDATE SET
     tpms_pressure_fr_psi        = EXCLUDED.tpms_pressure_fr_psi,
     tpms_pressure_rl_psi        = EXCLUDED.tpms_pressure_rl_psi,
     tpms_pressure_rr_psi        = EXCLUDED.tpms_pressure_rr_psi,
-    tpms_pressure_fl_psi_calc   = EXCLUDED.tpms_pressure_fl_psi_calc,
-    tpms_pressure_fr_psi_calc   = EXCLUDED.tpms_pressure_fr_psi_calc,
-    tpms_pressure_rl_psi_calc   = EXCLUDED.tpms_pressure_rl_psi_calc,
-    tpms_pressure_rr_psi_calc   = EXCLUDED.tpms_pressure_rr_psi_calc,
+    tpms_pressure_fl_psi_delta_calc   = EXCLUDED.tpms_pressure_fl_psi_delta_calc,
+    tpms_pressure_fr_psi_delta_calc   = EXCLUDED.tpms_pressure_fr_psi_delta_calc,
+    tpms_pressure_rl_psi_delta_calc   = EXCLUDED.tpms_pressure_rl_psi_delta_calc,
+    tpms_pressure_rr_psi_delta_calc   = EXCLUDED.tpms_pressure_rr_psi_delta_calc,
     updated_at                 = now();
 
 -- name: LatestVehicleMetricsByVehicles :many
@@ -116,11 +127,13 @@ ON CONFLICT (tesla_id, metric_date) DO UPDATE SET
 -- their first consumer on this read port. All six are PROJECTED ONLY -- none
 -- appears in a WHERE, JOIN, or ORDER BY -- so idx_vehicle_metrics_latest
 -- still serves this query exactly as before; no index change (design.md D3).
--- RM50-analytics-add-tire-pressure-variance widens this SELECT by four more
--- columns: the four tpms_pressure_*_psi_calc deltas. Same conclusion as
--- above -- PROJECTED ONLY, never a WHERE/JOIN/ORDER BY predicate in this
--- change or any planned one, so idx_vehicle_metrics_latest still serves
--- this query unchanged; no index change (design.md D3).
+-- A later widening renamed the four tpms_pressure_*_psi_calc columns to
+-- tpms_pressure_*_psi_delta_calc and added three more day-over-day deltas
+-- (distance_traveled_km_delta_calc, consumed_pct_delta_calc,
+-- km_per_pct_delta_calc) to this SELECT. Same conclusion as above --
+-- PROJECTED ONLY, never a WHERE/JOIN/ORDER BY predicate, so
+-- idx_vehicle_metrics_latest still serves this query unchanged; no index
+-- change.
 SELECT DISTINCT ON (tesla_id)
     tesla_id, battery_level_pct, battery_range_km, odometer_km,
     inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
@@ -128,7 +141,8 @@ SELECT DISTINCT ON (tesla_id)
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     distance_traveled_km_calc, consumed_pct, km_per_pct_calc,
-    tpms_pressure_fl_psi_calc, tpms_pressure_fr_psi_calc, tpms_pressure_rl_psi_calc, tpms_pressure_rr_psi_calc
+    distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc,
+    tpms_pressure_fl_psi_delta_calc, tpms_pressure_fr_psi_delta_calc, tpms_pressure_rl_psi_delta_calc, tpms_pressure_rr_psi_delta_calc
 FROM analytics.vehicle_metrics
 WHERE tesla_id = ANY(@tesla_ids::bigint[])
 ORDER BY tesla_id, metric_date DESC;

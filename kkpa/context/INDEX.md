@@ -63,13 +63,17 @@
 | `tire pressure` | the four `tpms_pressure_*_psi` columns of `vehicle_metrics` (RM50 tier 1), raw per-day observations read via `analytics.Reader.LatestMetricsForVehicles` | entity | `entities/vehicle-metrics/guide.md` |
 | `tyre pressure` | synonym of `tire pressure` | entity | `entities/vehicle-metrics/guide.md` |
 | `TPMS` | synonym of `tire pressure` (tire-pressure monitoring system) | entity | `entities/vehicle-metrics/guide.md` |
-| `tyre pressure delta` | the four `tpms_pressure_*_psi_calc` columns of `vehicle_metrics` (RM50 tier 3) — each day's wheel pressure minus the previous day's, NULL without a predecessor or a raw reading | entity | `entities/vehicle-metrics/guide.md` |
+| `tyre pressure delta` | the four `tpms_pressure_*_psi_delta_calc` columns of `vehicle_metrics` (RM50 tier 3, renamed in RM66 tier 2) — each day's wheel pressure minus the previous day's, NULL without a predecessor or a raw reading | entity | `entities/vehicle-metrics/guide.md` |
 | `tyre pressure variance` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `pressure change` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
+| `travel progress delta` | the three `*_delta_calc` columns of `vehicle_metrics` — each day's travel-progress figure minus the previous day's, absent without a predecessor in the same pass | entity | `entities/vehicle-metrics/guide.md` |
+| `travel progress trend` | synonym of `travel progress delta` | entity | `entities/vehicle-metrics/guide.md` |
+| `day-over-day delta` | synonym of `travel progress delta`; see also `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `travel progress` | UI name for `vehicle_metrics.distance_traveled_km_calc`, exposed on `analytics.VehicleStatus.DistanceTraveledKmCalc` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
 | `battery drain` | UI name for `vehicle_metrics.consumed_pct`, exposed on `analytics.VehicleStatus.ConsumedPct` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
 | `charge authorship` | `charging.Entry.CreatedByAccountID` / `manual_charge_entries.created_by_account_id` — stored and returned, never a read filter | entity | `workflows/manual-charge-crud.md` |
 | `entry author` | synonym of `charge authorship` | entity | `workflows/manual-charge-crud.md` |
+| `efficiency tile` | UI name for `vehicle_metrics.km_per_pct_calc`, exposed on `analytics.VehicleStatus.KmPerPctCalc` | entity | `use-case/gateway/read-dashboard-bento.md` |
 
 ## Input ports — pages & endpoints
 
@@ -276,7 +280,7 @@
 | `mirror_watermarks` | the per-vehicle mirror cursor (`tesla_id`); never advances to `now()` → `architecture/charging-tables.md` |
 | `inferred_capacity_kwh_calc` | the `GENERATED ALWAYS AS … STORED` capacity column on both charge tables → `architecture/charging-tables.md` |
 | `energy_source` / `price_source` / `start_battery_source` | module-computed provenance columns, ignored when supplied by a caller → `architecture/charging-tables.md` |
-| `_calc` suffix | the `<what>_<unit>_calc` naming rule for a stored derived column → `architecture/charging-tables.md` |
+| `_calc` suffix | the `<what>_<unit>_calc` rule for a stored derived column, and when it must be `_delta_calc` instead → `architecture/delta-column-naming.md` |
 | `schema-qualified query` | why every `query.sql` table reference carries its schema (sqlc codegen requirement) → `architecture/schema-per-module.md` |
 | `gen.go.rename` | the `sqlc.yaml` block that keeps generated Go type names stable across a schema move → `architecture/schema-per-module.md` |
 | `vehicles table schema` | `account.vehicles` — the registry lives in its owning module's schema → `architecture/schema-per-module.md` |
@@ -339,3 +343,7 @@ Notes for the curator:
 | `goose_db_version` | synonym of `migration ledger`; `public.goose_db_version` is pre-squash history only → `architecture/schema-migrations.md` |
 | `how do I add a migration` | add a numbered .sql to the owning module's `db/migrations/`; never edit a baseline → `architecture/schema-migrations.md` |
 | `why did my baseline fail` | the database already holds the objects and was not registered → `architecture/schema-migrations.md` |
+| `delta column naming` (the `_delta_calc` / `DeltaCalc` rule for a day-over-day change, its `make delta-guard` enforcement, the baseline and the `delta:allow` escape hatch) | `architecture/delta-column-naming.md` |
+| `_delta_calc` | synonym of `delta column naming` → `architecture/delta-column-naming.md` |
+| `delta-guard` | synonym of `delta column naming` → `architecture/delta-column-naming.md` |
+| `delta:allow` | the escape hatch for a new non-delta `_calc` name → `architecture/delta-column-naming.md` |

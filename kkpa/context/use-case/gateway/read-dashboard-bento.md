@@ -30,15 +30,14 @@
 - The rendered Vehicle Status card's status-bearing outputs are: locked badge (present /
   absent), sentry badge (present / absent), staleness badge (present / absent), the subtitle's
   charging-derived status word, and the tile layout below it. Each badge is independently
-  driven by its own `*bool`; absence of a value means absence of the badge. Since
-  `RM50-gateway-add-travel-progress-subsection`, the tiles are no longer one flat row: a
-  left column holds two lifetime tiles (odometer, the 100%-charge count), and a right
-  column holds three named subsections, each its own two-tile (or 2×2) row — "Travel
-  Progress" (distance travelled, battery used, both from the latest computed day),
-  "Tire pressure" (four wheels — FL, FR, RL, RR — each a PSI reading, an up/down trend,
-  and its day-over-day delta, added by `RM50-gateway-add-tire-pressure-subsection`),
-  and "Interior / Exterior" (interior temp, exterior temp). All three subsections are
-  now built; none is a placeholder.
+  driven by its own `*bool`; absence of a value means absence of the badge. The tiles are not
+  one flat row: a left column holds two lifetime tiles (odometer, the 100%-charge count), and
+  a right column holds three named subsections, each its own tile row — "Travel Progress"
+  (distance travelled, battery used and efficiency, all three from the latest computed day,
+  each with its own day-over-day trend), "Tire pressure" (four wheels — FL, FR, RL, RR — each
+  a PSI reading, an up/down trend, and its day-over-day delta), and "Interior / Exterior"
+  (interior temp, exterior temp). All three subsections are built; none is a placeholder.
+
 
 ## Flow
 
@@ -68,8 +67,9 @@
    `RM50-gateway-add-travel-progress-subsection` tier 2 (`DistanceTraveledKmCalc`,
    `ConsumedPct`), and eight added by `RM50-gateway-add-tire-pressure-subsection` tier 4
    — the four raw readings (`TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`,
-   `TpmsPressureRRPSI`) and the four day-over-day deltas (`TpmsPressureFLPSICalc`,
-   `TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc`, `TpmsPressureRRPSICalc`) — nil never
+   `TpmsPressureRRPSI`) and the four day-over-day deltas (`TpmsPressureFLPSIDeltaCalc`,
+   `TpmsPressureFRPSIDeltaCalc`, `TpmsPressureRLPSIDeltaCalc`, `TpmsPressureRRPSIDeltaCalc`,
+   renamed from a bare `Calc` suffix) — nil never
    fabricates a value, it omits the corresponding display field (see gotchas).
    `dashCountOrDash` formats the counter: nil → `"—"`, a reported `0` → `"0"`.
    `dashDistanceOrDash`/`dashBatteryUsedOrDash` follow the same nil → `"—"` rule for the
@@ -152,7 +152,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`, `SentryMode`,
   `MaxRangeChargeCounter`), the two from `RM50` tier 2
   (`DistanceTraveledKmCalc`, `ConsumedPct`), and the eight from `RM50` tier 4
-  (`TpmsPressureFLPSI`/`FR`/`RL`/`RR` and `TpmsPressureFLPSICalc`/`FR`/`RL`/`RR`). A nil
+  (`TpmsPressureFLPSI`/`FR`/`RL`/`RR` and `TpmsPressureFLPSIDeltaCalc`/`FR`/`RL`/`RR`). A nil
   value means "not yet computed since the migration" — for `SentryMode` and
   `MaxRangeChargeCounter` it can also mean "not reported this capture", for the two
   tier-2 fields it means the latest computed day has no prior day to derive them against,
@@ -195,7 +195,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   badge together; none suppresses the others, and each appears purely on its own value.
   Below the badge row, a 12-col inner grid splits the tiles: a left column (odometer,
   100%-charge count, stacked) beside the vehicle image, and a right column of named
-  subsections — "Travel Progress" (distance travelled, battery used), "Tire pressure"
+  subsections — "Travel Progress" (distance travelled, battery used, efficiency), "Tire pressure"
   (four wheels — FL, FR, RL, RR — each a PSI reading, an up/down trend, and its
   day-over-day delta), and "Interior / Exterior" (interior temp, exterior temp), each
   its own tile row (`RM50-gateway-add-travel-progress-subsection` added the first and
@@ -239,7 +239,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   Neither `internal/telemetry/db` nor `internal/analytics/db`. All access is through the
   `analytics.Reader` and `account.Service` public interfaces.
   _Source: spec gateway — Scenario: Gateway never imports telemetrydb or analyticsdb for this read._
-- **The two Travel Progress trend icons are fixed, never computed.** Distance travelled always shows the "increasing" icon and battery used always shows the "decreasing" icon. The direction states what the metric *is* — distance accumulates, charge depletes — not whether the value rose or fell since a previous day. Tyre pressure sits beside it with a real delta-driven icon. The two rules live side by side on purpose.
+- **All three Travel Progress tiles compute a real direction from their own day-over-day delta.** Distance travelled, Battery used, and Efficiency each read their own `*DeltaCalc` field and show "up" or "down" from its sign, the same mechanism tyre pressure already used. Only Efficiency's icon is coloured (green for good, red for bad) — Distance travelled and Battery used render the same direction in a shared neutral colour, because driving more or less is not itself good or bad news.
   _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
 - **Trend colours are semantic tokens, never a hardcoded value.** The "increasing" and "decreasing" indicators each resolve to their own semantic colour so the three themes (apex, graphite, halloween) all render correctly. `make ui-guard` fails a raw colour.
   _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
@@ -253,3 +253,25 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   _Source: spec gateway — Requirement: Dashboard Tire Pressure Subsection._
 - **There is exactly one way to render a trend indicator on this page.** Tyre pressure reuses the mechanism Travel Progress introduced. A second, independent way of drawing an arrow is forbidden by the requirement itself, not merely discouraged.
   _Source: spec gateway — Requirement: Dashboard Tire Pressure Subsection._
+
+- **Travel Progress is three tiles, not two.** Distance travelled, battery used **and**
+  efficiency (kilometres per battery percent). Any text still calling it a two-tile
+  subsection is stale. Each tile carries its own value, its own trend indicator and its own
+  numeric change line, and each is driven independently of the other two.
+  _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
+- **An absent change and a zero change look the same but are not the same.** Both render no
+  trend indicator. They differ in the numeric line below: a change of exactly zero renders
+  its line, an absent change renders no line at all. Never collapse the two, and never
+  fabricate a "no change" indicator for an absent value.
+  _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
+- **Only efficiency gets a good/bad colour.** A higher kilometres-per-percent figure is
+  unambiguously better, so its indicator is coloured. Distance travelled and battery used
+  share one neutral colour whatever their direction, because driving more or using more
+  charge on a given day is neither good nor bad news. Do not colour them.
+  _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
+- **Three more pointer fields follow the nil rule.** On top of the nineteen already listed,
+  `DistanceTraveledKmDeltaCalc`, `ConsumedPctDeltaCalc` and `KmPerPctDeltaCalc` are pointers
+  on `analytics.VehicleStatus`. Nil means the day has no predecessor, or one side of the
+  subtraction was itself absent. Nil omits the trend and the change line; it is never
+  defaulted to a fabricated zero.
+  _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._

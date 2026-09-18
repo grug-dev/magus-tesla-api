@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM66-gateway-show-travel-progress-trends",
+  "module": "gateway",
+  "roadmap": "RM66-travel-progress-trends",
+  "tier": 3,
+  "request": "MAG-59 tier 3 \u2014 drive the three Travel Progress arrows from the stored day-over-day deltas. Direction on all three tiles, colour only on Efficiency.",
+  "status": "verified",
+  "created_at": "2026-09-18T14:45:00Z",
+  "updated_at": "2026-09-18T15:25:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "Opus 5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM66-MAG-59-travel-progress-trends",
+    "base": "main",
+    "ticket": "MAG-59",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-59/travel-progress-drive-the-updown-arrows-from-the-previous-day"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "ui.StatTileProps.Trend \u2014 the two neutral values",
+      "depends_on": [],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.1,
+        "approx": true,
+        "note": "one serial worker, T1-T6 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:50:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T14:55:00Z",
+      "notes": "Five-value Trend doc comment plus two switch cases (up-neutral, down-neutral) using text-neutral. make templ clean."
+    },
+    {
+      "id": "T2",
+      "title": "fragments.TravelStatVM and DashboardData field types",
+      "depends_on": [],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.1,
+        "approx": true,
+        "note": "one serial worker, T1-T6 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:50:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T14:55:00Z",
+      "notes": "Added TravelStatVM; retyped the three DashboardData fields. Build broke only on the six lines design.md predicted."
+    },
+    {
+      "id": "T3",
+      "title": "handlers/format.go \u2014 three new signed formatters",
+      "depends_on": [],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.1,
+        "approx": true,
+        "note": "one serial worker, T1-T6 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:50:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T14:55:00Z",
+      "notes": "Factored formatSigned1; added formatSignedPct, formatSignedKmPerPct, formatSignedKm. Existing callers unaffected."
+    },
+    {
+      "id": "T4",
+      "title": "i18n key rename to KeyDashboardDeltaDesc",
+      "depends_on": [],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.1,
+        "approx": true,
+        "note": "one serial worker, T1-T6 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:50:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T14:55:00Z",
+      "notes": "Renamed KeyDashboardTireDeltaDesc to KeyDashboardDeltaDesc, declaration and map entry. Both languages unchanged."
+    },
+    {
+      "id": "T5",
+      "title": "handlers.go \u2014 the trend/delta mechanism",
+      "depends_on": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.1,
+        "approx": true,
+        "note": "one serial worker, T1-T6 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:50:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T14:55:00Z",
+      "notes": "Renamed dashTireTrend to dashColoredTrend, added dashNeutralTrend and dashTravelStat, generalised dashTireDelta to dashDeltaDesc."
+    },
+    {
+      "id": "T6",
+      "title": "dashboard.templ \u2014 wire the three tiles",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "context_pct_end": 18,
+        "cost_usd_delta": 3.1,
+        "approx": true,
+        "note": "one serial worker, T1-T6 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:50:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T14:55:00Z",
+      "notes": "Rewired the three StatTile calls to read Value/Trend/Delta. make templ and make css ran. Build green."
+    },
+    {
+      "id": "T7",
+      "title": "handlers_test.go fixture fix and extension",
+      "depends_on": [
+        "T5"
+      ],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 51,
+        "context_pct_end": 19,
+        "cost_usd_delta": 3.28,
+        "approx": true,
+        "note": "one serial worker, T7-T10 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:58:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T15:05:00Z",
+      "notes": "Fixture gained a positive, a negative and an exact-zero delta. Three string asserts became TravelStatVM equality checks. go vet now clean."
+    },
+    {
+      "id": "T8",
+      "title": "New table-driven offline tests \u2014 the contract matrix",
+      "depends_on": [
+        "T5"
+      ],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 51,
+        "context_pct_end": 19,
+        "cost_usd_delta": 3.28,
+        "approx": true,
+        "note": "one serial worker, T7-T10 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:58:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T15:05:00Z",
+      "notes": "New handlers_trend_test.go covers dashNeutralTrend, dashColoredTrend and dashDeltaDesc. format_test.go gained the three signed formatters."
+    },
+    {
+      "id": "T9",
+      "title": "ui package rendering test for the two new Trend values",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 51,
+        "context_pct_end": 19,
+        "cost_usd_delta": 3.28,
+        "approx": true,
+        "note": "one serial worker, T7-T10 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:58:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T15:05:00Z",
+      "notes": "New stat_tile_test.go asserts svg count and exact class per Trend value. No path data, no hex, no order."
+    },
+    {
+      "id": "T10",
+      "title": "KB guide correction",
+      "depends_on": [],
+      "status": "done",
+      "budget": {
+        "five_hour_pct_start": 43,
+        "five_hour_pct_end": 51,
+        "context_pct_end": 19,
+        "cost_usd_delta": 3.28,
+        "approx": true,
+        "note": "one serial worker, T7-T10 in a single dispatch",
+        "source": "statusline-cache"
+      },
+      "started_at": "2026-09-18T14:58:00Z",
+      "agent": "gateway",
+      "model": "sonnet",
+      "completed_at": "2026-09-18T15:05:00Z",
+      "notes": "Replaced the stale fixed-icon bullet in the KB guide with the real delta-driven behaviour."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "scope": "change:trend-vocabulary",
+      "made_by": "autopilot",
+      "at": "2026-09-18T14:35:00Z",
+      "decision": "Trend grows by TWO values (up-neutral, down-neutral), not the one the component comment reserved.",
+      "why": "D-C removes the colour but keeps the direction, so one value cannot carry both facts. Shown to the user in the briefing."
+    },
+    {
+      "id": "D-W1",
+      "scope": "wave-plan",
+      "made_by": "autopilot",
+      "at": "2026-09-18T14:50:00Z",
+      "decision": "Wave 1 runs T1-T6 in one serial worker, not tasks.md's T1-T4 then T5-T6.",
+      "why": "T2 changes three field types and breaks the build on purpose. Only T5/T6 repair it, so a T1-T4 boundary commit would not compile."
+    },
+    {
+      "id": "D-W2",
+      "scope": "wave-1:test-ask",
+      "made_by": "autopilot",
+      "at": "2026-09-18T14:58:00Z",
+      "decision": "Skipped the Step 5.7 test ask at the wave 1 boundary. One ask after wave 2 instead.",
+      "why": "handlers_test.go does not compile until T7. A suite that cannot build gives the user nothing to report."
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "leader-provided review brief, RM66 tier 3",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers_test.go:822-824, 890-891, 965-967 (new comments) cite 'RM66 tier 3' and 'design.md Test Contract' directly.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers_trend_test.go:11-12, 35-36, 59 (new file) each say 'covers design.md's Test Contract table'.",
+            "status": "open"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/format_test.go:31, 55, 77 (new comments) each say 'covers design.md's Test Contract table'.",
+            "status": "open"
+          },
+          {
+            "id": "F4",
+            "severity": "minor",
+            "note": "internal/gateway/templates/ui/stat_tile_test.go:23 (new file) says 'covers design.md's Test Contract table'.",
+            "status": "open"
+          }
+        ],
+        "triage": "All four findings accepted and fixed by the leader. The comments were added by this change, so the no-pointer rule applies. Pre-existing pointers in untouched functions were left alone."
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-18T14:45:00Z",
+      "event": "artifacts written by the gateway worker and valid under openspec validate --strict. Spanish briefing posted and approved by the user. No database gate: this tier changes no schema. Wave plan: W1 = T1-T4, W2 = T5+T6, W3 = T7-T10."
+    },
+    {
+      "at": "2026-09-18T14:50:00Z",
+      "event": "wave 1 dispatched (gateway, sonnet): T1-T6 serial. Budget start 5h=17% ctx=16%."
+    },
+    {
+      "at": "2026-09-18T14:55:00Z",
+      "event": "wave 1 complete (T1-T6). go build, gofmt, make ui-guard and make i18n-guard all pass. go vet fails only in handlers_test.go:883, which T7 fixes. Leader removed a stale change-ID pointer the worker left in statTrendIcon's comment. Budget end 5h=43% ctx=18%."
+    },
+    {
+      "at": "2026-09-18T14:58:00Z",
+      "event": "wave 2 dispatched (gateway, sonnet): T7-T10 serial. Budget start 5h=43% ctx=18%."
+    },
+    {
+      "at": "2026-09-18T15:05:00Z",
+      "event": "wave 2 complete (T7-T10). go vet ./... now passes repo-wide with zero findings, gofmt clean, ui-guard/i18n-guard/delta-guard pass. Worker reports no disagreement between the design's test contract and the implementation. Budget end 5h=51% ctx=19%. Next: the user runs the suite before the reviewer gate."
+    },
+    {
+      "at": "2026-09-18T15:15:00Z",
+      "event": "THE USER ran the gateway test suite and reported it passing (recommended command: go test ./internal/gateway/...). Verification is the user's, not the assistant's. All ten tasks now done; change status verified. Assistant-run signals: go build, go vet repo-wide, gofmt, make lint (0 issues), ui/i18n/delta/boundary/naming/archive/tz guards."
+    },
+    {
+      "at": "2026-09-18T15:25:00Z",
+      "event": "review round 1: approved with 4 minor findings (F1-F4), all comments citing design.md or RM66 tier 3 in test files. Leader accepted all four and rewrote the comments to carry the reason instead of a pointer. go vet and gofmt still clean. Reviewer's guard proposal is out of scope here and goes to the backlog."
+    }
+  ]
+}

@@ -131,7 +131,7 @@ const (
 	KeyDashboardTireFR            Key = "dashboard.tire_fr"
 	KeyDashboardTireRL            Key = "dashboard.tire_rl"
 	KeyDashboardTireRR            Key = "dashboard.tire_rr"
-	KeyDashboardTireDeltaDesc     Key = "dashboard.tire_delta_desc"
+	KeyDashboardDeltaDesc         Key = "dashboard.delta_desc"
 
 	// --- dashboard status (handlers.go: dashStatus, mapDashboardSnapshot — D5) ---
 	KeyDashboardStatusCharging        Key = "dashboard_status.charging"
@@ -561,7 +561,7 @@ var catalog = map[Key]entry{
 	KeyDashboardTireFR:            {ES: "Delantera derecha", EN: "Front right"},
 	KeyDashboardTireRL:            {ES: "Trasera izquierda", EN: "Rear left"},
 	KeyDashboardTireRR:            {ES: "Trasera derecha", EN: "Rear right"},
-	KeyDashboardTireDeltaDesc:     {ES: "%s vs. día anterior", EN: "%s vs prev. day"},
+	KeyDashboardDeltaDesc:         {ES: "%s vs. día anterior", EN: "%s vs prev. day"},
 
 	KeyDashboardStatusCharging:        {ES: "Cargando", EN: "Charging"},
 	KeyDashboardStatusParked:          {ES: "Estacionado", EN: "Parked"},

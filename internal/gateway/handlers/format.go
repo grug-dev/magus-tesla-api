@@ -93,15 +93,44 @@ func formatPSI(psi float64) string {
 	return strconv.FormatFloat(psi, 'f', 1, 64) + " PSI"
 }
 
+// formatSigned1 renders v to one decimal place with an explicit "+" for a
+// strictly positive value; strconv's own "-" covers negative; zero gets
+// neither sign. The shared core behind every one-decimal signed delta
+// formatter below.
+func formatSigned1(v float64) string {
+	s := strconv.FormatFloat(v, 'f', 1, 64)
+	if v > 0 {
+		return "+" + s
+	}
+	return s
+}
+
 // formatSignedPSI renders a signed tyre-pressure delta to one decimal place,
 // no unit suffix (the caller's i18n format string supplies the "vs prev. day"
 // context) — e.g. 0.4 -> "+0.4", -0.4 -> "-0.4", 0.0 -> "0.0". Explicit "+"
 // only for a strictly positive value; strconv's own "-" already covers a
-// negative one; zero gets neither sign, matching dashTireTrend's own "0.0 is
+// negative one; zero gets neither sign, matching dashColoredTrend's own "0.0 is
 // neither up nor down" rule.
-func formatSignedPSI(v float64) string {
-	s := strconv.FormatFloat(v, 'f', 1, 64)
-	if v > 0 {
+func formatSignedPSI(v float64) string { return formatSigned1(v) }
+
+// formatSignedPct mirrors formatSignedPSI's shape for a battery-percent
+// delta — one decimal, no "%" suffix (the caller's format string supplies
+// the "vs prev. day" context, exactly like formatSignedPSI's own doc note).
+func formatSignedPct(v float64) string { return formatSigned1(v) }
+
+// formatSignedKmPerPct mirrors formatSignedPSI's shape for an efficiency
+// delta (kilometres per battery percent) — one decimal, no unit suffix (the
+// tile's main value already shows "km/%").
+func formatSignedKmPerPct(v float64) string { return formatSigned1(v) }
+
+// formatSignedKm renders a signed distance delta as a whole kilometre count
+// with an explicit "+" — e.g. 42 -> "+42", -17 -> "-17", 0 -> "0". Rounds
+// the same way formatKm does (math.Round), so a tile's delta line and its
+// main value never round to a different number for the same input.
+func formatSignedKm(v float64) string {
+	whole := int(math.Round(v))
+	s := strconv.Itoa(whole)
+	if whole > 0 {
 		return "+" + s
 	}
 	return s

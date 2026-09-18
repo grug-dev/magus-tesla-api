@@ -96,12 +96,27 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 // function can remove them.
 func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, teslaID int64) {
 	t.Helper()
-	t.Cleanup(func() {
+	purge := func() {
 		ctx := context.Background()
-		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metrics WHERE tesla_id = $1", teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metric_watermarks WHERE tesla_id = $1", teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE tesla_id = $1", teslaID)
-	})
+		for _, stmt := range []string{
+			"DELETE FROM analytics.vehicle_metrics WHERE tesla_id = $1",
+			"DELETE FROM analytics.vehicle_metric_watermarks WHERE tesla_id = $1",
+			"DELETE FROM telemetry.vehicle_snapshots WHERE tesla_id = $1",
+			// The three charge sources. A seeded charge that outlives its test
+			// is counted again by the next run, which silently doubles
+			// ConsumedPct instead of failing on the row it came from.
+			"DELETE FROM charging.manual_charge_entries WHERE tesla_id = $1",
+			"DELETE FROM charging.supercharger_sessions WHERE tesla_id = $1",
+			"DELETE FROM telemetry.supercharger_history WHERE tesla_id = $1",
+		} {
+			_, _ = pool.Exec(ctx, stmt, teslaID)
+		}
+	}
+	// Purge on the way in as well as on the way out. Cleanup alone cannot undo
+	// what an earlier interrupted run already left behind, and every caller
+	// runs this before it seeds anything.
+	purge()
+	t.Cleanup(purge)
 }
 
 // fixtureAPair returns a (predecessor, current) telemetry.Snapshot pair
@@ -581,16 +596,11 @@ func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, sessionID int64, endB
 // by its (tesla_id, metric_date) — the table's own UNIQUE index. It selects
 // every column so a test can assert on any of them without a second helper.
 // Returns ok=false when no row exists (never a zero-value row masquerading
-// as "found"). Extended by RM38-analytics-add-vehicle-status-columns (task
-// 5.1/5.2) to also select/scan the eight new columns
-// (locked/sentry_mode/car_version/inside_temp_c/outside_temp_c/
-// charging_state/charge_limit_soc_pct/captured_at) — analyticsdb.VehicleMetric
-// (models.go) already carries these fields as of Wave A/B, so only this
-// helper's SQL and Scan list needed widening. Widened again by
-// RM50-analytics-add-tire-pressure-columns (task 1.7) to select/scan the
-// four tpms_pressure_*_psi columns — same reason: models.go already carries
-// them (task 1.3's sqlc regeneration), only this helper needed the SQL/Scan
-// addition.
+// as "found"). Widened to also select/scan
+// distance_traveled_km_delta_calc/consumed_pct_delta_calc/
+// km_per_pct_delta_calc — analyticsdb.VehicleMetric (models.go) already
+// carries these fields once sqlc regenerates from the widened schema, so
+// only this helper's SQL and Scan list needed the addition.
 func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricDate time.Time) (analyticsdb.VehicleMetric, bool) {
 	t.Helper()
 	var m analyticsdb.VehicleMetric
@@ -598,6 +608,7 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricD
 		SELECT id, tesla_id, metric_date, battery_level_pct, odometer_km,
 		       battery_range_km, distance_traveled_km_calc, battery_used_pct_calc,
 		       km_per_pct_calc, estimated_range_km_calc, days_spanned_calc,
+		       distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc,
 		       consumed_pct, flagged, missing_charging_type, created_at, updated_at,
 		       locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
 		       charging_state, charge_limit_soc_pct, captured_at,
@@ -607,7 +618,9 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricD
 		teslaID, dateFrom(metricDate),
 	).Scan(&m.ID, &m.TeslaID, &m.MetricDate, &m.BatteryLevelPct,
 		&m.OdometerKm, &m.BatteryRangeKm, &m.DistanceTraveledKmCalc, &m.BatteryUsedPctCalc,
-		&m.KmPerPctCalc, &m.EstimatedRangeKmCalc, &m.DaysSpannedCalc, &m.ConsumedPct,
+		&m.KmPerPctCalc, &m.EstimatedRangeKmCalc, &m.DaysSpannedCalc,
+		&m.DistanceTraveledKmDeltaCalc, &m.ConsumedPctDeltaCalc, &m.KmPerPctDeltaCalc,
+		&m.ConsumedPct,
 		&m.Flagged, &m.MissingChargingType, &m.CreatedAt, &m.UpdatedAt,
 		&m.Locked, &m.SentryMode, &m.CarVersion, &m.InsideTempC, &m.OutsideTempC,
 		&m.ChargingState, &m.ChargeLimitSocPct, &m.CapturedAt,
@@ -2614,12 +2627,17 @@ func TestRecalculate_TPMS_RoundTrip(t *testing.T) {
 
 // TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns seeds one
 // vehicle_metrics row with non-NULL tpms_pressure_fl_psi (42.5),
-// distance_traveled_km_calc (12.3) and consumed_pct (5.0) -- all three are
-// DOUBLE PRECISION columns, not REAL, so no float32 narrowing applies and
-// exact equality is the right assertion. The row is seeded directly, not
-// through Recalculate: this test is about the read projection, which
+// distance_traveled_km_calc (12.3), consumed_pct (5.0), and the three
+// day-over-day travel-progress deltas (distance_traveled_km_delta_calc 7.5,
+// consumed_pct_delta_calc 1.2, km_per_pct_delta_calc -0.4) -- all DOUBLE
+// PRECISION columns, not REAL, so no float32 narrowing applies and exact
+// equality is the right assertion. The row is seeded directly, not through
+// Recalculate: this test is about the read projection, which
 // TestRecalculate_TPMS_RoundTrip above does not exercise (it only reads back
-// via fetchVehicleMetric's raw SQL, never through Reader).
+// via fetchVehicleMetric's raw SQL, never through Reader). The three deltas
+// are covered here so a rename or a projection regression on this column
+// family is caught without needing a full Recalculate-driven round trip --
+// that coverage lives separately, against real computed values.
 func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
@@ -2630,10 +2648,12 @@ func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.
 	_, err := pool.Exec(ctx, `
 		INSERT INTO analytics.vehicle_metrics (
 			tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km,
-			flagged, tpms_pressure_fl_psi, distance_traveled_km_calc, consumed_pct
-		) VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8)`,
+			flagged, tpms_pressure_fl_psi, distance_traveled_km_calc, consumed_pct,
+			distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc
+		) VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8, $9, $10, $11)`,
 		teslaID, dateFrom(metricDate), int32(60), 800.0, 300.0,
 		42.5, 12.3, 5.0,
+		7.5, 1.2, -0.4,
 	)
 	if err != nil {
 		t.Fatalf("seeding vehicle_metrics: %v", err)
@@ -2657,5 +2677,131 @@ func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.
 	}
 	if vs.ConsumedPct == nil || *vs.ConsumedPct != 5.0 {
 		t.Errorf("ConsumedPct: want 5.0, got %v", vs.ConsumedPct)
+	}
+	if vs.DistanceTraveledKmDeltaCalc == nil || *vs.DistanceTraveledKmDeltaCalc != 7.5 {
+		t.Errorf("DistanceTraveledKmDeltaCalc: want 7.5, got %v", vs.DistanceTraveledKmDeltaCalc)
+	}
+	if vs.ConsumedPctDeltaCalc == nil || *vs.ConsumedPctDeltaCalc != 1.2 {
+		t.Errorf("ConsumedPctDeltaCalc: want 1.2, got %v", vs.ConsumedPctDeltaCalc)
+	}
+	if vs.KmPerPctDeltaCalc == nil || *vs.KmPerPctDeltaCalc != -0.4 {
+		t.Errorf("KmPerPctDeltaCalc: want -0.4, got %v", vs.KmPerPctDeltaCalc)
+	}
+}
+
+// TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate
+// proves the three new travel-progress deltas reach VehicleStatus through a
+// REAL Recalculate pass, not a hand-seeded row -- unlike the fixed-value test
+// above, which only checks the projection. Three consecutive snapshots are
+// seeded: a predecessor day plus two tracked days.
+//
+//	day 0 (predecessor only): odometer 1000.0, battery 90%
+//	day 1: odometer 1050.0, battery 75%  -> distance 50.0, consumed 15.0, km/pct 50/15
+//	day 2: odometer 1110.0, battery 55%  -> distance 60.0, consumed 20.0, km/pct 60/20
+//
+// Recalculating [day1, day2] in one pass gives day2 a same-pass predecessor
+// (day1's own freshly-derived row), so its deltas come back non-nil: 10.0,
+// 5.0, and 60/20-50/15. Recalculating day2 again
+// alone afterward is fixture 2's case: day1 is now outside the window, so day2
+// is the first row this second pass processes and its deltas must come back
+// nil even though its own figures are unchanged.
+func TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	const teslaID = int64(990203)
+	cleanupVehicleMetrics(t, pool, teslaID)
+
+	day0 := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 9, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 9),
+		OdometerKm:      1000.0,
+		BatteryLevelPct: 90,
+		BatteryRangeKm:  350.0,
+	}
+	day1 := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 10, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 10),
+		OdometerKm:      1050.0,
+		BatteryLevelPct: 75,
+		BatteryRangeKm:  310.0,
+	}
+	day2 := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 11, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 11),
+		OdometerKm:      1110.0,
+		BatteryLevelPct: 55,
+		BatteryRangeKm:  270.0,
+	}
+	seedSnapshot(t, pool, day0)
+	seedSnapshot(t, pool, day1)
+	seedSnapshot(t, pool, day2)
+	// No Supercharger sessions, no manual entries -- chargePct stays 0 for
+	// both days, matching fixture 1's plain-driving numbers exactly.
+
+	rec := newRealRecalculator(pool)
+	rdr := newRealReader(pool)
+	// A snapshot's metric date is its capture date minus one day, so the
+	// window is stated in metric dates, not capture dates. Passing the
+	// capture dates here would put day1 outside the window and silently
+	// leave day2 without a same-pass predecessor.
+	day1Eff := day(2026, 9, 9)
+	day2Eff := day(2026, 9, 10)
+
+	// Pass 1: recalculate day1 and day2 together, so day2 gets a same-pass
+	// predecessor and its deltas come back non-nil.
+	if err := rec.Recalculate(ctx, teslaID, day1Eff, day2Eff); err != nil {
+		t.Fatalf("Recalculate([day1, day2]): %v", err)
+	}
+
+	got, err := rdr.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{teslaID}))
+	if err != nil {
+		t.Fatalf("LatestMetricsForVehicles: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	vs := got[0]
+
+	wantKmPerPctDelta := 60.0/20.0 - 50.0/15.0
+	if vs.DistanceTraveledKmDeltaCalc == nil || !approxEqual(*vs.DistanceTraveledKmDeltaCalc, 10.0) {
+		t.Errorf("pass 1 DistanceTraveledKmDeltaCalc: want 10.0, got %v", vs.DistanceTraveledKmDeltaCalc)
+	}
+	if vs.ConsumedPctDeltaCalc == nil || !approxEqual(*vs.ConsumedPctDeltaCalc, 5.0) {
+		t.Errorf("pass 1 ConsumedPctDeltaCalc: want 5.0, got %v", vs.ConsumedPctDeltaCalc)
+	}
+	if vs.KmPerPctDeltaCalc == nil || !approxEqual(*vs.KmPerPctDeltaCalc, wantKmPerPctDelta) {
+		t.Errorf("pass 1 KmPerPctDeltaCalc: want %v, got %v", wantKmPerPctDelta, vs.KmPerPctDeltaCalc)
+	}
+
+	// Pass 2: recalculate day2 alone. day1 falls outside this window, so day2
+	// is the first row THIS pass processes -- its own figures stay the same,
+	// but the three deltas must now come back nil (fixture 2's case).
+	if err := rec.Recalculate(ctx, teslaID, day2Eff, day2Eff); err != nil {
+		t.Fatalf("Recalculate([day2, day2]): %v", err)
+	}
+
+	got, err = rdr.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{teslaID}))
+	if err != nil {
+		t.Fatalf("LatestMetricsForVehicles (pass 2): %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	vs = got[0]
+
+	if vs.DistanceTraveledKmCalc == nil || !approxEqual(*vs.DistanceTraveledKmCalc, 60.0) {
+		t.Errorf("pass 2 DistanceTraveledKmCalc: want 60.0 (own figure unchanged), got %v", vs.DistanceTraveledKmCalc)
+	}
+	if vs.DistanceTraveledKmDeltaCalc != nil {
+		t.Errorf("pass 2 DistanceTraveledKmDeltaCalc: want nil (single-day window, no same-pass predecessor), got %v", *vs.DistanceTraveledKmDeltaCalc)
+	}
+	if vs.ConsumedPctDeltaCalc != nil {
+		t.Errorf("pass 2 ConsumedPctDeltaCalc: want nil, got %v", *vs.ConsumedPctDeltaCalc)
+	}
+	if vs.KmPerPctDeltaCalc != nil {
+		t.Errorf("pass 2 KmPerPctDeltaCalc: want nil, got %v", *vs.KmPerPctDeltaCalc)
 	}
 }

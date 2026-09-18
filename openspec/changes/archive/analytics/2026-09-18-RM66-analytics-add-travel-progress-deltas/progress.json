@@ -1,0 +1,471 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM66-analytics-add-travel-progress-deltas",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM66-travel-progress-trends.md",
+  "request": "MAG-59 tier 2: store the day-over-day deltas of the three Travel Progress figures, and rename the four tyre-pressure delta columns to _delta_calc.",
+  "status": "reviewer-approved",
+  "created_at": "2026-09-18T09:46:31Z",
+  "updated_at": "2026-09-18T13:46:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "Opus 5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM66-MAG-59-travel-progress-trends",
+    "base": "main",
+    "ticket": "MAG-59",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-59/travel-progress-drive-the-updown-arrows-from-the-previous-day",
+    "created_at": "2026-09-18T03:40:11Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "awaiting_user_verification": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "New migration — schema, comments, backfill",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T09:48:00Z",
+      "completed_at": "2026-09-18T10:05:00Z",
+      "budget": {
+        "five_hour_pct_start": 42,
+        "five_hour_pct_end": 52,
+        "cost_usd_delta": 5.1,
+        "approx": true,
+        "note": "wave 1 covers T1, T2 and the leader's T10 plus the guard fix jointly"
+      },
+      "notes": "Re-ran the measurement grep, no drift. Wrote 20260918000001 with 3 ADD COLUMN, 4 RENAME, comments and the self-join backfill. Not applied — owner's step. Leader stripped 5 dead doc pointers the design told it to carry forward."
+    },
+    {
+      "id": "T2",
+      "title": "Go derivation — consumed.go, consumption.go, analytics.go",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T09:48:00Z",
+      "completed_at": "2026-09-18T10:05:00Z",
+      "budget": {
+        "five_hour_pct_start": 42,
+        "five_hour_pct_end": 52,
+        "cost_usd_delta": 5.1,
+        "approx": true,
+        "note": "wave 1 covers T1, T2 and the leader's T10 plus the guard fix jointly"
+      },
+      "notes": "Renamed 4 TPMS fields and the helper across three files, added the 3 new deltas in deriveVehicleMetrics. Comment-cleanup greps went 17/4 to 0/0. Package still breaks in reader.go and recalculate.go — that is T4."
+    },
+    {
+      "id": "T3",
+      "title": "query.sql widen + sqlc generate",
+      "module": "analytics",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:12:00Z",
+      "completed_at": "2026-09-18T10:13:30Z",
+      "notes": "Widened UpsertVehicleMetric (INSERT/VALUES/SET) and LatestVehicleMetricsByVehicles (SELECT) with the 3 new + 4 renamed columns. sqlc generate v1.31.1 ran clean. models.go +22, query.sql.go +194, no unrelated drift.",
+      "budget": {
+        "five_hour_pct_start": 60,
+        "five_hour_pct_end": 66,
+        "cost_usd_delta": 2.4,
+        "approx": true,
+        "note": "wave 2 covers T3, T4, T5 and T6 jointly in one serial worker"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "reader.go / recalculate.go mapping",
+      "module": "analytics",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:13:30Z",
+      "completed_at": "2026-09-18T10:14:30Z",
+      "notes": "Added 3 ptrFloat64FromPg / pgFloat8FromPtr lines each side, renamed the 4 TPMS-calc lines to DeltaCalc on both sides. The package builds again.",
+      "budget": {
+        "five_hour_pct_start": 60,
+        "five_hour_pct_end": 66,
+        "cost_usd_delta": 2.4,
+        "approx": true,
+        "note": "wave 2 covers T3, T4, T5 and T6 jointly in one serial worker"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Existing test files — rename old field references",
+      "module": "analytics",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:14:30Z",
+      "completed_at": "2026-09-18T10:16:00Z",
+      "notes": "Renamed 8+14 occurrences in consumed_test.go and consumption_test.go; the task's '2 each' count was stale. db_integration_test.go had zero PSICalc names, so it widened fetchVehicleMetric and one projection test instead.",
+      "budget": {
+        "five_hour_pct_start": 60,
+        "five_hour_pct_end": 66,
+        "cost_usd_delta": 2.4,
+        "approx": true,
+        "note": "wave 2 covers T3, T4, T5 and T6 jointly in one serial worker"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Offline tests — the three test-contract fixtures",
+      "module": "analytics",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:16:00Z",
+      "completed_at": "2026-09-18T10:18:00Z",
+      "notes": "Added 3 tests to consumed_test.go matching design.md fixtures 1-3 exactly: 10.0 / 5.0 / -0.333 for fixture 1, nil x3 for fixtures 2 and 3. go vet compiles them; not run.",
+      "budget": {
+        "five_hour_pct_start": 60,
+        "five_hour_pct_end": 66,
+        "cost_usd_delta": 2.4,
+        "approx": true,
+        "note": "wave 2 covers T3, T4, T5 and T6 jointly in one serial worker"
+      }
+    },
+    {
+      "id": "T7",
+      "title": "delta-guard baseline shrink (Makefile — LEADER)",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "Opus 5",
+      "started_at": "2026-09-18T10:22:00Z",
+      "completed_at": "2026-09-18T10:28:00Z",
+      "notes": "Removed the 8 old tyre Go names from the gobaseline regex. Guard prints 10 SQL / 7 Go, the corrected acceptance. The SQL baseline cannot shrink: the frozen baseline migration defines those columns under their old names.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 72,
+        "cost_usd_delta": 2.9,
+        "approx": true,
+        "note": "wave 3 covers T7, T8 and T9 jointly; the leader's T7/T9 ran while the T8 worker ran"
+      }
+    },
+    {
+      "id": "T8",
+      "title": "DB-integration test — widened latest-status projection",
+      "module": "analytics",
+      "depends_on": [
+        "T1",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:22:00Z",
+      "completed_at": "2026-09-18T10:33:00Z",
+      "notes": "Added TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate. Two real Recalculate passes over 3 seeded snapshots prove fixture 1's non-nil deltas and fixture 2's nil deltas, through the real Reader. Not run.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 72,
+        "cost_usd_delta": 2.9,
+        "approx": true,
+        "note": "wave 3 covers T7, T8 and T9 jointly; the leader's T7/T9 ran while the T8 worker ran"
+      }
+    },
+    {
+      "id": "T9",
+      "title": "KB guide update — vehicle-metrics (LEADER)",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "Opus 5",
+      "started_at": "2026-09-18T10:28:00Z",
+      "completed_at": "2026-09-18T10:34:00Z",
+      "notes": "Updated the vehicle-metrics guide: 3 new columns, 4 renamed, a history line and the new first-day-of-a-pass NULL rule. Swept two more guides the change invalidated. The old name's grep returns nothing.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 72,
+        "cost_usd_delta": 2.9,
+        "approx": true,
+        "note": "wave 3 covers T7, T8 and T9 jointly; the leader's T7/T9 ran while the T8 worker ran"
+      }
+    },
+    {
+      "id": "T10",
+      "title": "Gateway call-site fix (cross-module — LEADER)",
+      "module": "gateway",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "Opus 5",
+      "started_at": "2026-09-18T10:05:00Z",
+      "completed_at": "2026-09-18T10:05:00Z",
+      "budget": {
+        "five_hour_pct_start": 42,
+        "five_hour_pct_end": 52,
+        "cost_usd_delta": 5.1,
+        "approx": true,
+        "note": "wave 1 covers T1, T2 and the leader's T10 plus the guard fix jointly"
+      },
+      "notes": "Leader renamed 9 references in handlers.go and handlers_test.go. No old name left in gateway. gofmt re-applied after the rename broke struct alignment."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-L",
+      "scope": "tier-2:backfill",
+      "made_by": "user",
+      "at": "2026-09-18T09:20:00Z",
+      "decision": "The backfill joins on metric_date - 1, not on the previous stored row.",
+      "why": "Same rule the tyre-pressure backfill used. After a gap the historical value stays NULL."
+    },
+    {
+      "id": "D-M",
+      "scope": "tier-2:design-gate",
+      "made_by": "user",
+      "at": "2026-09-18T09:46:31Z",
+      "decision": "Schema, rationale and index plan approved as written. No index change.",
+      "why": "The owner read design.md and approved. Three nullable columns, four renames, one backfill."
+    },
+    {
+      "id": "D-N",
+      "scope": "tier-2:comments",
+      "made_by": "user",
+      "at": "2026-09-18T09:40:00Z",
+      "decision": "Comment cleanup covers only the five symbols T2 edits. File headers and untouched functions stay.",
+      "why": "A wider sweep buries the functional change in a large diff. Owner ruled on the scope."
+    },
+    {
+      "id": "D-O",
+      "scope": "writing-rule",
+      "made_by": "user",
+      "at": "2026-09-18T09:40:00Z",
+      "decision": "Issue-tracker ticket IDs are now forbidden in code comments, alongside change docs. Rule updated in SKILL.md and both agent files.",
+      "why": "A ticket opens, but it makes the reader leave the code, and holds a discussion rather than the reason."
+    },
+    {
+      "id": "D-P",
+      "scope": "wave-plan",
+      "made_by": "autopilot",
+      "at": "2026-09-18T09:46:31Z",
+      "decision": "Three waves. The leader owns T7 (Makefile), T9 (KB) and T10 (gateway) — all outside internal/analytics.",
+      "why": "A module worker is sandboxed to one module. Granting three root paths is worse than the leader doing them."
+    },
+    {
+      "id": "D-Q",
+      "scope": "wave-1",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:05:00Z",
+      "decision": "Stripped 4 '(RM50 roadmap RD3)' citations and one design.md pointer from the new migration's comments.",
+      "why": "design.md said carry the text forward, but these are written fresh into a new file. The reason survives; only the dead pointer went."
+    },
+    {
+      "id": "D-R",
+      "scope": "wave-1:guard-defect",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:05:00Z",
+      "decision": "Fixed delta-guard: its two delta-exclusion patterns were anchored with ^ but applied to grep -rn output.",
+      "why": "A correctly named _delta_calc column was reported as a violation. Tier 1 never tested the compliant shape, so it shipped."
+    },
+    {
+      "id": "D-S",
+      "scope": "wave-1:T7",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:05:00Z",
+      "decision": "T7's SQL baseline shrink is void. The four tyre names stay baselined; only the 8 Go names go, after T3+T4.",
+      "why": "The frozen baseline migration defines those columns under their old names. That line never leaves the tree."
+    },
+    {
+      "id": "D-T",
+      "scope": "wave-2",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:20:00Z",
+      "decision": "Two stale counts in tasks.md T5 were corrected in place by appended findings, not by editing the original lines.",
+      "why": "Tasks are append-only. The real counts were 8+14 renames and zero PSICalc names in the integration test."
+    },
+    {
+      "id": "D-U",
+      "scope": "wave-3:T9-sweep",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:34:00Z",
+      "decision": "Fixed two more KB guides the rename invalidated: the gateway bento use-case and the delta-column-naming architecture guide.",
+      "why": "T9 named only the vehicle-metrics guide, but CLAUDE.md's docs rule binds every guide a change makes wrong."
+    },
+    {
+      "id": "D-V",
+      "scope": "wave-3:found",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:34:00Z",
+      "decision": "Left fetchVehicleMetric's doc comment overclaiming 'every non-key column'. Reported, not fixed.",
+      "why": "It already omitted the four tyre delta columns before this tier. Fixing it widens a SELECT and a Scan, outside this tier's scope."
+    },
+    {
+      "id": "D-W",
+      "scope": "review:R1",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:52:00Z",
+      "decision": "Accepted R1. The leader must tick the boxes of the tasks it does itself, not only the ones a worker does.",
+      "why": "tasks.md wins on done-ness and freezes at archive. An unticked box would have contradicted progress.json forever."
+    }
+  ],
+  "review": {
+    "brief": "Review tier 2 of RM66 on branch ft/RM66-MAG-59-travel-progress-trends: commits 5e49957, 752a596, 84d67f3. Check: (1) module-boundary compliance - internal/analytics owns its own schema, and the gateway edit in 5e49957 is a rename of call sites, not new coupling; (2) every doc-pack convention, especially the unit-suffix rule and the new _delta_calc naming rule; (3) spec and tasks coverage - all 10 sub-tasks, no acceptance line weakened or deleted, corrections appended only; (4) the database objects match the design the owner confirmed (D-M): 3 ADD COLUMN, 4 RENAME, the comments, and a backfill joining on metric_date - 1 (D-L). A mismatch is a blocker finding; (5) the read-heavy performance profile - the query widening must be projection-only, with no new index and no extra round trip; (6) the test-contract rule - T6's three fixtures and T8's integration case must assert design.md's authored numbers, not whatever the implementation produces; (7) anti-gaming - no self-approved status, no weakened criteria; (8) the delta-guard baseline change in the Makefile, and whether the KB guides now match the code.",
+    "agent": "analytics-reviewer",
+    "status": "reviewer-approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-18T10:44:35Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "tasks.md T7.1, T7.2, T7.3 and T9.1 are still unchecked ([ ]), but progress.json marks tasks T7 and T9 status \"done\" and the work is verified complete: Makefile gobaseline shrank from 15 to 7 names (grep confirms no old TPMS Calc name remains in any non-test Go file), and the three KB guides (vehicle-metrics/guide.md, read-dashboard-bento.md, delta-column-naming.md) correctly use the new column/field names. ai/agentic-workflow.md states tasks.md wins on implementation done-ness. Before archiving (which freezes tasks.md forever), check these four boxes so the record matches reality.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "internal/analytics/db_integration_test.go:2681, in the new comment above TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate: \"matching design.md's Test Contract fixture 1 numbers exactly\". design.md gets archived and frozen, so this pointer dies. State the fixture numbers directly (the comment already does, right below) and drop the design.md mention.",
+            "status": "fixed"
+          }
+        ],
+        "leader_triage": [
+          {
+            "finding": "R1",
+            "verdict": "accepted",
+            "action": "Ticked T7.1-T7.3 and T9.1 and appended the findings under each. The leader did those two tasks itself and never ticked them. Zero unticked boxes now."
+          },
+          {
+            "finding": "R2",
+            "verdict": "accepted",
+            "action": "Removed the design.md pointer from the new integration test's comment. The numbers stay, two lines below."
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-09-18T13:42:34Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Fixed in 7c7f46f. tasks.md T7.1/T7.2/T7.3/T9.1 are now [x], each with an appended findings block. T7.2's block honestly records it as void (SQL baseline cannot shrink, frozen baseline defines the old names) rather than claiming it done. grep -c \"^- \\[ \\]\" tasks.md returns 0.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Fixed in 7c7f46f. The design.md pointer is gone from the comment above TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate; the fixture numbers stay in place two lines below. The file's ~65 pre-existing design.md citations elsewhere were correctly left untouched (established house style, out of this tier's scope).",
+            "status": "fixed"
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-09-18T09:46:31Z",
+      "event": "user approved the Spanish briefing AND the database design gate for tier 2. Implementation authorized. Budget at start: 5h=42% ctx=28%."
+    },
+    {
+      "at": "2026-09-18T09:48:00Z",
+      "event": "wave 1 dispatched: T1 + T2 in one serial worker (analytics, sonnet). Budget start 5h=42% ctx=28%. Leader does T10 right after."
+    },
+    {
+      "at": "2026-09-18T10:05:00Z",
+      "event": "wave 1 complete (T1, T2, leader T10). Leader found and fixed a tier-1 guard defect: the delta-exclusion patterns never matched, so compliant _delta_calc names failed. Verified 4 ways. Tree does NOT build until T4."
+    },
+    {
+      "at": "2026-09-18T10:10:00Z",
+      "event": "resumed in a fresh session (ctx 11%, 5h 60%). wave 2 dispatched: T3+T4+T5+T6 in one serial worker (analytics, sonnet). Budget start 5h=60% ctx=11%."
+    },
+    {
+      "at": "2026-09-18T10:20:00Z",
+      "event": "wave 2 complete (T3, T4, T5, T6). Leader re-ran the signals itself: go build, go vet, gofmt -l all clean; make delta-guard passes at 10 SQL / 7 Go. The tree builds again."
+    },
+    {
+      "at": "2026-09-18T10:22:00Z",
+      "event": "wave 3 dispatched: T8 to an analytics worker (sonnet); leader takes T7 (Makefile) and T9 (KB guide) at the same time. Budget start 5h=66% ctx=14%."
+    },
+    {
+      "at": "2026-09-18T10:34:00Z",
+      "event": "wave 3 complete (T7, T8, T9). All 10 sub-tasks implemented. Leader re-ran the signals: go build, go vet, gofmt -l clean; delta-guard, boundary-guard, naming-guard, tz-guard all pass. Status -> applied. The suite is the owner's step."
+    },
+    {
+      "at": "2026-09-18T10:36:00Z",
+      "event": "Step 6 gate posted. User chose: apply the migration and run the full suite. Waiting on the owner's report. Nothing advances to the reviewer until it arrives. Budget 5h=84% ctx=17%."
+    },
+    {
+      "at": "2026-09-18T10:40:00Z",
+      "event": "THE OWNER ran make migrate-up, go test ./internal/analytics/... and make check, and reported all three passing. The assistant ran none of them. Every task moves to done on the owner's report. Status -> verified."
+    },
+    {
+      "at": "2026-09-18T10:52:00Z",
+      "event": "review round 1: changes-requested, 1 major + 1 minor. Both accepted, both fixed. R1 was the leader's own miss: it did T7 and T9 and left their checkboxes unticked, which would have frozen a false record at archive."
+    },
+    {
+      "at": "2026-09-18T13:42:00Z",
+      "event": "review round 2 died on a 429: the 5-hour session limit was reached mid-verification. The bucket has since reset (08:40 Bogota). Retrying the same reviewer, same scope. No work lost: round 1's fixes are committed at 7c7f46f."
+    },
+    {
+      "at": "2026-09-18T13:46:00Z",
+      "event": "review round 2: approved. Both findings verified fixed. openspec validate --strict passes. Archiving."
+    }
+  ]
+}

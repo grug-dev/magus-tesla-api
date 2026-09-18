@@ -78,9 +78,9 @@ templ Dashboard(d fragments.DashboardData) {
 									<section id="travel-progress">
 										@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyDashboardTravelProgressTitle), Desc: i18n.T(ctx, i18n.KeyDashboardTravelProgressDesc)})
 										<div class="grid grid-cols-2 gap-3">
-											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardDistanceTraveled), Value: dashStat(d.HasSnapshot, d.DistanceTraveled), Trend: "up"})
-											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardBatteryUsed), Value: dashStat(d.HasSnapshot, d.BatteryUsed), Trend: "down"})
-											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardEfficiency), Value: dashStat(d.HasSnapshot, d.Efficiency)})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardDistanceTraveled), Value: dashStat(d.HasSnapshot, d.DistanceTraveled.Value), Trend: d.DistanceTraveled.Trend, Desc: d.DistanceTraveled.Delta})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardBatteryUsed), Value: dashStat(d.HasSnapshot, d.BatteryUsed.Value), Trend: d.BatteryUsed.Trend, Desc: d.BatteryUsed.Delta})
+											@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardEfficiency), Value: dashStat(d.HasSnapshot, d.Efficiency.Value), Trend: d.Efficiency.Trend, Desc: d.Efficiency.Delta})
 										</div>
 									</section>
 									<section id="tire-pressure">

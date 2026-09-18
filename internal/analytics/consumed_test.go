@@ -1103,10 +1103,10 @@ func TestDeriveVehicleMetrics_TPMS_PredecessorLess_CopiesVerbatim(t *testing.T) 
 	// predecessor-less row's four tyre-pressure deltas stay nil, exactly
 	// like DistanceTraveledKmCalc above -- these are _calc columns, not raw
 	// observations.
-	assertFloatPtr(t, "TpmsPressureFLPSICalc", entry.TpmsPressureFLPSICalc, nil)
-	assertFloatPtr(t, "TpmsPressureFRPSICalc", entry.TpmsPressureFRPSICalc, nil)
-	assertFloatPtr(t, "TpmsPressureRLPSICalc", entry.TpmsPressureRLPSICalc, nil)
-	assertFloatPtr(t, "TpmsPressureRRPSICalc", entry.TpmsPressureRRPSICalc, nil)
+	assertFloatPtr(t, "TpmsPressureFLPSIDeltaCalc", entry.TpmsPressureFLPSIDeltaCalc, nil)
+	assertFloatPtr(t, "TpmsPressureFRPSIDeltaCalc", entry.TpmsPressureFRPSIDeltaCalc, nil)
+	assertFloatPtr(t, "TpmsPressureRLPSIDeltaCalc", entry.TpmsPressureRLPSIDeltaCalc, nil)
+	assertFloatPtr(t, "TpmsPressureRRPSIDeltaCalc", entry.TpmsPressureRRPSIDeltaCalc, nil)
 }
 
 // TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev covers
@@ -1169,10 +1169,10 @@ func TestDeriveVehicleMetrics_TPMS_WithPredecessor_CopiesFromCurNotPrev(t *testi
 	// this fixture's own prev/cur values (design.md's prose lists "0.9" for
 	// FR, a typo for 4.9: the fixture's own stated prev/cur pair,
 	// 35.2 -> 40.1, has only one arithmetically consistent difference).
-	assertFloatPtr(t, "TpmsPressureFLPSICalc", entry.TpmsPressureFLPSICalc, floatPtr(5.0))
-	assertFloatPtr(t, "TpmsPressureFRPSICalc", entry.TpmsPressureFRPSICalc, floatPtr(4.9))
-	assertFloatPtr(t, "TpmsPressureRLPSICalc", entry.TpmsPressureRLPSICalc, floatPtr(5.1))
-	assertFloatPtr(t, "TpmsPressureRRPSICalc", entry.TpmsPressureRRPSICalc, floatPtr(5.0))
+	assertFloatPtr(t, "TpmsPressureFLPSIDeltaCalc", entry.TpmsPressureFLPSIDeltaCalc, floatPtr(5.0))
+	assertFloatPtr(t, "TpmsPressureFRPSIDeltaCalc", entry.TpmsPressureFRPSIDeltaCalc, floatPtr(4.9))
+	assertFloatPtr(t, "TpmsPressureRLPSIDeltaCalc", entry.TpmsPressureRLPSIDeltaCalc, floatPtr(5.1))
+	assertFloatPtr(t, "TpmsPressureRRPSIDeltaCalc", entry.TpmsPressureRRPSIDeltaCalc, floatPtr(5.0))
 }
 
 // TestDeriveVehicleMetrics_TPMS_OneWheelAbsent_WithPredecessor covers the
@@ -1216,4 +1216,162 @@ func TestDeriveVehicleMetrics_TPMS_OneWheelAbsent_WithPredecessor(t *testing.T) 
 	assertFloatPtr(t, "TpmsPressureFRPSI", entry.TpmsPressureFRPSI, nil)
 	assertFloatPtr(t, "TpmsPressureRLPSI", entry.TpmsPressureRLPSI, floatPtr(38.1))
 	assertFloatPtr(t, "TpmsPressureRRPSI", entry.TpmsPressureRRPSI, floatPtr(38.2))
+}
+
+// --- Travel-progress day-over-day deltas: distance/consumed/km-per-pct,
+// each row's value minus the value on the row this SAME pass built
+// immediately before it, never the stored predecessor's own value. ---
+
+// TestDeriveVehicleMetrics_TravelProgressDelta_AgainstPassPredecessor covers
+// the ordinary case: a three-snapshot chain where the second row's deltas
+// come from subtracting the FIRST row's own figures -- the row this pass
+// built immediately before it, computed here from the same snapshot pair,
+// never re-derived a second way.
+func TestDeriveVehicleMetrics_TravelProgressDelta_AgainstPassPredecessor(t *testing.T) {
+	const teslaID = int64(42)
+
+	precedingSnap := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 1, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 1),
+		OdometerKm:      1000.0,
+		BatteryLevelPct: 80,
+	}
+	day1Snap := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 2, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 2),
+		OdometerKm:      1050.0, // 1050 - 1000 = 50.0
+		BatteryLevelPct: 65,     // 80 - 65 = 15 used, no charge -> consumed 15.0
+	}
+	day2Snap := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 3, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 3),
+		OdometerKm:      1110.0, // 1110 - 1050 = 60.0
+		BatteryLevelPct: 45,     // 65 - 45 = 20 used, no charge -> consumed 20.0
+	}
+
+	start := day(2026, 9, 1) // effectiveDay(day1Snap)
+	end := day(2026, 9, 2)   // effectiveDay(day2Snap)
+
+	got := deriveVehicleMetrics(&precedingSnap, []telemetry.Snapshot{day1Snap, day2Snap}, nil, nil, start, end)
+	if len(got) != 2 {
+		t.Fatalf("want exactly 2 entries, got %d: %+v", len(got), got)
+	}
+	day1Entry, day2Entry := got[0], got[1]
+
+	// day1's own figures, needed as the input the day2 deltas subtract.
+	assertFloatPtr(t, "day1 DistanceTraveledKmCalc", day1Entry.DistanceTraveledKmCalc, floatPtr(50.0))
+	assertFloatPtr(t, "day1 ConsumedPct", day1Entry.ConsumedPct, floatPtr(15.0))
+	assertFloatPtr(t, "day1 KmPerPctCalc", day1Entry.KmPerPctCalc, floatPtr(50.0/15.0))
+
+	// day2's own figures.
+	assertFloatPtr(t, "day2 DistanceTraveledKmCalc", day2Entry.DistanceTraveledKmCalc, floatPtr(60.0))
+	assertFloatPtr(t, "day2 ConsumedPct", day2Entry.ConsumedPct, floatPtr(20.0))
+	assertFloatPtr(t, "day2 KmPerPctCalc", day2Entry.KmPerPctCalc, floatPtr(60.0/20.0))
+
+	// day2's deltas: day2's own figure minus day1's own figure, computed
+	// with the exact same float arithmetic so the comparison is exact, not
+	// approximate.
+	assertFloatPtr(t, "DistanceTraveledKmDeltaCalc", day2Entry.DistanceTraveledKmDeltaCalc, floatPtr(60.0-50.0))
+	assertFloatPtr(t, "ConsumedPctDeltaCalc", day2Entry.ConsumedPctDeltaCalc, floatPtr(20.0-15.0))
+	assertFloatPtr(t, "KmPerPctDeltaCalc", day2Entry.KmPerPctDeltaCalc, floatPtr(60.0/20.0-50.0/15.0))
+}
+
+// TestDeriveVehicleMetrics_TravelProgressDelta_FirstRowOfPassIsNil covers the
+// accepted cost: a day whose own figures ARE computable (it has a real
+// predecessor, supplied through the `preceding` parameter rather than fetched
+// into the snapshot window) still gets nil deltas, because this pass has no
+// earlier row of its own to subtract from yet. The stored history may well
+// hold an earlier day, but this pass never fetched it, so there is nothing in
+// `out` to read.
+func TestDeriveVehicleMetrics_TravelProgressDelta_FirstRowOfPassIsNil(t *testing.T) {
+	const teslaID = int64(42)
+
+	precedingSnap := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 5, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 5),
+		OdometerKm:      2000.0,
+		BatteryLevelPct: 70,
+	}
+	cur := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 6, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 6),
+		OdometerKm:      2030.0, // 2030 - 2000 = 30.0
+		BatteryLevelPct: 60,     // 70 - 60 = 10 used, no charge -> consumed 10.0
+	}
+
+	start := day(2026, 9, 5) // effectiveDay(cur), the only day this pass covers
+	end := day(2026, 9, 5)
+
+	got := deriveVehicleMetrics(&precedingSnap, []telemetry.Snapshot{cur}, nil, nil, start, end)
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	entry := got[0]
+
+	// The row's own figures are present -- a real predecessor was supplied.
+	assertFloatPtr(t, "DistanceTraveledKmCalc", entry.DistanceTraveledKmCalc, floatPtr(30.0))
+	assertFloatPtr(t, "ConsumedPct", entry.ConsumedPct, floatPtr(10.0))
+	assertFloatPtr(t, "KmPerPctCalc", entry.KmPerPctCalc, floatPtr(30.0/10.0))
+
+	// The three deltas stay nil: this row is the first (and only) one this
+	// pass built, so there is no earlier row in `out` to subtract from.
+	assertFloatPtr(t, "DistanceTraveledKmDeltaCalc", entry.DistanceTraveledKmDeltaCalc, nil)
+	assertFloatPtr(t, "ConsumedPctDeltaCalc", entry.ConsumedPctDeltaCalc, nil)
+	assertFloatPtr(t, "KmPerPctDeltaCalc", entry.KmPerPctDeltaCalc, nil)
+}
+
+// TestDeriveVehicleMetrics_TravelProgressDelta_PredecessorLacksOwnDelta_NilPropagates
+// covers a predecessor that is itself predecessor-less (the vehicle's
+// true first tracked day): its own DistanceTraveledKmCalc/ConsumedPct/
+// KmPerPctCalc are nil, so subtracting from it can never yield a truthful
+// number -- the nil-safe subtraction must propagate nil forward rather than
+// treat the missing operand as zero.
+func TestDeriveVehicleMetrics_TravelProgressDelta_PredecessorLacksOwnDelta_NilPropagates(t *testing.T) {
+	const teslaID = int64(42)
+
+	day1Snap := telemetry.Snapshot{ // the vehicle's true first-ever tracked day
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 10, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 10),
+		OdometerKm:      500.0,
+		BatteryLevelPct: 90,
+	}
+	day2Snap := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 11, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 11),
+		OdometerKm:      540.0, // 540 - 500 = 40.0
+		BatteryLevelPct: 78,    // 90 - 78 = 12 used, no charge -> consumed 12.0
+	}
+
+	start := day(2026, 9, 9) // effectiveDay(day1Snap)
+	end := day(2026, 9, 10)  // effectiveDay(day2Snap)
+
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{day1Snap, day2Snap}, nil, nil, start, end)
+	if len(got) != 2 {
+		t.Fatalf("want exactly 2 entries, got %d: %+v", len(got), got)
+	}
+	day1Entry, day2Entry := got[0], got[1]
+
+	// day1 has no predecessor at all -- every derived figure stays nil.
+	assertFloatPtr(t, "day1 DistanceTraveledKmCalc", day1Entry.DistanceTraveledKmCalc, nil)
+	assertFloatPtr(t, "day1 ConsumedPct", day1Entry.ConsumedPct, nil)
+	assertFloatPtr(t, "day1 KmPerPctCalc", day1Entry.KmPerPctCalc, nil)
+
+	// day2's own figures ARE computable -- day1's raw observations exist,
+	// only its derived figures are nil.
+	assertFloatPtr(t, "day2 DistanceTraveledKmCalc", day2Entry.DistanceTraveledKmCalc, floatPtr(40.0))
+	assertFloatPtr(t, "day2 ConsumedPct", day2Entry.ConsumedPct, floatPtr(12.0))
+	assertFloatPtr(t, "day2 KmPerPctCalc", day2Entry.KmPerPctCalc, floatPtr(40.0/12.0))
+
+	// day2's deltas subtract against day1's OWN nil figures, never a
+	// fabricated zero -- so all three stay nil, never 40.0/12.0/3.33.
+	assertFloatPtr(t, "DistanceTraveledKmDeltaCalc", day2Entry.DistanceTraveledKmDeltaCalc, nil)
+	assertFloatPtr(t, "ConsumedPctDeltaCalc", day2Entry.ConsumedPctDeltaCalc, nil)
+	assertFloatPtr(t, "KmPerPctDeltaCalc", day2Entry.KmPerPctDeltaCalc, nil)
 }

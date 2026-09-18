@@ -6,12 +6,17 @@
 
 ## Glossary
 
-- **Known as:** `vehicle metrics`, `calc fields`, `calculated fields`, `metrics reconciliation`, `derived metrics`, `watermark source`, `vehicle status`, `latest vehicle status`, `battery level by day`, `per-day battery level`, `battery history`, `tire pressure`, `tyre pressure`, `TPMS`, `travel progress`, `battery drain`, `tyre pressure delta`, `tyre pressure variance`, `pressure change`
-- **Internal name:** `analytics.Recalculator` (`Recalculate` / `Reconcile`) — table `vehicle_metrics` (analytics-owned), watermarks in `vehicle_metric_watermarks`. Read side for latest-per-vehicle status: `analytics.Reader.LatestMetricsForVehicles` returning `analytics.VehicleStatus`. Read side for the per-day battery history: `analytics.Reader.BatteryLevelByDay` returning `analytics.DayBattery`. **Changed by RM31 tier 3:** the Supercharger input moved from `internal/telemetry`'s port over its own, still-`public`, `supercharger_sessions` to `internal/charging`'s `SuperchargerSessionAnalyticsReader` over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), and the watermark `source` vocabulary became `('vehicle_snapshots', 'charge_sessions', 'manual_charge_entries')` — later changed again by `RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b) to `('vehicle_snapshots', 'supercharger_sessions', 'manual_charge_entries')`, reusing the string that named `telemetry`'s table before RM31 to now name `charging`'s table instead (see that change's `design.md` §6). **Changed by RM38 tier 1:** `vehicle_metrics` gained eight raw vehicle-status observation columns and a latest-row-per-vehicle read port. **Changed by RM40 tier 1:** a bounded per-day battery-level/range read port was added over the same table — no new column, no migration. **Changed by RM50 tier 1:** `vehicle_metrics` gained four TPMS raw-observation columns (with a one-off backfill migration for pre-existing rows), and `LatestMetricsForVehicles`'s projection widened by two more columns that already existed on the table (`distance_traveled_km_calc`, `consumed_pct`) — no new query, no new index. **Changed by RM50 tier 3:** `vehicle_metrics` gained four TPMS **delta** (`_calc`) columns, one per wheel, backfilled for pre-existing rows by a self-join migration (not cross-module — the tier 1 raw columns already sit on the same table), and `LatestMetricsForVehicles`'s projection widened by these four new columns. In the UI the two travel-progress figures are called **Travel Progress** and **Battery Drain** (RM50 tier 2). **Changed by MAG-81:** `consumed_pct` moved from `consumed.go` into `deriveConsumption` (`consumption.go`), which now takes the day's already-summed `chargePct` and returns `ConsumedPct` on `consumptionCalc` — because it needs that same figure as the divisor for `km_per_pct_calc`. No migration, no column added or removed; one formula moved and one divisor changed.
+- **Known as:** `vehicle metrics`, `calc fields`, `calculated fields`, `metrics reconciliation`, `derived metrics`, `watermark source`, `vehicle status`, `latest vehicle status`, `battery level by day`, `per-day battery level`, `battery history`, `tire pressure`, `tyre pressure`, `TPMS`, `travel progress`, `battery drain`, `tyre pressure delta`, `tyre pressure variance`, `pressure change`, `travel progress delta`, `travel progress trend`, `day-over-day delta`
+- **Internal name:** `analytics.Recalculator` (`Recalculate` / `Reconcile`) — table `vehicle_metrics` (analytics-owned), watermarks in `vehicle_metric_watermarks`. Read side for latest-per-vehicle status: `analytics.Reader.LatestMetricsForVehicles` returning `analytics.VehicleStatus`. Read side for the per-day battery history: `analytics.Reader.BatteryLevelByDay` returning `analytics.DayBattery`. **Changed by RM31 tier 3:** the Supercharger input moved from `internal/telemetry`'s port over its own, still-`public`, `supercharger_sessions` to `internal/charging`'s `SuperchargerSessionAnalyticsReader` over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), and the watermark `source` vocabulary became `('vehicle_snapshots', 'charge_sessions', 'manual_charge_entries')` — later changed again by `RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b) to `('vehicle_snapshots', 'supercharger_sessions', 'manual_charge_entries')`, reusing the string that named `telemetry`'s table before RM31 to now name `charging`'s table instead (see that change's `design.md` §6). **Changed by RM38 tier 1:** `vehicle_metrics` gained eight raw vehicle-status observation columns and a latest-row-per-vehicle read port. **Changed by RM40 tier 1:** a bounded per-day battery-level/range read port was added over the same table — no new column, no migration. **Changed by RM50 tier 1:** `vehicle_metrics` gained four TPMS raw-observation columns (with a one-off backfill migration for pre-existing rows), and `LatestMetricsForVehicles`'s projection widened by two more columns that already existed on the table (`distance_traveled_km_calc`, `consumed_pct`) — no new query, no new index. **Changed by RM50 tier 3:** `vehicle_metrics` gained four TPMS **delta** (`_calc`) columns, one per wheel, backfilled for pre-existing rows by a self-join migration (not cross-module — the tier 1 raw columns already sit on the same table), and `LatestMetricsForVehicles`'s projection widened by these four new columns. In the UI the two travel-progress figures are called **Travel Progress** and **Battery Drain** (RM50 tier 2). **Changed by MAG-81:** `consumed_pct` moved from `consumed.go` into `deriveConsumption` (`consumption.go`), which now takes the day's already-summed `chargePct` and returns `ConsumedPct` on `consumptionCalc` — because it needs that same figure as the divisor for `km_per_pct_calc`. No migration, no column added or removed; one formula moved and one divisor changed. **Changed by RM66 tier 2:** `vehicle_metrics` gained three day-over-day delta columns for the travel-progress figures (`distance_traveled_km_delta_calc`, `consumed_pct_delta_calc`, `km_per_pct_delta_calc`), backfilled by a self-join on `metric_date - 1`; the four TPMS delta columns were renamed to carry the same `_delta_calc` suffix; and `LatestMetricsForVehicles`'s projection widened by the three new columns — no new query, no new index.
 
 The `_calc` columns: `distance_traveled_km_calc`, `battery_used_pct_calc`, `km_per_pct_calc`,
 `estimated_range_km_calc`, `days_spanned_calc` — plus charge-corrected `consumed_pct`, which
 since MAG-81 is derived in the same function and is the divisor the last two are built on.
+
+The `_delta_calc` columns are a separate group, seven in all: the three travel-progress deltas
+and the four wheel-pressure deltas, both listed below. A bare `_calc` suffix means the value is
+derived; `_delta_calc` means it is today's figure minus yesterday's figure of the same name.
+`make delta-guard` enforces that split.
 
 The eight status observation columns (RM38): `locked`, `sentry_mode`, `car_version`,
 `inside_temp_c`, `outside_temp_c`, `charging_state`, `charge_limit_soc_pct`, `captured_at` —
@@ -27,10 +32,18 @@ and `max_range_charge_counter`, not derived `_calc` figures. Names match
 `telemetry.vehicle_snapshots`' own column names exactly (front-left/front-right/rear-left/
 rear-right), already in PSI — no conversion at this layer.
 
-The four TPMS **delta** columns (RM50 tier 3): `tpms_pressure_fl_psi_calc`,
-`tpms_pressure_fr_psi_calc`, `tpms_pressure_rl_psi_calc`, `tpms_pressure_rr_psi_calc` — one
-per wheel, `_calc` figures like `distance_traveled_km_calc`, **not** raw observations like the
-four columns above. Each is this row's raw reading minus the previous day's, in PSI.
+The four TPMS **delta** columns (RM50 tier 3): `tpms_pressure_fl_psi_delta_calc`,
+`tpms_pressure_fr_psi_delta_calc`, `tpms_pressure_rl_psi_delta_calc`,
+`tpms_pressure_rr_psi_delta_calc` — one per wheel, derived figures like
+`distance_traveled_km_calc`, **not** raw observations like the four columns above. Each is this
+row's raw reading minus the previous day's, in PSI. They were renamed from a bare `_calc`
+suffix by migration `20260918000001`, when `_delta_calc` became the required name for every
+day-over-day delta.
+
+The three **travel-progress delta** columns (migration `20260918000001`):
+`distance_traveled_km_delta_calc`, `consumed_pct_delta_calc`, `km_per_pct_delta_calc` — each is
+this row's own figure minus the previous day's figure of the same name. They exist so the
+dashboard can draw an up/down arrow from one stored row, with no second query.
 
 `analytics.VehicleStatus` (the `LatestMetricsForVehicles` result type) field list: `TeslaID`,
 `BatteryLevelPct`, `BatteryRangeKm`, `OdometerKm` (never nil — raw observations always
@@ -38,8 +51,11 @@ present) plus these pointer fields, nil meaning "no value", never a fabricated d
 `InsideTempC`, `OutsideTempC`, `Locked`, `SentryMode`, `CarVersion`, `ChargingState`,
 `ChargeLimitSocPct`, `CapturedAt`, `MaxRangeChargeCounter` (RM38/MAG-47), and, as of RM50 tier 1,
 `TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`, `TpmsPressureRRPSI`,
-`DistanceTraveledKmCalc`, `ConsumedPct`, `KmPerPctCalc`, and, as of RM50 tier 3, `TpmsPressureFLPSICalc`,
-`TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc`, `TpmsPressureRRPSICalc`.
+`DistanceTraveledKmCalc`, `ConsumedPct`, `KmPerPctCalc`, the four wheel deltas
+`TpmsPressureFLPSIDeltaCalc`, `TpmsPressureFRPSIDeltaCalc`, `TpmsPressureRLPSIDeltaCalc`,
+`TpmsPressureRRPSIDeltaCalc` (RM50 tier 3, renamed from a bare `Calc` suffix), and the three
+travel-progress deltas `DistanceTraveledKmDeltaCalc`, `ConsumedPctDeltaCalc`,
+`KmPerPctDeltaCalc`.
 
 ## Component map
 
@@ -73,7 +89,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 ## How maintenance works
 
-- **Add a new `_calc`-style derived column:** migration in `internal/analytics/db/migrations/` → add column + UPSERT to `db/query.sql` → `make sqlc` → extend `consumptionCalc` (consumption.go) / `deriveVehicleMetrics` (consumed.go) → write it in `recalculate.go`. All math stays in the zero-I/O functions; `recalculate.go` only orchestrates reads + the UPSERT.
+- **Add a new `_calc`-style derived column:** migration in `internal/analytics/db/migrations/` → add column + UPSERT to `db/query.sql` → `make sqlc` → extend `consumptionCalc` (consumption.go) / `deriveVehicleMetrics` (consumed.go) → write it in `recalculate.go`. All math stays in the zero-I/O functions; `recalculate.go` only orchestrates reads + the UPSERT. **Name it `_delta_calc`, not `_calc`, when it is today's figure minus yesterday's figure of the same name** — `make delta-guard` fails the build otherwise. Reuse `dayOverDayDelta` (consumption.go) for the nil-safe subtraction.
 - **Change the math of an existing field:** edit `deriveConsumption` / `deriveVehicleMetrics` only — the UPSERT is a full-row replace, so the next `Recalculate`/`Reconcile` run self-heals history (idempotent on `(tesla_id, metric_date)`).
 - **Add a new source table:** new watermark source label + `Reconcile` read branch in `recalculate.go`; the source's owning module exposes a bounded read port (never import another module's `db/`).
 - **Read the metrics:** `analytics.Reader` (`ConsumedByDay`, `OdometerDeltaByDay`) — the gateway history fragment reads these, never `vehicle_metrics` directly.
@@ -103,7 +119,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **NULL on `sentry_mode` is ambiguous; NULL on the other seven is not.** For `sentry_mode`, NULL means EITHER "the vehicle did not report sentry" OR "this row predates the status columns". Disambiguate with `captured_at`: NULL sentry with a non-NULL `captured_at` means "not reported"; both NULL means "predates tracking". _Source: spec analytics — Requirement: Precomputed Vehicle Status Observations._
 - **The four TPMS columns are populated on EVERY row, including a predecessor-less day — the same rule as the RM38 eight, the opposite rule to the `_calc` columns.** They are raw observations copied verbatim from that day's own capture, not deltas, so there is nothing for a missing predecessor to invalidate. _Source: `openspec/changes/RM50-analytics-add-tire-pressure-columns/design.md` D2._
 - **Unlike every other raw-observation column on this table, the TPMS columns' migration DID backfill pre-existing rows** — a one-off, user-confirmed `UPDATE ... FROM telemetry.vehicle_snapshots` inside the migration itself, not a wait for the next `Recalculate`/`Reconcile`. This is a deliberate, recorded deviation from "No Cross-Module Database Access": a `goose`-run SQL statement, never a Go import, run once at deploy time. A row whose day has no matching snapshot keeps all four columns NULL, not an error. _Source: design.md Part C._
-- **The four TPMS delta (`_calc`) columns follow the `_calc` NULL rule, the OPPOSITE of the four raw TPMS columns above.** A raw TPMS column is populated on every row, predecessor or not. A delta column (`tpms_pressure_fl_psi_calc` etc.) is NULL for two independent reasons: the day has no predecessor row at all, OR either day's own raw wheel reading is itself NULL — the same rule `distance_traveled_km_calc` already follows. A `0.0` delta means "no pressure change"; it must never also mean "unknown". _Source: `openspec/changes/RM50-analytics-add-tire-pressure-variance/design.md` D1/D2._
+- **The four TPMS delta columns follow the derived-column NULL rule, the OPPOSITE of the four raw TPMS columns above.** A raw TPMS column is populated on every row, predecessor or not. A delta column (`tpms_pressure_fl_psi_delta_calc` etc.) is NULL for two independent reasons: the day has no predecessor row at all, OR either day's own raw wheel reading is itself NULL — the same rule `distance_traveled_km_calc` already follows. A `0.0` delta means "no pressure change"; it must never also mean "unknown". _Source: spec analytics — Requirement: Precomputed Tire Pressure Variance._
+- **Every `_delta_calc` column is also NULL on the first day a recalculation pass considers, even when the previous day IS stored.** This rule is new with the three travel-progress deltas and applies to all seven `_delta_calc` columns. The derivation compares each row with the row the loop built one step earlier, in memory. A pass that starts mid-history has no earlier row to compare, so its first day gets NULL. A full `Reconcile` fills the whole history; a bounded `Recalculate` leaves a NULL at its own starting edge. The one-off backfill in `20260918000001` uses a different rule — it joins on `metric_date - 1` in SQL, so it fills every day that has a stored predecessor. _Source: `internal/analytics/consumed.go` `deriveVehicleMetrics`._
 - **The delta columns' migration also backfilled pre-existing rows, but by a self-join, not a cross-module read.** `20260908000003` reads only `analytics.vehicle_metrics` joined against itself on `metric_date - 1` — tier 1's migration already copied the raw readings onto this same table, so no other module's schema is touched. This is NOT a "No Cross-Module Database Access" deviation and needs no `// boundary:allow:` comment. _Source: design.md Part B._
 - **A tyre-pressure delta partly reflects ambient air temperature, not only a real pressure change** — roughly 1 PSI per 5.5°C. This is accepted, not a defect. Never add a dead-zone threshold or a target-pressure comparison to "correct" it. _Source: RM50 roadmap RD3; design.md "The accepted cost, restated for a future reader"._
 - **`LatestMetricsForVehicles`'s `distance_traveled_km_calc`/`consumed_pct` projection is not a new read** — both columns already existed on `vehicle_metrics` (written by `Recalculate` since RM29); RM50 only added them to this ONE query's SELECT list. No new index: both are projected only, never filtered/ordered on, so `idx_vehicle_metrics_latest` still serves the query unchanged. _Source: design.md D3._
@@ -168,6 +185,10 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **The latest-status read returns nothing for a vehicle outside the given set.** The set you pass is the whole world of that call. A row exists for a vehicle you did not ask about; it must not appear in the result. This is what makes "authorize first, then pass the set" safe.
   _Source: spec analytics — Requirement: Latest Vehicle Status Per Account._
 
+- **A delta absent because of the pass boundary is not permanent — a later pass that includes both days produces it normally.** The first day a recalculation pass considers has no earlier day in that pass, so its three travel-progress deltas are absent. That is a property of the pass, not of the stored history. A `Reconcile` over the whole history, or any later pass that contains the day before it, fills them. Never treat the absence as a permanent fact about that day. _Source: spec analytics — Requirement: Precomputed Travel-Progress Day-Over-Day Deltas._
+- **A latest row whose day predates delta tracking reports the three travel-progress deltas as absent, never as `0`.** This is the same rule the eight status observations and the four tyre-pressure columns already follow. The row keeps its own battery, range, odometer, status, tyre-pressure and travel-progress figures; only the deltas are absent. A fabricated `0` would be read as "no change", which is a different fact. _Source: spec analytics — Requirement: Latest Vehicle Status Per Account._
+
+
 ## Column detail — the three analytics tables
 
 Moved here from `internal/analytics/AGENTS.md`, which every worker dispatched to that module
@@ -219,7 +240,8 @@ column-by-column detail.
     snapshot to backfill from — but no consumer needs to disambiguate them (unlike
     `sentry_mode`/`max_range_charge_counter`, this NULL is not otherwise ambiguous:
     `telemetry.Snapshot`'s own TPMS fields never had a fabricated non-nil default).
-  - **`tpms_pressure_fl_psi_calc`/`fr`/`rl`/`rr`** (migration `20260908000003`,
+  - **`tpms_pressure_fl_psi_delta_calc`/`fr`/`rl`/`rr`** (migration `20260908000003`, renamed
+    by `20260918000001`,
     `RM50-analytics-add-tire-pressure-variance`) are four **derived delta** columns, one
     per wheel: this row's raw reading minus the previous day's row, in PSI. **This is
     the opposite NULL rule from the raw `tpms_pressure_*_psi` columns just above.** A raw
@@ -227,7 +249,7 @@ column-by-column detail.
     EITHER of two things is true — the day has no predecessor row at all, OR either
     day's own raw wheel reading is itself NULL (`design.md` D2) — the same rule
     `distance_traveled_km_calc` already follows. Computed in `consumption.go`'s
-    `deriveConsumption` via the `tpmsDeltaPSI` helper, populated only in the
+    `deriveConsumption` via the `dayOverDayDelta` helper, populated only in the
     "has a predecessor" branch of `deriveVehicleMetrics`
     (`consumed.go`), same as `DistanceTraveledKmCalc`. This delta partly reflects
     ambient air temperature change (about 1 PSI per 5.5°C), not only a genuine

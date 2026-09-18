@@ -27,3 +27,69 @@ func TestFormatMoney(t *testing.T) {
 		})
 	}
 }
+
+// formatSignedKm rounds to whole kilometres the same way formatKm does,
+// so 42.6 must render "+43". The other cases are sign and zero.
+func TestFormatSignedKm(t *testing.T) {
+	cases := []struct {
+		name string
+		v    float64
+		want string
+	}{
+		{"positive", 42.0, "+42"},
+		{"negative", -17.0, "-17"},
+		{"exact zero", 0.0, "0"},
+		{"rounds up like formatKm", 42.6, "+43"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatSignedKm(tc.v)
+			if got != tc.want {
+				t.Errorf("formatSignedKm(%v) = %q, want %q", tc.v, got, tc.want)
+			}
+		})
+	}
+}
+
+// formatSignedPct keeps one decimal, the same rule formatSignedPSI uses.
+func TestFormatSignedPct(t *testing.T) {
+	cases := []struct {
+		name string
+		v    float64
+		want string
+	}{
+		{"positive", 3.2, "+3.2"},
+		{"negative", -1.5, "-1.5"},
+		{"exact zero", 0.0, "0.0"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatSignedPct(tc.v)
+			if got != tc.want {
+				t.Errorf("formatSignedPct(%v) = %q, want %q", tc.v, got, tc.want)
+			}
+		})
+	}
+}
+
+// formatSignedKmPerPct keeps one decimal, the same rule formatSignedPSI
+// uses.
+func TestFormatSignedKmPerPct(t *testing.T) {
+	cases := []struct {
+		name string
+		v    float64
+		want string
+	}{
+		{"positive", 3.2, "+3.2"},
+		{"negative", -1.5, "-1.5"},
+		{"exact zero", 0.0, "0.0"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatSignedKmPerPct(tc.v)
+			if got != tc.want {
+				t.Errorf("formatSignedKmPerPct(%v) = %q, want %q", tc.v, got, tc.want)
+			}
+		})
+	}
+}

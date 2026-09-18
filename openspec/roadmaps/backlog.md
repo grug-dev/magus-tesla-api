@@ -687,6 +687,45 @@ RM52 decision RD13, raised at the MAG-32 database design gate on 2026-09-10 when
 for `tesla_id` instead of `vin` as the new table's key.
 
 
+## 31. platform — Guard against code comments that point at the change docs
+
+2026-09-18
+
+### PROPOSAL
+
+The project forbids a code comment that sends the reader out of the code: no `design.md`, no
+decision IDs (`D1`, `RD7`), no change or roadmap IDs (`RM66`, `CH8`), no tier numbers, no ticket
+IDs (`MAG-59`). The reason is that `openspec/changes/` is archived and then frozen, so the pointer
+dies and the reader is left with nothing. The rule is injected into every worker and reviewer
+dispatch, and it still gets broken.
+
+The reviewer has now caught the same pattern four times, in four different changes. Three times it
+was a new test file whose doc comment said "covers design.md's Test Contract table". Every catch
+costs a review finding and a fix commit, which is the expensive way to enforce a rule a grep can
+check for free.
+
+Proposal: add a `make comment-guard` target that scans **added** comment lines for
+`design\.md`, `RM\d+`, `CH\d+`, and the ticket prefix pattern, and fails. Mirror `delta-guard`'s
+shape: a baseline of pre-existing names warns and only new ones fail, so `make check` stays green
+on day one. The baseline is large — the repo already holds many legacy pointers — so it must warn,
+never fail, and it must only ever shrink.
+
+Two things to settle before writing it:
+
+1. What is the diff baseline? `archive-guard` uses the merge-base with `main`. The same choice
+   covers a whole branch plus uncommitted work and is the obvious precedent.
+2. `openspec/`, `kkpa/context/` and `ai/*.md` are documentation, where these citations are correct
+   and required. The guard must scan code files only.
+
+**Trigger:** picked up on its own. Nothing blocks on it.
+
+### ORIGIN
+
+RM66 tier 3 review round 1, findings F1-F4, on 2026-09-18. The reviewer noted the pattern had
+crossed its own promotion threshold of three occurrences and recommended a guard rather than
+another `AGENTS.md` rule, because a guard already covers it fully.
+
+
 
 # BRAINSTORMING
 
