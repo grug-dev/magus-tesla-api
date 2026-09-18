@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM67-vehicle-monthly-metrics-table",
+  "intention": "analytics.vehicle_monthly_metrics holds one row per vehicle per month: distance, efficiency and battery use split into all days / weekdays / weekends, the month's external-charge and supercharger totals with three ending-battery distributions, and the pack capacity charging measured that month. One idempotent use case takes (tesla_id, period) and rewrites the row, so any port or process can re-sync one month for one car. The nightly job calls it for the current and previous month. Linear MAG-73.",
+  "request": "/kkpa-pickup-linear-ticket MAG-73 \u2014 Analytics monthly metrics table: distance, efficiency and copied capacity. Build the wider monthly metrics table in analytics (backlog item 29, deferred from MAG-32 / RM52 by RD12). One row per vehicle per month storing: total distance from vehicle_metrics.distance_traveled_km_calc plus weekday/weekend splits and per-day averages; efficiency from km_per_pct_calc plus weekday/weekend; battery consumed from consumed_pct plus weekday/weekend; effective capacity COPIED from charging.monthly_effective_capacity.effective_capacity_kwh (a copy, not a read-time join); external-charge energy, cost and session counts split by charger type AC/DC with an ext_ prefix; supercharger energy, cost and session counts with an sc_ prefix; and a JSONB per source holding session counts bucketed by ending battery level (0-20/20-40/40-60/60-80/80-100) for a bar-style view. Runs as a new step 5 in internal/app/processor.go, after step 4, because it reads both step 3's vehicle_metrics and step 4's monthly_effective_capacity. Must be a new, well-named Go type built with the golang skills, isolated and easy to test, taking a single tesla_id and a period (YYYY-MM) as a hexagonal input port, so a period can be re-synced on demand. The ticket asked for /grill-me on five open questions before any artifact: the efficiency formula, the refresh rule when analytics recalculates old months, the month boundary given metric_date, what happens when the capacity is NULL, and the final table name.",
+  "autopilot": false,
+  "status": "in-progress",
+  "created_at": "2026-09-18T19:05:41Z",
+  "updated_at": "2026-09-18T19:05:41Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM67-MAG-73-vehicle-monthly-metrics-table",
+    "base": "main",
+    "created_at": "2026-09-18T19:05:41Z",
+    "ticket": "MAG-73",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Full ticket scope, four tiers. Tier 2's single migration creates EVERY column, including the ext_*, sc_* and JSONB columns tier 3 fills.",
+      "why": "The owner chose the whole ticket over a smaller cut. One migration settles the table shape once; an unfilled column reads as 0, which RD4 makes valid."
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Monthly efficiency is SUM(distance_traveled_km_calc) / SUM(consumed_pct) over days with consumed_pct > 0. Same rule for the weekday and weekend figures. km_per_pct_calc itself is unchanged.",
+      "why": "An average of daily ratios weighs a 5 km day like a 300 km day. Owner's worked example: avg of ratios 3.5, real figure 305/55 = 5.5."
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The nightly job syncs TWO periods per vehicle every night: the current month and the previous month. Supersedes the ticket's 'first day of the month only'. The current month's row is knowingly incomplete and carries no completeness flag.",
+      "why": "Cost stays flat at 2 x vehicles per night whatever the history length. Owner raised the many-vehicles cost and proposed this window."
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Every column is NOT NULL DEFAULT 0. No nullable columns.",
+      "why": "The ticket's literal text, confirmed after the owner saw the cost: it inverts the module's sparse convention, so a 0 efficiency cannot be told from no data by value alone. RD5 recovers that."
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "A row is written for every month in the refresh window, including a month with no input, and the table carries at least one count column recording how many vehicle_metrics days fed the row.",
+      "why": "RD4 removed NULL as the unknown signal, so a count carries it. charging.monthly_effective_capacity already does this with candidate_count / sample_count."
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "The month bucket is metric_date itself: March is metric_date BETWEEN '2026-03-01' AND '2026-03-31'. No day shifting. Weekday/weekend come from the ISO day of week of that DATE; weekend is Saturday and Sunday.",
+      "why": "Not a choice. internal/analytics/AGENTS.md forbids re-projecting a returned Date; metric_date already carries the day-before adjustment."
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The table is analytics.vehicle_monthly_metrics, not analytics.monthly_metrics.",
+      "why": "It sits beside analytics.vehicle_metrics and the pair reads by itself. It is also the name RM52's RD12 recorded when it deferred this work."
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "All monthly maths happens in Go over the fetched rows, in one place. One query returns the month's vehicle_metrics rows; the use case computes all-days, weekday and weekend figures from that slice.",
+      "why": "The charging half must be Go anyway, since it arrives as []Entry and []Session through charging's ports. SQL would split one month's maths across two places. A month is ~30 rows."
+    },
+    {
+      "id": "RD9",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "Only ONE new charging port is added (tier 1): the stored monthly_effective_capacity row for one exact (tesla_id, month). External charges use Reader.ListEntriesByVehicleBetween and supercharger sessions use SessionReader.ListSessionsByVehicleBetween, both of which already exist.",
+      "why": "Verified in code. The ticket implied several new ports. Adding an existing read would widen charging's public surface for nothing, and the planned microservice split carries every port."
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The new Go type must not end in Processor, Manager, Handler, Helper, Data, Info, Object or Thing (make naming-guard fails new ones). It is written using the golang-naming, golang-code-style, golang-design-patterns, golang-data-structures and golang-documentation skills, additive to ai/go-conventions.md.",
+      "why": "The ticket calls it a 'processor', which the guard rejects. The owner asked for the golang skills explicitly; they are not part of the pipeline's Doc-Pack by default."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM67-charging-add-monthly-capacity-read",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Read port for the stored monthly_effective_capacity of one exact (tesla_id, month). Must report 'no row' apart from 'row with NULL capacity'."
+    },
+    {
+      "id": 2,
+      "change": "RM67-analytics-add-vehicle-monthly-metrics",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Migration creating ALL columns, sqlc queries, the use case type, the vehicle_metrics figures (RD2/RD6) and the copied capacity. Database design gate applies."
+    },
+    {
+      "id": 3,
+      "change": "RM67-analytics-add-monthly-charging-aggregates",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Fill ext_* split by ChargingType AC/DC, sc_*, and the three JSONB ending-battery distributions. Existing charging ports only (RD9)."
+    },
+    {
+      "id": 4,
+      "change": "RM67-app-add-monthly-metrics-step",
+      "module": "app",
+      "optional": false,
+      "depends_on": [
+        3
+      ],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Nightly step 5 after step 4. Runs EVERY night for the current and previous month (RD3). Failure logs and never fails the cycle."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-18T19:05:41Z",
+      "agent": "leader",
+      "event": "roadmap RM67 created from MAG-73 after the Step 2 grill-me interview; 10 cross-tier decisions recorded; autopilot off because the pickup payload said HALT AFTER STEP 4"
+    }
+  ]
+}
