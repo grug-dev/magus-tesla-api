@@ -177,6 +177,29 @@ func (m MigrationDir) VersionTable() string {
 	return m.Module + ".goose_db_version"
 }
 
+// EnsureSchemaSQL creates the module's Postgres schema if it is not already there.
+//
+// The migration runner MUST execute this before handing the directory to goose, and
+// the ordering is not a style choice. goose creates its version table before it runs
+// a single migration, so on an empty database it would try to create
+// "<module>.goose_db_version" inside a schema that does not exist yet — and the
+// schema is created BY that module's baseline, which goose cannot reach. The result
+// is `relation "<module>.goose_db_version" does not exist ... schema "<module>" does
+// not exist`, and no fresh database can ever be built. Every test container hits this.
+//
+// So the schema is treated as what it actually is: the namespace a module's ledger and
+// tables both live in, and therefore a precondition of the ledger rather than a
+// migration step. The baseline still carries its own CREATE SCHEMA IF NOT EXISTS, so
+// the file stays self-contained and can be applied by hand; both are idempotent and
+// neither conflicts with the other.
+//
+// The identifier is quoted rather than interpolated bare. Module always comes from
+// defaultMigrationModules, so it cannot today be anything but a plain lowercase word —
+// quoting keeps that true if the list ever gains an unusual name.
+func (m MigrationDir) EnsureSchemaSQL() string {
+	return `CREATE SCHEMA IF NOT EXISTS "` + strings.ReplaceAll(m.Module, `"`, `""`) + `"`
+}
+
 // moduleForDir resolves a migration directory path to the module that owns it,
 // by finding the path segment that names a known module. It handles both
 // layouts with one rule: the image's "<root>/account" and a checkout's

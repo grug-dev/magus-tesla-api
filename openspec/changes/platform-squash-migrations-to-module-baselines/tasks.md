@@ -153,6 +153,11 @@ pg_dump --schema-only --no-owner --no-privileges -d "$SCRATCH" -f /tmp/dump-B.sq
 diff "$DUMP_A" /tmp/dump-B.sql
 ```
 
+  `make migrate-up` needs **`psql` on PATH as well as `goose`** now: it creates each
+  module's schema before goose, because goose builds its version table inside that schema
+  before running anything. If the run fails with `schema "<module>" does not exist`, the
+  schema step did not happen — the database is untouched and the command is safe to re-run.
+
 - [ ] 9.2 Confirm the diff is **exactly** these three things and nothing else:
   1. `account_id uuid,` gone from `telemetry.vehicle_snapshots`
   2. `public.goose_db_version` in A, not in B

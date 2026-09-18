@@ -91,7 +91,7 @@ func Provision(ctx context.Context, module string, migrationsFS fs.FS) (Result, 
 		return Result{}, fmt.Errorf("testdb: Provision needs the owning module's name")
 	}
 	return provision(ctx, func(ctx context.Context, dsn string) error {
-		return applyMigrations(ctx, dsn, config.MigrationDir{Module: module}.VersionTable(), migrationsFS)
+		return applyMigrations(ctx, dsn, config.MigrationDir{Module: module}, migrationsFS)
 	})
 }
 
@@ -145,7 +145,7 @@ func ProvisionDirs(ctx context.Context, migrationDirs ...config.MigrationDir) (R
 
 	return provision(ctx, func(ctx context.Context, dsn string) error {
 		for _, md := range migrationDirs {
-			if err := applyMigrations(ctx, dsn, md.VersionTable(), os.DirFS(md.Dir)); err != nil {
+			if err := applyMigrations(ctx, dsn, md, os.DirFS(md.Dir)); err != nil {
 				return fmt.Errorf("migration dir %s: %w", md.Dir, err)
 			}
 		}
@@ -208,12 +208,19 @@ func (r Result) Terminate(ctx context.Context) error {
 	return r.Container.Terminate(ctx)
 }
 
-func applyMigrations(ctx context.Context, dsn, versionTable string, migrationsFS fs.FS) error {
+func applyMigrations(ctx context.Context, dsn string, m config.MigrationDir, migrationsFS fs.FS) error {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return fmt.Errorf("open sql db: %w", err)
 	}
 	defer db.Close()
+
+	// Must precede goose: it creates its version table first, and that table lives in
+	// this module's schema, which on a fresh container does not exist yet. Without
+	// this every test container fails at setup. See config.MigrationDir.EnsureSchemaSQL.
+	if _, err := db.ExecContext(ctx, m.EnsureSchemaSQL()); err != nil {
+		return fmt.Errorf("ensure schema %s: %w", m.Module, err)
+	}
 
 	// WithTableName records this module's versions in its own ledger, inside its
 	// own Postgres schema — the same thing the deploy's cmd/migrate does, so a
@@ -227,7 +234,7 @@ func applyMigrations(ctx context.Context, dsn, versionTable string, migrationsFS
 	// migration is back on here too. A test setup that silences it would let a
 	// broken migration order reach the deploy unnoticed.
 	provider, err := goose.NewProvider(goose.DialectPostgres, db, migrationsFS,
-		goose.WithTableName(versionTable))
+		goose.WithTableName(m.VersionTable()))
 	if err != nil {
 		return fmt.Errorf("goose provider: %w", err)
 	}

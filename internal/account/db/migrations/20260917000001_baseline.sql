@@ -15,7 +15,7 @@
 -- +goose Up
 
 -- SCHEMA: account
-CREATE SCHEMA account;
+CREATE SCHEMA IF NOT EXISTS account;
 
 -- TABLE: accounts
 CREATE TABLE account.accounts (

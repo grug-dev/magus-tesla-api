@@ -15,7 +15,7 @@
 -- +goose Up
 
 -- SCHEMA: analytics
-CREATE SCHEMA analytics;
+CREATE SCHEMA IF NOT EXISTS analytics;
 
 -- TABLE: charge_gaps
 CREATE TABLE analytics.charge_gaps (

@@ -40,6 +40,16 @@ endif
 #     late migration is a real mistake, so goose's own check is back on. Do not add the
 #     flag back to silence a complaint: read it instead.
 #
+# Every loop below also runs CREATE SCHEMA IF NOT EXISTS before goose. That ordering is
+# required, not tidiness: goose creates its version table BEFORE running any migration, and
+# that table lives in the module's schema — which on an empty database does not exist yet,
+# because the baseline that creates it is the very thing goose cannot reach. Without this,
+# `goose run: ERROR: relation "account.goose_db_version" does not exist ... schema "account"
+# does not exist`, and no fresh database can ever be built. cmd/migrate and internal/testdb
+# do the same thing for the same reason (config.MigrationDir.EnsureSchemaSQL).
+#
+# This is why these targets need psql on PATH as well as goose.
+#
 # MIGRATION_MODULES is the single source of both the directory and the ledger name, which
 # is why the loops below iterate modules rather than directories. Overriding
 # MIGRATIONS_DIRS alone no longer changes the goose CLI loops — override MIGRATION_MODULES.
@@ -120,6 +130,7 @@ check-goose:
 migrate-up: check-goose ## Apply all pending migrations, each module into its own <module>.goose_db_version
 	@for m in $(MIGRATION_MODULES); do \
 		echo "goose up: $$m"; \
+		psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -q -c "CREATE SCHEMA IF NOT EXISTS $$m"; \
 		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(DATABASE_URL)" up; \
 	done
 
@@ -137,6 +148,7 @@ migrate-down: check-goose ## Roll back the newest migration in each module (stop
 migrate-status: check-goose ## Show which migrations have been applied (per module ledger)
 	@for m in $(MIGRATION_MODULES); do \
 		echo "== $$m ($$m.goose_db_version) =="; \
+		psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -q -c "CREATE SCHEMA IF NOT EXISTS $$m"; \
 		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(DATABASE_URL)" status; \
 	done
 
@@ -198,6 +210,7 @@ db-setup: check-goose ## ONE COMMAND: create the app role + database (both if mi
 	if [ -n "$$PW" ]; then export PGUSER="$$ROLE" PGPASSWORD="$$PW"; fi; \
 	for m in $(MIGRATION_MODULES); do \
 		echo "goose up: $$m"; \
+		psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -q -c "CREATE SCHEMA IF NOT EXISTS $$m"; \
 		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(DATABASE_URL)" up; \
 	done; \
 	echo; echo "✓ Database setup complete."; \
@@ -240,6 +253,7 @@ db-setup-test: check-goose ## Bring TEST_DATABASE_URL current (create/re-own/mig
 	echo "Migrating '$$DB' to latest..."; \
 	for m in $(MIGRATION_MODULES); do \
 		echo "goose up: $$m"; \
+		psql "$(TEST_DATABASE_URL)" -v ON_ERROR_STOP=1 -q -c "CREATE SCHEMA IF NOT EXISTS $$m"; \
 		$(GOOSE) -dir internal/$$m/db/migrations -table $$m.goose_db_version postgres "$(TEST_DATABASE_URL)" up; \
 	done; \
 	echo; echo "✓ $$DB ready. Point tests at it with:"; \

@@ -132,6 +132,12 @@ func applyDir(ctx context.Context, dsn string, m config.MigrationDir) error {
 	}
 	defer db.Close()
 
+	// Before goose, not after: it creates its version table up front, and that table
+	// lives inside this module's schema. See config.MigrationDir.EnsureSchemaSQL.
+	if _, err := db.ExecContext(ctx, m.EnsureSchemaSQL()); err != nil {
+		return fmt.Errorf("ensure schema %s: %w", m.Module, err)
+	}
+
 	provider, err := goose.NewProvider(goose.DialectPostgres, db, os.DirFS(m.Dir),
 		goose.WithTableName(m.VersionTable()))
 	if err != nil {

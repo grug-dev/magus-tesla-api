@@ -15,7 +15,7 @@
 -- +goose Up
 
 -- SCHEMA: charging
-CREATE SCHEMA charging;
+CREATE SCHEMA IF NOT EXISTS charging;
 
 -- TABLE: manual_charge_entries
 CREATE TABLE charging.manual_charge_entries (

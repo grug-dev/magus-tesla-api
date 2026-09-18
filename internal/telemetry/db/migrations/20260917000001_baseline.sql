@@ -16,7 +16,7 @@
 
 -- SCHEMA: telemetry
 -- +goose StatementBegin
-CREATE SCHEMA telemetry;
+CREATE SCHEMA IF NOT EXISTS telemetry;
 
 
 SET default_tablespace = '';

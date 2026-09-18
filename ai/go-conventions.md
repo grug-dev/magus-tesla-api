@@ -293,6 +293,13 @@ follows from those two facts.
   `migrate-up` would fail on `relation already exists` — which stops `web` and `poller`,
   because both wait for the migration step to succeed. `make migrate-down` therefore stops at a
   baseline. Recreate the database (`make db-reset`) instead of rolling one back.
+- **The module's Postgres schema is created by the runner, not only by the baseline.**
+  goose creates its version table before running any migration, and that table lives in the
+  module's schema — which on an empty database does not exist yet. So `cmd/migrate`,
+  `internal/testdb` and every `Makefile` goose loop run `CREATE SCHEMA IF NOT EXISTS <module>`
+  first (`config.MigrationDir.EnsureSchemaSQL`). The baseline keeps its own idempotent
+  `CREATE SCHEMA IF NOT EXISTS` so the file still stands alone. This is also why
+  `make migrate-up` needs `psql` on PATH now, not just `goose`.
 - **A baseline never runs on an existing database.** Dev and prod have the baseline version
   recorded as applied without it ever executing. So a change made **inside a baseline** reaches
   new databases only. Anything that must also reach dev and prod is an ordinary migration after

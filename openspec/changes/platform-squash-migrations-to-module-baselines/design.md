@@ -180,6 +180,29 @@ the system. The project's read-heavy profile argues for aggressive indexing on t
 the gateway reads per request; this table is read by a migration process, never by a
 request.
 
+**The schema must exist before goose runs — this was found the hard way.** goose creates
+its version table *before* it runs a single migration. On an empty database that table
+would go into a schema that does not exist yet, because the schema is created by the very
+baseline goose cannot reach. The first real run failed on all four modules at once:
+
+```
+goose run: ERROR: relation "account.goose_db_version" does not exist (SQLSTATE 42P01);
+           ERROR: schema "account" does not exist (SQLSTATE 3F000)
+```
+
+This would have broken **every fresh database, including every test container** — the whole
+suite at setup. Nothing static caught it: `go build`, `go vet`, `make lint` and all 13
+guards were green, because it is a runtime ordering fact about goose, not a type error.
+
+The fix treats the schema as what it is: the namespace a module's ledger *and* tables both
+live in, so a precondition of the ledger rather than a migration step. Every runner executes
+`CREATE SCHEMA IF NOT EXISTS <module>` immediately before handing the directory to goose —
+`cmd/migrate`, `internal/testdb`, and each of the `Makefile`'s four goose CLI loops
+(`migrate-up`, `migrate-status`, `db-setup`, `db-setup-test`), which is why those targets now
+need `psql` on PATH as well as `goose`. The baseline **keeps** its own
+`CREATE SCHEMA IF NOT EXISTS`, so the file is still self-contained and can be applied by
+hand; both statements are idempotent and neither conflicts with the other.
+
 Why inside the module's schema rather than four differently-named tables in `public`:
 each module already owns a Postgres schema, and its version ledger is part of what that
 module owns. When a module is extracted into its own service, `pg_dump --schema=telemetry`
