@@ -254,10 +254,12 @@ no `stamp` or `force` command, so the ledger row has to be written directly. The
 version of this plan did that with a SQL file run by hand on dev and on prod, before the
 deploy.
 
-That was the weak part of the plan, and the reason it changed. Prod deploys automatically
-on a merge to `main` (MAG-52). A manual step that must happen *before* an automatic deploy
-is an ordering rule with nothing enforcing it, and getting it wrong is not a small
-mistake: `migrate` exits non-zero, `web` and `poller` wait on
+That was the weak part of the plan, and the reason it changed. The prod deploy is
+`git pull && make docker-up` — no CI, no pipeline, nothing that would stop for a forgotten
+step (MAG-52 decided on an Actions→GHCR pipeline, but this repo has no `.github/` yet, so
+the deploy is still those two commands by hand). Adding a *third* command that has to come
+first, and only ever once, is an ordering rule with nothing enforcing it. Getting it wrong
+is not a small mistake: `migrate` exits non-zero, `web` and `poller` wait on
 `service_completed_successfully`, and the site stays down until someone notices.
 
 So `cmd/migrate` does it. Before goose, for each module:

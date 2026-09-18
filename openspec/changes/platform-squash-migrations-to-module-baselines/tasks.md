@@ -258,15 +258,15 @@ psql "$DATABASE_URL" \
 
 Prod deploys by pulling `main`, so the branch has to land first.
 
-- [ ] 12.1 Merge the branch into `main` and push it. The deploy stamps prod itself, so
-  there is no longer an ordering rule to remember here
+- [ ] 12.1 Merge the branch into `main` and push it. Merging does not deploy — this repo has
+  no CI. The deploy is group 14, by hand, and it stamps prod itself
 
 ## 13. Prod — nothing to stamp by hand **[owner]**
 
 This group used to be the manual prod stamp. It is gone: the `migrate` service runs the
-same stamp inside the deploy, before goose, so prod fixes itself in group 14. That also
-removes the trap this plan used to carry — a hand-run step that had to happen before an
-automatic deploy, with nothing enforcing the order.
+same stamp inside the deploy, before goose, so prod fixes itself in group 14. That removes
+the trap this plan used to carry — a third hand-run command that had to come before the
+usual `git pull && make docker-up`, once and only once, with nothing enforcing the order.
 
 `runbook/stamp-baseline.sql` is kept as a fallback for a database the runner cannot
 reach (a restored dump, a manual recovery). It is not part of the normal path.
