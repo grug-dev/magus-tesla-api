@@ -509,7 +509,7 @@ func dashPSIOrDash(v *float64) string {
 
 // dashTireTrend maps a tyre-pressure delta to a StatTile Trend value. nil (no
 // predecessor day, or either day's raw wheel reading missing — analytics.
-// VehicleStatus.TpmsPressureFLPSICalc's own doc comment) and exactly 0.0 (a
+// VehicleStatus.TpmsPressureFLPSIDeltaCalc's own doc comment) and exactly 0.0 (a
 // real "no change" reading, RD13) both render no icon: ui.StatTileProps.Trend
 // only models "up"/"down"/"", and the roadmap explicitly forbids inventing a
 // third, neutral glyph. Positive -> "up", negative -> "down".
@@ -577,10 +577,10 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, vs a
 	vm.DistanceTraveled = dashDistanceOrDash(vs.DistanceTraveledKmCalc)
 	vm.BatteryUsed = dashBatteryUsedOrDash(vs.ConsumedPct)
 	vm.Efficiency = dashEfficiencyOrDash(vs.KmPerPctCalc)
-	vm.TirePressureFL = dashTireWheel(ctx, vs.TpmsPressureFLPSI, vs.TpmsPressureFLPSICalc)
-	vm.TirePressureFR = dashTireWheel(ctx, vs.TpmsPressureFRPSI, vs.TpmsPressureFRPSICalc)
-	vm.TirePressureRL = dashTireWheel(ctx, vs.TpmsPressureRLPSI, vs.TpmsPressureRLPSICalc)
-	vm.TirePressureRR = dashTireWheel(ctx, vs.TpmsPressureRRPSI, vs.TpmsPressureRRPSICalc)
+	vm.TirePressureFL = dashTireWheel(ctx, vs.TpmsPressureFLPSI, vs.TpmsPressureFLPSIDeltaCalc)
+	vm.TirePressureFR = dashTireWheel(ctx, vs.TpmsPressureFRPSI, vs.TpmsPressureFRPSIDeltaCalc)
+	vm.TirePressureRL = dashTireWheel(ctx, vs.TpmsPressureRLPSI, vs.TpmsPressureRLPSIDeltaCalc)
+	vm.TirePressureRR = dashTireWheel(ctx, vs.TpmsPressureRRPSI, vs.TpmsPressureRRPSIDeltaCalc)
 	vm.Battery = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
 	vm.BatteryPct = strconv.Itoa(vs.BatteryLevelPct)
 	vm.RangeNow = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)

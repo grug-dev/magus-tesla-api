@@ -822,14 +822,14 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 		// RM50 tier 4 — one wheel per dashTireTrend/dashTireDelta branch
 		// (design.md Test Contract): FL positive, FR negative, RL exact
 		// zero, RR nil/nil (absent).
-		TpmsPressureFLPSI:     ptrF64(42.06),
-		TpmsPressureFLPSICalc: ptrF64(0.4),
-		TpmsPressureFRPSI:     ptrF64(40.6),
-		TpmsPressureFRPSICalc: ptrF64(-0.3),
-		TpmsPressureRLPSI:     ptrF64(39.2),
-		TpmsPressureRLPSICalc: ptrF64(0.0),
-		TpmsPressureRRPSI:     nil,
-		TpmsPressureRRPSICalc: nil,
+		TpmsPressureFLPSI:          ptrF64(42.06),
+		TpmsPressureFLPSIDeltaCalc: ptrF64(0.4),
+		TpmsPressureFRPSI:          ptrF64(40.6),
+		TpmsPressureFRPSIDeltaCalc: ptrF64(-0.3),
+		TpmsPressureRLPSI:          ptrF64(39.2),
+		TpmsPressureRLPSIDeltaCalc: ptrF64(0.0),
+		TpmsPressureRRPSI:          nil,
+		TpmsPressureRRPSIDeltaCalc: nil,
 	}
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	var vm fragments.DashboardData

@@ -38,14 +38,17 @@
 
 ## T1. New migration — schema, comments, backfill — no dependencies
 
-- [ ] T1.1 Before writing the migration, re-run `grep -n "tpms_pressure.*_calc\|distance_traveled_km_calc\|consumed_pct\|km_per_pct_calc"` against
+- [x] T1.1 Before writing the migration, re-run `grep -n "tpms_pressure.*_calc\|distance_traveled_km_calc\|consumed_pct\|km_per_pct_calc"` against
       `internal/analytics/db/migrations/20260917000001_baseline.sql` and
       `internal/analytics/db/query.sql`. Confirm the four tyre-pressure column
       names and the three underlying travel-progress column names still match
       design.md's schema exactly. If the tree has drifted since this proposal
       was written, update the migration to match reality — do not implement a
       stale name. Record what you found, even if it matches exactly.
-- [ ] T1.2 Create
+      **Found: exact match, no drift.** Both files still use
+      `tpms_pressure_{fl,fr,rl,rr}_psi_calc`, `distance_traveled_km_calc`,
+      `consumed_pct`, `km_per_pct_calc` verbatim as design.md assumes.
+- [x] T1.2 Create
       `internal/analytics/db/migrations/20260918000001_add_travel_progress_deltas.sql`
       with the exact `+goose Up`/`+goose Down` SQL in design.md's "Exact schema
       change" section: three `ADD COLUMN`s, four `RENAME COLUMN`s, the
@@ -59,10 +62,18 @@
       step, not Claude's, per `ai/go-conventions.md` "Do not test migrations."
       Claude verifies the file's SQL is syntactically well-formed by reading
       it back, not by running it.
-- [ ] T1.3 Confirm `Makefile`'s `MIGRATIONS_DIRS`/`MIGRATION_MODULES` need no
+      **Done.** File created; read back in full, statements balanced
+      (goose Up/Down present, StatementBegin/End wraps only the comments
+      containing an internal semicolon, matching the baseline's own
+      convention). Not applied — that is the owner's step.
+- [x] T1.3 Confirm `Makefile`'s `MIGRATIONS_DIRS`/`MIGRATION_MODULES` need no
       change — this is a new file inside an already-registered module
       directory, not a new module. State this check and its result in the
       report (CLAUDE.md's "verify the Makefile targets" rule).
+      **Checked: no change needed.** `MIGRATION_MODULES` already lists
+      `analytics`; `MIGRATIONS_DIRS` derives
+      `internal/analytics/db/migrations` as a whole directory, so a new file
+      inside it needs no Makefile edit.
 
 ## T2. Go derivation — `consumed.go`, `consumption.go`, `analytics.go` — no dependencies, parallel-ok with T1
 
@@ -86,24 +97,24 @@
 > returns nothing, and the same grep over `deriveConsumption`, `consumptionCalc`
 > and `dayOverDayDelta` in `consumption.go` returns nothing.
 
-- [ ] T2.1 In `internal/analytics/consumption.go`, rename the helper
+- [x] T2.1 In `internal/analytics/consumption.go`, rename the helper
       `tpmsDeltaPSI(prev, cur *float64) *float64` to `dayOverDayDelta(prev, cur
       *float64) *float64`. Body unchanged. Update its doc comment to describe
       it as the shared nil-safe day-over-day subtraction helper (no PSI
       reference, no change-doc citation), reused by every `_delta_calc`
       field this package computes.
-- [ ] T2.2 In `consumption.go`, rename `consumptionCalc`'s four
+- [x] T2.2 In `consumption.go`, rename `consumptionCalc`'s four
       `TpmsPressure{FL,FR,RL,RR}PSICalc` fields to
       `TpmsPressure{FL,FR,RL,RR}PSIDeltaCalc`, and update
       `deriveConsumption`'s four assignments to call `dayOverDayDelta(...)`
       instead of `tpmsDeltaPSI(...)`.
-- [ ] T2.3 In `internal/analytics/consumed.go`, rename `vehicleMetricRow`'s
+- [x] T2.3 In `internal/analytics/consumed.go`, rename `vehicleMetricRow`'s
       four `TpmsPressure{FL,FR,RL,RR}PSICalc` fields to
       `TpmsPressure{FL,FR,RL,RR}PSIDeltaCalc`. Add three new fields next to
       the existing five `_calc` fields: `DistanceTraveledKmDeltaCalc
       *float64`, `ConsumedPctDeltaCalc *float64`, `KmPerPctDeltaCalc
       *float64`.
-- [ ] T2.4 In `deriveVehicleMetrics` (`consumed.go`), in the `prev != nil`
+- [x] T2.4 In `deriveVehicleMetrics` (`consumed.go`), in the `prev != nil`
       branch, after `calc := deriveConsumption(...)`, compute the three new
       deltas against `out[len(out)-1]` per design.md's "Go changes" section —
       `nil` when `len(out) == 0`. Set the three new fields on the appended
@@ -113,7 +124,13 @@
       Acceptance: `go build ./internal/analytics/...` compiles with no new
       references to `tpmsDeltaPSI` or the old TPMS field names anywhere in
       this package's non-test files.
-- [ ] T2.5 In `internal/analytics/analytics.go`, rename `VehicleStatus`'s four
+      **Note on acceptance wording:** `tpmsDeltaPSI` and the old TPMS field
+      names are gone from every file T2 touched. `go build
+      ./internal/analytics/...` itself still fails, but only in
+      `reader.go`/`recalculate.go` (T4, later wave, depends on T2+T3) and
+      the pre-existing `_test.go` files (T5) — neither is in this dispatch's
+      scope. See the report for full build output.
+- [x] T2.5 In `internal/analytics/analytics.go`, rename `VehicleStatus`'s four
       `TpmsPressure{FL,FR,RL,RR}PSICalc` fields to
       `TpmsPressure{FL,FR,RL,RR}PSIDeltaCalc`, and add three new fields:
       `DistanceTraveledKmDeltaCalc *float64`, `ConsumedPctDeltaCalc
@@ -193,6 +210,31 @@
       awaiting-user-verification.
 
 ## T7. `delta-guard` baseline shrink — depends on T1, T2
+
+> **CORRECTION, found while running wave 1 — appended, nothing deleted.** T7.2 as
+> written cannot be satisfied, and T7.3's dependency was wrong.
+>
+> **T7.2 is void.** The four `tpms_pressure_*_psi_calc` names stay in `sqlbaseline`
+> forever. `20260917000001_baseline.sql` DEFINES those columns under their old
+> names, and that file is an applied baseline nobody may edit. The rename lives in
+> a later migration, so the old definition line survives in the tree for good. The
+> SQL baseline does not shrink at all: it stays at 10.
+>
+> **T7.3 now depends on T1, T2, T3 AND T4.** After T2 only the four hand-written Go
+> names are gone. The four sqlc-generated `TpmsPressureFlPsiCalc` spellings go with
+> T3's regeneration, and `reader.go`/`recalculate.go` with T4. Removing them before
+> then makes `make delta-guard` fail.
+>
+> **Corrected acceptance:** `make delta-guard` passes and prints
+> `baseline: 10 SQL / 7 Go legacy name(s)` — not `6 SQL / 7 Go`. Tier 1's design
+> predicted a SQL shrink that the frozen baseline file makes impossible.
+>
+> **Already done in wave 1, by the leader:** the guard's two delta-exclusion
+> patterns were anchored with `^`, but they are applied to `grep -rn` output, which
+> carries a `path:line:` prefix. The anchor could never match, so a correctly named
+> `_delta_calc` / `DeltaCalc` column was reported as a violation. Both patterns now
+> accept the prefix. Verified four ways: clean tree passes, a bare `_calc` name
+> fails, `delta:allow` forgives, and a compliant `_delta_calc` name is not flagged.
 
 - [ ] T7.1 Before editing the `Makefile`, re-run `delta-guard`'s own two
       greps by hand (or `make delta-guard`) against the tree with T1+T2

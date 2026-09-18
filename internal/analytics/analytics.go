@@ -367,21 +367,33 @@ type VehicleStatus struct {
 	// a perfectly good efficiency. Now it is NULL only when the day's charge
 	// was never recorded at all -- which is the case charge_gaps flags.
 	KmPerPctCalc *float64
-	// TpmsPressureFLPSICalc/FR/RL/RR are the four tyre-pressure day-over-day
-	// deltas (RM50-analytics-add-tire-pressure-variance), one per wheel, in
-	// PSI: this day's raw reading minus the previous day's. Pointer because
-	// nullable: nil when this day has no predecessor at all, OR when either
-	// day's own raw wheel reading is itself nil (design.md D2) -- the same
-	// nil rule DistanceTraveledKmCalc/ConsumedPct above already follow, NOT
-	// the raw-observation rule the four TpmsPressure*PSI fields above follow.
-	// This delta partly reflects ambient air temperature change (about 1 PSI
-	// per 5.5 degrees C), not only a genuine pressure change -- accepted, not
-	// a defect (roadmap RD3). Never apply a threshold or a target-pressure
-	// comparison to it.
-	TpmsPressureFLPSICalc *float64
-	TpmsPressureFRPSICalc *float64
-	TpmsPressureRLPSICalc *float64
-	TpmsPressureRRPSICalc *float64
+	// DistanceTraveledKmDeltaCalc/ConsumedPctDeltaCalc/KmPerPctDeltaCalc are
+	// the three travel-progress day-over-day deltas: this day's value of the
+	// named figure minus the value recalculation built for the row
+	// immediately before it in the same pass. Pointer because nullable: nil
+	// on a predecessor-less day, nil when either side of the subtraction is
+	// itself nil, and additionally nil when this day was the first one a
+	// given recalculation pass considered -- there is no earlier row in
+	// that same pass to subtract from yet, even if an earlier day exists in
+	// storage. A later pass whose window reaches that earlier day fills the
+	// value in.
+	DistanceTraveledKmDeltaCalc *float64
+	ConsumedPctDeltaCalc        *float64
+	KmPerPctDeltaCalc           *float64
+	// TpmsPressureFLPSIDeltaCalc/FR/RL/RR are the four tyre-pressure
+	// day-over-day deltas, one per wheel, in PSI: this day's raw reading
+	// minus the previous day's. Pointer because nullable: nil when this day
+	// has no predecessor at all, OR when either day's own raw wheel reading
+	// is itself nil -- the same nil rule DistanceTraveledKmCalc/ConsumedPct
+	// above already follow, NOT the raw-observation rule the four
+	// TpmsPressure*PSI fields above follow. This delta partly reflects
+	// ambient air temperature change (about 1 PSI per 5.5 degrees C), not
+	// only a genuine pressure change -- accepted, not a defect. Never apply
+	// a threshold or a target-pressure comparison to it.
+	TpmsPressureFLPSIDeltaCalc *float64
+	TpmsPressureFRPSIDeltaCalc *float64
+	TpmsPressureRLPSIDeltaCalc *float64
+	TpmsPressureRRPSIDeltaCalc *float64
 }
 
 // --- charge_gaps ledger (RM28-telemetry-add-charge-gap-storage, MAG-15;

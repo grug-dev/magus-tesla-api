@@ -967,7 +967,7 @@ naming-guard: ## Fail if a NEW type declaration ends in a banned generic suffix 
 # pattern to silence a true positive.
 delta-guard: ## Fail if a NEW day-over-day delta column/field is named _calc/Calc instead of _delta_calc/DeltaCalc; pre-rule baseline names only warn (escape hatch: -- delta:allow: / // delta:allow: <reason>)
 	@sqlpattern='^[[:space:]]*(ADD COLUMN[[:space:]]+)?[a-z][a-z0-9_]*_calc\b'; \
-	sqldeltapattern='^[[:space:]]*(ADD COLUMN[[:space:]]+)?[a-z][a-z0-9_]*_delta_calc\b'; \
+	sqldeltapattern='(^|:)[[:space:]]*(ADD COLUMN[[:space:]]+)?[a-z][a-z0-9_]*_delta_calc\b'; \
 	sqlbaseline='(distance_traveled_km_calc|battery_used_pct_calc|days_spanned_calc|km_per_pct_calc|estimated_range_km_calc|tpms_pressure_fl_psi_calc|tpms_pressure_fr_psi_calc|tpms_pressure_rl_psi_calc|tpms_pressure_rr_psi_calc|inferred_capacity_kwh_calc)\b'; \
 	sqlhits=$$(grep -rnE "$$sqlpattern" --include='*.sql' internal/*/db/migrations \
 		| grep -vE "$$sqldeltapattern" \
@@ -975,7 +975,7 @@ delta-guard: ## Fail if a NEW day-over-day delta column/field is named _calc/Cal
 	sqlwarn=$$(echo "$$sqlhits" | grep -E "$$sqlbaseline" || true); \
 	sqlfail=$$(echo "$$sqlhits" | grep -vE "$$sqlbaseline" || true); \
 	gopattern='^\t+[A-Z][A-Za-z0-9]*Calc\b'; \
-	godeltapattern='^\t+[A-Z][A-Za-z0-9]*DeltaCalc\b'; \
+	godeltapattern='(^|:)\t+[A-Z][A-Za-z0-9]*DeltaCalc\b'; \
 	gobaseline='(DistanceTraveledKmCalc|BatteryUsedPctCalc|DaysSpannedCalc|KmPerPctCalc|EstimatedRangeKmCalc|TpmsPressureFLPSICalc|TpmsPressureFRPSICalc|TpmsPressureRLPSICalc|TpmsPressureRRPSICalc|InferredCapacityKWhCalc|TpmsPressureFlPsiCalc|TpmsPressureFrPsiCalc|TpmsPressureRlPsiCalc|TpmsPressureRrPsiCalc|InferredCapacityKwhCalc)\b'; \
 	gohits=$$(grep -rnE "$$gopattern" --include='*.go' internal cmd \
 		| grep -v '_test.go' \
