@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM67-charging-add-monthly-capacity-read",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
+  "request": "Add a read method to internal/charging that returns the stored monthly effective capacity for one vehicle and one exact month. The existing read picks the newest non-NULL row; this one must return the row for the month asked for, and report 'no row' distinctly from 'row with NULL capacity'. Honour RD4: the caller stores 0, so the port must let the caller tell the two cases apart. Tier 1 of 4 of roadmap RM67-vehicle-monthly-metrics-table (Linear MAG-73); it exists because tier 2 in analytics cannot copy the capacity without it.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-18T19:35:00Z",
+  "updated_at": "2026-09-18T19:35:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM67-MAG-73-vehicle-monthly-metrics-table",
+    "base": "main",
+    "ticket": "MAG-73",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied",
+    "created_at": "2026-09-18T19:05:41Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Append the EffectiveCapacityForPeriod query to query.sql and run make sqlc",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Month filter uses date_trunc in SQL, never Go. No migration touched.",
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "Add the MonthlyCapacityReader interface and NewMonthlyCapacityReader to charging.go",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Three-state contract goes in the method doc comment, not only in tasks.md.",
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "Implement monthlyCapacityReader in the new monthly_capacity_reader.go",
+      "module": "charging",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "pgx.ErrNoRows maps to (nil, false, nil). Reuse pgFloat8ToFloat64Ptr from service.go.",
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Add the loggingMonthlyCapacityReader decorator to query_log.go",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Edits the constructor 2.1 declares, so it lands after 2.1 and 2.2. Worker flagged this as convention-driven, not requested.",
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "Write the T1-T7 integration tests in db_monthly_capacity_reader_integration_test.go",
+      "module": "charging",
+      "depends_on": [
+        "2.2",
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Assert the design.md Test Contract values, never the implementation. No pgtype in assertions.",
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "Update internal/charging/AGENTS.md for the new read surface",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Public Interface, both Allowed-Imports lists, and Testing Notes.",
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "Update the KB guide kkpa/context/workflows/vehicle-monthly-metrics.md",
+      "module": "platform",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "LEADER-OWNED: outside the charging worker's sandbox. Its file map calls LatestMeasuredCapacity 'the read'; there are now two.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-18T19:35:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Leader appended task 3.3 (the KB guide update) to tasks.md instead of re-dispatching the worker.",
+      "why": "kkpa/context/ is outside the charging sandbox, so the worker could not have written it. Re-dispatching for one task line costs far more than appending it.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L2",
+      "at": "2026-09-18T19:35:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "The database design gate was evaluated and does NOT fire for this tier; no user confirmation was requested for it.",
+      "why": "The tier adds no table, column, index, constraint, view or migration - only a SELECT query over an existing unique index. The gate fires on tier 2 instead.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-18T19:35:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "progress.json is committed together with the artifacts in one commit rather than waiting for a wave commit.",
+      "why": "The run halts after Step 4 by the pickup payload's instruction, so a later wave commit would never arrive to carry it.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-18T19:12:00Z",
+      "agent": "leader",
+      "event": "dispatched charging worker on claude-sonnet for artifact creation (Step 3)"
+    },
+    {
+      "at": "2026-09-18T19:35:00Z",
+      "agent": "leader",
+      "event": "artifacts validated (openspec validate --strict passed); Spanish design briefing posted and approved by the user; design gate evaluated as not applicable to this tier"
+    }
+  ]
+}
