@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-18T19:05:41Z",
-  "updated_at": "2026-09-18T19:35:00Z",
+  "updated_at": "2026-09-18T21:32:45Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,16 +21,16 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2,
       3,
       4
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -121,14 +121,20 @@
       "module": "charging",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "claude-sonnet-5 (workers, reviewer), claude-opus-5 (leader)",
       "started_at": "2026-09-18T19:35:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-18T21:32:45Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Read port for the stored monthly_effective_capacity of one exact (tesla_id, month). Must report 'no row' apart from 'row with NULL capacity'."
+      "budget": {
+        "five_hour_pct_start": 25,
+        "five_hour_pct_end": 42,
+        "cost_usd_delta": 7.3,
+        "approx": true,
+        "note": "whole tier: 2 worker dispatches, 2 reviewer rounds, leader integration"
+      },
+      "notes": "Shipped charging.MonthlyCapacityReader.CapacityForMonth. Three states: no row, row with no measured capacity, row with one. Month normalized in SQL. No migration. One review round rejected a stale generated comment."
     },
     {
       "id": 2,
@@ -192,6 +198,11 @@
       "at": "2026-09-18T19:35:00Z",
       "agent": "leader",
       "event": "tier 1 artifacts created by the charging worker and validated (openspec validate --strict passed); database design gate evaluated and does NOT fire for this tier (no DB object added, only a SELECT query); leader appended task 3.3 for the KB guide, which the worker's sandbox could not reach"
+    },
+    {
+      "at": "2026-09-18T21:32:45Z",
+      "agent": "leader",
+      "event": "tier 1 archived to openspec/changes/archive/charging/2026-09-18-RM67-charging-add-monthly-capacity-read; delta spec synced into openspec/specs/monthly-effective-capacity; leader also fixed that spec's Purpose, which the archive sync never touches; tier 2 is now unblocked"
     }
   ]
 }
