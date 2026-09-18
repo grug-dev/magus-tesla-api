@@ -9,8 +9,9 @@
 - **Known as:** `vehicle monthly metrics`, `monthly effective capacity`, `effective pack capacity`,
   `measured pack capacity`, `monthly capacity`, `pack capacity`, `capacity backfill`
 - **Internal name:** table `charging.monthly_effective_capacity`; job
-  `charging.MonthlyCapacityCalculator.Calculate`; read side `packCapacityKWh`
-  (`internal/charging/capacity.go`)
+  `charging.MonthlyCapacityCalculator.Calculate`; **two** read sides —
+  `packCapacityKWh` (`internal/charging/capacity.go`, module-internal) and the public
+  `charging.MonthlyCapacityReader` port (`internal/charging/monthly_capacity_reader.go`)
 
 **Today this workflow holds exactly one metric: the measured pack capacity.** The name is plural
 on purpose. More monthly per-vehicle metrics were expected (full-charge count, consumption per
@@ -32,10 +33,11 @@ They differ on purpose. Without `candidate_count`, "twenty small top-ups, none b
 | File | Role |
 |---|---|
 | `internal/charging/db/migrations/20260909000002_add_monthly_effective_capacity.sql` | Creates `charging.monthly_effective_capacity`. Read its header comment before changing the table — it holds the full rationale. |
-| `internal/charging/db/query.sql` | `ListValidManualEntryCapacitiesForPeriod`, `ListValidSessionCapacitiesForPeriod` (the two inputs), `UpsertMonthlyEffectiveCapacity` (the write), `LatestMeasuredCapacity` (the read). Edit here, then `make sqlc`. |
+| `internal/charging/db/query.sql` | `ListValidManualEntryCapacitiesForPeriod`, `ListValidSessionCapacitiesForPeriod` (the two inputs), `UpsertMonthlyEffectiveCapacity` (the write), and **two** reads: `LatestMeasuredCapacity` ("what capacity should today's math use?" — newest row that has one, skipping NULL months) and `EffectiveCapacityForPeriod` ("what did this car measure in THIS month?" — that exact month, thin or absent included). Edit here, then `make sqlc`. |
 | `internal/charging/monthly_capacity.go` | The job. `estimateEffectiveCapacity` is the pure gate-then-median function; the constants `minSamples` and `minDeltaPct` live here. **Change the estimate here.** |
 | `internal/charging/capacity.go` | The read side: `packCapacityKWh`, the `packCapacityLookup` seam, and `defaultPackCapacityKWh = 62.0`. |
-| `internal/charging/charging.go` | The public port: `MonthlyCapacityCalculator`, `MonthlyCapacityReport`, `NewMonthlyCapacityCalculator(pool)`. |
+| `internal/charging/charging.go` | The public ports: `MonthlyCapacityCalculator`, `MonthlyCapacityReport`, `NewMonthlyCapacityCalculator(pool)`, plus `MonthlyCapacityReader` and `NewMonthlyCapacityReader(pool)`. |
+| `internal/charging/monthly_capacity_reader.go` | The `MonthlyCapacityReader` implementation. One method, `CapacityForMonth(ctx, teslaID, month)`. It returns three states, not two: no row, a row with no measured capacity, and a row with one. |
 | `internal/charging/service.go`, `internal/charging/session_verifier.go` | The two callers of `packCapacityKWh`. Both divide energy by capacity; the seam is never duplicated. |
 
 ### Callers — who triggers the job
@@ -71,8 +73,17 @@ The job runs for **one period** (a month) and optionally **one vehicle**. In ord
 5. Upsert one row per vehicle on `(tesla_id, effective_period)`. A re-run of the same month
    overwrites its own row; it never duplicates and never errors.
 
-The read side is separate and much simpler: `packCapacityKWh` takes the newest row for the car
-that actually has a capacity, and falls back to `defaultPackCapacityKWh` when there is none.
+The read side is separate and much simpler. There are two reads, and they answer different
+questions:
+
+- `packCapacityKWh` (module-internal) takes the newest row for the car that actually has a
+  capacity, and falls back to `defaultPackCapacityKWh` when there is none. It answers "what
+  number should today's maths use?".
+- `MonthlyCapacityReader.CapacityForMonth` (public port) returns the row for one exact month, and
+  never looks at another month. It answers "what did this car measure in March?". It reports
+  three states: no row at all, a row whose capacity is NULL, and a row with a measured capacity.
+  A caller copying the number into its own monthly table needs those apart — an absent month and
+  a thin month are not the same fact.
 
 **To change the estimate**, edit `estimateEffectiveCapacity` in
 `internal/charging/monthly_capacity.go`. The gate (which rows count as evidence) and the method
@@ -143,10 +154,14 @@ With no arguments it does the previous month, every vehicle. It needs `DATABASE_
 - **The nightly step always passes no vehicle**, so one call measures every car. Scoping to one
   car is the manual tool's job. A per-vehicle loop in the cycle would re-read the same rows once
   per car.
-- **No cross-module port exists for this table, and none should.** Every input row already belongs
-  to `charging`, so the derivation and the table belong there too. An earlier design put the job in
-  `analytics` and needed an inverted port to escape an import cycle; that design was withdrawn. A
-  cycle here means the work is in the wrong module.
+- **The table is still never read directly by another module — only through a port.**
+  `MonthlyCapacityReader` exists for a caller outside `charging` (`analytics`, which copies the
+  month's capacity into its own monthly row). That caller gets a Go interface, never a query and
+  never the table. Add a read here, not a join there.
+- **The derivation stays in `charging`, and that is not negotiable.** Every input row already
+  belongs to this module, so the job and the table belong here too. An earlier design put the job
+  in `analytics` and needed an inverted port to escape an import cycle; that design was withdrawn.
+  A cycle here means the work is in the wrong module, not that the wiring needs fixing.
 
 - **A bad month is rejected before the tool touches a database.** The month value is parsed and
   validated first. A month number that does not exist, or a value in the wrong shape, exits with a

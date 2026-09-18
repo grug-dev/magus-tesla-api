@@ -73,7 +73,7 @@ design.md D1–D6 for the rationale behind each group.
 
 ## Wave 3 — tests + module docs (module: charging worker)
 
-- [ ] **3.1** **[module: charging worker]**
+- [x] **3.1** **[module: charging worker]**
   `internal/charging/db_monthly_capacity_reader_integration_test.go` (new file, package
   `charging_test`) — implement Test Contract **T1–T7** (including **T4b**) exactly as
   design.md states them, with those expected `(capacityKWh, found)` values. Seed
@@ -85,7 +85,7 @@ design.md D1–D6 for the rationale behind each group.
   T1–T4b's.
   `depends_on`: 2.2, 2.3 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
+- [x] **3.2** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
   module's new read surface (docs-track-structural-change, `CLAUDE.md` §Non-negotiables):
   - §Public Interface — add a block for `MonthlyCapacityReader`/`CapacityForMonth`/
     `NewMonthlyCapacityReader`, mirroring how `MirrorWatermarkStore` is already
@@ -105,7 +105,7 @@ design.md D1–D6 for the rationale behind each group.
 
 ---
 
-- [ ] **3.3** **[leader-owned]** `kkpa/context/workflows/vehicle-monthly-metrics.md` — update
+- [x] **3.3** **[leader-owned]** `kkpa/context/workflows/vehicle-monthly-metrics.md` — update
   the KB guide. It is outside the charging worker's sandbox, so the leader edits it.
   `CLAUDE.md` §Non-negotiables requires it in the SAME change, and this guide's file map is
   now wrong in three places:
