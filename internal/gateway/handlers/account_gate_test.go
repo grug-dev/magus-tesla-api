@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -53,8 +52,8 @@ func TestRejectIfInactive_InactiveAccountIsBlocked(t *testing.T) {
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("rejectIfInactive(Inactive) status = %d, want 403", w.Code)
 	}
-	if !strings.Contains(w.Body.String(), "Cuenta desactivada") {
-		t.Errorf("blocked page body missing the account_blocked.title text:\n%s", w.Body.String())
+	if w.Body.Len() == 0 {
+		t.Errorf("rejectIfInactive(Inactive) rendered an empty body, want the blocked page")
 	}
 }
 

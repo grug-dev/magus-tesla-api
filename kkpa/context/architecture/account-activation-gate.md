@@ -18,7 +18,7 @@ Gateway half (the login-time refusal):
 | Entry point | `Handler.GoogleCallback` | `internal/gateway/handlers/handlers.go` |
 | The check | `rejectIfInactive(c, acct)` — free function, returns `true` when the caller must stop | `internal/gateway/handlers/handlers.go` |
 | The page | `pages.AccountBlocked()` — rendered inline at HTTP 403, **no route** | `internal/gateway/templates/pages/account_blocked.templ` |
-| Copy | `KeyAccountBlocked*` catalogue keys, ES + EN, contact address hardcoded | `internal/gateway/i18n/catalog.go` |
+| Copy | `KeyAccountBlocked*` catalogue keys, ES + EN — "we are validating your access", no contact address | `internal/gateway/i18n/catalog.go` |
 
 Account half (Active-filtered reads) lives inside `internal/account/` — see "How maintenance
 works" below.

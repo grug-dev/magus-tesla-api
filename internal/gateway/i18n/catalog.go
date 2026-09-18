@@ -788,8 +788,8 @@ var catalog = map[Key]entry{
 	KeyBrandPageTitle: {ES: "%s — Magus Monitor", EN: "%s — Magus Monitor"},
 	KeyLoginSignIn:    {ES: "Iniciar sesión", EN: "Sign in"},
 
-	KeyAccountBlockedTitle:   {ES: "Cuenta desactivada", EN: "Account deactivated"},
-	KeyAccountBlockedMessage: {ES: "Tu cuenta está desactivada. Escribe a cristiancamilopena@gmail.com para solicitar acceso.", EN: "Your account is deactivated. Contact cristiancamilopena@gmail.com to request access."},
+	KeyAccountBlockedTitle:   {ES: "Cuenta en revisión", EN: "Account under review"},
+	KeyAccountBlockedMessage: {ES: "Estamos validando tu acceso. Dentro de poco tu cuenta estará activa. Lo hacemos así para evitar que usuarios desconocidos entren a la app. Estamos en fase de pruebas, y tu ayuda es muy importante para nosotros.", EN: "We are validating your access. Your account will be active soon. We do it this way to keep unknown users out of the app. We are in a testing phase, and your help is very important to us."},
 
 	KeyInstallHintTitle:   {ES: "Instala Magus en tu iPhone", EN: "Install Magus on your iPhone"},
 	KeyInstallHintBody:    {ES: "Toca Compartir y luego «Añadir a pantalla de inicio».", EN: "Tap Share, then “Add to Home Screen”."},
