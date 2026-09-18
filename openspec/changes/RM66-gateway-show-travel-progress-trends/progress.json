@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM66-gateway-show-travel-progress-trends",
+  "module": "gateway",
+  "roadmap": "RM66-travel-progress-trends",
+  "tier": 3,
+  "request": "MAG-59 tier 3 — drive the three Travel Progress arrows from the stored day-over-day deltas. Direction on all three tiles, colour only on Efficiency.",
+  "status": "proposed",
+  "created_at": "2026-09-18T14:45:00Z",
+  "updated_at": "2026-09-18T14:45:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "Opus 5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM66-MAG-59-travel-progress-trends",
+    "base": "main",
+    "ticket": "MAG-59",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-59/travel-progress-drive-the-updown-arrows-from-the-previous-day"
+  },
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"],
+    "blocked": [],
+    "done": []
+  },
+  "tasks": [
+    { "id": "T1", "title": "ui.StatTileProps.Trend — the two neutral values", "depends_on": [], "status": "pending", "budget": null },
+    { "id": "T2", "title": "fragments.TravelStatVM and DashboardData field types", "depends_on": [], "status": "pending", "budget": null },
+    { "id": "T3", "title": "handlers/format.go — three new signed formatters", "depends_on": [], "status": "pending", "budget": null },
+    { "id": "T4", "title": "i18n key rename to KeyDashboardDeltaDesc", "depends_on": [], "status": "pending", "budget": null },
+    { "id": "T5", "title": "handlers.go — the trend/delta mechanism", "depends_on": ["T2", "T3", "T4"], "status": "pending", "budget": null },
+    { "id": "T6", "title": "dashboard.templ — wire the three tiles", "depends_on": ["T1", "T2"], "status": "pending", "budget": null },
+    { "id": "T7", "title": "handlers_test.go fixture fix and extension", "depends_on": ["T5"], "status": "pending", "budget": null },
+    { "id": "T8", "title": "New table-driven offline tests — the contract matrix", "depends_on": ["T5"], "status": "pending", "budget": null },
+    { "id": "T9", "title": "ui package rendering test for the two new Trend values", "depends_on": ["T1"], "status": "pending", "budget": null },
+    { "id": "T10", "title": "KB guide correction", "depends_on": [], "status": "pending", "budget": null }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "scope": "change:trend-vocabulary",
+      "made_by": "autopilot",
+      "at": "2026-09-18T14:35:00Z",
+      "decision": "Trend grows by TWO values (up-neutral, down-neutral), not the one the component comment reserved.",
+      "why": "D-C removes the colour but keeps the direction, so one value cannot carry both facts. Shown to the user in the briefing."
+    }
+  ],
+  "review": {
+    "status": "not-started",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-09-18T14:45:00Z",
+      "event": "artifacts written by the gateway worker and valid under openspec validate --strict. Spanish briefing posted and approved by the user. No database gate: this tier changes no schema. Wave plan: W1 = T1-T4, W2 = T5+T6, W3 = T7-T10."
+    }
+  ]
+}

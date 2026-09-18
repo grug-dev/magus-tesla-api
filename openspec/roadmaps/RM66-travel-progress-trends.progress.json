@@ -2,11 +2,11 @@
   "schema_version": 1,
   "kind": "roadmap",
   "roadmap": "RM66-travel-progress-trends",
-  "request": "MAG-59 — Travel Progress: drive the up/down arrows from the previous day. Also rename the tyre-pressure delta columns to carry a _delta suffix, and write that naming rule where an AI assistant reads it.",
+  "request": "MAG-59 \u2014 Travel Progress: drive the up/down arrows from the previous day. Also rename the tyre-pressure delta columns to carry a _delta suffix, and write that naming rule where an AI assistant reads it.",
   "status": "in-progress",
   "autopilot": true,
   "created_at": "2026-09-18T03:21:25Z",
-  "updated_at": "2026-09-18T13:59:00Z",
+  "updated_at": "2026-09-18T14:45:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -82,9 +82,12 @@
       "depends_on": [
         2
       ],
-      "status": "not-started",
+      "status": "proposed",
       "budget": null,
-      "notes": "Third neutral Trend value in the ui kit, mapping, template, i18n, spec and KB corrections."
+      "notes": "Artifacts written; openspec validate --strict passes. Spanish briefing approved by the user. No database gate: this tier changes no schema.",
+      "started_at": "2026-09-18T14:05:00Z",
+      "agent": "gateway",
+      "model": "sonnet"
     }
   ],
   "decisions": [
@@ -189,6 +192,14 @@
     {
       "at": "2026-09-18T13:59:00Z",
       "event": "CHECKPOINT at the tier 2 / tier 3 boundary, by the user's choice. Budget 5h=15% ctx=23% - neither threshold was reached; a fresh session is simply cheaper before the gateway tier, whose AGENTS.md is the largest in the repo. Tree is clean, tier 2 archived, KB synced and committed at 0e1ad58. Resume with: /kkpa-dev-harness-pipeline resume RM66-travel-progress-trends. Next step is tier 3 artifacts (Step 2), then the Spanish briefing gate before any code."
+    },
+    {
+      "at": "2026-09-18T14:05:00Z",
+      "event": "resumed in a fresh session; tier 3 artifacts worker dispatched (gateway, sonnet); budget start 5h=17% ctx=10%. No fresh interview: roadmap D-B/D-C and the tier 3 proposal prompt cover every open decision."
+    },
+    {
+      "at": "2026-09-18T14:45:00Z",
+      "event": "tier 3 artifacts complete and valid. Spanish briefing posted and approved by the user. Decision IDs D1-D6 added to design.md so workers can enumerate them. Implementation starts at wave 1."
     }
   ]
 }
