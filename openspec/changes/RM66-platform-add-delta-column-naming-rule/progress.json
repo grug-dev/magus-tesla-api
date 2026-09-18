@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM66-platform-add-delta-column-naming-rule",
+  "module": "platform",
+  "roadmap": "openspec/roadmaps/RM66-travel-progress-trends.md",
+  "request": "MAG-59 tier 1: write the delta-column naming rule in ai/go-conventions.md and enforce it with a make delta-guard target.",
+  "status": "applied",
+  "created_at": "2026-09-18T03:40:11Z",
+  "updated_at": "2026-09-18T03:44:24Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "Opus 5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM66-MAG-59-travel-progress-trends",
+    "base": "main",
+    "ticket": "MAG-59",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-59/travel-progress-drive-the-updown-arrows-from-the-previous-day",
+    "created_at": "2026-09-18T03:40:11Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T2",
+      "T3"
+    ],
+    "awaiting-user-verification": [
+      "T1",
+      "T4"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Makefile: delta-guard target, .PHONY, check wiring",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "sonnet",
+      "started_at": "2026-09-18T03:40:51Z",
+      "completed_at": "2026-09-18T03:44:24Z",
+      "budget": {
+        "five_hour_pct_start": 80,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 2.73,
+        "approx": true,
+        "note": "delta covers the whole T1-T4 wave jointly"
+      },
+      "notes": "Re-ran both measurement greps first. Found 10 SQL and 15 Go names, matching design.md. Added delta-guard after naming-guard, wired into .PHONY and check."
+    },
+    {
+      "id": "T2",
+      "title": "ai/go-conventions.md: the delta-column naming rule",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "sonnet",
+      "started_at": "2026-09-18T03:40:51Z",
+      "completed_at": "2026-09-18T03:44:24Z",
+      "budget": {
+        "five_hour_pct_start": 80,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 2.73,
+        "approx": true,
+        "note": "delta covers the whole T1-T4 wave jointly"
+      },
+      "notes": "Added the rule beside the unit-suffix bullet in go-conventions. Additive only. Points at make delta-guard and the unit-of-measure spec."
+    },
+    {
+      "id": "T3",
+      "title": "README.md and CLAUDE.md: list the new guard",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "platform",
+      "model": "sonnet",
+      "started_at": "2026-09-18T03:40:51Z",
+      "completed_at": "2026-09-18T03:44:24Z",
+      "budget": {
+        "five_hour_pct_start": 80,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 2.73,
+        "approx": true,
+        "note": "delta covers the whole T1-T4 wave jointly"
+      },
+      "notes": "Listed delta-guard in README's make check comment and in CLAUDE.md's allowed-guards bullet and Test-Execution-Policy block."
+    },
+    {
+      "id": "T4",
+      "title": "Verification: run the guard both directions, build, vet, validate",
+      "module": "platform",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "platform",
+      "model": "sonnet",
+      "started_at": "2026-09-18T03:40:51Z",
+      "completed_at": "2026-09-18T03:44:24Z",
+      "budget": {
+        "five_hour_pct_start": 80,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 2.73,
+        "approx": true,
+        "note": "delta covers the whole T1-T4 wave jointly"
+      },
+      "notes": "Guard passes clean and fails on an injected violation. Leader re-verified both directions independently. Build, vet and gofmt clean. Suite not run."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-H",
+      "scope": "wave-1",
+      "made_by": "autopilot",
+      "at": "2026-09-18T03:40:11Z",
+      "decision": "T1, T2, T3 and T4 run in ONE serial worker, not four parallel ones.",
+      "why": "The change is four small edits. One dispatch reads the doc pack once instead of four times."
+    }
+  ],
+  "review": {
+    "brief": null,
+    "agent": null,
+    "status": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-09-18T03:40:11Z",
+      "event": "user approved the Spanish briefing for tier 1; implementation authorized"
+    },
+    {
+      "at": "2026-09-18T03:40:51Z",
+      "event": "wave 1 dispatched: T1-T4 in one serial worker (platform, sonnet); budget start 5h=80% ctx=20%"
+    },
+    {
+      "at": "2026-09-18T03:44:24Z",
+      "event": "wave 1 complete. Leader independently re-verified the guard fails on an injected violation and passes when clean; tree left clean."
+    }
+  ]
+}

@@ -91,7 +91,7 @@ make lint      # golangci-lint run ./...   — config in .golangci.yml
 
 # 4. Full local gate
 make check     # build + vet + lint + ui-guard + i18n-guard + money-guard + tz-guard + migration-boundary-guard
-#              # + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + test
+#              # + boundary-guard + theme-guard + vehicleref-guard + tenancy-guard + archive-guard + delta-guard + test
 ```
 
 Raw Go equivalents (no Make):
