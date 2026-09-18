@@ -280,6 +280,21 @@ not hardcoded, so it cannot drift from the files.
 this command, so they call `cmd/migrate -stamp-only` first. One implementation, three
 callers: a second copy of the SQL in the Makefile would be free to drift from the Go one.
 
+**What it deliberately does not check.** The stamp asks whether the module's schema holds
+tables. It does not ask whether those tables are at the pre-squash head — there is no cheap
+query for that, and the only proxy, `public.goose_db_version`, would mean hardcoding the
+expected version count into the runner.
+
+So a database that stopped short of `20260915000001` is stamped anyway, and the next
+migration then fails against a schema it does not match. `magus_test` proved this: it was
+three migrations behind, got stamped, and `DROP COLUMN account_id` failed because the
+column had never been added. Its `max(version_id)` matched dev's exactly; only the applied
+**count** differed (52 against 55), so a max check would not have caught it either.
+
+The owner accepted this: the guard stays as it is, and the protection is the required count
+check in `tasks.md` 13.2 before the deploy. A stale database is a broken test database, not
+a broken prod — prod is the one database guaranteed to be at the head, and 13.2 proves it.
+
 This is one-time code, and `tasks.md` 4b.9 says what to delete once dev and prod are both
 past the squash. `runbook/stamp-baseline.sql` stays as a fallback for a database the
 runner cannot reach — a restored dump, a manual recovery.

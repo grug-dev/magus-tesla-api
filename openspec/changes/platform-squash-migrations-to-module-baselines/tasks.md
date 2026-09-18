@@ -271,7 +271,17 @@ automatic deploy, with nothing enforcing the order.
 `runbook/stamp-baseline.sql` is kept as a fallback for a database the runner cannot
 reach (a restored dump, a manual recovery). It is not part of the normal path.
 
-- [ ] 13.1 Optional, if you want to see prod's starting state. On the VPS:
+**13.1 is REQUIRED, not optional.** The stamp fires on "this module's schema already has
+tables". It does **not** check that those tables are at the pre-squash head, because it has
+no cheap way to. A database that stopped short of `20260915000001` gets stamped anyway, and
+then `20260917000002` fails against a schema that never got the column it drops.
+
+That is not theoretical: `magus_test` was three migrations behind (`20260908000002`,
+`20260908000003`, `20260914000002`), got stamped, and `DROP COLUMN account_id` failed
+because the column had never been added. Its `max(version_id)` was `20260915000001`, the
+same as dev's — only the **count** differed, 52 against 55. So check the count, not the max.
+
+- [ ] 13.1 **Confirm prod applied every pre-squash migration.** On the VPS:
 
 ```bash
 ssh <your VPS>
@@ -288,6 +298,17 @@ $DC exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   Before the deploy the four module rows are absent and `public (old)` reads `55` /
   `20260915000001`. **That row is the rollback path** — the previous image reads it, and
   nothing in this change writes to it.
+
+- [ ] 13.2 Confirm the count precisely — `55` is the number that matters:
+
+```bash
+$DC exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+  "SELECT count(DISTINCT version_id) FROM public.goose_db_version WHERE is_applied"
+```
+
+  **If it is not 55, STOP — do not merge.** Prod is behind, and stamping it would record
+  baselines it does not match. Bring prod current on the old image first, or report the
+  number and stop.
 
 ## 14. Deploy prod, then verify **[owner]**
 
