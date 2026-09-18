@@ -240,7 +240,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   Neither `internal/telemetry/db` nor `internal/analytics/db`. All access is through the
   `analytics.Reader` and `account.Service` public interfaces.
   _Source: spec gateway — Scenario: Gateway never imports telemetrydb or analyticsdb for this read._
-- **The two Travel Progress trend icons are fixed, never computed.** Distance travelled always shows the "increasing" icon and battery used always shows the "decreasing" icon. The direction states what the metric *is* — distance accumulates, charge depletes — not whether the value rose or fell since a previous day. Tyre pressure sits beside it with a real delta-driven icon. The two rules live side by side on purpose.
+- **All three Travel Progress tiles compute a real direction from their own day-over-day delta.** Distance travelled, Battery used, and Efficiency each read their own `*DeltaCalc` field and show "up" or "down" from its sign, the same mechanism tyre pressure already used. Only Efficiency's icon is coloured (green for good, red for bad) — Distance travelled and Battery used render the same direction in a shared neutral colour, because driving more or less is not itself good or bad news.
   _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._
 - **Trend colours are semantic tokens, never a hardcoded value.** The "increasing" and "decreasing" indicators each resolve to their own semantic colour so the three themes (apex, graphite, halloween) all render correctly. `make ui-guard` fails a raw colour.
   _Source: spec gateway — Requirement: Dashboard Travel Progress Subsection._

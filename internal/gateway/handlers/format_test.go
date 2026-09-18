@@ -27,3 +27,71 @@ func TestFormatMoney(t *testing.T) {
 		})
 	}
 }
+
+// TestFormatSignedKm covers design.md's Test Contract table: positive,
+// negative, exact zero, and the rounding case (42.6 -> "+43", matching
+// formatKm's own rounding rule).
+func TestFormatSignedKm(t *testing.T) {
+	cases := []struct {
+		name string
+		v    float64
+		want string
+	}{
+		{"positive", 42.0, "+42"},
+		{"negative", -17.0, "-17"},
+		{"exact zero", 0.0, "0"},
+		{"rounds up like formatKm", 42.6, "+43"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatSignedKm(tc.v)
+			if got != tc.want {
+				t.Errorf("formatSignedKm(%v) = %q, want %q", tc.v, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFormatSignedPct covers design.md's Test Contract table: one decimal,
+// same rule as the existing formatSignedPSI.
+func TestFormatSignedPct(t *testing.T) {
+	cases := []struct {
+		name string
+		v    float64
+		want string
+	}{
+		{"positive", 3.2, "+3.2"},
+		{"negative", -1.5, "-1.5"},
+		{"exact zero", 0.0, "0.0"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatSignedPct(tc.v)
+			if got != tc.want {
+				t.Errorf("formatSignedPct(%v) = %q, want %q", tc.v, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFormatSignedKmPerPct covers design.md's Test Contract table: one
+// decimal, same rule as the existing formatSignedPSI.
+func TestFormatSignedKmPerPct(t *testing.T) {
+	cases := []struct {
+		name string
+		v    float64
+		want string
+	}{
+		{"positive", 3.2, "+3.2"},
+		{"negative", -1.5, "-1.5"},
+		{"exact zero", 0.0, "0.0"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatSignedKmPerPct(tc.v)
+			if got != tc.want {
+				t.Errorf("formatSignedKmPerPct(%v) = %q, want %q", tc.v, got, tc.want)
+			}
+		})
+	}
+}

@@ -819,6 +819,13 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 		KmPerPctCalc:           ptrF64(2.84),
 		ConsumedPct:            ptrF64(12.3),
 
+		// RM66 tier 3 — Travel Progress deltas, one branch per tile
+		// (design.md Test Contract): Distance positive, Battery negative,
+		// Efficiency exact zero.
+		DistanceTraveledKmDeltaCalc: ptrF64(5.0),
+		ConsumedPctDeltaCalc:        ptrF64(-1.2),
+		KmPerPctDeltaCalc:           ptrF64(0.0),
+
 		// RM50 tier 4 — one wheel per dashTireTrend/dashTireDelta branch
 		// (design.md Test Contract): FL positive, FR negative, RL exact
 		// zero, RR nil/nil (absent).
@@ -880,15 +887,21 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 	if vm.MaxRangeCharges != "12" {
 		t.Errorf("want MaxRangeCharges %q, got %q", "12", vm.MaxRangeCharges)
 	}
-	if vm.DistanceTraveled != "45 km" {
-		t.Errorf("want DistanceTraveled %q, got %q", "45 km", vm.DistanceTraveled)
+	// RM66 tier 3 — Travel Progress tiles (design.md Test Contract): one
+	// delta branch per tile, positive/negative/exact-zero.
+	wantDistance := fragments.TravelStatVM{Value: "45 km", Trend: "up-neutral", Delta: "+5 vs prev. day"}
+	if vm.DistanceTraveled != wantDistance {
+		t.Errorf("want DistanceTraveled %+v, got %+v", wantDistance, vm.DistanceTraveled)
 	}
-	if vm.BatteryUsed != "12.3%" {
-		t.Errorf("want BatteryUsed %q, got %q", "12.3%", vm.BatteryUsed)
+	wantBatteryUsed := fragments.TravelStatVM{Value: "12.3%", Trend: "down-neutral", Delta: "-1.2 vs prev. day"}
+	if vm.BatteryUsed != wantBatteryUsed {
+		t.Errorf("want BatteryUsed %+v, got %+v", wantBatteryUsed, vm.BatteryUsed)
 	}
-	// 2.84 km/% rounds to one decimal: "2.8 km/%".
-	if vm.Efficiency != "2.8 km/%" {
-		t.Errorf("want Efficiency %q, got %q", "2.8 km/%", vm.Efficiency)
+	// 2.84 km/% rounds to one decimal: "2.8 km/%". Exact-zero delta: no
+	// trend icon, but the delta line still renders (a known "no change").
+	wantEfficiency := fragments.TravelStatVM{Value: "2.8 km/%", Trend: "", Delta: "0.0 vs prev. day"}
+	if vm.Efficiency != wantEfficiency {
+		t.Errorf("want Efficiency %+v, got %+v", wantEfficiency, vm.Efficiency)
 	}
 
 	// RM50 tier 4 — tire pressure tiles (design.md Test Contract table).
@@ -949,16 +962,22 @@ func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
 	if vm.MaxRangeCharges != "—" {
 		t.Errorf("want MaxRangeCharges %q (nil counter), got %q", "—", vm.MaxRangeCharges)
 	}
-	if vm.DistanceTraveled != "—" {
-		t.Errorf("want DistanceTraveled %q (nil DistanceTraveledKmCalc), got %q", "—", vm.DistanceTraveled)
+	// RM66 tier 3 — every pointer field is nil in this fixture, so every
+	// Travel Progress tile collapses to the dash placeholder with no trend
+	// and no delta line.
+	wantDistanceNil := fragments.TravelStatVM{Value: "—", Trend: "", Delta: ""}
+	if vm.DistanceTraveled != wantDistanceNil {
+		t.Errorf("want DistanceTraveled %+v (nil DistanceTraveledKmCalc), got %+v", wantDistanceNil, vm.DistanceTraveled)
 	}
-	if vm.BatteryUsed != "—" {
-		t.Errorf("want BatteryUsed %q (nil ConsumedPct), got %q", "—", vm.BatteryUsed)
+	wantBatteryUsedNil := fragments.TravelStatVM{Value: "—", Trend: "", Delta: ""}
+	if vm.BatteryUsed != wantBatteryUsedNil {
+		t.Errorf("want BatteryUsed %+v (nil ConsumedPct), got %+v", wantBatteryUsedNil, vm.BatteryUsed)
 	}
 	// nil KmPerPctCalc means no predecessor, or battery used <= 0 -- both are
 	// "cannot say", never a fabricated 0.
-	if vm.Efficiency != "—" {
-		t.Errorf("want Efficiency %q (nil KmPerPctCalc), got %q", "—", vm.Efficiency)
+	wantEfficiencyNil := fragments.TravelStatVM{Value: "—", Trend: "", Delta: ""}
+	if vm.Efficiency != wantEfficiencyNil {
+		t.Errorf("want Efficiency %+v (nil KmPerPctCalc), got %+v", wantEfficiencyNil, vm.Efficiency)
 	}
 	// Odometer/Battery/RangeNow are always non-pointer — unaffected by the nil fixture.
 	if vm.Odometer != "18,452 km" {

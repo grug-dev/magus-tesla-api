@@ -149,7 +149,7 @@ Decisions: D1, D5
 
 Decisions: D2, D4, D5
 
-- [ ] T7.1 In `TestMapDashboardSnapshot_FixtureFull`
+- [x] T7.1 In `TestMapDashboardSnapshot_FixtureFull`
       (`internal/gateway/handlers/handlers_test.go:800-910`), add three
       fields to the fixture `analytics.VehicleStatus` literal:
       `DistanceTraveledKmDeltaCalc: ptrF64(5.0)` (positive),
@@ -157,7 +157,7 @@ Decisions: D2, D4, D5
       `KmPerPctDeltaCalc: ptrF64(0.0)` (exact zero) — one branch per tile,
       mirroring how the four tyre wheels already spread across
       positive/negative/zero/nil in this same fixture.
-- [ ] T7.2 Replace the three now-broken string assertions
+- [x] T7.2 Replace the three now-broken string assertions
       (`vm.DistanceTraveled != "45 km"` etc., lines 883-891) with
       `fragments.TravelStatVM` equality checks, one per tile:
       - `DistanceTraveled`: `{Value: "45 km", Trend: "up-neutral", Delta: "+5 vs prev. day"}`
@@ -165,7 +165,7 @@ Decisions: D2, D4, D5
       - `Efficiency`: `{Value: "2.8 km/%", Trend: "", Delta: "0.0 vs prev. day"}`
       Mirror the existing `wantFL`/`wantFR`/`wantRL`/`wantRR` comparison
       style (a `want*` variable plus an equality check with `%+v`).
-- [ ] T7.3 In `TestMapDashboardSnapshot_FixtureNil`, replace the three
+- [x] T7.3 In `TestMapDashboardSnapshot_FixtureNil`, replace the three
       now-broken string assertions (lines 952-961) with
       `fragments.TravelStatVM{Value: "—", Trend: "", Delta: ""}` equality
       checks — every pointer field is already nil in this fixture, so no new
@@ -179,15 +179,15 @@ Decisions: D2, D4, D5
 
 Decisions: D2, D4
 
-- [ ] T8.1 Add table-driven tests for `dashNeutralTrend` and
+- [x] T8.1 Add table-driven tests for `dashNeutralTrend` and
       `dashColoredTrend` in `handlers_test.go` (or a new
       `handlers_trend_test.go`), asserting every row of design.md's two
       trend tables (positive / negative / exact-zero / nil, 4 cases each).
-- [ ] T8.2 Add table-driven tests for `formatSignedKm`, `formatSignedPct`,
+- [x] T8.2 Add table-driven tests for `formatSignedKm`, `formatSignedPct`,
       `formatSignedKmPerPct` in `format_test.go`, asserting every row of
       design.md's three formatter tables, including the `42.6 → "+43"`
       rounding case for `formatSignedKm`.
-- [ ] T8.3 Add a table-driven test for `dashDeltaDesc`, asserting design.md's
+- [x] T8.3 Add a table-driven test for `dashDeltaDesc`, asserting design.md's
       four rows (positive / negative / exact-zero / nil) using
       `formatSignedKm` as the example formatter.
       Acceptance: `go vet ./internal/gateway/...` compiles all new tests.
@@ -197,7 +197,7 @@ Decisions: D2, D4
 
 Decisions: D1
 
-- [ ] T9.1 Add or extend a `stat_tile_test.go` (or wherever this component's
+- [x] T9.1 Add or extend a `stat_tile_test.go` (or wherever this component's
       existing rendering tests live, if any) asserting design.md's
       `statTrendIcon` table: `"up-neutral"`/`"down-neutral"` each render
       exactly one `<svg class="h-5 w-5 text-neutral shrink-0">`, matching
@@ -211,7 +211,7 @@ Decisions: D1
 
 Decisions: D6
 
-- [ ] T10.1 In `kkpa/context/use-case/gateway/read-dashboard-bento.md:242`,
+- [x] T10.1 In `kkpa/context/use-case/gateway/read-dashboard-bento.md:242`,
       replace the bullet stating "the two Travel Progress trend icons are
       fixed, never computed" with the real behaviour: all three tiles now
       compute a real direction from their own day-over-day delta; only
