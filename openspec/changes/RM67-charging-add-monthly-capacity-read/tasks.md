@@ -21,7 +21,7 @@ design.md D1–D6 for the rationale behind each group.
 
 ## Wave 1 — query (module: charging worker)
 
-- [ ] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
+- [x] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
   `-- name: EffectiveCapacityForPeriod :one` exactly as specified in design.md
   §"The Query", including its full doc comment. `WHERE tesla_id = @tesla_id AND
   effective_period = date_trunc('month', @month::date)::date` — do **not** normalize the
@@ -37,7 +37,7 @@ design.md D1–D6 for the rationale behind each group.
 
 ## Wave 2 — the Go port (module: charging worker)
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add the
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add the
   `MonthlyCapacityReader` interface (one method, `CapacityForMonth`, with the doc comment
   exactly as specified in design.md §"The Go Port" — the three-state contract table from
   design.md D1 belongs in this comment, not only in this tasks file) and the
@@ -47,7 +47,7 @@ design.md D1–D6 for the rationale behind each group.
   not compile until 2.2 and 2.3 supply the constructor chain's bodies.
   `depends_on`: 1.1 · `parallel_ok`: with 2.2 (authoring only — they land together)
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/monthly_capacity_reader.go`
+- [x] **2.2** **[module: charging worker]** `internal/charging/monthly_capacity_reader.go`
   (new file) — implement the port exactly as specified in design.md §"The Go Port": an
   unexported `monthlyCapacityReader` struct over `*chargingdb.Queries`, an unexported
   `newMonthlyCapacityReader(pool *pgxpool.Pool) *monthlyCapacityReader`, the compile-time
@@ -57,7 +57,7 @@ design.md D1–D6 for the rationale behind each group.
   from `service.go` — do not duplicate it.
   `depends_on`: 2.1 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: charging worker]** `internal/charging/query_log.go` — append the
+- [x] **2.3** **[module: charging worker]** `internal/charging/query_log.go` — append the
   `loggingMonthlyCapacityReader` decorator exactly as specified in design.md §"The Go
   Port", following this file's existing explicit-implementation pattern (no embedding —
   see the file's own header comment on why). Update `NewMonthlyCapacityReader` in

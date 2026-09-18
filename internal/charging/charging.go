@@ -727,3 +727,33 @@ type MonthlyCapacityCalculator interface {
 func NewMonthlyCapacityCalculator(pool *pgxpool.Pool) MonthlyCapacityCalculator {
 	return newLoggingMonthlyCapacityCalculator(newMonthlyCapacityCalculator(pool))
 }
+
+// MonthlyCapacityReader is this module's second read port over
+// monthly_effective_capacity, alongside packCapacityKWh's own unexported
+// LatestMeasuredCapacity seam. It answers a different question: what did
+// this exact vehicle and month measure, not what should today's math use.
+// The two stay separate because LatestMeasuredCapacity skips NULL months and
+// searches backwards -- exactly what this port must never do.
+type MonthlyCapacityReader interface {
+	// CapacityForMonth returns the measured pack capacity for teslaID for
+	// the calendar month containing month -- only month's year and calendar
+	// month matter; any day within that month gives the same result.
+	//
+	// found is false when no monthly_effective_capacity row exists yet for
+	// this vehicle and month -- capacityKWh is then always nil.
+	// found is true and capacityKWh is nil when a row exists but that
+	// month's evidence was too thin to measure a capacity (a NULL
+	// effective_capacity_kwh).
+	// found is true and capacityKWh is non-nil for a month with a measured
+	// capacity.
+	CapacityForMonth(ctx context.Context, teslaID int64, month time.Time) (capacityKWh *float64, found bool, err error)
+}
+
+// NewMonthlyCapacityReader constructs a MonthlyCapacityReader backed by the
+// given pgxpool. The implementation lives in monthly_capacity_reader.go where
+// the chargingdb generated package is used. This is the only publicly
+// exported factory function for this port. The returned value logs its
+// single method -- see query_log.go.
+func NewMonthlyCapacityReader(pool *pgxpool.Pool) MonthlyCapacityReader {
+	return newLoggingMonthlyCapacityReader(newMonthlyCapacityReader(pool))
+}

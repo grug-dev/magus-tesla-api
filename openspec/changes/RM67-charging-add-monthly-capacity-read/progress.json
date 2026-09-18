@@ -5,23 +5,25 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Add a read method to internal/charging that returns the stored monthly effective capacity for one vehicle and one exact month. The existing read picks the newest non-NULL row; this one must return the row for the month asked for, and report 'no row' distinctly from 'row with NULL capacity'. Honour RD4: the caller stores 0, so the port must let the caller tell the two cases apart. Tier 1 of 4 of roadmap RM67-vehicle-monthly-metrics-table (Linear MAG-73); it exists because tier 2 in analytics cannot copy the capacity without it.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "2.1",
-      "2.2",
-      "2.3",
       "3.1",
       "3.2",
       "3.3"
     ],
     "blocked": [],
-    "done": []
+    "done": [],
+    "awaiting-user-verification": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3"
+    ]
   },
   "created_at": "2026-09-18T19:35:00Z",
-  "updated_at": "2026-09-18T19:35:00Z",
+  "updated_at": "2026-09-18T21:13:04Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -41,14 +43,20 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T21:09:07Z",
+      "completed_at": "2026-09-18T21:13:04Z",
       "duration_seconds": null,
-      "notes": "Month filter uses date_trunc in SQL, never Go. No migration touched.",
-      "budget": null
+      "notes": "Query appended to query.sql; make sqlc regenerated the method and params against the existing model. No migration touched.",
+      "budget": {
+        "five_hour_pct_start": 25,
+        "five_hour_pct_end": 32,
+        "cost_usd_delta": 2.655,
+        "approx": true,
+        "note": "one shared serial dispatch covering waves 1+2; delta copied onto each task"
+      }
     },
     {
       "id": "2.1",
@@ -58,14 +66,20 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T21:09:07Z",
+      "completed_at": "2026-09-18T21:13:04Z",
       "duration_seconds": null,
-      "notes": "Three-state contract goes in the method doc comment, not only in tasks.md.",
-      "budget": null
+      "notes": "MonthlyCapacityReader interface plus NewMonthlyCapacityReader added to charging.go. Three-state contract is in the method doc comment.",
+      "budget": {
+        "five_hour_pct_start": 25,
+        "five_hour_pct_end": 32,
+        "cost_usd_delta": 2.655,
+        "approx": true,
+        "note": "one shared serial dispatch covering waves 1+2; delta copied onto each task"
+      }
     },
     {
       "id": "2.2",
@@ -75,14 +89,20 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T21:09:07Z",
+      "completed_at": "2026-09-18T21:13:04Z",
       "duration_seconds": null,
-      "notes": "pgx.ErrNoRows maps to (nil, false, nil). Reuse pgFloat8ToFloat64Ptr from service.go.",
-      "budget": null
+      "notes": "New monthly_capacity_reader.go. pgx.ErrNoRows maps to (nil, false, nil). Reuses pgFloat8ToFloat64Ptr.",
+      "budget": {
+        "five_hour_pct_start": 25,
+        "five_hour_pct_end": 32,
+        "cost_usd_delta": 2.655,
+        "approx": true,
+        "note": "one shared serial dispatch covering waves 1+2; delta copied onto each task"
+      }
     },
     {
       "id": "2.3",
@@ -92,14 +112,20 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T21:09:07Z",
+      "completed_at": "2026-09-18T21:13:04Z",
       "duration_seconds": null,
-      "notes": "Edits the constructor 2.1 declares, so it lands after 2.1 and 2.2. Worker flagged this as convention-driven, not requested.",
-      "budget": null
+      "notes": "loggingMonthlyCapacityReader added to query_log.go; header count updated to six. Leader fixed a %v pointer log to print the number.",
+      "budget": {
+        "five_hour_pct_start": 25,
+        "five_hour_pct_end": 32,
+        "cost_usd_delta": 2.655,
+        "approx": true,
+        "note": "one shared serial dispatch covering waves 1+2; delta copied onto each task"
+      }
     },
     {
       "id": "3.1",
@@ -187,6 +213,33 @@
       "decision": "progress.json is committed together with the artifacts in one commit rather than waiting for a wave commit.",
       "why": "The run halts after Step 4 by the pickup payload's instruction, so a later wave commit would never arrive to carry it.",
       "covered_by": null
+    },
+    {
+      "id": "D-L4",
+      "at": "2026-09-18T21:09:07Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Waves 1 and 2 are dispatched as ONE serial charging worker (1.1, 2.1, 2.2, 2.3) instead of two dispatches.",
+      "why": "Same module, strictly serial, and 2.1 does not compile without 2.2/2.3. One dispatch reads the ~12k-token doc pack once instead of twice.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L5",
+      "at": "2026-09-18T21:13:04Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "The Step 5.7 test ask is deferred from this wave to the end of wave 3, so the owner runs the suite once.",
+      "why": "This wave adds no test. The suite would exercise the new port only through task 3.1's tests, which do not exist yet.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L6",
+      "at": "2026-09-18T21:13:04Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Leader edited three comments to remove design.md, RM67, tier and RD decision-ID pointers, and fixed a %v format on a *float64.",
+      "why": "The B2 rule bans out-of-code pointers in comments. %v on a pointer logs an address, not the capacity value.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -199,6 +252,16 @@
       "at": "2026-09-18T19:35:00Z",
       "agent": "leader",
       "event": "artifacts validated (openspec validate --strict passed); Spanish design briefing posted and approved by the user; design gate evaluated as not applicable to this tier"
+    },
+    {
+      "at": "2026-09-18T21:09:07Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; dispatched charging worker on claude-sonnet for waves 1+2 (tasks 1.1, 2.1, 2.2, 2.3); budget at dispatch: five_hour 25%, context 10%, cost $1.03"
+    },
+    {
+      "at": "2026-09-18T21:13:04Z",
+      "agent": "leader",
+      "event": "waves 1+2 complete: build, vet, gofmt, naming-guard and boundary-guard all clean; tasks set awaiting-user-verification per Test-Execution-Policy; budget five_hour 25%->32%, context 14%"
     }
   ]
 }
