@@ -255,8 +255,18 @@ func (m MigrationDir) BaselineVersion() (int64, error) {
 // goose runs the baseline normally. Note the guard must test for TABLES, not for
 // the schema: the schema always exists by the time this runs.
 //
-// It is idempotent. The second guard (an empty ledger) means a database that has
-// already been stamped, or one goose has ever migrated, inserts nothing.
+// It is idempotent, and the second guard is "no REAL migration recorded", not "the
+// ledger is empty". The difference is not academic. goose writes a version-0 marker
+// row when it creates a ledger, before running anything — so a database where goose
+// created the ledger and then failed on the baseline is left holding exactly that one
+// row. That is the shape a failed first deploy leaves behind, and it is exactly the
+// database that needs stamping. An "is the ledger empty" test would refuse to stamp
+// it and the baseline would fail again, with no way out but hand-written SQL.
+// magus_test was sitting in that state and is what caught it.
+//
+// A database goose has genuinely migrated has rows above 0, so it is never stamped.
+// The third guard skips a row that is already there, which keeps the version-0 marker
+// from being inserted twice.
 //
 // Creating the ledger ourselves does not collide with goose. goose calls
 // TableExists before creating it (provider_run.go, tryEnsureVersionTable) and
@@ -273,8 +283,9 @@ func (m MigrationDir) BaselineVersion() (int64, error) {
 //
 // Two statements are returned rather than one string because the pgx driver runs
 // the extended protocol, which rejects several statements in one Exec. Run them
-// in order. The SECOND one's RowsAffected is the signal the caller logs: 2 means
-// this database was stamped, 0 means it needed no stamp.
+// in order. The SECOND one's RowsAffected is the signal the caller logs: 0 means
+// no stamp was needed, and 1 or 2 means the database was stamped — 1 when goose
+// had already left its version-0 marker behind.
 func (m MigrationDir) StampBaselineSQL(baselineVersion int64) []string {
 	ident := strings.ReplaceAll(m.Module, `"`, `""`)
 	lit := strings.ReplaceAll(m.Module, `'`, `''`)
@@ -292,7 +303,13 @@ SELECT v, true
          SELECT 1 FROM pg_tables
           WHERE schemaname = '%[2]s' AND tablename <> 'goose_db_version'
        )
-   AND NOT EXISTS (SELECT 1 FROM "%[1]s".goose_db_version)`, ident, lit, baselineVersion),
+   AND NOT EXISTS (
+         SELECT 1 FROM "%[1]s".goose_db_version WHERE version_id > 0
+       )
+   AND NOT EXISTS (
+         SELECT 1 FROM "%[1]s".goose_db_version existing
+          WHERE existing.version_id = baseline.v
+       )`, ident, lit, baselineVersion),
 	}
 }
 

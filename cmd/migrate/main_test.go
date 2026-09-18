@@ -102,6 +102,23 @@ func newSchema(t *testing.T, db *sql.DB, name string, withTable bool) config.Mig
 	return config.MigrationDir{Module: name, Dir: accountDir}
 }
 
+// addGooseMarkerLedger reproduces what goose leaves behind when it creates a ledger
+// and the migration that follows then fails: the table exists and holds only the
+// version-0 marker row.
+func addGooseMarkerLedger(t *testing.T, db *sql.DB, schema string) {
+	t.Helper()
+	ctx := context.Background()
+
+	create := config.MigrationDir{Module: schema, Dir: accountDir}.StampBaselineSQL(1)[0]
+	if _, err := db.ExecContext(ctx, create); err != nil {
+		t.Fatalf("create ledger in %s: %v", schema, err)
+	}
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO "`+schema+`".goose_db_version (version_id, is_applied) VALUES (0, true)`); err != nil {
+		t.Fatalf("insert goose marker in %s: %v", schema, err)
+	}
+}
+
 func ledgerRows(t *testing.T, db *sql.DB, schema string) []int64 {
 	t.Helper()
 	rows, err := db.Query(`SELECT version_id FROM "` + schema + `".goose_db_version ORDER BY version_id`)
@@ -139,6 +156,31 @@ func TestStampBaseline_PreSquashDatabaseIsStamped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BaselineVersion() returned error: %v", err)
 	}
+	got := ledgerRows(t, db, m.Module)
+	if len(got) != 2 || got[0] != 0 || got[1] != want {
+		t.Fatalf("ledger = %v, want [0 %d]", got, want)
+	}
+}
+
+// A first deploy that already failed: goose created the ledger, wrote its version-0
+// marker, then the baseline died on "relation already exists" and left the marker
+// behind. That database still needs stamping, so a "ledger is empty" guard would be
+// wrong — it would refuse, and the baseline would fail again on every retry. This is
+// the state magus_test was found in.
+func TestStampBaseline_LedgerWithOnlyGooseMarkerIsStamped(t *testing.T) {
+	db := newTestDB(t)
+	m := newSchema(t, db, "stamp_marker_only", true)
+	addGooseMarkerLedger(t, db, m.Module)
+
+	if err := stampBaseline(context.Background(), db, m); err != nil {
+		t.Fatalf("stampBaseline() returned error: %v", err)
+	}
+
+	want, err := m.BaselineVersion()
+	if err != nil {
+		t.Fatalf("BaselineVersion() returned error: %v", err)
+	}
+	// The marker must not be duplicated: exactly 0 and the baseline.
 	got := ledgerRows(t, db, m.Module)
 	if len(got) != 2 || got[0] != 0 || got[1] != want {
 		t.Fatalf("ledger = %v, want [0 %d]", got, want)

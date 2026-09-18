@@ -564,6 +564,9 @@ func TestMigrationDir_StampBaselineSQLNamesSchemaAndVersion(t *testing.T) {
 		`schemaname = 'telemetry'`,
 		`20260917000001`,
 		`tablename <> 'goose_db_version'`,
+		// The guard must ignore goose's version-0 marker, or a ledger left behind by a
+		// failed first run can never be stamped. See StampBaselineSQL.
+		`version_id > 0`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("StampBaselineSQL() is missing %q:\n%s", want, got)
