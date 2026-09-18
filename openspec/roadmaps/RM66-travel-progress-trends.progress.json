@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM66-travel-progress-trends",
+  "request": "MAG-59 — Travel Progress: drive the up/down arrows from the previous day. Also rename the tyre-pressure delta columns to carry a _delta suffix, and write that naming rule where an AI assistant reads it.",
+  "status": "in-progress",
+  "autopilot": true,
+  "created_at": "2026-09-18T03:21:25Z",
+  "updated_at": "2026-09-18T03:21:25Z",
+  "leader": { "assistant": "Claude Code", "model": "Opus 5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM66-MAG-59-travel-progress-trends",
+    "base": "main",
+    "ticket": "MAG-59",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-59/travel-progress-drive-the-updown-arrows-from-the-previous-day",
+    "created_at": "2026-09-18T03:21:25Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": ["1", "2", "3"],
+    "blocked": [],
+    "done": []
+  },
+  "tiers": [
+    {
+      "tier": 1,
+      "change": "RM66-platform-add-delta-column-naming-rule",
+      "module": "platform",
+      "depends_on": [],
+      "status": "not-started",
+      "budget": null,
+      "notes": "Naming rule in ai/go-conventions.md plus a make delta-guard. Baseline warns on the four existing tpms _calc names so make check stays green until tier 2."
+    },
+    {
+      "tier": 2,
+      "change": "RM66-analytics-add-travel-progress-deltas",
+      "module": "analytics",
+      "depends_on": [1],
+      "status": "not-started",
+      "budget": null,
+      "notes": "Three new _delta_calc columns plus the four tpms renames, one migration. Database gate fires here."
+    },
+    {
+      "tier": 3,
+      "change": "RM66-gateway-show-travel-progress-trends",
+      "module": "gateway",
+      "depends_on": [2],
+      "status": "not-started",
+      "budget": null,
+      "notes": "Third neutral Trend value in the ui kit, mapping, template, i18n, spec and KB corrections."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-A",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "Arrows, tyre-column rename and naming rule ship together as one roadmap.",
+      "why": "User chose to keep MAG-59 whole rather than split the rename into its own ticket."
+    },
+    {
+      "id": "D-B",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "Store day-over-day deltas in new columns, computed from the row the loop built one step earlier. LAG rejected.",
+      "why": "Postgres runs window functions before DISTINCT ON, so LAG would read each vehicle's whole history on a page load and lose the one-row read."
+    },
+    {
+      "id": "D-C",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "All three tiles show direction. Only Efficiency carries a good/bad colour; Distance and Battery are neutral.",
+      "why": "Driving more or using more charge is neither good nor bad, so a green arrow would praise a neutral fact."
+    },
+    {
+      "id": "D-D",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "Delta columns are named _delta_calc, including the four renamed tyre columns.",
+      "why": "One naming rule across the whole database, so a later reader cannot mistake a delta for the day's own figure."
+    },
+    {
+      "id": "D-E",
+      "scope": "roadmap",
+      "made_by": "user",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "The naming rule goes in ai/go-conventions.md and is enforced by a make guard.",
+      "why": "A guard is a deterministic signal, so the mistake fails fast instead of costing a human review round."
+    },
+    {
+      "id": "D-F",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-18T03:21:25Z",
+      "decision": "Tier order is guard first, then analytics, then gateway.",
+      "why": "Gateway cannot read columns analytics has not stored. Guard first matches the owner's stated preference and its baseline keeps make check green."
+    }
+  ],
+  "events": [
+    { "at": "2026-09-18T03:21:25Z", "event": "roadmap created from MAG-59; branch ft/RM66-MAG-59-travel-progress-trends off main; work counter 66 -> 67" },
+    { "at": "2026-09-18T03:21:25Z", "event": "autopilot enabled by user mid-run; overrides the pickup skill's halt-after-artifacts scope. Blocking gates unchanged: Spanish briefing per tier, database gate at tier 2, user-run test suite, push/PR." },
+    { "at": "2026-09-18T03:21:25Z", "event": "user away (asleep). Plan: complete tier 1 (no database gate), then write tier 2 artifacts and stop at the Spanish briefing + database gate." }
+  ]
+}
