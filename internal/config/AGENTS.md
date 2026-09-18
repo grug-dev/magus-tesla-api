@@ -41,20 +41,40 @@ Consumers call these — never `os.Getenv` directly (see `internal/config/config
   require any Tesla credential — a migration-only tool has no reason to validate
   one it never uses. Returns `DatabaseURL` (required; errors if empty),
   `MigrationsRoot` (defaults to `/migrations` when unset), and `MigrationsDirs`
-  — the ordered directory slice `cmd/migrate` actually loops over. Added by
+  — the `[]MigrationDir` slice `cmd/migrate` actually loops over. Added by
   `platform-add-docker-compose-deploy` (T7) to remove `cmd/migrate`'s prior
   `os.Getenv` calls, which violated `ai/go-conventions.md`'s "no `os.Getenv`
   outside `internal/config`" rule.
+  - `MigrationDir` pairs a directory with the **module that owns it**, and its
+    `VersionTable()` builds that module's ledger name,
+    `<module>.goose_db_version`. The two always travel together because goose
+    needs both, and deriving one from the other at the point of use is what let
+    them disagree. `VersionTable()` is the single place that name is built —
+    `internal/testdb` calls it too, so a test database records versions exactly
+    where the deploy does.
   - `MigrationsDirs` comes from the optional `MIGRATIONS_DIRS` env var: a
-    space-separated, ORDERED list of migration directories (e.g.
+    space-separated list of migration directories (e.g.
     `internal/account/db/migrations internal/telemetry/db/migrations ...`).
     Extra whitespace between entries is ignored — it never produces an empty
     path. Set it to run `cmd/migrate` against a repo checkout, where the
-    Docker image's `<MigrationsRoot>/<module>` layout does not exist (T8).
+    Docker image's `<MigrationsRoot>/<module>` layout does not exist.
+  - Each such path's module is resolved by `moduleForDir`, which finds the path
+    segment naming a known module. One rule covers both layouts: the image's
+    `<root>/account` and a checkout's `internal/account/db/migrations` each
+    contain exactly one segment that names a module. A path naming none is an
+    **error**, not a guess — a directory whose module cannot be named has no
+    ledger to write to, and falling back to the last path segment would write
+    `migrations.goose_db_version` or silently reuse another module's ledger.
   - When `MIGRATIONS_DIRS` is unset, `MigrationsDirs` falls back to
-    `MigrationsRoot` + `/` + each of the four module names, in order
-    (account, telemetry, charging, analytics) — the image-default behavior,
-    unchanged. `compose.yaml` and the `Dockerfile` need no change for this.
+    `MigrationsRoot` + `/` + each of `defaultMigrationModules` — the
+    image-default behavior, unchanged. `compose.yaml` and the `Dockerfile` need
+    no change for this.
+  - `defaultMigrationModules` is the **only** list of module names in this
+    package, on purpose: it builds the default paths AND resolves a path back to
+    its module. A second list could drift, and the module name decides which
+    ledger a migration is recorded in. The order is no longer significant — each
+    module's migrations create only its own objects and read nothing — and is
+    kept stable only for comparable logs.
 - `SaveTokens(accessToken, refreshToken string) error` — persists Tesla OAuth tokens
   back into `.env` (used by `cmd/setup`'s one-time OAuth bootstrap).
 - `LoadDatabase() (string, error)` — config for a database-only tool (`cmd/monthly-capacity`).

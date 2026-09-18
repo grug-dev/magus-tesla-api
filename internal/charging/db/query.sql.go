@@ -73,7 +73,7 @@ type CreateEntryParams struct {
 	StartBatteryPct    pgtype.Int2
 	EndBatteryPct      pgtype.Int2
 	ChargingType       pgtype.Text
-	LocationKind       string
+	LocationKind       pgtype.Text
 	LocationLabel      pgtype.Text
 	Notes              pgtype.Text
 	Status             string
@@ -1017,7 +1017,7 @@ type UpdateEntryParams struct {
 	StartBatteryPct    pgtype.Int2
 	EndBatteryPct      pgtype.Int2
 	ChargingType       pgtype.Text
-	LocationKind       string
+	LocationKind       pgtype.Text
 	LocationLabel      pgtype.Text
 	Notes              pgtype.Text
 	Status             string

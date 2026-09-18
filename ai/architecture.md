@@ -48,6 +48,18 @@ Enforce these invariants on every change:
 - **No cross-module database leaks.** A module may not read another module's tables,
   repositories, or private structs. Cross-module data flows **only** through public
   interfaces. *Why: this is what makes a module boundary real rather than cosmetic.*
+- **The rule binds migrations too.** A module's goose migration may name only that
+  module's own Postgres schema; `make migration-boundary-guard` fails any that names
+  another's. Each module's migration history starts from one **baseline** — a single
+  file creating its whole schema and reading nothing — and each records its applied
+  versions in its own `<module>.goose_db_version`, inside the schema it owns. So two
+  modules may use the same version number, and the order the directories are applied in
+  cannot change the result. *Why: SQL was the hole in this rule. Four migrations read
+  another module's schema and worked only while the folder order happened to match the
+  dependency direction; when `telemetry` later re-keyed a table, an `analytics`
+  migration joining the dropped column failed on every fresh database and the drop was
+  abandoned (MAG-65). It also makes a module extractable — `pg_dump --schema=<module>`
+  carries its objects and its migration history in one piece.*
 - **The gateway is an orchestrator, not a database client.** `internal/gateway/` has zero
   DB access. It obtains data solely by calling module interfaces. *Why: the gateway
   translates between HTTP/htmx and the domain — it must not own domain state.*

@@ -544,7 +544,8 @@ re-argue a settled decision.
 - `testdb_test.go` provisions it: `TEST_DATABASE_URL` when set, otherwise a disposable
   `postgres:16-alpine` via `testcontainers-go`, one `*pgxpool.Pool` per package. Migrations
   run through the `github.com/pressly/goose/v3` Go API (`goose.NewProvider` records applied
-  versions in `goose_db_version`), so re-running against a managed DB is a no-op. **No
+  versions in `charging.goose_db_version`, this module's own ledger — `ProvisionDirs` is
+  given the module name for exactly that), so re-running against a managed DB is a no-op. **No
   `createdb` and no `make migrate-up` step is needed** — the suite runs green with zero
   manual DB setup as long as Docker is running. None of it compiles into the deployed
   binary.

@@ -133,7 +133,11 @@ here was "None"; it is no longer.
   **No other module may import `analyticsdb`** (`ai/architecture.md` §2), exactly as
   this module may not import `telemetrydb` or `chargingdb`.
 - `internal/analytics/db/migrations/` — the module's own goose migrations, applied by
-  the Makefile's `MIGRATIONS_DIRS` loop like every other module's.
+  the Makefile's `MIGRATION_MODULES` loop like every other module's, into this module's
+  own `analytics.goose_db_version` ledger. A migration here may name only the
+  `analytics` schema — `make migration-boundary-guard` enforces it. This module used to
+  be the one that broke that rule most (it reads every other module), and those reads
+  are what blocked MAG-65's column drop.
 
 **Column-by-column detail for all three tables** — every `_calc` column, what `nil` means on
 each projected field, the density rule, and the index decisions — **lives in

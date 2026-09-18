@@ -74,10 +74,16 @@ migration reverses in the exact mirror order.
   `go build`, `go vet`, `gofmt` and both guards were all clean while ten integration tests failed
   on `relation "accounts" does not exist`. Only the test suite catches it.
   _Source: RM39 roadmap decision D9 (learned during tier 1)._
-- **goose is untouched, and `make migration-guard` is NOT retired.** The shared
-  `public.goose_db_version` stays; goose stores version numbers, not table names, so every applied
-  record remains valid and no `db-reset` is needed. Version collisions across module directories
-  are independent of table schemas. _Source: RM39 roadmap decision D4._
+- **The version ledger follows the schema: one `<module>.goose_db_version` per module.** RM39
+  moved the tables but left the shared `public.goose_db_version`; MAG-83 finished the job, so the
+  ledger now travels with the schema and `pg_dump --schema=<module>` carries a module's objects
+  and its migration history together. Consequences: two modules may use the same version number
+  (all four baselines are `20260917000001`), the order the directories are applied in does not
+  matter, nothing passes goose's allow-missing option, and `make migration-guard` is **gone** —
+  the collision it guarded is impossible now. `make migration-boundary-guard` replaced it, and
+  guards a different rule: a migration may name only its own module's schema.
+  `public.goose_db_version` still holds the 54 versions applied before the squash and is kept as
+  that history; nothing reads it. _Source: RM39 roadmap decision D4, superseded by MAG-83._
 - **No module is granted access to another module's schema.** The boundary in
   `ai/architecture.md` §2 ("no cross-module database leaks") is enforced identically before and
   after the move — it is now additionally checkable at the database catalog level.

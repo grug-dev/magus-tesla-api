@@ -251,11 +251,15 @@ carrying the five human-verified battery-percentage columns (`start_battery_pct`
 and `internal/telemetry`'s `supercharger_sessions` kept its own copies. The contract half —
 dropping telemetry's five columns — is still outstanding.
 
-It could not ship in T6 for a concrete reason worth not rediscovering: `MIGRATIONS_DIRS`
-runs the `telemetry` directory before `charging`, and goose walks each directory to
-completion, so a DROP in the same change would have executed **before** the backfill that
-reads those columns. The data is unrecoverable — nothing in the codebase writes them, so the
-one populated row was hand-entered.
+It could not ship in T6 for a concrete reason: `MIGRATIONS_DIRS` ran the `telemetry`
+directory before `charging`, and goose walked each directory to completion, so a DROP in the
+same change would have executed **before** the backfill that read those columns. The data is
+unrecoverable — nothing in the codebase writes them, so the one populated row was hand-entered.
+
+**That blocker is gone as of MAG-83.** There is no cross-module backfill left to run before a
+DROP: the squash to one baseline per module removed all four migrations that read another
+module's schema, each module now has its own version ledger, and the order the directories are
+applied in no longer affects anything. A guard forbids reintroducing such a read.
 
 This is **not** a one-line `ALTER`. `internal/analytics`'s consumed correction and gap
 detection read those columns today, so they must be re-pointed at `charging`'s copies first.
@@ -365,48 +369,6 @@ schema change.
 2026-08-31 from Linear MAG-35.
 
 
-## 21. charging — Renumber `20260720000001_require_location_kind.sql`; its `NOT NULL` was never applied
-
-### PROPOSAL
-
-`internal/charging/db/migrations/20260720000001_require_location_kind.sql` shares its
-version number with
-`internal/account/db/migrations/20260720000001_vehicles_add_access_type.sql`. Every module's
-migrations share **one** `goose_db_version` table keyed by version, so goose recorded
-`20260720000001` when it applied account's file and then **silently skipped** charging's,
-reporting it as applied. `-allow-missing` does not help: a duplicate number is not an
-ordering problem.
-
-**Confirmed live on 2026-08-31**, not theoretical:
-
-- `manual_charge_entries.location_kind` is still `is_nullable = YES` — the `NOT NULL` the
-  migration exists to add was never applied.
-- `goose_db_version` holds exactly one row for `20260720000001`, timestamped
-  `2026-07-20 06:50:59`, which is account's application of its own file.
-- The migration's defensive backfill (`NULL` → `'OTHER'`) also never ran.
-
-**Currently harmless:** a `SELECT count(*) ... WHERE location_kind IS NULL` returns **0**, so
-no row violates the intended constraint today — Go-side validation
-(`charging.RequiredFieldsFor`) has been holding the line. The risk is that nothing in the
-database enforces it, so any future write path that bypasses that validation can insert a
-NULL silently.
-
-**The fix** mirrors what MAG-35 did for `poll_runs`: renumber the charging file to a free
-number (e.g. `20260720000002_require_location_kind.sql`), run `make migrate-up`, confirm
-`is_nullable = NO`, then **delete `20260720000001` from `KNOWN_DUPLICATE_MIGRATIONS` in the
-`Makefile`** so `make migration-guard` stops warning and starts failing on it. Check for
-NULL rows before applying — the backfill will handle them, but you want to know.
-
-**TRIGGER — pick this up** the next time `internal/charging` is touched for any reason, or
-immediately if a NULL `location_kind` ever appears.
-
-### ORIGIN
-
-Found by the `app-reviewer`'s collision sweep during `RM36-app-record-poll-run` (tier 2,
-Linear MAG-35) as review finding **F1**, after the identical failure mode was discovered in
-`poll_runs`. Deferred to the backlog by the owner rather than widening RM36 into a third
-module; the `make migration-guard` target added in the same change warns on this pair and
-fails on any new one. Recorded 2026-08-31.
 ## 19. gateway — Regression test: the history preset selector highlights for a non-UTC user
 
 ### PROPOSAL
@@ -537,48 +499,6 @@ that needs NULL on `sentry_mode` to be unambiguous.
 `RM38-dashboard-vehicle-status-from-metrics` roadmap, decision **D2** (settled with the
 owner before any artifact was written). Recorded per the roadmap's own "Future work"
 section.
-
-
-
-## 23. architecture — Per-module goose version table (retires `make migration-guard`)
-
-### PROPOSAL
-
-All four module migration directories currently share ONE `public.goose_db_version` table.
-goose keys it by version **number**, so if two modules pick the same number, goose records
-the number once and silently SKIPS the second file. `make migration-guard` exists purely to
-catch that collision before it happens.
-
-Giving each module its own version table — `goose -table <module>.goose_db_version`, one per
-directory in `MIGRATIONS_DIRS` — makes the collision structurally impossible and lets
-`migration-guard` (~25 Makefile lines) be deleted.
-
-Deferred from RM39 because the two concerns are independent: version collisions come from
-goose's numbering, not from where tables live, so moving tables into schemas does not fix
-it. Folding it in would also have forced a `make db-reset` — goose would see an empty
-version table and try to replay every migration against tables that already exist — which
-would have cancelled RM39's main advantage of being reset-free.
-
-**Trigger:** pick this up once RM39 has landed all four tiers, or sooner if a version
-collision actually bites. Requires either a `make db-reset` (acceptable — the project is not
-public) or a seeding migration that copies applied version rows from the shared table into
-each per-module one.
-
-**A SECOND symptom of the same root cause, observed directly on 2026-09-04:** the shared
-table also breaks *rollback*. `goose -dir internal/<module>/db/migrations ... down` fails
-unless that module's migration happens to be the **globally** newest, because goose looks up
-the current version in the one shared table and finds a version belonging to another module.
-Reproduced against a fully-migrated DB: `goose -dir internal/account/db/migrations ... down`
-errored `migration 20260902000004: no current version found` — a version owned by
-`internal/analytics`. So **`make migrate-down` is unreliable past the first directory**, and
-verifying any module's Down migration currently needs a disposable container instead. The
-per-module version table fixes this at the same time as the collision problem.
-
-### ORIGIN
-
-`RM39-schema-per-module` roadmap, decision **D4** (settled with the owner during the design
-interview, before any artifact was written). The rollback symptom was found while verifying
-RM42 tier 1's Down migration (review round 1, finding F1).
 
 
 
@@ -713,8 +633,15 @@ the `goose` CLI — the Dockerfile's own comment explains it cannot be built her
 only calls `provider.Up(ctx)`; it has no down path at all.
 
 So the only rollback today is manual SQL inside the `db` container: run the migration's own
-Down statement by hand, then `DELETE FROM goose_db_version WHERE version_id = <version>` so
-a later deploy re-applies it. That is error-prone and easy to half-finish.
+Down statement by hand, then `DELETE FROM <module>.goose_db_version WHERE version_id =
+<version>` — the **owning module's** ledger, since MAG-83 gave each module its own — so a
+later deploy re-applies it. That is error-prone and easy to half-finish.
+
+Two limits MAG-83 added to this. A module's **baseline** must never be rolled back: its `Down`
+raises on purpose, and deleting its ledger row would make the next deploy replay a whole-schema
+file against a database that already has it, failing the migration step and so keeping `web`
+and `poller` from starting. And a `down` subcommand must stop at the baseline rather than walk
+past it.
 
 The work is: add a `down` subcommand to `cmd/migrate` (goose's library already supports it,
 so no new dependency), and a matching `docker compose run` invocation documented in

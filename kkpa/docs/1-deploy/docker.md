@@ -208,9 +208,12 @@ works:
 | `make migrate-up` | The `goose` command-line tool, once per module directory | Yes |
 | `make migrate-run` | `cmd/migrate`, the same Go program the `migrate` container runs | No |
 
-Both apply the same migrations, in the same order (the Makefile's
-`MIGRATIONS_DIRS`). `make migrate-run` exists so you can test the exact
-program the deploy path uses, on your own machine, before pushing to the VPS.
+Both apply the same migrations, over the same modules (the Makefile's
+`MIGRATION_MODULES`), each into that module's own `<module>.goose_db_version`
+ledger — the CLI via `-table`, `cmd/migrate` via `goose.WithTableName`. The order
+the modules are walked in does not affect the result. `make migrate-run` exists so
+you can test the exact program the deploy path uses, on your own machine, before
+pushing to the VPS.
 
 ---
 

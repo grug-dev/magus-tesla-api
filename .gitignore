@@ -41,6 +41,8 @@ internal/gateway/tools/tailwindcss
 # (without -o). Use `make bins` instead — it outputs to bin/ above. These
 # entries catch accidental root-level builds so they never get committed.
 /explore-tesla-api
+/migrate
+/monthly-capacity
 /poller
 /setup
 /web
