@@ -2678,16 +2678,15 @@ func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.
 // proves the three new travel-progress deltas reach VehicleStatus through a
 // REAL Recalculate pass, not a hand-seeded row -- unlike the fixed-value test
 // above, which only checks the projection. Three consecutive snapshots are
-// seeded (a predecessor day plus two tracked days), matching design.md's Test
-// Contract fixture 1 numbers exactly:
+// seeded: a predecessor day plus two tracked days.
 //
 //	day 0 (predecessor only): odometer 1000.0, battery 90%
 //	day 1: odometer 1050.0, battery 75%  -> distance 50.0, consumed 15.0, km/pct 50/15
 //	day 2: odometer 1110.0, battery 55%  -> distance 60.0, consumed 20.0, km/pct 60/20
 //
 // Recalculating [day1, day2] in one pass gives day2 a same-pass predecessor
-// (day1's own freshly-derived row), so its deltas come back non-nil and equal
-// to fixture 1's numbers: 10.0, 5.0, and 60/20-50/15. Recalculating day2 again
+// (day1's own freshly-derived row), so its deltas come back non-nil: 10.0,
+// 5.0, and 60/20-50/15. Recalculating day2 again
 // alone afterward is fixture 2's case: day1 is now outside the window, so day2
 // is the first row this second pass processes and its deltas must come back
 // nil even though its own figures are unchanged.

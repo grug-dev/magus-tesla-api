@@ -292,17 +292,27 @@
 > accept the prefix. Verified four ways: clean tree passes, a bare `_calc` name
 > fails, `delta:allow` forgives, and a compliant `_delta_calc` name is not flagged.
 
-- [ ] T7.1 Before editing the `Makefile`, re-run `delta-guard`'s own two
+- [x] T7.1 Before editing the `Makefile`, re-run `delta-guard`'s own two
       greps by hand (or `make delta-guard`) against the tree with T1+T2
       already landed, and confirm the four tyre-pressure names now appear
       only under their new `_delta_calc`/`DeltaCalc` spelling — not the old
       one — everywhere except this change's own `design.md`/`tasks.md`
       (which name the old columns in prose, not as a definition). Record
       what you found.
-- [ ] T7.2 Remove `tpms_pressure_fl_psi_calc`, `tpms_pressure_fr_psi_calc`,
+      **Found: all four old names gone from Go.** A per-name grep over
+      `internal` and `cmd` returned 0 for each of the eight old spellings,
+      hand-written and sqlc-generated. The new `...DeltaCalc` names appear 22
+      times. The old SQL names still appear, but only in the frozen baseline
+      migration — see T7.2.
+- [x] T7.2 Remove `tpms_pressure_fl_psi_calc`, `tpms_pressure_fr_psi_calc`,
       `tpms_pressure_rl_psi_calc`, `tpms_pressure_rr_psi_calc` from the
       `sqlbaseline` regex in the `Makefile`'s `delta-guard` target.
-- [ ] T7.3 Remove `TpmsPressureFLPSICalc`, `TpmsPressureFRPSICalc`,
+      **Void, not done — see the correction block above.** The four SQL names
+      stay in `sqlbaseline`. `20260917000001_baseline.sql` defines those
+      columns under their old names and may never be edited, so that
+      definition line stays in the tree. Deleting the baseline entries would
+      turn it into a hard failure.
+- [x] T7.3 Remove `TpmsPressureFLPSICalc`, `TpmsPressureFRPSICalc`,
       `TpmsPressureRLPSICalc`, `TpmsPressureRRPSICalc`,
       `TpmsPressureFlPsiCalc`, `TpmsPressureFrPsiCalc`,
       `TpmsPressureRlPsiCalc`, `TpmsPressureRrPsiCalc` from the `gobaseline`
@@ -310,6 +320,9 @@
       Acceptance: `make delta-guard` passes, and its printed baseline size
       drops from 10 SQL / 15 Go to 6 SQL / 7 Go.
 
+      **Done.** Removed all eight Go names from the `gobaseline` regex.
+      `make delta-guard` passes and prints `baseline: 10 SQL / 7 Go legacy
+      name(s)`, the corrected acceptance.
 ## T8. DB-integration test — widened latest-status projection — depends on T1, T3, T4
 
 - [x] T8.1 Extend (or add to) `internal/analytics/db_integration_test.go`'s
@@ -354,7 +367,7 @@
 
 ## T9. KB guide update — depends on T1, T2, T3, T4
 
-- [ ] T9.1 Update `kkpa/context/entities/vehicle-metrics/guide.md`: add the
+- [x] T9.1 Update `kkpa/context/entities/vehicle-metrics/guide.md`: add the
       three new columns and the renamed four to its column list, its
       "Changed by" history line (mirroring the existing "Changed by RM50
       tier 3" entry's style), and its NULL-semantics bullets (the new
@@ -369,6 +382,17 @@
       except where the guide is explicitly narrating history ("renamed
       from...").
 
+      **Done.** Added the three new columns and the four renamed ones, a
+      `Changed by RM66 tier 2` history line, a `_delta_calc` group note, and
+      the new NULL rule: a delta is also NULL on the first day a
+      recalculation pass considers, even when the previous day is stored.
+      That rule now covers all seven `_delta_calc` columns. Acceptance grep
+      for `tpms_pressure_fl_psi_calc\b` returns nothing.
+      **Swept two more guides the change invalidated** (CLAUDE.md's docs
+      rule): `kkpa/context/use-case/gateway/read-dashboard-bento.md` named
+      the old Go fields, and `kkpa/context/architecture/delta-column-naming.md`
+      still claimed `10 SQL / 15 Go` and told a future agent to delete the SQL
+      baseline entry on a rename — which would break the guard.
 ## T10. Leader-integrated — gateway call-site fix (NOT this module's task)
 
 - [x] T10.1 (Leader, in this tier's wave commit) Update

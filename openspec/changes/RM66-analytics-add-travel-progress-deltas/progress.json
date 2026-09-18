@@ -5,9 +5,9 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM66-travel-progress-trends.md",
   "request": "MAG-59 tier 2: store the day-over-day deltas of the three Travel Progress figures, and rename the four tyre-pressure delta columns to _delta_calc.",
-  "status": "applied",
+  "status": "changes-requested",
   "created_at": "2026-09-18T09:46:31Z",
-  "updated_at": "2026-09-18T10:36:00Z",
+  "updated_at": "2026-09-18T10:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -24,19 +24,18 @@
     "current": [],
     "pending": [],
     "blocked": [],
-    "awaiting_user_verification": [
+    "awaiting_user_verification": [],
+    "done": [
       "T1",
       "T2",
-      "T6",
-      "T8",
-      "T10"
-    ],
-    "done": [
       "T3",
       "T4",
       "T5",
+      "T6",
       "T7",
-      "T9"
+      "T8",
+      "T9",
+      "T10"
     ]
   },
   "tasks": [
@@ -46,7 +45,7 @@
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-18T09:48:00Z",
@@ -66,7 +65,7 @@
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-18T09:48:00Z",
@@ -155,7 +154,7 @@
         "T2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-18T10:16:00Z",
@@ -202,7 +201,7 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "analytics",
       "model": "sonnet",
       "started_at": "2026-09-18T10:22:00Z",
@@ -249,7 +248,7 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "Opus 5",
       "started_at": "2026-09-18T10:05:00Z",
@@ -352,13 +351,53 @@
       "at": "2026-09-18T10:34:00Z",
       "decision": "Left fetchVehicleMetric's doc comment overclaiming 'every non-key column'. Reported, not fixed.",
       "why": "It already omitted the four tyre delta columns before this tier. Fixing it widens a SELECT and a Scan, outside this tier's scope."
+    },
+    {
+      "id": "D-W",
+      "scope": "review:R1",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:52:00Z",
+      "decision": "Accepted R1. The leader must tick the boxes of the tasks it does itself, not only the ones a worker does.",
+      "why": "tasks.md wins on done-ness and freezes at archive. An unticked box would have contradicted progress.json forever."
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Review tier 2 of RM66 on branch ft/RM66-MAG-59-travel-progress-trends: commits 5e49957, 752a596, 84d67f3. Check: (1) module-boundary compliance - internal/analytics owns its own schema, and the gateway edit in 5e49957 is a rename of call sites, not new coupling; (2) every doc-pack convention, especially the unit-suffix rule and the new _delta_calc naming rule; (3) spec and tasks coverage - all 10 sub-tasks, no acceptance line weakened or deleted, corrections appended only; (4) the database objects match the design the owner confirmed (D-M): 3 ADD COLUMN, 4 RENAME, the comments, and a backfill joining on metric_date - 1 (D-L). A mismatch is a blocker finding; (5) the read-heavy performance profile - the query widening must be projection-only, with no new index and no extra round trip; (6) the test-contract rule - T6's three fixtures and T8's integration case must assert design.md's authored numbers, not whatever the implementation produces; (7) anti-gaming - no self-approved status, no weakened criteria; (8) the delta-guard baseline change in the Makefile, and whether the KB guides now match the code.",
+    "agent": "analytics-reviewer",
+    "status": "changes-requested",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-18T10:44:35Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "tasks.md T7.1, T7.2, T7.3 and T9.1 are still unchecked ([ ]), but progress.json marks tasks T7 and T9 status \"done\" and the work is verified complete: Makefile gobaseline shrank from 15 to 7 names (grep confirms no old TPMS Calc name remains in any non-test Go file), and the three KB guides (vehicle-metrics/guide.md, read-dashboard-bento.md, delta-column-naming.md) correctly use the new column/field names. ai/agentic-workflow.md states tasks.md wins on implementation done-ness. Before archiving (which freezes tasks.md forever), check these four boxes so the record matches reality.",
+            "status": "open"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "internal/analytics/db_integration_test.go:2681, in the new comment above TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate: \"matching design.md's Test Contract fixture 1 numbers exactly\". design.md gets archived and frozen, so this pointer dies. State the fixture numbers directly (the comment already does, right below) and drop the design.md mention.",
+            "status": "open"
+          }
+        ],
+        "leader_triage": [
+          {
+            "finding": "R1",
+            "verdict": "accepted",
+            "action": "Ticked T7.1-T7.3 and T9.1 and appended the findings under each. The leader did those two tasks itself and never ticked them. Zero unticked boxes now."
+          },
+          {
+            "finding": "R2",
+            "verdict": "accepted",
+            "action": "Removed the design.md pointer from the new integration test's comment. The numbers stay, two lines below."
+          }
+        ]
+      }
+    ]
   },
   "events": [
     {
@@ -392,6 +431,14 @@
     {
       "at": "2026-09-18T10:36:00Z",
       "event": "Step 6 gate posted. User chose: apply the migration and run the full suite. Waiting on the owner's report. Nothing advances to the reviewer until it arrives. Budget 5h=84% ctx=17%."
+    },
+    {
+      "at": "2026-09-18T10:40:00Z",
+      "event": "THE OWNER ran make migrate-up, go test ./internal/analytics/... and make check, and reported all three passing. The assistant ran none of them. Every task moves to done on the owner's report. Status -> verified."
+    },
+    {
+      "at": "2026-09-18T10:52:00Z",
+      "event": "review round 1: changes-requested, 1 major + 1 minor. Both accepted, both fixed. R1 was the leader's own miss: it did T7 and T9 and left their checkboxes unticked, which would have frozen a false record at archive."
     }
   ]
 }
