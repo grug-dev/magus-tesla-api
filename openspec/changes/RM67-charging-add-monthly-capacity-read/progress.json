@@ -5,25 +5,24 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Add a read method to internal/charging that returns the stored monthly effective capacity for one vehicle and one exact month. The existing read picks the newest non-NULL row; this one must return the row for the month asked for, and report 'no row' distinctly from 'row with NULL capacity'. Honour RD4: the caller stores 0, so the port must let the caller tell the two cases apart. Tier 1 of 4 of roadmap RM67-vehicle-monthly-metrics-table (Linear MAG-73); it exists because tier 2 in analytics cannot copy the capacity without it.",
-  "status": "applied",
+  "status": "changes-requested",
   "rollup": {
     "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      "3.2",
-      "3.3"
-    ],
-    "awaiting-user-verification": [
       "1.1",
       "2.1",
       "2.2",
       "2.3",
-      "3.1"
-    ]
+      "3.1",
+      "3.2",
+      "3.3"
+    ],
+    "awaiting-user-verification": []
   },
   "created_at": "2026-09-18T19:35:00Z",
-  "updated_at": "2026-09-18T21:19:32Z",
+  "updated_at": "2026-09-18T21:30:05Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -43,7 +42,7 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-18T21:09:07Z",
@@ -66,7 +65,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-18T21:09:07Z",
@@ -89,7 +88,7 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-18T21:09:07Z",
@@ -112,7 +111,7 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-18T21:09:07Z",
@@ -136,7 +135,7 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-18T21:13:14Z",
@@ -199,10 +198,48 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "charging-reviewer",
+    "brief": "Review the diff of commits e6edbac and dbfd6cf on ft/RM67-MAG-73-vehicle-monthly-metrics-table. Check: (1) module-boundary compliance - nothing outside internal/charging except the KB guide, no other module touched; (2) every doc-pack convention, especially ai/go-conventions.md on units, time zone and no pgtype in public types or tests; (3) the integration tests assert design.md's Test Contract T1-T7 and T4b values, NOT whatever the implementation does; (4) the three-state contract (no row / row with NULL capacity / row with capacity) is real in both the code and the tests; (5) the month is normalized in SQL, never in Go - no hand-rolled UTC-midnight construction (tz-guard); (6) no migration, no new index, and LatestMeasuredCapacity / packCapacityKWh are untouched; (7) the tasks.md 'Not in this change' list was respected; (8) read-heavy Performance-Profile compliance; (9) anti-gaming - no task title, criterion or Test Contract expectation was weakened; (10) docs-track-structural-change: internal/charging/AGENTS.md and kkpa/context/workflows/vehicle-monthly-metrics.md are correct and not stale. Signals: go build, go vet, gofmt -l and make lint were assistant-run and clean (0 issues). The suite was run and reported passing by the OWNER, not by the assistant - judge test quality by reading the tests, never by running them.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-18T22:10:00Z",
+        "agent": "charging-reviewer",
+        "verdict": "changes-requested",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/charging/AGENTS.md",
+          "openspec/changes/RM67-charging-add-monthly-capacity-read/proposal.md",
+          "openspec/changes/RM67-charging-add-monthly-capacity-read/design.md",
+          "openspec/changes/RM67-charging-add-monthly-capacity-read/tasks.md",
+          "openspec/changes/RM67-charging-add-monthly-capacity-read/specs/monthly-effective-capacity/spec.md"
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "internal/charging/db/query.sql.go:203-213 \u2014 the generated doc comment on EffectiveCapacityForPeriod still reads '...own read (RM67 tier 1)...' and '...for a thin month (RD4)...'. The current source comment in internal/charging/db/query.sql (same query) no longer has these two citations \u2014 decision D-L6 says the leader stripped them from three comments. sqlc copies the SQL comment into the Go doc comment verbatim (confirmed against the pre-existing LatestMeasuredCapacity query, whose comment matches word for word in both files), so this mismatch means query.sql.go was not regenerated after the query.sql edit. Two problems: (a) the checked-in generated file no longer matches what `make sqlc` produces from the current source, breaking codegen reproducibility; (b) the stale comment still carries a roadmap tier and a decision ID, which the B2 comment rule forbids. Fix: re-run `make sqlc` so query.sql.go regenerates from the cleaned-up query.sql comment.",
+            "status": "open"
+          }
+        ],
+        "guard_output": {
+          "go build ./...": "clean, no output",
+          "go vet ./...": "clean, no output",
+          "gofmt -l internal/charging": "clean, no output",
+          "make tz-guard": "tz-guard: no raw time.Now(), hand-rolled UTC/day-midnight construction,\n24h Truncate day-rounding, or hardcoded IANA zone name found outside internal/clock",
+          "make naming-guard": "naming-guard: no new banned-suffix type declaration (baseline: 6 legacy name(s))",
+          "make boundary-guard": "boundary-guard: internal/gateway/ does not import internal/telemetry",
+          "make migration-boundary-guard": "migration-boundary-guard: no migration names another module's schema (4 modules)",
+          "make archive-guard": "archive-guard: no archived file edited or deleted since 564af6860517f07fbbde7e6c91f0e162bce022a3",
+          "make lint": "0 issues."
+        },
+        "summary": "Module boundaries, unit/time-zone conventions, the three-state contract, the Test Contract (T1-T7 + T4b, values matching design.md exactly), the 'Not in this change' list, AGENTS.md and the KB guide are all correct. Every re-run guard is clean. One major finding: internal/charging/db/query.sql.go's generated comment on the new query was not regenerated after the leader edited query.sql to remove RM67/RD4 citations (D-L6), so the checked-in generated file is stale and still carries a forbidden roadmap/decision-ID citation. Re-run make sqlc and resubmit for re-review."
+      }
+    ]
   },
   "decisions": [
     {
@@ -258,6 +295,15 @@
       "decision": "Leader edited three comments to remove design.md, RM67, tier and RD decision-ID pointers, and fixed a %v format on a *float64.",
       "why": "The B2 rule bans out-of-code pointers in comments. %v on a pointer logs an address, not the capacity value.",
       "covered_by": null
+    },
+    {
+      "id": "D-L7",
+      "at": "2026-09-18T21:30:05Z",
+      "scope": "review:F1",
+      "made_by": "autopilot",
+      "decision": "Finding F1 accepted in full. Ran make sqlc; query.sql.go regenerated and only the doc comment changed.",
+      "why": "The leader edited query.sql's comment but never regenerated. The checked-in file did not match what make sqlc produces.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -290,6 +336,16 @@
       "at": "2026-09-18T21:19:32Z",
       "agent": "leader",
       "event": "wave 3 complete: tests + AGENTS.md by the charging worker, KB guide by the leader; build, vet, gofmt and make lint all clean (0 issues); change status applied, awaiting the owner's suite run before the reviewer gate"
+    },
+    {
+      "at": "2026-09-18T21:23:18Z",
+      "agent": "leader",
+      "event": "owner reported 'go test passed' for go test ./internal/charging/ -run TestCapacityForMonth; verification is the USER's, not the assistant's; all 7 tasks set done, change status verified"
+    },
+    {
+      "at": "2026-09-18T21:30:05Z",
+      "agent": "leader",
+      "event": "review round 1 = changes-requested, one major finding (F1, stale generated comment in query.sql.go); triaged as valid, fixed with make sqlc; no signature or type drift in the regen; build, vet, gofmt and make lint clean; re-verification requested from the same reviewer"
     }
   ]
 }
