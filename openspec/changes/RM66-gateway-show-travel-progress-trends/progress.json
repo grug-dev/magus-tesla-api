@@ -8,7 +8,7 @@
   "request": "MAG-59 tier 3 \u2014 drive the three Travel Progress arrows from the stored day-over-day deltas. Direction on all three tiles, colour only on Efficiency.",
   "status": "verified",
   "created_at": "2026-09-18T14:45:00Z",
-  "updated_at": "2026-09-18T15:15:00Z",
+  "updated_at": "2026-09-18T15:25:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -279,10 +279,42 @@
     }
   ],
   "review": {
-    "status": "not-started",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "leader-provided review brief, RM66 tier 3",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers_test.go:822-824, 890-891, 965-967 (new comments) cite 'RM66 tier 3' and 'design.md Test Contract' directly.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers_trend_test.go:11-12, 35-36, 59 (new file) each say 'covers design.md's Test Contract table'.",
+            "status": "open"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/format_test.go:31, 55, 77 (new comments) each say 'covers design.md's Test Contract table'.",
+            "status": "open"
+          },
+          {
+            "id": "F4",
+            "severity": "minor",
+            "note": "internal/gateway/templates/ui/stat_tile_test.go:23 (new file) says 'covers design.md's Test Contract table'.",
+            "status": "open"
+          }
+        ],
+        "triage": "All four findings accepted and fixed by the leader. The comments were added by this change, so the no-pointer rule applies. Pre-existing pointers in untouched functions were left alone."
+      }
+    ]
   },
   "events": [
     {
@@ -308,6 +340,10 @@
     {
       "at": "2026-09-18T15:15:00Z",
       "event": "THE USER ran the gateway test suite and reported it passing (recommended command: go test ./internal/gateway/...). Verification is the user's, not the assistant's. All ten tasks now done; change status verified. Assistant-run signals: go build, go vet repo-wide, gofmt, make lint (0 issues), ui/i18n/delta/boundary/naming/archive/tz guards."
+    },
+    {
+      "at": "2026-09-18T15:25:00Z",
+      "event": "review round 1: approved with 4 minor findings (F1-F4), all comments citing design.md or RM66 tier 3 in test files. Leader accepted all four and rewrote the comments to carry the reason instead of a pointer. go vet and gofmt still clean. Reviewer's guard proposal is out of scope here and goes to the backlog."
     }
   ]
 }

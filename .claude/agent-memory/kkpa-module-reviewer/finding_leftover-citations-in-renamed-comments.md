@@ -42,3 +42,14 @@ attention: `internal/analytics/db_integration_test.go` itself is saturated with
 pre-existing `design.md` citations (established house style, out of this
 reviewer's scope to flag) — a guard here would need a baseline/warn split like
 `delta-guard`'s, not a hard fail, or it fails on file open.
+
+4th occurrence: RM66-gateway-show-travel-progress-trends, tier 3, 2026-09-18 —
+not a rename leftover this time either. Four NEW test files/blocks (`handlers_test.go`
+x3, `handlers_trend_test.go` x3, `format_test.go` x3, `stat_tile_test.go` x1) each
+wrote a fresh doc comment starting "covers design.md's Test Contract table" or citing
+"RM66 tier 3". The worker is echoing design.md's own section header ("Test contract —
+authored before implementation") verbatim as house style for every new table-driven
+test in this module, not failing to strip an old citation. Same guard still catches
+it (the phrase contains `design\.md`), so the fix proposal is unchanged — but the
+guard needs to fire on ANY new comment in a diff, not only ones that reuse an old
+identifier, since this case has no rename at all.

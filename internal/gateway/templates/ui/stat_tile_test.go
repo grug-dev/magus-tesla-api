@@ -20,9 +20,8 @@ func renderStatTrendIcon(t *testing.T, trend string) string {
 	return buf.String()
 }
 
-// TestStatTrendIcon_ClosedVocabulary covers design.md's Test Contract table
-// for statTrendIcon: each Trend value renders exactly one <svg> with the
-// right class list, or none. Asserts the class list and element count only
+// statTrendIcon has a closed vocabulary, so every value is asserted here:
+// each renders exactly one <svg> with the right class list, or none. Asserts the class list and element count only
 // — never path data, colour hex, or element order (ai/go-conventions.md
 // §Testing).
 func TestStatTrendIcon_ClosedVocabulary(t *testing.T) {

@@ -28,9 +28,8 @@ func TestFormatMoney(t *testing.T) {
 	}
 }
 
-// TestFormatSignedKm covers design.md's Test Contract table: positive,
-// negative, exact zero, and the rounding case (42.6 -> "+43", matching
-// formatKm's own rounding rule).
+// formatSignedKm rounds to whole kilometres the same way formatKm does,
+// so 42.6 must render "+43". The other cases are sign and zero.
 func TestFormatSignedKm(t *testing.T) {
 	cases := []struct {
 		name string
@@ -52,8 +51,7 @@ func TestFormatSignedKm(t *testing.T) {
 	}
 }
 
-// TestFormatSignedPct covers design.md's Test Contract table: one decimal,
-// same rule as the existing formatSignedPSI.
+// formatSignedPct keeps one decimal, the same rule formatSignedPSI uses.
 func TestFormatSignedPct(t *testing.T) {
 	cases := []struct {
 		name string
@@ -74,8 +72,8 @@ func TestFormatSignedPct(t *testing.T) {
 	}
 }
 
-// TestFormatSignedKmPerPct covers design.md's Test Contract table: one
-// decimal, same rule as the existing formatSignedPSI.
+// formatSignedKmPerPct keeps one decimal, the same rule formatSignedPSI
+// uses.
 func TestFormatSignedKmPerPct(t *testing.T) {
 	cases := []struct {
 		name string

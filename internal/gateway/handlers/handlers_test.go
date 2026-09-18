@@ -819,9 +819,8 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 		KmPerPctCalc:           ptrF64(2.84),
 		ConsumedPct:            ptrF64(12.3),
 
-		// RM66 tier 3 — Travel Progress deltas, one branch per tile
-		// (design.md Test Contract): Distance positive, Battery negative,
-		// Efficiency exact zero.
+		// One delta branch per tile, so one fixture proves all three:
+		// Distance positive, Battery negative, Efficiency exact zero.
 		DistanceTraveledKmDeltaCalc: ptrF64(5.0),
 		ConsumedPctDeltaCalc:        ptrF64(-1.2),
 		KmPerPctDeltaCalc:           ptrF64(0.0),
@@ -887,8 +886,8 @@ func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
 	if vm.MaxRangeCharges != "12" {
 		t.Errorf("want MaxRangeCharges %q, got %q", "12", vm.MaxRangeCharges)
 	}
-	// RM66 tier 3 — Travel Progress tiles (design.md Test Contract): one
-	// delta branch per tile, positive/negative/exact-zero.
+	// Travel Progress tiles: positive, negative and exact-zero deltas.
+	// Exact zero draws no arrow but still writes its line.
 	wantDistance := fragments.TravelStatVM{Value: "45 km", Trend: "up-neutral", Delta: "+5 vs prev. day"}
 	if vm.DistanceTraveled != wantDistance {
 		t.Errorf("want DistanceTraveled %+v, got %+v", wantDistance, vm.DistanceTraveled)
@@ -962,9 +961,8 @@ func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
 	if vm.MaxRangeCharges != "—" {
 		t.Errorf("want MaxRangeCharges %q (nil counter), got %q", "—", vm.MaxRangeCharges)
 	}
-	// RM66 tier 3 — every pointer field is nil in this fixture, so every
-	// Travel Progress tile collapses to the dash placeholder with no trend
-	// and no delta line.
+	// Every pointer field is nil here, so every Travel Progress tile
+	// collapses to the dash placeholder, with no trend and no delta line.
 	wantDistanceNil := fragments.TravelStatVM{Value: "—", Trend: "", Delta: ""}
 	if vm.DistanceTraveled != wantDistanceNil {
 		t.Errorf("want DistanceTraveled %+v (nil DistanceTraveledKmCalc), got %+v", wantDistanceNil, vm.DistanceTraveled)

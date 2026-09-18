@@ -8,9 +8,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 )
 
-// TestDashNeutralTrend covers design.md's Test Contract table for
-// dashNeutralTrend (Distance travelled, Battery used): positive, negative,
-// exact-zero, and nil.
+// dashNeutralTrend drives Distance travelled and Battery used. Four cases
+// cover its whole vocabulary: positive, negative, exact zero, and nil.
 func TestDashNeutralTrend(t *testing.T) {
 	cases := []struct {
 		name string
@@ -32,9 +31,8 @@ func TestDashNeutralTrend(t *testing.T) {
 	}
 }
 
-// TestDashColoredTrend covers design.md's Test Contract table for
-// dashColoredTrend (Efficiency; also the four tyre wheels, unchanged):
-// positive, negative, exact-zero, and nil.
+// dashColoredTrend drives Efficiency and the four tyre wheels. The tyre
+// behaviour must not move, so the same four cases guard both callers.
 func TestDashColoredTrend(t *testing.T) {
 	cases := []struct {
 		name string
@@ -56,9 +54,9 @@ func TestDashColoredTrend(t *testing.T) {
 	}
 }
 
-// TestDashDeltaDesc covers design.md's Test Contract table for dashDeltaDesc,
-// using formatSignedKm as the example formatter: positive, negative,
-// exact-zero (rendered — a known value), and nil (no line at all).
+// dashDeltaDesc is where an exact zero and an absent delta stop looking
+// alike: zero writes a line, nil writes none. formatSignedKm is the
+// example formatter.
 func TestDashDeltaDesc(t *testing.T) {
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	cases := []struct {
