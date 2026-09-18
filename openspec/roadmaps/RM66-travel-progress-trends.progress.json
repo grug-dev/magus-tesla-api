@@ -2,12 +2,15 @@
   "schema_version": 1,
   "kind": "roadmap",
   "roadmap": "RM66-travel-progress-trends",
-  "request": "MAG-59 — Travel Progress: drive the up/down arrows from the previous day. Also rename the tyre-pressure delta columns to carry a _delta suffix, and write that naming rule where an AI assistant reads it.",
+  "request": "MAG-59 \u2014 Travel Progress: drive the up/down arrows from the previous day. Also rename the tyre-pressure delta columns to carry a _delta suffix, and write that naming rule where an AI assistant reads it.",
   "status": "in-progress",
   "autopilot": true,
   "created_at": "2026-09-18T03:21:25Z",
-  "updated_at": "2026-09-18T03:21:25Z",
-  "leader": { "assistant": "Claude Code", "model": "Opus 5" },
+  "updated_at": "2026-09-18T03:32:12Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "Opus 5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM66-MAG-59-travel-progress-trends",
@@ -17,8 +20,13 @@
     "created_at": "2026-09-18T03:21:25Z"
   },
   "rollup": {
-    "current": [],
-    "pending": ["1", "2", "3"],
+    "current": [
+      "1"
+    ],
+    "pending": [
+      "2",
+      "3"
+    ],
     "blocked": [],
     "done": []
   },
@@ -28,15 +36,25 @@
       "change": "RM66-platform-add-delta-column-naming-rule",
       "module": "platform",
       "depends_on": [],
-      "status": "not-started",
-      "budget": null,
-      "notes": "Naming rule in ai/go-conventions.md plus a make delta-guard. Baseline warns on the four existing tpms _calc names so make check stays green until tier 2."
+      "status": "artifacts-ready",
+      "budget": {
+        "five_hour_pct_start": 69,
+        "five_hour_pct_end": 79,
+        "context_pct_end": 19,
+        "cost_usd_delta": 3.34
+      },
+      "notes": "Artifacts written and openspec validate --strict passes. Waiting on the Spanish briefing before implementation.",
+      "started_at": "2026-09-18T03:23:04Z",
+      "agent": "platform",
+      "model": "sonnet"
     },
     {
       "tier": 2,
       "change": "RM66-analytics-add-travel-progress-deltas",
       "module": "analytics",
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "budget": null,
       "notes": "Three new _delta_calc columns plus the four tpms renames, one migration. Database gate fires here."
@@ -45,7 +63,9 @@
       "tier": 3,
       "change": "RM66-gateway-show-travel-progress-trends",
       "module": "gateway",
-      "depends_on": [2],
+      "depends_on": [
+        2
+      ],
       "status": "not-started",
       "budget": null,
       "notes": "Third neutral Trend value in the ui kit, mapping, template, i18n, spec and KB corrections."
@@ -99,11 +119,36 @@
       "at": "2026-09-18T03:21:25Z",
       "decision": "Tier order is guard first, then analytics, then gateway.",
       "why": "Gateway cannot read columns analytics has not stored. Guard first matches the owner's stated preference and its baseline keeps make check green."
+    },
+    {
+      "id": "D-G",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "at": "2026-09-18T03:32:12Z",
+      "decision": "Guard baseline covers all ten pre-existing _calc names, not only the four tyre ones.",
+      "why": "A repo-wide grep found ten columns across analytics and charging. The roadmap's four-name claim was wrong and is corrected."
     }
   ],
   "events": [
-    { "at": "2026-09-18T03:21:25Z", "event": "roadmap created from MAG-59; branch ft/RM66-MAG-59-travel-progress-trends off main; work counter 66 -> 67" },
-    { "at": "2026-09-18T03:21:25Z", "event": "autopilot enabled by user mid-run; overrides the pickup skill's halt-after-artifacts scope. Blocking gates unchanged: Spanish briefing per tier, database gate at tier 2, user-run test suite, push/PR." },
-    { "at": "2026-09-18T03:21:25Z", "event": "user away (asleep). Plan: complete tier 1 (no database gate), then write tier 2 artifacts and stop at the Spanish briefing + database gate." }
+    {
+      "at": "2026-09-18T03:21:25Z",
+      "event": "roadmap created from MAG-59; branch ft/RM66-MAG-59-travel-progress-trends off main; work counter 66 -> 67"
+    },
+    {
+      "at": "2026-09-18T03:21:25Z",
+      "event": "autopilot enabled by user mid-run; overrides the pickup skill's halt-after-artifacts scope. Blocking gates unchanged: Spanish briefing per tier, database gate at tier 2, user-run test suite, push/PR."
+    },
+    {
+      "at": "2026-09-18T03:21:25Z",
+      "event": "user away (asleep). Plan: complete tier 1 (no database gate), then write tier 2 artifacts and stop at the Spanish briefing + database gate."
+    },
+    {
+      "at": "2026-09-18T03:23:04Z",
+      "event": "tier 1 artifacts worker dispatched (platform, sonnet); budget start 5h=69% ctx=18%"
+    },
+    {
+      "at": "2026-09-18T03:32:12Z",
+      "event": "tier 1 artifacts complete; validate --strict passes. Roadmap fact corrected: 10 _calc columns in 2 modules, not 4 in 1."
+    }
   ]
 }
