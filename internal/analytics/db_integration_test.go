@@ -2728,8 +2728,12 @@ func TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRe
 
 	rec := newRealRecalculator(pool)
 	rdr := newRealReader(pool)
-	day1Eff := day(2026, 9, 10)
-	day2Eff := day(2026, 9, 11)
+	// A snapshot's metric date is its capture date minus one day, so the
+	// window is stated in metric dates, not capture dates. Passing the
+	// capture dates here would put day1 outside the window and silently
+	// leave day2 without a same-pass predecessor.
+	day1Eff := day(2026, 9, 9)
+	day2Eff := day(2026, 9, 10)
 
 	// Pass 1: recalculate day1 and day2 together, so day2 gets a same-pass
 	// predecessor and its deltas come back non-nil.
