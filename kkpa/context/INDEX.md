@@ -331,3 +331,11 @@ Notes for the curator:
 -->
 | `bulk ownership proof` | synonym of `vehicle ownership proof` → `architecture/vehicle-ownership-proof.md` |
 | `fleet-wide read` | a read scoped to every vehicle the caller owns → `architecture/vehicle-ownership-proof.md` |
+| `schema migrations` (one self-contained baseline per module + a ledger private to each module; MAG-83) | `architecture/schema-migrations.md` |
+| `goose per module` | synonym of `schema migrations` → `architecture/schema-migrations.md` |
+| `migration baseline` | the squashed file that defines a module's whole schema — recorded as applied on existing databases, never run there → `architecture/schema-migrations.md` |
+| `baseline` | synonym of `migration baseline` → `architecture/schema-migrations.md` |
+| `migration ledger` | `<module>.goose_db_version` — one per module, inside that module's schema → `architecture/schema-migrations.md` |
+| `goose_db_version` | synonym of `migration ledger`; `public.goose_db_version` is pre-squash history only → `architecture/schema-migrations.md` |
+| `how do I add a migration` | add a numbered .sql to the owning module's `db/migrations/`; never edit a baseline → `architecture/schema-migrations.md` |
+| `why did my baseline fail` | the database already holds the objects and was not registered → `architecture/schema-migrations.md` |

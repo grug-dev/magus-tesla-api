@@ -74,6 +74,9 @@ migration reverses in the exact mirror order.
   `go build`, `go vet`, `gofmt` and both guards were all clean while ten integration tests failed
   on `relation "accounts" does not exist`. Only the test suite catches it.
   _Source: RM39 roadmap decision D9 (learned during tier 1)._
+- **Migrations have their own guide.** Baselines, the registration of an existing database,
+  rollback refusal and version ordering live in `architecture/schema-migrations.md`. This bullet
+  covers only where the ledger SITS.
 - **The version ledger follows the schema: one `<module>.goose_db_version` per module.** RM39
   moved the tables but left the shared `public.goose_db_version`; MAG-83 finished the job, so the
   ledger now travels with the schema and `pg_dump --schema=<module>` carries a module's objects
