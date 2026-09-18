@@ -151,6 +151,8 @@
 | `capacity backfill` | re-run one month — `cmd/monthly-capacity` / `make cmd-monthly-capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `cmd/monthly-capacity` | synonym of `capacity backfill` → `workflows/vehicle-monthly-metrics.md` |
 | `monthly_effective_capacity` | the table → `workflows/vehicle-monthly-metrics.md` |
+| `capacity for an exact month` | `workflows/vehicle-monthly-metrics.md` |
+| `monthly capacity read port` | synonym of `capacity for an exact month` → `workflows/vehicle-monthly-metrics.md` |
 
 ## Architecture topics
 
