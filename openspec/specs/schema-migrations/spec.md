@@ -1,5 +1,25 @@
-## ADDED Requirements
+# schema-migrations Specification
 
+## Purpose
+
+How this monolith's database schema changes, and why each module owns that change alone.
+
+Every module keeps its own goose migration directory *and* its own version ledger,
+`<module>.goose_db_version`, inside the Postgres schema it already owns. That pairing is
+the whole capability: because no two modules share a ledger, two of them may use the same
+version number, the order the directories are applied in cannot change the result, and
+`pg_dump --schema=<module>` carries a module's tables together with its migration history
+— which is what makes a module extractable into its own service.
+
+Each module's history begins with one self-contained baseline that defines its whole
+schema. A database that already holds those objects is *registered* against the baseline
+rather than rebuilt by it, and the migration runner does that registration itself, so
+bringing an existing database onto the baselines needs no hand-run step.
+
+The rules below are enforced by `make migration-boundary-guard`, by goose's own
+out-of-order protection, and by each baseline refusing to roll back.
+
+## Requirements
 ### Requirement: One Self-Contained Schema Baseline Per Module
 
 Each module's migration history SHALL begin with a single baseline that fully defines
@@ -92,9 +112,12 @@ object it creates still exists, and the next forward run would then fail.
 ### Requirement: An Existing Database Is Registered Against The Baseline, Not Rebuilt
 
 A database that already holds a module's objects SHALL be recorded as having that
-module's baseline applied, without the baseline running against it. When a baseline is
-nevertheless applied to a database that already holds its objects, it SHALL fail and
-SHALL NOT alter or delete existing data.
+module's baseline applied, without the baseline running against it. The migration runner
+SHALL perform that registration itself, before handing the directory to goose, so that no
+database requires a hand-run step. Registration SHALL be idempotent, and SHALL NOT occur
+on a database that does not yet hold the module's objects. When a baseline is nevertheless
+applied to a database that already holds its objects, it SHALL fail and SHALL NOT alter or
+delete existing data.
 
 #### Scenario: A database already carrying the schema skips the baseline
 
@@ -104,20 +127,36 @@ SHALL NOT alter or delete existing data.
 - **THEN** the baseline does not run
 - **AND** any migration after the baseline is applied
 
-#### Scenario: An unregistered existing database fails loudly instead of losing data
+#### Scenario: An unregistered existing database is registered by the runner
 
 - **GIVEN** a database holding a module's objects but with no ledger entry for the
   baseline
 - **WHEN** migrations are applied
-- **THEN** the run fails
+- **THEN** the runner records the baseline as applied without running it
+- **AND** any migration after the baseline is applied
 - **AND** no existing table, column, or row is altered or deleted
+
+#### Scenario: A ledger holding only the creation marker is still registered
+
+- **GIVEN** a database holding a module's objects, and a ledger whose only row is the
+  version-0 marker written when the ledger was created
+- **WHEN** migrations are applied
+- **THEN** the runner records the baseline as applied
+- **AND** the marker row is not duplicated
+
+#### Scenario: A database without the module's objects is not registered
+
+- **GIVEN** a database where the module's schema holds no tables
+- **WHEN** migrations are applied
+- **THEN** nothing is recorded ahead of the baseline
+- **AND** the baseline runs and creates the module's objects
 
 ### Requirement: A Migration Arriving Behind The Current Version Is Rejected
 
-When a module's pending migration carries a version lower than the highest version
-already applied for that module, the run SHALL fail and name that migration, rather
-than applying it out of order. This protection SHALL be in force for both the deploy's
-migration step and the test-database setup.
+A pending migration SHALL fail the run when its version is lower than the highest
+version already applied for that module, and the failure SHALL name that migration
+rather than applying it out of order. This protection SHALL be in force for both the
+deploy's migration step and the test-database setup.
 
 #### Scenario: A migration added behind the current version stops the run
 
@@ -133,3 +172,4 @@ migration step and the test-database setup.
 - **WHEN** a database-backed test provisions its database
 - **THEN** the setup fails for the same reason and with the same protection as the
   deploy's migration step
+

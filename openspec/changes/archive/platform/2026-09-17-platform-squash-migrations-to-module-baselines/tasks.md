@@ -349,3 +349,43 @@ the stamp firing is the thing this change is relying on.
   uncovered, and unit tests were excluded before that function existed
 - [ ] 15.2 Archive the change, moving the folder under
   `openspec/changes/archive/platform/`, and sync `kkpa/context/`
+
+---
+
+## Outcome — recorded at archive time (2026-09-17)
+
+The checkboxes above are left as they stood. This section is what actually happened, so
+the record is not read off a half-ticked list.
+
+**Done and verified.**
+
+- The baselines were proved against a scratch database, compared structurally (columns,
+  indexes, constraints, relations, functions, triggers) rather than by text diff. 47
+  relations matched. Exactly the three expected differences, no fourth.
+- Dev was migrated through the new path. The three untouched modules recorded
+  `20260917000001` without running it, `telemetry` applied `20260917000002`,
+  `public.goose_db_version` stayed at 55 rows, and no row was lost.
+- Prod's pre-squash ledger was confirmed at 55 applied versions before the merge.
+- PR #73 merged. Prod deployed with `git pull && make docker-up`. The `migrate` service
+  logged four stamp lines, `applied 1 migration(s)` for `telemetry`, `applied 0` for the
+  other three, and exited 0. `web` and `poller` started.
+
+**Changed after the plan was written.**
+
+- The manual stamp (originally groups 10 and 13) was replaced by an automatic one in
+  `cmd/migrate`, added as group 4b. See design.md D9.
+- Two bugs were found and fixed before the deploy. The guard first refused a ledger
+  holding only goose's version-0 marker, which is exactly the state a failed first run
+  leaves. And the guard cannot tell a stale database from a current one — `magus_test`
+  was three migrations behind, got stamped, and the column drop then failed. The owner
+  accepted that limitation; the control is the required count check in 13.2.
+- design.md originally said prod deploys automatically on a merge to `main`. It does not
+  — this repo has no CI. Corrected before archiving.
+
+**Not done at archive time.**
+
+- `make test` had not passed on the owner's machine. Docker was down, and
+  `internal/account` and `internal/charging` abort rather than skip without it. The
+  no-Docker route is `make db-setup-test` plus `TEST_DATABASE_URL`.
+- 14.3, 14.4 and 14.5 (prod `ps`, ledger re-check, page render) were not recorded.
+- 15.1, a test for `config.moduleForDir`, was not taken up.
