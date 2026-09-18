@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM66-travel-progress-trends",
   "request": "MAG-59 \u2014 Travel Progress: drive the up/down arrows from the previous day. Also rename the tyre-pressure delta columns to carry a _delta suffix, and write that naming rule where an AI assistant reads it.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": true,
   "created_at": "2026-09-18T03:21:25Z",
-  "updated_at": "2026-09-18T14:45:00Z",
+  "updated_at": "2026-09-18T15:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -20,14 +20,13 @@
     "created_at": "2026-09-18T03:21:25Z"
   },
   "rollup": {
-    "current": [
-      "3"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       "1",
-      "2"
+      "2",
+      "3"
     ]
   },
   "tiers": [
@@ -82,12 +81,22 @@
       "depends_on": [
         2
       ],
-      "status": "proposed",
-      "budget": null,
-      "notes": "Artifacts written; openspec validate --strict passes. Spanish briefing approved by the user. No database gate: this tier changes no schema.",
+      "status": "archived",
+      "budget": {
+        "five_hour_pct_start": 17,
+        "five_hour_pct_end": 51,
+        "context_pct_end": 19,
+        "cost_usd_delta": 14.2,
+        "approx": true,
+        "spanned_sessions": 2,
+        "note": "artifacts + 2 waves + 1 review round and its fix; resumed in a fresh session"
+      },
+      "notes": "Two neutral Trend values, the mapping, the template, the i18n rename, tests and the KB fix. Owner ran the suite and reported it passing. One review round, approved with four minor comment findings, all fixed.",
       "started_at": "2026-09-18T14:05:00Z",
       "agent": "gateway",
-      "model": "sonnet"
+      "model": "sonnet",
+      "completed_at": "2026-09-18T15:35:00Z",
+      "archive_path": "openspec/changes/archive/gateway/2026-09-18-RM66-gateway-show-travel-progress-trends"
     }
   ],
   "decisions": [
@@ -154,6 +163,14 @@
       "at": "2026-09-18T09:15:05Z",
       "decision": "The tier 2 backfill joins on metric_date - 1, not on the previous stored row.",
       "why": "Same rule the tyre-pressure backfill used. After a gap the historical value stays NULL."
+    },
+    {
+      "id": "D-R1",
+      "scope": "tier-3:review",
+      "made_by": "autopilot",
+      "at": "2026-09-18T15:25:00Z",
+      "decision": "No second review round after fixing the four round-1 findings.",
+      "why": "The verdict was already approved and every finding was comment-only. A re-review would cost a full round and change nothing."
     }
   ],
   "events": [
@@ -200,6 +217,10 @@
     {
       "at": "2026-09-18T14:45:00Z",
       "event": "tier 3 artifacts complete and valid. Spanish briefing posted and approved by the user. Decision IDs D1-D6 added to design.md so workers can enumerate them. Implementation starts at wave 1."
+    },
+    {
+      "at": "2026-09-18T15:35:00Z",
+      "event": "tier 3 reviewer-approved and archived under archive/gateway/. Spec delta synced in place at spec.md:3652, no duplicate and nothing appended at EOF. Every tier archived, so RM66 is complete and its files move to openspec/roadmaps/archive/RM66-travel-progress-trends/."
     }
   ]
 }
