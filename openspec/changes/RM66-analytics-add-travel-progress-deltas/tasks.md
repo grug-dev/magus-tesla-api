@@ -312,7 +312,7 @@
 
 ## T8. DB-integration test — widened latest-status projection — depends on T1, T3, T4
 
-- [ ] T8.1 Extend (or add to) `internal/analytics/db_integration_test.go`'s
+- [x] T8.1 Extend (or add to) `internal/analytics/db_integration_test.go`'s
       `LatestMetricsForVehicles` coverage with a case asserting the three new
       fields round-trip through a real migrated database: seed two
       consecutive days via `Recalculate`, read back via
@@ -323,6 +323,34 @@
       existing convention and self-skips without one.
       Acceptance: compiles under `go vet` against the real generated types
       from T3; not run by Claude — awaiting-user-verification.
+      **Done — awaiting-user-verification.** Added
+      `TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate`
+      in `internal/analytics/db_integration_test.go`. Seeds three consecutive
+      snapshots (day0 as a predecessor only, day1, day2) with plain
+      distance/battery numbers chosen so the real derivation produces
+      fixture 1's exact figures (distance 50.0/60.0, consumed 15.0/20.0,
+      km/pct 50/15 and 60/20). Two `Recalculate` calls against the real
+      `Recalculator`/`Reader`, one test: pass 1 covers `[day1, day2]` in one
+      window, so day2 gets a same-pass predecessor (day1's own freshly-built
+      row) and its deltas come back non-nil, asserted equal to fixture 1's
+      10.0 / 5.0 / (60/20-50/15) via `approxEqual`. Pass 2 recalculates day2
+      alone (`[day2, day2]`) — day1 now falls outside that window, so day2 is
+      the first row *this* pass processes; its own `DistanceTraveledKmCalc`
+      is asserted unchanged (60.0) while all three deltas are asserted nil,
+      matching fixture 2. Both reads go through the real
+      `Reader.LatestMetricsForVehicles`, never `fetchVehicleMetric`'s raw
+      SQL, so this is genuinely the widened-projection coverage T8 asks for.
+      `go build ./...`, `go vet ./...`, `gofmt -l .` all clean (see report).
+      Not run by Claude (`Test-Execution-Policy`) —
+      awaiting-user-verification.
+      **Pre-existing gap noted, not fixed:** `fetchVehicleMetric`'s doc
+      comment still claims it selects "every non-key column" but its SELECT
+      list omits the four `tpms_pressure_*_psi_delta_calc` columns — a gap
+      T5.2 already found and left alone as pre-existing and out of scope.
+      Fixing it means widening a `SELECT`, a `Scan` call, and rewording the
+      comment, which is more than the "one line" bar this dispatch's brief
+      set for opportunistic cleanup, so it is reported here instead of
+      touched.
 
 ## T9. KB guide update — depends on T1, T2, T3, T4
 

@@ -2673,3 +2673,117 @@ func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.
 		t.Errorf("KmPerPctDeltaCalc: want -0.4, got %v", vs.KmPerPctDeltaCalc)
 	}
 }
+
+// TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate
+// proves the three new travel-progress deltas reach VehicleStatus through a
+// REAL Recalculate pass, not a hand-seeded row -- unlike the fixed-value test
+// above, which only checks the projection. Three consecutive snapshots are
+// seeded (a predecessor day plus two tracked days), matching design.md's Test
+// Contract fixture 1 numbers exactly:
+//
+//	day 0 (predecessor only): odometer 1000.0, battery 90%
+//	day 1: odometer 1050.0, battery 75%  -> distance 50.0, consumed 15.0, km/pct 50/15
+//	day 2: odometer 1110.0, battery 55%  -> distance 60.0, consumed 20.0, km/pct 60/20
+//
+// Recalculating [day1, day2] in one pass gives day2 a same-pass predecessor
+// (day1's own freshly-derived row), so its deltas come back non-nil and equal
+// to fixture 1's numbers: 10.0, 5.0, and 60/20-50/15. Recalculating day2 again
+// alone afterward is fixture 2's case: day1 is now outside the window, so day2
+// is the first row this second pass processes and its deltas must come back
+// nil even though its own figures are unchanged.
+func TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	const teslaID = int64(990203)
+	cleanupVehicleMetrics(t, pool, teslaID)
+
+	day0 := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 9, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 9),
+		OdometerKm:      1000.0,
+		BatteryLevelPct: 90,
+		BatteryRangeKm:  350.0,
+	}
+	day1 := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 10, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 10),
+		OdometerKm:      1050.0,
+		BatteryLevelPct: 75,
+		BatteryRangeKm:  310.0,
+	}
+	day2 := telemetry.Snapshot{
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 9, 11, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 9, 11),
+		OdometerKm:      1110.0,
+		BatteryLevelPct: 55,
+		BatteryRangeKm:  270.0,
+	}
+	seedSnapshot(t, pool, day0)
+	seedSnapshot(t, pool, day1)
+	seedSnapshot(t, pool, day2)
+	// No Supercharger sessions, no manual entries -- chargePct stays 0 for
+	// both days, matching fixture 1's plain-driving numbers exactly.
+
+	rec := newRealRecalculator(pool)
+	rdr := newRealReader(pool)
+	day1Eff := day(2026, 9, 10)
+	day2Eff := day(2026, 9, 11)
+
+	// Pass 1: recalculate day1 and day2 together, so day2 gets a same-pass
+	// predecessor and its deltas come back non-nil.
+	if err := rec.Recalculate(ctx, teslaID, day1Eff, day2Eff); err != nil {
+		t.Fatalf("Recalculate([day1, day2]): %v", err)
+	}
+
+	got, err := rdr.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{teslaID}))
+	if err != nil {
+		t.Fatalf("LatestMetricsForVehicles: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	vs := got[0]
+
+	wantKmPerPctDelta := 60.0/20.0 - 50.0/15.0
+	if vs.DistanceTraveledKmDeltaCalc == nil || !approxEqual(*vs.DistanceTraveledKmDeltaCalc, 10.0) {
+		t.Errorf("pass 1 DistanceTraveledKmDeltaCalc: want 10.0, got %v", vs.DistanceTraveledKmDeltaCalc)
+	}
+	if vs.ConsumedPctDeltaCalc == nil || !approxEqual(*vs.ConsumedPctDeltaCalc, 5.0) {
+		t.Errorf("pass 1 ConsumedPctDeltaCalc: want 5.0, got %v", vs.ConsumedPctDeltaCalc)
+	}
+	if vs.KmPerPctDeltaCalc == nil || !approxEqual(*vs.KmPerPctDeltaCalc, wantKmPerPctDelta) {
+		t.Errorf("pass 1 KmPerPctDeltaCalc: want %v, got %v", wantKmPerPctDelta, vs.KmPerPctDeltaCalc)
+	}
+
+	// Pass 2: recalculate day2 alone. day1 falls outside this window, so day2
+	// is the first row THIS pass processes -- its own figures stay the same,
+	// but the three deltas must now come back nil (fixture 2's case).
+	if err := rec.Recalculate(ctx, teslaID, day2Eff, day2Eff); err != nil {
+		t.Fatalf("Recalculate([day2, day2]): %v", err)
+	}
+
+	got, err = rdr.LatestMetricsForVehicles(ctx, vehicleref.All([]int64{teslaID}))
+	if err != nil {
+		t.Fatalf("LatestMetricsForVehicles (pass 2): %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	vs = got[0]
+
+	if vs.DistanceTraveledKmCalc == nil || !approxEqual(*vs.DistanceTraveledKmCalc, 60.0) {
+		t.Errorf("pass 2 DistanceTraveledKmCalc: want 60.0 (own figure unchanged), got %v", vs.DistanceTraveledKmCalc)
+	}
+	if vs.DistanceTraveledKmDeltaCalc != nil {
+		t.Errorf("pass 2 DistanceTraveledKmDeltaCalc: want nil (single-day window, no same-pass predecessor), got %v", *vs.DistanceTraveledKmDeltaCalc)
+	}
+	if vs.ConsumedPctDeltaCalc != nil {
+		t.Errorf("pass 2 ConsumedPctDeltaCalc: want nil, got %v", *vs.ConsumedPctDeltaCalc)
+	}
+	if vs.KmPerPctDeltaCalc != nil {
+		t.Errorf("pass 2 KmPerPctDeltaCalc: want nil, got %v", *vs.KmPerPctDeltaCalc)
+	}
+}

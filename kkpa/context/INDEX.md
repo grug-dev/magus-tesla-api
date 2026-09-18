@@ -276,7 +276,7 @@
 | `mirror_watermarks` | the per-vehicle mirror cursor (`tesla_id`); never advances to `now()` → `architecture/charging-tables.md` |
 | `inferred_capacity_kwh_calc` | the `GENERATED ALWAYS AS … STORED` capacity column on both charge tables → `architecture/charging-tables.md` |
 | `energy_source` / `price_source` / `start_battery_source` | module-computed provenance columns, ignored when supplied by a caller → `architecture/charging-tables.md` |
-| `_calc` suffix | the `<what>_<unit>_calc` naming rule for a stored derived column → `architecture/charging-tables.md` |
+| `_calc` suffix | the `<what>_<unit>_calc` rule for a stored derived column, and when it must be `_delta_calc` instead → `architecture/delta-column-naming.md` |
 | `schema-qualified query` | why every `query.sql` table reference carries its schema (sqlc codegen requirement) → `architecture/schema-per-module.md` |
 | `gen.go.rename` | the `sqlc.yaml` block that keeps generated Go type names stable across a schema move → `architecture/schema-per-module.md` |
 | `vehicles table schema` | `account.vehicles` — the registry lives in its owning module's schema → `architecture/schema-per-module.md` |
@@ -339,3 +339,7 @@ Notes for the curator:
 | `goose_db_version` | synonym of `migration ledger`; `public.goose_db_version` is pre-squash history only → `architecture/schema-migrations.md` |
 | `how do I add a migration` | add a numbered .sql to the owning module's `db/migrations/`; never edit a baseline → `architecture/schema-migrations.md` |
 | `why did my baseline fail` | the database already holds the objects and was not registered → `architecture/schema-migrations.md` |
+| `delta column naming` (the `_delta_calc` / `DeltaCalc` rule for a day-over-day change, its `make delta-guard` enforcement, the baseline and the `delta:allow` escape hatch) | `architecture/delta-column-naming.md` |
+| `_delta_calc` | synonym of `delta column naming` → `architecture/delta-column-naming.md` |
+| `delta-guard` | synonym of `delta column naming` → `architecture/delta-column-naming.md` |
+| `delta:allow` | the escape hatch for a new non-delta `_calc` name → `architecture/delta-column-naming.md` |

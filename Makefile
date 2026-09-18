@@ -976,7 +976,7 @@ delta-guard: ## Fail if a NEW day-over-day delta column/field is named _calc/Cal
 	sqlfail=$$(echo "$$sqlhits" | grep -vE "$$sqlbaseline" || true); \
 	gopattern='^\t+[A-Z][A-Za-z0-9]*Calc\b'; \
 	godeltapattern='(^|:)\t+[A-Z][A-Za-z0-9]*DeltaCalc\b'; \
-	gobaseline='(DistanceTraveledKmCalc|BatteryUsedPctCalc|DaysSpannedCalc|KmPerPctCalc|EstimatedRangeKmCalc|TpmsPressureFLPSICalc|TpmsPressureFRPSICalc|TpmsPressureRLPSICalc|TpmsPressureRRPSICalc|InferredCapacityKWhCalc|TpmsPressureFlPsiCalc|TpmsPressureFrPsiCalc|TpmsPressureRlPsiCalc|TpmsPressureRrPsiCalc|InferredCapacityKwhCalc)\b'; \
+	gobaseline='(DistanceTraveledKmCalc|BatteryUsedPctCalc|DaysSpannedCalc|KmPerPctCalc|EstimatedRangeKmCalc|InferredCapacityKWhCalc|InferredCapacityKwhCalc)\b'; \
 	gohits=$$(grep -rnE "$$gopattern" --include='*.go' internal cmd \
 		| grep -v '_test.go' \
 		| grep -vE "$$godeltapattern" \

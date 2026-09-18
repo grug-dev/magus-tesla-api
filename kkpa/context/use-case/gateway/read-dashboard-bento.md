@@ -68,8 +68,9 @@
    `RM50-gateway-add-travel-progress-subsection` tier 2 (`DistanceTraveledKmCalc`,
    `ConsumedPct`), and eight added by `RM50-gateway-add-tire-pressure-subsection` tier 4
    — the four raw readings (`TpmsPressureFLPSI`, `TpmsPressureFRPSI`, `TpmsPressureRLPSI`,
-   `TpmsPressureRRPSI`) and the four day-over-day deltas (`TpmsPressureFLPSICalc`,
-   `TpmsPressureFRPSICalc`, `TpmsPressureRLPSICalc`, `TpmsPressureRRPSICalc`) — nil never
+   `TpmsPressureRRPSI`) and the four day-over-day deltas (`TpmsPressureFLPSIDeltaCalc`,
+   `TpmsPressureFRPSIDeltaCalc`, `TpmsPressureRLPSIDeltaCalc`, `TpmsPressureRRPSIDeltaCalc`,
+   renamed from a bare `Calc` suffix) — nil never
    fabricates a value, it omits the corresponding display field (see gotchas).
    `dashCountOrDash` formats the counter: nil → `"—"`, a reported `0` → `"0"`.
    `dashDistanceOrDash`/`dashBatteryUsedOrDash` follow the same nil → `"—"` rule for the
@@ -152,7 +153,7 @@ battery card's `battery_level_pct`, `battery_range_km`, `charge_limit_soc_pct`.
   `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`, `SentryMode`,
   `MaxRangeChargeCounter`), the two from `RM50` tier 2
   (`DistanceTraveledKmCalc`, `ConsumedPct`), and the eight from `RM50` tier 4
-  (`TpmsPressureFLPSI`/`FR`/`RL`/`RR` and `TpmsPressureFLPSICalc`/`FR`/`RL`/`RR`). A nil
+  (`TpmsPressureFLPSI`/`FR`/`RL`/`RR` and `TpmsPressureFLPSIDeltaCalc`/`FR`/`RL`/`RR`). A nil
   value means "not yet computed since the migration" — for `SentryMode` and
   `MaxRangeChargeCounter` it can also mean "not reported this capture", for the two
   tier-2 fields it means the latest computed day has no prior day to derive them against,

@@ -5,9 +5,9 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM66-travel-progress-trends.md",
   "request": "MAG-59 tier 2: store the day-over-day deltas of the three Travel Progress figures, and rename the four tyre-pressure delta columns to _delta_calc.",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-09-18T09:46:31Z",
-  "updated_at": "2026-09-18T10:20:00Z",
+  "updated_at": "2026-09-18T10:34:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -22,22 +22,21 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "T7",
-      "T8",
-      "T9"
-    ],
+    "pending": [],
     "blocked": [],
     "awaiting_user_verification": [
       "T1",
       "T2",
       "T6",
+      "T8",
       "T10"
     ],
     "done": [
       "T3",
       "T4",
-      "T5"
+      "T5",
+      "T7",
+      "T9"
     ]
   },
   "tasks": [
@@ -179,7 +178,19 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "pending"
+      "status": "done",
+      "agent": "leader",
+      "model": "Opus 5",
+      "started_at": "2026-09-18T10:22:00Z",
+      "completed_at": "2026-09-18T10:28:00Z",
+      "notes": "Removed the 8 old tyre Go names from the gobaseline regex. Guard prints 10 SQL / 7 Go, the corrected acceptance. The SQL baseline cannot shrink: the frozen baseline migration defines those columns under their old names.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 72,
+        "cost_usd_delta": 2.9,
+        "approx": true,
+        "note": "wave 3 covers T7, T8 and T9 jointly; the leader's T7/T9 ran while the T8 worker ran"
+      }
     },
     {
       "id": "T8",
@@ -191,7 +202,19 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending"
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:22:00Z",
+      "completed_at": "2026-09-18T10:33:00Z",
+      "notes": "Added TestReader_LatestMetricsForVehicles_TravelProgressDeltas_RoundTripThroughRecalculate. Two real Recalculate passes over 3 seeded snapshots prove fixture 1's non-nil deltas and fixture 2's nil deltas, through the real Reader. Not run.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 72,
+        "cost_usd_delta": 2.9,
+        "approx": true,
+        "note": "wave 3 covers T7, T8 and T9 jointly; the leader's T7/T9 ran while the T8 worker ran"
+      }
     },
     {
       "id": "T9",
@@ -204,7 +227,19 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending"
+      "status": "done",
+      "agent": "leader",
+      "model": "Opus 5",
+      "started_at": "2026-09-18T10:28:00Z",
+      "completed_at": "2026-09-18T10:34:00Z",
+      "notes": "Updated the vehicle-metrics guide: 3 new columns, 4 renamed, a history line and the new first-day-of-a-pass NULL rule. Swept two more guides the change invalidated. The old name's grep returns nothing.",
+      "budget": {
+        "five_hour_pct_start": 66,
+        "five_hour_pct_end": 72,
+        "cost_usd_delta": 2.9,
+        "approx": true,
+        "note": "wave 3 covers T7, T8 and T9 jointly; the leader's T7/T9 ran while the T8 worker ran"
+      }
     },
     {
       "id": "T10",
@@ -301,6 +336,22 @@
       "at": "2026-09-18T10:20:00Z",
       "decision": "Two stale counts in tasks.md T5 were corrected in place by appended findings, not by editing the original lines.",
       "why": "Tasks are append-only. The real counts were 8+14 renames and zero PSICalc names in the integration test."
+    },
+    {
+      "id": "D-U",
+      "scope": "wave-3:T9-sweep",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:34:00Z",
+      "decision": "Fixed two more KB guides the rename invalidated: the gateway bento use-case and the delta-column-naming architecture guide.",
+      "why": "T9 named only the vehicle-metrics guide, but CLAUDE.md's docs rule binds every guide a change makes wrong."
+    },
+    {
+      "id": "D-V",
+      "scope": "wave-3:found",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:34:00Z",
+      "decision": "Left fetchVehicleMetric's doc comment overclaiming 'every non-key column'. Reported, not fixed.",
+      "why": "It already omitted the four tyre delta columns before this tier. Fixing it widens a SELECT and a Scan, outside this tier's scope."
     }
   ],
   "review": {
@@ -329,6 +380,14 @@
     {
       "at": "2026-09-18T10:20:00Z",
       "event": "wave 2 complete (T3, T4, T5, T6). Leader re-ran the signals itself: go build, go vet, gofmt -l all clean; make delta-guard passes at 10 SQL / 7 Go. The tree builds again."
+    },
+    {
+      "at": "2026-09-18T10:22:00Z",
+      "event": "wave 3 dispatched: T8 to an analytics worker (sonnet); leader takes T7 (Makefile) and T9 (KB guide) at the same time. Budget start 5h=66% ctx=14%."
+    },
+    {
+      "at": "2026-09-18T10:34:00Z",
+      "event": "wave 3 complete (T7, T8, T9). All 10 sub-tasks implemented. Leader re-ran the signals: go build, go vet, gofmt -l clean; delta-guard, boundary-guard, naming-guard, tz-guard all pass. Status -> applied. The suite is the owner's step."
     }
   ]
 }
