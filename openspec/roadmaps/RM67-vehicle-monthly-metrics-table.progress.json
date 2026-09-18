@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-18T19:05:41Z",
-  "updated_at": "2026-09-18T21:32:45Z",
+  "updated_at": "2026-09-18T23:35:59Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,9 +21,10 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      2
+    ],
     "pending": [
-      2,
       3,
       4
     ],
@@ -112,6 +113,22 @@
       "made_by": "user",
       "decision": "The new Go type must not end in Processor, Manager, Handler, Helper, Data, Info, Object or Thing (make naming-guard fails new ones). It is written using the golang-naming, golang-code-style, golang-design-patterns, golang-data-structures and golang-documentation skills, additive to ai/go-conventions.md.",
       "why": "The ticket calls it a 'processor', which the guard rejects. The owner asked for the golang skills explicitly; they are not part of the pipeline's Doc-Pack by default."
+    },
+    {
+      "id": "RD11",
+      "at": "2026-09-18T23:31:33Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The three cost columns (ext_ac_cost, ext_dc_cost, sc_cost) are NUMERIC(14,2), not double precision. Binds tier 3, which computes them.",
+      "why": "They sum manual_charge_entries.price, which is already NUMERIC(14,2). supercharger_sessions.total_cost's own COMMENT calls float questionable for money. The table is empty now, so the fix is free."
+    },
+    {
+      "id": "RD12",
+      "at": "2026-09-18T23:31:33Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The copied capacity keeps TWO states: capacity_kwh plus capacity_measured. No third column for 'no row' versus 'thin month'.",
+      "why": "Owner accepted the loss after seeing it. The tier 1 port still reports three states; only the stored copy collapses them."
     }
   ],
   "tiers": [
@@ -144,10 +161,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
       "model": null,
-      "started_at": null,
+      "started_at": "2026-09-18T21:48:44Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -203,6 +220,16 @@
       "at": "2026-09-18T21:32:45Z",
       "agent": "leader",
       "event": "tier 1 archived to openspec/changes/archive/charging/2026-09-18-RM67-charging-add-monthly-capacity-read; delta spec synced into openspec/specs/monthly-effective-capacity; leader also fixed that spec's Purpose, which the archive sync never touches; tier 2 is now unblocked"
+    },
+    {
+      "at": "2026-09-18T21:48:44Z",
+      "agent": "leader",
+      "event": "tier 2 started; no fresh Step 2 interview - RD1-RD10 bind its design choices and no NEW decision arose; the column list and index plan go through the database design gate after artifacts; dispatched analytics worker on claude-sonnet for artifact creation; budget at dispatch five_hour 59%, context 24%"
+    },
+    {
+      "at": "2026-09-18T23:31:33Z",
+      "agent": "leader",
+      "event": "database design gate ran with the owner on tier 2's 32-column schema; approved with ONE change - cost columns move to NUMERIC(14,2) (RD11); capacity stays two-state (RD12); worker re-dispatched to revise the artifacts"
     }
   ]
 }

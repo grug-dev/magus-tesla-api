@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM67-analytics-add-vehicle-monthly-metrics",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
+  "request": "Create analytics.vehicle_monthly_metrics and the SyncMonth use case that rewrites the row for one (tesla_id, period). One migration creates all 32 columns, including the ext_*, sc_* and JSONB columns tier 3 fills. Tier 2 fills the vehicle_metrics figures for all days / weekdays / weekends and copies the capacity through tier 1's port. All maths in Go. Tier 2 of 4 of roadmap RM67 (Linear MAG-73).",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "TASK-1",
+      "TASK-2",
+      "TASK-3",
+      "TASK-4",
+      "TASK-5",
+      "TASK-6",
+      "TASK-7",
+      "TASK-8",
+      "TASK-9",
+      "TASK-10",
+      "TASK-11",
+      "TASK-12"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-18T23:35:59Z",
+  "updated_at": "2026-09-18T23:35:59Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM67-MAG-73-vehicle-monthly-metrics-table",
+    "base": "main",
+    "ticket": "MAG-73",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied",
+    "created_at": "2026-09-18T19:05:41Z"
+  },
+  "tasks": [
+    {
+      "id": "TASK-1",
+      "title": "Add the rename entry to sqlc.yaml for the new table",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "LEADER-OWNED: sqlc.yaml is outside the analytics sandbox.",
+      "budget": null
+    },
+    {
+      "id": "TASK-2",
+      "title": "Create the migration for analytics.vehicle_monthly_metrics",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "32 columns. Cost columns are NUMERIC(14,2) per RD11.",
+      "budget": null
+    },
+    {
+      "id": "TASK-3",
+      "title": "Add VehicleMonthlyMetrics, EndingBatteryDist and the MonthlySyncer port to analytics.go",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Public types stay plain Go. No pgtype.",
+      "budget": null
+    },
+    {
+      "id": "TASK-4",
+      "title": "New monthly_figures.go: the pure derivation of the three buckets",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "RD2 efficiency rule and RD6 weekday/weekend split. Pure function, no DB.",
+      "budget": null
+    },
+    {
+      "id": "TASK-5",
+      "title": "Add the two queries to query.sql and run make sqlc",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-1",
+        "TASK-2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Blocks TASK-7 and TASK-9.",
+      "budget": null
+    },
+    {
+      "id": "TASK-6",
+      "title": "Add the pgtype.Numeric and JSONB mapping helpers to mapping.go",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "mapping.go is the module's only pgtype boundary.",
+      "budget": null
+    },
+    {
+      "id": "TASK-7",
+      "title": "New monthly_sync.go: the SyncMonth use case",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-4",
+        "TASK-5",
+        "TASK-6"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Copies the capacity through tier 1's port. Idempotent per (tesla_id, period).",
+      "budget": null
+    },
+    {
+      "id": "TASK-8",
+      "title": "Add loggingMonthlySyncer to query_log.go",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Follows the module's explicit-implementation decorator pattern.",
+      "budget": null
+    },
+    {
+      "id": "TASK-9",
+      "title": "Integration tests against the design.md Test Contract",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-5",
+        "TASK-7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Assert the contract values, never the implementation. DB-gated, final wave.",
+      "budget": null
+    },
+    {
+      "id": "TASK-10",
+      "title": "Update internal/analytics/AGENTS.md",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-3",
+        "TASK-7"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Public interface, data ownership, testing notes.",
+      "budget": null
+    },
+    {
+      "id": "TASK-11",
+      "title": "Check kkpa/context/ guides this change invalidates",
+      "module": "platform",
+      "depends_on": [
+        "TASK-3",
+        "TASK-7"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "LEADER-OWNED: outside the analytics sandbox.",
+      "budget": null
+    },
+    {
+      "id": "TASK-12",
+      "title": "Check the root README.md structure tables",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "LEADER-OWNED: outside the analytics sandbox.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-18T23:35:59Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate passed. The 32-column schema is approved, with the three cost columns changed to NUMERIC(14,2) (roadmap RD11).",
+      "why": "Owner saw the full schema, the rationale and the index plan. The cost type was the one change asked for.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L2",
+      "at": "2026-09-18T23:35:59Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The copied capacity keeps two states, not three (roadmap RD12).",
+      "why": "Owner accepted that 'no row' and 'thin month' both store capacity_measured=false.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-18T23:35:59Z",
+      "agent": "leader",
+      "event": "artifacts created by the analytics worker and validated (openspec validate --strict passed); Spanish briefing posted; database design gate ran with the owner and returned one change (RD11), which the same worker applied; leader marked TASK-1, TASK-11 and TASK-12 leader-owned - sqlc.yaml, kkpa/context/ and README.md are outside the analytics sandbox"
+    }
+  ]
+}
