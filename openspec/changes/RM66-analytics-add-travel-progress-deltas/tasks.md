@@ -140,17 +140,24 @@
 
 ## T3. `query.sql` widen + `sqlc generate` — depends on T1
 
-- [ ] T3.1 In `internal/analytics/db/query.sql`, update `UpsertVehicleMetric`:
+- [x] T3.1 In `internal/analytics/db/query.sql`, update `UpsertVehicleMetric`:
       add the three new columns and rename the four tyre columns, in the
       `INSERT` column list, the `VALUES` list, and the `ON CONFLICT ... DO
       UPDATE SET` clause.
-- [ ] T3.2 In the same file, update `LatestVehicleMetricsByVehicles`'s
+      **Done.** All three lists updated. The query's own doc comment
+      (describing the four tyre delta columns) was also updated to name the
+      new `_delta_calc` spelling, since the old text would otherwise
+      describe a column name that no longer exists.
+- [x] T3.2 In the same file, update `LatestVehicleMetricsByVehicles`'s
       `SELECT` list to add the three new columns and the four renamed ones.
       Update the query's own doc comment to note this widening is
       projection-only (no index change), following the comment style of its
       two previous widenings, without citing any change or roadmap
       identifier.
-- [ ] T3.3 Run `sqlc generate` (or `make sqlc`). Confirm
+      **Done.** `SELECT` list widened by seven columns. New comment
+      paragraph added, no RM/D-x citation, matching the two prior widenings'
+      style.
+- [x] T3.3 Run `sqlc generate` (or `make sqlc`). Confirm
       `internal/analytics/db/models.go` and `query.sql.go` now declare
       `DistanceTraveledKmDeltaCalc`, `ConsumedPctDeltaCalc`,
       `KmPerPctDeltaCalc`, and the four `TpmsPressure{Fl,Fr,Rl,Rr}PsiDeltaCalc`
@@ -159,29 +166,45 @@
       Acceptance: `git diff internal/analytics/db/models.go
       internal/analytics/db/query.sql.go` shows only the expected additions
       and renames — no unrelated regeneration drift.
+      **Done.** `sqlc generate` ran clean (`sqlc version v1.31.1`). Both
+      files now declare all seven fields under sqlc's casing on both
+      structs. `git diff --stat`: `models.go` 22 lines changed,
+      `query.sql.go` 194 lines changed — every hunk is one of the expected
+      additions/renames, nothing else. Full diff pasted in the report.
 
 ## T4. `reader.go` / `recalculate.go` mapping — depends on T2, T3
 
-- [ ] T4.1 In `internal/analytics/reader.go`'s `LatestMetricsForVehicles`,
+- [x] T4.1 In `internal/analytics/reader.go`'s `LatestMetricsForVehicles`,
       add three `ptrFloat64FromPg(row.<GeneratedName>)` lines mapping onto
       `VehicleStatus`'s three new fields, and rename the four existing
       `TpmsPressureFlPsiCalc`-style reads to their new generated names,
       mapped onto `VehicleStatus`'s renamed fields.
-- [ ] T4.2 In `internal/analytics/recalculate.go`'s
+      **Done.**
+- [x] T4.2 In `internal/analytics/recalculate.go`'s
       `upsertVehicleMetricParamsFrom`, add three
       `pgFloat8FromPtr(row.<NewFieldName>)` lines and rename the four
       existing TPMS-calc lines on both the generated-param side and the
       `vehicleMetricRow` side.
       Acceptance: `go build ./internal/analytics/...` and `go vet
       ./internal/analytics/...` both pass with zero new findings.
+      **Done.** `go build ./internal/analytics/...` passes clean. `go vet
+      ./internal/analytics/...` still fails, but only in `consumed_test.go`
+      (old `TpmsPressureFLPSICalc` field reference) — that is T5's task,
+      not T4's, and is unrelated to reader.go/recalculate.go. See report
+      for full vet output.
 
 ## T5. Existing test files — rename old field references — depends on T2
 
-- [ ] T5.1 `internal/analytics/consumed_test.go` and
+- [x] T5.1 `internal/analytics/consumed_test.go` and
       `internal/analytics/consumption_test.go` (2 occurrences each) —
       rename their `TpmsPressure{FL,FR,RL,RR}PSICalc` literals to
       `...PSIDeltaCalc`.
-- [ ] T5.2 `internal/analytics/db_integration_test.go` (26 occurrences of
+      **Done, count corrected.** The tree had drifted from the task's
+      count: `consumed_test.go` had 8 occurrences, `consumption_test.go`
+      had 14 — not 2 each. All renamed via a word-boundary sed
+      (`TpmsPressure(FL|FR|RL|RR)PSICalc` → `...PSIDeltaCalc`), verified
+      by a full-package grep afterward (see T5.2's acceptance run).
+- [x] T5.2 `internal/analytics/db_integration_test.go` (26 occurrences of
       `TpmsPressure`, a mix of the four raw `...PSI` names — unchanged — and
       the four `...PSICalc` names — renamed). Read the file and rename only
       the `...PSICalc` occurrences; leave every raw `...PSI` occurrence
@@ -189,13 +212,32 @@
       fields where this test already asserts a full `VehicleStatus` or a full
       `vehicle_metrics` row, so this integration test does not silently stop
       covering the widened row shape.
+      **Found: the rename half is void.** All 26 `TpmsPressure` occurrences
+      in this file are raw `...PSI`/`...Psi` names (Go domain casing and
+      sqlc-generated casing) — none was a `...PSICalc` name. This file never
+      asserted the four tyre deltas at all, so there was nothing to rename.
+      **Widening done.** Two places assert a "full" row and needed the three
+      new fields: (1) `fetchVehicleMetric`, whose own doc comment claims it
+      "selects every non-key column" — widened its `SELECT`/`Scan` to add
+      `distance_traveled_km_delta_calc`, `consumed_pct_delta_calc`,
+      `km_per_pct_delta_calc`. (2)
+      `TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns` —
+      widened its seed `INSERT` and its `VehicleStatus` assertions to cover
+      the same three fields. Left the four tyre-delta columns out of
+      `fetchVehicleMetric`'s select list: they were already missing there
+      before this tier (a tier-3 gap, since the helper's own comment already
+      overpromised), and adding them is outside this task's literal "three
+      new fields" scope — noted here rather than silently fixed.
+      `go vet ./internal/analytics/...` passes clean, and
+      `grep -rn "TpmsPressure(FL|FR|RL|RR)PSICalc|TpmsPressureFlPsiCalc|TpmsPressureFrPsiCalc|TpmsPressureRlPsiCalc|TpmsPressureRrPsiCalc" internal/analytics/`
+      returns nothing.
       Acceptance: `go vet ./internal/analytics/...` compiles every test file
       with zero references to the four old TPMS-calc names remaining
       anywhere in the package, including tests.
 
 ## T6. Offline tests — the three test-contract fixtures — depends on T2
 
-- [ ] T6.1 Add three table-driven cases to
+- [x] T6.1 Add three table-driven cases to
       `internal/analytics/consumed_test.go` (or wherever
       `deriveVehicleMetrics`'s existing offline cases live), implementing
       design.md's "Test contract" fixtures 1–3 verbatim: a day with a
@@ -208,6 +250,20 @@
       nil for fixtures 2 and 3). `go vet` confirms these compile; they are
       not run by Claude (`Test-Execution-Policy`) — reported as
       awaiting-user-verification.
+      **Done — awaiting-user-verification.** Added three tests to
+      `consumed_test.go`, named descriptively rather than "Fixture 1/2/3"
+      (no design.md/change-ID citation in the code, per this dispatch's
+      comment rule): `TestDeriveVehicleMetrics_TravelProgressDelta_
+      AgainstPassPredecessor` (fixture 1 — asserts `DistanceTraveledKmDeltaCalc
+      = 10.0`, `ConsumedPctDeltaCalc = 5.0`, `KmPerPctDeltaCalc =
+      60.0/20.0-50.0/15.0` — the exact same float expression the production
+      code evaluates, so the match is exact, not approximate; this equals
+      design.md's stated "−0.33 approximately"), `..._FirstRowOfPassIsNil`
+      (fixture 2 — own figures non-nil, all three deltas nil), and
+      `..._PredecessorLacksOwnDelta_NilPropagates` (fixture 3 — predecessor's
+      own figures nil, so subtracting from it yields nil, not a fabricated
+      number). `go vet ./internal/analytics/...` compiles clean; not run by
+      Claude per `Test-Execution-Policy`.
 
 ## T7. `delta-guard` baseline shrink — depends on T1, T2
 
@@ -287,7 +343,7 @@
 
 ## T10. Leader-integrated — gateway call-site fix (NOT this module's task)
 
-- [ ] T10.1 (Leader, in this tier's wave commit) Update
+- [x] T10.1 (Leader, in this tier's wave commit) Update
       `internal/gateway/handlers/handlers.go:580-583`'s four
       `dashTireWheel(ctx, vs.TpmsPressure*PSI, vs.TpmsPressure*PSICalc)` calls
       to the renamed `vs.TpmsPressure*PSIDeltaCalc` fields, and update the

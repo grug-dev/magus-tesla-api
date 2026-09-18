@@ -581,16 +581,11 @@ func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, sessionID int64, endB
 // by its (tesla_id, metric_date) — the table's own UNIQUE index. It selects
 // every column so a test can assert on any of them without a second helper.
 // Returns ok=false when no row exists (never a zero-value row masquerading
-// as "found"). Extended by RM38-analytics-add-vehicle-status-columns (task
-// 5.1/5.2) to also select/scan the eight new columns
-// (locked/sentry_mode/car_version/inside_temp_c/outside_temp_c/
-// charging_state/charge_limit_soc_pct/captured_at) — analyticsdb.VehicleMetric
-// (models.go) already carries these fields as of Wave A/B, so only this
-// helper's SQL and Scan list needed widening. Widened again by
-// RM50-analytics-add-tire-pressure-columns (task 1.7) to select/scan the
-// four tpms_pressure_*_psi columns — same reason: models.go already carries
-// them (task 1.3's sqlc regeneration), only this helper needed the SQL/Scan
-// addition.
+// as "found"). Widened to also select/scan
+// distance_traveled_km_delta_calc/consumed_pct_delta_calc/
+// km_per_pct_delta_calc — analyticsdb.VehicleMetric (models.go) already
+// carries these fields once sqlc regenerates from the widened schema, so
+// only this helper's SQL and Scan list needed the addition.
 func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricDate time.Time) (analyticsdb.VehicleMetric, bool) {
 	t.Helper()
 	var m analyticsdb.VehicleMetric
@@ -598,6 +593,7 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricD
 		SELECT id, tesla_id, metric_date, battery_level_pct, odometer_km,
 		       battery_range_km, distance_traveled_km_calc, battery_used_pct_calc,
 		       km_per_pct_calc, estimated_range_km_calc, days_spanned_calc,
+		       distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc,
 		       consumed_pct, flagged, missing_charging_type, created_at, updated_at,
 		       locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
 		       charging_state, charge_limit_soc_pct, captured_at,
@@ -607,7 +603,9 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricD
 		teslaID, dateFrom(metricDate),
 	).Scan(&m.ID, &m.TeslaID, &m.MetricDate, &m.BatteryLevelPct,
 		&m.OdometerKm, &m.BatteryRangeKm, &m.DistanceTraveledKmCalc, &m.BatteryUsedPctCalc,
-		&m.KmPerPctCalc, &m.EstimatedRangeKmCalc, &m.DaysSpannedCalc, &m.ConsumedPct,
+		&m.KmPerPctCalc, &m.EstimatedRangeKmCalc, &m.DaysSpannedCalc,
+		&m.DistanceTraveledKmDeltaCalc, &m.ConsumedPctDeltaCalc, &m.KmPerPctDeltaCalc,
+		&m.ConsumedPct,
 		&m.Flagged, &m.MissingChargingType, &m.CreatedAt, &m.UpdatedAt,
 		&m.Locked, &m.SentryMode, &m.CarVersion, &m.InsideTempC, &m.OutsideTempC,
 		&m.ChargingState, &m.ChargeLimitSocPct, &m.CapturedAt,
@@ -2614,12 +2612,17 @@ func TestRecalculate_TPMS_RoundTrip(t *testing.T) {
 
 // TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns seeds one
 // vehicle_metrics row with non-NULL tpms_pressure_fl_psi (42.5),
-// distance_traveled_km_calc (12.3) and consumed_pct (5.0) -- all three are
-// DOUBLE PRECISION columns, not REAL, so no float32 narrowing applies and
-// exact equality is the right assertion. The row is seeded directly, not
-// through Recalculate: this test is about the read projection, which
+// distance_traveled_km_calc (12.3), consumed_pct (5.0), and the three
+// day-over-day travel-progress deltas (distance_traveled_km_delta_calc 7.5,
+// consumed_pct_delta_calc 1.2, km_per_pct_delta_calc -0.4) -- all DOUBLE
+// PRECISION columns, not REAL, so no float32 narrowing applies and exact
+// equality is the right assertion. The row is seeded directly, not through
+// Recalculate: this test is about the read projection, which
 // TestRecalculate_TPMS_RoundTrip above does not exercise (it only reads back
-// via fetchVehicleMetric's raw SQL, never through Reader).
+// via fetchVehicleMetric's raw SQL, never through Reader). The three deltas
+// are covered here so a rename or a projection regression on this column
+// family is caught without needing a full Recalculate-driven round trip --
+// that coverage lives separately, against real computed values.
 func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
@@ -2630,10 +2633,12 @@ func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.
 	_, err := pool.Exec(ctx, `
 		INSERT INTO analytics.vehicle_metrics (
 			tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km,
-			flagged, tpms_pressure_fl_psi, distance_traveled_km_calc, consumed_pct
-		) VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8)`,
+			flagged, tpms_pressure_fl_psi, distance_traveled_km_calc, consumed_pct,
+			distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc
+		) VALUES ($1, $2, $3, $4, $5, false, $6, $7, $8, $9, $10, $11)`,
 		teslaID, dateFrom(metricDate), int32(60), 800.0, 300.0,
 		42.5, 12.3, 5.0,
+		7.5, 1.2, -0.4,
 	)
 	if err != nil {
 		t.Fatalf("seeding vehicle_metrics: %v", err)
@@ -2657,5 +2662,14 @@ func TestReader_LatestMetricsForVehicles_TPMS_And_ExposedCalcColumns(t *testing.
 	}
 	if vs.ConsumedPct == nil || *vs.ConsumedPct != 5.0 {
 		t.Errorf("ConsumedPct: want 5.0, got %v", vs.ConsumedPct)
+	}
+	if vs.DistanceTraveledKmDeltaCalc == nil || *vs.DistanceTraveledKmDeltaCalc != 7.5 {
+		t.Errorf("DistanceTraveledKmDeltaCalc: want 7.5, got %v", vs.DistanceTraveledKmDeltaCalc)
+	}
+	if vs.ConsumedPctDeltaCalc == nil || *vs.ConsumedPctDeltaCalc != 1.2 {
+		t.Errorf("ConsumedPctDeltaCalc: want 1.2, got %v", vs.ConsumedPctDeltaCalc)
+	}
+	if vs.KmPerPctDeltaCalc == nil || *vs.KmPerPctDeltaCalc != -0.4 {
+		t.Errorf("KmPerPctDeltaCalc: want -0.4, got %v", vs.KmPerPctDeltaCalc)
 	}
 }

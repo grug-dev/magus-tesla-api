@@ -305,8 +305,8 @@ func TestDeriveConsumption_NilPrevReturnsCurUnchanged(t *testing.T) {
 	// RM50-analytics-add-tire-pressure-variance design.md D2, condition 1 —
 	// no predecessor at all, so all four tyre-pressure deltas stay nil too,
 	// regardless of cur's own TPMS readings.
-	if got.TpmsPressureFLPSICalc != nil || got.TpmsPressureFRPSICalc != nil ||
-		got.TpmsPressureRLPSICalc != nil || got.TpmsPressureRRPSICalc != nil {
+	if got.TpmsPressureFLPSIDeltaCalc != nil || got.TpmsPressureFRPSIDeltaCalc != nil ||
+		got.TpmsPressureRLPSIDeltaCalc != nil || got.TpmsPressureRRPSIDeltaCalc != nil {
 		t.Errorf("deriveConsumption(nil, cur): want all four TPMS deltas nil, got %+v", got)
 	}
 }
@@ -337,10 +337,10 @@ func TestDeriveConsumption_TpmsDeltas_AllFourWheelsPresent(t *testing.T) {
 
 	got := deriveConsumption(&prev, cur, 0)
 
-	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.5))
-	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(-1.5))
-	assertFloatPtr(t, "TpmsPressureRLPSICalc", got.TpmsPressureRLPSICalc, fp(0.0))
-	assertFloatPtr(t, "TpmsPressureRRPSICalc", got.TpmsPressureRRPSICalc, fp(3.5))
+	assertFloatPtr(t, "TpmsPressureFLPSIDeltaCalc", got.TpmsPressureFLPSIDeltaCalc, fp(3.5))
+	assertFloatPtr(t, "TpmsPressureFRPSIDeltaCalc", got.TpmsPressureFRPSIDeltaCalc, fp(-1.5))
+	assertFloatPtr(t, "TpmsPressureRLPSIDeltaCalc", got.TpmsPressureRLPSIDeltaCalc, fp(0.0))
+	assertFloatPtr(t, "TpmsPressureRRPSIDeltaCalc", got.TpmsPressureRRPSIDeltaCalc, fp(3.5))
 }
 
 // TestDeriveConsumption_TpmsDeltas_WheelAbsentOnCur covers design.md's Test
@@ -369,10 +369,10 @@ func TestDeriveConsumption_TpmsDeltas_WheelAbsentOnCur(t *testing.T) {
 
 	got := deriveConsumption(&prev, cur, 0)
 
-	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.0))
-	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(0.5))
-	assertFloatPtr(t, "TpmsPressureRLPSICalc", got.TpmsPressureRLPSICalc, nil)
-	assertFloatPtr(t, "TpmsPressureRRPSICalc", got.TpmsPressureRRPSICalc, fp(3.0))
+	assertFloatPtr(t, "TpmsPressureFLPSIDeltaCalc", got.TpmsPressureFLPSIDeltaCalc, fp(3.0))
+	assertFloatPtr(t, "TpmsPressureFRPSIDeltaCalc", got.TpmsPressureFRPSIDeltaCalc, fp(0.5))
+	assertFloatPtr(t, "TpmsPressureRLPSIDeltaCalc", got.TpmsPressureRLPSIDeltaCalc, nil)
+	assertFloatPtr(t, "TpmsPressureRRPSIDeltaCalc", got.TpmsPressureRRPSIDeltaCalc, fp(3.0))
 }
 
 // TestDeriveConsumption_TpmsDeltas_WheelAbsentOnPrev covers design.md's Test
@@ -401,10 +401,10 @@ func TestDeriveConsumption_TpmsDeltas_WheelAbsentOnPrev(t *testing.T) {
 
 	got := deriveConsumption(&prev, cur, 0)
 
-	assertFloatPtr(t, "TpmsPressureFLPSICalc", got.TpmsPressureFLPSICalc, fp(3.0))
-	assertFloatPtr(t, "TpmsPressureFRPSICalc", got.TpmsPressureFRPSICalc, fp(0.5))
-	assertFloatPtr(t, "TpmsPressureRLPSICalc", got.TpmsPressureRLPSICalc, fp(3.0))
-	assertFloatPtr(t, "TpmsPressureRRPSICalc", got.TpmsPressureRRPSICalc, nil)
+	assertFloatPtr(t, "TpmsPressureFLPSIDeltaCalc", got.TpmsPressureFLPSIDeltaCalc, fp(3.0))
+	assertFloatPtr(t, "TpmsPressureFRPSIDeltaCalc", got.TpmsPressureFRPSIDeltaCalc, fp(0.5))
+	assertFloatPtr(t, "TpmsPressureRLPSIDeltaCalc", got.TpmsPressureRLPSIDeltaCalc, fp(3.0))
+	assertFloatPtr(t, "TpmsPressureRRPSIDeltaCalc", got.TpmsPressureRRPSIDeltaCalc, nil)
 }
 
 // TestDeriveConsumption_MultiDayGap covers design.md's Test Contract Fixture D

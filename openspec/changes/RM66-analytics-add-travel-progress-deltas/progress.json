@@ -7,7 +7,7 @@
   "request": "MAG-59 tier 2: store the day-over-day deltas of the three Travel Progress figures, and rename the four tyre-pressure delta columns to _delta_calc.",
   "status": "in-progress",
   "created_at": "2026-09-18T09:46:31Z",
-  "updated_at": "2026-09-18T10:05:00Z",
+  "updated_at": "2026-09-18T10:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -23,10 +23,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T3",
-      "T4",
-      "T5",
-      "T6",
       "T7",
       "T8",
       "T9"
@@ -35,14 +31,19 @@
     "awaiting_user_verification": [
       "T1",
       "T2",
+      "T6",
       "T10"
     ],
-    "done": []
+    "done": [
+      "T3",
+      "T4",
+      "T5"
+    ]
   },
   "tasks": [
     {
       "id": "T1",
-      "title": "New migration \u2014 schema, comments, backfill",
+      "title": "New migration — schema, comments, backfill",
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": true,
@@ -58,11 +59,11 @@
         "approx": true,
         "note": "wave 1 covers T1, T2 and the leader's T10 plus the guard fix jointly"
       },
-      "notes": "Re-ran the measurement grep, no drift. Wrote 20260918000001 with 3 ADD COLUMN, 4 RENAME, comments and the self-join backfill. Not applied \u2014 owner's step. Leader stripped 5 dead doc pointers the design told it to carry forward."
+      "notes": "Re-ran the measurement grep, no drift. Wrote 20260918000001 with 3 ADD COLUMN, 4 RENAME, comments and the self-join backfill. Not applied — owner's step. Leader stripped 5 dead doc pointers the design told it to carry forward."
     },
     {
       "id": "T2",
-      "title": "Go derivation \u2014 consumed.go, consumption.go, analytics.go",
+      "title": "Go derivation — consumed.go, consumption.go, analytics.go",
       "module": "analytics",
       "depends_on": [],
       "parallel_ok": true,
@@ -78,7 +79,7 @@
         "approx": true,
         "note": "wave 1 covers T1, T2 and the leader's T10 plus the guard fix jointly"
       },
-      "notes": "Renamed 4 TPMS fields and the helper across three files, added the 3 new deltas in deriveVehicleMetrics. Comment-cleanup greps went 17/4 to 0/0. Package still breaks in reader.go and recalculate.go \u2014 that is T4."
+      "notes": "Renamed 4 TPMS fields and the helper across three files, added the 3 new deltas in deriveVehicleMetrics. Comment-cleanup greps went 17/4 to 0/0. Package still breaks in reader.go and recalculate.go — that is T4."
     },
     {
       "id": "T3",
@@ -88,7 +89,19 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending"
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:12:00Z",
+      "completed_at": "2026-09-18T10:13:30Z",
+      "notes": "Widened UpsertVehicleMetric (INSERT/VALUES/SET) and LatestVehicleMetricsByVehicles (SELECT) with the 3 new + 4 renamed columns. sqlc generate v1.31.1 ran clean. models.go +22, query.sql.go +194, no unrelated drift.",
+      "budget": {
+        "five_hour_pct_start": 60,
+        "five_hour_pct_end": 66,
+        "cost_usd_delta": 2.4,
+        "approx": true,
+        "note": "wave 2 covers T3, T4, T5 and T6 jointly in one serial worker"
+      }
     },
     {
       "id": "T4",
@@ -99,31 +112,67 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending"
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:13:30Z",
+      "completed_at": "2026-09-18T10:14:30Z",
+      "notes": "Added 3 ptrFloat64FromPg / pgFloat8FromPtr lines each side, renamed the 4 TPMS-calc lines to DeltaCalc on both sides. The package builds again.",
+      "budget": {
+        "five_hour_pct_start": 60,
+        "five_hour_pct_end": 66,
+        "cost_usd_delta": 2.4,
+        "approx": true,
+        "note": "wave 2 covers T3, T4, T5 and T6 jointly in one serial worker"
+      }
     },
     {
       "id": "T5",
-      "title": "Existing test files \u2014 rename old field references",
+      "title": "Existing test files — rename old field references",
       "module": "analytics",
       "depends_on": [
         "T2"
       ],
       "parallel_ok": true,
-      "status": "pending"
+      "status": "done",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:14:30Z",
+      "completed_at": "2026-09-18T10:16:00Z",
+      "notes": "Renamed 8+14 occurrences in consumed_test.go and consumption_test.go; the task's '2 each' count was stale. db_integration_test.go had zero PSICalc names, so it widened fetchVehicleMetric and one projection test instead.",
+      "budget": {
+        "five_hour_pct_start": 60,
+        "five_hour_pct_end": 66,
+        "cost_usd_delta": 2.4,
+        "approx": true,
+        "note": "wave 2 covers T3, T4, T5 and T6 jointly in one serial worker"
+      }
     },
     {
       "id": "T6",
-      "title": "Offline tests \u2014 the three test-contract fixtures",
+      "title": "Offline tests — the three test-contract fixtures",
       "module": "analytics",
       "depends_on": [
         "T2"
       ],
       "parallel_ok": true,
-      "status": "pending"
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "sonnet",
+      "started_at": "2026-09-18T10:16:00Z",
+      "completed_at": "2026-09-18T10:18:00Z",
+      "notes": "Added 3 tests to consumed_test.go matching design.md fixtures 1-3 exactly: 10.0 / 5.0 / -0.333 for fixture 1, nil x3 for fixtures 2 and 3. go vet compiles them; not run.",
+      "budget": {
+        "five_hour_pct_start": 60,
+        "five_hour_pct_end": 66,
+        "cost_usd_delta": 2.4,
+        "approx": true,
+        "note": "wave 2 covers T3, T4, T5 and T6 jointly in one serial worker"
+      }
     },
     {
       "id": "T7",
-      "title": "delta-guard baseline shrink (Makefile \u2014 LEADER)",
+      "title": "delta-guard baseline shrink (Makefile — LEADER)",
       "module": "platform",
       "depends_on": [
         "T1",
@@ -134,7 +183,7 @@
     },
     {
       "id": "T8",
-      "title": "DB-integration test \u2014 widened latest-status projection",
+      "title": "DB-integration test — widened latest-status projection",
       "module": "analytics",
       "depends_on": [
         "T1",
@@ -146,7 +195,7 @@
     },
     {
       "id": "T9",
-      "title": "KB guide update \u2014 vehicle-metrics (LEADER)",
+      "title": "KB guide update — vehicle-metrics (LEADER)",
       "module": "platform",
       "depends_on": [
         "T1",
@@ -159,7 +208,7 @@
     },
     {
       "id": "T10",
-      "title": "Gateway call-site fix (cross-module \u2014 LEADER)",
+      "title": "Gateway call-site fix (cross-module — LEADER)",
       "module": "gateway",
       "depends_on": [
         "T2"
@@ -218,7 +267,7 @@
       "scope": "wave-plan",
       "made_by": "autopilot",
       "at": "2026-09-18T09:46:31Z",
-      "decision": "Three waves. The leader owns T7 (Makefile), T9 (KB) and T10 (gateway) \u2014 all outside internal/analytics.",
+      "decision": "Three waves. The leader owns T7 (Makefile), T9 (KB) and T10 (gateway) — all outside internal/analytics.",
       "why": "A module worker is sandboxed to one module. Granting three root paths is worse than the leader doing them."
     },
     {
@@ -244,6 +293,14 @@
       "at": "2026-09-18T10:05:00Z",
       "decision": "T7's SQL baseline shrink is void. The four tyre names stay baselined; only the 8 Go names go, after T3+T4.",
       "why": "The frozen baseline migration defines those columns under their old names. That line never leaves the tree."
+    },
+    {
+      "id": "D-T",
+      "scope": "wave-2",
+      "made_by": "autopilot",
+      "at": "2026-09-18T10:20:00Z",
+      "decision": "Two stale counts in tasks.md T5 were corrected in place by appended findings, not by editing the original lines.",
+      "why": "Tasks are append-only. The real counts were 8+14 renames and zero PSICalc names in the integration test."
     }
   ],
   "review": {
@@ -264,6 +321,14 @@
     {
       "at": "2026-09-18T10:05:00Z",
       "event": "wave 1 complete (T1, T2, leader T10). Leader found and fixed a tier-1 guard defect: the delta-exclusion patterns never matched, so compliant _delta_calc names failed. Verified 4 ways. Tree does NOT build until T4."
+    },
+    {
+      "at": "2026-09-18T10:10:00Z",
+      "event": "resumed in a fresh session (ctx 11%, 5h 60%). wave 2 dispatched: T3+T4+T5+T6 in one serial worker (analytics, sonnet). Budget start 5h=60% ctx=11%."
+    },
+    {
+      "at": "2026-09-18T10:20:00Z",
+      "event": "wave 2 complete (T3, T4, T5, T6). Leader re-ran the signals itself: go build, go vet, gofmt -l all clean; make delta-guard passes at 10 SQL / 7 Go. The tree builds again."
     }
   ]
 }
