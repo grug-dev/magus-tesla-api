@@ -6,7 +6,7 @@
   "status": "in-progress",
   "autopilot": true,
   "created_at": "2026-09-18T03:21:25Z",
-  "updated_at": "2026-09-18T08:57:07Z",
+  "updated_at": "2026-09-18T09:46:31Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -20,9 +20,10 @@
     "created_at": "2026-09-18T03:21:25Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      "2"
+    ],
     "pending": [
-      "2",
       "3"
     ],
     "blocked": [],
@@ -59,9 +60,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
+      "status": "in-progress",
       "budget": null,
-      "notes": "Three new _delta_calc columns plus the four tpms renames, one migration. Database gate fires here."
+      "notes": "Three new _delta_calc columns plus the four tpms renames, one migration. Database gate fires here.",
+      "started_at": "2026-09-18T09:46:31Z"
     },
     {
       "tier": 3,
@@ -131,6 +133,14 @@
       "at": "2026-09-18T03:32:12Z",
       "decision": "Guard baseline covers all ten pre-existing _calc names, not only the four tyre ones.",
       "why": "A repo-wide grep found ten columns across analytics and charging. The roadmap's four-name claim was wrong and is corrected."
+    },
+    {
+      "id": "D-K",
+      "scope": "tier-2:backfill",
+      "made_by": "user",
+      "at": "2026-09-18T09:15:05Z",
+      "decision": "The tier 2 backfill joins on metric_date - 1, not on the previous stored row.",
+      "why": "Same rule the tyre-pressure backfill used. After a gap the historical value stays NULL."
     }
   ],
   "events": [
@@ -157,6 +167,10 @@
     {
       "at": "2026-09-18T08:57:07Z",
       "event": "tier 1 reviewer-approved and archived. Tier 2 (analytics) is now unblocked."
+    },
+    {
+      "at": "2026-09-18T09:15:05Z",
+      "event": "tier 2 artifacts written and valid. Spanish briefing posted. User chose metric_date - 1 for the backfill, and is reading design.md before answering the database design gate. NOTHING implemented; tier 2 has no progress.json yet (Step 4 waits on the gate)."
     }
   ]
 }
