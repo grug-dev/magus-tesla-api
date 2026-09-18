@@ -25,10 +25,15 @@ type ExternalChargeEntryVM struct {
 	CostPerKWhLabel     string // formatted, e.g. "1200.00 COP/kWh"; "—" when not computable
 	BatteryDelta        string // e.g. "+12%"; "—" when not computable
 	DurationLabel       string // e.g. "1h 30m"; "—" when not computable
-	ChargingType        string // "AC", "DC", or "" if nil
-	LocationKind        string // "HOME", "WORK", "OTHER", or "" if nil
-	LocationLabel       string // free text or ""
-	Notes               string // free text or ""
+	// ChargingType is "AC", "DC", or "" if nil. "" renders as AC in the inline
+	// edit form's select, which offers only AC and DC — the empty "-" option was
+	// removed when AC became the default. A "" only reaches here from a row
+	// written before the 20260918000002 backfill, or from a non-gateway caller
+	// that passed nil.
+	ChargingType  string
+	LocationKind  string // "HOME", "WORK", "OTHER", or "" if nil
+	LocationLabel string // free text or ""
+	Notes         string // free text or ""
 	// Raw values for the inline edit form (pre-populated inputs).
 	RawChargedOn string // "2006-01-02" (HTML date input format)
 	RawEnergyKWh string // "12.50"

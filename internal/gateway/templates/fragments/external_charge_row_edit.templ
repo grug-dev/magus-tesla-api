@@ -128,8 +128,7 @@ templ ExternalChargeRowEdit(vm ExternalChargeEntryVM, csrfToken string, validati
 					<div class="grid gap-3 sm:grid-cols-2 mt-2">
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormChargingType)}) {
 							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
-								<option value="">-</option>
-								<option value="AC" selected?={ vm.ChargingType == "AC" }>{ i18n.T(ctx, i18n.KeyChargesFormAC) }</option>
+								<option value="AC" selected?={ vm.ChargingType == "AC" || vm.ChargingType == "" }>{ i18n.T(ctx, i18n.KeyChargesFormAC) }</option>
 								<option value="DC" selected?={ vm.ChargingType == "DC" }>{ i18n.T(ctx, i18n.KeyChargesFormDC) }</option>
 							}
 						}
