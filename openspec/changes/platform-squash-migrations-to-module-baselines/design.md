@@ -247,6 +247,52 @@ squash, so the guard starts green.
 A module that may not read another module's tables at runtime must not read them in a
 migration either. The guard makes that rule the same rule in both places.
 
+### D9 — The baseline stamp runs inside the migration runner, not by hand
+
+The baseline cannot run on a database that already has its tables, and goose v3.27.3 has
+no `stamp` or `force` command, so the ledger row has to be written directly. The first
+version of this plan did that with a SQL file run by hand on dev and on prod, before the
+deploy.
+
+That was the weak part of the plan, and the reason it changed. Prod deploys automatically
+on a merge to `main` (MAG-52). A manual step that must happen *before* an automatic deploy
+is an ordering rule with nothing enforcing it, and getting it wrong is not a small
+mistake: `migrate` exits non-zero, `web` and `poller` wait on
+`service_completed_successfully`, and the site stays down until someone notices.
+
+So `cmd/migrate` does it. Before goose, for each module:
+
+- create the ledger if it is missing — `CREATE TABLE IF NOT EXISTS`, using goose's own
+  DDL, which is safe because goose calls `TableExists` before creating it;
+- record the baseline **only if** the module's schema already holds a table other than
+  the ledger, **and** the ledger is still empty.
+
+Both guards matter. The first must test for tables rather than for the schema: the runner
+creates the schema one line earlier, so a schema check would be true on a brand-new
+database and would skip a baseline that had never run — leaving a database with no tables
+at all. The second makes the whole thing idempotent, which it has to be, because the
+deploy runs it on every start.
+
+The version recorded is read from the module's directory (its lowest numbered migration),
+not hardcoded, so it cannot drift from the files.
+
+`make migrate-up`, `db-setup` and `db-setup-test` migrate with the goose CLI rather than
+this command, so they call `cmd/migrate -stamp-only` first. One implementation, three
+callers: a second copy of the SQL in the Makefile would be free to drift from the Go one.
+
+This is one-time code, and `tasks.md` 4b.9 says what to delete once dev and prod are both
+past the squash. `runbook/stamp-baseline.sql` stays as a fallback for a database the
+runner cannot reach — a restored dump, a manual recovery.
+
+**Rollback.** Before step 4, redeploy the previous image: it uses
+`public.goose_db_version`, which is untouched and at max version with nothing pending.
+After step 4, the only schema change made is the dropped `account_id`; the previous
+image does not read that column, so the previous image still runs. The four new ledger
+tables are inert to it.
+
+The exact commands for steps 3, 4 and 5 are written out in `tasks.md`.
+
+
 ## Risks / Trade-offs
 
 **The stamp is wrong or missing on prod, and the deploy carries the baselines.** →
@@ -287,11 +333,14 @@ docs. Nothing touches a database.
 
 ```bash
 # A = the live dev schema (already taken 2026-09-17)
-# B = an empty database + the new migrations
-createdb magus_baseline_check
-DATABASE_URL="postgres://localhost:5432/magus_baseline_check?sslmode=disable" make migrate-up
-pg_dump --schema-only --no-owner --no-privileges \
-  -d "postgres://localhost:5432/magus_baseline_check?sslmode=disable" -f /tmp/dump-B.sql
+# B = an empty database + the new migrations.
+# Reuse the real DSN with the database name swapped, so the scratch database gets the
+# same owner the app connects as. `createdb` + `make migrate-up` does NOT work: createdb
+# makes your OS role the owner, and since Postgres 15 a non-owner has no CREATE on a
+# database, so the first CREATE SCHEMA fails with "permission denied for database".
+SCRATCH=$(printf '%s' "$DATABASE_URL" | sed 's#/[^/?]*?#/magus_baseline_check?#')
+make db-reset DATABASE_URL="$SCRATCH"          # creates it owned by APP_ROLE, then migrates
+pg_dump --schema-only --no-owner --no-privileges -d "$SCRATCH" -f /tmp/dump-B.sql
 diff /tmp/dump-A.sql /tmp/dump-B.sql
 ```
 
@@ -304,27 +353,15 @@ The diff is expected to be **exactly** these three things, and nothing else:
 
 Any fourth difference is drift. Stop and report it rather than explaining it away.
 
-**Step 3 — stamp dev, then apply the drop. [owner]** Run for each of the four modules,
-then `make migrate-up` to apply `20260917000002` only.
+**Step 3 — bring dev up to date. [owner]** `make migrate-up`. It stamps first, then
+applies `20260917000002` only. No hand-run SQL.
 
-**Step 4 — stamp prod. [owner]** The same SQL against prod, **before** the deploy.
-Safe to run early: the running image reads `public.goose_db_version` and cannot see the
-new tables.
+**Step 4 — deploy. [owner]** The `migrate` service stamps prod itself, then applies
+`20260917000002` and exits 0. `web` and `poller` start. There is no pre-deploy step.
 
-**Step 5 — verify prod's ledger before deploying. [owner]** Four rows expected, one
-per module, each with `max(version_id) = 20260917000001`.
-
-**Step 6 — deploy. [owner]** `migrate` finds each module's ledger at
-`20260917000001`, skips the baseline, applies `20260917000002`, exits 0. `web` and
-`poller` start.
-
-**Rollback.** Before step 6, redeploy the previous image: it uses
-`public.goose_db_version`, which is untouched and at max version with nothing pending.
-After step 6, the only schema change made is the dropped `account_id`; the previous
-image does not read that column, so the previous image still runs. The four new ledger
-tables are inert to it.
-
-The exact SQL for steps 3, 4 and 5 is written out in `tasks.md`, as text to paste.
+**Step 5 — verify prod's ledger after deploying. [owner]** Five rows: `telemetry` at
+`20260917000002`, the other three at `20260917000001`, and `public (old)` untouched at
+`20260915000001`.
 
 ## Backlog items this change absorbs
 

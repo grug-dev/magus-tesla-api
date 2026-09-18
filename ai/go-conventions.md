@@ -305,6 +305,13 @@ follows from those two facts.
   new databases only. Anything that must also reach dev and prod is an ordinary migration after
   the baseline — this is why dropping a column means writing a `DROP COLUMN` migration, not
   deleting the line from the baseline.
+- **The runner records it, nobody does it by hand** (`config.MigrationDir.StampBaselineSQL`,
+  called from `cmd/migrate` before goose, and from the `Makefile` goose loops via
+  `cmd/migrate -stamp-only`). It writes the baseline into the module's ledger only when the
+  module's schema already holds a table and the ledger is still empty — a database built
+  before the squash. It records nothing on a fresh database and nothing on one already
+  migrated, so it runs unconditionally on every deploy. **One-time code**: delete it once no
+  pre-squash database is left.
 
 Why this replaced the previous arrangement: all four directories used to share one
 `public.goose_db_version`, so a version number used twice was recorded once and the second file

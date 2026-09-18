@@ -2,6 +2,8 @@ package config
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -449,4 +451,146 @@ func TestLoadMigration_MigrationsDirsExtraWhitespace(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestMigrationDir_BaselineVersion* and TestMigrationDir_StampBaselineSQL* cover the
+// one-time stamp that lets a pre-squash database (dev, prod) skip a baseline whose
+// tables it already has. See MigrationDir.StampBaselineSQL for the full reasoning.
+
+// A directory with a baseline and a later migration: BaselineVersion must return the
+// LOWER number. Returning the higher one would record the later migration as applied
+// too, and it would then never run.
+func TestMigrationDir_BaselineVersionPicksLowest(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"20260917000002_drop_column.sql", "20260917000001_baseline.sql"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("-- +goose Up\n"), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	m := MigrationDir{Module: "telemetry", Dir: dir}
+	got, err := m.BaselineVersion()
+	if err != nil {
+		t.Fatalf("BaselineVersion() returned error: %v", err)
+	}
+	if want := int64(20260917000001); got != want {
+		t.Fatalf("BaselineVersion() = %d, want %d", got, want)
+	}
+}
+
+// Files that are not numbered .sql migrations must be ignored, not parsed. goose
+// skips them too, so a README or a .go helper in the folder cannot change the answer.
+func TestMigrationDir_BaselineVersionIgnoresNonMigrations(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"README.md":                   "notes",
+		"helper.go":                   "package db",
+		"no_number_here.sql":          "-- +goose Up",
+		"20260917000001_baseline.sql": "-- +goose Up",
+	}
+	for name, body := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	m := MigrationDir{Module: "account", Dir: dir}
+	got, err := m.BaselineVersion()
+	if err != nil {
+		t.Fatalf("BaselineVersion() returned error: %v", err)
+	}
+	if want := int64(20260917000001); got != want {
+		t.Fatalf("BaselineVersion() = %d, want %d", got, want)
+	}
+}
+
+// An empty directory has no baseline to record. That must be an error rather than
+// version 0, which would stamp a ledger with a number no file corresponds to.
+func TestMigrationDir_BaselineVersionEmptyDirErrors(t *testing.T) {
+	m := MigrationDir{Module: "charging", Dir: t.TempDir()}
+	if _, err := m.BaselineVersion(); err == nil {
+		t.Fatal("BaselineVersion() returned no error for a directory with no migrations")
+	}
+}
+
+// A missing directory must error rather than silently report no baseline.
+func TestMigrationDir_BaselineVersionMissingDirErrors(t *testing.T) {
+	m := MigrationDir{Module: "analytics", Dir: filepath.Join(t.TempDir(), "does-not-exist")}
+	if _, err := m.BaselineVersion(); err == nil {
+		t.Fatal("BaselineVersion() returned no error for a missing directory")
+	}
+}
+
+// The real baselines on disk: every module's directory must resolve to a version.
+// This is the test that fails if a module's baseline is renamed to something goose
+// (and therefore BaselineVersion) cannot read.
+func TestMigrationDir_BaselineVersionRealDirs(t *testing.T) {
+	for _, module := range defaultMigrationModules {
+		m := MigrationDir{Module: module, Dir: filepath.Join("..", module, "db", "migrations")}
+		got, err := m.BaselineVersion()
+		if err != nil {
+			t.Fatalf("%s: BaselineVersion() returned error: %v", module, err)
+		}
+		if got <= 0 {
+			t.Fatalf("%s: BaselineVersion() = %d, want a positive version", module, got)
+		}
+	}
+}
+
+// StampBaselineSQL must return exactly two statements, because the pgx driver runs
+// the extended protocol and rejects several statements in one Exec.
+func TestMigrationDir_StampBaselineSQLReturnsTwoStatements(t *testing.T) {
+	m := MigrationDir{Module: "account", Dir: "internal/account/db/migrations"}
+	got := m.StampBaselineSQL(20260917000001)
+	if len(got) != 2 {
+		t.Fatalf("StampBaselineSQL() returned %d statements, want 2", len(got))
+	}
+	for i, q := range got {
+		if strings.Contains(strings.TrimSuffix(strings.TrimSpace(q), ";"), ";") {
+			t.Fatalf("statement %d contains an inner semicolon, which pgx rejects:\n%s", i, q)
+		}
+	}
+}
+
+// The statements must name the module's own schema and the version they were given.
+// A stamp written into the wrong schema would leave the real ledger empty and the
+// baseline would still run.
+func TestMigrationDir_StampBaselineSQLNamesSchemaAndVersion(t *testing.T) {
+	m := MigrationDir{Module: "telemetry", Dir: "internal/telemetry/db/migrations"}
+	got := strings.Join(m.StampBaselineSQL(20260917000001), "\n")
+
+	for _, want := range []string{
+		`"telemetry".goose_db_version`,
+		`schemaname = 'telemetry'`,
+		`20260917000001`,
+		`tablename <> 'goose_db_version'`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("StampBaselineSQL() is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// The ledger DDL must match goose's own postgres dialect exactly (its
+// internal/dialects/postgres.go CreateTable). If the two ever differ, a stamped
+// database gets a ledger shaped differently from one goose created, and the
+// difference shows up as a schema diff nobody expects.
+func TestMigrationDir_StampBaselineSQLMatchesGooseDDL(t *testing.T) {
+	m := MigrationDir{Module: "account", Dir: "internal/account/db/migrations"}
+	create := m.StampBaselineSQL(1)[0]
+
+	for _, want := range []string{
+		"id         integer PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY",
+		"version_id bigint  NOT NULL",
+		"is_applied boolean NOT NULL",
+		"tstamp     timestamp NOT NULL DEFAULT now()",
+	} {
+		if !strings.Contains(create, want) {
+			t.Fatalf("CREATE TABLE is missing %q:\n%s", want, create)
+		}
+	}
+	// IF NOT EXISTS is what makes running this before goose safe on every database.
+	if !strings.Contains(create, "CREATE TABLE IF NOT EXISTS") {
+		t.Fatalf("CREATE TABLE is not guarded with IF NOT EXISTS:\n%s", create)
+	}
 }

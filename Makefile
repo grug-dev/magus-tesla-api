@@ -50,6 +50,15 @@ endif
 #
 # This is why these targets need psql on PATH as well as goose.
 #
+# migrate-up also runs `cmd/migrate -stamp-only` first. A database built BEFORE the
+# squash already holds every table a baseline creates, so goose would run the baseline
+# and fail on "relation already exists". The stamp records the baseline as applied
+# instead. It is a no-op on a fresh database and on one already past the squash, so the
+# step is unconditional. It lives in Go rather than in another psql -c here because
+# cmd/migrate needs the same logic for the Docker deploy, and one implementation cannot
+# drift from the other. One-time code: see config.MigrationDir.StampBaselineSQL for when
+# to delete it.
+#
 # MIGRATION_MODULES is the single source of both the directory and the ledger name, which
 # is why the loops below iterate modules rather than directories. Overriding
 # MIGRATIONS_DIRS alone no longer changes the goose CLI loops — override MIGRATION_MODULES.
@@ -128,6 +137,7 @@ check-goose:
 		exit 1; }
 
 migrate-up: check-goose ## Apply all pending migrations, each module into its own <module>.goose_db_version
+	@MIGRATIONS_DIRS="$(MIGRATIONS_DIRS)" DATABASE_URL="$(DATABASE_URL)" go run ./cmd/migrate -stamp-only
 	@for m in $(MIGRATION_MODULES); do \
 		echo "goose up: $$m"; \
 		psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -q -c "CREATE SCHEMA IF NOT EXISTS $$m"; \
@@ -208,6 +218,7 @@ db-setup: check-goose ## ONE COMMAND: create the app role + database (both if mi
 	echo "Applying migrations as '$$ROLE'..."; \
 	if [ -z "$$PW" ]; then PW="$$MAGUS_DB_PASSWORD"; fi; \
 	if [ -n "$$PW" ]; then export PGUSER="$$ROLE" PGPASSWORD="$$PW"; fi; \
+	MIGRATIONS_DIRS="$(MIGRATIONS_DIRS)" DATABASE_URL="$(DATABASE_URL)" go run ./cmd/migrate -stamp-only; \
 	for m in $(MIGRATION_MODULES); do \
 		echo "goose up: $$m"; \
 		psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -q -c "CREATE SCHEMA IF NOT EXISTS $$m"; \
@@ -251,6 +262,7 @@ db-setup-test: check-goose ## Bring TEST_DATABASE_URL current (create/re-own/mig
 		fi; \
 	done; \
 	echo "Migrating '$$DB' to latest..."; \
+	MIGRATIONS_DIRS="$(MIGRATIONS_DIRS)" DATABASE_URL="$(TEST_DATABASE_URL)" go run ./cmd/migrate -stamp-only; \
 	for m in $(MIGRATION_MODULES); do \
 		echo "goose up: $$m"; \
 		psql "$(TEST_DATABASE_URL)" -v ON_ERROR_STOP=1 -q -c "CREATE SCHEMA IF NOT EXISTS $$m"; \

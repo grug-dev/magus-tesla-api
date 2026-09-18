@@ -33,6 +33,46 @@ is task 3.1, not an omission here (design D4).
 - [x] 4.2 In `internal/testdb/testdb.go`, the same two edits (`WithAllowOutofOrder` at line 204, comment at 196)
 - [x] 4.3 Check how each entry point maps a migrations directory to its module name — the table name must come from the same single source as the directory, never a second hardcoded list
 
+## 4b. Automatic baseline stamp (removes the manual prod step)
+
+A database built before the squash already has every table a baseline creates, so goose
+would run the baseline and fail on `relation already exists`, the `migrate` service would
+exit non-zero, and compose would never start `web` or `poller`. The original plan fixed
+that with a hand-run SQL file on dev and on prod. That put a manual step in front of an
+automatic deploy, with nothing enforcing the order — so the migration runner does it
+itself instead.
+
+- [x] 4b.1 `internal/config`: add `MigrationDir.BaselineVersion()`, which reads the module's
+  lowest numbered migration from disk rather than hardcoding `20260917000001`, so the stamp
+  cannot drift from the files it claims to record
+- [x] 4b.2 `internal/config`: add `MigrationDir.StampBaselineSQL(version)`, returning the two
+  statements that create the ledger and record the baseline. Two statements, not one string:
+  the pgx driver uses the extended protocol, which rejects several statements in one `Exec`
+- [x] 4b.3 Guard the INSERT on **tables** existing in the schema, never on the schema itself —
+  the runner creates the schema one line earlier, so a schema check would wrongly skip the
+  baseline on a brand-new database. Second guard: an empty ledger, which makes it idempotent
+- [x] 4b.4 Copy the ledger DDL from goose's own postgres dialect and use
+  `CREATE TABLE IF NOT EXISTS`. goose calls `TableExists` before creating the ledger
+  (`provider_run.go`, `tryEnsureVersionTable`), so pre-creating it cannot collide
+- [x] 4b.5 `cmd/migrate`: call `stampBaseline` in `applyDir`, right after `EnsureSchemaSQL`
+  and before goose. Keep the reasoning in `internal/config` so `cmd/` stays wiring
+- [x] 4b.6 `cmd/migrate`: add `-stamp-only`, for the `Makefile` targets that migrate with the
+  goose CLI and so cannot reach the Go path any other way
+- [x] 4b.7 `Makefile`: run `go run ./cmd/migrate -stamp-only` before the goose loop in
+  `migrate-up`, `db-setup` and `db-setup-test`. One implementation, three callers — a second
+  `psql -c` here would be free to drift from the Go one
+- [x] 4b.8 Tests: `internal/config` for version discovery and the generated SQL;
+  `cmd/migrate` for the four database shapes — pre-squash (stamps), repeated (idempotent),
+  fresh schema (records nothing), already migrated (unchanged). Each DB test builds its own
+  throw-away schema, so none depends on the order the others ran in
+- [x] 4b.9 This is one-time code. When dev and prod are both past the squash, delete
+  `BaselineVersion`, `StampBaselineSQL`, `stampBaseline`, the `-stamp-only` flag and the
+  three `Makefile` lines
+- [x] 4b.10 `.gitignore`: add `/migrate` and `/monthly-capacity` to the root-built-binary
+  list. It named only four of the six `cmd/` runnables, so `go build ./cmd/migrate` — which
+  this work runs constantly — leaves an untracked 15 MB binary at the repo root. Found by
+  producing one
+
 ## 5. Guards
 
 - [x] 5.1 Delete the `migration-guard` target and `KNOWN_DUPLICATE_MIGRATIONS` from the `Makefile` (lines 627–664), and remove `migration-guard` from `.PHONY` (line 93) and from `check` (line 999)
@@ -147,8 +187,12 @@ pg_dump --schema-only --no-owner --no-privileges -d "$DATABASE_URL" -f "$DUMP_A"
   `make -n` both ways.
 
 ```bash
-createdb magus_baseline_check
-make migrate-up DATABASE_URL="$SCRATCH"          # variable AFTER the target
+# db-reset, NOT `createdb` + migrate-up. createdb makes your OS role the owner, and since
+# Postgres 15 a non-owner has no CREATE on a database — the first CREATE SCHEMA then fails
+# with "permission denied for database magus_baseline_check" and goose reports the missing
+# schema afterwards. db-reset creates it owned by APP_ROLE, the role the DSN connects as.
+# It is destructive, which is correct for a scratch database and nothing else.
+make db-reset DATABASE_URL="$SCRATCH"            # variable AFTER the target
 pg_dump --schema-only --no-owner --no-privileges -d "$SCRATCH" -f /tmp/dump-B.sql
 
 # Filter the \restrict / \unrestrict lines: pg_dump writes a fresh random token on
@@ -173,20 +217,24 @@ diff <(grep -vE '^\\(un)?restrict ' "$DUMP_A") \
 
 - [ ] 9.3 Drop the scratch database: `dropdb magus_baseline_check`
 
-## 10. Stamp dev, then apply the drop **[owner]**
+## 10. Bring dev up to date **[owner]**
 
-Still on your laptop. `psql "$DATABASE_URL"` reads the DSN from the variable you loaded
-above, so nothing is typed out.
+Still on your laptop. There is no stamp step to run by hand any more: `make migrate-up`
+runs `cmd/migrate -stamp-only` first, which records a baseline as applied only on a
+database that already has that module's tables. See
+`config.MigrationDir.StampBaselineSQL` for why running it unconditionally is safe on a
+fresh database and on one already past the squash.
 
-- [ ] 10.1 Stamp dev:
+- [ ] 10.1 Stamp and migrate in one command:
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -f openspec/changes/platform-squash-migrations-to-module-baselines/runbook/stamp-baseline.sql
+make migrate-up
 ```
 
-  Expect `BEGIN`, four `CREATE TABLE`, four `INSERT 0 2`, `COMMIT`. Any error rolls the
-  whole thing back — the file is one transaction.
+  Expect four `pre-existing schema — recorded baseline 20260917000001 as applied without
+  running it` lines, then `20260917000002` applying in `telemetry` and nothing in the
+  other three. A `relation already exists` here means the stamp did not fire — stop and
+  report it rather than reaching for the SQL file.
 
 - [ ] 10.2 Check the ledgers:
 
@@ -195,19 +243,11 @@ psql "$DATABASE_URL" \
   -f openspec/changes/platform-squash-migrations-to-module-baselines/runbook/verify-ledgers.sql
 ```
 
-  Expect five rows: the four modules at `filas = 2`, `maximo = 20260917000001`, and
-  `public (old)` at `55` / `20260915000001`. The second query returns **one** row
-  (`account_id`), because the drop has not run yet.
+  Expect five rows: `telemetry` at `filas = 3` / `maximo = 20260917000002`, the other
+  three modules at `filas = 2` / `maximo = 20260917000001`, and `public (old)` at `55` /
+  `20260915000001`. The second query returns **zero** rows — `account_id` is gone.
 
-- [ ] 10.3 Apply the one real migration. Only `20260917000002` should run:
-
-```bash
-make migrate-up
-```
-
-- [ ] 10.4 Re-run 10.2. Now `telemetry` reads `filas = 3`, `maximo = 20260917000002`, the
-  other three are unchanged, and the second query returns **zero** rows — `account_id` is
-  gone. Then start the app (`make up`) and confirm the dashboard still loads.
+- [ ] 10.3 Start the app (`make up`) and confirm the dashboard still loads.
 
 ## 11. Run the tests **[owner]**
 
@@ -218,40 +258,36 @@ make migrate-up
 
 Prod deploys by pulling `main`, so the branch has to land first.
 
-- [ ] 12.1 Merge the branch into `main` and push it. Do **not** deploy yet — prod is stamped
-  in group 13, before the deploy
+- [ ] 12.1 Merge the branch into `main` and push it. The deploy stamps prod itself, so
+  there is no longer an ordering rule to remember here
 
-## 13. Stamp prod — BEFORE the deploy **[owner]**
+## 13. Prod — nothing to stamp by hand **[owner]**
 
-On the VPS. The stamp is safe to run any time before the deploy: the image currently
-running reads `public.goose_db_version` and cannot see these new tables.
+This group used to be the manual prod stamp. It is gone: the `migrate` service runs the
+same stamp inside the deploy, before goose, so prod fixes itself in group 14. That also
+removes the trap this plan used to carry — a hand-run step that had to happen before an
+automatic deploy, with nothing enforcing the order.
+
+`runbook/stamp-baseline.sql` is kept as a fallback for a database the runner cannot
+reach (a restored dump, a manual recovery). It is not part of the normal path.
+
+- [ ] 13.1 Optional, if you want to see prod's starting state. On the VPS:
 
 ```bash
 ssh <your VPS>
 cd /home/magus/magus-tesla-api
-git pull                     # brings the runbook SQL files with it
+git pull
 
 set -a; . ./.env; set +a
 DC="docker compose --project-directory . -f deploy/docker/compose.yaml"
-```
 
-- [ ] 13.1 Stamp prod. `exec -T` feeds the file in over stdin, so the SQL runs inside the
-  `db` container without a copy step:
-
-```bash
-$DC exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
-  < openspec/changes/platform-squash-migrations-to-module-baselines/runbook/stamp-baseline.sql
-```
-
-- [ ] 13.2 Check prod's ledgers — same five rows as dev at 10.2:
-
-```bash
 $DC exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   < openspec/changes/platform-squash-migrations-to-module-baselines/runbook/verify-ledgers.sql
 ```
 
-- [ ] 13.3 Confirm `public (old)` still reads `55` / `20260915000001`. **That is the
-  rollback path** — the previous image reads it, so it must stay untouched
+  Before the deploy the four module rows are absent and `public (old)` reads `55` /
+  `20260915000001`. **That row is the rollback path** — the previous image reads it, and
+  nothing in this change writes to it.
 
 ## 14. Deploy prod, then verify **[owner]**
 
@@ -268,19 +304,23 @@ $DC up -d --build
 $DC logs migrate | tail -20
 ```
 
-  Expect four `applied 0 migration(s)` lines and one `applied 1 migration(s)` for
-  `telemetry`. A `relation already exists` here means the stamp did not land — see below.
+  Expect four `pre-existing schema — recorded baseline 20260917000001 as applied without
+  running it` lines, then four `applied 0 migration(s)` and one `applied 1 migration(s)`
+  for `telemetry`. A `relation already exists` here means the stamp did not fire — see
+  below.
 
 - [ ] 14.3 Confirm `web` and `poller` are up and healthy: `$DC ps`
 - [ ] 14.4 Re-run 13.2. `telemetry` reads `maximo = 20260917000002`, and the second query
   returns zero rows
 - [ ] 14.5 Open the site and confirm a page renders
 
-**If 14.2 fails:** prod was not stamped, so a baseline tried to run against a populated
+**If 14.2 fails:** the stamp did not fire and a baseline tried to run against a populated
 database. Nothing is damaged — it refused rather than writing. `web` and `poller` will not
-have started, because both wait for the migration step to succeed. Either run group 13 and
-redeploy, or redeploy the previous image: it reads `public.goose_db_version`, which is
-untouched and at max version with nothing pending, so there is no database step to undo.
+have started, because both wait for the migration step to succeed. Two ways out: apply
+`runbook/stamp-baseline.sql` by hand (the fallback in group 13) and redeploy, or redeploy
+the previous image, which reads `public.goose_db_version` — untouched and at max version
+with nothing pending, so there is no database step to undo. Report the failure either way:
+the stamp firing is the thing this change is relying on.
 
 ## 15. Close
 
