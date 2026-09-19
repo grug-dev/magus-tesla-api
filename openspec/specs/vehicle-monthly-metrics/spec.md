@@ -1,7 +1,27 @@
 # vehicle-monthly-metrics Specification
 
 ## Purpose
-TBD - created by archiving change RM67-analytics-add-vehicle-monthly-metrics. Update Purpose after archive.
+
+Summarise a vehicle's daily analytics into one row per calendar month, so a future
+reader never has to sum a month of daily rows on the spot.
+
+`analytics` already computes one row per vehicle per day. Nothing summarises a
+month. This capability adds that summary: for one vehicle and one calendar month,
+it reports the total distance driven, the total battery used, and the resulting
+efficiency — each split into every day, weekdays only, and weekends only — plus
+the pack capacity measured for that vehicle and month.
+
+A day with no computable predecessor contributes to none of these figures, the
+same way it already contributes to none of the platform's existing daily
+figures. A month with no computable day at all still gets a row, so a caller can
+always tell "we have not measured a month" (no row) apart from "we measured this
+month and it was empty" (a row whose counts are zero) once a row exists at all —
+this capability's own row always exists once asked for, so the second case is
+the only one a reader of this capability's data will ever see.
+
+Recomputing a month is a full replacement, never an addition: asking again for
+the same vehicle and month produces the same row, updated in place.
+
 ## Requirements
 ### Requirement: A Vehicle's Month Is Summarised Into One Row
 

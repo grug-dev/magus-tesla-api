@@ -159,6 +159,10 @@
 | `monthly_effective_capacity` | the table → `workflows/vehicle-monthly-metrics.md` |
 | `capacity for an exact month` | `workflows/vehicle-monthly-metrics.md` |
 | `monthly capacity read port` | synonym of `capacity for an exact month` → `workflows/vehicle-monthly-metrics.md` |
+| `vehicle-monthly-metrics` (the capability name, as spelled in `openspec/specs/`) | `workflows/vehicle-monthly-metrics.md` |
+| `monthly summary` | `workflows/vehicle-monthly-metrics.md` |
+| `weekday figures` | `workflows/vehicle-monthly-metrics.md` |
+| `weekend figures` | `workflows/vehicle-monthly-metrics.md` |
 
 ## Architecture topics
 
