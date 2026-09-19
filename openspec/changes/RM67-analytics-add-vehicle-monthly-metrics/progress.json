@@ -5,7 +5,7 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Create analytics.vehicle_monthly_metrics and the SyncMonth use case that rewrites the row for one (tesla_id, period). One migration creates all 32 columns, including the ext_*, sc_* and JSONB columns tier 3 fills. Tier 2 fills the vehicle_metrics figures for all days / weekdays / weekends and copies the capacity through tier 1's port. All maths in Go. Tier 2 of 4 of roadmap RM67 (Linear MAG-73).",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -27,7 +27,7 @@
     "awaiting-user-verification": []
   },
   "created_at": "2026-09-18T23:35:59Z",
-  "updated_at": "2026-09-19T01:56:21Z",
+  "updated_at": "2026-09-19T02:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -311,10 +311,31 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review tier 2 of RM67 on branch ft/RM67-MAG-73-vehicle-monthly-metrics-table. Code diff base: 2d4477c..HEAD (five commits: artifacts, wave 1, wave 2, wave 3, the verify record). Validate: (1) module-boundary compliance - internal/analytics must reach internal/charging only through public ports, never its db or internals; (2) every doc-pack convention, and the km/C/PSI display-unit and America/Bogota clock rules; (3) spec and tasks coverage - all 12 tasks, and nothing from the 'Not in this change' list was done; (4) the DB objects match the design the OWNER confirmed: the three cost columns must be NUMERIC(14,2) (RD11), and the copied capacity must keep TWO states, capacity_kwh plus capacity_measured, with no third column (RD12); (5) the integration tests assert the expected values design.md's Test Contract authored BEFORE the implementation, not whatever the code produces - this is the main anti-gaming check here; (6) Performance-Profile compliance; (7) no weakened criteria, no self-approved statuses, no edited task or contract text. Known leader concern to judge, not a blocker: db_monthly_sync_integration_test.go reuses tesla_id 555001 in three test functions. Safe today because none call t.Parallel() and each purges first; fragile if anyone adds t.Parallel(). SIGNALS: go build, go vet, gofmt -l, make lint, make naming-guard, make boundary-guard, make tz-guard, make archive-guard, make migration-boundary-guard, make tenancy-guard, make delta-guard, make vehicleref-guard were ASSISTANT-run and clean. The TEST SUITE was run by the OWNER, who reported all analytics tests passing. Judge test quality by READING the tests; do not run them.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-19T02:03:23Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/analytics/mapping.go: pgNumericFromFloat64's comment is 9 lines for a 4-line function. Every sibling helper in this file (pgFloat8FromPtr, ptrIntFromPg, etc.) keeps its comment to 2-3 lines. Shorten it.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/analytics/db_monthly_sync_integration_test.go file header says 'every test below uses its own tesla_id', but T1, T3 and T6 all share tesla_id 555001 (matches design.md's Test Contract, so this is correct code -- only the header comment is wrong). Fix the sentence so a future reader does not add t.Parallel() trusting a false claim of full isolation.",
+            "status": "open"
+          }
+        ],
+        "notes": "Reviewed diff 2d4477c..HEAD. Boundary clean, both owner-confirmed DB points honored (NUMERIC(14,2) costs, two-state capacity), all 12 tasks done, Not-in-this-change list respected, Test Contract T1-T6 and T-PURE-1-3 checked value by value against design.md and matched exactly. Shared tesla_id 555001 across T1/T3/T6 is safe today (no t.Parallel(), each test purges first) and is the design's own fixture choice, not a shortcut -- accepted, not a blocker."
+      }
+    ]
   },
   "decisions": [
     {
@@ -417,6 +438,11 @@
       "at": "2026-09-19T01:56:21Z",
       "agent": "leader",
       "event": "THE OWNER ran the analytics tests and reported all passing. Verified by the user, not by the assistant. TASK-4 and TASK-9 move to done and the change status becomes verified. The reviewer gate may now run."
+    },
+    {
+      "at": "2026-09-19T02:05:00Z",
+      "agent": "leader",
+      "event": "reviewer approved with two minor findings. Leader triaged both, accepted both, and fixed them. F1: shortened pgNumericFromFloat64's comment from 9 lines to 5, per the comment-shorter-than-the-code rule. F2: the test file header claimed every test uses its own tesla_id, which was false for T1, T3 and T6; rewritten to state the shared id and to forbid t.Parallel(). Leader verified design.md's Test Contract does assign 555001 to those three, so the tests follow the contract and only the comment was wrong. go build, go vet and gofmt clean after both fixes."
     }
   ]
 }

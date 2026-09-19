@@ -9,10 +9,13 @@
 // public writer that creates one row on demand -- this module's own
 // established fixture pattern for that case (see db_integration_test.go).
 //
-// The database is shared across test runs, so every test below uses its own
-// tesla_id and purges its own rows both before and after running -- a row
-// left behind by an earlier interrupted run must never be counted by a
-// later one.
+// The database is shared across test runs, so every test purges its own
+// tesla_id both before and after running -- a row left behind by an earlier
+// interrupted run must never be counted by a later one.
+//
+// Three tests share tesla_id 555001, because they share one seeded month by
+// design. That is safe only while they run in order. Do NOT add t.Parallel()
+// here: the shared id would let one test purge another's rows mid-run.
 package analytics
 
 import (

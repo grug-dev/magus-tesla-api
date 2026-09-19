@@ -179,15 +179,11 @@ func endingBatteryDistFromJSON(b []byte) (EndingBatteryDist, error) {
 	return d, nil
 }
 
-// pgNumericFromFloat64 converts a float64 to a valid pgtype.Numeric, for
-// binding one of the three *_cost parameters on UpsertVehicleMonthlyMetric.
-// Scans the float's decimal string representation -- the only pgx/v5 path
-// for writing a plain float64 into a NUMERIC column. The three cost fields
-// this module ever writes are sums of finite float64 values, so the
-// decimal string is always well-formed; a Scan error here would mean an
-// upstream bug, not a real NaN/Infinity cost, so it is absorbed into a
-// zero-value Numeric rather than widening this function's signature for a
-// case this module's own writer cannot reach.
+// pgNumericFromFloat64 converts a float64 into a NUMERIC bind value by
+// scanning its decimal string -- the only pgx/v5 path for a plain float64.
+// Costs are sums of finite floats, so a Scan error means an upstream bug,
+// never a real value. It returns the zero Numeric instead of an error,
+// which would widen this signature for a case the writer cannot reach.
 func pgNumericFromFloat64(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
 	_ = n.Scan(strconv.FormatFloat(f, 'f', -1, 64))
