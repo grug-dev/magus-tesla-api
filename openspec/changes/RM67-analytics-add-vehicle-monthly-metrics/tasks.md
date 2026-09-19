@@ -77,7 +77,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   depends_on: TASK-3 (needs `EndingBatteryDist`).
   parallel_ok: yes (with TASK-4, TASK-5).
 
-- [ ] **TASK-7** — New file `internal/analytics/monthly_sync.go`:
+- [x] **TASK-7** — New file `internal/analytics/monthly_sync.go`:
   `monthlySyncer` struct (`q *analyticsdb.Queries`, `capacity
   charging.MonthlyCapacityReader`), `newMonthlySyncer` constructor, and
   `SyncMonth` implementing `MonthlySyncer` — calls
@@ -116,7 +116,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   Files: `internal/analytics/db_monthly_sync_integration_test.go`.
   depends_on: TASK-5, TASK-7. parallel_ok: no.
 
-- [ ] **TASK-10** — Update `internal/analytics/AGENTS.md`:
+- [x] **TASK-10** — Update `internal/analytics/AGENTS.md`:
   - "Allowed / forbidden imports" — add `charging.MonthlyCapacityReader` to
     the list of `internal/charging` ports this module may import.
   - "Public interface (the port)" — add a row (or a new small table) for

@@ -9,9 +9,7 @@
   "rollup": {
     "current": [],
     "pending": [
-      "TASK-7",
       "TASK-9",
-      "TASK-10",
       "TASK-11",
       "TASK-12"
     ],
@@ -22,14 +20,16 @@
       "TASK-3",
       "TASK-5",
       "TASK-6",
-      "TASK-8"
+      "TASK-7",
+      "TASK-8",
+      "TASK-10"
     ],
     "awaiting-user-verification": [
       "TASK-4"
     ]
   },
   "created_at": "2026-09-18T23:35:59Z",
-  "updated_at": "2026-09-18T23:57:03Z",
+  "updated_at": "2026-09-19T00:02:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -180,14 +180,20 @@
         "TASK-6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Copies the capacity through tier 1's port. Idempotent per (tesla_id, period).",
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:59:30Z",
+      "completed_at": "2026-09-19T00:02:30Z",
+      "duration_seconds": 180,
+      "notes": "Created monthly_sync.go: monthlySyncer, newMonthlySyncer and SyncMonth. Copies capacity only on found and non-nil. Zero-fills the Ext and SC fields. Takes Period, CreatedAt and UpdatedAt from the returned row.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "cost_usd_delta": 2.76,
+        "approx": true,
+        "note": "one serial worker for two tasks; the wave delta is copied onto each"
+      }
     },
     {
       "id": "TASK-8",
@@ -239,14 +245,20 @@
         "TASK-7"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Public interface, data ownership, testing notes.",
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:59:30Z",
+      "completed_at": "2026-09-19T00:02:30Z",
+      "duration_seconds": 180,
+      "notes": "Updated AGENTS.md: charging.MonthlyCapacityReader added to allowed imports, MonthlySyncer row added to the port table, vehicle_monthly_metrics added to data ownership.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "cost_usd_delta": 2.76,
+        "approx": true,
+        "note": "one serial worker for two tasks; the wave delta is copied onto each"
+      }
     },
     {
       "id": "TASK-11",
@@ -315,6 +327,15 @@
       "decision": "TASK-12's guess was wrong: the root README DOES need an edit. The edit is deferred to the final wave, after TASK-7 fixes the port shape.",
       "why": "The data-ownership table lists every analytics table by name. Writing the row before MonthlySyncer is final would mean writing it twice.",
       "covered_by": null
+    },
+    {
+      "id": "D-L4",
+      "at": "2026-09-19T00:02:30Z",
+      "scope": "TASK-11",
+      "made_by": "autopilot",
+      "decision": "Extend kkpa/context/workflows/vehicle-monthly-metrics.md to cover both tables, rather than splitting it into a second guide.",
+      "why": "The guide is already titled 'vehicle monthly metrics'. A reader searching that name must reach analytics.vehicle_monthly_metrics, not a charging-only guide.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -337,6 +358,16 @@
       "at": "2026-09-18T23:57:03Z",
       "agent": "leader",
       "event": "wave 1 reconciled. Six tasks by one serial analytics worker. Leader verified independently: go build fails ONLY on undefined newMonthlySyncer (by design, TASK-7 supplies it), gofmt clean, 12 files changed. Worker reported all six done; leader corrected TASK-4 to awaiting-user-verification because its deliverable includes an unrun unit test. Worker's reported per-task timestamps were placeholders and were replaced with the real dispatch window. Budget five_hour 1 to 11 pct, seven_day 93 pct, context 14 pct."
+    },
+    {
+      "at": "2026-09-18T23:59:30Z",
+      "agent": "leader",
+      "event": "wave 1 committed as 6bc057a. Dispatching wave 2 as one serial analytics worker on claude-sonnet: TASK-7 then TASK-10. No checkpoint: context 14 pct, five_hour 11 pct, and the owner chose to run all four waves in this session."
+    },
+    {
+      "at": "2026-09-19T00:02:30Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled. TASK-7 and TASK-10 by one serial analytics worker. Leader verified independently: go build and go vet both exit 0, gofmt clean. The wave-1 forward reference is resolved. Worker's reported start time was again a placeholder and was replaced with the real dispatch window. Budget five_hour 11 to 18 pct, seven_day 94 pct, context 16 pct."
     }
   ]
 }
