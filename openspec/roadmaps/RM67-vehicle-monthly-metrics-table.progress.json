@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-18T19:05:41Z",
-  "updated_at": "2026-09-18T23:35:59Z",
+  "updated_at": "2026-09-19T02:10:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -22,15 +22,15 @@
   },
   "rollup": {
     "current": [
-      2
+      3
     ],
     "pending": [
-      3,
       4
     ],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -161,14 +161,20 @@
       "depends_on": [
         1
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "claude-sonnet-5 (workers, reviewer), claude-opus-5 (leader)",
       "started_at": "2026-09-18T21:48:44Z",
-      "completed_at": null,
+      "completed_at": "2026-09-19T02:10:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Migration creating ALL columns, sqlc queries, the use case type, the vehicle_metrics figures (RD2/RD6) and the copied capacity. Database design gate applies."
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 29,
+        "cost_usd_delta": 11.9,
+        "approx": true,
+        "note": "whole tier: 3 worker dispatches, 1 reviewer round, leader docs and integration"
+      },
+      "notes": "Shipped analytics.vehicle_monthly_metrics (32 columns) and MonthlySyncer.SyncMonth. Costs NUMERIC(14,2) per RD11, capacity two-state per RD12. ext_/sc_ columns written as zeros for tier 3. One review round, two minor comment findings. Owner ran the tests and reported them passing."
     },
     {
       "id": 3,
@@ -230,6 +236,11 @@
       "at": "2026-09-18T23:31:33Z",
       "agent": "leader",
       "event": "database design gate ran with the owner on tier 2's 32-column schema; approved with ONE change - cost columns move to NUMERIC(14,2) (RD11); capacity stays two-state (RD12); worker re-dispatched to revise the artifacts"
+    },
+    {
+      "at": "2026-09-19T02:10:00Z",
+      "agent": "leader",
+      "event": "tier 2 archived to openspec/changes/archive/analytics/2026-09-19-RM67-analytics-add-vehicle-monthly-metrics; new capability spec created at openspec/specs/vehicle-monthly-metrics (2 requirements, Purpose included since the capability is new). The CLI reported 9/12 tasks because the three leader-owned checkboxes were never ticked; the leader ticked them before the folder left the working tree, so the archived record is true. Tier 3 is now unblocked. Autopilot is OFF, so tier 3 does not start by itself."
     }
   ]
 }

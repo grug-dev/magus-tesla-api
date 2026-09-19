@@ -6,7 +6,7 @@ Each task names its file(s), its `depends_on`, and whether it is
 
 ## Tasks
 
-- [ ] **TASK-1** `[leader-owned]` — Add one `rename:` entry to the existing
+- [x] **TASK-1** `[leader-owned]` — Add one `rename:` entry to the existing
   `analytics` block of the root `sqlc.yaml`:
   `analytics_vehicle_monthly_metric: "VehicleMonthlyMetric"`. Must land
   before TASK-5 runs `make sqlc`, or sqlc names the generated struct with its
@@ -126,7 +126,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   Files: `internal/analytics/AGENTS.md`.
   depends_on: TASK-3, TASK-7 (needs the final shape). parallel_ok: yes.
 
-- [ ] **TASK-11** `[leader-owned]` — Check `kkpa/context/` for guides this
+- [x] **TASK-11** `[leader-owned]` — Check `kkpa/context/` for guides this
   change invalidates or should extend:
   - `kkpa/context/workflows/vehicle-monthly-metrics.md` currently documents
     only tier 1 (the `charging` capacity read). Extend it to also cover this
@@ -139,7 +139,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   Files: under `kkpa/context/` (outside `internal/analytics/`).
   depends_on: TASK-3, TASK-7. parallel_ok: yes.
 
-- [ ] **TASK-12** `[leader-owned]` — Check the root `README.md`'s
+- [x] **TASK-12** `[leader-owned]` — Check the root `README.md`'s
   "Project Structure" tree and "Architecture" table for whether either lists
   `internal/analytics`'s ports or tables at a level of detail this change
   would make stale. Based on the existing precedent (these sections list
