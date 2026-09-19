@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-18T19:05:41Z",
-  "updated_at": "2026-09-19T02:10:00Z",
+  "updated_at": "2026-09-19T16:41:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -129,6 +129,46 @@
       "made_by": "user",
       "decision": "The copied capacity keeps TWO states: capacity_kwh plus capacity_measured. No third column for 'no row' versus 'thin month'.",
       "why": "Owner accepted the loss after seeing it. The tier 1 port still reports three states; only the stored copy collapses them."
+    },
+    {
+      "id": "RD13",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "An external charge with ChargingType nil feeds neither ext_ac_* nor ext_dc_*. It is skipped: no energy, no cost, no count, no bucket. No new column.",
+      "why": "Owner chose the smallest shape after seeing the alternative. ChargingType is optional for every status, so nil stays possible; 0 of the 15 stored entries are untyped today."
+    },
+    {
+      "id": "RD14",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "A supercharger session belongs to the month of its ChargeStopDateTime read in the platform zone. The fetch widens one day each side and Go drops the sessions outside the month. External charges keep ChargedOn's own date.",
+      "why": "Bogota is UTC-5, so an evening session falls on the next UTC day. The port's window is UTC calendar days. Zero of 13 stored sessions differ today, but the case repeats every month end."
+    },
+    {
+      "id": "RD15",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "currency is always written 'COP' and every cost is summed, whatever the record's own currency. A month that mixes currencies gets a mixed total.",
+      "why": "Owner chose the simplest rule after seeing the cost. Tier 2 D3 left it open. All 15 entries and 13 sessions use one currency today."
+    },
+    {
+      "id": "RD16",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "autopilot",
+      "decision": "Every external charge counts, whatever its Status. No IN_PROGRESS filter.",
+      "why": "IN_PROGRESS is the value the form sends when it sends none: 9 of 15 stored entries, 8 of them with real energy and price. Filtering would drop most of the month."
+    },
+    {
+      "id": "RD17",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "autopilot",
+      "decision": "A charge with no EndBatteryPct counts in the entry/session count but enters no bucket, so the distribution can sum to less than the count. Buckets are [0,20), [20,40), [40,60), [60,80), [80,100].",
+      "why": "Same skip rule as RD13, and the count already carries what the bucket cannot (tier 2 D7). Closed edges would double-count 20, 40, 60 and 80."
     }
   ],
   "tiers": [
@@ -184,10 +224,10 @@
       "depends_on": [
         2
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers, reviewer), claude-opus-5 (leader)",
+      "started_at": "2026-09-19T16:41:11Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -241,6 +281,16 @@
       "at": "2026-09-19T02:10:00Z",
       "agent": "leader",
       "event": "tier 2 archived to openspec/changes/archive/analytics/2026-09-19-RM67-analytics-add-vehicle-monthly-metrics; new capability spec created at openspec/specs/vehicle-monthly-metrics (2 requirements, Purpose included since the capability is new). The CLI reported 9/12 tasks because the three leader-owned checkboxes were never ticked; the leader ticked them before the folder left the working tree, so the archived record is true. Tier 3 is now unblocked. Autopilot is OFF, so tier 3 does not start by itself."
+    },
+    {
+      "at": "2026-09-19T16:17:28Z",
+      "agent": "leader",
+      "event": "tier 3 started on user 'continue'; Step 2 interview ran on the three points RD1-RD12 left open (untyped charges, month edge zone, mixed currency) and recorded RD13-RD15; RD16-RD17 decided by the leader from the dev database and recorded; budget at start five_hour 4%, context 10%"
+    },
+    {
+      "at": "2026-09-19T16:41:11Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts created by the analytics worker and validated (openspec validate --strict passed); database design gate does NOT fire - no schema object changes, tier 2's migration already created every column; Spanish briefing given and the owner said continue"
     }
   ]
 }
