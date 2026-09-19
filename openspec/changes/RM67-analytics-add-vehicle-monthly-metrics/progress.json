@@ -5,14 +5,10 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Create analytics.vehicle_monthly_metrics and the SyncMonth use case that rewrites the row for one (tesla_id, period). One migration creates all 32 columns, including the ext_*, sc_* and JSONB columns tier 3 fills. Tier 2 fills the vehicle_metrics figures for all days / weekdays / weekends and copies the capacity through tier 1's port. All maths in Go. Tier 2 of 4 of roadmap RM67 (Linear MAG-73).",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "TASK-9",
-      "TASK-11",
-      "TASK-12"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "TASK-1",
@@ -22,14 +18,17 @@
       "TASK-6",
       "TASK-7",
       "TASK-8",
-      "TASK-10"
+      "TASK-10",
+      "TASK-11",
+      "TASK-12"
     ],
     "awaiting-user-verification": [
-      "TASK-4"
+      "TASK-4",
+      "TASK-9"
     ]
   },
   "created_at": "2026-09-18T23:35:59Z",
-  "updated_at": "2026-09-19T00:02:30Z",
+  "updated_at": "2026-09-19T00:09:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -227,14 +226,20 @@
         "TASK-7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Assert the contract values, never the implementation. DB-gated, final wave.",
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-19T00:03:30Z",
+      "completed_at": "2026-09-19T00:09:11Z",
+      "duration_seconds": 341,
+      "notes": "New db_monthly_sync_integration_test.go implementing T1-T6. Each test purges its own tesla_id before seeding and registers t.Cleanup. Tests written, not run: the owner runs the suite.",
+      "budget": {
+        "five_hour_pct_start": 18,
+        "five_hour_pct_end": 28,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "final wave: one worker for TASK-9 plus the leader's two doc tasks, run at the same time"
+      }
     },
     {
       "id": "TASK-10",
@@ -269,14 +274,20 @@
         "TASK-7"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "LEADER-OWNED: outside the analytics sandbox.",
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-19T00:03:30Z",
+      "completed_at": "2026-09-19T00:09:11Z",
+      "duration_seconds": 341,
+      "notes": "Extended the vehicle-monthly-metrics KB guide to cover both tables. Also fixed INDEX.md (stale \"today one metric\") and the vehicle-metrics entity guide, whose ownership claim was already wrong before this change.",
+      "budget": {
+        "five_hour_pct_start": 18,
+        "five_hour_pct_end": 28,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "final wave: one worker for TASK-9 plus the leader's two doc tasks, run at the same time"
+      }
     },
     {
       "id": "TASK-12",
@@ -284,14 +295,20 @@
       "module": "platform",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Check done: the README DOES need an edit (data-ownership table lists every analytics table; Architecture table names the ports). Edit deferred to the final wave.",
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-19T00:03:30Z",
+      "completed_at": "2026-09-19T00:09:11Z",
+      "duration_seconds": 341,
+      "notes": "README edited after all: added the vehicle_monthly_metrics row to the data-ownership table and MonthlySyncer to the Architecture row. The task text guessed no edit was needed; that guess was wrong.",
+      "budget": {
+        "five_hour_pct_start": 18,
+        "five_hour_pct_end": 28,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "final wave: one worker for TASK-9 plus the leader's two doc tasks, run at the same time"
+      }
     }
   ],
   "review": {
@@ -336,6 +353,15 @@
       "decision": "Extend kkpa/context/workflows/vehicle-monthly-metrics.md to cover both tables, rather than splitting it into a second guide.",
       "why": "The guide is already titled 'vehicle monthly metrics'. A reader searching that name must reach analytics.vehicle_monthly_metrics, not a charging-only guide.",
       "covered_by": null
+    },
+    {
+      "id": "D-L5",
+      "at": "2026-09-19T00:09:11Z",
+      "scope": "TASK-11",
+      "made_by": "autopilot",
+      "decision": "Also fixed kkpa/context/INDEX.md and entities/vehicle-metrics/guide.md, which TASK-11 did not name.",
+      "why": "The entity guide claimed analytics owns two tables and NOTHING else. That was already false (charge_gaps) and this change made it worse.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -368,6 +394,16 @@
       "at": "2026-09-19T00:02:30Z",
       "agent": "leader",
       "event": "wave 2 reconciled. TASK-7 and TASK-10 by one serial analytics worker. Leader verified independently: go build and go vet both exit 0, gofmt clean. The wave-1 forward reference is resolved. Worker's reported start time was again a placeholder and was replaced with the real dispatch window. Budget five_hour 11 to 18 pct, seven_day 94 pct, context 16 pct."
+    },
+    {
+      "at": "2026-09-19T00:03:30Z",
+      "agent": "leader",
+      "event": "wave 2 committed as 110c576. Final wave dispatched: analytics worker on claude-sonnet for TASK-9 (the DB-gated integration tests), leader working TASK-11 and TASK-12 in parallel. The file sets are disjoint, so the two cannot collide. The worker was warned about the shared-Postgres row-leak trap seen in earlier DB tests."
+    },
+    {
+      "at": "2026-09-19T00:09:11Z",
+      "agent": "leader",
+      "event": "final wave reconciled. TASK-9 by the analytics worker; TASK-11 and TASK-12 by the leader at the same time, on disjoint files. Leader verified: go build and go vet exit 0, gofmt clean, six test functions cover T1-T6, archive-guard clean. Every task is now done or awaiting-user-verification. Change status moves to applied. Next: the owner runs the suite, then the reviewer gate."
     }
   ]
 }

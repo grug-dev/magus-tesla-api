@@ -1,4 +1,4 @@
-# Vehicle monthly metrics — measured pack capacity — maintenance guide
+# Vehicle monthly metrics — maintenance guide
 
 > The map for changing this concept without re-scanning the codebase. Paths + symbols only;
 > for current signatures/callers/callees, ask CodeGraph. Pin to file paths, never line numbers.
@@ -6,17 +6,21 @@
 
 ## Glossary
 
-- **Known as:** `vehicle monthly metrics`, `monthly effective capacity`, `effective pack capacity`,
-  `measured pack capacity`, `monthly capacity`, `pack capacity`, `capacity backfill`
-- **Internal name:** table `charging.monthly_effective_capacity`; job
-  `charging.MonthlyCapacityCalculator.Calculate`; **two** read sides —
-  `packCapacityKWh` (`internal/charging/capacity.go`, module-internal) and the public
-  `charging.MonthlyCapacityReader` port (`internal/charging/monthly_capacity_reader.go`)
+- **Known as:** `vehicle monthly metrics`, `monthly metrics`, `monthly effective capacity`,
+  `effective pack capacity`, `measured pack capacity`, `monthly capacity`, `pack capacity`,
+  `capacity backfill`, `monthly distance`, `monthly efficiency`, `weekday weekend split`
+- **Internal names — TWO tables in TWO modules. Read this before you grep:**
+  - `charging.monthly_effective_capacity` — the measured pack capacity. Job
+    `charging.MonthlyCapacityCalculator.Calculate`; **two** read sides — `packCapacityKWh`
+    (`internal/charging/capacity.go`, module-internal) and the public
+    `charging.MonthlyCapacityReader` port (`internal/charging/monthly_capacity_reader.go`).
+  - `analytics.vehicle_monthly_metrics` — the wider per-vehicle per-month rollup. Written by
+    `analytics.MonthlySyncer.SyncMonth` (`internal/analytics/monthly_sync.go`).
 
-**Today this workflow holds exactly one metric: the measured pack capacity.** The name is plural
-on purpose. More monthly per-vehicle metrics were expected (full-charge count, consumption per
-100 km, energy per date), but they are deferred until a second one really exists. See
-§"Adding a second monthly metric".
+**The two are not the same table and the names are close enough to mislead.** The capacity table
+is `charging`'s and holds one number. The rollup is `analytics`'s and holds distance, efficiency
+and battery use, plus a **copy** of that capacity. The copy is deliberate: the rollup reads the
+capacity once, at sync time, through `charging`'s port — it never joins to it at read time.
 
 The two numbers stored next to the capacity:
 
@@ -39,6 +43,25 @@ They differ on purpose. Without `candidate_count`, "twenty small top-ups, none b
 | `internal/charging/charging.go` | The public ports: `MonthlyCapacityCalculator`, `MonthlyCapacityReport`, `NewMonthlyCapacityCalculator(pool)`, plus `MonthlyCapacityReader` and `NewMonthlyCapacityReader(pool)`. |
 | `internal/charging/monthly_capacity_reader.go` | The `MonthlyCapacityReader` implementation. One method, `CapacityForMonth(ctx, teslaID, month)`. It returns three states, not two: no row, a row with no measured capacity, and a row with one. |
 | `internal/charging/service.go`, `internal/charging/session_verifier.go` | The two callers of `packCapacityKWh`. Both divide energy by capacity; the seam is never duplicated. |
+
+### Second owning module — `internal/analytics`
+
+| File | Role |
+|---|---|
+| `internal/analytics/db/migrations/20260918000002_add_vehicle_monthly_metrics.sql` | Creates `analytics.vehicle_monthly_metrics`. Every column is `NOT NULL DEFAULT 0`, against this module's usual sparse-NULL convention — so a **count** column, not a NULL, is what says "no data". Keyed `UNIQUE (tesla_id, period)`, with a `CHECK` that `period` is a month start. **No `account_id`**: it describes a car, not user data. |
+| `internal/analytics/monthly_sync.go` | The use case. `SyncMonth(ctx, teslaID, period)` rewrites the row for one vehicle and one month. Idempotent: re-run it any time to pick up a later edit to that month's data. |
+| `internal/analytics/monthly_figures.go` | The **pure** derivation, no database. Splits the month into all days / weekdays / weekends. **Change the monthly maths here.** |
+| `internal/analytics/analytics.go` | The public port `MonthlySyncer`, the `VehicleMonthlyMetrics` and `EndingBatteryDist` types, and `NewMonthlySyncer(pool, capacity)`. |
+| `internal/analytics/db/query.sql` | `VehicleMetricsForVehicleAndMonth` (the input) and `UpsertVehicleMonthlyMetric` (the write). Both normalize the month **in SQL**, with `date_trunc`. Edit here, then `make sqlc`. |
+| `internal/analytics/mapping.go` | The only place `pgtype` is allowed. Holds the `pgtype.Numeric` and JSONB conversion pairs the cost and distribution columns need. |
+
+Two rules this table follows that surprise people:
+
+- **Efficiency is a ratio of sums, never an average of ratios.** It is
+  `SUM(distance) / SUM(consumed_pct)` over the days that consumed something. An average of daily
+  ratios weighs a 5 km day like a 300 km day.
+- **The month bucket is `metric_date` itself**, with no day shifting. `metric_date` already
+  carries the day-before adjustment. Weekday and weekend come from that date's day of week.
 
 ### Callers — who triggers the job
 
@@ -213,16 +236,22 @@ With no arguments it does the previous month, every vehicle. It needs `DATABASE_
   measurement. Computing a month stays the job's work, never a read's side effect.
   _Source: spec monthly-effective-capacity — Requirement: A Vehicle's Monthly Measurement Is Retrievable For An Exact Month._
 
-## Adding a second monthly metric
+## Adding another monthly metric
 
-The plural name is a placeholder, not a promise of a shared table. When a second metric arrives,
-decide then — do not pre-build for it:
+The wider table now exists, so the old deferral is closed. `analytics.vehicle_monthly_metrics`
+is the cross-module rollup this guide once said was "considered and deferred". Where a new
+metric goes depends on one question only — **whose rows does it derive from?**
 
-- If it also derives from charging's own rows, it is another column on this table, or a sibling
-  table in the same schema.
-- If it derives from another module's rows, it belongs to **that** module, by the same rule that
-  put this one in `charging`. A wider cross-module `monthly_metrics` table owned by `analytics`
-  was considered and deferred for exactly one reason: one metric does not justify it.
+- Derives from `charging`'s own rows, and is about the pack → another column on
+  `charging.monthly_effective_capacity`, or a sibling table in that schema.
+- Derives from several modules' rows, or from `analytics.vehicle_metrics` → a column on
+  `analytics.vehicle_monthly_metrics`. Add it to the migration, the upsert, and the pure
+  derivation in `monthly_figures.go`.
+- Derives from one other module's rows alone → it belongs to **that** module, by the same rule
+  that put the capacity in `charging`.
+
+Do not add a read-time join between the two tables. The rollup **copies** the capacity at sync
+time on purpose; that copy is what makes one row answer a whole month.
 
 `internal/charging` now holds the platform's **only** pack-capacity definition. `internal/analytics`
 used to hold a second one — a model-coarse table keyed on `car_type`, in
@@ -239,4 +268,5 @@ by itself. That is a new ticket, not a leftover.
 - Workflows: `workflows/manual-charge-crud.md` (one of the two input tables),
   `workflows/supercharger-stats-read.md` (the other one)
 - Architecture: `architecture/nightly-cycle.md` (step 4 — when and how the job is triggered)
-- Entities: `entities/vehicle-metrics/guide.md` (the unrelated `analytics` metrics table)
+- Entities: `entities/vehicle-metrics/guide.md` (`analytics.vehicle_metrics`, the per-day table
+  the monthly rollup reads as its input)

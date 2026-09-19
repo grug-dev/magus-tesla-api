@@ -105,7 +105,7 @@ Each task names its file(s), its `depends_on`, and whether it is
   depends_on: TASK-3 (needs the `MonthlySyncer` interface signature).
   parallel_ok: yes (with TASK-4, TASK-5, TASK-6, TASK-7).
 
-- [ ] **TASK-9** — New file
+- [x] **TASK-9** — New file
   `internal/analytics/db_monthly_sync_integration_test.go`
   (package `analytics`, `TEST_DATABASE_URL`-gated): implement T1 through T6
   from `design.md`'s Test Contract. Uses this module's existing
