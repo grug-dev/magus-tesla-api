@@ -5,17 +5,20 @@
 // because there was nowhere else to put it.
 //
 // The package exposes exactly one public port, Processor, whose single method
-// ProcessVehicleData runs one full vehicle-data cycle as four named steps, in this
+// ProcessVehicleData runs one full vehicle-data cycle as five named steps, in this
 // fixed order:
 //
 //	Scheduler ──┐
 //	            ├──> ProcessVehicleData ──┬── Sync Fleet data              (telemetry)
 //	API ────────┘                         ├── Process Charging data       (the T6 mirror)
 //	                                      ├── Recalculate Analytics       (analytics)
-//	                                      └── Measure Monthly Capacity    (the T2 gate, RM52)
+//	                                      ├── Measure Monthly Capacity    (the T2 gate, RM52)
+//	                                      └── Sync Monthly Metrics        (analytics)
 //
 // The fourth step runs only on the first calendar day of the month, in the
 // platform's default zone, and measures the previous month (RM52 tier 2, RD6/RD7).
+// The fifth step runs on every invocation, regardless of the calendar day: it
+// syncs the current and previous calendar month's metrics for every vehicle.
 //
 // Scheduler and the manual-rerun API (cmd/poller's HTTP listener,
 // platform-add-manual-rerun-api) are peer driving adapters that CALL this port —
@@ -46,26 +49,27 @@ import (
 )
 
 // Processor is the platform's application-layer port — see the package doc comment
-// for the four-step diagram (design.md D3). Scheduler and the manual-rerun API
-// are peer driving adapters that CALL Processor from the outside; neither is
-// part of it.
+// for the five-step diagram. Scheduler and the manual-rerun API are peer driving
+// adapters that CALL Processor from the outside; neither is part of it.
 type Processor interface {
 	// ProcessVehicleData runs one full cycle for triggeredBy. It generates a fresh
 	// RunID (uuid.New()) once per invocation and builds a telemetry.RunContext,
 	// passed to telemetry.Collector.CollectAll as step 1 (design.md D5, D8). A
 	// non-nil error from step 1 is returned immediately as (report, err) — steps 2
-	// (process charging data), 3 (recalculate analytics) and 4 (measure monthly
-	// vehicle capacity, RM52 tier 2) do not run for that invocation. Every
-	// per-account/per-vehicle failure inside any step is logged and isolated,
-	// never fatal to the cycle. Returns telemetry.CycleReport unchanged: this
-	// module introduces no new report/result type of its own (design.md D7).
+	// (process charging data), 3 (recalculate analytics), 4 (measure monthly
+	// vehicle capacity, RM52 tier 2) and 5 (sync monthly vehicle metrics) do not
+	// run for that invocation. Step 5, unlike step 4, runs on every invocation
+	// regardless of the calendar day. Every per-account/per-vehicle failure
+	// inside any step is logged and isolated, never fatal to the cycle. Returns
+	// telemetry.CycleReport unchanged: this module introduces no new
+	// report/result type of its own (design.md D7).
 	ProcessVehicleData(ctx context.Context, triggeredBy telemetry.TriggeredBy) (telemetry.CycleReport, error)
 }
 
 // NewProcessor builds a Processor from its collaborators' PUBLIC PORTS only — every
 // argument is an interface, not a *pgxpool.Pool or a concrete DB-backed type.
 // internal/app owns no table and no pool (design.md D1/D2): every read and write
-// this use case performs happens through one of these ten arguments.
+// this use case performs happens through one of these twelve arguments.
 //
 // mirrorWatermarks is charging's second port here. It holds, per account, the
 // highest telemetry updated_at the Supercharger mirror has already copied, so
@@ -77,6 +81,11 @@ type Processor interface {
 // day of the month, for the previous month — never per vehicle, never on any
 // other day (see runMonthlyCapacityStep and monthlyCapacityPeriod in
 // processor.go, design.md D1/D2).
+//
+// monthlySyncer is analytics's fourth port here. ProcessVehicleData calls it
+// twice per vehicle, every night: once for the current calendar month, once
+// for the previous one (see runMonthlyMetricsStep and monthlyMetricsPeriods
+// in processor.go).
 //
 // runWriter is telemetry's third port here (grouped with collector and
 // superchargerHistoryReader — RM36-app-record-poll-run design D1): ProcessVehicleData
@@ -102,6 +111,7 @@ func NewProcessor(
 	recalculator analytics.Recalculator,
 	analyticsReader analytics.Reader,
 	gapWriter analytics.GapWriter,
+	monthlySyncer analytics.MonthlySyncer,
 	loc *time.Location,
 ) Processor {
 	return &processor{
@@ -115,6 +125,7 @@ func NewProcessor(
 		recalculator:              recalculator,
 		analyticsReader:           analyticsReader,
 		gapWriter:                 gapWriter,
+		monthlySyncer:             monthlySyncer,
 		loc:                       loc,
 	}
 }

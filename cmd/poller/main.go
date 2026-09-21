@@ -138,6 +138,7 @@ func main() {
 		recalculator,
 		analyticsReader,
 		analytics.NewGapWriter(pool),
+		analytics.NewMonthlySyncer(pool, charging.NewMonthlyCapacityReader(pool), chargingReader, sessionAnalyticsReader),
 		loc,
 	)
 

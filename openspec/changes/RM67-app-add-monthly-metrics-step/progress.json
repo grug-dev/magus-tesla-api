@@ -5,16 +5,36 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Roadmap RM67 tier 4 (MAG-73). Add step 5 to internal/app/processor.go, after runMonthlyCapacityStep. It runs EVERY night, not only on the first of the month (RD3), and calls analytics.MonthlySyncer.SyncMonth twice per vehicle: current month and previous month. Follow step 4's shape - a failure logs and never fails the cycle. The month gate uses the platform zone through internal/clock.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["1.1", "2.1", "2.2", "2.3", "3.1", "3.2", "4.1", "4.2", "5.1", "L1", "L2", "L3", "L4"],
+    "pending": [
+      "4.1",
+      "4.2",
+      "5.1",
+      "L4"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "awaiting-user-verification": [
+      "3.1",
+      "3.2"
+    ]
   },
   "created_at": "2026-09-21T10:25:00Z",
-  "updated_at": "2026-09-21T10:25:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-21T10:40:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM67-MAG-73-vehicle-monthly-metrics-table",
@@ -24,23 +44,314 @@
     "created_at": "2026-09-18T19:05:41Z"
   },
   "tasks": [
-    { "id": "1.1", "title": "Pure monthlyMetricsPeriods(now, loc)", "module": "app", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.1", "title": "app.go: NewProcessor gains monthlySyncer analytics.MonthlySyncer", "module": "app", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.2", "title": "processor.go: field, step 5 call, runMonthlyMetricsStep, callMonthlySyncer", "module": "app", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "2.3", "title": "app.go: package and Processor doc comments become five steps", "module": "app", "depends_on": ["2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.1", "title": "monthly_metrics_step_test.go: Test Contract groups A, B, C1-C4 + dedup", "module": "app", "depends_on": ["2.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "3.2", "title": "processor_test.go: fake roster + C5 short-circuit assertion", "module": "app", "depends_on": ["2.2", "3.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "4.1", "title": "internal/app/AGENTS.md: five steps, new port, testing notes", "module": "app", "depends_on": ["3.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "4.2", "title": "kkpa/context/architecture/nightly-cycle.md: step 5 section, port map, table effects", "module": "app", "depends_on": ["2.2", "4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "5.1", "title": "gofmt -l, go build ./..., go vet ./... signals", "module": "app", "depends_on": ["3.1", "3.2", "4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "L1", "title": "LEADER: cmd/poller/main.go wiring of NewMonthlySyncer", "module": "app", "depends_on": ["2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "L2", "title": "LEADER: repo-wide go build / go vet confirmation", "module": "app", "depends_on": ["L1", "5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "L3", "title": "LEADER: root README.md app row becomes five steps", "module": "app", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "L4", "title": "LEADER: roadmap tier 4 status and roadmap archive check", "module": "app", "depends_on": ["L2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+    {
+      "id": "1.1",
+      "title": "Pure monthlyMetricsPeriods(now, loc)",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:27:00Z",
+      "completed_at": "2026-09-21T10:34:00Z",
+      "duration_seconds": null,
+      "notes": "Added monthlyMetricsPeriods in processor.go. Pure, no clock read, builds the first instant of the current month from the calendar day in loc.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 65.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.25,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 1.1-3.2, plus leader integration L1/L2/L3"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "app.go: NewProcessor gains monthlySyncer analytics.MonthlySyncer",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:27:00Z",
+      "completed_at": "2026-09-21T10:34:00Z",
+      "duration_seconds": null,
+      "notes": "app.go: new monthlySyncer analytics.MonthlySyncer parameter after gapWriter, struct assignment, doc paragraph. Fixed a stale 'ten arguments' line to twelve.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 65.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.25,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 1.1-3.2, plus leader integration L1/L2/L3"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "processor.go: field, step 5 call, runMonthlyMetricsStep, callMonthlySyncer",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:27:00Z",
+      "completed_at": "2026-09-21T10:34:00Z",
+      "duration_seconds": null,
+      "notes": "processor.go: new field, step 5 call after step 4, runMonthlyMetricsStep and callMonthlySyncer. Steps 2, 3 and 4 untouched.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 65.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.25,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 1.1-3.2, plus leader integration L1/L2/L3"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "app.go: package and Processor doc comments become five steps",
+      "module": "app",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:27:00Z",
+      "completed_at": "2026-09-21T10:34:00Z",
+      "duration_seconds": null,
+      "notes": "Package diagram and the Processor and ProcessVehicleData doc comments now show five steps.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 65.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.25,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 1.1-3.2, plus leader integration L1/L2/L3"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "monthly_metrics_step_test.go: Test Contract groups A, B, C1-C4 + dedup",
+      "module": "app",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:27:00Z",
+      "completed_at": "2026-09-21T10:34:00Z",
+      "duration_seconds": null,
+      "notes": "New monthly_metrics_step_test.go: Test Contract groups A (A1-A6), B (B1-B2), C (C1-C4) and the duplicate-TeslaID dedup case. Not run by the assistant.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 65.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.25,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 1.1-3.2, plus leader integration L1/L2/L3"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "processor_test.go: fake roster + C5 short-circuit assertion",
+      "module": "app",
+      "depends_on": [
+        "2.2",
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:27:00Z",
+      "completed_at": "2026-09-21T10:34:00Z",
+      "duration_seconds": null,
+      "notes": "processor_test.go: newTestProcessor gained the syncer, all 3 call sites updated, C5 assertion added, mirror test literal stubbed. Not run by the assistant.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 65.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.25,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 1.1-3.2, plus leader integration L1/L2/L3"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "internal/app/AGENTS.md: five steps, new port, testing notes",
+      "module": "app",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "kkpa/context/architecture/nightly-cycle.md: step 5 section, port map, table effects",
+      "module": "app",
+      "depends_on": [
+        "2.2",
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "gofmt -l, go build ./..., go vet ./... signals",
+      "module": "app",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "L1",
+      "title": "LEADER: cmd/poller/main.go wiring of NewMonthlySyncer",
+      "module": "app",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-21T10:34:00Z",
+      "completed_at": "2026-09-21T10:40:00Z",
+      "duration_seconds": null,
+      "notes": "cmd/poller wired: analytics.NewMonthlySyncer(pool, charging.NewMonthlyCapacityReader(pool), chargingReader, sessionAnalyticsReader). Only line changed in the file.",
+      "budget": null
+    },
+    {
+      "id": "L2",
+      "title": "LEADER: repo-wide go build / go vet confirmation",
+      "module": "app",
+      "depends_on": [
+        "L1",
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-21T10:34:00Z",
+      "completed_at": "2026-09-21T10:40:00Z",
+      "duration_seconds": null,
+      "notes": "go build ./... and go vet ./... both clean repo-wide after L1. gofmt -l clean.",
+      "budget": null
+    },
+    {
+      "id": "L3",
+      "title": "LEADER: root README.md app row becomes five steps",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-21T10:34:00Z",
+      "completed_at": "2026-09-21T10:40:00Z",
+      "duration_seconds": null,
+      "notes": "README.md internal/app row now says five steps and describes step 5. Dependency graph checked and needs no edit: app already imports analytics.",
+      "budget": null
+    },
+    {
+      "id": "L4",
+      "title": "LEADER: roadmap tier 4 status and roadmap archive check",
+      "module": "app",
+      "depends_on": [
+        "L2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
-  "decisions": [],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-21T10:38:00Z",
+      "scope": "task:2.2",
+      "made_by": "autopilot",
+      "decision": "The leader rewrote ProcessVehicleData's doc comment to drop the pre-existing RM52 / RM36 / RD6 / design.md references it still carried.",
+      "why": "The worker edited that comment, and the project's comment rule says an edited comment loses its outside pointers. Leaving them would have been a review finding."
+    }
+  ],
   "events": [
-    { "at": "2026-09-21T10:25:00Z", "agent": "leader", "event": "progress.json created after the app worker's artifacts validated and the owner approved the Spanish briefing; no database design gate fires" }
+    {
+      "at": "2026-09-21T10:25:00Z",
+      "agent": "leader",
+      "event": "progress.json created after the app worker's artifacts validated and the owner approved the Spanish briefing; no database design gate fires"
+    },
+    {
+      "at": "2026-09-21T10:27:00Z",
+      "agent": "leader",
+      "event": "wave 1 dispatched to the app worker on claude-sonnet: tasks 1.1, 2.1, 2.2, 2.3, 3.1, 3.2 batched into ONE serial dispatch (code plus its offline tests, one module, one file set); budget at dispatch five_hour 55%, context 17%"
+    },
+    {
+      "at": "2026-09-21T10:40:00Z",
+      "agent": "leader",
+      "event": "wave 1 complete: tasks 1.1-2.3 done, 3.1/3.2 awaiting the owner's suite run; leader rewrote ProcessVehicleData's doc comment to comply with the no-outside-pointer rule, then did L1 (cmd/poller wiring), L2 (go build and go vet clean repo-wide) and L3 (README.md five steps, dependency graph verified unchanged); budget five_hour 55% -> 65%"
+    }
   ]
 }

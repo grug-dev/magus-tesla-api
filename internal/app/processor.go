@@ -40,39 +40,42 @@ type processor struct {
 	recalculator              analytics.Recalculator
 	analyticsReader           analytics.Reader
 	gapWriter                 analytics.GapWriter
+	monthlySyncer             analytics.MonthlySyncer
 	loc                       *time.Location
 }
 
 var _ Processor = (*processor)(nil)
 
-// ProcessVehicleData reproduces reconcilingCollector.CollectAll's exact control flow
-// from cmd/poller (design.md D8): generate a fresh RunContext, sync fleet data
-// (step 1), and — only if that succeeds — process charging data (step 2), then
-// recalculate analytics (step 3), then measure monthly vehicle capacity (step 4,
-// RM52 tier 2, RD6/RD7). Step 4 runs only on the first day of the month, in the
-// platform's default zone — see runMonthlyCapacityStep and monthlyCapacityPeriod.
-// Since RM36-app-record-poll-run tier 2, every invocation also measures its own
+// ProcessVehicleData runs one full cycle: generate a fresh RunContext, sync
+// fleet data (step 1), and — only if that succeeds — process charging data
+// (step 2), then recalculate analytics (step 3), then measure monthly vehicle
+// capacity (step 4), then sync monthly vehicle metrics (step 5). Step 4 runs
+// only on the first day of the month, in the platform's default zone — see
+// runMonthlyCapacityStep and monthlyCapacityPeriod. Step 5 runs on every
+// invocation, whatever the calendar day — see runMonthlyMetricsStep and
+// monthlyMetricsPeriods. Every invocation also measures its own
 // start-to-finish span with internal/clock and records exactly one poll_runs
-// summary row via recordRun — on every exit path, including the step-1
-// whole-cycle-failure short-circuit below (design.md D4/D6).
+// summary row via recordRun, on every exit path, including the step-1
+// whole-cycle-failure short-circuit below.
 //
-// Both preserved properties are load-bearing, not incidental:
+// Both properties are load-bearing, not incidental:
 //
 //   - The short-circuit. If step 1's whole-cycle enumeration fails (e.g.
-//     account.AllRegisteredVehicles itself errors), steps 2, 3 and 4 are skipped
-//     entirely — exactly reconcilingCollector.CollectAll's existing behavior, and
-//     for the same reason: the later steps read data step 1 was supposed to have
-//     just written; running them against a cycle that never happened would
-//     reconcile against stale or absent input. RM36 tier 2 reshapes the early
-//     return into a guarded fall-through (`if err == nil { step2; step3; step4 }`)
-//     so every path shares one measurement/record tail, but the short-circuit's
-//     own behavior — steps 2/3/4 run if and only if step 1 succeeded — is
-//     unchanged (design.md D4; RM52 tier 2 design.md extends it to step 4).
+//     account.AllRegisteredVehicles itself errors), steps 2, 3, 4 and 5 are
+//     skipped entirely: the later steps read data step 1 was supposed to have
+//     just written, so running them against a cycle that never happened would
+//     reconcile against stale or absent input. The guarded fall-through
+//     (`if err == nil { step2; step3; step4; step5 }`) lets every path share
+//     one measurement and record tail, while keeping that rule intact — the
+//     later steps run if and only if step 1 succeeded.
 //   - The order. Charging-data processing (step 2) runs BEFORE analytics
-//     recalculation (step 3) — the same order T6's own design.md D7 established
-//     ("propagate data, then derive from it"). Monthly capacity measurement
-//     (step 4) runs last, after analytics, since it reads charge data analytics
-//     has already had a chance to process this cycle.
+//     recalculation (step 3): propagate data first, derive from it second.
+//     Monthly capacity measurement (step 4) runs after analytics, since it
+//     reads charge data analytics has already had a chance to process this
+//     cycle. Monthly-metrics syncing (step 5) runs last of all, right after
+//     step 4: on the first of the month, step 4 measures the previous month's
+//     pack capacity, and step 5's own previous-month sync copies that exact
+//     figure — running step 5 first would copy a month-old number instead.
 func (p *processor) ProcessVehicleData(ctx context.Context, triggeredBy telemetry.TriggeredBy) (telemetry.CycleReport, error) {
 	run := telemetry.RunContext{RunID: uuid.New(), TriggeredBy: triggeredBy}
 	start := clock.Now()
@@ -82,6 +85,7 @@ func (p *processor) ProcessVehicleData(ctx context.Context, triggeredBy telemetr
 		p.processChargingData(ctx)    // step 2 — was newSessionMirrorer
 		p.recalculateAnalytics(ctx)   // step 3 — was newNightlyReconciler
 		p.runMonthlyCapacityStep(ctx) // step 4 — measure monthly vehicle capacity
+		p.runMonthlyMetricsStep(ctx)  // step 5 — sync monthly vehicle metrics
 	}
 
 	finish := clock.Now()
@@ -452,4 +456,61 @@ func (p *processor) callMonthlyCapacityCalculator(ctx context.Context, period ti
 	}
 	logging.Note("Processor", "callMonthlyCapacityCalculator", "monthly capacity: period %s: %d vehicle(s) found, %d measured, %d thin",
 		period.Format("2006-01"), report.VehiclesFound, report.Measured, report.Thin)
+}
+
+// monthlyMetricsPeriods returns the first instant of the current calendar
+// month and of the month before it, both anchored to now's calendar day in
+// loc. Unlike monthlyCapacityPeriod, this has no "should I run" gate: this
+// step runs every night, so the only question is which two months, never
+// whether to sync at all.
+func monthlyMetricsPeriods(now time.Time, loc *time.Location) (current, previous time.Time) {
+	today := clock.CalendarDay(now, loc)
+	current = time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
+	previous = current.AddDate(0, -1, 0)
+	return current, previous
+}
+
+// runMonthlyMetricsStep is the "sync monthly metrics" step. It reads the
+// real clock, delegates the two-period decision to monthlyMetricsPeriods
+// (pure, fully unit-tested), then enumerates registered vehicles the same
+// way processChargingData and recalculateAnalytics already do —
+// deduplicated by TeslaID, since the use case is keyed on the car, not the
+// account. For each vehicle it calls the use case twice: current month,
+// then previous month.
+func (p *processor) runMonthlyMetricsStep(ctx context.Context) {
+	current, previous := monthlyMetricsPeriods(clock.Now(), clock.Zone())
+
+	vehicles, err := p.acct.AllRegisteredVehicles(ctx)
+	if err != nil {
+		logging.Note("Processor", "runMonthlyMetricsStep", "listing vehicles: %v", err)
+		return
+	}
+
+	teslaIDs := make([]int64, 0, len(vehicles))
+	for _, v := range vehicles {
+		if slices.Contains(teslaIDs, v.TeslaID) {
+			continue
+		}
+		teslaIDs = append(teslaIDs, v.TeslaID)
+	}
+
+	for _, teslaID := range teslaIDs {
+		p.callMonthlySyncer(ctx, teslaID, current)
+		p.callMonthlySyncer(ctx, teslaID, previous)
+	}
+}
+
+// callMonthlySyncer calls the use case for one vehicle and one period, and
+// logs the outcome. Split out from runMonthlyMetricsStep so this half is
+// testable with a fake and a fixed period, with no clock and no vehicle
+// enumeration involved. Errors are logged, never fatal: the same "errors are
+// logged, isolated" pattern every other step in this file uses — a missed
+// month self-heals the next night, since SyncMonth overwrites the row
+// instead of appending to it.
+func (p *processor) callMonthlySyncer(ctx context.Context, teslaID int64, period time.Time) {
+	if _, err := p.monthlySyncer.SyncMonth(ctx, teslaID, period); err != nil {
+		logging.Note("Processor", "callMonthlySyncer", "vehicle %d: period %s: %v", teslaID, period.Format("2006-01"), err)
+		return
+	}
+	logging.Note("Processor", "callMonthlySyncer", "vehicle %d: period %s: synced", teslaID, period.Format("2006-01"))
 }

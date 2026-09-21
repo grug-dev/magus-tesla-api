@@ -33,7 +33,7 @@ for this doc update, the same shape `RM52-app-add-monthly-capacity-step` used fo
 
 ## Wave 1 — the pure period function
 
-- [ ] **1.1** **[module: app worker]** Add `monthlyMetricsPeriods(now time.Time, loc
+- [x] **1.1** **[module: app worker]** Add `monthlyMetricsPeriods(now time.Time, loc
   *time.Location) (current, previous time.Time)` to `internal/app/processor.go` (or a new file,
   worker's choice — `monthly_metrics_step.go` mirrors `scheduler.go`'s one-function-per-concern
   file split, but a single `processor.go` addition is also fine since the function is short),
@@ -45,7 +45,7 @@ for this doc update, the same shape `RM52-app-add-monthly-capacity-step` used fo
 
 ## Wave 2 — wire the step into `Processor`
 
-- [ ] **2.1** **[module: app worker]** `internal/app/app.go`:
+- [x] **2.1** **[module: app worker]** `internal/app/app.go`:
   - Add one new parameter to `NewProcessor`, `monthlySyncer analytics.MonthlySyncer`, positioned
     immediately after `gapWriter analytics.GapWriter` (design.md D4 — keeps all four `analytics`
     ports contiguous, `loc` stays last).
@@ -55,7 +55,7 @@ for this doc update, the same shape `RM52-app-add-monthly-capacity-step` used fo
   - **No other parameter, field, or line in this file's constructor body changes.**
   `depends_on`: 1.1 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: app worker]** `internal/app/processor.go`:
+- [x] **2.2** **[module: app worker]** `internal/app/processor.go`:
   - Add field `monthlySyncer analytics.MonthlySyncer` to the `processor` struct.
   - Inside `ProcessVehicleData`'s `if err == nil { ... }` block, add `p.runMonthlyMetricsStep(ctx)`
     as the new last line, after `p.runMonthlyCapacityStep(ctx)` (design.md Context fact 2: the
@@ -68,7 +68,7 @@ for this doc update, the same shape `RM52-app-add-monthly-capacity-step` used fo
     signatures, same bodies, same doc comments.
   `depends_on`: 1.1 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: app worker]** `internal/app/app.go`: update the package doc comment's
+- [x] **2.3** **[module: app worker]** `internal/app/app.go`: update the package doc comment's
   four-step diagram to five steps, adding "Sync Monthly Metrics (analytics)" as the fifth line,
   following the existing diagram's exact formatting (module name in parentheses, aligned columns).
   Also update `Processor`'s own doc comment (the interface method's comment) to mention the fifth
@@ -81,7 +81,7 @@ for this doc update, the same shape `RM52-app-add-monthly-capacity-step` used fo
 
 Every expected value is fixed in design.md §Test Contract. **Assert that contract.**
 
-- [ ] **3.1** **[module: app worker]** Create `internal/app/monthly_metrics_step_test.go` —
+- [x] **3.1** **[module: app worker]** Create `internal/app/monthly_metrics_step_test.go` —
   offline, no DB, package `app`. Cover design.md Test Contract:
   - **A1-A6** (`monthlyMetricsPeriods`'s six cases, including the zone-crossing pair A4/A5 that is
     the load-bearing proof of correctness).
@@ -98,7 +98,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
     described at the end of design.md §Test Contract Group C.
   `depends_on`: 2.2 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: app worker]** `internal/app/processor_test.go`:
+- [x] **3.2** **[module: app worker]** `internal/app/processor_test.go`:
   - Declare `fakeMonthlySyncer` in exactly one place — either here or in 3.1's new file, worker's
     choice, but not both, to avoid a duplicate-symbol compile error between the two files.
   - Update `newTestProcessor` to accept and pass an `analytics.MonthlySyncer` (the fake),
