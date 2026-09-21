@@ -16,7 +16,7 @@ but they describe the tier's *final* shape, so they wait for TASK-2.
 
 ## Tasks
 
-- [ ] **TASK-1** — New file `internal/analytics/monthly_charging.go`:
+- [x] **TASK-1** — New file `internal/analytics/monthly_charging.go`:
   `chargeTally` (with `add`), `EndingBatteryDist.addToBucket`, `aggregateChargingMonth`,
   and `monthBounds` — exactly as specified in `design.md` D1–D4. `addToBucket` is a new
   method on the existing `EndingBatteryDist` type (`analytics.go`); it does not move or
