@@ -465,7 +465,7 @@ func (p *processor) callMonthlyCapacityCalculator(ctx context.Context, period ti
 // whether to sync at all.
 func monthlyMetricsPeriods(now time.Time, loc *time.Location) (current, previous time.Time) {
 	today := clock.CalendarDay(now, loc)
-	current = time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
+	current = time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC) // tz:allow: month granularity, not a day truncator — today already carries the zone-correct calendar day
 	previous = current.AddDate(0, -1, 0)
 	return current, previous
 }

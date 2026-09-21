@@ -30,7 +30,7 @@
     ]
   },
   "created_at": "2026-09-21T10:25:00Z",
-  "updated_at": "2026-09-21T10:50:00Z",
+  "updated_at": "2026-09-21T11:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -362,6 +362,14 @@
       "made_by": "autopilot",
       "decision": "The leader rewrote ProcessVehicleData's doc comment to drop the pre-existing RM52 / RM36 / RD6 / design.md references it still carried.",
       "why": "The worker edited that comment, and the project's comment rule says an edited comment loses its outside pointers. Leaving them would have been a review finding."
+    },
+    {
+      "id": "D-TZ",
+      "at": "2026-09-21T11:05:00Z",
+      "scope": "task:1.1",
+      "made_by": "autopilot",
+      "decision": "monthlyMetricsPeriods' month-start line carries // tz:allow: month granularity, not a day truncator. The line itself is unchanged.",
+      "why": "make tz-guard flagged it. internal/gateway/handlers/supercharger.go:59 builds the same month start and carries the same allow with the same reason. Mirroring the precedent beats inventing a second shape."
     }
   ],
   "events": [
@@ -389,6 +397,11 @@
       "at": "2026-09-21T10:50:00Z",
       "agent": "leader",
       "event": "wave 2 complete: docs and signals done; leader swept four stale counts the worker missed (nightly-cycle.md 'ten public ports' and two 'steps 2, 3 and 4' lines, AGENTS.md's short-circuit line) and removed a design.md pointer from a new KB gotkha source line; go build, go vet and gofmt all clean repo-wide; all implementation is now complete and the change waits on the owner's suite run before the reviewer gate"
+    },
+    {
+      "at": "2026-09-21T11:05:00Z",
+      "agent": "leader",
+      "event": "owner ran make check and reported it FAILING at tz-guard on the new month-start line; the leader had not run the guards, which the project's allowed list covers - that is the gap that let it through. Fixed with the repo's existing precedent (tz:allow, month granularity). Leader then ran every guard plus make lint: all pass. The suite itself still needs the owner's re-run"
     }
   ]
 }
