@@ -5,7 +5,7 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Roadmap RM67 tier 4 (MAG-73). Add step 5 to internal/app/processor.go, after runMonthlyCapacityStep. It runs EVERY night, not only on the first of the month (RD3), and calls analytics.MonthlySyncer.SyncMonth twice per vehicle: current month and previous month. Follow step 4's shape - a failure logs and never fails the cycle. The month gate uses the platform zone through internal/clock.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [
@@ -22,15 +22,14 @@
       "L3",
       "4.1",
       "4.2",
-      "5.1"
-    ],
-    "awaiting-user-verification": [
+      "5.1",
       "3.1",
       "3.2"
-    ]
+    ],
+    "awaiting-user-verification": []
   },
   "created_at": "2026-09-21T10:25:00Z",
-  "updated_at": "2026-09-21T11:05:00Z",
+  "updated_at": "2026-09-21T11:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -154,13 +153,13 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-21T10:27:00Z",
       "completed_at": "2026-09-21T10:34:00Z",
       "duration_seconds": null,
-      "notes": "New monthly_metrics_step_test.go: Test Contract groups A (A1-A6), B (B1-B2), C (C1-C4) and the duplicate-TeslaID dedup case. Not run by the assistant.",
+      "notes": "New monthly_metrics_step_test.go: Test Contract groups A (A1-A6), B (B1-B2), C (C1-C4) and the duplicate-TeslaID dedup case. Owner ran make check and reported it passing.",
       "budget": {
         "five_hour_pct_start": 55.0,
         "five_hour_pct_end": 65.0,
@@ -181,13 +180,13 @@
         "3.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-21T10:27:00Z",
       "completed_at": "2026-09-21T10:34:00Z",
       "duration_seconds": null,
-      "notes": "processor_test.go: newTestProcessor gained the syncer, all 3 call sites updated, C5 assertion added, mirror test literal stubbed. Not run by the assistant.",
+      "notes": "processor_test.go: newTestProcessor gained the syncer, all 3 call sites updated, C5 assertion added, mirror test literal stubbed. Owner ran make check and reported it passing.",
       "budget": {
         "five_hour_pct_start": 55.0,
         "five_hour_pct_end": 65.0,
@@ -349,10 +348,54 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "app-reviewer",
+    "brief": "Review RM67-app-add-monthly-metrics-step (roadmap RM67 tier 4, module app) by reading the diff of commits 9adf152..HEAD on ft/RM67-MAG-73-vehicle-monthly-metrics-table, not the whole module. Validate: (1) module-boundary compliance - internal/app owns no table, no pool, no migration, and reaches analytics and charging only through public ports; cmd/poller stays wiring only. (2) Every convention in the doc pack, especially ai/go-conventions.md on time (only internal/clock) and the tz:allow line's justification. (3) The code comments carry NO change ID, roadmap ID, decision ID, design.md pointer or ticket ID - the project forbids them because archived docs freeze; check every new or edited comment. (4) Spec and tasks coverage: every requirement in specs/process-vehicle-data/spec.md is implemented, every task in tasks.md is really done. (5) Tests assert design.md's Test Contract (groups A, B, C) as written there, NOT whatever the implementation happens to do - the expected values were authored before the code. (6) The declared Performance-Profile. (7) Anti-gaming: no acceptance criterion was weakened or deleted, no status self-approved. Signals: go build, go vet, gofmt -l, make lint and every make *-guard were run by the ASSISTANT and pass. The TEST SUITE was run by the OWNER, who reported make check passing - judge test quality by reading the tests, never by running them.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "app-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-21T11:10:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "internal/app/app.go:55-66",
+            "note": "The Processor.ProcessVehicleData doc comment on the Processor interface was edited to add step-5 wording, but it still carries pre-existing outside pointers: '(design.md D5, D8)' (line 57), 'RM52 tier 2' (line 60), '(design.md D7)' (line 65). The parallel doc comment in processor.go, edited in the same commit, was fully scrubbed of the same kind of references - this one was missed.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "file": "internal/app/processor_test.go:270-274",
+            "note": "newTestProcessor's doc comment was edited to add the monthlySyncer sentence, but keeps '(design D1)' and '(RM52 tier 2 design.md D3)' from before the edit.",
+            "status": "open"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "file": "internal/app/processor_test.go:397",
+            "note": "New assertion message added by this change: \"...want 0 (Test Contract C5: step 5 is skipped by the same short-circuit as steps 2/3/4)\". The sentence already explains the reason in plain words; the '(Test Contract C5: ...)' tag only points at design.md's own ID scheme.",
+            "status": "open"
+          },
+          {
+            "id": "F4",
+            "severity": "minor",
+            "file": "internal/app/monthly_metrics_step_test.go:17,21,63,142,160,204,226,250,294",
+            "note": "New file. Nine comment lines name 'design.md' directly and/or its 'Test Contract A/B/C' label scheme (e.g. line 17-21: 'This file covers design.md's Test Contract Group A ... copied from design.md's Test Contract, not derived from the implementation'; line 142: 'is Test Contract B1'; line 226: 'Test Contract C2'). Every one of these is a brand-new comment, so the ban applies in full, not just to edited lines.",
+            "status": "open"
+          }
+        ],
+        "notes": "All four findings are the same recurring shape already logged in reviewer memory (finding_leftover-citations-in-renamed-comments): a new or edited comment keeps a design.md/RM/RD/Test-Contract pointer. This is now the 6th occurrence across 6 different changes since 2026-09-15. None of these are blockers or majors on their own - build, vet, gofmt, lint, every make *-guard (tz, boundary, naming, tenancy, delta, archive) are clean; module boundaries are respected (internal/app reaches analytics.MonthlySyncer only through the public port, no db import, cmd/poller stays wiring-only); every design.md Test Contract value (Groups A-C, including the load-bearing zone-crossing pair A4/A5) is asserted as authored, not back-fitted; spec/task coverage matches the code; no task or criterion was edited or weakened. Requesting changes anyway because these comments become permanently uncorrectable the moment this change archives and openspec/changes/archive/ freezes - a one-line fix now is cheap, a dead pointer forever is not. Recommend the leader build the grep guard already proposed at round 3+ (scan every comment line a diff adds or changes for 'task \\\\d|RM\\\\d+|RD\\\\d+|design\\\\.md|Test Contract', with a baseline/warn split for files saturated with legitimate pre-existing citations) instead of relying on manual review to keep catching this.",
+        "duration_seconds": null,
+        "budget": {
+          "source": "not-tracked",
+          "note": "No statusline-cache budget figures were available in this session; not fabricated."
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -370,6 +413,22 @@
       "made_by": "autopilot",
       "decision": "monthlyMetricsPeriods' month-start line carries // tz:allow: month granularity, not a day truncator. The line itself is unchanged.",
       "why": "make tz-guard flagged it. internal/gateway/handlers/supercharger.go:59 builds the same month start and carries the same allow with the same reason. Mirroring the precedent beats inventing a second shape."
+    },
+    {
+      "id": "D-VERIFY",
+      "at": "2026-09-21T11:10:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The owner ran make check after the tz-guard fix and reported the whole target passing, tests included.",
+      "why": "The project's test policy gives the suite to the owner. The pass is recorded as theirs; the assistant never ran it."
+    },
+    {
+      "id": "D-REV1",
+      "at": "2026-09-21T11:30:00Z",
+      "scope": "review:F1-F4",
+      "made_by": "autopilot",
+      "decision": "All four review findings accepted and fixed by the leader, not re-dispatched. The fix also cleaned two more comments the reviewer did not list: the package doc and NewProcessor's.",
+      "why": "They are comment edits, so a worker dispatch would cost more than the fix. The two extra comments were edited by this change, so the same rule binds them."
     }
   ],
   "events": [
@@ -402,6 +461,16 @@
       "at": "2026-09-21T11:05:00Z",
       "agent": "leader",
       "event": "owner ran make check and reported it FAILING at tz-guard on the new month-start line; the leader had not run the guards, which the project's allowed list covers - that is the gap that let it through. Fixed with the repo's existing precedent (tz:allow, month granularity). Leader then ran every guard plus make lint: all pass. The suite itself still needs the owner's re-run"
+    },
+    {
+      "at": "2026-09-21T11:10:00Z",
+      "agent": "leader",
+      "event": "THE OWNER ran make check (build, vet, lint, every guard, and the test suite) and reported it passing; tasks 3.1 and 3.2 move from awaiting-user-verification to done on the owner's report, never on the assistant's say-so; change status verified; the reviewer gate may now run"
+    },
+    {
+      "at": "2026-09-21T11:30:00Z",
+      "agent": "leader",
+      "event": "review round 1 triaged: findings F1, F2, F3 and F4 all ACCEPTED, none rejected; fixed by the leader in app.go, processor_test.go and monthly_metrics_step_test.go; the leader also cleaned the package doc comment and NewProcessor's, which this change edited and which carried the same pointers the reviewer flagged elsewhere; build, vet, gofmt, lint and every guard re-run and clean; reviewer signalled to re-verify"
     }
   ]
 }

@@ -14,13 +14,13 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
 )
 
-// This file covers design.md's Test Contract Group A (monthlyMetricsPeriods,
-// pure, no fakes, no DB), Group B (callMonthlySyncer, fake port, no clock)
-// and part of Group C (runMonthlyMetricsStep's own vehicle enumeration and
-// per-(vehicle, period) isolation). The expected values below are copied
-// from design.md's Test Contract, not derived from the implementation.
+// This file covers the monthly-metrics step: monthlyMetricsPeriods (pure,
+// no fakes, no DB), callMonthlySyncer (fake port, no clock), and
+// runMonthlyMetricsStep's own vehicle enumeration and per-(vehicle, period)
+// isolation. Every expected value below was written before the code was,
+// so these tests say what the step must do, not what it happens to do.
 
-// --- Group B fake: fakeMonthlySyncer ---
+// --- The fake port, shared by the tests below ---
 
 // syncCall is one recorded (teslaID, period) call to fakeMonthlySyncer.
 type syncCall struct {
@@ -58,11 +58,13 @@ func (f *fakeMonthlySyncer) failOn(teslaID int64, period time.Time, err error) {
 	f.errs[syncCall{teslaID: teslaID, period: period}] = err
 }
 
-// --- Group A — monthlyMetricsPeriods (pure, no fakes, no DB) ---
+// --- monthlyMetricsPeriods (pure, no fakes, no DB) ---
 
-// TestMonthlyMetricsPeriods covers design.md Test Contract A1-A6. loc is
-// clock.Zone() (America/Bogota) for every case except A6, which proves loc
-// is a real parameter, not hardcoded.
+// TestMonthlyMetricsPeriods pins which two months the step syncs. loc is
+// clock.Zone() (America/Bogota) for every case but the last, which passes
+// UTC to prove loc is a real parameter and not hardcoded inside.
+// The two cases that matter most are the ones where the UTC day and the
+// Bogota day disagree: the month must follow Bogota.
 func TestMonthlyMetricsPeriods(t *testing.T) {
 	bogota := clock.Zone()
 
@@ -137,11 +139,11 @@ func TestMonthlyMetricsPeriods(t *testing.T) {
 	}
 }
 
-// --- Group B — callMonthlySyncer (fake port, no clock) ---
+// --- callMonthlySyncer (fake port, no clock) ---
 
-// TestCallMonthlySyncer_Success is Test Contract B1: the happy path. The
-// port is called once with the right arguments; the function has no return
-// value, so nothing propagates.
+// TestCallMonthlySyncer_Success is the happy path. The port is called once
+// with the right arguments; the function has no return value, so nothing
+// propagates.
 func TestCallMonthlySyncer_Success(t *testing.T) {
 	syncer := &fakeMonthlySyncer{}
 	p := &processor{monthlySyncer: syncer}
@@ -157,8 +159,8 @@ func TestCallMonthlySyncer_Success(t *testing.T) {
 	}
 }
 
-// TestCallMonthlySyncer_ErrorIsLoggedNotPropagated is Test Contract B2: an
-// error from the port is logged and swallowed, never propagated — the
+// TestCallMonthlySyncer_ErrorIsLoggedNotPropagated proves an error from the
+// port is logged and swallowed, never propagated — the
 // function's own signature has no error return, so the compiler already
 // proves nothing can leak out; this test proves the port was still called
 // with the right arguments despite the error.
@@ -201,8 +203,8 @@ func ownedVehicle(teslaID int64) account.OwnedVehicle {
 	return account.OwnedVehicle{AccountID: uuid.New(), TeslaID: teslaID, VIN: "VIN"}
 }
 
-// TestRunMonthlyMetricsStep_TwoVehiclesEachGetTwoCalls is Test Contract C1:
-// two distinct vehicles each get exactly two calls, current before previous.
+// TestRunMonthlyMetricsStep_TwoVehiclesEachGetTwoCalls pins the shape of one
+// night: two distinct vehicles, two calls each, current month before previous.
 func TestRunMonthlyMetricsStep_TwoVehiclesEachGetTwoCalls(t *testing.T) {
 	syncer := &fakeMonthlySyncer{}
 	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(1), ownedVehicle(2)}}
@@ -223,9 +225,8 @@ func TestRunMonthlyMetricsStep_TwoVehiclesEachGetTwoCalls(t *testing.T) {
 }
 
 // TestRunMonthlyMetricsStep_CurrentMonthFailureDoesNotBlockPreviousMonth is
-// Test Contract C2: the load-bearing isolation case. A vehicle's
-// current-month failure never blocks its own previous-month call, nor
-// another vehicle's calls.
+// the isolation case that matters most. A vehicle's current-month failure
+// never blocks its own previous-month call, nor another vehicle's calls.
 func TestRunMonthlyMetricsStep_CurrentMonthFailureDoesNotBlockPreviousMonth(t *testing.T) {
 	current, previous := monthlyMetricsPeriods(clock.Now(), clock.Zone())
 	syncer := &fakeMonthlySyncer{}
@@ -246,9 +247,8 @@ func TestRunMonthlyMetricsStep_CurrentMonthFailureDoesNotBlockPreviousMonth(t *t
 	}
 }
 
-// TestRunMonthlyMetricsStep_OneVehicleTotalFailureDoesNotBlockAnother is
-// Test Contract C3: one vehicle's total failure (both periods) never blocks
-// another vehicle's calls.
+// TestRunMonthlyMetricsStep_OneVehicleTotalFailureDoesNotBlockAnother proves
+// one vehicle failing on both periods never blocks another vehicle's calls.
 func TestRunMonthlyMetricsStep_OneVehicleTotalFailureDoesNotBlockAnother(t *testing.T) {
 	current, previous := monthlyMetricsPeriods(clock.Now(), clock.Zone())
 	syncer := &fakeMonthlySyncer{}
@@ -291,9 +291,9 @@ func TestRunMonthlyMetricsStep_EnumerationFailureSkipsEveryCall(t *testing.T) {
 }
 
 // TestRunMonthlyMetricsStep_SharedVehicleGetsTwoCallsNotFour covers the
-// duplicate-TeslaID dedup case described at the end of design.md's Test
-// Contract Group C: one car registered to two accounts must produce exactly
-// 2 calls (current + previous), not 4.
+// duplicate-TeslaID case: one car registered to two accounts must produce
+// exactly 2 calls (current + previous), not 4. The step is keyed on the car,
+// not on the account that registered it.
 func TestRunMonthlyMetricsStep_SharedVehicleGetsTwoCallsNotFour(t *testing.T) {
 	syncer := &fakeMonthlySyncer{}
 	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(7), ownedVehicle(7)}}

@@ -1,7 +1,5 @@
-// Package app is the platform's application layer (RM29 tier 7,
-// RM29-app-add-process-vehicle-data). It ends roadmap violation #3: before this
-// module existed, cmd/poller's reconcilingCollector hand-rolled the exact
-// sync + process-charging + recalculate split the roadmap's own diagram calls for,
+// Package app is the platform's application layer. Before this module existed,
+// cmd/poller hand-rolled the sync + process-charging + recalculate split itself,
 // because there was nowhere else to put it.
 //
 // The package exposes exactly one public port, Processor, whose single method
@@ -10,32 +8,30 @@
 //
 //	Scheduler ──┐
 //	            ├──> ProcessVehicleData ──┬── Sync Fleet data              (telemetry)
-//	API ────────┘                         ├── Process Charging data       (the T6 mirror)
+//	API ────────┘                         ├── Process Charging data       (the mirror)
 //	                                      ├── Recalculate Analytics       (analytics)
-//	                                      ├── Measure Monthly Capacity    (the T2 gate, RM52)
+//	                                      ├── Measure Monthly Capacity    (charging)
 //	                                      └── Sync Monthly Metrics        (analytics)
 //
 // The fourth step runs only on the first calendar day of the month, in the
-// platform's default zone, and measures the previous month (RM52 tier 2, RD6/RD7).
-// The fifth step runs on every invocation, regardless of the calendar day: it
-// syncs the current and previous calendar month's metrics for every vehicle.
+// platform's default zone, and measures the previous month. The fifth step runs
+// on every invocation, whatever the calendar day: it syncs the current and the
+// previous calendar month's metrics for every vehicle.
 //
-// Scheduler and the manual-rerun API (cmd/poller's HTTP listener,
-// platform-add-manual-rerun-api) are peer driving adapters that CALL this port —
-// neither is inside Processor. ProcessVehicleData has no knowledge of when a cycle
-// runs or how it was triggered beyond the telemetry.TriggeredBy value its caller
-// passes in; it only knows what one cycle does (design.md D3).
+// Scheduler and the manual-rerun HTTP listener in cmd/poller are peer driving
+// adapters that CALL this port — neither is inside Processor. ProcessVehicleData
+// has no knowledge of when a cycle runs or how it was triggered beyond the
+// telemetry.TriggeredBy value its caller passes in; it only knows what one cycle
+// does.
 //
 // This package also HOSTS the scheduled driving adapter (Scheduler/NewScheduler/Run,
-// scheduler.go), relocated from internal/telemetry (design.md D4, carrying RD8,
-// which superseded RD5's cmd/poller plan). That is a source-location fact, not a
-// composition fact: Processor has no Scheduler field, ProcessVehicleData never
-// consults a clock, and Scheduler holds a Processor and calls it from the outside,
-// exactly as it did from cmd/poller before the move.
+// scheduler.go). That is a source-location fact, not a composition fact: Processor
+// has no Scheduler field, ProcessVehicleData never consults a clock, and Scheduler
+// holds a Processor and calls it from the outside, exactly as it did from
+// cmd/poller before the move.
 //
-// internal/app owns no table, no migration directory and no pool (design.md D1/D2)
-// — every read and write this use case performs happens through another module's
-// public port.
+// internal/app owns no table, no migration directory and no pool — every read and
+// write this use case performs happens through another module's public port.
 package app
 
 import (
@@ -54,52 +50,48 @@ import (
 type Processor interface {
 	// ProcessVehicleData runs one full cycle for triggeredBy. It generates a fresh
 	// RunID (uuid.New()) once per invocation and builds a telemetry.RunContext,
-	// passed to telemetry.Collector.CollectAll as step 1 (design.md D5, D8). A
-	// non-nil error from step 1 is returned immediately as (report, err) — steps 2
-	// (process charging data), 3 (recalculate analytics), 4 (measure monthly
-	// vehicle capacity, RM52 tier 2) and 5 (sync monthly vehicle metrics) do not
-	// run for that invocation. Step 5, unlike step 4, runs on every invocation
-	// regardless of the calendar day. Every per-account/per-vehicle failure
-	// inside any step is logged and isolated, never fatal to the cycle. Returns
-	// telemetry.CycleReport unchanged: this module introduces no new
-	// report/result type of its own (design.md D7).
+	// passed to telemetry.Collector.CollectAll as step 1. A non-nil error from
+	// step 1 is returned immediately as (report, err) — steps 2 (process charging
+	// data), 3 (recalculate analytics), 4 (measure monthly vehicle capacity) and
+	// 5 (sync monthly vehicle metrics) do not run for that invocation. Step 5,
+	// unlike step 4, runs on every invocation regardless of the calendar day.
+	// Every per-account/per-vehicle failure inside any step is logged and
+	// isolated, never fatal to the cycle. Returns telemetry.CycleReport
+	// unchanged: this module owns no report type, so a caller reads one shape
+	// whichever adapter triggered the cycle.
 	ProcessVehicleData(ctx context.Context, triggeredBy telemetry.TriggeredBy) (telemetry.CycleReport, error)
 }
 
 // NewProcessor builds a Processor from its collaborators' PUBLIC PORTS only — every
 // argument is an interface, not a *pgxpool.Pool or a concrete DB-backed type.
-// internal/app owns no table and no pool (design.md D1/D2): every read and write
-// this use case performs happens through one of these twelve arguments.
+// internal/app owns no table and no pool: every read and write this use case
+// performs happens through one of these twelve arguments.
 //
 // mirrorWatermarks is charging's second port here. It holds, per account, the
 // highest telemetry updated_at the Supercharger mirror has already copied, so
-// processChargingData reads a bounded window instead of the whole history
-// (RM44-platform-add-mirror-watermark).
+// processChargingData reads a bounded window instead of the whole history.
 //
-// monthlyCapacityCalculator is charging's third port here (RM52 tier 2,
-// RD1/RD3/RD5). ProcessVehicleData calls it once a month, on the first calendar
-// day of the month, for the previous month — never per vehicle, never on any
-// other day (see runMonthlyCapacityStep and monthlyCapacityPeriod in
-// processor.go, design.md D1/D2).
+// monthlyCapacityCalculator is charging's third port here. ProcessVehicleData
+// calls it once a month, on the first calendar day of the month, for the previous
+// month — never per vehicle, never on any other day (see runMonthlyCapacityStep
+// and monthlyCapacityPeriod in processor.go).
 //
 // monthlySyncer is analytics's fourth port here. ProcessVehicleData calls it
 // twice per vehicle, every night: once for the current calendar month, once
 // for the previous one (see runMonthlyMetricsStep and monthlyMetricsPeriods
 // in processor.go).
 //
-// runWriter is telemetry's third port here (grouped with collector and
-// superchargerHistoryReader — RM36-app-record-poll-run design D1): ProcessVehicleData
-// calls it exactly once per invocation, after measuring the run's start-to-finish
-// span, to record a poll_runs summary row (RM36 tier 2).
+// runWriter is telemetry's third port here, grouped with collector and
+// superchargerHistoryReader. ProcessVehicleData calls it exactly once per
+// invocation, after measuring the run's start-to-finish span, to record a
+// poll_runs summary row.
 //
-// loc is required for the same reason it was required by cmd/poller's
-// newNightlyReconciler before this module existed: the gap-reconciliation window's
-// "yesterday" is resolved in the poller's own configured zone, not UTC
-// (roadmap D6/D18) — internal/app needs no *time.Location of its own beyond this
-// passthrough, mirroring internal/analytics's existing zone-free design (design.md
-// D10). The monthly-capacity gate (above) deliberately does NOT use loc — it reads
-// the platform's fixed default zone via internal/clock instead (RM52 tier 2 design.md
-// D1, RD7).
+// loc is the poller's own configured zone, and only the gap-reconciliation
+// window uses it: "yesterday" is resolved there, not in UTC. internal/app needs
+// no *time.Location of its own beyond this passthrough. Both monthly steps
+// deliberately ignore loc — they read the platform's fixed default zone through
+// internal/clock instead, so a poller configured for another zone cannot shift
+// which month they write.
 func NewProcessor(
 	collector telemetry.Collector,
 	superchargerHistoryReader telemetry.SuperchargerHistoryReader,

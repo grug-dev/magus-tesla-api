@@ -201,7 +201,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 
 ## Cross-module tasks the leader owns
 
-- [ ] **L1** **[leader]** `cmd/poller/main.go`: add one new argument to the existing
+- [x] **L1** **[leader]** `cmd/poller/main.go`: add one new argument to the existing
   `app.NewProcessor(...)` call, `analytics.NewMonthlySyncer(pool, charging.NewMonthlyCapacityReader(pool),
   chargingReader, sessionAnalyticsReader)`, in the same position `app.go`'s new parameter takes
   (immediately after `analytics.NewGapWriter(pool)`, before `loc`). `chargingReader` and
@@ -211,11 +211,11 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
   file's own header comment ("cmd/ stays thin, zero business logic").
   `depends_on`: 2.1 · `parallel_ok`: no (needs the constructor's new signature to exist first)
 
-- [ ] **L2** **[leader]** Confirm `go build ./...`/`go vet ./...` are green repo-wide once L1 lands
+- [x] **L2** **[leader]** Confirm `go build ./...`/`go vet ./...` are green repo-wide once L1 lands
   and Wave 5 has run. Proposal.md §Breaking states no cross-module compile fix beyond L1 should be
   needed — verify rather than assume.
 
-- [ ] **L3** **[leader]** Root `README.md`: the `internal/app` Architecture table row (currently
+- [x] **L3** **[leader]** Root `README.md`: the `internal/app` Architecture table row (currently
   naming "four named steps" and describing step 4) becomes five, with one added sentence on step 5
   — that it runs every night, syncing the current and previous month's metrics through
   `analytics.MonthlySyncer`. Check whether the module dependency graph elsewhere in `README.md`
