@@ -186,12 +186,14 @@
 | `vehicle snapshots` | `telemetry.Snapshot` / `vehicle_snapshots` → `architecture/telemetry-ingest-only.md` |
 | `supercharger history estimate columns` | **dropped** — RM41 tier 3 removed `start_battery_pct_est` / `end_battery_pct_est`; reverses RM27 D6 → `architecture/telemetry-ingest-only.md` |
 | `verification-time snapshot pair` | synonym of `supercharger history estimate columns` → `architecture/telemetry-ingest-only.md` |
-| `nightly cycle` (the 4-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics → measure monthly capacity, the last one only on the 1st of the month) | `architecture/nightly-cycle.md` |
+| `nightly cycle` (the 5-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics → measure monthly capacity (only on the 1st of the month) → sync monthly metrics (every night, current + previous month)) | `architecture/nightly-cycle.md` |
 | `nightly collection` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly poll` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly batch` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `monthly capacity step` | synonym of the nightly cycle's step 4 → `architecture/nightly-cycle.md` |
 | `step 4` | the nightly cycle's monthly-capacity step → `architecture/nightly-cycle.md` |
+| `monthly metrics step` | synonym of the nightly cycle's step 5 → `architecture/nightly-cycle.md` |
+| `step 5` | the nightly cycle's monthly-metrics step — the ONLY thing that refreshes `analytics.vehicle_monthly_metrics`, and only for the current and previous month → `architecture/nightly-cycle.md` |
 | `client-side JS` (the gateway's zero-JS rule RD8 and its numbered sanctioned exceptions) | `architecture/gateway-client-side-js.md` |
 | `zero-JS rule` | synonym of `client-side JS` → `architecture/gateway-client-side-js.md` |
 | `app.js` | `internal/gateway/static/app.js` → `architecture/gateway-client-side-js.md` |
