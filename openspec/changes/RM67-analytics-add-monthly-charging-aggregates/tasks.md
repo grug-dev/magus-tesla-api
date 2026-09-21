@@ -27,7 +27,7 @@ but they describe the tier's *final* shape, so they wait for TASK-2.
   `internal/analytics/monthly_charging_test.go`.
   depends_on: none. parallel_ok: yes (with TASK-7).
 
-- [ ] **TASK-2** — Widen `MonthlySyncer`'s construction and `SyncMonth`'s body:
+- [x] **TASK-2** — Widen `MonthlySyncer`'s construction and `SyncMonth`'s body:
   - `internal/analytics/analytics.go`: widen `NewMonthlySyncer`'s signature to
     `(pool *pgxpool.Pool, capacity charging.MonthlyCapacityReader, charges
     charging.Reader, supercharger charging.SuperchargerSessionAnalyticsReader)
@@ -52,7 +52,7 @@ but they describe the tier's *final* shape, so they wait for TASK-2.
   depends_on: TASK-1 (needs `monthBounds`/`aggregateChargingMonth`/`chargeTally`).
   parallel_ok: no.
 
-- [ ] **TASK-3** — Update `newTestMonthlySyncer` in
+- [x] **TASK-3** — Update `newTestMonthlySyncer` in
   `internal/analytics/db_monthly_sync_integration_test.go` to pass the two new
   constructor arguments — `charging.NewReader(pool)` and
   `charging.NewSuperchargerSessionAnalyticsReader(pool)` — so the file keeps compiling
@@ -77,7 +77,7 @@ but they describe the tier's *final* shape, so they wait for TASK-2.
   Files: `internal/analytics/db_monthly_sync_integration_test.go`.
   depends_on: TASK-2, TASK-3. parallel_ok: no.
 
-- [ ] **TASK-5** — Update `internal/analytics/AGENTS.md`:
+- [x] **TASK-5** — Update `internal/analytics/AGENTS.md`:
   - "Public interface (the port)" — the `MonthlySyncer`/`SyncMonth` table row: state
     that it now derives the `ext_*`/`sc_*` figures for real, not the tier-2 zero
     placeholder.

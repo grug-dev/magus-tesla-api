@@ -23,25 +23,22 @@ import (
 // through the offline-fake-testable Reader/Recalculator seam, because its
 // write half is tested with a real database, not a fake store.
 type monthlySyncer struct {
-	q        *analyticsdb.Queries
-	capacity charging.MonthlyCapacityReader
+	q            *analyticsdb.Queries
+	capacity     charging.MonthlyCapacityReader
+	charges      charging.Reader
+	supercharger charging.SuperchargerSessionAnalyticsReader
 }
 
 // newMonthlySyncer is the internal constructor called by the public
 // NewMonthlySyncer in analytics.go, so the forward reference compiles
 // before this file is parsed (mirrors newGapWriter's identical pattern).
-func newMonthlySyncer(pool *pgxpool.Pool, capacity charging.MonthlyCapacityReader) *monthlySyncer {
-	return &monthlySyncer{q: analyticsdb.New(pool), capacity: capacity}
+func newMonthlySyncer(pool *pgxpool.Pool, capacity charging.MonthlyCapacityReader, charges charging.Reader, supercharger charging.SuperchargerSessionAnalyticsReader) *monthlySyncer {
+	return &monthlySyncer{q: analyticsdb.New(pool), capacity: capacity, charges: charges, supercharger: supercharger}
 }
 
 // Compile-time assertion: *monthlySyncer must satisfy the public
 // MonthlySyncer interface.
 var _ MonthlySyncer = (*monthlySyncer)(nil)
-
-// zeroEndingBatteryDistJSON is the zero-count EndingBatteryDist, marshaled
-// once and reused for all three *_ending_battery_dist columns -- this
-// version never computes a real distribution (D8).
-var zeroEndingBatteryDistJSON = jsonFromEndingBatteryDist(EndingBatteryDist{})
 
 // SyncMonth implements MonthlySyncer. See the interface doc comment
 // (analytics.go) for the full contract. Implementation shape:
@@ -52,9 +49,9 @@ var zeroEndingBatteryDistJSON = jsonFromEndingBatteryDist(EndingBatteryDist{})
 //  2. Copy the pack capacity from charging.MonthlyCapacityReader, treating
 //     "no row" and "a row with no measurement" the same way: capacity 0,
 //     not measured.
-//  3. Every charging-derived column (Currency, Ext*, SC*) is written at its
-//     documented zero value -- a later change fills them from charging's
-//     own range reads.
+//  3. Fetch external charges and Supercharger sessions for the month
+//     (monthly_charging.go's monthBounds and aggregateChargingMonth) and
+//     fold them into the three Ext*/SC* tallies.
 //  4. Upsert the row and map RETURNING's own values back into
 //     VehicleMonthlyMetrics -- Period, CreatedAt, and UpdatedAt come from
 //     the stored row, never recomputed here.
@@ -87,6 +84,21 @@ func (s *monthlySyncer) SyncMonth(ctx context.Context, teslaID int64, period tim
 	}
 	figures.Currency = "COP"
 
+	monthStart, monthEnd := monthBounds(period)
+
+	entries, err := s.charges.ListEntriesByVehicleBetween(ctx, teslaID, monthStart, monthEnd)
+	if err != nil {
+		return VehicleMonthlyMetrics{}, fmt.Errorf("fetching external charges for month: %w", err)
+	}
+	// Widened one day each side: the port's window is UTC calendar days, and
+	// Bogota is UTC-5, so an evening session falls on the next UTC day.
+	// aggregateChargingMonth drops the strays by platform-zone day.
+	sessions, err := s.supercharger.ListSessionsByVehicleBetween(ctx, teslaID, monthStart.AddDate(0, 0, -1), monthEnd.AddDate(0, 0, 1))
+	if err != nil {
+		return VehicleMonthlyMetrics{}, fmt.Errorf("fetching supercharger sessions for month: %w", err)
+	}
+	ac, dc, sc := aggregateChargingMonth(entries, sessions, monthStart, monthEnd)
+
 	row, err := s.q.UpsertVehicleMonthlyMetric(ctx, analyticsdb.UpsertVehicleMonthlyMetricParams{
 		TeslaID:                teslaID,
 		Period:                 dateFrom(period),
@@ -105,18 +117,18 @@ func (s *monthlySyncer) SyncMonth(ctx context.Context, teslaID int64, period tim
 		CapacityKwh:            figures.CapacityKWh,
 		CapacityMeasured:       figures.CapacityMeasured,
 		Currency:               figures.Currency,
-		ExtAcEnergyKwh:         0,
-		ExtAcCost:              pgNumericFromFloat64(0),
-		ExtAcEntryCount:        0,
-		ExtAcEndingBatteryDist: zeroEndingBatteryDistJSON,
-		ExtDcEnergyKwh:         0,
-		ExtDcCost:              pgNumericFromFloat64(0),
-		ExtDcEntryCount:        0,
-		ExtDcEndingBatteryDist: zeroEndingBatteryDistJSON,
-		ScEnergyKwh:            0,
-		ScCost:                 pgNumericFromFloat64(0),
-		ScSessionCount:         0,
-		ScEndingBatteryDist:    zeroEndingBatteryDistJSON,
+		ExtAcEnergyKwh:         ac.energyKWh,
+		ExtAcCost:              pgNumericFromFloat64(ac.cost),
+		ExtAcEntryCount:        int32(ac.count),
+		ExtAcEndingBatteryDist: jsonFromEndingBatteryDist(ac.dist),
+		ExtDcEnergyKwh:         dc.energyKWh,
+		ExtDcCost:              pgNumericFromFloat64(dc.cost),
+		ExtDcEntryCount:        int32(dc.count),
+		ExtDcEndingBatteryDist: jsonFromEndingBatteryDist(dc.dist),
+		ScEnergyKwh:            sc.energyKWh,
+		ScCost:                 pgNumericFromFloat64(sc.cost),
+		ScSessionCount:         int32(sc.count),
+		ScEndingBatteryDist:    jsonFromEndingBatteryDist(sc.dist),
 	})
 	if err != nil {
 		return VehicleMonthlyMetrics{}, fmt.Errorf("upserting vehicle_monthly_metrics: %w", err)

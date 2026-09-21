@@ -86,10 +86,10 @@ func cleanupMonthlySyncFixtures(t *testing.T, pool *pgxpool.Pool, teslaID int64)
 }
 
 // newTestMonthlySyncer builds a MonthlySyncer over the shared test pool and
-// a real charging.MonthlyCapacityReader -- the same construction
-// NewMonthlySyncer performs in production, minus the composition root.
+// real charging readers -- the same construction NewMonthlySyncer performs
+// in production, minus the composition root.
 func newTestMonthlySyncer(pool *pgxpool.Pool) MonthlySyncer {
-	return NewMonthlySyncer(pool, charging.NewMonthlyCapacityReader(pool))
+	return NewMonthlySyncer(pool, charging.NewMonthlyCapacityReader(pool), charging.NewReader(pool), charging.NewSuperchargerSessionAnalyticsReader(pool))
 }
 
 // almostEqual compares two float64 results with a small tolerance, so a

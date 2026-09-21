@@ -51,7 +51,7 @@ Four ports. `Reader` exposes four reads; `Recalculator`, `GapWriter`, and
 | | `LatestMetricsForVehicles` | `[]VehicleStatus` — latest row per vehicle in a given vehicle set |
 | `Recalculator` | `Recalculate`, `Reconcile` | rebuild `vehicle_metrics`; `Reconcile` is the incremental watermark pass |
 | `GapWriter` | `ReconcileWindow` | upsert the days that flag, DELETE the days that stopped |
-| `MonthlySyncer` | `SyncMonth` | `VehicleMonthlyMetrics` — derives and upserts one `vehicle_monthly_metrics` row for one vehicle and one calendar month |
+| `MonthlySyncer` | `SyncMonth` | `VehicleMonthlyMetrics` — derives and upserts one `vehicle_monthly_metrics` row for one vehicle and one calendar month, including the real `ext_*`/`sc_*` charging figures |
 
 What the source does not tell you:
 
@@ -89,6 +89,9 @@ What the source does not tell you:
   telemetry-backed port/type this section named before that tier. Also
   `charging.MonthlyCapacityReader` (`CapacityForMonth`) — `MonthlySyncer.SyncMonth`
   copies the vehicle's measured pack capacity for a month through this port.
+  `MonthlySyncer.SyncMonth`, not only `Recalculate`, now also calls
+  `ListEntriesByVehicleBetween` and `ListSessionsByVehicleBetween` through these same
+  two ports, to derive its own month's charging figures.
 - `internal/clock` — the platform's time primitives (`RM35-analytics-adopt-clock`).
   This module calls `clock.CalendarDay(t, time.UTC)` and `clock.Now()`. Note it still
   owns **no `*time.Location` of its own** (D-B12): every bucketing call passes

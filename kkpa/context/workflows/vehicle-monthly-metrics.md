@@ -51,7 +51,8 @@ They differ on purpose. Without `candidate_count`, "twenty small top-ups, none b
 | `internal/analytics/db/migrations/20260918000002_add_vehicle_monthly_metrics.sql` | Creates `analytics.vehicle_monthly_metrics`. Every column is `NOT NULL DEFAULT 0`, against this module's usual sparse-NULL convention — so a **count** column, not a NULL, is what says "no data". Keyed `UNIQUE (tesla_id, period)`, with a `CHECK` that `period` is a month start. **No `account_id`**: it describes a car, not user data. |
 | `internal/analytics/monthly_sync.go` | The use case. `SyncMonth(ctx, teslaID, period)` rewrites the row for one vehicle and one month. Idempotent: re-run it any time to pick up a later edit to that month's data. |
 | `internal/analytics/monthly_figures.go` | The **pure** derivation, no database. Splits the month into all days / weekdays / weekends. **Change the monthly maths here.** |
-| `internal/analytics/analytics.go` | The public port `MonthlySyncer`, the `VehicleMonthlyMetrics` and `EndingBatteryDist` types, and `NewMonthlySyncer(pool, capacity)`. |
+| `internal/analytics/monthly_charging.go` | The **pure** charging derivation, no database. `aggregateChargingMonth` folds the month's external charges and Supercharger sessions into three tallies: external AC, external DC, Supercharger. Also `monthBounds` and the ending-battery bucketing. **Change the charging maths here.** |
+| `internal/analytics/analytics.go` | The public port `MonthlySyncer`, the `VehicleMonthlyMetrics` and `EndingBatteryDist` types, and `NewMonthlySyncer(pool, capacity, charges, supercharger)` — four arguments, three of them `charging` ports. |
 | `internal/analytics/db/query.sql` | `VehicleMetricsForVehicleAndMonth` (the input) and `UpsertVehicleMonthlyMetric` (the write). Both normalize the month **in SQL**, with `date_trunc`. Edit here, then `make sqlc`. |
 | `internal/analytics/mapping.go` | The only place `pgtype` is allowed. Holds the `pgtype.Numeric` and JSONB conversion pairs the cost and distribution columns need. |
 
@@ -62,6 +63,12 @@ Two rules this table follows that surprise people:
   ratios weighs a 5 km day like a 300 km day.
 - **The month bucket is `metric_date` itself**, with no day shifting. `metric_date` already
   carries the day-before adjustment. Weekday and weekend come from that date's day of week.
+- **The two charging sources are placed by different dates, on purpose.** An external charge
+  keeps its own `ChargedOn` date. A Supercharger session is placed by its stop time read in the
+  platform zone, so the fetch widens one day each side and Go drops the strays. Bogota is UTC-5,
+  so an evening session falls on the next UTC day.
+- **An external charge with no charging type is skipped whole** — no energy, no cost, no count,
+  no bucket. It is neither AC nor DC, and there is no third column for it.
 
 ### Callers — who triggers the job
 

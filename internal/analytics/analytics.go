@@ -505,10 +505,8 @@ func NewGapWriter(pool *pgxpool.Pool) GapWriter {
 // --- vehicle_monthly_metrics (one precomputed row per vehicle per month) ---
 
 // EndingBatteryDist counts charge events by their ending battery
-// percentage, in five fixed 20-point ranges. The zero value (every count 0)
-// is what this version writes for all three charging sources; a later
-// change computes the real counts from charging's own entries and
-// sessions.
+// percentage, across five fixed 20-point ranges: 0-20, 20-40, 40-60, 60-80,
+// and 80-100.
 type EndingBatteryDist struct {
 	Bucket0To20   int `json:"0-20"`
 	Bucket20To40  int `json:"20-40"`
@@ -524,9 +522,7 @@ type EndingBatteryDist struct {
 // genuine zero apart from a month with nothing to compute (see the table's
 // own column comments in the migration for the full contract).
 //
-// ExtAC*, ExtDC*, SC*, and Currency hold their documented zero value until a
-// later change computes them from charging's own entries and sessions --
-// every other field holds a real figure as of this port.
+// Every field holds a real figure as of this port.
 type VehicleMonthlyMetrics struct {
 	TeslaID int64
 	Period  time.Time // first day of the month
@@ -583,17 +579,15 @@ type MonthlySyncer interface {
 	// charging.MonthlyCapacityReader.CapacityForMonth's identical
 	// any-day-in-month contract. Returns the row as stored.
 	//
-	// ExtAC*, ExtDC*, SC*, and Currency come back at their documented zero
-	// value as of this version -- a later change fills them from charging's
-	// own range reads. Every other field reflects this month's real
-	// figures.
+	// Every field reflects this month's real figures.
 	SyncMonth(ctx context.Context, teslaID int64, period time.Time) (VehicleMonthlyMetrics, error)
 }
 
 // NewMonthlySyncer constructs a MonthlySyncer over the analytics module's
-// own database pool plus the one sibling port it reads to copy the pack
-// capacity. The implementation lives in monthly_sync.go. The returned value
-// logs its single method -- see query_log.go.
-func NewMonthlySyncer(pool *pgxpool.Pool, capacity charging.MonthlyCapacityReader) MonthlySyncer {
-	return newLoggingMonthlySyncer(newMonthlySyncer(pool, capacity))
+// own database pool plus the three sibling ports it reads: the pack capacity,
+// the external charges, and the Supercharger sessions for the month. The
+// implementation lives in monthly_sync.go. The returned value logs its
+// single method -- see query_log.go.
+func NewMonthlySyncer(pool *pgxpool.Pool, capacity charging.MonthlyCapacityReader, charges charging.Reader, supercharger charging.SuperchargerSessionAnalyticsReader) MonthlySyncer {
+	return newLoggingMonthlySyncer(newMonthlySyncer(pool, capacity, charges, supercharger))
 }
