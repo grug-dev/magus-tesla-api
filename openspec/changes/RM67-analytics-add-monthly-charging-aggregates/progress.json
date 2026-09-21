@@ -7,9 +7,9 @@
   "tier": 3,
   "intention": "Fill the monthly row's charging columns for real: ext_ac_*, ext_dc_*, sc_* and the three ending-battery JSONB distributions. Tier 2 writes zeros there today.",
   "request": "Extend the tier-2 use case to fill the charging columns. Read external charges and supercharger sessions through the existing charging range-read ports - no new port. Split externals by ChargingType (AC/DC). Build the three ending-battery distributions as JSONB with the five buckets 0-20, 20-40, 40-60, 60-80, 80-100. Aggregate in Go per RD8.",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-09-19T16:41:11Z",
-  "updated_at": "2026-09-21T09:25:33Z",
+  "updated_at": "2026-09-21T09:38:27Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -24,9 +24,7 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "TASK-4"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "TASK-1",
@@ -122,14 +120,20 @@
       "files": [
         "internal/analytics/db_monthly_sync_integration_test.go"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T09:30:41Z",
+      "completed_at": "2026-09-21T09:38:27Z",
+      "duration_seconds": 466,
+      "notes": "Added T-CHG-INT-1/2/3 to db_monthly_sync_integration_test.go. Reused the package's seedChargeSession, fp, intPtr and day helpers. Extended cleanupMonthlySyncFixtures to purge the two charging tables, scoped by tesla_id. Compiles with no TEST_DATABASE_URL. Not run.",
+      "budget": {
+        "five_hour_pct_start": 15,
+        "five_hour_pct_end": 28,
+        "cost_usd_delta": 3.55,
+        "approx": false,
+        "note": "wave 3 was one serial worker, TASK-4 alone"
+      }
     },
     {
       "id": "TASK-5",
@@ -235,6 +239,22 @@
       "made_by": "autopilot",
       "decision": "Leader rewrote one new comment in monthly_sync.go that cited 'design.md D5'. The pre-existing design.md citations elsewhere in the module were left alone.",
       "why": "The B2 rule bans such pointers in new comments but makes legacy cleanup opportunistic, never a sweep. Fixing it now avoids a review round."
+    },
+    {
+      "id": "D-L4",
+      "at": "2026-09-21T09:30:41Z",
+      "scope": "wave:3",
+      "made_by": "user",
+      "decision": "Dispatch wave 3 without a test run after wave 2. The owner runs the suite once, covering wave 2 and wave 3 together.",
+      "why": "Owner chose it at the Step 5.7 gate after seeing that a wave-2 regression would then surface later."
+    },
+    {
+      "id": "D-L5",
+      "at": "2026-09-21T09:38:27Z",
+      "scope": "task:TASK-4",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's correction: the helper that seeds charging.supercharger_sessions is seedChargeSession. seedSuperchargerSession seeds telemetry.supercharger_history, a different table.",
+      "why": "The leader's dispatch prompt copied the wrong name from tasks.md. The worker checked the code instead of trusting the prompt."
     }
   ],
   "events": [
@@ -272,6 +292,16 @@
       "at": "2026-09-21T09:25:33Z",
       "agent": "leader",
       "event": "wave 2 reconciled. Worker reported TASK-2/3/5 all done; the leader downgraded TASK-2 and TASK-3 to awaiting-user-verification, because their correctness rests on tests nobody has run. Leader re-ran go build, go vet and gofmt -l: clean. Leader also did TASK-6 and the README fix. Budget five_hour 9 to 14 percent, context 16 percent"
+    },
+    {
+      "at": "2026-09-21T09:30:41Z",
+      "agent": "leader",
+      "event": "wave 3 dispatched: TASK-4 alone to the analytics worker on claude-sonnet, the three DB-integration tests. The owner declined a test run between waves and will run the suite once after this wave. Budget at dispatch five_hour 15 percent, context 16 percent"
+    },
+    {
+      "at": "2026-09-21T09:38:27Z",
+      "agent": "leader",
+      "event": "wave 3 reconciled. TASK-4 awaiting-user-verification: three DB tests written, never run. Leader re-ran go build, go vet, gofmt -l and six guards (boundary, tz, delta, money, naming, archive): all pass. Cleanup DELETEs are scoped by tesla_id, so the dev database is not at risk. Change status moves to applied. Budget five_hour 15 to 28 percent, context 17 percent"
     }
   ]
 }

@@ -8,6 +8,12 @@
 // monthly_effective_capacity with a direct SQL INSERT. Neither table has a
 // public writer that creates one row on demand -- this module's own
 // established fixture pattern for that case (see db_integration_test.go).
+// The charging-aggregate tests below seed one more way each: an external
+// charge through the real charging.NewWriter(pool).Create (a public writer
+// exists for it), and a bare Supercharger session with the same
+// seedChargeSession helper db_integration_test.go already declares in this
+// package -- charge_sessions has no writer that can set a specific ending
+// battery percentage on demand.
 //
 // The database is shared across test runs, so every test purges its own
 // tesla_id both before and after running -- a row left behind by an earlier
@@ -23,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
@@ -64,11 +71,12 @@ func seedMonthlyEffectiveCapacity(t *testing.T, pool *pgxpool.Pool, teslaID int6
 }
 
 // cleanupMonthlySyncFixtures removes every row this file's tests can write
-// for one teslaID, across both this module's own schema and charging's
-// monthly_effective_capacity. Called before AND after each test, mirroring
-// db_integration_test.go's cleanupVehicleMetrics: purging on the way in
-// undoes anything an earlier interrupted run left behind, and purging on
-// the way out keeps the shared database tidy for the next run.
+// for one teslaID, across this module's own schema and every charging table
+// a fixture here seeds directly or through charging's own writer. Called
+// before AND after each test, mirroring db_integration_test.go's
+// cleanupVehicleMetrics: purging on the way in undoes anything an earlier
+// interrupted run left behind, and purging on the way out keeps the shared
+// database tidy for the next run.
 func cleanupMonthlySyncFixtures(t *testing.T, pool *pgxpool.Pool, teslaID int64) {
 	t.Helper()
 	purge := func() {
@@ -77,6 +85,8 @@ func cleanupMonthlySyncFixtures(t *testing.T, pool *pgxpool.Pool, teslaID int64)
 			"DELETE FROM analytics.vehicle_monthly_metrics WHERE tesla_id = $1",
 			"DELETE FROM analytics.vehicle_metrics WHERE tesla_id = $1",
 			"DELETE FROM charging.monthly_effective_capacity WHERE tesla_id = $1",
+			"DELETE FROM charging.manual_charge_entries WHERE tesla_id = $1",
+			"DELETE FROM charging.supercharger_sessions WHERE tesla_id = $1",
 		} {
 			_, _ = pool.Exec(ctx, stmt, teslaID)
 		}
@@ -386,5 +396,252 @@ func TestSyncMonth_RerunSameMonth_IsIdempotentAndUpsertsInPlace(t *testing.T) {
 	}
 	if rowCount != 1 {
 		t.Errorf("row count for (tesla_id, period) = %d, want 1", rowCount)
+	}
+}
+
+// chargingSourceWant groups the four figures SyncMonth derives for one
+// charging source (ExtAC, ExtDC, or SC), so assertChargingSourceFields can
+// compare all four in one call instead of four separate positional floats.
+type chargingSourceWant struct {
+	energyKWh float64
+	cost      float64
+	count     int
+	dist      EndingBatteryDist
+}
+
+// assertChargingSourceFields checks one charging source's four SyncMonth
+// output fields against a want computed by hand from the seeded fixture,
+// never from the code under test.
+func assertChargingSourceFields(t *testing.T, label string, gotEnergyKWh, gotCost float64, gotCount int, gotDist EndingBatteryDist, want chargingSourceWant) {
+	t.Helper()
+	if !almostEqual(gotEnergyKWh, want.energyKWh) {
+		t.Errorf("%s EnergyKWh = %v, want %v", label, gotEnergyKWh, want.energyKWh)
+	}
+	if !almostEqual(gotCost, want.cost) {
+		t.Errorf("%s Cost = %v, want %v", label, gotCost, want.cost)
+	}
+	if gotCount != want.count {
+		t.Errorf("%s Count = %d, want %d", label, gotCount, want.count)
+	}
+	if gotDist != want.dist {
+		t.Errorf("%s EndingBatteryDist = %+v, want %+v", label, gotDist, want.dist)
+	}
+}
+
+// TestSyncMonth_ExternalCharges_SplitByTypeWithRealWriter proves SyncMonth's
+// external-charge aggregation end to end: four entries seeded through the
+// real charging.Writer, split across AC, DC, and no type at all. A charge
+// with no ChargingType must not be counted in either bucket, and an
+// IN_PROGRESS entry with no energy or ending percentage still counts toward
+// its entry count and cost, contributing zero energy and no battery bucket.
+func TestSyncMonth_ExternalCharges_SplitByTypeWithRealWriter(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	teslaID := int64(555005)
+	cleanupMonthlySyncFixtures(t, pool, teslaID)
+
+	accountID := uuid.New()
+	const vin = "5YJ3E1EA0NF000001"
+	lk := "HOME"
+	ac := "AC"
+	dc := "DC"
+	writer := charging.NewWriter(pool)
+
+	// AC, DONE: energy and ending percentage both present.
+	doneEndedAt := time.Date(2026, 3, 5, 10, 0, 0, 0, time.UTC)
+	doneEndPct := 55
+	if _, err := writer.Create(ctx, charging.Entry{
+		CreatedByAccountID: accountID,
+		TeslaID:            teslaID,
+		VIN:                vin,
+		ChargedOn:          day(2026, 3, 5),
+		Status:             charging.StatusDone,
+		ChargingType:       &ac,
+		EnergyAddedKWh:     fp(12.5),
+		Price:              20000,
+		Currency:           "COP",
+		LocationKind:       &lk,
+		EndedAt:            &doneEndedAt,
+		EndBatteryPct:      &doneEndPct,
+	}); err != nil {
+		t.Fatalf("seeding AC done entry: %v", err)
+	}
+
+	// AC, IN_PROGRESS: no energy, no ending percentage -- still counts,
+	// contributing zero energy and no battery bucket. An in-progress charge
+	// has no honest end-of-session facts yet, but it still happened.
+	if _, err := writer.Create(ctx, charging.Entry{
+		CreatedByAccountID: accountID,
+		TeslaID:            teslaID,
+		VIN:                vin,
+		ChargedOn:          day(2026, 3, 6),
+		Status:             charging.StatusInProgress,
+		ChargingType:       &ac,
+		Price:              8000,
+		Currency:           "COP",
+		LocationKind:       &lk,
+	}); err != nil {
+		t.Fatalf("seeding AC in-progress entry: %v", err)
+	}
+
+	// DC, DONE.
+	dcEndedAt := time.Date(2026, 3, 7, 10, 0, 0, 0, time.UTC)
+	dcEndPct := 90
+	if _, err := writer.Create(ctx, charging.Entry{
+		CreatedByAccountID: accountID,
+		TeslaID:            teslaID,
+		VIN:                vin,
+		ChargedOn:          day(2026, 3, 7),
+		Status:             charging.StatusDone,
+		ChargingType:       &dc,
+		EnergyAddedKWh:     fp(30.0),
+		Price:              45000,
+		Currency:           "COP",
+		LocationKind:       &lk,
+		EndedAt:            &dcEndedAt,
+		EndBatteryPct:      &dcEndPct,
+	}); err != nil {
+		t.Fatalf("seeding DC entry: %v", err)
+	}
+
+	// No ChargingType at all -- must land in neither AC nor DC.
+	if _, err := writer.Create(ctx, charging.Entry{
+		CreatedByAccountID: accountID,
+		TeslaID:            teslaID,
+		VIN:                vin,
+		ChargedOn:          day(2026, 3, 8),
+		Status:             charging.StatusInProgress,
+		Price:              5000,
+		Currency:           "COP",
+		LocationKind:       &lk,
+	}); err != nil {
+		t.Fatalf("seeding entry with no charging type: %v", err)
+	}
+
+	syncer := newTestMonthlySyncer(pool)
+	got, err := syncer.SyncMonth(ctx, teslaID, day(2026, 3, 15))
+	if err != nil {
+		t.Fatalf("SyncMonth: %v", err)
+	}
+
+	assertChargingSourceFields(t, "ExtAC", got.ExtACEnergyKWh, got.ExtACCost, got.ExtACEntryCount, got.ExtACEndingBatteryDist,
+		chargingSourceWant{energyKWh: 12.5, cost: 28000, count: 2, dist: EndingBatteryDist{Bucket40To60: 1}})
+	assertChargingSourceFields(t, "ExtDC", got.ExtDCEnergyKWh, got.ExtDCCost, got.ExtDCEntryCount, got.ExtDCEndingBatteryDist,
+		chargingSourceWant{energyKWh: 30.0, cost: 45000, count: 1, dist: EndingBatteryDist{Bucket80To100: 1}})
+}
+
+// TestSyncMonth_SuperchargerSessionAcrossMonthBoundary_UsesPlatformZoneDay
+// proves the widened Supercharger fetch and the platform-zone filter work
+// together. Bogota is five hours behind UTC with no DST, so a session just
+// after UTC midnight belongs to the PREVIOUS day in Bogota. Both sessions
+// below sit on a UTC day inside one month but a Bogota day inside the
+// other -- the exact boundary the widened window exists to catch.
+func TestSyncMonth_SuperchargerSessionAcrossMonthBoundary_UsesPlatformZoneDay(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	teslaID := int64(555006)
+	cleanupMonthlySyncFixtures(t, pool, teslaID)
+
+	// UTC day: March 1. Bogota day: February 28 -- belongs to February.
+	seedChargeSession(t, pool, charging.Session{
+		TeslaID:             teslaID,
+		ChargeStartDateTime: time.Date(2026, 3, 1, 1, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 3, 1, 2, 0, 0, 0, time.UTC),
+	})
+	// UTC day: April 1. Bogota day: March 31 -- belongs to March.
+	seedChargeSession(t, pool, charging.Session{
+		TeslaID:             teslaID,
+		ChargeStartDateTime: time.Date(2026, 4, 1, 1, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 4, 1, 2, 0, 0, 0, time.UTC),
+	})
+
+	syncer := newTestMonthlySyncer(pool)
+
+	march, err := syncer.SyncMonth(ctx, teslaID, day(2026, 3, 15))
+	if err != nil {
+		t.Fatalf("SyncMonth for March: %v", err)
+	}
+	if march.SCSessionCount != 1 {
+		t.Errorf("March SCSessionCount = %d, want 1 (only the session whose Bogota day falls in March)", march.SCSessionCount)
+	}
+
+	february, err := syncer.SyncMonth(ctx, teslaID, day(2026, 2, 15))
+	if err != nil {
+		t.Fatalf("SyncMonth for February: %v", err)
+	}
+	if february.SCSessionCount != 1 {
+		t.Errorf("February SCSessionCount = %d, want 1 (only the session whose Bogota day falls in February)", february.SCSessionCount)
+	}
+}
+
+// TestSyncMonth_RerunSameMonthWithCharges_DoesNotDoubleCount mirrors
+// TestSyncMonth_RerunSameMonth_IsIdempotentAndUpsertsInPlace for the charging
+// figures: one external charge and one Supercharger session, SyncMonth
+// called twice for the same month. Both calls must return the same figures
+// -- UpsertVehicleMonthlyMetric overwrites the whole row, so a second run
+// must never add its input on top of the first.
+func TestSyncMonth_RerunSameMonthWithCharges_DoesNotDoubleCount(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	teslaID := int64(555007)
+	cleanupMonthlySyncFixtures(t, pool, teslaID)
+
+	accountID := uuid.New()
+	lk := "HOME"
+	ac := "AC"
+	entryEndedAt := time.Date(2026, 3, 5, 10, 0, 0, 0, time.UTC)
+	entryEndPct := 70
+	if _, err := charging.NewWriter(pool).Create(ctx, charging.Entry{
+		CreatedByAccountID: accountID,
+		TeslaID:            teslaID,
+		VIN:                "5YJ3E1EA0NF000001",
+		ChargedOn:          day(2026, 3, 5),
+		Status:             charging.StatusDone,
+		ChargingType:       &ac,
+		EnergyAddedKWh:     fp(15.0),
+		Price:              25000,
+		Currency:           "COP",
+		LocationKind:       &lk,
+		EndedAt:            &entryEndedAt,
+		EndBatteryPct:      &entryEndPct,
+	}); err != nil {
+		t.Fatalf("seeding external charge: %v", err)
+	}
+
+	sessionEnergyKWh := 20.0
+	sessionTotalCost := 35000.0
+	sessionEndPct := 62
+	seedChargeSession(t, pool, charging.Session{
+		TeslaID:             teslaID,
+		ChargeStartDateTime: time.Date(2026, 3, 10, 8, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC),
+		EnergyKWh:           &sessionEnergyKWh,
+		TotalCost:           &sessionTotalCost,
+		EndBatteryPct:       &sessionEndPct,
+	})
+
+	syncer := newTestMonthlySyncer(pool)
+	period := day(2026, 3, 1)
+
+	first, err := syncer.SyncMonth(ctx, teslaID, period)
+	if err != nil {
+		t.Fatalf("first SyncMonth: %v", err)
+	}
+	second, err := syncer.SyncMonth(ctx, teslaID, period)
+	if err != nil {
+		t.Fatalf("second SyncMonth: %v", err)
+	}
+
+	wantAC := chargingSourceWant{energyKWh: 15.0, cost: 25000, count: 1, dist: EndingBatteryDist{Bucket60To80: 1}}
+	wantSC := chargingSourceWant{energyKWh: 20.0, cost: 35000, count: 1, dist: EndingBatteryDist{Bucket60To80: 1}}
+	for _, tc := range []struct {
+		label string
+		got   VehicleMonthlyMetrics
+	}{
+		{"first", first},
+		{"second", second},
+	} {
+		assertChargingSourceFields(t, tc.label+" ExtAC", tc.got.ExtACEnergyKWh, tc.got.ExtACCost, tc.got.ExtACEntryCount, tc.got.ExtACEndingBatteryDist, wantAC)
+		assertChargingSourceFields(t, tc.label+" SC", tc.got.SCEnergyKWh, tc.got.SCCost, tc.got.SCSessionCount, tc.got.SCEndingBatteryDist, wantSC)
 	}
 }

@@ -61,7 +61,7 @@ but they describe the tier's *final* shape, so they wait for TASK-2.
   Files: `internal/analytics/db_monthly_sync_integration_test.go`.
   depends_on: TASK-2 (needs the final constructor signature). parallel_ok: no.
 
-- [ ] **TASK-4** — Extend `internal/analytics/db_monthly_sync_integration_test.go`
+- [x] **TASK-4** — Extend `internal/analytics/db_monthly_sync_integration_test.go`
   (package `analytics`, `TEST_DATABASE_URL`-gated) with T-CHG-INT-1, T-CHG-INT-2, and
   T-CHG-INT-3 from `design.md`'s Test Contract:
   - T-CHG-INT-1 seeds external entries through the real `charging.NewWriter(pool).Create`
