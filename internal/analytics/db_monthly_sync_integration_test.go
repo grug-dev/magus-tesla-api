@@ -138,7 +138,7 @@ var wantMixedFixtureFigures = VehicleMonthlyMetrics{
 	WeekendDistanceKm: 120, WeekendConsumedPct: 24, WeekendKmPerPctCalc: 5.0, WeekendDayCount: 2,
 }
 
-// assertCoreFigures checks the twelve distance/consumption/efficiency/count
+// assertCoreFigures checks the thirteen distance/consumption/efficiency/count
 // fields SyncMonth derives from vehicle_metrics, against a caller-supplied
 // expectation. It never looks at capacity, currency, or the charging-source
 // fields -- those have their own assert helpers below.
@@ -149,6 +149,7 @@ func assertCoreFigures(t *testing.T, got, want VehicleMonthlyMetrics) {
 		name      string
 		got, want float64
 	}{
+		{"TeslaRange100PctKmCalc", got.TeslaRange100PctKmCalc, want.TeslaRange100PctKmCalc},
 		{"AllDistanceKm", got.AllDistanceKm, want.AllDistanceKm},
 		{"AllConsumedPct", got.AllConsumedPct, want.AllConsumedPct},
 		{"AllKmPerPctCalc", got.AllKmPerPctCalc, want.AllKmPerPctCalc},
@@ -643,5 +644,96 @@ func TestSyncMonth_RerunSameMonthWithCharges_DoesNotDoubleCount(t *testing.T) {
 	} {
 		assertChargingSourceFields(t, tc.label+" ExtAC", tc.got.ExtACEnergyKWh, tc.got.ExtACCost, tc.got.ExtACEntryCount, tc.got.ExtACEndingBatteryDist, wantAC)
 		assertChargingSourceFields(t, tc.label+" SC", tc.got.SCEnergyKWh, tc.got.SCCost, tc.got.SCSessionCount, tc.got.SCEndingBatteryDist, wantSC)
+	}
+}
+
+// seedMonthlyVehicleMetricWithBattery seeds one day carrying REAL battery
+// readings. The plain seeder above writes battery_range_km = 0 on every row,
+// which is right for the figures it was built for but makes the month's
+// TeslaRange100PctKmCalc 0 -- so the ratio-of-sums round trip needs its own
+// fixture. distance and consumption are left NULL on purpose: this figure
+// must be derived on a day with no computable predecessor, which every other
+// monthly figure skips.
+func seedMonthlyVehicleMetricWithBattery(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricDate time.Time, batteryLevelPct int, batteryRangeKm float64) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO analytics.vehicle_metrics (
+			tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km, flagged
+		) VALUES ($1, $2, $3, 0, $4, false)`,
+		teslaID, dateFrom(metricDate), batteryLevelPct, batteryRangeKm,
+	)
+	if err != nil {
+		t.Fatalf("seeding vehicle_metrics with battery: %v", err)
+	}
+}
+
+// TestSyncMonth_TeslaRange100Pct_IsRatioOfSumsAndSurvivesRoundTrip is the
+// round trip for the MAG-79 monthly column: derived in Go, written by the
+// upsert, and read back through monthlyMetricsFromRow. Any one of those three
+// left out returns 0 here while the pure test still passes.
+//
+// The three days project to 400, 400 and 500 km on their own, so a mean of
+// the daily ratios would give 433.33 -- the ratio of sums gives 660 / 160 *
+// 100 = 412.5. None of the three has a computable predecessor, so every other
+// core figure must stay 0 at the same time.
+func TestSyncMonth_TeslaRange100Pct_IsRatioOfSumsAndSurvivesRoundTrip(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	teslaID := int64(555011)
+	cleanupMonthlySyncFixtures(t, pool, teslaID)
+
+	seedMonthlyVehicleMetricWithBattery(t, pool, teslaID, time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC), 50, 200)
+	seedMonthlyVehicleMetricWithBattery(t, pool, teslaID, time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC), 90, 360)
+	seedMonthlyVehicleMetricWithBattery(t, pool, teslaID, time.Date(2026, 5, 6, 0, 0, 0, 0, time.UTC), 20, 100)
+
+	syncer := newTestMonthlySyncer(pool)
+	got, err := syncer.SyncMonth(ctx, teslaID, time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("SyncMonth: %v", err)
+	}
+
+	assertCoreFigures(t, got, VehicleMonthlyMetrics{TeslaRange100PctKmCalc: 412.5})
+}
+
+// TestVehicleMetrics_TeslaRange100Pct_GeneratedByPostgres proves the DAILY
+// column is filled by Postgres with no Go code naming it: the insert below
+// lists every column the row needs EXCEPT that one. It also pins the divisor
+// guard -- a row at 0% battery must come back NULL, not an error and not a 0.
+func TestVehicleMetrics_TeslaRange100Pct_GeneratedByPostgres(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	teslaID := int64(555012)
+	cleanupMonthlySyncFixtures(t, pool, teslaID)
+
+	seedMonthlyVehicleMetricWithBattery(t, pool, teslaID, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), 60, 261.6)
+	seedMonthlyVehicleMetricWithBattery(t, pool, teslaID, time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC), 0, 0)
+
+	var generated *float64
+	err := pool.QueryRow(ctx, `
+		SELECT tesla_range_100_pct_km_calc FROM analytics.vehicle_metrics
+		WHERE tesla_id = $1 AND metric_date = $2`,
+		teslaID, dateFrom(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
+	).Scan(&generated)
+	if err != nil {
+		t.Fatalf("reading generated column: %v", err)
+	}
+	if generated == nil {
+		t.Fatalf("tesla_range_100_pct_km_calc = NULL, want 436 -- Postgres did not generate it")
+	}
+	if !almostEqual(*generated, 436.0) {
+		t.Errorf("tesla_range_100_pct_km_calc = %v, want 436", *generated)
+	}
+
+	var atZero *float64
+	err = pool.QueryRow(ctx, `
+		SELECT tesla_range_100_pct_km_calc FROM analytics.vehicle_metrics
+		WHERE tesla_id = $1 AND metric_date = $2`,
+		teslaID, dateFrom(time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC)),
+	).Scan(&atZero)
+	if err != nil {
+		t.Fatalf("reading generated column at 0%% battery: %v", err)
+	}
+	if atZero != nil {
+		t.Errorf("tesla_range_100_pct_km_calc at 0%% battery = %v, want NULL", *atZero)
 	}
 }

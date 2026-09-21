@@ -527,6 +527,12 @@ type VehicleMonthlyMetrics struct {
 	TeslaID int64
 	Period  time.Time // first day of the month
 
+	// The month's range at a full battery, from Tesla's own reported range:
+	// a ratio of sums over every day with a battery level above zero. Not
+	// described by AllDayCount -- it counts days this figure does not skip.
+	// 0 means the month had no such day; it is not a reachable real value.
+	TeslaRange100PctKmCalc float64 // delta:allow: a ratio of sums, not a day-over-day delta
+
 	AllDistanceKm   float64
 	AllConsumedPct  float64
 	AllKmPerPctCalc float64

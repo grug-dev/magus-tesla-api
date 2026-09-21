@@ -67,6 +67,11 @@
 | `tyre pressure variance` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `pressure change` | synonym of `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `travel progress delta` | the three `*_delta_calc` columns of `vehicle_metrics` — each day's travel-progress figure minus the previous day's, absent without a predecessor in the same pass | entity | `entities/vehicle-metrics/guide.md` |
+| `tesla range at 100%` | `vehicle_metrics.tesla_range_100_pct_km_calc` (MAG-79) — `battery_range_km / battery_level_pct * 100`, the ONLY column Postgres generates itself; never write it from Go | entity | `entities/vehicle-metrics/guide.md` |
+| `autonomia al 100%` | Spanish name for `tesla range at 100%` → `entities/vehicle-metrics/guide.md` | entity | `entities/vehicle-metrics/guide.md` |
+| `battery degradation` | the month-over-month fall of `tesla_range_100_pct_km_calc`; the daily column is too noisy to read alone | entity | `entities/vehicle-metrics/guide.md` |
+| `efficiency range at 100%` | `vehicle_metrics.efficiency_range_100_pct_km_calc` — `km_per_pct_calc * 100`; named `estimated_range_km_calc` until MAG-79. NOT the same as `tesla range at 100%` | entity | `entities/vehicle-metrics/guide.md` |
+| `estimated_range_km_calc` | RENAMED to `efficiency_range_100_pct_km_calc` by MAG-79 → `entities/vehicle-metrics/guide.md` | entity | `entities/vehicle-metrics/guide.md` |
 | `travel progress trend` | synonym of `travel progress delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `day-over-day delta` | synonym of `travel progress delta`; see also `tyre pressure delta` | entity | `entities/vehicle-metrics/guide.md` |
 | `travel progress` | UI name for `vehicle_metrics.distance_traveled_km_calc`, exposed on `analytics.VehicleStatus.DistanceTraveledKmCalc` (RM50) | entity | `entities/vehicle-metrics/guide.md` |
@@ -146,6 +151,7 @@
 | `monthly metrics` | synonym of `vehicle monthly metrics` → `workflows/vehicle-monthly-metrics.md` |
 | `monthly distance` | the monthly rollup's distance figures → `workflows/vehicle-monthly-metrics.md` |
 | `monthly efficiency` (a ratio of sums, never an average of daily ratios) | `workflows/vehicle-monthly-metrics.md` |
+| `monthly tesla range at 100%` (`vehicle_monthly_metrics.tesla_range_100_pct_km_calc`, MAG-79 — a ratio of sums; the battery-degradation trend) | `workflows/vehicle-monthly-metrics.md` |
 | `weekday weekend split` | the rollup's all-days / weekdays / weekends buckets → `workflows/vehicle-monthly-metrics.md` |
 | `MonthlySyncer` / `SyncMonth` | the port that rewrites one month for one vehicle → `workflows/vehicle-monthly-metrics.md` |
 | `monthly effective capacity` (measured pack capacity per vehicle per month; median of reliable charge records, absent when evidence is thin) | `workflows/vehicle-monthly-metrics.md` |

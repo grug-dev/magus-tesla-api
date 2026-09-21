@@ -156,6 +156,17 @@ column.
 
 Two rules about this module's tables that are easy to break without opening them:
 
+- **`vehicle_metrics.tesla_range_100_pct_km_calc` is computed by POSTGRES, not by Go.**
+  It is a `GENERATED ALWAYS AS ... STORED` column (`battery_range_km / NULLIF(battery_level_pct, 0)
+  * 100`) and the only one on any of this module's tables. **Never name it in an INSERT,
+  an UPDATE, or `query.sql`'s upsert, and never add a field for it to `vehicleMetricRow`
+  or `consumptionCalc`.** Postgres rejects a write to it at runtime; nothing earlier
+  catches the mistake, because sqlc still generates the struct field and the code still
+  compiles. Every other derived column here is written by Go because it needs the
+  PREVIOUS day's row, which a generated column cannot read; this one needs only two
+  values already on its own row. If you add a derived column that likewise needs no
+  predecessor, generate it — if it needs one, it belongs in `deriveConsumption`.
+
 - **`vehicle_metric_watermarks.source` stores strings that NAME other modules' tables
   (`'vehicle_snapshots'`, `'supercharger_sessions'`, `'manual_charge_entries'`).** They are
   **data, not table references.** `'supercharger_sessions'` is a value reused from before

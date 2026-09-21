@@ -12,7 +12,7 @@ import "testing"
 // worker; go vet ./... compiles it as a signature-drift signal. The owner
 // runs `go test ./internal/analytics/...` and reports the result.
 
-// assertMonthlyFigures compares only the twelve vehicle_metrics-derived
+// assertMonthlyFigures compares only the thirteen vehicle_metrics-derived
 // fields deriveMonthlyFigures actually sets -- every other
 // VehicleMonthlyMetrics field stays at its Go zero value in this pure-math
 // layer, and is not this function's concern.
@@ -23,6 +23,7 @@ func assertMonthlyFigures(t *testing.T, got, want VehicleMonthlyMetrics) {
 		name      string
 		got, want float64
 	}{
+		{"TeslaRange100PctKmCalc", got.TeslaRange100PctKmCalc, want.TeslaRange100PctKmCalc},
 		{"AllDistanceKm", got.AllDistanceKm, want.AllDistanceKm},
 		{"AllConsumedPct", got.AllConsumedPct, want.AllConsumedPct},
 		{"AllKmPerPctCalc", got.AllKmPerPctCalc, want.AllKmPerPctCalc},
@@ -107,4 +108,70 @@ func TestDeriveMonthlyFigures_EmptyMonth(t *testing.T) {
 	got := deriveMonthlyFigures(nil)
 
 	assertMonthlyFigures(t, got, VehicleMonthlyMetrics{})
+}
+
+// TestDeriveMonthlyFigures_TeslaRangeIsRatioOfSums proves the month's
+// TeslaRange100PctKmCalc is a ratio of SUMS, not the mean of the daily
+// ratios. The fixture is built so the two answers cannot coincide: the three
+// days project to 400, 400 and 500 km individually, so a mean of the daily
+// ratios would give 433.33, while the ratio of sums gives 660 / 160 * 100 =
+// 412.5. The low-battery day is the one that differs, and the ratio of sums
+// is what gives it the smaller say.
+//
+// The third day also has no computable predecessor (both pointers nil). Every
+// other figure skips such a day; this one must NOT -- it reads two raw values
+// off the day's own row and needs no predecessor at all.
+func TestDeriveMonthlyFigures_TeslaRangeIsRatioOfSums(t *testing.T) {
+	days := []monthDay{
+		{Date: day(2026, 3, 2), DistanceKm: floatPtr(100), ConsumedPct: floatPtr(20), BatteryRangeKm: 200, BatteryLevelPct: 50},
+		{Date: day(2026, 3, 3), DistanceKm: floatPtr(50), ConsumedPct: floatPtr(10), BatteryRangeKm: 360, BatteryLevelPct: 90},
+		{Date: day(2026, 3, 4), DistanceKm: nil, ConsumedPct: nil, BatteryRangeKm: 100, BatteryLevelPct: 20},
+	}
+
+	got := deriveMonthlyFigures(days)
+
+	const wantRatioOfSums = 412.5
+	if got.TeslaRange100PctKmCalc != wantRatioOfSums {
+		t.Errorf("TeslaRange100PctKmCalc = %v, want %v", got.TeslaRange100PctKmCalc, wantRatioOfSums)
+	}
+
+	// The predecessor-less day contributes to this figure and to nothing
+	// else, so the three bucket counts must still see only two days.
+	if got.AllDayCount != 2 {
+		t.Errorf("AllDayCount = %d, want 2 -- the predecessor-less day must not be counted", got.AllDayCount)
+	}
+}
+
+// TestDeriveMonthlyFigures_TeslaRangeDropsZeroBatteryLevel proves a day
+// reporting 0% battery is dropped from BOTH sums, not just from the divisor.
+// Its range is deliberately large: counting it would move the answer from
+// 400 to 2398, so a passing test cannot be a coincidence.
+func TestDeriveMonthlyFigures_TeslaRangeDropsZeroBatteryLevel(t *testing.T) {
+	days := []monthDay{
+		{Date: day(2026, 3, 2), DistanceKm: floatPtr(100), ConsumedPct: floatPtr(20), BatteryRangeKm: 200, BatteryLevelPct: 50},
+		{Date: day(2026, 3, 3), DistanceKm: floatPtr(50), ConsumedPct: floatPtr(10), BatteryRangeKm: 999, BatteryLevelPct: 0},
+	}
+
+	got := deriveMonthlyFigures(days)
+
+	const want = 400.0
+	if got.TeslaRange100PctKmCalc != want {
+		t.Errorf("TeslaRange100PctKmCalc = %v, want %v", got.TeslaRange100PctKmCalc, want)
+	}
+}
+
+// TestDeriveMonthlyFigures_TeslaRangeZeroWhenNoBatteryDays proves the
+// divisor guard: a month whose every day reports 0% battery yields 0, never
+// a NaN or an Inf from dividing by zero. 0 is this column's documented "no
+// data" value.
+func TestDeriveMonthlyFigures_TeslaRangeZeroWhenNoBatteryDays(t *testing.T) {
+	days := []monthDay{
+		{Date: day(2026, 3, 2), DistanceKm: floatPtr(100), ConsumedPct: floatPtr(20), BatteryRangeKm: 200, BatteryLevelPct: 0},
+	}
+
+	got := deriveMonthlyFigures(days)
+
+	if got.TeslaRange100PctKmCalc != 0 {
+		t.Errorf("TeslaRange100PctKmCalc = %v, want 0", got.TeslaRange100PctKmCalc)
+	}
 }

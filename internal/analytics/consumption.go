@@ -56,9 +56,9 @@ type consumptionCalc struct {
 	// to edit and one to forget.
 	ConsumedPct *float64
 
-	KmPerPctCalc         *float64
-	EstimatedRangeKmCalc *float64
-	DaysSpannedCalc      *int
+	KmPerPctCalc                *float64
+	EfficiencyRange100PctKmCalc *float64 // delta:allow: km_per_pct_calc projected to 100%, a ratio -- not a day-over-day delta
+	DaysSpannedCalc             *int
 
 	// The four tyre-pressure day-over-day deltas, one per wheel, in PSI.
 	// Same nil convention as the fields above: nil means "not computable",
@@ -101,7 +101,7 @@ func dayOverDayDelta(prev, cur *float64) *float64 {
 // truthful reading is always returned, never clamped.
 //
 // ConsumedPct is BatteryUsedPctCalc + chargePct, and it is also the DIVISOR
-// behind the two efficiency fields (KmPerPctCalc, EstimatedRangeKmCalc),
+// behind the two efficiency fields (KmPerPctCalc, EfficiencyRange100PctKmCalc),
 // which are computed ONLY when ConsumedPct > 0: a zero or negative divisor
 // has no truthful ratio and both stay nil.
 //
@@ -146,8 +146,8 @@ func deriveConsumption(prev *telemetry.Snapshot, cur telemetry.Snapshot, chargeP
 	if consumed > 0 { // only a positive divisor yields a truthful ratio
 		kmPerPct := distance / consumed
 		calc.KmPerPctCalc = &kmPerPct
-		estRange := kmPerPct * 100
-		calc.EstimatedRangeKmCalc = &estRange
+		efficiencyRange := kmPerPct * 100
+		calc.EfficiencyRange100PctKmCalc = &efficiencyRange
 	}
 
 	// One delta per wheel, cur minus prev. nil when either wheel reading is

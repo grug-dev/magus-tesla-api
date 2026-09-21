@@ -9,7 +9,7 @@
 - **Known as:** `vehicle monthly metrics`, `monthly metrics`, `monthly effective capacity`,
   `effective pack capacity`, `measured pack capacity`, `monthly capacity`, `pack capacity`,
   `capacity backfill`, `monthly distance`, `monthly efficiency`, `weekday weekend split`,
-  `monthly charging totals`, `ending battery distribution`
+  `monthly charging totals`, `ending battery distribution`, `monthly tesla range at 100%`, `autonomia mensual al 100%`, `battery degradation signal`
 - **Internal names — TWO tables in TWO modules. Read this before you grep:**
   - `charging.monthly_effective_capacity` — the measured pack capacity. Job
     `charging.MonthlyCapacityCalculator.Calculate`; **two** read sides — `packCapacityKWh`
@@ -38,6 +38,7 @@
 | File | Role |
 |---|---|
 | `internal/analytics/db/migrations/20260918000002_add_vehicle_monthly_metrics.sql` | Creates `analytics.vehicle_monthly_metrics`. Every column is `NOT NULL DEFAULT 0`, against this module's usual sparse-NULL convention — so a **count** column, not a NULL, is what says "no data". Keyed `UNIQUE (tesla_id, period)`, with a `CHECK` that `period` is a month start. **No `account_id`**: it describes a car, not user data. |
+| `internal/analytics/db/migrations/20260921000002_add_monthly_tesla_range_100_pct.sql` | Adds `tesla_range_100_pct_km_calc` (MAG-79) — the month's range at a full battery from Tesla's own reported range. **Backfilled**, unlike every other column added to this table: one grouped `UPDATE` off `vehicle_metrics`, so history is right without a re-sync. |
 | `internal/analytics/monthly_sync.go` | The use case. `SyncMonth(ctx, teslaID, period)` rewrites the row for one vehicle and one month. Idempotent: re-run it any time to pick up a later edit to that month's data. |
 | `internal/analytics/monthly_figures.go` | The **pure** derivation, no database. Splits the month into all days / weekdays / weekends. **Change the monthly maths here.** |
 | `internal/analytics/monthly_charging.go` | The **pure** charging derivation, no database. `aggregateChargingMonth` folds the month's external charges and Supercharger sessions into three tallies: external AC, external DC, Supercharger. Also `monthBounds` and the ending-battery bucketing. **Change the charging maths here.** |
@@ -50,6 +51,16 @@ Two rules this table follows that surprise people:
 - **Efficiency is a ratio of sums, never an average of ratios.** It is
   `SUM(distance) / SUM(consumed_pct)` over the days that consumed something. An average of daily
   ratios weighs a 5 km day like a 300 km day.
+- **`tesla_range_100_pct_km_calc` follows that same ratio-of-sums rule, and for a second
+  reason too.** It is `SUM(battery_range_km) / SUM(battery_level_pct) * 100`. Because
+  `battery_level_pct` is an integer, its 1-point rounding is a FIXED absolute error, so a day
+  at 99% battery is about five times more accurate than a day at 20% — and a ratio of sums
+  weights each day by its own battery level, which is exactly that. It is also the **only**
+  monthly figure that counts a day with no computable predecessor, since it reads two raw
+  values and needs no yesterday. `all_day_count` therefore does NOT describe it.
+- **A falling `tesla_range_100_pct_km_calc`, month over month, is the battery-degradation
+  signal** — that is what the column exists for. One low month is not degradation: cold
+  weather and Tesla's own range estimator move it too.
 - **The month bucket is `metric_date` itself**, with no day shifting. `metric_date` already
   carries the day-before adjustment. Weekday and weekend come from that date's day of week.
 - **The two charging sources are placed by different dates, on purpose.** An external charge
@@ -360,7 +371,10 @@ changes a rule rather than adding a number.
 - **A new column is NOT backfilled.** The nightly step only re-syncs the current and the
   previous month, so every older row keeps the `DEFAULT 0` the migration gave it, forever. If
   the column must be right for history, the change needs its own backfill migration or a
-  one-off re-sync. Decide this before writing the column, not after.
+  one-off re-sync. Decide this before writing the column, not after. `tesla_range_100_pct_km_calc`
+  (MAG-79) is the worked example of choosing the backfill: it is a trend column, so a month
+  stuck at 0 would have read as a collapsed battery. Its migration groups `vehicle_metrics` by
+  `(tesla_id, month)` once and joins back on `(tesla_id, period)`.
 - **0 means both "zero" and "no data" here.** This table stores `NOT NULL DEFAULT 0`, against
   this module's usual sparse-NULL convention. A count column is what tells them apart, so a new
   metric that can be legitimately absent needs to say which count covers it.

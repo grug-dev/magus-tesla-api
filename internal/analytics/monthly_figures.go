@@ -12,6 +12,14 @@ type monthDay struct {
 	Date        time.Time
 	DistanceKm  *float64
 	ConsumedPct *float64
+
+	// The day's own two raw battery readings, both NOT NULL on
+	// vehicle_metrics and therefore plain values, not pointers. They feed
+	// TeslaRange100PctKmCalc, which -- unlike every other figure here --
+	// needs no predecessor day, so it is computed on days the two pointers
+	// above leave nil.
+	BatteryRangeKm  float64
+	BatteryLevelPct int
 }
 
 // bucketAccumulator sums one day-subset's distance and consumption, and
@@ -68,8 +76,20 @@ func isWeekend(d time.Time) bool {
 // nothing computable -- see AGENTS.md).
 func deriveMonthlyFigures(days []monthDay) VehicleMonthlyMetrics {
 	var all, weekday, weekend bucketAccumulator
+	var teslaRangeKm, teslaLevelPct float64
 
 	for _, d := range days {
+		// Accumulated BEFORE the skip below, on purpose. Tesla's own range
+		// projection reads two raw values off this day's own row and needs
+		// no predecessor, so a day the three bucket figures cannot use is
+		// still a perfectly good day for this one. A level of 0 is dropped
+		// rather than counted: it is the divisor, and a vehicle reporting
+		// 0% carries no range information to add.
+		if d.BatteryLevelPct > 0 {
+			teslaRangeKm += d.BatteryRangeKm
+			teslaLevelPct += float64(d.BatteryLevelPct)
+		}
+
 		if d.DistanceKm == nil || d.ConsumedPct == nil {
 			continue
 		}
@@ -83,7 +103,19 @@ func deriveMonthlyFigures(days []monthDay) VehicleMonthlyMetrics {
 		}
 	}
 
+	// A ratio of SUMS, not the mean of the daily ratios. It weights each day
+	// by its own battery level, and that is the weight accuracy calls for:
+	// battery_level_pct is an integer, so its 1-point rounding is a fixed
+	// absolute error and a day at 99% is about five times more accurate than
+	// a day at 20%.
+	var teslaRange100Pct float64
+	if teslaLevelPct > 0 {
+		teslaRange100Pct = teslaRangeKm / teslaLevelPct * 100
+	}
+
 	return VehicleMonthlyMetrics{
+		TeslaRange100PctKmCalc: teslaRange100Pct, // delta:allow: a ratio of sums, not a day-over-day delta
+
 		AllDistanceKm:   all.distanceKm,
 		AllConsumedPct:  all.consumedPct,
 		AllKmPerPctCalc: all.kmPerPct(),

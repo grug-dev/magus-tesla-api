@@ -67,9 +67,11 @@ func (s *monthlySyncer) SyncMonth(ctx context.Context, teslaID int64, period tim
 	days := make([]monthDay, len(rows))
 	for i, r := range rows {
 		days[i] = monthDay{
-			Date:        dateFromPg(r.MetricDate),
-			DistanceKm:  ptrFloat64FromPg(r.DistanceTraveledKmCalc),
-			ConsumedPct: ptrFloat64FromPg(r.ConsumedPct),
+			Date:            dateFromPg(r.MetricDate),
+			DistanceKm:      ptrFloat64FromPg(r.DistanceTraveledKmCalc),
+			ConsumedPct:     ptrFloat64FromPg(r.ConsumedPct),
+			BatteryRangeKm:  r.BatteryRangeKm,
+			BatteryLevelPct: int(r.BatteryLevelPct),
 		}
 	}
 	figures := deriveMonthlyFigures(days)
@@ -102,6 +104,7 @@ func (s *monthlySyncer) SyncMonth(ctx context.Context, teslaID int64, period tim
 	row, err := s.q.UpsertVehicleMonthlyMetric(ctx, analyticsdb.UpsertVehicleMonthlyMetricParams{
 		TeslaID:                teslaID,
 		Period:                 dateFrom(period),
+		TeslaRange100PctKmCalc: figures.TeslaRange100PctKmCalc, // delta:allow: a ratio of sums, not a day-over-day delta
 		AllDistanceKm:          figures.AllDistanceKm,
 		AllConsumedPct:         figures.AllConsumedPct,
 		AllKmPerPctCalc:        figures.AllKmPerPctCalc,
@@ -170,6 +173,8 @@ func monthlyMetricsFromRow(row analyticsdb.VehicleMonthlyMetric) (VehicleMonthly
 	return VehicleMonthlyMetrics{
 		TeslaID: row.TeslaID,
 		Period:  dateFromPg(row.Period),
+
+		TeslaRange100PctKmCalc: row.TeslaRange100PctKmCalc, // delta:allow: a ratio of sums, not a day-over-day delta
 
 		AllDistanceKm:   row.AllDistanceKm,
 		AllConsumedPct:  row.AllConsumedPct,

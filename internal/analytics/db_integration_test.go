@@ -607,7 +607,7 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricD
 	err := pool.QueryRow(context.Background(), `
 		SELECT id, tesla_id, metric_date, battery_level_pct, odometer_km,
 		       battery_range_km, distance_traveled_km_calc, battery_used_pct_calc,
-		       km_per_pct_calc, estimated_range_km_calc, days_spanned_calc,
+		       km_per_pct_calc, efficiency_range_100_pct_km_calc, days_spanned_calc,
 		       distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc,
 		       consumed_pct, flagged, missing_charging_type, created_at, updated_at,
 		       locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
@@ -618,7 +618,7 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, teslaID int64, metricD
 		teslaID, dateFrom(metricDate),
 	).Scan(&m.ID, &m.TeslaID, &m.MetricDate, &m.BatteryLevelPct,
 		&m.OdometerKm, &m.BatteryRangeKm, &m.DistanceTraveledKmCalc, &m.BatteryUsedPctCalc,
-		&m.KmPerPctCalc, &m.EstimatedRangeKmCalc, &m.DaysSpannedCalc,
+		&m.KmPerPctCalc, &m.EfficiencyRange100PctKmCalc, &m.DaysSpannedCalc,
 		&m.DistanceTraveledKmDeltaCalc, &m.ConsumedPctDeltaCalc, &m.KmPerPctDeltaCalc,
 		&m.ConsumedPct,
 		&m.Flagged, &m.MissingChargingType, &m.CreatedAt, &m.UpdatedAt,
@@ -870,9 +870,9 @@ func TestRecalculate_FixtureA(t *testing.T) {
 	if !row.KmPerPctCalc.Valid || !approxEqual(row.KmPerPctCalc.Float64, wantKmPerPct) {
 		t.Errorf("KmPerPctCalc: want %v, got %+v", wantKmPerPct, row.KmPerPctCalc)
 	}
-	wantEstRange := wantKmPerPct * 100
-	if !row.EstimatedRangeKmCalc.Valid || !approxEqual(row.EstimatedRangeKmCalc.Float64, wantEstRange) {
-		t.Errorf("EstimatedRangeKmCalc: want %v, got %+v", wantEstRange, row.EstimatedRangeKmCalc)
+	wantEfficiencyRange := wantKmPerPct * 100
+	if !row.EfficiencyRange100PctKmCalc.Valid || !approxEqual(row.EfficiencyRange100PctKmCalc.Float64, wantEfficiencyRange) {
+		t.Errorf("EfficiencyRange100PctKmCalc: want %v, got %+v", wantEfficiencyRange, row.EfficiencyRange100PctKmCalc)
 	}
 	if !row.DaysSpannedCalc.Valid || row.DaysSpannedCalc.Int32 != 1 {
 		t.Errorf("DaysSpannedCalc: want 1, got %+v", row.DaysSpannedCalc)
@@ -927,8 +927,8 @@ func TestRecalculate_FixtureB(t *testing.T) {
 	if row.KmPerPctCalc.Valid {
 		t.Errorf("KmPerPctCalc: want NULL (divisor -45 <= 0), got %v", row.KmPerPctCalc.Float64)
 	}
-	if row.EstimatedRangeKmCalc.Valid {
-		t.Errorf("EstimatedRangeKmCalc: want NULL (same guard), got %v", row.EstimatedRangeKmCalc.Float64)
+	if row.EfficiencyRange100PctKmCalc.Valid {
+		t.Errorf("EfficiencyRange100PctKmCalc: want NULL (same guard), got %v", row.EfficiencyRange100PctKmCalc.Float64)
 	}
 	if !row.DaysSpannedCalc.Valid || row.DaysSpannedCalc.Int32 != 1 {
 		t.Errorf("DaysSpannedCalc: want 1, got %+v", row.DaysSpannedCalc)
@@ -983,8 +983,8 @@ func TestRecalculate_FixtureC(t *testing.T) {
 	if row.KmPerPctCalc.Valid {
 		t.Errorf("KmPerPctCalc: want NULL, got %v", row.KmPerPctCalc.Float64)
 	}
-	if row.EstimatedRangeKmCalc.Valid {
-		t.Errorf("EstimatedRangeKmCalc: want NULL, got %v", row.EstimatedRangeKmCalc.Float64)
+	if row.EfficiencyRange100PctKmCalc.Valid {
+		t.Errorf("EfficiencyRange100PctKmCalc: want NULL, got %v", row.EfficiencyRange100PctKmCalc.Float64)
 	}
 	if row.DaysSpannedCalc.Valid {
 		t.Errorf("DaysSpannedCalc: want NULL, got %v", row.DaysSpannedCalc.Int32)
@@ -1805,8 +1805,8 @@ func TestRecalculate_FixtureD_MultiDayGap(t *testing.T) {
 	if !row.KmPerPctCalc.Valid || !approxEqual(row.KmPerPctCalc.Float64, 6.0) {
 		t.Errorf("KmPerPctCalc: want 6.0, got %+v", row.KmPerPctCalc)
 	}
-	if !row.EstimatedRangeKmCalc.Valid || !approxEqual(row.EstimatedRangeKmCalc.Float64, 600.0) {
-		t.Errorf("EstimatedRangeKmCalc: want 600.0, got %+v", row.EstimatedRangeKmCalc)
+	if !row.EfficiencyRange100PctKmCalc.Valid || !approxEqual(row.EfficiencyRange100PctKmCalc.Float64, 600.0) {
+		t.Errorf("EfficiencyRange100PctKmCalc: want 600.0, got %+v", row.EfficiencyRange100PctKmCalc)
 	}
 	if !row.ConsumedPct.Valid || !approxEqual(row.ConsumedPct.Float64, 35.0) {
 		t.Errorf("ConsumedPct: want 35.0 (no charge events in the gap), got %+v", row.ConsumedPct)
@@ -1919,8 +1919,8 @@ func TestRecalculate_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 	if !row.KmPerPctCalc.Valid || !approxEqual(row.KmPerPctCalc.Float64, wantKmPerPct) {
 		t.Errorf("KmPerPctCalc: want %v (210.0/55, the charge-corrected divisor) -- 6.0 means the raw battery delta was used, got %+v", wantKmPerPct, row.KmPerPctCalc)
 	}
-	if !row.EstimatedRangeKmCalc.Valid || !approxEqual(row.EstimatedRangeKmCalc.Float64, wantKmPerPct*100) {
-		t.Errorf("EstimatedRangeKmCalc: want %v (KmPerPctCalc*100), got %+v", wantKmPerPct*100, row.EstimatedRangeKmCalc)
+	if !row.EfficiencyRange100PctKmCalc.Valid || !approxEqual(row.EfficiencyRange100PctKmCalc.Float64, wantKmPerPct*100) {
+		t.Errorf("EfficiencyRange100PctKmCalc: want %v (KmPerPctCalc*100), got %+v", wantKmPerPct*100, row.EfficiencyRange100PctKmCalc)
 	}
 	if row.Flagged != false {
 		t.Errorf("Flagged: want false, got %v", row.Flagged)
@@ -1996,8 +1996,8 @@ func TestRecalculate_ZeroDivisorGuard(t *testing.T) {
 	if row.KmPerPctCalc.Valid {
 		t.Errorf("KmPerPctCalc: want NULL -- the guard is consumedPct > 0 (MAG-81; batteryUsed > 0 before it), and with no charge to correct it the zero is excluded exactly like a negative, got %v", row.KmPerPctCalc.Float64)
 	}
-	if row.EstimatedRangeKmCalc.Valid {
-		t.Errorf("EstimatedRangeKmCalc: want NULL (same guard), got %v", row.EstimatedRangeKmCalc.Float64)
+	if row.EfficiencyRange100PctKmCalc.Valid {
+		t.Errorf("EfficiencyRange100PctKmCalc: want NULL (same guard), got %v", row.EfficiencyRange100PctKmCalc.Float64)
 	}
 	if !row.DaysSpannedCalc.Valid || row.DaysSpannedCalc.Int32 != 1 {
 		t.Errorf("DaysSpannedCalc: want 1, got %+v", row.DaysSpannedCalc)
@@ -2276,8 +2276,8 @@ func TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor(t *te
 	if row.KmPerPctCalc.Valid {
 		t.Errorf("KmPerPctCalc: want NULL, got %v", row.KmPerPctCalc.Float64)
 	}
-	if row.EstimatedRangeKmCalc.Valid {
-		t.Errorf("EstimatedRangeKmCalc: want NULL, got %v", row.EstimatedRangeKmCalc.Float64)
+	if row.EfficiencyRange100PctKmCalc.Valid {
+		t.Errorf("EfficiencyRange100PctKmCalc: want NULL, got %v", row.EfficiencyRange100PctKmCalc.Float64)
 	}
 	if row.DaysSpannedCalc.Valid {
 		t.Errorf("DaysSpannedCalc: want NULL, got %v", row.DaysSpannedCalc.Int32)

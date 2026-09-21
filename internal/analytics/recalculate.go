@@ -217,7 +217,7 @@ func upsertVehicleMetricParamsFrom(row vehicleMetricRow) analyticsdb.UpsertVehic
 		DistanceTraveledKmCalc:      pgFloat8FromPtr(row.DistanceTraveledKmCalc),
 		BatteryUsedPctCalc:          pgInt4FromPtr(row.BatteryUsedPctCalc),
 		KmPerPctCalc:                pgFloat8FromPtr(row.KmPerPctCalc),
-		EstimatedRangeKmCalc:        pgFloat8FromPtr(row.EstimatedRangeKmCalc),
+		EfficiencyRange100PctKmCalc: pgFloat8FromPtr(row.EfficiencyRange100PctKmCalc), // delta:allow: a ratio, not a delta
 		DaysSpannedCalc:             pgInt4FromPtr(row.DaysSpannedCalc),
 		DistanceTraveledKmDeltaCalc: pgFloat8FromPtr(row.DistanceTraveledKmDeltaCalc),
 		ConsumedPctDeltaCalc:        pgFloat8FromPtr(row.ConsumedPctDeltaCalc),

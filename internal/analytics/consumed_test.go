@@ -551,8 +551,8 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 	if !approxEqual(mustFloat(t, entry.KmPerPctCalc), 50.0/15.0) {
 		t.Errorf("KmPerPctCalc: want %v, got %v", 50.0/15.0, entry.KmPerPctCalc)
 	}
-	if !approxEqual(mustFloat(t, entry.EstimatedRangeKmCalc), 50.0/15.0*100) {
-		t.Errorf("EstimatedRangeKmCalc: want %v, got %v", 50.0/15.0*100, entry.EstimatedRangeKmCalc)
+	if !approxEqual(mustFloat(t, entry.EfficiencyRange100PctKmCalc), 50.0/15.0*100) {
+		t.Errorf("EfficiencyRange100PctKmCalc: want %v, got %v", 50.0/15.0*100, entry.EfficiencyRange100PctKmCalc)
 	}
 	if entry.DaysSpannedCalc == nil || *entry.DaysSpannedCalc != 1 {
 		t.Errorf("DaysSpannedCalc: want 1, got %v", entry.DaysSpannedCalc)
@@ -624,8 +624,8 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 	if entry.KmPerPctCalc != nil {
 		t.Errorf("KmPerPctCalc: want nil (divisor -45 <= 0), got %v", *entry.KmPerPctCalc)
 	}
-	if entry.EstimatedRangeKmCalc != nil {
-		t.Errorf("EstimatedRangeKmCalc: want nil (same guard), got %v", *entry.EstimatedRangeKmCalc)
+	if entry.EfficiencyRange100PctKmCalc != nil {
+		t.Errorf("EfficiencyRange100PctKmCalc: want nil (same guard), got %v", *entry.EfficiencyRange100PctKmCalc)
 	}
 	if entry.DaysSpannedCalc == nil || *entry.DaysSpannedCalc != 1 {
 		t.Errorf("DaysSpannedCalc: want 1, got %v", entry.DaysSpannedCalc)
@@ -698,8 +698,8 @@ func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
 	if entry.KmPerPctCalc != nil {
 		t.Errorf("KmPerPctCalc: want nil, got %v", *entry.KmPerPctCalc)
 	}
-	if entry.EstimatedRangeKmCalc != nil {
-		t.Errorf("EstimatedRangeKmCalc: want nil, got %v", *entry.EstimatedRangeKmCalc)
+	if entry.EfficiencyRange100PctKmCalc != nil {
+		t.Errorf("EfficiencyRange100PctKmCalc: want nil, got %v", *entry.EfficiencyRange100PctKmCalc)
 	}
 	if entry.DaysSpannedCalc != nil {
 		t.Errorf("DaysSpannedCalc: want nil, got %v", *entry.DaysSpannedCalc)
@@ -780,8 +780,8 @@ func TestDeriveVehicleMetrics_FixtureD_UsesPrecedingSnapshot(t *testing.T) {
 	if !approxEqual(mustFloat(t, entry.KmPerPctCalc), 6.0) {
 		t.Errorf("KmPerPctCalc: want 6.0, got %v", entry.KmPerPctCalc)
 	}
-	if !approxEqual(mustFloat(t, entry.EstimatedRangeKmCalc), 600.0) {
-		t.Errorf("EstimatedRangeKmCalc: want 600.0, got %v", entry.EstimatedRangeKmCalc)
+	if !approxEqual(mustFloat(t, entry.EfficiencyRange100PctKmCalc), 600.0) {
+		t.Errorf("EfficiencyRange100PctKmCalc: want 600.0, got %v", entry.EfficiencyRange100PctKmCalc)
 	}
 	if !approxEqual(mustFloat(t, entry.ConsumedPct), 35.0) {
 		t.Errorf("ConsumedPct: want 35.0 (no charge events in the gap), got %v", entry.ConsumedPct)
@@ -1031,8 +1031,8 @@ func TestDeriveVehicleMetrics_FixtureRM38B_StatusColumnsPopulatedWithoutPredeces
 	if entry.KmPerPctCalc != nil {
 		t.Errorf("KmPerPctCalc: want nil, got %v", *entry.KmPerPctCalc)
 	}
-	if entry.EstimatedRangeKmCalc != nil {
-		t.Errorf("EstimatedRangeKmCalc: want nil, got %v", *entry.EstimatedRangeKmCalc)
+	if entry.EfficiencyRange100PctKmCalc != nil {
+		t.Errorf("EfficiencyRange100PctKmCalc: want nil, got %v", *entry.EfficiencyRange100PctKmCalc)
 	}
 	if entry.DaysSpannedCalc != nil {
 		t.Errorf("DaysSpannedCalc: want nil, got %v", *entry.DaysSpannedCalc)

@@ -313,7 +313,7 @@ INSERT INTO analytics.vehicle_metrics (
     tesla_id, metric_date,
     battery_level_pct, odometer_km, battery_range_km,
     distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-    estimated_range_km_calc, days_spanned_calc,
+    efficiency_range_100_pct_km_calc, days_spanned_calc,
     distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc,
     consumed_pct, flagged, missing_charging_type,
     locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
@@ -341,7 +341,7 @@ ON CONFLICT (tesla_id, metric_date) DO UPDATE SET
     distance_traveled_km_calc  = EXCLUDED.distance_traveled_km_calc,
     battery_used_pct_calc      = EXCLUDED.battery_used_pct_calc,
     km_per_pct_calc             = EXCLUDED.km_per_pct_calc,
-    estimated_range_km_calc     = EXCLUDED.estimated_range_km_calc,
+    efficiency_range_100_pct_km_calc     = EXCLUDED.efficiency_range_100_pct_km_calc,
     days_spanned_calc           = EXCLUDED.days_spanned_calc,
     distance_traveled_km_delta_calc = EXCLUDED.distance_traveled_km_delta_calc,
     consumed_pct_delta_calc          = EXCLUDED.consumed_pct_delta_calc,
@@ -378,7 +378,7 @@ type UpsertVehicleMetricParams struct {
 	DistanceTraveledKmCalc      pgtype.Float8
 	BatteryUsedPctCalc          pgtype.Int4
 	KmPerPctCalc                pgtype.Float8
-	EstimatedRangeKmCalc        pgtype.Float8
+	EfficiencyRange100PctKmCalc pgtype.Float8
 	DaysSpannedCalc             pgtype.Int4
 	DistanceTraveledKmDeltaCalc pgtype.Float8
 	ConsumedPctDeltaCalc        pgtype.Float8
@@ -460,7 +460,7 @@ func (q *Queries) UpsertVehicleMetric(ctx context.Context, arg UpsertVehicleMetr
 		arg.DistanceTraveledKmCalc,
 		arg.BatteryUsedPctCalc,
 		arg.KmPerPctCalc,
-		arg.EstimatedRangeKmCalc,
+		arg.EfficiencyRange100PctKmCalc,
 		arg.DaysSpannedCalc,
 		arg.DistanceTraveledKmDeltaCalc,
 		arg.ConsumedPctDeltaCalc,
@@ -526,6 +526,7 @@ INSERT INTO analytics.vehicle_monthly_metrics (
     weekday_distance_km, weekday_consumed_pct, weekday_km_per_pct_calc, weekday_day_count,
     weekend_distance_km, weekend_consumed_pct, weekend_km_per_pct_calc, weekend_day_count,
     capacity_kwh, capacity_measured, currency,
+    tesla_range_100_pct_km_calc,
     ext_ac_energy_kwh, ext_ac_cost, ext_ac_entry_count, ext_ac_ending_battery_dist,
     ext_dc_energy_kwh, ext_dc_cost, ext_dc_entry_count, ext_dc_ending_battery_dist,
     sc_energy_kwh, sc_cost, sc_session_count, sc_ending_battery_dist
@@ -535,9 +536,10 @@ INSERT INTO analytics.vehicle_monthly_metrics (
     $7, $8, $9, $10,
     $11, $12, $13, $14,
     $15, $16, $17,
-    $18, $19, $20, $21,
-    $22, $23, $24, $25,
-    $26, $27, $28, $29
+    $18,
+    $19, $20, $21, $22,
+    $23, $24, $25, $26,
+    $27, $28, $29, $30
 )
 ON CONFLICT (tesla_id, period) DO UPDATE SET
     all_distance_km             = EXCLUDED.all_distance_km,
@@ -555,6 +557,7 @@ ON CONFLICT (tesla_id, period) DO UPDATE SET
     capacity_kwh                = EXCLUDED.capacity_kwh,
     capacity_measured           = EXCLUDED.capacity_measured,
     currency                    = EXCLUDED.currency,
+    tesla_range_100_pct_km_calc = EXCLUDED.tesla_range_100_pct_km_calc,
     ext_ac_energy_kwh           = EXCLUDED.ext_ac_energy_kwh,
     ext_ac_cost                 = EXCLUDED.ext_ac_cost,
     ext_ac_entry_count          = EXCLUDED.ext_ac_entry_count,
@@ -568,7 +571,7 @@ ON CONFLICT (tesla_id, period) DO UPDATE SET
     sc_session_count            = EXCLUDED.sc_session_count,
     sc_ending_battery_dist      = EXCLUDED.sc_ending_battery_dist,
     updated_at                  = now()
-RETURNING id, tesla_id, period, all_distance_km, all_consumed_pct, all_km_per_pct_calc, all_day_count, weekday_distance_km, weekday_consumed_pct, weekday_km_per_pct_calc, weekday_day_count, weekend_distance_km, weekend_consumed_pct, weekend_km_per_pct_calc, weekend_day_count, capacity_kwh, capacity_measured, currency, ext_ac_energy_kwh, ext_ac_cost, ext_ac_entry_count, ext_ac_ending_battery_dist, ext_dc_energy_kwh, ext_dc_cost, ext_dc_entry_count, ext_dc_ending_battery_dist, sc_energy_kwh, sc_cost, sc_session_count, sc_ending_battery_dist, created_at, updated_at
+RETURNING id, tesla_id, period, all_distance_km, all_consumed_pct, all_km_per_pct_calc, all_day_count, weekday_distance_km, weekday_consumed_pct, weekday_km_per_pct_calc, weekday_day_count, weekend_distance_km, weekend_consumed_pct, weekend_km_per_pct_calc, weekend_day_count, capacity_kwh, capacity_measured, currency, ext_ac_energy_kwh, ext_ac_cost, ext_ac_entry_count, ext_ac_ending_battery_dist, ext_dc_energy_kwh, ext_dc_cost, ext_dc_entry_count, ext_dc_ending_battery_dist, sc_energy_kwh, sc_cost, sc_session_count, sc_ending_battery_dist, created_at, updated_at, tesla_range_100_pct_km_calc
 `
 
 type UpsertVehicleMonthlyMetricParams struct {
@@ -589,6 +592,7 @@ type UpsertVehicleMonthlyMetricParams struct {
 	CapacityKwh            float64
 	CapacityMeasured       bool
 	Currency               string
+	TeslaRange100PctKmCalc float64
 	ExtAcEnergyKwh         float64
 	ExtAcCost              pgtype.Numeric
 	ExtAcEntryCount        int32
@@ -634,6 +638,7 @@ func (q *Queries) UpsertVehicleMonthlyMetric(ctx context.Context, arg UpsertVehi
 		arg.CapacityKwh,
 		arg.CapacityMeasured,
 		arg.Currency,
+		arg.TeslaRange100PctKmCalc,
 		arg.ExtAcEnergyKwh,
 		arg.ExtAcCost,
 		arg.ExtAcEntryCount,
@@ -681,6 +686,7 @@ func (q *Queries) UpsertVehicleMonthlyMetric(ctx context.Context, arg UpsertVehi
 		&i.ScEndingBatteryDist,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TeslaRange100PctKmCalc,
 	)
 	return i, err
 }
@@ -823,7 +829,8 @@ func (q *Queries) VehicleMetricsConsumedByVehicleBetween(ctx context.Context, ar
 
 const vehicleMetricsForVehicleAndMonth = `-- name: VehicleMetricsForVehicleAndMonth :many
 SELECT
-    metric_date, distance_traveled_km_calc, consumed_pct
+    metric_date, distance_traveled_km_calc, consumed_pct,
+    battery_range_km, battery_level_pct
 FROM analytics.vehicle_metrics
 WHERE tesla_id = $1
   AND metric_date >= date_trunc('month', $2::date)::date
@@ -840,6 +847,8 @@ type VehicleMetricsForVehicleAndMonthRow struct {
 	MetricDate             pgtype.Date
 	DistanceTraveledKmCalc pgtype.Float8
 	ConsumedPct            pgtype.Float8
+	BatteryRangeKm         float64
+	BatteryLevelPct        int32
 }
 
 // Backs MonthlySyncer.SyncMonth: the ONE query that fetches a month's
@@ -864,7 +873,13 @@ func (q *Queries) VehicleMetricsForVehicleAndMonth(ctx context.Context, arg Vehi
 	var items []VehicleMetricsForVehicleAndMonthRow
 	for rows.Next() {
 		var i VehicleMetricsForVehicleAndMonthRow
-		if err := rows.Scan(&i.MetricDate, &i.DistanceTraveledKmCalc, &i.ConsumedPct); err != nil {
+		if err := rows.Scan(
+			&i.MetricDate,
+			&i.DistanceTraveledKmCalc,
+			&i.ConsumedPct,
+			&i.BatteryRangeKm,
+			&i.BatteryLevelPct,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

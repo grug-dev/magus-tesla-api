@@ -49,7 +49,7 @@ INSERT INTO analytics.vehicle_metrics (
     tesla_id, metric_date,
     battery_level_pct, odometer_km, battery_range_km,
     distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-    estimated_range_km_calc, days_spanned_calc,
+    efficiency_range_100_pct_km_calc, days_spanned_calc,
     distance_traveled_km_delta_calc, consumed_pct_delta_calc, km_per_pct_delta_calc,
     consumed_pct, flagged, missing_charging_type,
     locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
@@ -61,7 +61,7 @@ INSERT INTO analytics.vehicle_metrics (
     @tesla_id, @metric_date,
     @battery_level_pct, @odometer_km, @battery_range_km,
     @distance_traveled_km_calc, @battery_used_pct_calc, @km_per_pct_calc,
-    @estimated_range_km_calc, @days_spanned_calc,
+    @efficiency_range_100_pct_km_calc, @days_spanned_calc,
     @distance_traveled_km_delta_calc, @consumed_pct_delta_calc, @km_per_pct_delta_calc,
     @consumed_pct, @flagged, @missing_charging_type,
     @locked, @sentry_mode, @car_version, @inside_temp_c, @outside_temp_c,
@@ -77,7 +77,7 @@ ON CONFLICT (tesla_id, metric_date) DO UPDATE SET
     distance_traveled_km_calc  = EXCLUDED.distance_traveled_km_calc,
     battery_used_pct_calc      = EXCLUDED.battery_used_pct_calc,
     km_per_pct_calc             = EXCLUDED.km_per_pct_calc,
-    estimated_range_km_calc     = EXCLUDED.estimated_range_km_calc,
+    efficiency_range_100_pct_km_calc     = EXCLUDED.efficiency_range_100_pct_km_calc,
     days_spanned_calc           = EXCLUDED.days_spanned_calc,
     distance_traveled_km_delta_calc = EXCLUDED.distance_traveled_km_delta_calc,
     consumed_pct_delta_calc          = EXCLUDED.consumed_pct_delta_calc,
@@ -347,7 +347,8 @@ WHERE tesla_id = @tesla_id
 -- (vehicle_metrics_tesla_date_unique, idx_vehicle_metrics_latest); which one
 -- the planner picks is its choice, not a contract.
 SELECT
-    metric_date, distance_traveled_km_calc, consumed_pct
+    metric_date, distance_traveled_km_calc, consumed_pct,
+    battery_range_km, battery_level_pct
 FROM analytics.vehicle_metrics
 WHERE tesla_id = @tesla_id
   AND metric_date >= date_trunc('month', @period::date)::date
@@ -373,6 +374,7 @@ INSERT INTO analytics.vehicle_monthly_metrics (
     weekday_distance_km, weekday_consumed_pct, weekday_km_per_pct_calc, weekday_day_count,
     weekend_distance_km, weekend_consumed_pct, weekend_km_per_pct_calc, weekend_day_count,
     capacity_kwh, capacity_measured, currency,
+    tesla_range_100_pct_km_calc,
     ext_ac_energy_kwh, ext_ac_cost, ext_ac_entry_count, ext_ac_ending_battery_dist,
     ext_dc_energy_kwh, ext_dc_cost, ext_dc_entry_count, ext_dc_ending_battery_dist,
     sc_energy_kwh, sc_cost, sc_session_count, sc_ending_battery_dist
@@ -382,6 +384,7 @@ INSERT INTO analytics.vehicle_monthly_metrics (
     @weekday_distance_km, @weekday_consumed_pct, @weekday_km_per_pct_calc, @weekday_day_count,
     @weekend_distance_km, @weekend_consumed_pct, @weekend_km_per_pct_calc, @weekend_day_count,
     @capacity_kwh, @capacity_measured, @currency,
+    @tesla_range_100_pct_km_calc,
     @ext_ac_energy_kwh, @ext_ac_cost, @ext_ac_entry_count, @ext_ac_ending_battery_dist,
     @ext_dc_energy_kwh, @ext_dc_cost, @ext_dc_entry_count, @ext_dc_ending_battery_dist,
     @sc_energy_kwh, @sc_cost, @sc_session_count, @sc_ending_battery_dist
@@ -402,6 +405,7 @@ ON CONFLICT (tesla_id, period) DO UPDATE SET
     capacity_kwh                = EXCLUDED.capacity_kwh,
     capacity_measured           = EXCLUDED.capacity_measured,
     currency                    = EXCLUDED.currency,
+    tesla_range_100_pct_km_calc = EXCLUDED.tesla_range_100_pct_km_calc,
     ext_ac_energy_kwh           = EXCLUDED.ext_ac_energy_kwh,
     ext_ac_cost                 = EXCLUDED.ext_ac_cost,
     ext_ac_entry_count          = EXCLUDED.ext_ac_entry_count,

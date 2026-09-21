@@ -33,7 +33,7 @@ import (
 // runs `go test ./internal/analytics/...` and reports the result.
 
 // consumptionFloatTol bounds the float-division ratio assertions
-// (km_per_pct_calc, estimated_range_km_calc) — ported unchanged from
+// (km_per_pct_calc, efficiency_range_100_pct_km_calc) — ported unchanged from
 // telemetry's own tolerance (telemetry-add-derived-consumption-columns tasks.md
 // T6.1).
 const consumptionFloatTol = 1e-9
@@ -104,12 +104,12 @@ func TestDeriveConsumption(t *testing.T) {
 		cur       telemetry.Snapshot
 		chargePct float64
 
-		wantDistance    *float64
-		wantBatteryUsed *int
-		wantConsumed    *float64
-		wantKmPerPct    *float64
-		wantEstRange    *float64
-		wantDays        *int
+		wantDistance        *float64
+		wantBatteryUsed     *int
+		wantConsumed        *float64
+		wantKmPerPct        *float64
+		wantEfficiencyRange *float64
+		wantDays            *int
 	}{
 		{
 			// (a) Normal drive day — mirrors the ticket's worked example:
@@ -118,12 +118,12 @@ func TestDeriveConsumption(t *testing.T) {
 			prev: &telemetry.Snapshot{OdometerKm: 10000, BatteryLevelPct: 80, CapturedDate: day0},
 			cur:  telemetry.Snapshot{OdometerKm: 10040, BatteryLevelPct: 68, CapturedDate: day1},
 
-			wantDistance:    fp(40),
-			wantBatteryUsed: intPtr(12),
-			wantConsumed:    fp(12),
-			wantKmPerPct:    fp(40.0 / 12.0),
-			wantEstRange:    fp((40.0 / 12.0) * 100),
-			wantDays:        intPtr(1),
+			wantDistance:        fp(40),
+			wantBatteryUsed:     intPtr(12),
+			wantConsumed:        fp(12),
+			wantKmPerPct:        fp(40.0 / 12.0),
+			wantEfficiencyRange: fp((40.0 / 12.0) * 100),
+			wantDays:            intPtr(1),
 		},
 		{
 			// (b) Charging day with NO charge record — net battery INCREASE
@@ -140,12 +140,12 @@ func TestDeriveConsumption(t *testing.T) {
 			prev: &telemetry.Snapshot{OdometerKm: 10040, BatteryLevelPct: 68, CapturedDate: day1},
 			cur:  telemetry.Snapshot{OdometerKm: 10045, BatteryLevelPct: 90, CapturedDate: day2},
 
-			wantDistance:    fp(5),
-			wantBatteryUsed: intPtr(-22),
-			wantConsumed:    fp(-22),
-			wantKmPerPct:    nil,
-			wantEstRange:    nil,
-			wantDays:        intPtr(1),
+			wantDistance:        fp(5),
+			wantBatteryUsed:     intPtr(-22),
+			wantConsumed:        fp(-22),
+			wantKmPerPct:        nil,
+			wantEfficiencyRange: nil,
+			wantDays:            intPtr(1),
 		},
 		{
 			// (c) Parked/zero-delta day — battery level unchanged overnight
@@ -155,12 +155,12 @@ func TestDeriveConsumption(t *testing.T) {
 			prev: &telemetry.Snapshot{OdometerKm: 10045, BatteryLevelPct: 90, CapturedDate: day2},
 			cur:  telemetry.Snapshot{OdometerKm: 10045, BatteryLevelPct: 90, CapturedDate: day3},
 
-			wantDistance:    fp(0),
-			wantBatteryUsed: intPtr(0),
-			wantConsumed:    fp(0),
-			wantKmPerPct:    nil,
-			wantEstRange:    nil,
-			wantDays:        intPtr(1),
+			wantDistance:        fp(0),
+			wantBatteryUsed:     intPtr(0),
+			wantConsumed:        fp(0),
+			wantKmPerPct:        nil,
+			wantEfficiencyRange: nil,
+			wantDays:            intPtr(1),
 		},
 		{
 			// (d) Multi-day gap — a missed night means DaysSpannedCalc > 1.
@@ -171,12 +171,12 @@ func TestDeriveConsumption(t *testing.T) {
 			prev: &telemetry.Snapshot{OdometerKm: 10045, BatteryLevelPct: 90, CapturedDate: day3},
 			cur:  telemetry.Snapshot{OdometerKm: 10125, BatteryLevelPct: 60, CapturedDate: day5},
 
-			wantDistance:    fp(80),
-			wantBatteryUsed: intPtr(30),
-			wantConsumed:    fp(30),
-			wantKmPerPct:    fp(80.0 / 30.0),
-			wantEstRange:    fp((80.0 / 30.0) * 100),
-			wantDays:        intPtr(2),
+			wantDistance:        fp(80),
+			wantBatteryUsed:     intPtr(30),
+			wantConsumed:        fp(30),
+			wantKmPerPct:        fp(80.0 / 30.0),
+			wantEfficiencyRange: fp((80.0 / 30.0) * 100),
+			wantDays:            intPtr(2),
 		},
 		{
 			// (e) First-ever snapshot — no predecessor: all six fields stay nil
@@ -189,12 +189,12 @@ func TestDeriveConsumption(t *testing.T) {
 			cur:       telemetry.Snapshot{OdometerKm: 10125, BatteryLevelPct: 60, CapturedDate: day5},
 			chargePct: 30,
 
-			wantDistance:    nil,
-			wantBatteryUsed: nil,
-			wantConsumed:    nil,
-			wantKmPerPct:    nil,
-			wantEstRange:    nil,
-			wantDays:        nil,
+			wantDistance:        nil,
+			wantBatteryUsed:     nil,
+			wantConsumed:        nil,
+			wantKmPerPct:        nil,
+			wantEfficiencyRange: nil,
+			wantDays:            nil,
 		},
 		{
 			// (f) MAG-81, the bug this change fixes: the vehicle drove AND
@@ -210,12 +210,12 @@ func TestDeriveConsumption(t *testing.T) {
 			cur:       telemetry.Snapshot{OdometerKm: 4574.396, BatteryLevelPct: 92, CapturedDate: day2},
 			chargePct: 57,
 
-			wantDistance:    fp(4574.396 - 4544.121),
-			wantBatteryUsed: intPtr(-40),
-			wantConsumed:    fp(17),
-			wantKmPerPct:    fp((4574.396 - 4544.121) / 17.0),
-			wantEstRange:    fp(((4574.396 - 4544.121) / 17.0) * 100),
-			wantDays:        intPtr(1),
+			wantDistance:        fp(4574.396 - 4544.121),
+			wantBatteryUsed:     intPtr(-40),
+			wantConsumed:        fp(17),
+			wantKmPerPct:        fp((4574.396 - 4544.121) / 17.0),
+			wantEfficiencyRange: fp(((4574.396 - 4544.121) / 17.0) * 100),
+			wantDays:            intPtr(1),
 		},
 		{
 			// (g) Charge recorded but the day still ended net-positive — the
@@ -231,12 +231,12 @@ func TestDeriveConsumption(t *testing.T) {
 			cur:       telemetry.Snapshot{OdometerKm: 10012, BatteryLevelPct: 80, CapturedDate: day2},
 			chargePct: 45,
 
-			wantDistance:    fp(12),
-			wantBatteryUsed: intPtr(-50),
-			wantConsumed:    fp(-5),
-			wantKmPerPct:    nil,
-			wantEstRange:    nil,
-			wantDays:        intPtr(1),
+			wantDistance:        fp(12),
+			wantBatteryUsed:     intPtr(-50),
+			wantConsumed:        fp(-5),
+			wantKmPerPct:        nil,
+			wantEfficiencyRange: nil,
+			wantDays:            intPtr(1),
 		},
 	}
 
@@ -248,15 +248,15 @@ func TestDeriveConsumption(t *testing.T) {
 			assertIntPtr(t, "BatteryUsedPctCalc", got.BatteryUsedPctCalc, tc.wantBatteryUsed)
 			assertFloatPtr(t, "ConsumedPct", got.ConsumedPct, tc.wantConsumed)
 			assertFloatPtr(t, "KmPerPctCalc", got.KmPerPctCalc, tc.wantKmPerPct)
-			assertFloatPtr(t, "EstimatedRangeKmCalc", got.EstimatedRangeKmCalc, tc.wantEstRange)
+			assertFloatPtr(t, "EfficiencyRange100PctKmCalc", got.EfficiencyRange100PctKmCalc, tc.wantEfficiencyRange)
 			assertIntPtr(t, "DaysSpannedCalc", got.DaysSpannedCalc, tc.wantDays)
 
-			// EstimatedRangeKmCalc must always equal KmPerPctCalc*100 whenever both
+			// EfficiencyRange100PctKmCalc must always equal KmPerPctCalc*100 whenever both
 			// are non-nil (D9's restated invariant) — checked directly against the
 			// function's own output, not just against the table's expectation.
-			if got.KmPerPctCalc != nil && got.EstimatedRangeKmCalc != nil {
-				if math.Abs(*got.EstimatedRangeKmCalc-(*got.KmPerPctCalc*100)) > consumptionFloatTol {
-					t.Errorf("EstimatedRangeKmCalc (%v) != KmPerPctCalc*100 (%v)", *got.EstimatedRangeKmCalc, *got.KmPerPctCalc*100)
+			if got.KmPerPctCalc != nil && got.EfficiencyRange100PctKmCalc != nil {
+				if math.Abs(*got.EfficiencyRange100PctKmCalc-(*got.KmPerPctCalc*100)) > consumptionFloatTol {
+					t.Errorf("EfficiencyRange100PctKmCalc (%v) != KmPerPctCalc*100 (%v)", *got.EfficiencyRange100PctKmCalc, *got.KmPerPctCalc*100)
 				}
 			}
 
@@ -299,7 +299,7 @@ func TestDeriveConsumption_NilPrevReturnsCurUnchanged(t *testing.T) {
 
 	if got.DistanceTraveledKmCalc != nil || got.BatteryUsedPctCalc != nil ||
 		got.ConsumedPct != nil ||
-		got.KmPerPctCalc != nil || got.EstimatedRangeKmCalc != nil || got.DaysSpannedCalc != nil {
+		got.KmPerPctCalc != nil || got.EfficiencyRange100PctKmCalc != nil || got.DaysSpannedCalc != nil {
 		t.Errorf("deriveConsumption(nil, cur, 0): want all six derived fields nil, got %+v", got)
 	}
 	// RM50-analytics-add-tire-pressure-variance design.md D2, condition 1 —
@@ -429,13 +429,13 @@ func TestDeriveConsumption_MultiDayGap(t *testing.T) {
 	assertIntPtr(t, "BatteryUsedPctCalc", got.BatteryUsedPctCalc, intPtr(35))
 	assertIntPtr(t, "DaysSpannedCalc", got.DaysSpannedCalc, intPtr(7))
 	assertFloatPtr(t, "KmPerPctCalc", got.KmPerPctCalc, fp(6.0))
-	assertFloatPtr(t, "EstimatedRangeKmCalc", got.EstimatedRangeKmCalc, fp(600.0))
+	assertFloatPtr(t, "EfficiencyRange100PctKmCalc", got.EfficiencyRange100PctKmCalc, fp(600.0))
 }
 
 // TestDeriveConsumption_ZeroDivisorGuard covers design.md's Test Contract
 // Fixture E — a parked day with zero battery change. DistanceTraveledKmCalc
 // and BatteryUsedPctCalc must be present (non-nil) as truthful zeros, while
-// KmPerPctCalc/EstimatedRangeKmCalc stay nil: the guard is batteryUsed > 0, so
+// KmPerPctCalc/EfficiencyRange100PctKmCalc stay nil: the guard is batteryUsed > 0, so
 // zero is excluded exactly like a negative value — the boundary Fixture B's
 // -45 (in TestDeriveConsumption case (b)-style negatives) does not reach.
 func TestDeriveConsumption_ZeroDivisorGuard(t *testing.T) {
@@ -470,7 +470,7 @@ func TestDeriveConsumption_ZeroDivisorGuard(t *testing.T) {
 	if got.KmPerPctCalc != nil {
 		t.Errorf("KmPerPctCalc: want nil (divisor 0 is not > 0), got %v", *got.KmPerPctCalc)
 	}
-	if got.EstimatedRangeKmCalc != nil {
-		t.Errorf("EstimatedRangeKmCalc: want nil (same guard), got %v", *got.EstimatedRangeKmCalc)
+	if got.EfficiencyRange100PctKmCalc != nil {
+		t.Errorf("EfficiencyRange100PctKmCalc: want nil (same guard), got %v", *got.EfficiencyRange100PctKmCalc)
 	}
 }

@@ -86,11 +86,11 @@ type vehicleMetricRow struct {
 	// figures carry that condition plus the divisor guard -- nil also when
 	// ConsumedPct <= 0 (the divisor used to be the raw battery drop, which
 	// NULLed every day the vehicle drove AND charged).
-	DistanceTraveledKmCalc *float64
-	BatteryUsedPctCalc     *int
-	KmPerPctCalc           *float64
-	EstimatedRangeKmCalc   *float64
-	DaysSpannedCalc        *int
+	DistanceTraveledKmCalc      *float64
+	BatteryUsedPctCalc          *int
+	KmPerPctCalc                *float64
+	EfficiencyRange100PctKmCalc *float64 // delta:allow: km_per_pct_calc projected to 100%, a ratio -- not a day-over-day delta
+	DaysSpannedCalc             *int
 
 	// The three travel-progress day-over-day deltas: each stores this row's
 	// value of the named figure minus the value on the row the derivation
@@ -376,7 +376,7 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			DistanceTraveledKmCalc:      calc.DistanceTraveledKmCalc,
 			BatteryUsedPctCalc:          calc.BatteryUsedPctCalc,
 			KmPerPctCalc:                calc.KmPerPctCalc,
-			EstimatedRangeKmCalc:        calc.EstimatedRangeKmCalc,
+			EfficiencyRange100PctKmCalc: calc.EfficiencyRange100PctKmCalc, // delta:allow: a ratio, not a delta
 			DaysSpannedCalc:             calc.DaysSpannedCalc,
 			DistanceTraveledKmDeltaCalc: distanceDelta,
 			ConsumedPctDeltaCalc:        consumedDelta,

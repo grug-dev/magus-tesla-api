@@ -6,12 +6,34 @@
 
 ## Glossary
 
-- **Known as:** `vehicle metrics`, `calc fields`, `calculated fields`, `metrics reconciliation`, `derived metrics`, `watermark source`, `vehicle status`, `latest vehicle status`, `battery level by day`, `per-day battery level`, `battery history`, `tire pressure`, `tyre pressure`, `TPMS`, `travel progress`, `battery drain`, `tyre pressure delta`, `tyre pressure variance`, `pressure change`, `travel progress delta`, `travel progress trend`, `day-over-day delta`
+- **Known as:** `vehicle metrics`, `calc fields`, `calculated fields`, `metrics reconciliation`, `derived metrics`, `watermark source`, `vehicle status`, `latest vehicle status`, `battery level by day`, `per-day battery level`, `battery history`, `tire pressure`, `tyre pressure`, `TPMS`, `travel progress`, `battery drain`, `tyre pressure delta`, `tyre pressure variance`, `pressure change`, `travel progress delta`, `travel progress trend`, `day-over-day delta`, `autonomia al 100%`, `range at 100%`, `tesla range at 100%`, `battery degradation`, `efficiency range at 100%`
 - **Internal name:** `analytics.Recalculator` (`Recalculate` / `Reconcile`) — table `vehicle_metrics` (analytics-owned), watermarks in `vehicle_metric_watermarks`. Read side for latest-per-vehicle status: `analytics.Reader.LatestMetricsForVehicles` returning `analytics.VehicleStatus`. Read side for the per-day battery history: `analytics.Reader.BatteryLevelByDay` returning `analytics.DayBattery`. **Changed by RM31 tier 3:** the Supercharger input moved from `internal/telemetry`'s port over its own, still-`public`, `supercharger_sessions` to `internal/charging`'s `SuperchargerSessionAnalyticsReader` over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), and the watermark `source` vocabulary became `('vehicle_snapshots', 'charge_sessions', 'manual_charge_entries')` — later changed again by `RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b) to `('vehicle_snapshots', 'supercharger_sessions', 'manual_charge_entries')`, reusing the string that named `telemetry`'s table before RM31 to now name `charging`'s table instead (see that change's `design.md` §6). **Changed by RM38 tier 1:** `vehicle_metrics` gained eight raw vehicle-status observation columns and a latest-row-per-vehicle read port. **Changed by RM40 tier 1:** a bounded per-day battery-level/range read port was added over the same table — no new column, no migration. **Changed by RM50 tier 1:** `vehicle_metrics` gained four TPMS raw-observation columns (with a one-off backfill migration for pre-existing rows), and `LatestMetricsForVehicles`'s projection widened by two more columns that already existed on the table (`distance_traveled_km_calc`, `consumed_pct`) — no new query, no new index. **Changed by RM50 tier 3:** `vehicle_metrics` gained four TPMS **delta** (`_calc`) columns, one per wheel, backfilled for pre-existing rows by a self-join migration (not cross-module — the tier 1 raw columns already sit on the same table), and `LatestMetricsForVehicles`'s projection widened by these four new columns. In the UI the two travel-progress figures are called **Travel Progress** and **Battery Drain** (RM50 tier 2). **Changed by MAG-81:** `consumed_pct` moved from `consumed.go` into `deriveConsumption` (`consumption.go`), which now takes the day's already-summed `chargePct` and returns `ConsumedPct` on `consumptionCalc` — because it needs that same figure as the divisor for `km_per_pct_calc`. No migration, no column added or removed; one formula moved and one divisor changed. **Changed by RM66 tier 2:** `vehicle_metrics` gained three day-over-day delta columns for the travel-progress figures (`distance_traveled_km_delta_calc`, `consumed_pct_delta_calc`, `km_per_pct_delta_calc`), backfilled by a self-join on `metric_date - 1`; the four TPMS delta columns were renamed to carry the same `_delta_calc` suffix; and `LatestMetricsForVehicles`'s projection widened by the three new columns — no new query, no new index.
 
 The `_calc` columns: `distance_traveled_km_calc`, `battery_used_pct_calc`, `km_per_pct_calc`,
-`estimated_range_km_calc`, `days_spanned_calc` — plus charge-corrected `consumed_pct`, which
-since MAG-81 is derived in the same function and is the divisor the last two are built on.
+`efficiency_range_100_pct_km_calc`, `days_spanned_calc` — plus charge-corrected `consumed_pct`,
+which since MAG-81 is derived in the same function and is the divisor the last two are built on.
+
+`efficiency_range_100_pct_km_calc` was named `estimated_range_km_calc` until MAG-79 (migration
+`20260921000001`). Same value, same guard, same formula — `km_per_pct_calc × 100`, and nothing
+else. It was renamed because the old name never said estimated *from what*, and it now has a
+sibling that answers the same question from the other source.
+
+**`tesla_range_100_pct_km_calc` (MAG-79) is the one column on this table Postgres computes
+itself** — `GENERATED ALWAYS AS (battery_range_km / NULLIF(battery_level_pct, 0) * 100) STORED`.
+Nothing in Go writes it, no backfill filled it, and it must never appear in an INSERT or UPDATE
+(Postgres rejects that at runtime; the Go code still compiles). It is the only derived column
+here that needs no predecessor day, which is exactly why it could be generated — every other
+one reads yesterday's row, which a generated column cannot see. It is **not** rounded:
+`battery_level_pct` is an integer, so a single day carries about 4 km of quantization noise;
+the month-level figure is what the number is for.
+
+The two `..._range_100_pct_km_calc` columns answer the same question from opposite sources and
+routinely disagree — do not treat either as a substitute for the other:
+
+| Column | Formula | Says |
+|---|---|---|
+| `tesla_range_100_pct_km_calc` | `battery_range_km ÷ battery_level_pct × 100` | what **Tesla** rates the pack at, projected to full — the battery-degradation signal |
+| `efficiency_range_100_pct_km_calc` | `km_per_pct_calc × 100` | how far the car would go **as it was actually driven** that day |
 
 The `_delta_calc` columns are a separate group, seven in all: the three travel-progress deltas
 and the four wheel-pressure deltas, both listed below. A bare `_calc` suffix means the value is
@@ -99,7 +121,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 ## Conventions & gotchas
 
 - **Ordering is a correctness requirement:** nightly `Reconcile` (step 1) MUST run before gap reconciliation (step 2) — `ConsumedByDay` is a plain SELECT over `vehicle_metrics`, and the gap writer DELETES flags for days that no longer flag, so reconciling against stale metrics destroys state. A vehicle whose `Reconcile` fails is skipped for the gap step entirely. _Source: `internal/app/processor.go` `recalculateAnalytics` doc comment._
-- **Predecessor-less days have NULL `_calc`s** — the first snapshot of a vehicle's history has no delta to derive; `days_spanned_calc`/`distance_traveled_km_calc`/`battery_used_pct_calc` are NULL, and `km_per_pct_calc`/`estimated_range_km_calc` share the same NULL plus the `consumed_pct <= 0` divisor guard (MAG-81 changed that guard from `battery_used_pct <= 0`). _Source: `internal/analytics/consumption.go`. The `20260821000001` column comments still state the OLD guard and are deliberately not rewritten — an applied migration is a record of what it did._
+- **Predecessor-less days have NULL `_calc`s** — the first snapshot of a vehicle's history has no delta to derive; `days_spanned_calc`/`distance_traveled_km_calc`/`battery_used_pct_calc` are NULL, and `km_per_pct_calc`/`efficiency_range_100_pct_km_calc` share the same NULL plus the `consumed_pct <= 0` divisor guard (MAG-81 changed that guard from `battery_used_pct <= 0`). `tesla_range_100_pct_km_calc` is the exception to this whole bullet: it needs no predecessor and is populated on a vehicle's very first row, NULL only when `battery_level_pct` is 0. _Source: `internal/analytics/consumption.go`. The `20260821000001` column comments still state the OLD guard and are deliberately not rewritten — an applied migration is a record of what it did._
 - **First `Reconcile` backfills full history** — watermarks start empty, so a new vehicle reads its entire source history once. Subsequent runs are incremental off the three per-source watermarks (`vehicle_metric_watermarks`), each advanced independently. _Source: `internal/analytics/recalculate.go`._
 - **24h `recalcOverlap`** — every `Reconcile` read uses `updated_at >= cursor - 24h`, so commit-skew between sources self-heals next run (idempotent UPSERT makes the re-read a no-op). _Source: `recalculate.go` D4._
 - **The `_calc` columns' ONLY home is `vehicle_metrics`** — the derived consumption columns were dropped from `vehicle_snapshots` (RM29 tier 4, migration `20260822000001`); never re-add read-time derivation to telemetry or the gateway. _Source: `internal/telemetry/db/migrations/20260822000001…`._
