@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM67-app-add-monthly-metrics-step",
+  "module": "app",
+  "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
+  "request": "Roadmap RM67 tier 4 (MAG-73). Add step 5 to internal/app/processor.go, after runMonthlyCapacityStep. It runs EVERY night, not only on the first of the month (RD3), and calls analytics.MonthlySyncer.SyncMonth twice per vehicle: current month and previous month. Follow step 4's shape - a failure logs and never fails the cycle. The month gate uses the platform zone through internal/clock.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "2.1", "2.2", "2.3", "3.1", "3.2", "4.1", "4.2", "5.1", "L1", "L2", "L3", "L4"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-21T10:25:00Z",
+  "updated_at": "2026-09-21T10:25:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM67-MAG-73-vehicle-monthly-metrics-table",
+    "base": "main",
+    "ticket": "MAG-73",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied",
+    "created_at": "2026-09-18T19:05:41Z"
+  },
+  "tasks": [
+    { "id": "1.1", "title": "Pure monthlyMetricsPeriods(now, loc)", "module": "app", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.1", "title": "app.go: NewProcessor gains monthlySyncer analytics.MonthlySyncer", "module": "app", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.2", "title": "processor.go: field, step 5 call, runMonthlyMetricsStep, callMonthlySyncer", "module": "app", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.3", "title": "app.go: package and Processor doc comments become five steps", "module": "app", "depends_on": ["2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.1", "title": "monthly_metrics_step_test.go: Test Contract groups A, B, C1-C4 + dedup", "module": "app", "depends_on": ["2.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.2", "title": "processor_test.go: fake roster + C5 short-circuit assertion", "module": "app", "depends_on": ["2.2", "3.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "4.1", "title": "internal/app/AGENTS.md: five steps, new port, testing notes", "module": "app", "depends_on": ["3.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "4.2", "title": "kkpa/context/architecture/nightly-cycle.md: step 5 section, port map, table effects", "module": "app", "depends_on": ["2.2", "4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "5.1", "title": "gofmt -l, go build ./..., go vet ./... signals", "module": "app", "depends_on": ["3.1", "3.2", "4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "L1", "title": "LEADER: cmd/poller/main.go wiring of NewMonthlySyncer", "module": "app", "depends_on": ["2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "L2", "title": "LEADER: repo-wide go build / go vet confirmation", "module": "app", "depends_on": ["L1", "5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "L3", "title": "LEADER: root README.md app row becomes five steps", "module": "app", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "L4", "title": "LEADER: roadmap tier 4 status and roadmap archive check", "module": "app", "depends_on": ["L2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [],
+  "events": [
+    { "at": "2026-09-21T10:25:00Z", "agent": "leader", "event": "progress.json created after the app worker's artifacts validated and the owner approved the Spanish briefing; no database design gate fires" }
+  ]
+}
