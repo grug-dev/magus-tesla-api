@@ -7,10 +7,11 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 )
 
-// These tests exercise aggregateChargingMonth fully offline, against the expected
-// values authored in design.md's Test Contract before this file was written -- never
-// derived by reading monthly_charging.go itself. day, floatPtr, and intPtr are shared
-// package-level helpers already defined in consumed_test.go and reader_test.go.
+// These tests exercise aggregateChargingMonth fully offline. Every expected value
+// was worked out by hand before the code was written, never read back out of
+// monthly_charging.go -- a test that copies the implementation proves nothing.
+// day, floatPtr, and intPtr are shared package-level helpers already defined in
+// consumed_test.go and reader_test.go.
 //
 // Per the Test-Execution-Policy, this file is written but NOT run by the worker; go
 // vet ./... compiles it as a signature-drift signal. The owner runs
@@ -53,9 +54,10 @@ func assertTally(t *testing.T, name string, got, want chargeTally) {
 	}
 }
 
-// TestAggregateChargingMonth_ACDCSplitNilTypeSkipped is T-CHG-1: a nil ChargingType
-// entry is skipped entirely (RD13), and a nil EnergyAddedKWh/EndBatteryPct
-// contributes zero to the sums but still counts.
+// TestAggregateChargingMonth_ACDCSplitNilTypeSkipped checks the two skip rules.
+// An entry with no ChargingType is dropped whole: it is neither AC nor DC, and
+// there is no third column for it. An entry with no EnergyAddedKWh or no
+// EndBatteryPct still counts, but adds zero to the sum and enters no bucket.
 func TestAggregateChargingMonth_ACDCSplitNilTypeSkipped(t *testing.T) {
 	entries := []charging.Entry{
 		{ChargingType: stringPtr("AC"), EnergyAddedKWh: floatPtr(10.0), Price: 15000, EndBatteryPct: intPtr(45)},
@@ -78,9 +80,9 @@ func TestAggregateChargingMonth_ACDCSplitNilTypeSkipped(t *testing.T) {
 	assertTally(t, "sc", sc, chargeTally{})
 }
 
-// TestAggregateChargingMonth_BucketEdgesHalfOpen is T-CHG-2: bucket edges are
-// half-open except the last, which is closed -- 80 and 100 both land in the same,
-// final bucket.
+// TestAggregateChargingMonth_BucketEdgesHalfOpen checks the bucket edges. They are
+// half-open except the last, which is closed -- 80 and 100 both land in the final
+// bucket. Closed edges everywhere would count 20, 40, 60 and 80 twice.
 func TestAggregateChargingMonth_BucketEdgesHalfOpen(t *testing.T) {
 	entries := []charging.Entry{
 		{ChargingType: stringPtr("AC"), EndBatteryPct: intPtr(0)},
@@ -101,9 +103,10 @@ func TestAggregateChargingMonth_BucketEdgesHalfOpen(t *testing.T) {
 	})
 }
 
-// TestAggregateChargingMonth_SuperchargerPlatformZoneMembership is T-CHG-3:
-// Supercharger session month membership is decided by the platform-zone day of
-// ChargeStopDateTime, not its UTC day, across the widened fetch window.
+// TestAggregateChargingMonth_SuperchargerPlatformZoneMembership checks which month
+// a session belongs to. The platform-zone day of ChargeStopDateTime decides, not
+// the UTC day. Bogota is UTC-5, so an evening session falls on the next UTC day,
+// which is why the caller widens the fetch and this code drops the strays.
 func TestAggregateChargingMonth_SuperchargerPlatformZoneMembership(t *testing.T) {
 	monthStart, monthEnd := day(2026, 3, 1), day(2026, 3, 31)
 

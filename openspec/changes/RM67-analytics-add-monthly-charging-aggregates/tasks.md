@@ -88,7 +88,7 @@ but they describe the tier's *final* shape, so they wait for TASK-2.
   Files: `internal/analytics/AGENTS.md`.
   depends_on: TASK-2 (needs the final shape). parallel_ok: yes (with TASK-4).
 
-- [ ] **TASK-6** `[leader-owned]` — Check `kkpa/context/` for guides this change
+- [x] **TASK-6** `[leader-owned]` — Check `kkpa/context/` for guides this change
   invalidates:
   - `kkpa/context/workflows/vehicle-monthly-metrics.md` (if it exists after tier 2's own
     TASK-11) — extend it to say the charging columns are now real, not zero-filled.
@@ -97,7 +97,7 @@ but they describe the tier's *final* shape, so they wait for TASK-2.
   Files: under `kkpa/context/` (outside `internal/analytics/`).
   depends_on: TASK-2. parallel_ok: yes.
 
-- [ ] **TASK-7** `[leader-owned]` — Check the root `README.md`'s "Project Structure"
+- [x] **TASK-7** `[leader-owned]` — Check the root `README.md`'s "Project Structure"
   tree and "Architecture" table for whether this change makes either stale. Based on
   tier 2's identical check (its own TASK-12), this is expected to need no edit — but the
   check itself, and its outcome, must be recorded, not assumed (`CLAUDE.md`'s "docs
