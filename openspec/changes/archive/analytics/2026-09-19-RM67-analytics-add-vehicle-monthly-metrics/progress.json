@@ -1,0 +1,448 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM67-analytics-add-vehicle-monthly-metrics",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
+  "request": "Create analytics.vehicle_monthly_metrics and the SyncMonth use case that rewrites the row for one (tesla_id, period). One migration creates all 32 columns, including the ext_*, sc_* and JSONB columns tier 3 fills. Tier 2 fills the vehicle_metrics figures for all days / weekdays / weekends and copies the capacity through tier 1's port. All maths in Go. Tier 2 of 4 of roadmap RM67 (Linear MAG-73).",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "TASK-1",
+      "TASK-2",
+      "TASK-3",
+      "TASK-4",
+      "TASK-5",
+      "TASK-6",
+      "TASK-7",
+      "TASK-8",
+      "TASK-9",
+      "TASK-10",
+      "TASK-11",
+      "TASK-12"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-18T23:35:59Z",
+  "updated_at": "2026-09-19T02:05:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM67-MAG-73-vehicle-monthly-metrics-table",
+    "base": "main",
+    "ticket": "MAG-73",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied",
+    "created_at": "2026-09-18T19:05:41Z"
+  },
+  "tasks": [
+    {
+      "id": "TASK-1",
+      "title": "Add the rename entry to sqlc.yaml for the new table",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:50:54Z",
+      "duration_seconds": 0,
+      "notes": "Added analytics_vehicle_monthly_metric: \"VehicleMonthlyMetric\" to the analytics rename block in sqlc.yaml. Unblocks TASK-5.",
+      "budget": null
+    },
+    {
+      "id": "TASK-2",
+      "title": "Create the migration for analytics.vehicle_monthly_metrics",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Migration 20260918000002 written: 32 columns, UNIQUE (tesla_id, period), month-start CHECK, per-column COMMENTs written fresh, real Down that drops the table.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
+    },
+    {
+      "id": "TASK-3",
+      "title": "Add VehicleMonthlyMetrics, EndingBatteryDist and the MonthlySyncer port to analytics.go",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Added EndingBatteryDist, VehicleMonthlyMetrics, MonthlySyncer and NewMonthlySyncer. The newMonthlySyncer forward reference is left unresolved on purpose for the next wave.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
+    },
+    {
+      "id": "TASK-4",
+      "title": "New monthly_figures.go: the pure derivation of the three buckets",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "monthly_figures.go plus its offline test for T-PURE-1..3. Owner ran the test and reported it passing.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
+    },
+    {
+      "id": "TASK-5",
+      "title": "Add the two queries to query.sql and run make sqlc",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-1",
+        "TASK-2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Both queries added to query.sql and make sqlc ran clean. Generated VehicleMonthlyMetric, UpsertVehicleMonthlyMetricParams and VehicleMetricsForVehicleAndMonthRow.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
+    },
+    {
+      "id": "TASK-6",
+      "title": "Add the pgtype.Numeric and JSONB mapping helpers to mapping.go",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Added the JSON and pgtype.Numeric conversion pairs to mapping.go, matching the file's one-pair-per-type convention. pgtype stays inside this file.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
+    },
+    {
+      "id": "TASK-7",
+      "title": "New monthly_sync.go: the SyncMonth use case",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-4",
+        "TASK-5",
+        "TASK-6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:59:30Z",
+      "completed_at": "2026-09-19T00:02:30Z",
+      "duration_seconds": 180,
+      "notes": "Created monthly_sync.go: monthlySyncer, newMonthlySyncer and SyncMonth. Copies capacity only on found and non-nil. Zero-fills the Ext and SC fields. Takes Period, CreatedAt and UpdatedAt from the returned row.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "cost_usd_delta": 2.76,
+        "approx": true,
+        "note": "one serial worker for two tasks; the wave delta is copied onto each"
+      }
+    },
+    {
+      "id": "TASK-8",
+      "title": "Add loggingMonthlySyncer to query_log.go",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:50:54Z",
+      "completed_at": "2026-09-18T23:57:03Z",
+      "duration_seconds": 369,
+      "notes": "Added loggingMonthlySyncer to query_log.go, mirroring loggingMonthlyCapacityReader.",
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 3.81,
+        "approx": true,
+        "note": "one serial worker for six tasks; the wave delta is copied onto each"
+      }
+    },
+    {
+      "id": "TASK-9",
+      "title": "Integration tests against the design.md Test Contract",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-5",
+        "TASK-7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-19T00:03:30Z",
+      "completed_at": "2026-09-19T00:09:11Z",
+      "duration_seconds": 341,
+      "notes": "New db_monthly_sync_integration_test.go implementing T1-T6. Each test purges its own tesla_id before seeding and registers t.Cleanup. Owner ran the tests and reported them passing.",
+      "budget": {
+        "five_hour_pct_start": 18,
+        "five_hour_pct_end": 28,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "final wave: one worker for TASK-9 plus the leader's two doc tasks, run at the same time"
+      }
+    },
+    {
+      "id": "TASK-10",
+      "title": "Update internal/analytics/AGENTS.md",
+      "module": "analytics",
+      "depends_on": [
+        "TASK-3",
+        "TASK-7"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-18T23:59:30Z",
+      "completed_at": "2026-09-19T00:02:30Z",
+      "duration_seconds": 180,
+      "notes": "Updated AGENTS.md: charging.MonthlyCapacityReader added to allowed imports, MonthlySyncer row added to the port table, vehicle_monthly_metrics added to data ownership.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "cost_usd_delta": 2.76,
+        "approx": true,
+        "note": "one serial worker for two tasks; the wave delta is copied onto each"
+      }
+    },
+    {
+      "id": "TASK-11",
+      "title": "Check kkpa/context/ guides this change invalidates",
+      "module": "platform",
+      "depends_on": [
+        "TASK-3",
+        "TASK-7"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-19T00:03:30Z",
+      "completed_at": "2026-09-19T00:09:11Z",
+      "duration_seconds": 341,
+      "notes": "Extended the vehicle-monthly-metrics KB guide to cover both tables. Also fixed INDEX.md (stale \"today one metric\") and the vehicle-metrics entity guide, whose ownership claim was already wrong before this change.",
+      "budget": {
+        "five_hour_pct_start": 18,
+        "five_hour_pct_end": 28,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "final wave: one worker for TASK-9 plus the leader's two doc tasks, run at the same time"
+      }
+    },
+    {
+      "id": "TASK-12",
+      "title": "Check the root README.md structure tables",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-19T00:03:30Z",
+      "completed_at": "2026-09-19T00:09:11Z",
+      "duration_seconds": 341,
+      "notes": "README edited after all: added the vehicle_monthly_metrics row to the data-ownership table and MonthlySyncer to the Architecture row. The task text guessed no edit was needed; that guess was wrong.",
+      "budget": {
+        "five_hour_pct_start": 18,
+        "five_hour_pct_end": 28,
+        "cost_usd_delta": 4.1,
+        "approx": true,
+        "note": "final wave: one worker for TASK-9 plus the leader's two doc tasks, run at the same time"
+      }
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review tier 2 of RM67 on branch ft/RM67-MAG-73-vehicle-monthly-metrics-table. Code diff base: 2d4477c..HEAD (five commits: artifacts, wave 1, wave 2, wave 3, the verify record). Validate: (1) module-boundary compliance - internal/analytics must reach internal/charging only through public ports, never its db or internals; (2) every doc-pack convention, and the km/C/PSI display-unit and America/Bogota clock rules; (3) spec and tasks coverage - all 12 tasks, and nothing from the 'Not in this change' list was done; (4) the DB objects match the design the OWNER confirmed: the three cost columns must be NUMERIC(14,2) (RD11), and the copied capacity must keep TWO states, capacity_kwh plus capacity_measured, with no third column (RD12); (5) the integration tests assert the expected values design.md's Test Contract authored BEFORE the implementation, not whatever the code produces - this is the main anti-gaming check here; (6) Performance-Profile compliance; (7) no weakened criteria, no self-approved statuses, no edited task or contract text. Known leader concern to judge, not a blocker: db_monthly_sync_integration_test.go reuses tesla_id 555001 in three test functions. Safe today because none call t.Parallel() and each purges first; fragile if anyone adds t.Parallel(). SIGNALS: go build, go vet, gofmt -l, make lint, make naming-guard, make boundary-guard, make tz-guard, make archive-guard, make migration-boundary-guard, make tenancy-guard, make delta-guard, make vehicleref-guard were ASSISTANT-run and clean. The TEST SUITE was run by the OWNER, who reported all analytics tests passing. Judge test quality by READING the tests; do not run them.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-19T02:03:23Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/analytics/mapping.go: pgNumericFromFloat64's comment is 9 lines for a 4-line function. Every sibling helper in this file (pgFloat8FromPtr, ptrIntFromPg, etc.) keeps its comment to 2-3 lines. Shorten it.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/analytics/db_monthly_sync_integration_test.go file header says 'every test below uses its own tesla_id', but T1, T3 and T6 all share tesla_id 555001 (matches design.md's Test Contract, so this is correct code -- only the header comment is wrong). Fix the sentence so a future reader does not add t.Parallel() trusting a false claim of full isolation.",
+            "status": "open"
+          }
+        ],
+        "notes": "Reviewed diff 2d4477c..HEAD. Boundary clean, both owner-confirmed DB points honored (NUMERIC(14,2) costs, two-state capacity), all 12 tasks done, Not-in-this-change list respected, Test Contract T1-T6 and T-PURE-1-3 checked value by value against design.md and matched exactly. Shared tesla_id 555001 across T1/T3/T6 is safe today (no t.Parallel(), each test purges first) and is the design's own fixture choice, not a shortcut -- accepted, not a blocker."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-L1",
+      "at": "2026-09-18T23:35:59Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate passed. The 32-column schema is approved, with the three cost columns changed to NUMERIC(14,2) (roadmap RD11).",
+      "why": "Owner saw the full schema, the rationale and the index plan. The cost type was the one change asked for.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L2",
+      "at": "2026-09-18T23:35:59Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The copied capacity keeps two states, not three (roadmap RD12).",
+      "why": "Owner accepted that 'no row' and 'thin month' both store capacity_measured=false.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L3",
+      "at": "2026-09-18T23:57:03Z",
+      "scope": "TASK-12",
+      "made_by": "autopilot",
+      "decision": "TASK-12's guess was wrong: the root README DOES need an edit. The edit is deferred to the final wave, after TASK-7 fixes the port shape.",
+      "why": "The data-ownership table lists every analytics table by name. Writing the row before MonthlySyncer is final would mean writing it twice.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L4",
+      "at": "2026-09-19T00:02:30Z",
+      "scope": "TASK-11",
+      "made_by": "autopilot",
+      "decision": "Extend kkpa/context/workflows/vehicle-monthly-metrics.md to cover both tables, rather than splitting it into a second guide.",
+      "why": "The guide is already titled 'vehicle monthly metrics'. A reader searching that name must reach analytics.vehicle_monthly_metrics, not a charging-only guide.",
+      "covered_by": null
+    },
+    {
+      "id": "D-L5",
+      "at": "2026-09-19T00:09:11Z",
+      "scope": "TASK-11",
+      "made_by": "autopilot",
+      "decision": "Also fixed kkpa/context/INDEX.md and entities/vehicle-metrics/guide.md, which TASK-11 did not name.",
+      "why": "The entity guide claimed analytics owns two tables and NOTHING else. That was already false (charge_gaps) and this change made it worse.",
+      "covered_by": null
+    },
+    {
+      "id": "D-U3",
+      "at": "2026-09-19T01:56:21Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The owner ran the analytics tests and reported all of them passing. TASK-4 and TASK-9 move from awaiting-user-verification to done.",
+      "why": "The Test-Execution-Policy reserves the suite to the owner. This pass is the owner's report, not the assistant's claim.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-18T23:35:59Z",
+      "agent": "leader",
+      "event": "artifacts created by the analytics worker and validated (openspec validate --strict passed); Spanish briefing posted; database design gate ran with the owner and returned one change (RD11), which the same worker applied; leader marked TASK-1, TASK-11 and TASK-12 leader-owned - sqlc.yaml, kkpa/context/ and README.md are outside the analytics sandbox"
+    },
+    {
+      "at": "2026-09-18T23:36:21Z",
+      "agent": "leader",
+      "event": "budget checkpoint at the wave-0/wave-1 boundary, BEFORE any dispatch: five_hour 95% (threshold 90), context 31% (threshold 40), seven_day 92%, five_hour_resets_at 1789775400 (2026-09-18 18:50 -05). Budget-only trip, so no auto-resume was armed: the 7-day bucket is at 92% and spending more is the owner's call, not autopilot's. All 12 tasks still pending - nothing was dispatched."
+    },
+    {
+      "at": "2026-09-18T23:50:54Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session; owner chose to run all 4 waves despite seven_day 92%; five_hour bucket had reset to 1%, context 12%. TASK-1 done by the leader (sqlc.yaml is outside the analytics sandbox). Dispatching wave 1 as ONE serial analytics worker on claude-sonnet: TASK-2, TASK-3, TASK-5, TASK-4, TASK-6, TASK-8 in dependency order."
+    },
+    {
+      "at": "2026-09-18T23:57:03Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled. Six tasks by one serial analytics worker. Leader verified independently: go build fails ONLY on undefined newMonthlySyncer (by design, TASK-7 supplies it), gofmt clean, 12 files changed. Worker reported all six done; leader corrected TASK-4 to awaiting-user-verification because its deliverable includes an unrun unit test. Worker's reported per-task timestamps were placeholders and were replaced with the real dispatch window. Budget five_hour 1 to 11 pct, seven_day 93 pct, context 14 pct."
+    },
+    {
+      "at": "2026-09-18T23:59:30Z",
+      "agent": "leader",
+      "event": "wave 1 committed as 6bc057a. Dispatching wave 2 as one serial analytics worker on claude-sonnet: TASK-7 then TASK-10. No checkpoint: context 14 pct, five_hour 11 pct, and the owner chose to run all four waves in this session."
+    },
+    {
+      "at": "2026-09-19T00:02:30Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled. TASK-7 and TASK-10 by one serial analytics worker. Leader verified independently: go build and go vet both exit 0, gofmt clean. The wave-1 forward reference is resolved. Worker's reported start time was again a placeholder and was replaced with the real dispatch window. Budget five_hour 11 to 18 pct, seven_day 94 pct, context 16 pct."
+    },
+    {
+      "at": "2026-09-19T00:03:30Z",
+      "agent": "leader",
+      "event": "wave 2 committed as 110c576. Final wave dispatched: analytics worker on claude-sonnet for TASK-9 (the DB-gated integration tests), leader working TASK-11 and TASK-12 in parallel. The file sets are disjoint, so the two cannot collide. The worker was warned about the shared-Postgres row-leak trap seen in earlier DB tests."
+    },
+    {
+      "at": "2026-09-19T00:09:11Z",
+      "agent": "leader",
+      "event": "final wave reconciled. TASK-9 by the analytics worker; TASK-11 and TASK-12 by the leader at the same time, on disjoint files. Leader verified: go build and go vet exit 0, gofmt clean, six test functions cover T1-T6, archive-guard clean. Every task is now done or awaiting-user-verification. Change status moves to applied. Next: the owner runs the suite, then the reviewer gate."
+    },
+    {
+      "at": "2026-09-19T01:56:21Z",
+      "agent": "leader",
+      "event": "THE OWNER ran the analytics tests and reported all passing. Verified by the user, not by the assistant. TASK-4 and TASK-9 move to done and the change status becomes verified. The reviewer gate may now run."
+    },
+    {
+      "at": "2026-09-19T02:05:00Z",
+      "agent": "leader",
+      "event": "reviewer approved with two minor findings. Leader triaged both, accepted both, and fixed them. F1: shortened pgNumericFromFloat64's comment from 9 lines to 5, per the comment-shorter-than-the-code rule. F2: the test file header claimed every test uses its own tesla_id, which was false for T1, T3 and T6; rewritten to state the shared id and to forbid t.Parallel(). Leader verified design.md's Test Contract does assign 555001 to those three, so the tests follow the contract and only the comment was wrong. go build, go vet and gofmt clean after both fixes."
+    }
+  ]
+}

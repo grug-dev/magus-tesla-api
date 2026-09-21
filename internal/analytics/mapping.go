@@ -10,6 +10,8 @@
 package analytics
 
 import (
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -152,4 +154,52 @@ func ptrTimeFromPg(v pgtype.Timestamptz) *time.Time {
 	}
 	t := v.Time
 	return &t
+}
+
+// --- vehicle_monthly_metrics pg-conversion helpers ---
+
+// jsonFromEndingBatteryDist marshals an EndingBatteryDist for one of the
+// three *_ending_battery_dist JSONB columns. The struct's own json tags
+// already match the stored bucket keys, so this never fails on a value
+// this module produces.
+func jsonFromEndingBatteryDist(d EndingBatteryDist) []byte {
+	b, _ := json.Marshal(d)
+	return b
+}
+
+// endingBatteryDistFromJSON unmarshals one of the three
+// *_ending_battery_dist JSONB columns back into EndingBatteryDist. Returns
+// an error on malformed JSON rather than silently returning the zero
+// value, which would look identical to a genuine all-zero distribution.
+func endingBatteryDistFromJSON(b []byte) (EndingBatteryDist, error) {
+	var d EndingBatteryDist
+	if err := json.Unmarshal(b, &d); err != nil {
+		return EndingBatteryDist{}, err
+	}
+	return d, nil
+}
+
+// pgNumericFromFloat64 converts a float64 into a NUMERIC bind value by
+// scanning its decimal string -- the only pgx/v5 path for a plain float64.
+// Costs are sums of finite floats, so a Scan error means an upstream bug,
+// never a real value. It returns the zero Numeric instead of an error,
+// which would widen this signature for a case the writer cannot reach.
+func pgNumericFromFloat64(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+	_ = n.Scan(strconv.FormatFloat(f, 'f', -1, 64))
+	return n
+}
+
+// float64FromPgNumeric converts a pgtype.Numeric back to float64, for
+// reading UpsertVehicleMonthlyMetric's RETURNING row. Returns an error
+// instead of silently truncating: pgtype.Numeric can represent values
+// float64 cannot hold exactly (e.g. NaN/Infinity encodings) -- a case this
+// table's own writer never produces, but this function does not assume
+// that of every future caller.
+func float64FromPgNumeric(v pgtype.Numeric) (float64, error) {
+	f8, err := v.Float64Value()
+	if err != nil {
+		return 0, err
+	}
+	return f8.Float64, nil
 }

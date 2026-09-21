@@ -8,11 +8,12 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/logging"
 )
 
-// This file holds five logging decorators over this module's nightly-path
+// This file holds six logging decorators over this module's nightly-path
 // seams: Reader (one of its 4 methods), SessionWriter (its single method),
 // SuperchargerSessionAnalyticsReader (2 of its 3 methods),
-// MirrorWatermarkStore (both methods), and MonthlyCapacityCalculator (its
-// single method). Grouped in one file for the same reason
+// MirrorWatermarkStore (both methods), MonthlyCapacityCalculator (its
+// single method), and MonthlyCapacityReader (its single method). Grouped in
+// one file for the same reason
 // internal/telemetry/query_log.go and internal/analytics/query_log.go each
 // group their own decorators together — they instrument one feature, the
 // nightly cycle's read/write path through this module.
@@ -250,4 +251,42 @@ func (l *loggingMonthlyCapacityCalculator) Calculate(ctx context.Context, period
 	logging.Note("MonthlyCapacityCalculator", "Calculate", "charging query: period=%s tesla_id=%s found=%d measured=%d thin=%d",
 		period.Format("2006-01"), scope, result.VehiclesFound, result.Measured, result.Thin)
 	return result, err
+}
+
+// --- loggingMonthlyCapacityReader ---
+
+// loggingMonthlyCapacityReader wraps the public MonthlyCapacityReader port.
+// Its only caller is the nightly cycle, the same class of caller
+// MirrorWatermarkStore and MonthlyCapacityCalculator are already logged for
+// in this file.
+type loggingMonthlyCapacityReader struct {
+	inner MonthlyCapacityReader
+}
+
+// newLoggingMonthlyCapacityReader constructs a loggingMonthlyCapacityReader
+// wrapping inner.
+func newLoggingMonthlyCapacityReader(inner MonthlyCapacityReader) *loggingMonthlyCapacityReader {
+	return &loggingMonthlyCapacityReader{inner: inner}
+}
+
+// Compile-time assertion: *loggingMonthlyCapacityReader must satisfy the full
+// MonthlyCapacityReader interface. A future method added to it without a
+// matching explicit override here fails to compile.
+var _ MonthlyCapacityReader = (*loggingMonthlyCapacityReader)(nil)
+
+// CapacityForMonth implements MonthlyCapacityReader, logging AFTER
+// delegating so the logged outcome reflects the actual result.
+func (l *loggingMonthlyCapacityReader) CapacityForMonth(ctx context.Context, teslaID int64, month time.Time) (*float64, bool, error) {
+	capacityKWh, found, err := l.inner.CapacityForMonth(ctx, teslaID, month)
+	// %v on a *float64 prints the pointer address, not the number, so the
+	// value is unwrapped here. A nil capacity logs as measured=false.
+	measured := capacityKWh != nil
+	value := 0.0
+	if measured {
+		value = *capacityKWh
+	}
+	logging.Note("MonthlyCapacityReader", "CapacityForMonth",
+		"charging query: tesla_id=%d month=%s found=%t measured=%t capacity_kwh=%.2f",
+		teslaID, month.Format("2006-01"), found, measured, value)
+	return capacityKWh, found, err
 }

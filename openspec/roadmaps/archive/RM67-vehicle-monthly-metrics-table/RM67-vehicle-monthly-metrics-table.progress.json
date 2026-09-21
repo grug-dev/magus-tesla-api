@@ -1,0 +1,326 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM67-vehicle-monthly-metrics-table",
+  "intention": "analytics.vehicle_monthly_metrics holds one row per vehicle per month: distance, efficiency and battery use split into all days / weekdays / weekends, the month's external-charge and supercharger totals with three ending-battery distributions, and the pack capacity charging measured that month. One idempotent use case takes (tesla_id, period) and rewrites the row, so any port or process can re-sync one month for one car. The nightly job calls it for the current and previous month. Linear MAG-73.",
+  "request": "/kkpa-pickup-linear-ticket MAG-73 — Analytics monthly metrics table: distance, efficiency and copied capacity. Build the wider monthly metrics table in analytics (backlog item 29, deferred from MAG-32 / RM52 by RD12). One row per vehicle per month storing: total distance from vehicle_metrics.distance_traveled_km_calc plus weekday/weekend splits and per-day averages; efficiency from km_per_pct_calc plus weekday/weekend; battery consumed from consumed_pct plus weekday/weekend; effective capacity COPIED from charging.monthly_effective_capacity.effective_capacity_kwh (a copy, not a read-time join); external-charge energy, cost and session counts split by charger type AC/DC with an ext_ prefix; supercharger energy, cost and session counts with an sc_ prefix; and a JSONB per source holding session counts bucketed by ending battery level (0-20/20-40/40-60/60-80/80-100) for a bar-style view. Runs as a new step 5 in internal/app/processor.go, after step 4, because it reads both step 3's vehicle_metrics and step 4's monthly_effective_capacity. Must be a new, well-named Go type built with the golang skills, isolated and easy to test, taking a single tesla_id and a period (YYYY-MM) as a hexagonal input port, so a period can be re-synced on demand. The ticket asked for /grill-me on five open questions before any artifact: the efficiency formula, the refresh rule when analytics recalculates old months, the month boundary given metric_date, what happens when the capacity is NULL, and the final table name.",
+  "autopilot": false,
+  "status": "complete",
+  "created_at": "2026-09-18T19:05:41Z",
+  "updated_at": "2026-09-21T11:35:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM67-MAG-73-vehicle-monthly-metrics-table",
+    "base": "main",
+    "created_at": "2026-09-18T19:05:41Z",
+    "ticket": "MAG-73",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Full ticket scope, four tiers. Tier 2's single migration creates EVERY column, including the ext_*, sc_* and JSONB columns tier 3 fills.",
+      "why": "The owner chose the whole ticket over a smaller cut. One migration settles the table shape once; an unfilled column reads as 0, which RD4 makes valid."
+    },
+    {
+      "id": "RD2",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Monthly efficiency is SUM(distance_traveled_km_calc) / SUM(consumed_pct) over days with consumed_pct > 0. Same rule for the weekday and weekend figures. km_per_pct_calc itself is unchanged.",
+      "why": "An average of daily ratios weighs a 5 km day like a 300 km day. Owner's worked example: avg of ratios 3.5, real figure 305/55 = 5.5."
+    },
+    {
+      "id": "RD3",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The nightly job syncs TWO periods per vehicle every night: the current month and the previous month. Supersedes the ticket's 'first day of the month only'. The current month's row is knowingly incomplete and carries no completeness flag.",
+      "why": "Cost stays flat at 2 x vehicles per night whatever the history length. Owner raised the many-vehicles cost and proposed this window."
+    },
+    {
+      "id": "RD4",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Every column is NOT NULL DEFAULT 0. No nullable columns.",
+      "why": "The ticket's literal text, confirmed after the owner saw the cost: it inverts the module's sparse convention, so a 0 efficiency cannot be told from no data by value alone. RD5 recovers that."
+    },
+    {
+      "id": "RD5",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "A row is written for every month in the refresh window, including a month with no input, and the table carries at least one count column recording how many vehicle_metrics days fed the row.",
+      "why": "RD4 removed NULL as the unknown signal, so a count carries it. charging.monthly_effective_capacity already does this with candidate_count / sample_count."
+    },
+    {
+      "id": "RD6",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "The month bucket is metric_date itself: March is metric_date BETWEEN '2026-03-01' AND '2026-03-31'. No day shifting. Weekday/weekend come from the ISO day of week of that DATE; weekend is Saturday and Sunday.",
+      "why": "Not a choice. internal/analytics/AGENTS.md forbids re-projecting a returned Date; metric_date already carries the day-before adjustment."
+    },
+    {
+      "id": "RD7",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The table is analytics.vehicle_monthly_metrics, not analytics.monthly_metrics.",
+      "why": "It sits beside analytics.vehicle_metrics and the pair reads by itself. It is also the name RM52's RD12 recorded when it deferred this work."
+    },
+    {
+      "id": "RD8",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "All monthly maths happens in Go over the fetched rows, in one place. One query returns the month's vehicle_metrics rows; the use case computes all-days, weekday and weekend figures from that slice.",
+      "why": "The charging half must be Go anyway, since it arrives as []Entry and []Session through charging's ports. SQL would split one month's maths across two places. A month is ~30 rows."
+    },
+    {
+      "id": "RD9",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "Only ONE new charging port is added (tier 1): the stored monthly_effective_capacity row for one exact (tesla_id, month). External charges use Reader.ListEntriesByVehicleBetween and supercharger sessions use SessionReader.ListSessionsByVehicleBetween, both of which already exist.",
+      "why": "Verified in code. The ticket implied several new ports. Adding an existing read would widen charging's public surface for nothing, and the planned microservice split carries every port."
+    },
+    {
+      "id": "RD10",
+      "at": "2026-09-18T19:05:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The new Go type must not end in Processor, Manager, Handler, Helper, Data, Info, Object or Thing (make naming-guard fails new ones). It is written using the golang-naming, golang-code-style, golang-design-patterns, golang-data-structures and golang-documentation skills, additive to ai/go-conventions.md.",
+      "why": "The ticket calls it a 'processor', which the guard rejects. The owner asked for the golang skills explicitly; they are not part of the pipeline's Doc-Pack by default."
+    },
+    {
+      "id": "RD11",
+      "at": "2026-09-18T23:31:33Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The three cost columns (ext_ac_cost, ext_dc_cost, sc_cost) are NUMERIC(14,2), not double precision. Binds tier 3, which computes them.",
+      "why": "They sum manual_charge_entries.price, which is already NUMERIC(14,2). supercharger_sessions.total_cost's own COMMENT calls float questionable for money. The table is empty now, so the fix is free."
+    },
+    {
+      "id": "RD12",
+      "at": "2026-09-18T23:31:33Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The copied capacity keeps TWO states: capacity_kwh plus capacity_measured. No third column for 'no row' versus 'thin month'.",
+      "why": "Owner accepted the loss after seeing it. The tier 1 port still reports three states; only the stored copy collapses them."
+    },
+    {
+      "id": "RD13",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "An external charge with ChargingType nil feeds neither ext_ac_* nor ext_dc_*. It is skipped: no energy, no cost, no count, no bucket. No new column.",
+      "why": "Owner chose the smallest shape after seeing the alternative. ChargingType is optional for every status, so nil stays possible; 0 of the 15 stored entries are untyped today."
+    },
+    {
+      "id": "RD14",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "A supercharger session belongs to the month of its ChargeStopDateTime read in the platform zone. The fetch widens one day each side and Go drops the sessions outside the month. External charges keep ChargedOn's own date.",
+      "why": "Bogota is UTC-5, so an evening session falls on the next UTC day. The port's window is UTC calendar days. Zero of 13 stored sessions differ today, but the case repeats every month end."
+    },
+    {
+      "id": "RD15",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "currency is always written 'COP' and every cost is summed, whatever the record's own currency. A month that mixes currencies gets a mixed total.",
+      "why": "Owner chose the simplest rule after seeing the cost. Tier 2 D3 left it open. All 15 entries and 13 sessions use one currency today."
+    },
+    {
+      "id": "RD16",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "autopilot",
+      "decision": "Every external charge counts, whatever its Status. No IN_PROGRESS filter.",
+      "why": "IN_PROGRESS is the value the form sends when it sends none: 9 of 15 stored entries, 8 of them with real energy and price. Filtering would drop most of the month."
+    },
+    {
+      "id": "RD17",
+      "at": "2026-09-19T16:17:28Z",
+      "scope": "tier:3",
+      "made_by": "autopilot",
+      "decision": "A charge with no EndBatteryPct counts in the entry/session count but enters no bucket, so the distribution can sum to less than the count. Buckets are [0,20), [20,40), [40,60), [60,80), [80,100].",
+      "why": "Same skip rule as RD13, and the count already carries what the bucket cannot (tier 2 D7). Closed edges would double-count 20, 40, 60 and 80."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM67-charging-add-monthly-capacity-read",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers, reviewer), claude-opus-5 (leader)",
+      "started_at": "2026-09-18T19:35:00Z",
+      "completed_at": "2026-09-18T21:32:45Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 25,
+        "five_hour_pct_end": 42,
+        "cost_usd_delta": 7.3,
+        "approx": true,
+        "note": "whole tier: 2 worker dispatches, 2 reviewer rounds, leader integration"
+      },
+      "notes": "Shipped charging.MonthlyCapacityReader.CapacityForMonth. Three states: no row, row with no measured capacity, row with one. Month normalized in SQL. No migration. One review round rejected a stale generated comment."
+    },
+    {
+      "id": 2,
+      "change": "RM67-analytics-add-vehicle-monthly-metrics",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers, reviewer), claude-opus-5 (leader)",
+      "started_at": "2026-09-18T21:48:44Z",
+      "completed_at": "2026-09-19T02:10:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 1,
+        "five_hour_pct_end": 29,
+        "cost_usd_delta": 11.9,
+        "approx": true,
+        "note": "whole tier: 3 worker dispatches, 1 reviewer round, leader docs and integration"
+      },
+      "notes": "Shipped analytics.vehicle_monthly_metrics (32 columns) and MonthlySyncer.SyncMonth. Costs NUMERIC(14,2) per RD11, capacity two-state per RD12. ext_/sc_ columns written as zeros for tier 3. One review round, two minor comment findings. Owner ran the tests and reported them passing."
+    },
+    {
+      "id": 3,
+      "change": "RM67-analytics-add-monthly-charging-aggregates",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers, reviewer), claude-opus-5 (leader)",
+      "started_at": "2026-09-19T16:41:11Z",
+      "completed_at": "2026-09-21T09:52:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 40,
+        "cost_usd_delta": 15.34,
+        "approx": true,
+        "note": "whole tier including the resumed dead wave 1: 3 worker dispatches, 2 reviewer rounds, leader integration"
+      },
+      "notes": "Shipped the real ext_*, sc_* and three JSONB ending-battery distributions. Existing charging ports only, no migration. One review round: 3 findings, all accepted. Owner ran make test and make test-with-db and reported both passing."
+    },
+    {
+      "id": 4,
+      "change": "RM67-app-add-monthly-metrics-step",
+      "module": "app",
+      "optional": false,
+      "depends_on": [
+        3
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers), claude-opus-5 (leader)",
+      "started_at": "2026-09-21T10:10:00Z",
+      "completed_at": "2026-09-21T11:35:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 20.9,
+        "approx": true,
+        "note": "whole tier: 3 worker dispatches (artifacts, code+tests, docs), 2 reviewer rounds, leader integration and archive"
+      },
+      "notes": "Shipped step 5 of the nightly cycle: analytics.MonthlySyncer called twice per vehicle every night, current and previous month. No migration, no new port. One guard fix after the owner's make check caught tz-guard. Two review rounds, 4 minor comment findings, all accepted. Owner ran make check and reported it passing."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-18T19:05:41Z",
+      "agent": "leader",
+      "event": "roadmap RM67 created from MAG-73 after the Step 2 grill-me interview; 10 cross-tier decisions recorded; autopilot off because the pickup payload said HALT AFTER STEP 4"
+    },
+    {
+      "at": "2026-09-18T19:35:00Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created by the charging worker and validated (openspec validate --strict passed); database design gate evaluated and does NOT fire for this tier (no DB object added, only a SELECT query); leader appended task 3.3 for the KB guide, which the worker's sandbox could not reach"
+    },
+    {
+      "at": "2026-09-18T21:32:45Z",
+      "agent": "leader",
+      "event": "tier 1 archived to openspec/changes/archive/charging/2026-09-18-RM67-charging-add-monthly-capacity-read; delta spec synced into openspec/specs/monthly-effective-capacity; leader also fixed that spec's Purpose, which the archive sync never touches; tier 2 is now unblocked"
+    },
+    {
+      "at": "2026-09-18T21:48:44Z",
+      "agent": "leader",
+      "event": "tier 2 started; no fresh Step 2 interview - RD1-RD10 bind its design choices and no NEW decision arose; the column list and index plan go through the database design gate after artifacts; dispatched analytics worker on claude-sonnet for artifact creation; budget at dispatch five_hour 59%, context 24%"
+    },
+    {
+      "at": "2026-09-18T23:31:33Z",
+      "agent": "leader",
+      "event": "database design gate ran with the owner on tier 2's 32-column schema; approved with ONE change - cost columns move to NUMERIC(14,2) (RD11); capacity stays two-state (RD12); worker re-dispatched to revise the artifacts"
+    },
+    {
+      "at": "2026-09-19T02:10:00Z",
+      "agent": "leader",
+      "event": "tier 2 archived to openspec/changes/archive/analytics/2026-09-19-RM67-analytics-add-vehicle-monthly-metrics; new capability spec created at openspec/specs/vehicle-monthly-metrics (2 requirements, Purpose included since the capability is new). The CLI reported 9/12 tasks because the three leader-owned checkboxes were never ticked; the leader ticked them before the folder left the working tree, so the archived record is true. Tier 3 is now unblocked. Autopilot is OFF, so tier 3 does not start by itself."
+    },
+    {
+      "at": "2026-09-19T16:17:28Z",
+      "agent": "leader",
+      "event": "tier 3 started on user 'continue'; Step 2 interview ran on the three points RD1-RD12 left open (untyped charges, month edge zone, mixed currency) and recorded RD13-RD15; RD16-RD17 decided by the leader from the dev database and recorded; budget at start five_hour 4%, context 10%"
+    },
+    {
+      "at": "2026-09-19T16:41:11Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts created by the analytics worker and validated (openspec validate --strict passed); database design gate does NOT fire - no schema object changes, tier 2's migration already created every column; Spanish briefing given and the owner said continue"
+    },
+    {
+      "at": "2026-09-21T09:52:30Z",
+      "agent": "leader",
+      "event": "tier 3 archived to openspec/changes/archive/analytics/2026-09-21-RM67-analytics-add-monthly-charging-aggregates; delta synced into openspec/specs/vehicle-monthly-metrics (3 requirements added); leader moved the folder under archive/analytics (the CLI drops it at the archive root) and fixed that spec's Purpose, which the sync never touches. Tier 4 is now unblocked. Autopilot is OFF, so tier 4 does not start by itself"
+    },
+    {
+      "at": "2026-09-21T10:10:00Z",
+      "agent": "leader",
+      "event": "tier 4 started on user 'resume'; no fresh Step 2 interview - RD3 fixes the two-period nightly window, RD6 the month bucket, RD10 the naming rules, and the roadmap row fixes the platform zone; no NEW decision arose; no database design gate (tier 4 adds no schema object); dispatched app worker on claude-sonnet for artifact creation; budget at dispatch five_hour 44%, context 11%"
+    },
+    {
+      "at": "2026-09-21T10:25:00Z",
+      "agent": "leader",
+      "event": "tier 4 artifacts created by the app worker and validated (openspec validate --strict passed); database design gate does NOT fire - the change adds no schema object and reads no database directly; Spanish briefing given and the owner said continue; leader flagged that design.md's illustrative code comments carry RD/design.md references, which the project's comment rule forbids in real code - the implementation dispatch forbids them explicitly"
+    },
+    {
+      "at": "2026-09-21T11:35:00Z",
+      "agent": "leader",
+      "event": "tier 4 archived to openspec/changes/archive/app/2026-09-21-RM67-app-add-monthly-metrics-step; that was the last tier, so RM67 is COMPLETE and both roadmap files move to openspec/roadmaps/archive/RM67-vehicle-monthly-metrics-table/; the .work-counter is untouched, as archiving never changes it"
+    }
+  ]
+}

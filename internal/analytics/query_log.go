@@ -155,3 +155,32 @@ func (l *loggingGapWriter) ReconcileWindow(ctx context.Context, teslaID int64, s
 		teslaID, start.UTC().Format("2006-01-02"), end.UTC().Format("2006-01-02"), len(flagged))
 	return l.inner.ReconcileWindow(ctx, teslaID, start, end, flagged)
 }
+
+// --- loggingMonthlySyncer ---
+
+// loggingMonthlySyncer wraps the public MonthlySyncer port and logs its
+// single method -- the nightly cycle's only write to
+// vehicle_monthly_metrics.
+type loggingMonthlySyncer struct {
+	inner MonthlySyncer
+}
+
+// newLoggingMonthlySyncer constructs a loggingMonthlySyncer wrapping inner.
+func newLoggingMonthlySyncer(inner MonthlySyncer) *loggingMonthlySyncer {
+	return &loggingMonthlySyncer{inner: inner}
+}
+
+// Compile-time assertion: *loggingMonthlySyncer must satisfy the full
+// MonthlySyncer interface. A future method added to it without a matching
+// explicit override here fails to compile.
+var _ MonthlySyncer = (*loggingMonthlySyncer)(nil)
+
+// SyncMonth implements MonthlySyncer, logging AFTER delegating so the
+// logged AllDayCount/CapacityMeasured reflect the row actually stored.
+func (l *loggingMonthlySyncer) SyncMonth(ctx context.Context, teslaID int64, period time.Time) (VehicleMonthlyMetrics, error) {
+	result, err := l.inner.SyncMonth(ctx, teslaID, period)
+	logging.Note("MonthlySyncer", "SyncMonth",
+		"analytics query: tesla_id=%d period=%s all_day_count=%d capacity_measured=%t",
+		teslaID, period.Format("2006-01"), result.AllDayCount, result.CapacityMeasured)
+	return result, err
+}

@@ -141,7 +141,13 @@
 | `supercharger session battery percentages` (the two `charging.Session` % columns + `battery_pct_source`; nil ⇒ `—`) | `workflows/supercharger-stats-read.md` |
 | `supercharger session status` (the three-state `charging.Session.Status`: `IN_PROGRESS` / `DONE_CALCULATED` / `DONE`, recomputed on every correction) | `workflows/supercharger-stats-read.md` |
 | `supercharger status badge` (2nd-column `ui.Badge` + a `ui.Dot`; Badge Kind `primary`/`neutral`/`ghost`, Dot Variant `success`/`neutral`/`warning`; gateway-read-only) | `workflows/supercharger-stats-read.md` |
-| `vehicle monthly metrics` (the monthly per-vehicle measurement story; today one metric, the measured pack capacity) | `workflows/vehicle-monthly-metrics.md` |
+| `vehicle monthly metrics` (the monthly per-vehicle measurement story; TWO tables in two modules — the measured pack capacity in `charging`, the wider rollup in `analytics`) | `workflows/vehicle-monthly-metrics.md` |
+| `vehicle_monthly_metrics` | the `analytics` per-vehicle per-month rollup table → `workflows/vehicle-monthly-metrics.md` |
+| `monthly metrics` | synonym of `vehicle monthly metrics` → `workflows/vehicle-monthly-metrics.md` |
+| `monthly distance` | the monthly rollup's distance figures → `workflows/vehicle-monthly-metrics.md` |
+| `monthly efficiency` (a ratio of sums, never an average of daily ratios) | `workflows/vehicle-monthly-metrics.md` |
+| `weekday weekend split` | the rollup's all-days / weekdays / weekends buckets → `workflows/vehicle-monthly-metrics.md` |
+| `MonthlySyncer` / `SyncMonth` | the port that rewrites one month for one vehicle → `workflows/vehicle-monthly-metrics.md` |
 | `monthly effective capacity` (measured pack capacity per vehicle per month; median of reliable charge records, absent when evidence is thin) | `workflows/vehicle-monthly-metrics.md` |
 | `effective pack capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `measured pack capacity` | synonym of `monthly effective capacity` → `workflows/vehicle-monthly-metrics.md` |
@@ -151,6 +157,15 @@
 | `capacity backfill` | re-run one month — `cmd/monthly-capacity` / `make cmd-monthly-capacity` → `workflows/vehicle-monthly-metrics.md` |
 | `cmd/monthly-capacity` | synonym of `capacity backfill` → `workflows/vehicle-monthly-metrics.md` |
 | `monthly_effective_capacity` | the table → `workflows/vehicle-monthly-metrics.md` |
+| `capacity for an exact month` | `workflows/vehicle-monthly-metrics.md` |
+| `monthly capacity read port` | synonym of `capacity for an exact month` → `workflows/vehicle-monthly-metrics.md` |
+| `vehicle-monthly-metrics` (the capability name, as spelled in `openspec/specs/`) | `workflows/vehicle-monthly-metrics.md` |
+| `monthly summary` | `workflows/vehicle-monthly-metrics.md` |
+| `weekday figures` | `workflows/vehicle-monthly-metrics.md` |
+| `weekend figures` | `workflows/vehicle-monthly-metrics.md` |
+| `monthly charging totals` (the month's external AC/DC and Supercharger energy, cost and counts) | `workflows/vehicle-monthly-metrics.md` |
+| `ending battery distribution` (five ranges 0-20/20-40/40-60/60-80/80-100, last edge closed) | `workflows/vehicle-monthly-metrics.md` |
+| `ext_ac` / `ext_dc` / `sc_` columns | the rollup's charging columns → `workflows/vehicle-monthly-metrics.md` |
 
 ## Architecture topics
 

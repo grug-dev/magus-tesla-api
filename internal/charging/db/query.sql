@@ -515,3 +515,20 @@ SELECT effective_capacity_kwh
    AND effective_capacity_kwh IS NOT NULL
  ORDER BY effective_period DESC
  LIMIT 1;
+
+-- name: EffectiveCapacityForPeriod :one
+-- MonthlyCapacityReader.CapacityForMonth's own read. A DIFFERENT question
+-- from LatestMeasuredCapacity above: this returns the row for the EXACT
+-- calendar month containing @month, thin or absent included -- never the
+-- newest non-NULL row across every month. Callers may pass any instant
+-- inside the target month; date_trunc normalizes it to the month's first day
+-- in SQL (matching effective_period's own CHECK (day = 1)) rather than in
+-- Go, which would need a hand-rolled UTC-midnight construction outside
+-- internal/clock. effective_capacity_kwh comes back SQL NULL when the month's
+-- evidence was too thin to measure -- :one means "no row" surfaces as
+-- pgx.ErrNoRows, which the Go caller translates to found=false, distinct from
+-- a found row whose capacity is NULL.
+SELECT effective_capacity_kwh
+  FROM charging.monthly_effective_capacity
+ WHERE tesla_id = @tesla_id
+   AND effective_period = date_trunc('month', @month::date)::date;

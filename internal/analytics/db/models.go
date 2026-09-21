@@ -103,3 +103,71 @@ type VehicleMetricWatermark struct {
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
 }
+
+// One precomputed row per (tesla_id, period): the calendar month this platform derived for one vehicle. Upsert-only, no soft delete -- running the sync again for the same pair rewrites the row.
+type VehicleMonthlyMetric struct {
+	// Surrogate key. Never referenced by any other table.
+	ID uuid.UUID
+	// The vehicle. No FK -- matches every other analytics table's convention.
+	TeslaID int64
+	// First day of the calendar month this row summarizes. Enforced by the CHECK; always written via date_trunc, never by the caller.
+	Period pgtype.Date
+	// Sum of vehicle_metrics.distance_traveled_km_calc over every computable day in the month.
+	AllDistanceKm float64
+	// Sum of vehicle_metrics.consumed_pct over every computable day in the month.
+	AllConsumedPct float64
+	// Sum of distance over sum of consumed_pct, both restricted to computable days with consumed_pct > 0. 0 when no such day exists this month.
+	AllKmPerPctCalc float64
+	// Number of computable days in the month. 0 means nothing above can be trusted.
+	AllDayCount int32
+	// Same meaning as all_distance_km, restricted to days whose period's date is Monday-Friday.
+	WeekdayDistanceKm float64
+	// Same meaning as all_consumed_pct, restricted to weekdays.
+	WeekdayConsumedPct float64
+	// Same meaning as all_km_per_pct_calc, restricted to weekdays.
+	WeekdayKmPerPctCalc float64
+	// Same meaning as all_day_count, restricted to weekdays.
+	WeekdayDayCount int32
+	// Same meaning as all_distance_km, restricted to Saturday/Sunday.
+	WeekendDistanceKm float64
+	// Same meaning as all_consumed_pct, restricted to Saturday/Sunday.
+	WeekendConsumedPct float64
+	// Same meaning as all_km_per_pct_calc, restricted to Saturday/Sunday.
+	WeekendKmPerPctCalc float64
+	// Same meaning as all_day_count, restricted to Saturday/Sunday.
+	WeekendDayCount int32
+	// Copied from charging.MonthlyCapacityReader.CapacityForMonth. 0 whenever that port did not return a measured number. Both "no row" and "a row with no measurement" collapse to capacity_kwh = 0, capacity_measured = false -- a confirmed, not an open, design choice.
+	CapacityKwh float64
+	// true only when the port returned a real, non-nil kWh figure.
+	CapacityMeasured bool
+	// The reference currency all three *_cost columns are expressed in.
+	Currency string
+	// Sum of EnergyAddedKWh over this month's external charge entries with ChargingType = AC. Zero-filled by this version; a later change computes it.
+	ExtAcEnergyKwh float64
+	// Sum of Price over the same entries. Zero-filled by this version.
+	ExtAcCost pgtype.Numeric
+	// Count of the same entries -- the disambiguator for the two columns above. Zero-filled by this version.
+	ExtAcEntryCount int32
+	// Ending-battery-percentage distribution over the same entries, five 20-point buckets. Zero-filled by this version.
+	ExtAcEndingBatteryDist []byte
+	// Same meaning as ext_ac_energy_kwh, for ChargingType = DC entries.
+	ExtDcEnergyKwh float64
+	// Same meaning and type as ext_ac_cost, for ChargingType = DC entries.
+	ExtDcCost pgtype.Numeric
+	// Same meaning as ext_ac_entry_count, for ChargingType = DC entries.
+	ExtDcEntryCount int32
+	// Same meaning as ext_ac_ending_battery_dist, for ChargingType = DC entries.
+	ExtDcEndingBatteryDist []byte
+	// Same family as ext_ac_energy_kwh, over this month's Supercharger sessions.
+	ScEnergyKwh float64
+	// Same meaning and type as ext_ac_cost, over this month's Supercharger sessions.
+	ScCost pgtype.Numeric
+	// Same family as ext_ac_entry_count, over this month's Supercharger sessions.
+	ScSessionCount int32
+	// Same family as ext_ac_ending_battery_dist, over this month's Supercharger sessions.
+	ScEndingBatteryDist []byte
+	// Set once, on the row's first INSERT; never refreshed on conflict.
+	CreatedAt pgtype.Timestamptz
+	// Refreshed to now() on every UPSERT, including a call that writes identical figures.
+	UpdatedAt pgtype.Timestamptz
+}

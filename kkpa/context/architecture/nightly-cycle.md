@@ -7,7 +7,7 @@
 ## Glossary
 
 - **Known as:** `nightly cycle`, `nightly collection`, `nightly poll`, `nightly batch`, `the poller run`, `poll run summary`
-- **Internal name:** `app.Processor.ProcessVehicleData` — the 4-step orchestration; since RM36 it also measures its own span and records one `telemetry.PollRun` per invocation through the `telemetry.RunWriter` port
+- **Internal name:** `app.Processor.ProcessVehicleData` — the 5-step orchestration; since RM36 it also measures its own span and records one `telemetry.PollRun` per invocation through the `telemetry.RunWriter` port
 
 ## Component map
 
@@ -15,8 +15,8 @@
 
 | File | Role |
 |---|---|
-| `internal/app/app.go` | `Processor` port + `NewProcessor` — ten **public ports** plus a `*time.Location`. There is no `*pgxpool.Pool` parameter and there must never be one. |
-| `internal/app/processor.go` | The four steps: `ProcessVehicleData` (step 1 + the short-circuit), `processChargingData` (step 2), `recalculateAnalytics` (step 3), `runMonthlyCapacityStep` / `callMonthlyCapacityCalculator` / `monthlyCapacityPeriod` (step 4). **Change the cycle here.** |
+| `internal/app/app.go` | `Processor` port + `NewProcessor` — eleven **public ports** plus a `*time.Location`. There is no `*pgxpool.Pool` parameter and there must never be one. |
+| `internal/app/processor.go` | The five steps: `ProcessVehicleData` (step 1 + the short-circuit), `processChargingData` (step 2), `recalculateAnalytics` (step 3), `runMonthlyCapacityStep` / `callMonthlyCapacityCalculator` / `monthlyCapacityPeriod` (step 4), `runMonthlyMetricsStep` / `callMonthlySyncer` / `monthlyMetricsPeriods` (step 5). **Change the cycle here.** |
 | `internal/app/scheduler.go` | `Scheduler`/`NewScheduler`/`Run` + pure `nextRun` — the daily driving adapter that CALLS `Processor` from the outside; it is NOT inside it. |
 | `cmd/poller/main.go` | Composition root: constructs every port and injects it. Thin — zero business logic. |
 
@@ -63,6 +63,25 @@ returns `run = false` and the step does nothing. It always passes `teslaID = nil
 vehicle in one call). Built by `RM52-charging-add-monthly-effective-capacity` (the port)
 and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 
+### Step 5 — sync monthly metrics (`internal/analytics`)
+
+| File | Role |
+|---|---|
+| `internal/app/processor.go` | `runMonthlyMetricsStep` reads `clock.Now()`/`clock.Zone()`, then calls the pure `monthlyMetricsPeriods` to get the current and previous calendar month; `callMonthlySyncer` calls the port for one vehicle and one period and logs the outcome. |
+| `internal/analytics/analytics.go` | `MonthlySyncer` — the port, one method: `SyncMonth(ctx, teslaID, period)`. `NewMonthlySyncer(pool, capacity, charges, supercharger)` is its only constructor. |
+| `internal/analytics/monthly_sync.go` | The port's implementation — derives one vehicle's precomputed month and upserts it into `vehicle_monthly_metrics`. |
+| `internal/analytics/db/migrations/20260918000002_add_vehicle_monthly_metrics.sql` | Creates `analytics.vehicle_monthly_metrics`, the table step 5 writes. |
+
+Step 5 runs on **every** invocation, unlike step 4 — there is no calendar gate. Every night, for
+every distinct vehicle (deduplicated by `TeslaID`, the same shape steps 2 and 3 already use), it
+calls `SyncMonth` twice: once for the current calendar month, once for the previous one. A
+failure on one `(vehicle, period)` call is logged and never blocks another call — not the same
+vehicle's other period, not another vehicle. `SyncMonth` upserts rather than appends, so a missed
+night self-heals the next night. Built by `RM67-charging-add-monthly-capacity-read`,
+`RM67-analytics-add-vehicle-monthly-metrics` and `RM67-analytics-add-monthly-charging-aggregates`
+(tiers 1-3, the port and its table) and wired in by `RM67-app-add-monthly-metrics-step`
+(tier 4, this step).
+
 ### Port map — who calls whom in one cycle
 
 | Caller | Port | Callee | Methods used |
@@ -74,7 +93,8 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 | `app` | `analytics.Reader` | `analytics` | `ConsumedByDay` |
 | `app` | `analytics.GapWriter` | `analytics` | `ReconcileWindow` |
 | `app` | `charging.MonthlyCapacityCalculator` | `charging` | `Calculate` — step 4 only, once a month. Also called directly by `cmd/monthly-capacity`, on demand, bypassing `internal/app` entirely. |
-| `app` | `account.Service` | `account` | `AllRegisteredVehicles` (×3 — once per step) |
+| `app` | `analytics.MonthlySyncer` | `analytics` | `SyncMonth` — step 5, every night, called twice per distinct vehicle (current month, then previous month) |
+| `app` | `account.Service` | `account` | `AllRegisteredVehicles` (×3 — steps 2, 3 and 5; step 4 passes `teslaID = nil` instead) |
 | `telemetry` | `account.Service` | `account` | `AllRegisteredVehicles`, `AccessTokenFor`, `SetVehicleConfigIfEmpty` |
 | `telemetry` | `tesla.VehicleService` | `tesla` | `ListVehicles`, `WakeUp`, `VehicleData`, `ChargingHistory` |
 | `analytics` | `telemetry.Reader` | `telemetry` | `SnapshotsByVehicleUpdatedSince`, `SnapshotsByVehicleBetween`, `SnapshotPrecedingDay` — **unchanged by RM31** |
@@ -97,6 +117,7 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 | `vehicle_metric_watermarks` | analytics | 3 | C+R+U — one cursor per source |
 | `charge_gaps` | analytics | 3 | C+R+U+D — window is the reconciliation unit |
 | `charging.monthly_effective_capacity` | charging | 4 | C+U (`UpsertMonthlyEffectiveCapacity`), one row per vehicle per month, only on the 1st |
+| `analytics.vehicle_monthly_metrics` | analytics | 5 | C+U (`SyncMonth`), one row per vehicle per synced month, every night |
 
 ## How maintenance works
 
@@ -108,12 +129,13 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 - **Change failure containment:** the isolation shape is per-account in step 2 and per-vehicle in step 3; see the gotchas below before loosening either.
 
 - **Add a fact to the recorded run summary:** the value must first exist on `telemetry.CycleReport` (populated inside `telemetry.CollectAll`). Then extend `telemetry.PollRun` and the `poll_runs` schema on the telemetry side, and map the new field in `internal/app`'s `buildPollRun`. `internal/app` gains no pool and no table — it only maps and calls the port.
-- **Change what the cycle measures:** `start`/`finish` are read in `ProcessVehicleData` via `internal/clock`, bracketing all four steps. Anything that needs its own timing is a separate measurement, not a widening of these two.
+- **Change what the cycle measures:** `start`/`finish` are read in `ProcessVehicleData` via `internal/clock`, bracketing all five steps. Anything that needs its own timing is a separate measurement, not a widening of these two.
 - **Step 4 is the first step that does not run every night.** It gates on `monthlyCapacityPeriod`, which returns `run = false` on every day but the first of the month. Change the gate itself in `internal/app/processor.go`'s `monthlyCapacityPeriod` — it is pure and fully unit-tested (`monthly_capacity_step_test.go`).
+- **Step 5 runs every night, with no gate at all — unlike step 4.** Change which two months it syncs in `internal/app/processor.go`'s `monthlyMetricsPeriods` — it is pure and fully unit-tested (`monthly_metrics_step_test.go`). It has no `run bool` return, because there is nothing to gate: the only question is which two months, never whether to sync.
 
 ## Conventions & gotchas
 
-- **Exactly one failure stops the cycle: step 1's.** A non-nil error from `Collector.CollectAll` returns immediately and steps 2, 3 and 4 never run — the later steps read data step 1 was supposed to have just written. Every other failure is logged and isolated, never fatal. _Source: `internal/app/processor.go` `ProcessVehicleData` doc; `internal/app/AGENTS.md` §Responsibility._
+- **Exactly one failure stops the cycle: step 1's.** A non-nil error from `Collector.CollectAll` returns immediately and steps 2, 3, 4 and 5 never run — the later steps read data step 1 was supposed to have just written. Every other failure is logged and isolated, never fatal. _Source: `internal/app/processor.go` `ProcessVehicleData` doc; `internal/app/AGENTS.md` §Responsibility._
 - **The gate zone (step 4) is `clock.Zone()`, not the poller's `POLLER_TIMEZONE` (`p.loc`).** These are two different knobs: `p.loc` decides *when* the nightly cycle fires; `clock.Zone()` (the platform default, `America/Bogota`) decides whether *today* is the 1st of the month for step 4's gate. They agree in the current deployment, but nothing enforces that. If they ever disagree, step 4 logs one warning naming both zones — it never fails, never skips the step, and never changes which zone the gate uses. _Source: `internal/app/processor.go` `runMonthlyCapacityStep`; `RM52-app-add-monthly-capacity-step` design.md D1, task 2.4._
 - **Step 2 before step 3 is load-bearing since RM31 — it used to be only a convention.** Analytics now derives its Supercharger figures from `supercharger_sessions`, which step 2 writes. A mirror that fails leaves step 3 deriving that account's consumed-percent from the previous night's sessions. _Source: `RM31-analytics-read-sessions-from-charging`; `internal/analytics/recalculate.go`._
 - **Analytics reads `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), NOT `telemetry`'s own `telemetry.supercharger_history` table** (moved out of `public` and renamed from `supercharger_sessions` by RM39 tier 4). RM31 moved it to `charging.SuperchargerSessionAnalyticsReader`. `telemetry.SuperchargerHistoryReader` (renamed from `SuperchargerReader` by RM39 tier 5) still exists and is still correct — but `internal/app`'s step 2 is now its **only** caller. _Source: `internal/analytics/recalculate.go`, `internal/charging/charging.go`._
@@ -127,8 +149,8 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
 - **`internal/app` owns no data and takes no pool.** `poll_attempts` (incl. `run_id`/`triggered_by`) stays telemetry's. Every `NewProcessor` argument is a public port. _Source: `internal/app/AGENTS.md` §Data ownership._
 - **A `poll_attempts` insert failure is swallowed on purpose** — it must never abort the cycle, and `CycleReport` still reflects the true outcome. _Source: `internal/telemetry/service.go`._
 
-- **Every cycle records exactly one summary — including a cycle that fails outright.** A whole-cycle synchronization failure short-circuits steps 2, 3 and 4 but still records a row, with all counts zero and timings reflecting how fast the failure was. Before this, a failed cycle wrote zero `poll_attempts` rows and so left no trace of having run at all. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
-- **Recording the summary can never change the cycle's reported outcome.** A failed summary write is logged and swallowed; `ProcessVehicleData` returns exactly what its four steps produced. In `internal/app` this is enforced structurally — `recordRun` returns nothing, so the compiler prevents it, not a convention. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
+- **Every cycle records exactly one summary — including a cycle that fails outright.** A whole-cycle synchronization failure short-circuits steps 2, 3, 4 and 5 but still records a row, with all counts zero and timings reflecting how fast the failure was. Before this, a failed cycle wrote zero `poll_attempts` rows and so left no trace of having run at all. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
+- **Recording the summary can never change the cycle's reported outcome.** A failed summary write is logged and swallowed; `ProcessVehicleData` returns exactly what its five steps produced. In `internal/app` this is enforced structurally — `recordRun` returns nothing, so the compiler prevents it, not a convention. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
 - **The record point is a fall-through, not a second call site.** Both the success path and the failure short-circuit fall through to one measurement/record tail. Adding an early `return` anywhere in `ProcessVehicleData` silently reintroduces the untraced-run bug this design exists to prevent. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
 - **Both poller entry points are covered by construction.** The nightly schedule and `cmd/poller --once` both call `ProcessVehicleData`, so neither can diverge from the other. Never record a run from `cmd/`. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
 
@@ -172,6 +194,16 @@ and wired in by `RM52-app-add-monthly-capacity-step` (this step).
   job (`cmd/monthly-capacity -tesla-id`), never the nightly cycle's. Adding a per-vehicle loop
   here would re-pool the same rows once per vehicle.
   _Source: spec process-vehicle-data — Requirement: Monthly Vehicle Capacity Is Measured Only On The First Day Of The Month, For The Previous Month._
+
+- **Step 5 runs AFTER step 4 on purpose — moving it earlier would copy a month-old number.**
+  On the 1st of the month, step 4 measures the PREVIOUS month's pack capacity and writes it to
+  `charging.monthly_effective_capacity`. Step 5's own previous-month sync reads that exact table
+  through `charging.MonthlyCapacityReader` and copies the figure into `vehicle_monthly_metrics`,
+  the same night. If step 5 ran first, the previous-month sync would copy whatever step 4 measured
+  a month earlier — a full month of staleness — instead of the figure step 4 just wrote. Both
+  steps already run every night regardless of order, so placing step 5 right after step 4 removes
+  the gap at zero extra cost. Never reorder these two steps without re-checking this.
+  _Source: `internal/app/processor.go` `ProcessVehicleData`._
 
 - **Step 3 logs per vehicle and per half — one line before each half's queries.** The step's
   two halves are metrics reconciliation (`Recalculator.Reconcile`) and gap reconciliation

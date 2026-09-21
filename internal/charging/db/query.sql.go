@@ -188,6 +188,36 @@ func (q *Queries) DeleteEntry(ctx context.Context, arg DeleteEntryParams) (int64
 	return result.RowsAffected(), nil
 }
 
+const effectiveCapacityForPeriod = `-- name: EffectiveCapacityForPeriod :one
+SELECT effective_capacity_kwh
+  FROM charging.monthly_effective_capacity
+ WHERE tesla_id = $1
+   AND effective_period = date_trunc('month', $2::date)::date
+`
+
+type EffectiveCapacityForPeriodParams struct {
+	TeslaID int64
+	Month   pgtype.Date
+}
+
+// MonthlyCapacityReader.CapacityForMonth's own read. A DIFFERENT question
+// from LatestMeasuredCapacity above: this returns the row for the EXACT
+// calendar month containing @month, thin or absent included -- never the
+// newest non-NULL row across every month. Callers may pass any instant
+// inside the target month; date_trunc normalizes it to the month's first day
+// in SQL (matching effective_period's own CHECK (day = 1)) rather than in
+// Go, which would need a hand-rolled UTC-midnight construction outside
+// internal/clock. effective_capacity_kwh comes back SQL NULL when the month's
+// evidence was too thin to measure -- :one means "no row" surfaces as
+// pgx.ErrNoRows, which the Go caller translates to found=false, distinct from
+// a found row whose capacity is NULL.
+func (q *Queries) EffectiveCapacityForPeriod(ctx context.Context, arg EffectiveCapacityForPeriodParams) (pgtype.Float8, error) {
+	row := q.db.QueryRow(ctx, effectiveCapacityForPeriod, arg.TeslaID, arg.Month)
+	var effective_capacity_kwh pgtype.Float8
+	err := row.Scan(&effective_capacity_kwh)
+	return effective_capacity_kwh, err
+}
+
 const getMirrorWatermark = `-- name: GetMirrorWatermark :one
 SELECT source_updated_at
 FROM charging.mirror_watermarks

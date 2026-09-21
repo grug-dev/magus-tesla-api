@@ -370,6 +370,34 @@ every other port in this module.
 the manual `cmd/monthly-capacity` tool. Both call the same port, so neither can drift
 from the other's contract.
 
+### Reading one vehicle's measurement for one exact month (RM67 tier 1)
+
+**Port:** `MonthlyCapacityReader.CapacityForMonth`, returning `(capacityKWh *float64,
+found bool, err error)`. See `internal/charging/charging.go`.
+
+This is a **second, separate read** over `monthly_effective_capacity`, next to
+`packCapacityKWh`'s own `LatestMeasuredCapacity` seam — and the two must stay separate.
+`packCapacityKWh` answers "what capacity should today's math use": it wants the best
+available answer and is allowed to skip a thin or missing recent month in favor of an
+older measured one. `CapacityForMonth` answers a different question: "what did this
+exact vehicle and month measure" — including a month that exists but was too thin to
+measure (`found=true, capacityKWh=nil`) or a month with no row at all
+(`found=false, capacityKWh=nil`). A caller of `CapacityForMonth` must tell these two
+`nil`-capacity cases apart; `found` is what makes that possible. Reusing
+`LatestMeasuredCapacity` for this question would silently substitute a different
+month's number, so the two reads use two separate queries and two separate Go methods.
+
+The month argument accepts any date inside the target calendar month — the query
+normalizes it, so no caller needs to pass the first of the month. `CapacityForMonth`
+never returns a different vehicle's row or a different month's row for the same
+vehicle, and it never writes or recomputes anything.
+
+`NewMonthlyCapacityReader(pool *pgxpool.Pool) MonthlyCapacityReader` is the only public
+factory. Its return value logs its single method (`query_log.go`), the same treatment
+`MirrorWatermarkStore` and `MonthlyCapacityCalculator` already get, because its caller
+is also the nightly cycle. This port has no caller yet in this codebase — a future
+module reads it through this interface, never through `chargingdb` or a direct query.
+
 ---
 
 ## Allowed Imports
@@ -379,17 +407,18 @@ This module may import:
 - `context`, `time`, `math`, `errors`, and other Go standard library packages.
 - `github.com/google/uuid` — for `uuid.UUID` primary and tenant keys.
 - `github.com/jackc/pgx/v5` and `github.com/jackc/pgx/v5/pgxpool` — for DB connectivity.
-- `github.com/jackc/pgx/v5/pgtype` — ONLY inside the five files that talk to the database
+- `github.com/jackc/pgx/v5/pgtype` — ONLY inside the six files that talk to the database
   directly: `service.go`, `session_writer.go`, `session_reader.go`,
-  `mirror_watermark.go`, and `monthly_capacity.go`. Never in public types, interfaces,
-  `charging.go`, or any `_test.go` file. The rule is "only the files that own a query",
-  not "only these names": each of them translates plain Go `*T` fields into a generated
-  params struct's nullable pgtype fields, and translates them back on the way out.
-- `internal/charging/db` (package `chargingdb`) — ONLY inside the six files that talk to
-  the database directly: `service.go`, `session_writer.go`, `session_reader.go`,
-  `session_verifier.go`, `mirror_watermark.go`, and `monthly_capacity.go`. The generated
-  package is module-private by convention; no other module imports it, and no `_test.go`
-  file does either.
+  `mirror_watermark.go`, `monthly_capacity.go`, and `monthly_capacity_reader.go`. Never
+  in public types, interfaces, `charging.go`, or any `_test.go` file. The rule is "only
+  the files that own a query", not "only these names": each of them translates plain Go
+  `*T` fields into a generated params struct's nullable pgtype fields, and translates
+  them back on the way out.
+- `internal/charging/db` (package `chargingdb`) — ONLY inside the seven files that talk
+  to the database directly: `service.go`, `session_writer.go`, `session_reader.go`,
+  `session_verifier.go`, `mirror_watermark.go`, `monthly_capacity.go`, and
+  `monthly_capacity_reader.go`. The generated package is module-private by convention;
+  no other module imports it, and no `_test.go` file does either.
 - `internal/vehicleref` — ONLY inside `charging.go`, `session_verifier.go`
   (RM57-charging-verifysession-takes-ref) and `service.go`
   (RM58-charging-entry-writes-take-ref). `SessionVerifier.VerifySession` and now
@@ -563,6 +592,13 @@ re-argue a settled decision.
   the module's central invariant for this column: a manual entry whose starting percentage was
   derived must never reach `MonthlyCapacityCalculator`'s evidence pool, proven by calling
   `Calculate` itself, not by asserting on `resolveStartBatteryPct`'s return value alone.
+- **`monthly_effective_capacity` now has a second read-port test file.** The existing
+  `db_monthly_capacity_integration_test.go` covers the estimator and the write path
+  (`MonthlyCapacityCalculator`). `db_monthly_capacity_reader_integration_test.go` is a
+  separate file covering only `MonthlyCapacityReader.CapacityForMonth` — the "exact
+  month" read, not the "best available" read the first file's tests exercise. Like every
+  other test in this package, it asserts only against plain `*float64`/`bool`, never
+  `pgtype`.
 
 Which test file covers what: `ls internal/charging/*_test.go`. The names say it. That
 inventory is deliberately not duplicated here — it went stale three times.

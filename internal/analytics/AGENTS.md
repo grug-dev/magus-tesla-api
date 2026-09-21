@@ -40,7 +40,8 @@ The module's contract is a Go interface (`ai/go-conventions.md` — interface-fi
 **Signatures and the per-method doc comments live in `internal/analytics/analytics.go` — read
 them there.** They are deliberately not copied here.
 
-Three ports. `Reader` exposes four reads; `Recalculator` and `GapWriter` are the write side:
+Four ports. `Reader` exposes four reads; `Recalculator`, `GapWriter`, and
+`MonthlySyncer` are the write side:
 
 | Port | Method | Returns |
 |---|---|---|
@@ -50,6 +51,7 @@ Three ports. `Reader` exposes four reads; `Recalculator` and `GapWriter` are the
 | | `LatestMetricsForVehicles` | `[]VehicleStatus` — latest row per vehicle in a given vehicle set |
 | `Recalculator` | `Recalculate`, `Reconcile` | rebuild `vehicle_metrics`; `Reconcile` is the incremental watermark pass |
 | `GapWriter` | `ReconcileWindow` | upsert the days that flag, DELETE the days that stopped |
+| `MonthlySyncer` | `SyncMonth` | `VehicleMonthlyMetrics` — derives and upserts one `vehicle_monthly_metrics` row for one vehicle and one calendar month, including the real `ext_*`/`sc_*` charging figures |
 
 What the source does not tell you:
 
@@ -84,7 +86,12 @@ What the source does not tell you:
   `charging.SuperchargerSessionAnalyticsReader` (`ListSessionsByVehicleBetween`,
   `ListSessionsByVehicleUpdatedSince`, `ListSessionsByVehicle`) and the domain type
   `charging.Session` — this module's Supercharger-session source, replacing the
-  telemetry-backed port/type this section named before that tier.
+  telemetry-backed port/type this section named before that tier. Also
+  `charging.MonthlyCapacityReader` (`CapacityForMonth`) — `MonthlySyncer.SyncMonth`
+  copies the vehicle's measured pack capacity for a month through this port.
+  `MonthlySyncer.SyncMonth`, not only `Recalculate`, now also calls
+  `ListEntriesByVehicleBetween` and `ListSessionsByVehicleBetween` through these same
+  two ports, to derive its own month's charging figures.
 - `internal/clock` — the platform's time primitives (`RM35-analytics-adopt-clock`).
   This module calls `clock.CalendarDay(t, time.UTC)` and `clock.Now()`. Note it still
   owns **no `*time.Location` of its own** (D-B12): every bucketing call passes
@@ -118,7 +125,10 @@ here was "None"; it is no longer.
 
 - **Data lives in the `analytics` Postgres schema** (tables `vehicle_metrics`,
   `vehicle_metric_watermarks`, `charge_gaps`, moved there by
-  `RM39-analytics-move-to-own-schema`, MAG-31 tier 2), managed from
+  `RM39-analytics-move-to-own-schema`, MAG-31 tier 2, plus
+  `vehicle_monthly_metrics`, added by `RM67-analytics-add-vehicle-monthly-metrics`
+  — one precomputed row per vehicle per calendar month, written by
+  `MonthlySyncer.SyncMonth`), managed from
   `internal/analytics/db/` (goose migrations + `query.sql`, sqlc-generated code). This
   is a namespacing change only — no stored data, constraint, or public interface
   behavior changed. `vehicle_metric_watermarks.source`'s stored string values

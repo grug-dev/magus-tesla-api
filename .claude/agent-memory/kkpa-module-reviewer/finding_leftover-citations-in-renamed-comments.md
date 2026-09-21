@@ -1,55 +1,39 @@
 ---
 name: finding_leftover-citations-in-renamed-comments
-description: Recurring review finding - a comment line touched only to rename an identifier keeps its old task/RM/design.md citation
+description: Recurring review finding - new or renamed comment lines keep a task/RM/RD/design.md citation
 metadata:
   type: feedback
 ---
 
-When a task renames a function or a port method (e.g. `LatestMetricsByAccount` to
-`LatestMetricsForVehicles`), the worker often rewrites only the identifier inside a
-doc comment and leaves a nearby citation untouched — a task number ("task 6.4(b)"),
-a `Task N.N` header, an `RM<N>-A/RM<N>-C` fixture reference, or `design.md`. The same
-diff sometimes shows the correct behavior a few lines away (a citation dropped
-cleanly), so the miss is inconsistent, not a blanket habit.
+Two shapes of the same finding. (a) A rename touches only the identifier in a doc
+comment and leaves a nearby citation untouched (task number, `RM<N>`, `design.md`).
+(b) A brand-new comment echoes an existing house style that itself cites `design.md`
+or an `RD<N>`/`RM<N>` id — no rename involved, the worker just copied the pattern.
 
-**Why:** the B2 comment rule only asks the reviewer to check "added and changed"
-lines. A line changes because one word in it changed (the identifier), so the whole
-line counts — but the model doing the edit tends to patch only the token it was told
-to patch, not re-read the rest of the line for a citation.
+**Why:** the B2 rule only asks the reviewer to check "added and changed" lines, and
+the model editing a line tends to patch only the token it was told to patch, not
+re-read the rest for a citation; when writing fresh prose, it also tends to copy the
+surrounding file's own citing style verbatim.
 
-**How to apply:** when a change renames a port, method, or type, grep the touched
-test/doc-comment lines for `task \d`, `Task \d`, `RM\d+`, `CH\d+`, `design\.md` before
-approving. Open a minor finding per file, quoting the exact leftover phrase, not a
-generic "check comments" note.
+**How to apply:** grep touched comment/doc lines for `task \d|RM\d+|RD\d+|CH\d+|design\.md`
+before approving, in any file the diff added or touched, not only renamed lines. Open
+a minor finding per occurrence, quoting the exact phrase.
 
-Count so far: 3 (RM59-analytics-rekey-vehicle-metrics-on-tesla-id, tier 1, 2026-09-15
-— 5 leftover citations in `internal/analytics/db_integration_test.go`; RM59-gateway-
-authorize-metrics-reads, tier 2, 2026-09-15 — 2 leftover citations, `RM38`/`(RM40)`,
-in `internal/gateway/handlers/history_test.go` and `handlers_test.go`, both inside a
-doc comment reflowed by the same rename; RM66-analytics-add-travel-progress-deltas,
-tier 2, 2026-09-18 — 1 fresh `design.md` citation in a brand-new comment in
-`internal/analytics/db_integration_test.go`, not a rename leftover this time — the
-worker wrote new prose that copied this file's own pre-existing, pervasive
-`design.md`-citing house style, which a grep found in ~70 other pre-existing lines
-in that one file alone).
+Count: 6 across 6 different changes (2026-09-15 to 2026-09-21) — RM59-analytics
+tier 1, RM59-gateway tier 2 (shape a, both); RM66-analytics tier 2, RM66-gateway
+tier 3, RM67-analytics tier 3, RM67-app tier 4 (shape b, all four: fresh prose citing
+`design.md`'s own "Test Contract" header, once also a fresh `(RD13)`). RM67-app's own
+round also found shape (a) again: an edited doc comment on `Processor.ProcessVehicleData`
+(app.go) and on `newTestProcessor` (processor_test.go) each kept a pre-existing
+`design.md`/`RM52` reference next to the new sentence, while the *parallel* comment on
+the same function in `processor.go`, edited in the same commit, was fully scrubbed —
+proof the worker can do the scrub correctly in one file and still miss the sibling file.
 
-Reached 3 across different changes. Per the promotion test, report this to the
-leader. This still is NOT an `AGENTS.md` candidate: a grep guard already covers it
-(scan changed comment lines for `task \d|RM\d+|design\.md` in `_test.go`/doc
-comments), and the trip-wire test requires no build/vet/guard could catch the
-break — one can. Propose the guard, not a written rule. Also worth the leader's
-attention: `internal/analytics/db_integration_test.go` itself is saturated with
-pre-existing `design.md` citations (established house style, out of this
-reviewer's scope to flag) — a guard here would need a baseline/warn split like
-`delta-guard`'s, not a hard fail, or it fails on file open.
-
-4th occurrence: RM66-gateway-show-travel-progress-trends, tier 3, 2026-09-18 —
-not a rename leftover this time either. Four NEW test files/blocks (`handlers_test.go`
-x3, `handlers_trend_test.go` x3, `format_test.go` x3, `stat_tile_test.go` x1) each
-wrote a fresh doc comment starting "covers design.md's Test Contract table" or citing
-"RM66 tier 3". The worker is echoing design.md's own section header ("Test contract —
-authored before implementation") verbatim as house style for every new table-driven
-test in this module, not failing to strip an old citation. Same guard still catches
-it (the phrase contains `design\.md`), so the fix proposal is unchanged — but the
-guard needs to fire on ANY new comment in a diff, not only ones that reuse an old
-identifier, since this case has no rename at all.
+Reached 3+ rounds long ago. Per the promotion test this is NOT an `AGENTS.md` candidate —
+no build/vet/guard could catch a rename leftover today, but a grep guard could: scan
+every comment line a diff adds or changes for `task \d|RM\d+|RD\d+|design\.md|Test Contract`,
+not only in `_test.go` files. Propose that guard to the leader again — 6 rounds in and
+still not built. Note for whoever builds it: some files (e.g.
+`internal/analytics/db_integration_test.go`) are saturated with pre-existing,
+legitimate citations, so it needs a baseline/warn split like `delta-guard`'s, not a
+hard fail on file open.
