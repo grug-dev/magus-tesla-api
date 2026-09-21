@@ -15,7 +15,7 @@ concerns.)*
 ## Responsibility
 
 `internal/app` is the platform's **application layer**. It exposes exactly one public port,
-`Processor`, whose single method `ProcessVehicleData` runs one full vehicle-data cycle as four
+`Processor`, whose single method `ProcessVehicleData` runs one full vehicle-data cycle as five
 named steps, in this fixed order:
 
 ```
@@ -23,15 +23,20 @@ Scheduler ──┐
             ├──> ProcessVehicleData ──┬── Sync Fleet data              (telemetry)
 API ────────┘                         ├── Process Charging data       (the mirror)
                                       ├── Recalculate Analytics       (analytics)
-                                      └── Measure Monthly Capacity    (charging)
+                                      ├── Measure Monthly Capacity    (charging)
+                                      └── Sync Monthly Metrics        (analytics)
 ```
+
+The fifth step, unlike the fourth, runs on **every invocation**, not only on the first of the
+month. It calls `analytics.MonthlySyncer.SyncMonth` twice per vehicle, every night — once for
+the current calendar month, once for the previous one.
 
 **Cross-module map of one cycle:** `kkpa/context/architecture/nightly-cycle.md` — every port
 call, every table effect per step, and the failure blast-radius table. Read it before changing
 the steps or their order. It is where the facts spanning `telemetry` / `charging` /
 `analytics` live, so this file does not restate another module's internals.
 
-**A whole-cycle failure in step 1 skips steps 2, 3 and 4 entirely** for that invocation. Every
+**A whole-cycle failure in step 1 skips steps 2, 3, 4 and 5 entirely** for that invocation. Every
 per-account and per-vehicle failure inside any step is logged and isolated, never fatal to the
 cycle.
 
@@ -60,8 +65,10 @@ through code in this module.
 ## Public interface (the port)
 
 **Signatures live in `internal/app/app.go` — read them there.** The `NewProcessor` signature
-is deliberately not copied here: it takes ten ports plus a `*time.Location`, and a copy of it
-in this file has already drifted from the real one once.
+is deliberately not copied here: it takes eleven ports plus a `*time.Location`, and a copy of it
+in this file has already drifted from the real one once. The eleventh port is
+`monthlySyncer analytics.MonthlySyncer`, placed right after `gapWriter analytics.GapWriter` —
+all four `analytics` ports stay contiguous, `loc` stays last.
 
 - `Processor.ProcessVehicleData(ctx, triggeredBy)` generates a fresh `RunID` once per
   invocation, builds the `telemetry.RunContext`, and returns `telemetry.CycleReport`
@@ -100,7 +107,11 @@ sub-package or internals:
   is added — this module already imports `internal/charging` for `SessionWriter`; the
   new port comes from the same package.
 - `internal/analytics` — `Recalculator`, `Reader`, `GapWriter`, and the `ChargeGap`
-  domain type (the analytics-recalculation step).
+  domain type (the analytics-recalculation step), plus `MonthlySyncer` (`SyncMonth`,
+  the monthly-metrics-sync step, `RM67-app-add-monthly-metrics-step` tier 4: syncs one
+  vehicle's monthly metrics for one calendar month, called twice per vehicle every
+  night). No new import path is added — this module already imports `internal/analytics`
+  for `Recalculator`/`Reader`/`GapWriter`; the new port comes from the same package.
 - `internal/clock` — `Now()` and `CalendarDay(t, loc)`, used by `recalculateAnalytics`
   to resolve "yesterday in `p.loc`" (`RM35-app-adopt-clock`) and by `NewScheduler`'s
   nil-`loc` fallback (above). `clock` imports nothing project-local, so this creates
@@ -162,6 +173,9 @@ violation look identical in a coverage delta.**
 | `monthlyCapacityPeriod` | covered | pure — this is where the "is it the 1st, and which month" gate lives |
 | `callMonthlyCapacityCalculator` | covered | a fake port and a fixed period make it deterministic |
 | `runMonthlyCapacityStep` | **accepted gap** | three lines of wiring around a direct `clock.Now()` read, no injectable seam |
+| `monthlyMetricsPeriods` | covered | pure — this is where the "which two months" logic lives, including the zone-crossing case |
+| `callMonthlySyncer` | covered | a fake port and a fixed `(teslaID, period)` make it deterministic |
+| `runMonthlyMetricsStep` | **partial** | the vehicle loop, the dedup, and the per-vehicle/per-period failure isolation are covered through a fake roster; the `clock.Now()`/`clock.Zone()` read itself has no injectable seam and is an accepted gap, same category as `runMonthlyCapacityStep`'s |
 | `processChargingData`, `recalculateAnalytics` internals | **accepted gap** | pure relocations of `cmd/poller` code that was never tested there; there is no prior output to characterize |
 
 Rules for the tests that exist:

@@ -5,13 +5,10 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Roadmap RM67 tier 4 (MAG-73). Add step 5 to internal/app/processor.go, after runMonthlyCapacityStep. It runs EVERY night, not only on the first of the month (RD3), and calls analytics.MonthlySyncer.SyncMonth twice per vehicle: current month and previous month. Follow step 4's shape - a failure logs and never fails the cycle. The month gate uses the platform zone through internal/clock.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
     "pending": [
-      "4.1",
-      "4.2",
-      "5.1",
       "L4"
     ],
     "blocked": [],
@@ -22,7 +19,10 @@
       "2.3",
       "L1",
       "L2",
-      "L3"
+      "L3",
+      "4.1",
+      "4.2",
+      "5.1"
     ],
     "awaiting-user-verification": [
       "3.1",
@@ -30,7 +30,7 @@
     ]
   },
   "created_at": "2026-09-21T10:25:00Z",
-  "updated_at": "2026-09-21T10:40:00Z",
+  "updated_at": "2026-09-21T10:50:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -207,14 +207,23 @@
         "3.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:42:00Z",
+      "completed_at": "2026-09-21T10:48:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "internal/app/AGENTS.md: five-step diagram, the eleventh port, the analytics import bullet, and three new rows in the testing-coverage table.",
+      "budget": {
+        "five_hour_pct_start": 65.0,
+        "five_hour_pct_end": 71.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.6,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 4.1, 4.2, 5.1, plus the leader's staleness sweep"
+      }
     },
     {
       "id": "4.2",
@@ -225,14 +234,23 @@
         "4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:42:00Z",
+      "completed_at": "2026-09-21T10:48:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "nightly-cycle.md: five-step glossary and component map, new Step 5 section, port map row, table-effects row, maintenance bullet, and the step-5-after-step-4 gotcha.",
+      "budget": {
+        "five_hour_pct_start": 65.0,
+        "five_hour_pct_end": 71.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.6,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 4.1, 4.2, 5.1, plus the leader's staleness sweep"
+      }
     },
     {
       "id": "5.1",
@@ -244,14 +262,23 @@
         "4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-21T10:42:00Z",
+      "completed_at": "2026-09-21T10:48:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "gofmt -l, go build ./... and go vet ./... all clean repo-wide. Leader re-ran all three and confirms.",
+      "budget": {
+        "five_hour_pct_start": 65.0,
+        "five_hour_pct_end": 71.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.6,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole wave: one serial worker dispatch covering 4.1, 4.2, 5.1, plus the leader's staleness sweep"
+      }
     },
     {
       "id": "L1",
@@ -352,6 +379,16 @@
       "at": "2026-09-21T10:40:00Z",
       "agent": "leader",
       "event": "wave 1 complete: tasks 1.1-2.3 done, 3.1/3.2 awaiting the owner's suite run; leader rewrote ProcessVehicleData's doc comment to comply with the no-outside-pointer rule, then did L1 (cmd/poller wiring), L2 (go build and go vet clean repo-wide) and L3 (README.md five steps, dependency graph verified unchanged); budget five_hour 55% -> 65%"
+    },
+    {
+      "at": "2026-09-21T10:42:00Z",
+      "agent": "leader",
+      "event": "wave 2 dispatched to the app worker on claude-sonnet: tasks 4.1, 4.2, 5.1 (AGENTS.md, the nightly-cycle KB guide, and the cheap signals) in ONE serial dispatch; budget at dispatch five_hour 65%, context 19%"
+    },
+    {
+      "at": "2026-09-21T10:50:00Z",
+      "agent": "leader",
+      "event": "wave 2 complete: docs and signals done; leader swept four stale counts the worker missed (nightly-cycle.md 'ten public ports' and two 'steps 2, 3 and 4' lines, AGENTS.md's short-circuit line) and removed a design.md pointer from a new KB gotkha source line; go build, go vet and gofmt all clean repo-wide; all implementation is now complete and the change waits on the owner's suite run before the reviewer gate"
     }
   ]
 }

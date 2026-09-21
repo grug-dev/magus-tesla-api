@@ -119,7 +119,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 
 ## Wave 4 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)
 
-- [ ] **4.1** **[module: app worker]** `internal/app/AGENTS.md`:
+- [x] **4.1** **[module: app worker]** `internal/app/AGENTS.md`:
   - §Responsibility — the diagram/description gains the fifth step, one or two sentences noting it
     runs on every invocation (unlike step 4), and points at `analytics.MonthlySyncer` as the port
     it calls.
@@ -135,7 +135,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
     gap, and why — matching this file's existing style for step 4's own table).
   `depends_on`: 3.2 · `parallel_ok`: no
 
-- [ ] **4.2** **[module: app worker, granted path]** `kkpa/context/architecture/nightly-cycle.md` —
+- [x] **4.2** **[module: app worker, granted path]** `kkpa/context/architecture/nightly-cycle.md` —
   the KB guide for this exact cycle. `CLAUDE.md` §Non-negotiables ("docs track structural change")
   requires the KB to be fixed in the **same** change, and this guide calls the cycle a **four**-step
   orchestration throughout. A stale guide is worse than no guide: `kkpa-context-fetch` presents it
@@ -168,7 +168,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 
 ## Wave 5 — signals
 
-- [ ] **5.1** **[module: app worker]** Run the cheap deterministic signals the
+- [x] **5.1** **[module: app worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/app`, `go build ./...`, `go vet ./...`. Both
   should be clean for `internal/app` itself — the rest of the repo will not build until leader task
   L1 (`cmd/poller` wiring) lands, since `app.NewProcessor`'s signature changes in this tier. If
