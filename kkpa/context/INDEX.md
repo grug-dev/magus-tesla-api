@@ -163,6 +163,9 @@
 | `monthly summary` | `workflows/vehicle-monthly-metrics.md` |
 | `weekday figures` | `workflows/vehicle-monthly-metrics.md` |
 | `weekend figures` | `workflows/vehicle-monthly-metrics.md` |
+| `monthly charging totals` (the month's external AC/DC and Supercharger energy, cost and counts) | `workflows/vehicle-monthly-metrics.md` |
+| `ending battery distribution` (five ranges 0-20/20-40/40-60/60-80/80-100, last edge closed) | `workflows/vehicle-monthly-metrics.md` |
+| `ext_ac` / `ext_dc` / `sc_` columns | the rollup's charging columns → `workflows/vehicle-monthly-metrics.md` |
 
 ## Architecture topics
 
