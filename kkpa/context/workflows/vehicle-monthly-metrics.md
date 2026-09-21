@@ -16,7 +16,8 @@
     (`internal/charging/capacity.go`, module-internal) and the public
     `charging.MonthlyCapacityReader` port (`internal/charging/monthly_capacity_reader.go`).
   - `analytics.vehicle_monthly_metrics` — the wider per-vehicle per-month rollup. Written by
-    `analytics.MonthlySyncer.SyncMonth` (`internal/analytics/monthly_sync.go`).
+    `analytics.MonthlySyncer.SyncMonth` (`internal/analytics/monthly_sync.go`), called every
+    night by step 5 of the cycle for the current and the previous month.
 
 ## Component map
 
@@ -62,12 +63,23 @@ Two rules this table follows that surprise people:
 
 | File | Role |
 |---|---|
-| `internal/app/processor.go` | Step 4 of the nightly cycle. `monthlyCapacityPeriod` is the pure day gate; `runMonthlyCapacityStep` reads the clock; `callMonthlyCapacityCalculator` calls the port and logs. |
-| `internal/app/app.go` | Holds the port on the processor; documents the four-step shape. |
-| `cmd/poller/main.go` | Builds the calculator and passes it in. The only wiring in the running server path. |
+| `internal/app/processor.go` — **step 4**, the capacity | Writes `charging.monthly_effective_capacity`. `monthlyCapacityPeriod` is the pure day gate; `runMonthlyCapacityStep` reads the clock; `callMonthlyCapacityCalculator` calls the port and logs. Runs **only on the first of the month**, for the month before. |
+| `internal/app/processor.go` — **step 5**, the rollup | Writes `analytics.vehicle_monthly_metrics`. `monthlyMetricsPeriods` is the pure month pair (no day gate); `runMonthlyMetricsStep` reads the clock and lists the vehicles; `callMonthlySyncer` calls `SyncMonth` and logs. Runs **every night**, twice per vehicle — current month, then previous month. |
+| `internal/app/app.go` | Holds both ports on the processor; documents the five-step shape. |
+| `cmd/poller/main.go` | Builds the calculator and the syncer and passes both in. The only wiring in the running server path. |
 | `cmd/monthly-capacity/` | The manual tool: `main.go` (flags, wiring, one report line), `period.go` (the pure period/flag logic), `README.md`. Calls the port directly, bypassing `internal/app`. |
 | `Makefile` → `cmd-monthly-capacity` | Builds and runs the tool. `PERIOD=2026-08 TESLA_ID=123`, both optional. |
 | `internal/config/config.go` → `LoadDatabase()` | DSN-only config for the tool. It never calls the Fleet API, so it must not need a Tesla credential. |
+
+**Step 5 runs after step 4 on purpose.** On the first of the month, step 4 measures the previous
+month's capacity, and step 5's previous-month sync copies that exact figure the same night.
+Reordering them makes the rollup copy a month-old number. Neither step can move without the other.
+
+**Only step 5 refreshes the rollup, and only for two months.** The window is the current month
+and the previous one, every night. An older month never heals by itself — even when `analytics`
+rewrites its `vehicle_metrics` rows. Fix it by calling `SyncMonth` for that exact
+`(tesla_id, period)`. No tool does that yet; the capacity half has `cmd/monthly-capacity`, the
+rollup half has nothing.
 
 `cmd/web` never wires the calculator. A web request must never start a month-wide job.
 
@@ -302,19 +314,56 @@ With no arguments it does the previous month, every vehicle. It needs `DATABASE_
 ## Adding another monthly metric
 
 The wider table now exists, so the old deferral is closed. `analytics.vehicle_monthly_metrics`
-is the cross-module rollup this guide once said was "considered and deferred". Where a new
-metric goes depends on one question only — **whose rows does it derive from?**
+is the cross-module rollup this guide once said was "considered and deferred".
+
+### First: which table does the column belong to?
+
+One question decides it — **whose rows does it derive from?**
 
 - Derives from `charging`'s own rows, and is about the pack → another column on
   `charging.monthly_effective_capacity`, or a sibling table in that schema.
 - Derives from several modules' rows, or from `analytics.vehicle_metrics` → a column on
-  `analytics.vehicle_monthly_metrics`. Add it to the migration, the upsert, and the pure
-  derivation in `monthly_figures.go`.
+  `analytics.vehicle_monthly_metrics`. The file list below is for this case.
 - Derives from one other module's rows alone → it belongs to **that** module, by the same rule
   that put the capacity in `charging`.
 
 Do not add a read-time join between the two tables. The rollup **copies** the capacity at sync
 time on purpose; that copy is what makes one row answer a whole month.
+
+### Then: every file one new column touches
+
+A column is not three edits. It is six to nine files, and the compiler catches only some of
+them — a column added to the migration but never read still compiles, and still reads 0
+forever. Do them in this order.
+
+| # | File | What to add |
+|---|---|---|
+| 1 | a NEW migration under `internal/analytics/db/migrations/` | `ALTER TABLE analytics.vehicle_monthly_metrics ADD COLUMN …`. `NOT NULL DEFAULT 0`, matching every other column. **Never edit the create migration** — it has run. |
+| 2 | `internal/analytics/db/query.sql` | The column in `UpsertVehicleMonthlyMetric`: the insert list, its `$n` placeholder, AND the `ON CONFLICT … DO UPDATE SET` list. Missing the third one makes the first sync right and every re-sync stale. |
+| 3 | `make sqlc` | Regenerates `db/models.go` and `db/query.sql.go`. Never hand-edit those two. |
+| 4 | `internal/analytics/analytics.go` | The field on the `VehicleMonthlyMetrics` domain struct. |
+| 5 | the pure derivation — **one of two** | `monthly_figures.go` when the number comes from `vehicle_metrics` days (`deriveMonthlyFigures`, and `bucketAccumulator` if it needs a new running total). `monthly_charging.go` when it comes from charges or sessions (`aggregateChargingMonth`, `chargeTally`). |
+| 6 | `internal/analytics/monthly_sync.go` | **Two** mappings, and they are easy to half-do: `SyncMonth` maps figures → the sqlc params, and `monthlyMetricsFromRow` maps the stored row → the domain struct. Miss the second and the write works while every read returns zero. |
+| 7 | `internal/analytics/mapping.go` | Only for a `NUMERIC` or JSONB column — the `pgtype` conversion pair. This is the one file allowed to name `pgtype`. |
+| 8 | the pure test beside the derivation | `monthly_figures_test.go` or `monthly_charging_test.go`. |
+| 9 | `db_monthly_sync_integration_test.go` | The round trip: written, then read back. This is the test that catches a missed step 6. |
+
+Worked counts from real columns, if you want to check the shape: `all_km_per_pct_calc`
+(derived from days) lives in **9** files; `sc_energy_kwh` (derived from charging) lives in
+**6**, because it needs no entry in `monthly_figures.go`.
+
+Then the docs: this guide's component map, and `internal/analytics/AGENTS.md` if the column
+changes a rule rather than adding a number.
+
+### Two traps specific to this table
+
+- **A new column is NOT backfilled.** The nightly step only re-syncs the current and the
+  previous month, so every older row keeps the `DEFAULT 0` the migration gave it, forever. If
+  the column must be right for history, the change needs its own backfill migration or a
+  one-off re-sync. Decide this before writing the column, not after.
+- **0 means both "zero" and "no data" here.** This table stores `NOT NULL DEFAULT 0`, against
+  this module's usual sparse-NULL convention. A count column is what tells them apart, so a new
+  metric that can be legitimately absent needs to say which count covers it.
 
 `internal/charging` now holds the platform's **only** pack-capacity definition. `internal/analytics`
 used to hold a second one — a model-coarse table keyed on `car_type`, in
@@ -330,6 +379,6 @@ by itself. That is a new ticket, not a leftover.
 
 - Workflows: `workflows/manual-charge-crud.md` (one of the two input tables),
   `workflows/supercharger-stats-read.md` (the other one)
-- Architecture: `architecture/nightly-cycle.md` (step 4 — when and how the job is triggered)
+- Architecture: `architecture/nightly-cycle.md` (steps 4 and 5 — when and how each half is triggered)
 - Entities: `entities/vehicle-metrics/guide.md` (`analytics.vehicle_metrics`, the per-day table
   the monthly rollup reads as its input)
