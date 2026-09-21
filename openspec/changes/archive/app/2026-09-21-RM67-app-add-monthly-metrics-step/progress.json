@@ -5,12 +5,10 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md",
   "request": "Roadmap RM67 tier 4 (MAG-73). Add step 5 to internal/app/processor.go, after runMonthlyCapacityStep. It runs EVERY night, not only on the first of the month (RD3), and calls analytics.MonthlySyncer.SyncMonth twice per vehicle: current month and previous month. Follow step 4's shape - a failure logs and never fails the cycle. The month gate uses the platform zone through internal/clock.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
-    "pending": [
-      "L4"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
@@ -24,12 +22,13 @@
       "4.2",
       "5.1",
       "3.1",
-      "3.2"
+      "3.2",
+      "L4"
     ],
     "awaiting-user-verification": []
   },
   "created_at": "2026-09-21T10:25:00Z",
-  "updated_at": "2026-09-21T11:30:00Z",
+  "updated_at": "2026-09-21T11:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -337,18 +336,18 @@
         "L2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-21T11:32:00Z",
+      "completed_at": "2026-09-21T11:35:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Roadmap tier 4 flipped to [x]. RM67 is complete, so the roadmap itself is archived too.",
       "budget": null
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "approved",
     "agent": "app-reviewer",
     "brief": "Review RM67-app-add-monthly-metrics-step (roadmap RM67 tier 4, module app) by reading the diff of commits 9adf152..HEAD on ft/RM67-MAG-73-vehicle-monthly-metrics-table, not the whole module. Validate: (1) module-boundary compliance - internal/app owns no table, no pool, no migration, and reaches analytics and charging only through public ports; cmd/poller stays wiring only. (2) Every convention in the doc pack, especially ai/go-conventions.md on time (only internal/clock) and the tz:allow line's justification. (3) The code comments carry NO change ID, roadmap ID, decision ID, design.md pointer or ticket ID - the project forbids them because archived docs freeze; check every new or edited comment. (4) Spec and tasks coverage: every requirement in specs/process-vehicle-data/spec.md is implemented, every task in tasks.md is really done. (5) Tests assert design.md's Test Contract (groups A, B, C) as written there, NOT whatever the implementation happens to do - the expected values were authored before the code. (6) The declared Performance-Profile. (7) Anti-gaming: no acceptance criterion was weakened or deleted, no status self-approved. Signals: go build, go vet, gofmt -l, make lint and every make *-guard were run by the ASSISTANT and pass. The TEST SUITE was run by the OWNER, who reported make check passing - judge test quality by reading the tests, never by running them.",
     "rounds": [
@@ -364,31 +363,74 @@
             "severity": "minor",
             "file": "internal/app/app.go:55-66",
             "note": "The Processor.ProcessVehicleData doc comment on the Processor interface was edited to add step-5 wording, but it still carries pre-existing outside pointers: '(design.md D5, D8)' (line 57), 'RM52 tier 2' (line 60), '(design.md D7)' (line 65). The parallel doc comment in processor.go, edited in the same commit, was fully scrubbed of the same kind of references - this one was missed.",
-            "status": "open"
+            "status": "fixed"
           },
           {
             "id": "F2",
             "severity": "minor",
             "file": "internal/app/processor_test.go:270-274",
             "note": "newTestProcessor's doc comment was edited to add the monthlySyncer sentence, but keeps '(design D1)' and '(RM52 tier 2 design.md D3)' from before the edit.",
-            "status": "open"
+            "status": "fixed"
           },
           {
             "id": "F3",
             "severity": "minor",
             "file": "internal/app/processor_test.go:397",
             "note": "New assertion message added by this change: \"...want 0 (Test Contract C5: step 5 is skipped by the same short-circuit as steps 2/3/4)\". The sentence already explains the reason in plain words; the '(Test Contract C5: ...)' tag only points at design.md's own ID scheme.",
-            "status": "open"
+            "status": "fixed"
           },
           {
             "id": "F4",
             "severity": "minor",
             "file": "internal/app/monthly_metrics_step_test.go:17,21,63,142,160,204,226,250,294",
             "note": "New file. Nine comment lines name 'design.md' directly and/or its 'Test Contract A/B/C' label scheme (e.g. line 17-21: 'This file covers design.md's Test Contract Group A ... copied from design.md's Test Contract, not derived from the implementation'; line 142: 'is Test Contract B1'; line 226: 'Test Contract C2'). Every one of these is a brand-new comment, so the ban applies in full, not just to edited lines.",
-            "status": "open"
+            "status": "fixed"
           }
         ],
         "notes": "All four findings are the same recurring shape already logged in reviewer memory (finding_leftover-citations-in-renamed-comments): a new or edited comment keeps a design.md/RM/RD/Test-Contract pointer. This is now the 6th occurrence across 6 different changes since 2026-09-15. None of these are blockers or majors on their own - build, vet, gofmt, lint, every make *-guard (tz, boundary, naming, tenancy, delta, archive) are clean; module boundaries are respected (internal/app reaches analytics.MonthlySyncer only through the public port, no db import, cmd/poller stays wiring-only); every design.md Test Contract value (Groups A-C, including the load-bearing zone-crossing pair A4/A5) is asserted as authored, not back-fitted; spec/task coverage matches the code; no task or criterion was edited or weakened. Requesting changes anyway because these comments become permanently uncorrectable the moment this change archives and openspec/changes/archive/ freezes - a one-line fix now is cheap, a dead pointer forever is not. Recommend the leader build the grep guard already proposed at round 3+ (scan every comment line a diff adds or changes for 'task \\\\d|RM\\\\d+|RD\\\\d+|design\\\\.md|Test Contract', with a baseline/warn split for files saturated with legitimate pre-existing citations) instead of relying on manual review to keep catching this.",
+        "duration_seconds": null,
+        "budget": {
+          "source": "not-tracked",
+          "note": "No statusline-cache budget figures were available in this session; not fabricated."
+        }
+      },
+      {
+        "round": 2,
+        "agent": "app-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-09-21T11:35:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "internal/app/app.go",
+            "note": "Fixed in 457ab38. Grepped app.go for design.md/RM/RD/CH/MAG-/Test Contract: zero hits. The Processor.ProcessVehicleData doc comment, the package doc comment, and NewProcessor's own doc comment (the last two cleaned by the leader beyond my original finding, correctly, since this change edited both) are all rewritten in their own words.",
+            "status": "fixed"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "file": "internal/app/processor_test.go:270-274",
+            "note": "Fixed in 457ab38. newTestProcessor's doc comment now describes the ordering rule itself ('Each fake sits where its real port sits ... stops a silent mis-wiring when a port is added') with no design/RM pointer.",
+            "status": "fixed"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "file": "internal/app/processor_test.go:394,397",
+            "note": "Fixed in 457ab38. Both the line I flagged (397) and its sibling (394, same shape, not part of my original finding) had the 'Test Contract Cn' tag dropped; the plain-English reason stays.",
+            "status": "fixed"
+          },
+          {
+            "id": "F4",
+            "severity": "minor",
+            "file": "internal/app/monthly_metrics_step_test.go",
+            "note": "Fixed in 457ab38. All nine flagged lines plus the three Group A/B/C section dividers (which only meant something through design.md's own grouping) are rewritten in plain English. Grepped the file for design.md/RM/RD/CH/MAG-/Test Contract: zero hits.",
+            "status": "fixed"
+          }
+        ],
+        "notes": "Re-verified against commit 457ab38 only, per the leader's scope. Confirmed the one deliberate no-op: internal/app/processor_test.go:21-22 (the P1/P2 fixtures comment, still citing design.md/RM36) was correctly left alone - this change never edited it, so the no-sweep rule applies; same for processor.go's own pre-existing design.md/RM/RD references (RM36, RM35, RM52, RD6/RD7/RD9), none touched by 457ab38 and none were part of my round-1 findings. Confirmed no new pointer was introduced anywhere in the fix. Confirmed no code or test assertion logic changed - only comment text and two failure-message strings. Re-ran gofmt -l, go build ./..., go vet ./..., make lint (0 issues), tz-guard, boundary-guard, naming-guard, archive-guard, delta-guard myself: all clean, matching the leader's report. Confirmed tasks.md: L1/L2/L3 now [x], matching the cmd/poller and README.md work already present in the git history; L4 and O1 correctly remain open (not yet applicable). No new findings. All four round-1 findings fixed with no regressions - approved.",
         "duration_seconds": null,
         "budget": {
           "source": "not-tracked",
@@ -471,6 +513,11 @@
       "at": "2026-09-21T11:30:00Z",
       "agent": "leader",
       "event": "review round 1 triaged: findings F1, F2, F3 and F4 all ACCEPTED, none rejected; fixed by the leader in app.go, processor_test.go and monthly_metrics_step_test.go; the leader also cleaned the package doc comment and NewProcessor's, which this change edited and which carried the same pointers the reviewer flagged elsewhere; build, vet, gofmt, lint and every guard re-run and clean; reviewer signalled to re-verify"
+    },
+    {
+      "at": "2026-09-21T11:35:00Z",
+      "agent": "leader",
+      "event": "review round 2 approved; change archived to openspec/changes/archive/app/2026-09-21-RM67-app-add-monthly-metrics-step; delta synced into openspec/specs/process-vehicle-data (1 added, 2 modified, 1 renamed); the leader moved the folder under archive/app (the CLI drops it at the archive root), moved the RENAMED requirement back to the top of the spec (the sync re-appends it at EOF), and replaced the spec's TBD Purpose, which the sync never touches"
     }
   ]
 }

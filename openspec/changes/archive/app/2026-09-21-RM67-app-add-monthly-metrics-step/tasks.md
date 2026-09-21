@@ -181,13 +181,15 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite once L1 (leader) has landed the `cmd/poller` wiring.
+- [x] **O1** **[owner]** Run the suite once L1 (leader) has landed the `cmd/poller` wiring.
   Recorded as the owner's report, never claimed by the assistant. Nothing above may be reported as
   `done` on the assistant's say-so; work that is complete but unexecuted is
   **`awaiting-user-verification`**.
   ```bash
   make check
   ```
+  **Owner reported `make check` passing on 2026-09-21.** A first run failed at `tz-guard`;
+  the leader fixed that line and the owner re-ran the whole target.
   (`make check` = `build vet lint ui-guard i18n-guard money-guard tz-guard migration-boundary-guard
   boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard
   delta-guard test`. No `make migrate-up` needed — this tier adds no migration.)
@@ -223,7 +225,7 @@ Every expected value is fixed in design.md §Test Contract. **Assert that contra
   it likely does not, but verify rather than assume (the same check on tier 2's own L2 task once
   turned out wrong).
 
-- [ ] **L4** **[leader]** When this tier archives, update
+- [x] **L4** **[leader]** When this tier archives, update
   `openspec/roadmaps/RM67-vehicle-monthly-metrics-table.md`'s tier 4 status to `[x]`. Since this is
   the roadmap's last tier, also check whether the roadmap itself is now fully complete and should
   move to `openspec/roadmaps/archive/` per that flow's own rules.

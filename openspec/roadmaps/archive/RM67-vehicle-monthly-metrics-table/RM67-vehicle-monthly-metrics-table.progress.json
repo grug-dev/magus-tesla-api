@@ -5,9 +5,9 @@
   "intention": "analytics.vehicle_monthly_metrics holds one row per vehicle per month: distance, efficiency and battery use split into all days / weekdays / weekends, the month's external-charge and supercharger totals with three ending-battery distributions, and the pack capacity charging measured that month. One idempotent use case takes (tesla_id, period) and rewrites the row, so any port or process can re-sync one month for one car. The nightly job calls it for the current and previous month. Linear MAG-73.",
   "request": "/kkpa-pickup-linear-ticket MAG-73 — Analytics monthly metrics table: distance, efficiency and copied capacity. Build the wider monthly metrics table in analytics (backlog item 29, deferred from MAG-32 / RM52 by RD12). One row per vehicle per month storing: total distance from vehicle_metrics.distance_traveled_km_calc plus weekday/weekend splits and per-day averages; efficiency from km_per_pct_calc plus weekday/weekend; battery consumed from consumed_pct plus weekday/weekend; effective capacity COPIED from charging.monthly_effective_capacity.effective_capacity_kwh (a copy, not a read-time join); external-charge energy, cost and session counts split by charger type AC/DC with an ext_ prefix; supercharger energy, cost and session counts with an sc_ prefix; and a JSONB per source holding session counts bucketed by ending battery level (0-20/20-40/40-60/60-80/80-100) for a bar-style view. Runs as a new step 5 in internal/app/processor.go, after step 4, because it reads both step 3's vehicle_metrics and step 4's monthly_effective_capacity. Must be a new, well-named Go type built with the golang skills, isolated and easy to test, taking a single tesla_id and a period (YYYY-MM) as a hexagonal input port, so a period can be re-synced on demand. The ticket asked for /grill-me on five open questions before any artifact: the efficiency formula, the refresh rule when analytics recalculates old months, the month boundary given metric_date, what happens when the capacity is NULL, and the final table name.",
   "autopilot": false,
-  "status": "in-progress",
+  "status": "complete",
   "created_at": "2026-09-18T19:05:41Z",
-  "updated_at": "2026-09-21T10:25:00Z",
+  "updated_at": "2026-09-21T11:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,15 +21,14 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied"
   },
   "rollup": {
-    "current": [
-      4
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       1,
       2,
-      3
+      3,
+      4
     ]
   },
   "decisions": [
@@ -246,14 +245,20 @@
       "depends_on": [
         3
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5 (workers), claude-opus-5 (leader)",
       "started_at": "2026-09-21T10:10:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-21T11:35:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Nightly step 5 after step 4. Runs EVERY night for the current and previous month (RD3). Failure logs and never fails the cycle."
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 87,
+        "cost_usd_delta": 20.9,
+        "approx": true,
+        "note": "whole tier: 3 worker dispatches (artifacts, code+tests, docs), 2 reviewer rounds, leader integration and archive"
+      },
+      "notes": "Shipped step 5 of the nightly cycle: analytics.MonthlySyncer called twice per vehicle every night, current and previous month. No migration, no new port. One guard fix after the owner's make check caught tz-guard. Two review rounds, 4 minor comment findings, all accepted. Owner ran make check and reported it passing."
     }
   ],
   "events": [
@@ -311,6 +316,11 @@
       "at": "2026-09-21T10:25:00Z",
       "agent": "leader",
       "event": "tier 4 artifacts created by the app worker and validated (openspec validate --strict passed); database design gate does NOT fire - the change adds no schema object and reads no database directly; Spanish briefing given and the owner said continue; leader flagged that design.md's illustrative code comments carry RD/design.md references, which the project's comment rule forbids in real code - the implementation dispatch forbids them explicitly"
+    },
+    {
+      "at": "2026-09-21T11:35:00Z",
+      "agent": "leader",
+      "event": "tier 4 archived to openspec/changes/archive/app/2026-09-21-RM67-app-add-monthly-metrics-step; that was the last tier, so RM67 is COMPLETE and both roadmap files move to openspec/roadmaps/archive/RM67-vehicle-monthly-metrics-table/; the .work-counter is untouched, as archiving never changes it"
     }
   ]
 }
