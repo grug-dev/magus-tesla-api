@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-09-18T19:05:41Z",
-  "updated_at": "2026-09-19T16:41:11Z",
+  "updated_at": "2026-09-21T09:52:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,16 +21,15 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-73/analytics-monthly-metrics-table-distance-efficiency-and-copied"
   },
   "rollup": {
-    "current": [
-      3
-    ],
+    "current": [],
     "pending": [
       4
     ],
     "blocked": [],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -224,14 +223,20 @@
       "depends_on": [
         2
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5 (workers, reviewer), claude-opus-5 (leader)",
       "started_at": "2026-09-19T16:41:11Z",
-      "completed_at": null,
+      "completed_at": "2026-09-21T09:52:30Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Fill ext_* split by ChargingType AC/DC, sc_*, and the three JSONB ending-battery distributions. Existing charging ports only (RD9)."
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 40,
+        "cost_usd_delta": 15.34,
+        "approx": true,
+        "note": "whole tier including the resumed dead wave 1: 3 worker dispatches, 2 reviewer rounds, leader integration"
+      },
+      "notes": "Shipped the real ext_*, sc_* and three JSONB ending-battery distributions. Existing charging ports only, no migration. One review round: 3 findings, all accepted. Owner ran make test and make test-with-db and reported both passing."
     },
     {
       "id": 4,
@@ -291,6 +296,11 @@
       "at": "2026-09-19T16:41:11Z",
       "agent": "leader",
       "event": "tier 3 artifacts created by the analytics worker and validated (openspec validate --strict passed); database design gate does NOT fire - no schema object changes, tier 2's migration already created every column; Spanish briefing given and the owner said continue"
+    },
+    {
+      "at": "2026-09-21T09:52:30Z",
+      "agent": "leader",
+      "event": "tier 3 archived to openspec/changes/archive/analytics/2026-09-21-RM67-analytics-add-monthly-charging-aggregates; delta synced into openspec/specs/vehicle-monthly-metrics (3 requirements added); leader moved the folder under archive/analytics (the CLI drops it at the archive root) and fixed that spec's Purpose, which the sync never touches. Tier 4 is now unblocked. Autopilot is OFF, so tier 4 does not start by itself"
     }
   ]
 }
