@@ -79,7 +79,15 @@ type Deps struct {
 	// aperture (AGENTS.md §"Read-only at request time"). Never called
 	// from a Reader-only handler.
 	AnalyticsRecalculator analytics.Recalculator
-	SessionSecret         string
+	// AnalyticsMonthlyReader is the analytics module's per-month read port,
+	// injected from cmd/web via analytics.NewMonthlyReader(...). Read by the
+	// Vehicle Stats page only. Separate from AnalyticsReader because the two
+	// read different tables at different grains — the daily vehicle_metrics
+	// versus the monthly rollup — so a page takes the one it needs and fakes
+	// only that one. Same rule as every sibling port: the interface, never
+	// the database.
+	AnalyticsMonthlyReader analytics.MonthlyReader
+	SessionSecret          string
 	// BaseURL is the app's public base URL (config.Config.BaseURL — e.g.
 	// https://usemagus.cloud in production, http://localhost:8080 in dev). The
 	// SAME value that already builds the OAuth redirect URIs; the gateway needs
@@ -168,20 +176,21 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	}
 
 	h := handlers.New(handlers.Deps{
-		Pool:                  d.Pool,
-		Account:               d.Account,
-		Google:                d.Google,
-		Tesla:                 d.Tesla,
-		SuperchargerReader:    d.SuperchargerReader,
-		SuperchargerVerifier:  d.SuperchargerVerifier,
-		ChargingWriter:        d.ChargingWriter,
-		ChargingReader:        d.ChargingReader,
-		AnalyticsReader:       d.AnalyticsReader,
-		AnalyticsRecalculator: d.AnalyticsRecalculator,
-		TeslaClientID:         d.TeslaClientID,
-		TeslaClientSecret:     d.TeslaClientSecret,
-		TeslaRedirectURL:      d.TeslaRedirectURL,
-		VehicleImageResolver:  newVehicleImageResolver(staticFS),
+		Pool:                   d.Pool,
+		Account:                d.Account,
+		Google:                 d.Google,
+		Tesla:                  d.Tesla,
+		SuperchargerReader:     d.SuperchargerReader,
+		SuperchargerVerifier:   d.SuperchargerVerifier,
+		ChargingWriter:         d.ChargingWriter,
+		ChargingReader:         d.ChargingReader,
+		AnalyticsReader:        d.AnalyticsReader,
+		AnalyticsRecalculator:  d.AnalyticsRecalculator,
+		AnalyticsMonthlyReader: d.AnalyticsMonthlyReader,
+		TeslaClientID:          d.TeslaClientID,
+		TeslaClientSecret:      d.TeslaClientSecret,
+		TeslaRedirectURL:       d.TeslaRedirectURL,
+		VehicleImageResolver:   newVehicleImageResolver(staticFS),
 	})
 
 	r.GET("/", h.Home)
@@ -252,6 +261,9 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/ui/supercharger-stats/row/:id", h.SuperchargerRowStatic)
 	r.GET("/ui/supercharger-stats/row/:id/edit", h.SuperchargerRowEditFragment)
 	r.PATCH("/ui/supercharger-stats/row/:id", h.SuperchargerRowUpdate)
+
+	r.GET("/vehicle-stats", h.VehicleStatsPage)
+	r.GET("/ui/vehicle-stats", h.VehicleStatsFragment)
 
 	return r, nil
 }

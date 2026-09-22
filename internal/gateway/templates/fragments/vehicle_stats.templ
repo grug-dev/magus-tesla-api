@@ -1,0 +1,191 @@
+package fragments
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// VehicleStatsContent renders the vehicle-scoped body of the Vehicle Stats
+// page — everything inside #vehicle-stats-content. It is served both by the
+// full page load (through VehicleStatsPage) and by the htmx swap on
+// GET /ui/vehicle-stats, so one template tree covers the first render, the
+// vehicle switch and every period change (mirrors SuperchargerStatsContent).
+//
+// The period control is rendered HERE, at the top of this region, and NOT in
+// the page header beside the title where it visually belongs. That is forced,
+// not preferred: the header sits outside #vehicle-stats-content, so a swap
+// would leave its button still naming the previous period. Right-aligning it
+// directly under the header buys the same reading with none of that staleness.
+templ VehicleStatsContent(v VehicleStatsView) {
+	if v.Periods != nil {
+		<div class="flex justify-end -mt-2">
+			@ui.Dropdown(ui.DropdownProps{
+				ID:        "vehicle-stats-period",
+				Label:     v.PeriodLabel,
+				AriaLabel: i18n.T(ctx, i18n.KeyVehicleStatsPeriodAria),
+				End:       true,
+				Scroll:    true,
+				Items:     vehicleStatsPeriodItems(v.Periods),
+			})
+		</div>
+	}
+	if v.Error != "" {
+		@ui.Alert(ui.AlertProps{Kind: "error", Class: "mb-4"}) {
+			{ v.Error }
+		}
+	} else if v.Empty {
+		@ui.Card(ui.CardProps{ID: "vehicle-stats-empty"}) {
+			<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyVehicleStatsEmpty) }</p>
+		}
+	} else {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsSummaryTitle), ID: "vehicle-stats-summary"}) {
+			@vehicleStatsTiles(v.Tiles)
+		}
+		@vehicleStatsWhy(v.Why)
+	}
+}
+
+// vehicleStatsPeriodItems maps the view model's periods onto the ui kit's
+// menu rows. Each row carries its OWN complete hx-get with ?start= and ?end=
+// already resolved, which is what keeps this page on the platform's single
+// date-filter vocabulary (AGENTS.md §HTTP date-filter convention) with no
+// client-side JavaScript — one option of a native select element holds a
+// single value, so two coupled query params would otherwise need a script.
+//
+// A pure presentation mapping owned by the template file, the same precedent
+// firstWord (vehicle_select.templ) and navBadgeKind set: it reshapes a VM for
+// a component, it decides nothing.
+func vehicleStatsPeriodItems(periods []VehicleStatsPeriod) []ui.DropdownItem {
+	items := make([]ui.DropdownItem, 0, len(periods))
+	for _, p := range periods {
+		items = append(items, ui.DropdownItem{
+			Label:  p.Label,
+			Active: p.Active,
+			Indent: p.IsMonth,
+			Attrs: templ.Attributes{
+				"hx-get":    fmt.Sprintf("/ui/vehicle-stats?start=%s&end=%s", p.StartStr, p.EndStr),
+				"hx-target": "#vehicle-stats-content",
+				"hx-swap":   "innerHTML",
+			},
+		})
+	}
+	return items
+}
+
+// vehicleStatsTiles renders the period's seven KPIs in THREE tiers of weight,
+// not seven equal cards.
+//
+// The ticket asked for this directly ("I wouldn't show 20+ cards"), and the
+// reason it works is that the seven do not answer equally. Distance and
+// efficiency answer "how did the car do" on their own — they get the headline
+// size. The four charging figures are the ledger behind the cost, equal to each
+// other and quieter. Range at full battery is not a period figure at all: it is
+// a battery-health reading from the latest month, so it sits apart, last and
+// smallest, where it cannot be mistaken for a total.
+templ vehicleStatsTiles(t VehicleStatsTiles) {
+	<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsDistance), Value: t.Distance, Size: "lg"})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsEfficiency), Value: t.Efficiency, Size: "lg"})
+	</div>
+	<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsEnergy), Value: t.Energy})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsSessions), Value: t.Sessions})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsCost), Value: t.Cost})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsCostPerKm), Value: t.CostPerKm})
+	</div>
+	<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-4 pt-3 border-t border-base-300 text-sm">
+		<span class="text-base-content/70">{ i18n.T(ctx, i18n.KeyVehicleStatsRangeFull) }</span>
+		<span class="font-mono font-semibold">{ t.RangeFull }</span>
+		<span class="text-base-content/50">{ i18n.T(ctx, i18n.KeyVehicleStatsRangeFullDesc) }</span>
+	</div>
+}
+
+// vehicleStatsWhy renders the page's explanatory half — the "rest of the page"
+// the ticket asked to progressively answer why the figures above look as they
+// do. Each block answers ONE headline number, in the order those numbers appear.
+//
+// None of the three is a stat tile. A tile states a value; these state a
+// comparison, a share and a distribution — the shapes that explain a value.
+// Reusing tiles here would flatten the hierarchy the section above exists to
+// build.
+templ vehicleStatsWhy(w VehicleStatsWhy) {
+	@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsWhyTitle)})
+	@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsHowDrivenTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsHowDrivenDesc), ID: "vehicle-stats-how-driven"}) {
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+			@vehicleStatsSplit(w.Weekday)
+			@vehicleStatsSplit(w.Weekend)
+		</div>
+	}
+	@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsEnergyMixTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsEnergyMixDesc), ID: "vehicle-stats-energy-mix"}) {
+		<div class="flex flex-col gap-4">
+			for _, src := range w.Sources {
+				@vehicleStatsSource(src)
+			}
+		</div>
+	}
+	@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsEndBattTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsEndBattDesc), ID: "vehicle-stats-end-battery"}) {
+		if w.BucketsEmpty {
+			<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyVehicleStatsEndBattEmpty) }</p>
+		} else {
+			<div class="flex flex-col gap-3">
+				for _, b := range w.Buckets {
+					@vehicleStatsBucket(b)
+				}
+			</div>
+		}
+	}
+}
+
+// vehicleStatsSplit renders one side of the weekday/weekend comparison. The day
+// count is shown because it is what makes the comparison fair — the same km/%
+// means much less over three days than over twenty.
+templ vehicleStatsSplit(s VehicleStatsSplit) {
+	<div class="flex flex-col gap-1">
+		<span class="text-sm text-base-content/70">{ s.Label }</span>
+		<div class="flex items-baseline gap-3">
+			<span class="font-mono text-xl font-semibold">{ s.Efficiency }</span>
+			<span class="font-mono text-base-content/70">{ s.Distance }</span>
+		</div>
+		<span class="text-xs text-base-content/50">{ s.Days }</span>
+	</div>
+}
+
+// vehicleStatsSource renders one charging source: its share of the period's
+// energy as a meter, then the figure that actually explains the cost — the
+// price per kWh.
+templ vehicleStatsSource(s VehicleStatsSource) {
+	<div class="flex flex-col gap-1">
+		<div class="flex flex-wrap items-baseline justify-between gap-x-3">
+			<span class="text-sm">{ s.Label }</span>
+			<span class="font-mono text-sm font-semibold">{ s.CostPerKWh }</span>
+		</div>
+		@ui.Progress(ui.ProgressProps{Value: s.SharePct, Max: 100, Class: "w-full h-2 text-primary", Attrs: templ.Attributes{"aria-label": fmt.Sprintf(i18n.T(ctx, i18n.KeyVehicleStatsSourceShare), pctLabel(s.SharePct))}})
+		<div class="flex flex-wrap gap-x-3 text-xs text-base-content/60 font-mono">
+			<span>{ s.Energy }</span>
+			<span>{ s.Cost }</span>
+			<span>{ s.Sessions }</span>
+		</div>
+	</div>
+}
+
+// vehicleStatsBucket renders one ending-battery band as a labelled meter. A
+// horizontal meter, not five vertical bars: the labels are ranges like "80-100%"
+// and would not fit under a narrow column on a phone.
+templ vehicleStatsBucket(b VehicleStatsBucket) {
+	<div class="flex items-center gap-3">
+		<span class="w-20 shrink-0 font-mono text-xs text-base-content/70">{ b.Label }</span>
+		@ui.Progress(ui.ProgressProps{Value: b.SharePct, Max: 100, Class: "flex-1 h-2 text-secondary", Attrs: templ.Attributes{"aria-label": fmt.Sprintf(i18n.T(ctx, i18n.KeyVehicleStatsEndBattShare), pctLabel(b.SharePct))}})
+		<span class="w-8 shrink-0 text-right font-mono text-xs">{ b.Count }</span>
+	</div>
+}
+
+// pctLabel renders a whole percentage for a screen-reader label — e.g. 42 ->
+// "42%". A presentation mapping owned by this file, like firstWord in
+// vehicle_select.templ. The "%" sign is language-neutral, so it carries no
+// catalogue key; the surrounding sentence does.
+func pctLabel(pct int) string {
+	return strconv.Itoa(pct) + "%"
+}

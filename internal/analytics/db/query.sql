@@ -420,3 +420,23 @@ ON CONFLICT (tesla_id, period) DO UPDATE SET
     sc_ending_battery_dist      = EXCLUDED.sc_ending_battery_dist,
     updated_at                  = now()
 RETURNING *;
+
+-- name: VehicleMonthlyMetricsForVehicleBetween :many
+-- Backs MonthlyReader.MonthlyMetricsBetween: the stats page's ONE read over
+-- the precomputed monthly table. SELECT * so sqlc returns the shared
+-- VehicleMonthlyMetric model type, which monthlyMetricsFromRow already maps
+-- -- a narrowed column list would emit a second, per-query Row type and force
+-- a duplicate mapper for the same row.
+-- start_period/end_period accept any day inside their month; date_trunc
+-- normalizes both ends in SQL, matching VehicleMetricsForVehicleAndMonth's
+-- and CapacityForMonth's identical any-day-in-month contract, so no caller
+-- ever builds a first-of-month value itself.
+-- Both bounds are inclusive of their whole month, matching the platform's
+-- HTTP date-filter convention (end inclusive).
+-- Served by vehicle_monthly_metrics_tesla_period_unique (tesla_id, period),
+-- never a seq scan -- no separate CREATE INDEX.
+SELECT * FROM analytics.vehicle_monthly_metrics
+WHERE tesla_id = @tesla_id
+  AND period >= date_trunc('month', @start_period::date)::date
+  AND period <= date_trunc('month', @end_period::date)::date
+ORDER BY period;

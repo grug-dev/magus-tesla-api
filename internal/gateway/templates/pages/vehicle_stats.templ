@@ -1,0 +1,37 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// VehicleStatsPage renders the full Vehicle Stats page for the
+// session-selected vehicle. Uses layouts.BaseAuth (the authenticated drawer
+// shell) and composes the ui/ kit; every value on fragments.VehicleStatsView
+// is pre-computed by the handler.
+//
+// The #vehicle-stats-content region is vehicle-scoped: it subscribes to the
+// sidebar switcher's "vehicle-changed" event (from:body) and re-fetches
+// GET /ui/vehicle-stats so the page follows the newly selected vehicle
+// (ai/htmx-conventions.md §"Cross-region refresh"). That same endpoint will
+// also serve the period-filter swap, so one template tree covers the full
+// page load, the vehicle switch and the filter change — the @templ.Fragment
+// shape SuperchargerStatsPage and ExternalChargesPage already use.
+templ VehicleStatsPage(v fragments.VehicleStatsView) {
+	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyNavVehicleStats)), "/vehicle-stats") {
+		@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyNavVehicleStats), Subtitle: i18n.T(ctx, i18n.KeyVehicleStatsPageSubtitle)}) {
+			@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard"}) {
+				{ i18n.T(ctx, i18n.KeyChargesPageBackToDashboard) }
+			}
+		}
+		<div id="vehicle-stats-content" class="flex flex-col gap-6" hx-get="/ui/vehicle-stats" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
+			@templ.Fragment("vehicle-stats") {
+				@fragments.VehicleStatsContent(v)
+			}
+		</div>
+	}
+}

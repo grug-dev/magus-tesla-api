@@ -1,0 +1,66 @@
+package ui
+
+// DropdownItem is one row in a Dropdown's menu. Attrs carries whatever makes
+// the row act — an hx-get and its target, typically — so the behaviour stays
+// with the caller while every DaisyUI class stays here. Same division ui.Select
+// uses for its options: the data is the caller's, the look is the kit's.
+type DropdownItem struct {
+	Label  string
+	Active bool // renders the DaisyUI "active" menu state
+	Indent bool // nests the row under the one above it (a month under its year)
+	Attrs  templ.Attributes
+}
+
+// DropdownProps configures a Dropdown. Label is the trigger button's text —
+// normally the current selection, so the control reads as a value, not a verb.
+// AriaLabel names the control for a screen reader. End aligns the menu to the
+// trigger's right edge, for a control sitting near the viewport edge. Scroll
+// caps the menu height and scrolls inside it, for a list that can outgrow the
+// screen.
+type DropdownProps struct {
+	ID        string
+	Label     string
+	AriaLabel string
+	Items     []DropdownItem
+	End       bool
+	Scroll    bool
+}
+
+// Dropdown renders a single-choice menu control: a trigger button showing the
+// current selection, opening a list of rows.
+//
+// No JavaScript. It is the CSS-only DaisyUI "dropdown" pattern — :focus-driven,
+// the same one LangSwitcher uses — already on this module's sanctioned zero-JS
+// list, so composing it introduces no new client behaviour.
+//
+// Why this exists as a kit component rather than markup in a fragment: the
+// DaisyUI class names (`dropdown`, `dropdown-content`, `menu`, `btn`, `active`)
+// are exactly what the ui/ kit is the anti-corruption adapter for, so a version
+// bump is a one-file change. It also lets a caller give each row a complete
+// hx-get URL, which a native select element cannot do — one of its options
+// carries a single value, so two coupled query params would need a script.
+templ Dropdown(p DropdownProps) {
+	<div class={ "dropdown", templ.KV("dropdown-end", p.End) } id={ p.ID }>
+		<div tabindex="0" role="button" class="btn btn-sm btn-outline" aria-label={ p.AriaLabel }>
+			<span>{ p.Label }</span>
+			@Icon(IconProps{Name: "chevron_down", Class: "h-4 w-4"})
+		</div>
+		<ul
+			tabindex="-1"
+			class={ "dropdown-content menu bg-base-100 rounded-box z-1 w-56 p-2 shadow-sm",
+				templ.KV("max-h-96 flex-nowrap overflow-y-auto", p.Scroll) }
+		>
+			for _, it := range p.Items {
+				<li>
+					<button
+						type="button"
+						class={ "justify-start", templ.KV("menu-active", it.Active), templ.KV("font-semibold", !it.Indent), templ.KV("pl-6", it.Indent) }
+						{ it.Attrs... }
+					>
+						{ it.Label }
+					</button>
+				</li>
+			}
+		</ul>
+	</div>
+}

@@ -76,6 +76,7 @@ var robotsDisallow = []string{
 	"/settings",
 	"/external-charges",
 	"/supercharger-stats",
+	"/vehicle-stats",
 }
 
 // sitemapPaths is every URL this site wants indexed.

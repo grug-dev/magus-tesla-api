@@ -78,7 +78,11 @@ func main() {
 			charging.NewSuperchargerSessionAnalyticsReader(pool),
 			charging.NewReader(pool),
 		),
-		SessionSecret: cfg.SessionSecret,
+		// The Vehicle Stats page reads the per-month rollup through this port.
+		// Like AnalyticsReader it reads one table and needs only the pool —
+		// the months were derived ahead of time by the nightly poller.
+		AnalyticsMonthlyReader: analytics.NewMonthlyReader(pool),
+		SessionSecret:          cfg.SessionSecret,
 		// Public base URL — the same value that builds the OAuth redirect URIs
 		// above. The gateway uses it to make the SEO/social tags absolute
 		// (layouts.seoHead via handlers.SiteMiddleware); set BASE_URL to the
