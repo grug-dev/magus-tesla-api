@@ -26,6 +26,23 @@ type VehicleStatsView struct {
 	// when Empty is false.
 	Why VehicleStatsWhy
 
+	// Gaps are the days in the period whose battery use the stored charge
+	// records cannot account for — a charge record is missing or incomplete.
+	// Empty means the period is fully accounted for and the whole section is
+	// not rendered.
+	//
+	// It sits on the view, not inside Why, because it is not an explanation of
+	// a figure — it is a warning ABOUT the figures: a missing charge
+	// under-counts consumption, which pushes energy and cost down and
+	// efficiency up.
+	Gaps []VehicleStatsGap
+
+	// GapsMore is how many further gap days exist beyond the ones in Gaps,
+	// 0 when none were dropped. A year can flag more days than a reader will
+	// scan, so the list is capped and the remainder is counted instead of
+	// silently disappearing.
+	GapsMore int
+
 	// Empty is true when there is nothing to show for the selected vehicle
 	// and period — no vehicle resolved on the session, or no stored month in
 	// the window. The template renders the single empty-state card.
@@ -152,4 +169,44 @@ type VehicleStatsBucket struct {
 	// SharePct is this band's share of all charges that reported an ending
 	// battery, 0-100, driving the meter's height.
 	SharePct int
+}
+
+// VehicleStatsGap is one day the period could not fully account for, already
+// formatted and already resolved to the page that fixes it.
+//
+// The two kinds need different words because they need different work, and the
+// analytics module already tells them apart (its MissingChargingType): a MANUAL
+// gap means the charge happened somewhere Tesla does not report and a record
+// must be CREATED; a SUPERCHARGER gap means the session is already stored and
+// only its two battery percentages are missing, so a record must be COMPLETED.
+//
+// The date arrives SPLIT into day and month rather than as one string. The cell
+// makes the day number its visual anchor — a reader scans these to find "which
+// days do I owe a record for" — and a pre-joined label could not be typeset in
+// two sizes. The year is deliberately absent: the selected period already
+// frames it, so repeating it in every cell is noise.
+type VehicleStatsGap struct {
+	// DayLabel is the day of the month, e.g. "10". Numeric, so it needs no
+	// translation and stays the same width in both languages.
+	DayLabel string
+
+	// MonthLabel is the translated month name, e.g. "septiembre". Lowercase in
+	// Spanish by orthography.
+	MonthLabel string
+
+	// KindLabel is the short badge text naming what is missing, e.g. "Carga
+	// manual". Short on purpose: a ui.Badge cannot wrap, it only widens, so a
+	// sentence here would stretch the cell.
+	KindLabel string
+
+	// ActionLabel is the short call to action, e.g. "Agregar registro". The
+	// full explanation is the section's own description, said once — repeating
+	// a sentence in every cell is what made the first version read as a log.
+	ActionLabel string
+
+	// ActionHref points at the page that fixes this day, with that single day
+	// already applied as the ?start=&end= filter — so the reader lands on the
+	// day in question, not on a page they must then filter themselves. Both
+	// pages accept a single-day window. The whole cell is this link.
+	ActionHref string
 }

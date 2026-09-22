@@ -122,5 +122,19 @@ func (h *Handler) vehicleStatsViewFor(c *gin.Context, uid uuid.UUID) (fragments.
 	v.Empty = false
 	v.Tiles = buildVehicleStatsTiles(months)
 	v.Why = buildVehicleStatsWhy(ctx, months)
+
+	// The missing-records warning needs day grain, so it is a SECOND read —
+	// the monthly rollup stores no per-day flag. The window is the period's
+	// own, with no lookback: a flagged day is a fact about that day, not a
+	// delta needing a predecessor. ConsumedByDay is sparse and bounded by the
+	// window (at most ~366 rows for a whole year), and a failure here degrades
+	// the warning only: the figures above are already built, so the page still
+	// renders without it rather than erroring.
+	if flagDays, err := h.analyticsReader.ConsumedByDay(ctx, teslaID, start, end); err != nil {
+		logging.Note("Handler", "vehicleStatsViewFor", "ConsumedByDay error for account %s, vehicle %d: %v", uid, teslaID, err)
+	} else {
+		v.Gaps, v.GapsMore = buildVehicleStatsGaps(ctx, flagDays)
+	}
+
 	return v, http.StatusOK
 }

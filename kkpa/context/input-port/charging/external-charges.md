@@ -38,7 +38,7 @@
 
 | Method + path | Purpose | Use case |
 |---|---|---|
-| `GET /external-charges` | Full page load (`ExternalChargesPage`); always uses the default window | — read path, see `workflows/manual-charge-crud.md` |
+| `GET /external-charges` | Full page load (`ExternalChargesPage`). Honours `?start=&end=` since MAG-87 — absent params still give the default 7-day window | — read path, see `workflows/manual-charge-crud.md` |
 | `GET /ui/external-charges` | Re-render the create form + list after a vehicle switch (`ExternalChargesContentFragment`) | — read path |
 | `GET /ui/external-charges/list` | The date-filter endpoint (`ExternalChargesListFragment`); `400` renders the empty-state with no filter chrome | — read path |
 | `GET /ui/external-charges/row/:id` | Cancel-edit — swap back to the static row (`ExternalChargeRowStatic`) | — read path |
@@ -48,6 +48,22 @@
 | `DELETE /ui/external-charges/row/:id` | Delete a row | `use-case/charging/delete-manual-charge.md` |
 
 ## Adapter-side conventions
+
+- **The page route honours `?start=&end=`, and that is a reversal (MAG-87).** It used to ignore
+  them by design — "a full page reload has no reason to remember a prior filter click" — which is
+  still true of a reload but does not cover a **deep link**. `/vehicle-stats` links each
+  missing-charge day straight here with that one day as the window, so the reader lands on the
+  day they were sent to fix. Ignoring the params put them on the default 7-day window, which for
+  an older gap does not even contain that day. Absent params are unchanged:
+  `parseExternalChargesRange`'s both-absent branch is byte-identical to
+  `defaultExternalChargesWindow`, which the seven other callers still use.
+- **A single-day window is legal here** (`?start=D&end=D`) and is what the deep link uses, but
+  the page gives the reader NO on-screen confirmation of it. The range filter is three preset
+  buttons plus two **hidden** inputs (`#external-charges-window-start` / `-end`); there is no
+  visible date field. `buildExternalChargesPresets` marks Active by exact match against its own
+  three recomputed windows, and a single day is none of them, so no preset lights up either. The
+  list IS correctly filtered — the window is simply invisible. Closing that gap needs a visible
+  window indicator or a date input, and neither exists yet (open after MAG-87).
 
 - **Tenant ownership is checked in the GATEWAY, on every write** — the handler calls
   `account.Service.RegisteredVehicles` and confirms the submitted `(tesla_id, vin)` pair belongs

@@ -230,6 +230,7 @@ const (
 	// fragments/vehicle_stats.templ) ---
 	KeyVehicleStatsEmpty             Key = "vehicle_stats.empty"
 	KeyVehicleStatsPeriodAria        Key = "vehicle_stats.period_aria"
+	KeyVehicleStatsPeriodLabel       Key = "vehicle_stats.period_label"
 	KeyVehicleStatsWholeYear         Key = "vehicle_stats.whole_year"
 	KeyVehicleStatsSummaryTitle      Key = "vehicle_stats.summary_title"
 	KeyVehicleStatsDistance          Key = "vehicle_stats.distance"
@@ -251,16 +252,25 @@ const (
 	KeyVehicleStatsWeekend        Key = "vehicle_stats.weekend"
 	KeyVehicleStatsDayCount       Key = "vehicle_stats.day_count"
 	KeyVehicleStatsChargeCount    Key = "vehicle_stats.charge_count"
-	KeyVehicleStatsEnergyMixTitle Key = "vehicle_stats.energy_mix_title"
-	KeyVehicleStatsEnergyMixDesc  Key = "vehicle_stats.energy_mix_desc"
-	KeyVehicleStatsSourceAC       Key = "vehicle_stats.source_ac"
-	KeyVehicleStatsSourceDC       Key = "vehicle_stats.source_dc"
-	KeyVehicleStatsSourceSC       Key = "vehicle_stats.source_sc"
-	KeyVehicleStatsSourceShare    Key = "vehicle_stats.source_share"
-	KeyVehicleStatsEndBattTitle   Key = "vehicle_stats.end_battery_title"
-	KeyVehicleStatsEndBattDesc    Key = "vehicle_stats.end_battery_desc"
-	KeyVehicleStatsEndBattEmpty   Key = "vehicle_stats.end_battery_empty"
-	KeyVehicleStatsEndBattShare   Key = "vehicle_stats.end_battery_share"
+
+	// --- vehicle stats missing-charge-records warning ---
+	KeyVehicleStatsGapsTitle       Key = "vehicle_stats.gaps_title"
+	KeyVehicleStatsGapsDesc        Key = "vehicle_stats.gaps_desc"
+	KeyVehicleStatsGapManual       Key = "vehicle_stats.gap_manual"
+	KeyVehicleStatsGapSupercharger Key = "vehicle_stats.gap_supercharger"
+	KeyVehicleStatsGapActionManual Key = "vehicle_stats.gap_action_manual"
+	KeyVehicleStatsGapActionSC     Key = "vehicle_stats.gap_action_sc"
+	KeyVehicleStatsGapsMore        Key = "vehicle_stats.gaps_more"
+	KeyVehicleStatsEnergyMixTitle  Key = "vehicle_stats.energy_mix_title"
+	KeyVehicleStatsEnergyMixDesc   Key = "vehicle_stats.energy_mix_desc"
+	KeyVehicleStatsSourceAC        Key = "vehicle_stats.source_ac"
+	KeyVehicleStatsSourceDC        Key = "vehicle_stats.source_dc"
+	KeyVehicleStatsSourceSC        Key = "vehicle_stats.source_sc"
+	KeyVehicleStatsSourceShare     Key = "vehicle_stats.source_share"
+	KeyVehicleStatsEndBattTitle    Key = "vehicle_stats.end_battery_title"
+	KeyVehicleStatsEndBattDesc     Key = "vehicle_stats.end_battery_desc"
+	KeyVehicleStatsEndBattEmpty    Key = "vehicle_stats.end_battery_empty"
+	KeyVehicleStatsEndBattShare    Key = "vehicle_stats.end_battery_share"
 
 	// --- calendar month names, shared (handlers/vehicle_stats_period.go) ---
 	// Indexed by time.Month, so a caller maps 1-12 without a switch. Spanish
@@ -690,6 +700,7 @@ var catalog = map[Key]entry{
 	KeySuperchargerEmpty:             {ES: "No hay sesiones de Supercharger en esta ventana.", EN: "No Supercharger sessions in this window."},
 	KeyVehicleStatsEmpty:             {ES: "No hay datos para este periodo.", EN: "No data for this period."},
 	KeyVehicleStatsPeriodAria:        {ES: "Elegir periodo", EN: "Choose period"},
+	KeyVehicleStatsPeriodLabel:       {ES: "Periodo", EN: "Period"},
 	KeyVehicleStatsWholeYear:         {ES: "Año completo", EN: "Whole year"},
 	KeyVehicleStatsSummaryTitle:      {ES: "Resumen del periodo", EN: "Period summary"},
 	KeyVehicleStatsDistance:          {ES: "Distancia", EN: "Distance"},
@@ -710,16 +721,24 @@ var catalog = map[Key]entry{
 	KeyVehicleStatsWeekend:        {ES: "Fin de semana", EN: "Weekends"},
 	KeyVehicleStatsDayCount:       {ES: "Días con datos: %d", EN: "Days with data: %d"},
 	KeyVehicleStatsChargeCount:    {ES: "Cargas: %d", EN: "Charges: %d"},
-	KeyVehicleStatsEnergyMixTitle: {ES: "De dónde vino la energía", EN: "Where the energy came from"},
-	KeyVehicleStatsEnergyMixDesc:  {ES: "El precio por kWh es lo que explica el costo total.", EN: "The price per kWh is what explains the total cost."},
-	KeyVehicleStatsSourceAC:       {ES: "Carga AC", EN: "AC charging"},
-	KeyVehicleStatsSourceDC:       {ES: "Carga DC", EN: "DC charging"},
-	KeyVehicleStatsSourceSC:       {ES: "Supercharger", EN: "Supercharger"},
-	KeyVehicleStatsSourceShare:    {ES: "%s de la energía", EN: "%s of the energy"},
-	KeyVehicleStatsEndBattTitle:   {ES: "Con cuánta batería terminas", EN: "How full you leave it"},
-	KeyVehicleStatsEndBattDesc:    {ES: "Cuántas cargas terminaron en cada rango.", EN: "How many charges ended in each band."},
-	KeyVehicleStatsEndBattEmpty:   {ES: "Ninguna carga del periodo registró la batería final.", EN: "No charge in this period recorded its ending battery."},
-	KeyVehicleStatsEndBattShare:   {ES: "%s de las cargas", EN: "%s of charges"},
+
+	KeyVehicleStatsGapsTitle:       {ES: "Registros de carga faltantes", EN: "Missing charge records"},
+	KeyVehicleStatsGapsDesc:        {ES: "En estos días el consumo de batería no coincide con los registros de carga. Falta un registro o está incompleto, así que la energía y el costo de arriba quedan bajos, y la eficiencia puede verse mejor de lo real.", EN: "On these days the battery use does not match the charge records. A record is missing or incomplete, so the energy and cost above are too low, and the efficiency may look better than it was."},
+	KeyVehicleStatsGapManual:       {ES: "Carga manual", EN: "Manual charge"},
+	KeyVehicleStatsGapSupercharger: {ES: "Supercharger", EN: "Supercharger"},
+	KeyVehicleStatsGapActionManual: {ES: "Agregar registro", EN: "Add record"},
+	KeyVehicleStatsGapActionSC:     {ES: "Completar batería", EN: "Complete battery"},
+	KeyVehicleStatsGapsMore:        {ES: "y %d días más", EN: "and %d more days"},
+	KeyVehicleStatsEnergyMixTitle:  {ES: "De dónde vino la energía", EN: "Where the energy came from"},
+	KeyVehicleStatsEnergyMixDesc:   {ES: "El precio por kWh es lo que explica el costo total.", EN: "The price per kWh is what explains the total cost."},
+	KeyVehicleStatsSourceAC:        {ES: "Carga AC", EN: "AC charging"},
+	KeyVehicleStatsSourceDC:        {ES: "Carga DC", EN: "DC charging"},
+	KeyVehicleStatsSourceSC:        {ES: "Supercharger", EN: "Supercharger"},
+	KeyVehicleStatsSourceShare:     {ES: "%s de la energía", EN: "%s of the energy"},
+	KeyVehicleStatsEndBattTitle:    {ES: "Con cuánta batería terminas", EN: "How full you leave it"},
+	KeyVehicleStatsEndBattDesc:     {ES: "Cuántas cargas terminaron en cada rango.", EN: "How many charges ended in each band."},
+	KeyVehicleStatsEndBattEmpty:    {ES: "Ninguna carga del periodo registró la batería final.", EN: "No charge in this period recorded its ending battery."},
+	KeyVehicleStatsEndBattShare:    {ES: "%s de las cargas", EN: "%s of charges"},
 
 	KeyMonth01:          {ES: "enero", EN: "January"},
 	KeyMonth02:          {ES: "febrero", EN: "February"},
