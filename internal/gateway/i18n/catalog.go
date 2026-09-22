@@ -226,6 +226,58 @@ const (
 	KeySuperchargerEmpty         Key = "supercharger.empty"
 	KeySuperchargerDate          Key = "supercharger.date"
 
+	// --- vehicle stats page (pages/vehicle_stats.templ,
+	// fragments/vehicle_stats.templ) ---
+	KeyVehicleStatsEmpty             Key = "vehicle_stats.empty"
+	KeyVehicleStatsPeriodAria        Key = "vehicle_stats.period_aria"
+	KeyVehicleStatsWholeYear         Key = "vehicle_stats.whole_year"
+	KeyVehicleStatsSummaryTitle      Key = "vehicle_stats.summary_title"
+	KeyVehicleStatsDistance          Key = "vehicle_stats.distance"
+	KeyVehicleStatsEfficiency        Key = "vehicle_stats.efficiency"
+	KeyVehicleStatsEnergy            Key = "vehicle_stats.energy"
+	KeyVehicleStatsSessions          Key = "vehicle_stats.sessions"
+	KeyVehicleStatsCost              Key = "vehicle_stats.cost"
+	KeyVehicleStatsCostPerKm         Key = "vehicle_stats.cost_per_km"
+	KeyVehicleStatsRangeFull         Key = "vehicle_stats.range_full"
+	KeyVehicleStatsRangeFullDesc     Key = "vehicle_stats.range_full_desc"
+	KeyVehicleStatsErrorCouldNotLoad Key = "vehicle_stats.error.could_not_load"
+
+	// --- vehicle stats "why" section (fragments/vehicle_stats.templ) ---
+	KeyVehicleStatsPageSubtitle   Key = "vehicle_stats.page_subtitle"
+	KeyVehicleStatsWhyTitle       Key = "vehicle_stats.why_title"
+	KeyVehicleStatsHowDrivenTitle Key = "vehicle_stats.how_driven_title"
+	KeyVehicleStatsHowDrivenDesc  Key = "vehicle_stats.how_driven_desc"
+	KeyVehicleStatsWeekday        Key = "vehicle_stats.weekday"
+	KeyVehicleStatsWeekend        Key = "vehicle_stats.weekend"
+	KeyVehicleStatsDayCount       Key = "vehicle_stats.day_count"
+	KeyVehicleStatsChargeCount    Key = "vehicle_stats.charge_count"
+	KeyVehicleStatsEnergyMixTitle Key = "vehicle_stats.energy_mix_title"
+	KeyVehicleStatsEnergyMixDesc  Key = "vehicle_stats.energy_mix_desc"
+	KeyVehicleStatsSourceAC       Key = "vehicle_stats.source_ac"
+	KeyVehicleStatsSourceDC       Key = "vehicle_stats.source_dc"
+	KeyVehicleStatsSourceSC       Key = "vehicle_stats.source_sc"
+	KeyVehicleStatsSourceShare    Key = "vehicle_stats.source_share"
+	KeyVehicleStatsEndBattTitle   Key = "vehicle_stats.end_battery_title"
+	KeyVehicleStatsEndBattDesc    Key = "vehicle_stats.end_battery_desc"
+	KeyVehicleStatsEndBattEmpty   Key = "vehicle_stats.end_battery_empty"
+	KeyVehicleStatsEndBattShare   Key = "vehicle_stats.end_battery_share"
+
+	// --- calendar month names, shared (handlers/vehicle_stats_period.go) ---
+	// Indexed by time.Month, so a caller maps 1-12 without a switch. Spanish
+	// month names are lowercase by orthography -- that is correct, not a typo.
+	KeyMonth01 Key = "month.01"
+	KeyMonth02 Key = "month.02"
+	KeyMonth03 Key = "month.03"
+	KeyMonth04 Key = "month.04"
+	KeyMonth05 Key = "month.05"
+	KeyMonth06 Key = "month.06"
+	KeyMonth07 Key = "month.07"
+	KeyMonth08 Key = "month.08"
+	KeyMonth09 Key = "month.09"
+	KeyMonth10 Key = "month.10"
+	KeyMonth11 Key = "month.11"
+	KeyMonth12 Key = "month.12"
+
 	// --- supercharger status column header (fragments/supercharger_stats.templ) ---
 	KeySuperchargerStatus Key = "supercharger.status"
 
@@ -630,13 +682,58 @@ var catalog = map[Key]entry{
 	KeySuperchargerSummaryDesc:  {ES: "Totales de las sesiones de Supercargador en el periodo seleccionado.", EN: "Totals for the Supercharger sessions in the selected period."},
 	KeySuperchargerSessionsDesc: {ES: "Sesiones de Supercargador registradas por Tesla.", EN: "Supercharger sessions recorded by Tesla."},
 
-	KeySuperchargerSessions:      {ES: "Sesiones", EN: "Sessions"},
-	KeySuperchargerEnergy:        {ES: "Energía", EN: "Energy"},
-	KeySuperchargerCost:          {ES: "Costo", EN: "Cost"},
-	KeySuperchargerAvgKWhSession: {ES: "kWh prom. / sesión", EN: "Avg kWh / session"},
-	KeySuperchargerKWhPerMonth:   {ES: "kWh por mes", EN: "kWh per month"},
-	KeySuperchargerEmpty:         {ES: "No hay sesiones de Supercharger en esta ventana.", EN: "No Supercharger sessions in this window."},
-	KeySuperchargerDate:          {ES: "Fecha", EN: "Date"},
+	KeySuperchargerSessions:          {ES: "Sesiones", EN: "Sessions"},
+	KeySuperchargerEnergy:            {ES: "Energía", EN: "Energy"},
+	KeySuperchargerCost:              {ES: "Costo", EN: "Cost"},
+	KeySuperchargerAvgKWhSession:     {ES: "kWh prom. / sesión", EN: "Avg kWh / session"},
+	KeySuperchargerKWhPerMonth:       {ES: "kWh por mes", EN: "kWh per month"},
+	KeySuperchargerEmpty:             {ES: "No hay sesiones de Supercharger en esta ventana.", EN: "No Supercharger sessions in this window."},
+	KeyVehicleStatsEmpty:             {ES: "No hay datos para este periodo.", EN: "No data for this period."},
+	KeyVehicleStatsPeriodAria:        {ES: "Elegir periodo", EN: "Choose period"},
+	KeyVehicleStatsWholeYear:         {ES: "Año completo", EN: "Whole year"},
+	KeyVehicleStatsSummaryTitle:      {ES: "Resumen del periodo", EN: "Period summary"},
+	KeyVehicleStatsDistance:          {ES: "Distancia", EN: "Distance"},
+	KeyVehicleStatsEfficiency:        {ES: "Eficiencia", EN: "Efficiency"},
+	KeyVehicleStatsEnergy:            {ES: "Energía cargada", EN: "Energy added"},
+	KeyVehicleStatsSessions:          {ES: "Cargas", EN: "Charging sessions"},
+	KeyVehicleStatsCost:              {ES: "Costo de carga", EN: "Charging cost"},
+	KeyVehicleStatsCostPerKm:         {ES: "Costo por km", EN: "Cost per km"},
+	KeyVehicleStatsRangeFull:         {ES: "Autonomía al 100%", EN: "Range at full battery"},
+	KeyVehicleStatsRangeFullDesc:     {ES: "mes más reciente", EN: "most recent month"},
+	KeyVehicleStatsErrorCouldNotLoad: {ES: "No se pudieron cargar las estadísticas. Inténtalo de nuevo.", EN: "Could not load the stats. Please try again."},
+
+	KeyVehicleStatsPageSubtitle:   {ES: "Cómo se comportó tu Tesla en este periodo", EN: "How your Tesla performed in this period"},
+	KeyVehicleStatsWhyTitle:       {ES: "Por qué", EN: "Why"},
+	KeyVehicleStatsHowDrivenTitle: {ES: "Cómo condujiste", EN: "How you drove"},
+	KeyVehicleStatsHowDrivenDesc:  {ES: "La eficiencia cambia según el tipo de viaje.", EN: "Efficiency changes with the kind of trip."},
+	KeyVehicleStatsWeekday:        {ES: "Entre semana", EN: "Weekdays"},
+	KeyVehicleStatsWeekend:        {ES: "Fin de semana", EN: "Weekends"},
+	KeyVehicleStatsDayCount:       {ES: "Días con datos: %d", EN: "Days with data: %d"},
+	KeyVehicleStatsChargeCount:    {ES: "Cargas: %d", EN: "Charges: %d"},
+	KeyVehicleStatsEnergyMixTitle: {ES: "De dónde vino la energía", EN: "Where the energy came from"},
+	KeyVehicleStatsEnergyMixDesc:  {ES: "El precio por kWh es lo que explica el costo total.", EN: "The price per kWh is what explains the total cost."},
+	KeyVehicleStatsSourceAC:       {ES: "Carga AC", EN: "AC charging"},
+	KeyVehicleStatsSourceDC:       {ES: "Carga DC", EN: "DC charging"},
+	KeyVehicleStatsSourceSC:       {ES: "Supercharger", EN: "Supercharger"},
+	KeyVehicleStatsSourceShare:    {ES: "%s de la energía", EN: "%s of the energy"},
+	KeyVehicleStatsEndBattTitle:   {ES: "Con cuánta batería terminas", EN: "How full you leave it"},
+	KeyVehicleStatsEndBattDesc:    {ES: "Cuántas cargas terminaron en cada rango.", EN: "How many charges ended in each band."},
+	KeyVehicleStatsEndBattEmpty:   {ES: "Ninguna carga del periodo registró la batería final.", EN: "No charge in this period recorded its ending battery."},
+	KeyVehicleStatsEndBattShare:   {ES: "%s de las cargas", EN: "%s of charges"},
+
+	KeyMonth01:          {ES: "enero", EN: "January"},
+	KeyMonth02:          {ES: "febrero", EN: "February"},
+	KeyMonth03:          {ES: "marzo", EN: "March"},
+	KeyMonth04:          {ES: "abril", EN: "April"},
+	KeyMonth05:          {ES: "mayo", EN: "May"},
+	KeyMonth06:          {ES: "junio", EN: "June"},
+	KeyMonth07:          {ES: "julio", EN: "July"},
+	KeyMonth08:          {ES: "agosto", EN: "August"},
+	KeyMonth09:          {ES: "septiembre", EN: "September"},
+	KeyMonth10:          {ES: "octubre", EN: "October"},
+	KeyMonth11:          {ES: "noviembre", EN: "November"},
+	KeyMonth12:          {ES: "diciembre", EN: "December"},
+	KeySuperchargerDate: {ES: "Fecha", EN: "Date"},
 
 	KeySuperchargerStatus: {ES: "Estado", EN: "Status"},
 

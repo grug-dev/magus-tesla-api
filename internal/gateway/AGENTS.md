@@ -76,6 +76,19 @@ It renders what other modules expose; it owns no business data.
   import `internal/charging/db` (`chargingdb`) for this path — all access
   through this interface only. Added by
   `RM31-gateway-add-session-battery-edit`.
+- `Deps.AnalyticsMonthlyReader analytics.MonthlyReader` — the analytics module's
+  PER-MONTH read port over `vehicle_monthly_metrics`, wired from `cmd/web` via
+  `analytics.NewMonthlyReader(pool)`. One method, `MonthlyMetricsBetween`, called once
+  per `/vehicle-stats` (or `/ui/vehicle-stats`) render. **Separate from
+  `Deps.AnalyticsReader` on purpose** — the two read different tables at different
+  grains (per-day `vehicle_metrics` versus the monthly rollup), so a page takes only
+  the one it needs and a test fakes only that one; folding the method into
+  `analytics.Reader` would have forced every existing fake of it, in two modules, to
+  grow a method neither caller uses. **Its result is sparse BY MONTH**: the nightly
+  poller writes only the current and previous month and nothing backfilled the rest,
+  so a whole-year window legitimately returns fewer than twelve rows. Roll up whatever
+  comes back; never index by month number or assume a count. Added by MAG-87.
+
 - `Deps.AnalyticsReader analytics.Reader` — the analytics module's read
   port; injected at construction via `gateway.Deps`/`handlers.Deps` (wired
   from `cmd/web` via `analytics.NewReader(...)`). Called by
@@ -158,12 +171,26 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
 - **The `ui/` kit is an anti-corruption adapter around DaisyUI** — an external library that
   ships breaking changes across majors. Routing every DaisyUI **component class** through a
   `ui.*` wrapper makes a version bump a one-file edit per component, not an app-wide sweep.
-- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Dot, Progress, Table, PageHeader,
-  NavShell, ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline
+- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Dot, Dropdown, Progress, Table,
+  PageHeader, NavShell, ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline
   a DaisyUI component class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a
   bug. If a repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme
   tokens (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable
   layers. Pages/fragments pass VM-ready strings in.
+- **`ui.StatTileProps.Size`** (`templates/ui/stat_tile.templ`) — closed vocabulary of two:
+  `""` (every existing call site) and `"lg"`, the headline treatment for the one or two
+  numbers a page exists to answer. It exists because §Mobile R5 says a page needing a one-off
+  size is a signal the KIT needs a size variant, never an inline override. `"lg"` grows the
+  value only from `sm:` upward, so a phone still renders it at the standard size and the R5
+  readable floor holds. First used by `/vehicle-stats`, where seven equal tiles answered
+  nothing and three tiers of weight answered the question the page was built for.
+- **`ui.Dropdown`** (`templates/ui/dropdown.templ`) — a single-choice menu: a trigger button
+  showing the current selection, opening rows the caller supplies as `DropdownItem`s. Each row
+  takes its own `Attrs`, so it can carry a complete `hx-get` URL. That is the whole reason it
+  exists next to `ui.Select`: one option of a native select element holds a **single** value, so
+  a control that must emit two coupled query params (`?start=&end=`) from one click cannot be a
+  select without a script. Zero JS — the same CSS-only `:focus` DaisyUI dropdown `ui.LangSwitcher`
+  already uses. First composed by the Vehicle Stats period control.
 - **`ui.FieldProps.Optional`** (`templates/ui/field.templ`) — appends a muted `(optional)` /
   `(opcional)` hint to a field's legend, resolved from `i18n.KeyFormOptional` inside the kit
   (a deliberately generic, non-`charges_` key: it is the kit's own vocabulary, reusable by
@@ -348,8 +375,8 @@ two or three of them in a 375 px row and they collide, on every page that uses t
 once.** `ui-guard` already forces every page through the kit, so this is the existing
 convention working as designed — not a new layer.
 
-- Changing a size in `ui/stat_tile.templ` fixes `/dashboard`, `/external-charges` and
-  `/supercharger-stats` in one edit. Patching three pages is the same bug fixed three
+- Changing a size in `ui/stat_tile.templ` fixes `/dashboard`, `/external-charges`,
+  `/supercharger-stats` and `/vehicle-stats` in one edit. Patching four pages is the same bug fixed four
   times, and the fourth page will be born broken.
 - If a page genuinely needs a one-off size, that is a signal the kit needs a **size
   variant prop** (mirroring `ui.FieldProps.Optional` / `ui.BadgeProps.Kind`), not an
@@ -368,7 +395,7 @@ size. `.stat`'s 1.5 rem inline padding is a rounding error in a desktop column a
 third of the tile on a phone.
 
 **Gold standard: `templates/ui/stat_tile.templ` (MAG-46).** One component, three
-pages (`/dashboard`, `/external-charges`, `/supercharger-stats`), one fix. It corrects all
+pages (`/dashboard`, `/external-charges`, `/supercharger-stats`, `/vehicle-stats`), one fix. It corrects all
 three causes below `sm` — smaller value, wrapping allowed, half the padding — and
 restores DaisyUI's exact desktop values at `sm` and up, so the desktop rendering does
 not move. Mirror its shape for any other kit component that needs a mobile size. Its
@@ -816,6 +843,20 @@ whole calendar days, UTC-midnight-bounded, **`end` inclusive** — never a `?day
   - The caller may fetch a bounded extra lookback (e.g. the dashboard's 1-day pre-window for the
     first odometer delta) by passing `start-1day` to the owning module's bounded read port — the
     lookback is a **gateway concern**, never a parameter on the owning module's port method.
+- **A month-grain endpoint still uses `?start=&end=` — `GET /ui/vehicle-stats` is the worked
+  example.** Its control offers whole calendar months and whole calendar years, never a day, so
+  its parser adds one rule its siblings do not have: **both bounds must be month-aligned**
+  (`start` a 1st, `end` a month's last day) or it is a 400. The page reads analytics'
+  per-month rollup, so a window starting mid-month cannot be answered by the underlying rows —
+  it would silently return whole months and misreport what was asked. Its cap is **366 days**
+  (`vehicleStatsRangeMaxDays`), one leap year, because a whole year is the widest window the
+  control can express. Its "future" frame is the CURRENT MONTH'S END, not today, so the current
+  month stays selectable all month long. A second lower bound applies: `start` before the
+  account's `analysis_start_date` month is a 400.
+  The control itself is a `ui.Dropdown` whose every row carries a complete `hx-get` URL, NOT a
+  native select — one option of a select holds a single value, so emitting two coupled params
+  from one click would need a script. **Reach for that shape whenever a single control must set
+  both bounds at once**; it is what let this page keep the one vocabulary below.
 - **Every future date-filtered gateway endpoint follows the same contract** — a closed
   vocabulary of one: `?start=&end=`. A new endpoint that needs date filtering reuses the
   `parseHistoryRange` pattern and a bounded read port on the owning module (`parseSuperchargerRange`,

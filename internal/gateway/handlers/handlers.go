@@ -86,9 +86,14 @@ type Deps struct {
 	// exception — AGENTS.md "Exception: user-initiated writes"). Never
 	// called from a Reader-only handler.
 	AnalyticsRecalculator analytics.Recalculator
-	TeslaClientID         string
-	TeslaClientSecret     string
-	TeslaRedirectURL      string
+	// AnalyticsMonthlyReader is the analytics module's per-month read port,
+	// over vehicle_monthly_metrics. Read by the Vehicle Stats page only.
+	// Separate from AnalyticsReader because the two read different tables at
+	// different grains, so a handler takes the one it needs.
+	AnalyticsMonthlyReader analytics.MonthlyReader
+	TeslaClientID          string
+	TeslaClientSecret      string
+	TeslaRedirectURL       string
 	// VehicleImageResolver maps a vehicle's (CarType, ExteriorColor) to a
 	// /static/img/<carType><ExteriorColor>.png URL, falling back to
 	// defaultCar.png when either field is unset or the composed file is not in
@@ -109,6 +114,7 @@ type Handler struct {
 	chargingReader        charging.Reader
 	analyticsReader       analytics.Reader
 	analyticsRecalculator analytics.Recalculator
+	analyticsMonthly      analytics.MonthlyReader
 	teslaClientID         string
 	teslaClientSecret     string
 	teslaRedirectURL      string
@@ -146,6 +152,7 @@ func New(d Deps) *Handler {
 		chargingReader:        d.ChargingReader,
 		analyticsReader:       d.AnalyticsReader,
 		analyticsRecalculator: d.AnalyticsRecalculator,
+		analyticsMonthly:      d.AnalyticsMonthlyReader,
 		teslaClientID:         d.TeslaClientID,
 		teslaClientSecret:     d.TeslaClientSecret,
 		teslaRedirectURL:      d.TeslaRedirectURL,

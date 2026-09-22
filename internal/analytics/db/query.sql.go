@@ -942,3 +942,84 @@ func (q *Queries) VehicleMetricsOdometerByVehicleBetween(ctx context.Context, ar
 	}
 	return items, nil
 }
+
+const vehicleMonthlyMetricsForVehicleBetween = `-- name: VehicleMonthlyMetricsForVehicleBetween :many
+SELECT id, tesla_id, period, all_distance_km, all_consumed_pct, all_km_per_pct_calc, all_day_count, weekday_distance_km, weekday_consumed_pct, weekday_km_per_pct_calc, weekday_day_count, weekend_distance_km, weekend_consumed_pct, weekend_km_per_pct_calc, weekend_day_count, capacity_kwh, capacity_measured, currency, ext_ac_energy_kwh, ext_ac_cost, ext_ac_entry_count, ext_ac_ending_battery_dist, ext_dc_energy_kwh, ext_dc_cost, ext_dc_entry_count, ext_dc_ending_battery_dist, sc_energy_kwh, sc_cost, sc_session_count, sc_ending_battery_dist, created_at, updated_at, tesla_range_100_pct_km_calc FROM analytics.vehicle_monthly_metrics
+WHERE tesla_id = $1
+  AND period >= date_trunc('month', $2::date)::date
+  AND period <= date_trunc('month', $3::date)::date
+ORDER BY period
+`
+
+type VehicleMonthlyMetricsForVehicleBetweenParams struct {
+	TeslaID     int64
+	StartPeriod pgtype.Date
+	EndPeriod   pgtype.Date
+}
+
+// Backs MonthlyReader.MonthlyMetricsBetween: the stats page's ONE read over
+// the precomputed monthly table. SELECT * so sqlc returns the shared
+// VehicleMonthlyMetric model type, which monthlyMetricsFromRow already maps
+// -- a narrowed column list would emit a second, per-query Row type and force
+// a duplicate mapper for the same row.
+// start_period/end_period accept any day inside their month; date_trunc
+// normalizes both ends in SQL, matching VehicleMetricsForVehicleAndMonth's
+// and CapacityForMonth's identical any-day-in-month contract, so no caller
+// ever builds a first-of-month value itself.
+// Both bounds are inclusive of their whole month, matching the platform's
+// HTTP date-filter convention (end inclusive).
+// Served by vehicle_monthly_metrics_tesla_period_unique (tesla_id, period),
+// never a seq scan -- no separate CREATE INDEX.
+func (q *Queries) VehicleMonthlyMetricsForVehicleBetween(ctx context.Context, arg VehicleMonthlyMetricsForVehicleBetweenParams) ([]VehicleMonthlyMetric, error) {
+	rows, err := q.db.Query(ctx, vehicleMonthlyMetricsForVehicleBetween, arg.TeslaID, arg.StartPeriod, arg.EndPeriod)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VehicleMonthlyMetric
+	for rows.Next() {
+		var i VehicleMonthlyMetric
+		if err := rows.Scan(
+			&i.ID,
+			&i.TeslaID,
+			&i.Period,
+			&i.AllDistanceKm,
+			&i.AllConsumedPct,
+			&i.AllKmPerPctCalc,
+			&i.AllDayCount,
+			&i.WeekdayDistanceKm,
+			&i.WeekdayConsumedPct,
+			&i.WeekdayKmPerPctCalc,
+			&i.WeekdayDayCount,
+			&i.WeekendDistanceKm,
+			&i.WeekendConsumedPct,
+			&i.WeekendKmPerPctCalc,
+			&i.WeekendDayCount,
+			&i.CapacityKwh,
+			&i.CapacityMeasured,
+			&i.Currency,
+			&i.ExtAcEnergyKwh,
+			&i.ExtAcCost,
+			&i.ExtAcEntryCount,
+			&i.ExtAcEndingBatteryDist,
+			&i.ExtDcEnergyKwh,
+			&i.ExtDcCost,
+			&i.ExtDcEntryCount,
+			&i.ExtDcEndingBatteryDist,
+			&i.ScEnergyKwh,
+			&i.ScCost,
+			&i.ScSessionCount,
+			&i.ScEndingBatteryDist,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TeslaRange100PctKmCalc,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

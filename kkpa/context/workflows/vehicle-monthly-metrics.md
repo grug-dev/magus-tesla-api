@@ -42,8 +42,9 @@
 | `internal/analytics/monthly_sync.go` | The use case. `SyncMonth(ctx, teslaID, period)` rewrites the row for one vehicle and one month. Idempotent: re-run it any time to pick up a later edit to that month's data. |
 | `internal/analytics/monthly_figures.go` | The **pure** derivation, no database. Splits the month into all days / weekdays / weekends. **Change the monthly maths here.** |
 | `internal/analytics/monthly_charging.go` | The **pure** charging derivation, no database. `aggregateChargingMonth` folds the month's external charges and Supercharger sessions into three tallies: external AC, external DC, Supercharger. Also `monthBounds` and the ending-battery bucketing. **Change the charging maths here.** |
-| `internal/analytics/analytics.go` | The public port `MonthlySyncer`, the `VehicleMonthlyMetrics` and `EndingBatteryDist` types, and `NewMonthlySyncer(pool, capacity, charges, supercharger)` — four arguments, three of them `charging` ports. |
-| `internal/analytics/db/query.sql` | `VehicleMetricsForVehicleAndMonth` (the input) and `UpsertVehicleMonthlyMetric` (the write). Both normalize the month **in SQL**, with `date_trunc`. Edit here, then `make sqlc`. |
+| `internal/analytics/analytics.go` | The public ports `MonthlySyncer` (write) and `MonthlyReader` (read), the `VehicleMonthlyMetrics` and `EndingBatteryDist` types, `NewMonthlySyncer(pool, capacity, charges, supercharger)` — four arguments, three of them `charging` ports — and `NewMonthlyReader(pool)`. |
+| `internal/analytics/monthly_reader.go` | The `MonthlyReader` implementation. One method, `MonthlyMetricsBetween(ctx, teslaID, start, end)`. Maps each row through the **same** `monthlyMetricsFromRow` the write path uses, so a new column reaches both paths from one place. Deliberately **not** logged — it serves a live gateway request. |
+| `internal/analytics/db/query.sql` | `VehicleMetricsForVehicleAndMonth` (the input), `UpsertVehicleMonthlyMetric` (the write) and `VehicleMonthlyMetricsForVehicleBetween` (the read). All three normalize the month **in SQL**, with `date_trunc`. The read is `SELECT *` on purpose: it keeps sqlc returning the shared `VehicleMonthlyMetric` model type, so `monthlyMetricsFromRow` maps it with no second mapper. Edit here, then `make sqlc`. |
 | `internal/analytics/mapping.go` | The only place `pgtype` is allowed. Holds the `pgtype.Numeric` and JSONB conversion pairs the cost and distribution columns need. |
 
 Two rules this table follows that surprise people:
@@ -69,6 +70,15 @@ Two rules this table follows that surprise people:
   so an evening session falls on the next UTC day.
 - **An external charge with no charging type is skipped whole** — no energy, no cost, no count,
   no bucket. It is neither AC nor DC, and there is no third column for it.
+
+### Readers — who consumes the table
+
+| File | Role |
+|---|---|
+| `internal/gateway/handlers/vehicle_stats.go` | The `/vehicle-stats` page. Calls `MonthlyReader.MonthlyMetricsBetween` once per render, for the selected period and the session's vehicle. **The only reader today.** |
+| `internal/gateway/handlers/vehicle_stats_tiles.go` | Rolls the months up into the KPI tiles and the "why" blocks. **Efficiency combines the stored `all_km_per_pct_calc` values, distance-weighted — it must NEVER divide `all_distance_km` by `all_consumed_pct`** (see the trap below; that error roughly doubles the figure). Cost per km *is* a plain ratio of sums, correctly. `tesla_range_100_pct_km_calc` is a battery-health reading, so a multi-month period shows the **latest month** with a non-zero value, never a sum or an average. |
+| `internal/gateway/handlers/vehicle_stats_period.go` | Builds the selectable periods and validates the window. Every window is month-aligned on both ends, because this table cannot answer a partial month. |
+| `cmd/web/main.go` | Wires `analytics.NewMonthlyReader(pool)` into the gateway's `Deps`. |
 
 ### Callers — who triggers the job
 
@@ -366,7 +376,7 @@ Worked counts from real columns, if you want to check the shape: `all_km_per_pct
 Then the docs: this guide's component map, and `internal/analytics/AGENTS.md` if the column
 changes a rule rather than adding a number.
 
-### Two traps specific to this table
+### Six traps specific to this table
 
 - **A new column is NOT backfilled.** The nightly step only re-syncs the current and the
   previous month, so every older row keeps the `DEFAULT 0` the migration gave it, forever. If
@@ -378,6 +388,35 @@ changes a rule rather than adding a number.
 - **0 means both "zero" and "no data" here.** This table stores `NOT NULL DEFAULT 0`, against
   this module's usual sparse-NULL convention. A count column is what tells them apart, so a new
   metric that can be legitimately absent needs to say which count covers it.
+- **A manual entry with NO `charging_type` is skipped entirely — not even counted.**
+  `aggregateChargingMonth` (`monthly_charging.go`) buckets by `AC` / `DC` and `continue`s on a
+  NULL type, so such an entry contributes to no energy, no cost and no count. It does not land
+  in an "unknown" bucket and it does not show up as a discrepancy anywhere: the row simply is
+  not there. A user who forgets the type on a manual charge silently loses it from every monthly
+  figure.
+- **`ext_*_entry_count` counts every entry regardless of STATUS — `IN_PROGRESS` included.**
+  There is no status filter in `aggregateChargingMonth`. Measured on this repo's data,
+  2026-08 for vehicle `3744327027802250` counts 7 AC entries, of which **2 are `IN_PROGRESS`**.
+  So a monthly "charging sessions" figure includes charges that never finished, and their
+  partial energy and cost are in the totals too. Whether that is wanted is a product decision,
+  not a bug in this file — but do not assume the count means "completed charges".
+- **The sum columns and the ratio column cover DIFFERENT day sets. This is the trap that has
+  actually bitten.** `all_distance_km` and `all_consumed_pct` sum over every computable day;
+  `all_km_per_pct_calc` is the ratio over only the days whose `consumed_pct` is **positive**. So
+  `all_distance_km / all_consumed_pct` is **not** the stored ratio and is **not** a valid
+  efficiency: a net-charging day's negative `consumed_pct` shrinks the denominator while its
+  kilometres stay in the numerator. Measured on this repo's own data it gave **5.8 km/% where the
+  stored value was 2.94**, and one vehicle's `all_consumed_pct` is negative for the whole month,
+  which the naive formula cannot render at all. **Read `all_km_per_pct_calc`; never rebuild it
+  from the two sums.** The same applies to every `weekday_*` and `weekend_*` triple. The column
+  comments in the migration say this precisely — they are the authority.
+- **Whole MONTHS are missing, not just column values — this is the reader's trap.** The nightly
+  step writes only the current and the previous month, and nothing ever backfilled the months
+  before the table shipped (2026-09-18). So `MonthlyReader.MonthlyMetricsBetween` is **sparse by
+  month**: ask for a year and you get back the handful of months that were ever synced, not
+  twelve. A caller must roll up whatever it receives and must never index by month number or
+  assume a fixed count. The owner decided against a backfill (MAG-87) — prod has no older data
+  to recover — so this is the permanent shape, not a gap waiting to be filled.
 
 `internal/charging` now holds the platform's **only** pack-capacity definition. `internal/analytics`
 used to hold a second one — a model-coarse table keyed on `car_type`, in

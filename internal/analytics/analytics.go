@@ -597,3 +597,43 @@ type MonthlySyncer interface {
 func NewMonthlySyncer(pool *pgxpool.Pool, capacity charging.MonthlyCapacityReader, charges charging.Reader, supercharger charging.SuperchargerSessionAnalyticsReader) MonthlySyncer {
 	return newLoggingMonthlySyncer(newMonthlySyncer(pool, capacity, charges, supercharger))
 }
+
+// MonthlyReader is the read half of vehicle_monthly_metrics, serving the
+// gateway's vehicle-stats page. Split from Reader rather than added to it
+// because the two ports read different tables at different grains --
+// Reader is per-day over vehicle_metrics, this is per-month over the
+// precomputed monthly table -- and because widening Reader would force
+// every existing fake of it, in two modules, to grow a method neither
+// caller uses.
+type MonthlyReader interface {
+	// MonthlyMetricsBetween returns one entry per stored month for teslaID
+	// whose period falls in [start, end], ordered oldest first. Only the
+	// year and calendar month of start and end matter; any day within a
+	// month selects that whole month, matching SyncMonth's identical
+	// any-day-in-month contract. Both ends are inclusive.
+	//
+	// The result is SPARSE: a month with no stored row is simply absent, it
+	// is not returned as a zero row. Absence IS the "never synced" signal --
+	// the nightly poller writes only the current and previous month, and no
+	// backfill exists, so a caller asking for a whole year will legitimately
+	// get back fewer than twelve entries. A caller rolls up what it gets and
+	// must never assume a fixed entry count.
+	//
+	// This port performs no window-size validation of its own (mirroring
+	// Reader's identical stance) -- the monthly table holds at most twelve
+	// rows per vehicle-year, so no cap is needed to keep the read bounded.
+	//
+	// Scoped by vehicle identity (teslaID) alone -- tesla_id already names
+	// one vehicle uniquely. A caller must already have proven the requesting
+	// account owns this vehicle before calling.
+	MonthlyMetricsBetween(ctx context.Context, teslaID int64, start, end time.Time) ([]VehicleMonthlyMetrics, error)
+}
+
+// NewMonthlyReader constructs a MonthlyReader over the module's own database
+// pool. The implementation lives in monthly_reader.go. It is deliberately
+// NOT wrapped in a logging decorator: every caller serves a gateway page on
+// a live HTTP request, the same reason loggingReader leaves its three
+// gateway-serving methods as silent pass-throughs (query_log.go).
+func NewMonthlyReader(pool *pgxpool.Pool) MonthlyReader {
+	return newMonthlyReader(pool)
+}

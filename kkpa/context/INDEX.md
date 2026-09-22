@@ -97,6 +97,10 @@
 | `Externas` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
 | `charges page` | `/external-charges` | `charging` | `input-port/charging/external-charges.md` |
 | `Supercharger Stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
+| `Vehicle Stats page` | `/vehicle-stats` | `analytics` | `input-port/analytics/vehicle-stats.md` |
+| `Estadísticas` (nav label) | `/vehicle-stats` | `analytics` | `input-port/analytics/vehicle-stats.md` |
+| `KPI tiles` / `period summary` | `/vehicle-stats` | `analytics` | `input-port/analytics/vehicle-stats.md` |
+| `period filter` / `year month filter` | the `ui.Dropdown` period control on `/vehicle-stats` | `analytics` | `input-port/analytics/vehicle-stats.md` |
 | `fast charging stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
 | `Dashboard page` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
 | `dashboard` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
