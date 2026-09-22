@@ -26,6 +26,21 @@ type VehicleStatsView struct {
 	// when Empty is false.
 	Why VehicleStatsWhy
 
+	// HasPrev is true when a previous period with stored data was found, so the
+	// summary card can say what the arrows are measured against. The arrows
+	// themselves live on Tiles; this only drives the card's own description.
+	HasPrev bool
+
+	// MonthChart is the period's month-by-month shape — one bar per calendar
+	// month of distance driven. Rendered only when the period spans more than
+	// one month: a single month has no shape to show, and one bar is not a
+	// chart.
+	//
+	// It exists because a year period otherwise collapses twelve months into
+	// one number and loses everything about how they differed. The months are
+	// already fetched for the tiles, so this costs no extra read.
+	MonthChart VehicleStatsMonthChart
+
 	// Gaps are the days in the period whose battery use the stored charge
 	// records cannot account for — a charge record is missing or incomplete.
 	// Empty means the period is fully accounted for and the whole section is
@@ -103,7 +118,31 @@ type VehicleStatsTiles struct {
 	// figure — e.g. "412 km". Over a multi-month period it is the most recent
 	// month that has a reading, NOT a sum or an average: it is a battery-health
 	// reading, not a quantity that accumulates.
+	//
+	// It deliberately has NO trend pair below: one month's reading against
+	// another's is mostly weather and driving style, and an arrow would invite
+	// a reader to see battery degradation in noise.
 	RangeFull string
+
+	// *Trend / *Delta are the period-over-period comparison against the
+	// immediately preceding period of the same length. Trend is a
+	// ui.StatTileProps.Trend value; Delta is the signed percentage, e.g. "+12%".
+	//
+	// Both are EMPTY when there is nothing to compare — no previous period
+	// stored, a previous value of zero, or a change that rounds to 0%. Empty
+	// renders no arrow and no sub-label, so a first-ever month simply shows its
+	// figures with no comparison rather than a fabricated one.
+	//
+	// The polarity differs per metric and is decided in the handler: distance,
+	// energy and session count are neutral (driving more is neither good nor
+	// bad), efficiency is better when it rises, and cost and cost per km are
+	// worse when they rise.
+	DistanceTrend, DistanceDelta     string
+	EfficiencyTrend, EfficiencyDelta string
+	EnergyTrend, EnergyDelta         string
+	SessionsTrend, SessionsDelta     string
+	CostTrend, CostDelta             string
+	CostPerKmTrend, CostPerKmDelta   string
 }
 
 // VehicleStatsWhy is the page's explanatory half: three blocks, each answering
@@ -209,4 +248,15 @@ type VehicleStatsGap struct {
 	// day in question, not on a page they must then filter themselves. Both
 	// pages accept a single-day window. The whole cell is this link.
 	ActionHref string
+}
+
+// VehicleStatsMonthChart wraps the month-by-month bar chart plus the flag that
+// says whether to render it at all.
+//
+// Show is false for a single-month period. It is a separate field rather than a
+// len(Bars) check because a year with one stored month legitimately produces one
+// bar, and that still deserves the chart's axis — the emptiness is the point.
+type VehicleStatsMonthChart struct {
+	Show  bool
+	Chart HistoryChart
 }

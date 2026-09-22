@@ -72,17 +72,37 @@ func (e *effAccumulator) add(ratio, distanceKm float64) {
 	e.weight += distanceKm
 }
 
+// value returns the combined ratio, or 0 when no month contributed. 0 is the
+// "not comparable" signal trendOf already skips on, so it needs no second flag.
+func (e effAccumulator) value() float64 {
+	if e.weight <= 0 {
+		return 0
+	}
+	return e.weightedSum / e.weight
+}
+
 // label renders the combined figure, or an em dash when no month contributed.
 func (e effAccumulator) label() string {
 	if e.weight <= 0 {
 		return emDash
 	}
-	return formatKmPerPct(e.weightedSum / e.weight)
+	return formatKmPerPct(e.value())
 }
 
-// buildVehicleStatsTiles computes the seven KPI values over months, the exact
-// slice MonthlyMetricsBetween returned, so the tiles and any later chart are
-// provably the same data.
+// vehicleStatsTotals is the period's raw, unformatted roll-up. It exists so the
+// SAME numbers can be produced for two windows — the selected period and the one
+// before it — and compared, which formatted display strings cannot be.
+type vehicleStatsTotals struct {
+	distanceKm    float64
+	eff           effAccumulator
+	energyKWh     float64
+	cost          float64
+	sessions      int
+	latestRangeKm float64
+	currency      string
+}
+
+// sumVehicleStatsMonths rolls months up into the raw totals.
 //
 // # Efficiency combines the STORED monthly ratios — it does not divide two sums
 //
@@ -92,55 +112,121 @@ func (e effAccumulator) label() string {
 // Cost per km IS a plain ratio of sums, and correctly so: all_distance_km over
 // every computable day is exactly the distance the period's money bought. Its
 // denominator has no positive-only restriction to respect.
-//
-// # Range at full battery is the LATEST month, not a roll-up
-//
-// TeslaRange100PctKmCalc is a battery-health reading, not a quantity that
-// accumulates: adding twelve months of it means nothing, and averaging them
-// would be a mean of ratios whose weights (the days behind each figure) this
-// table does not expose. So a multi-month period reports the most recent
-// month that has a reading. A stored 0 means "no day in that month had one"
-// (the port's own contract), so zeros are skipped rather than treated as a
-// measured zero range.
-func buildVehicleStatsTiles(months []analytics.VehicleMonthlyMetrics) fragments.VehicleStatsTiles {
-	var distanceKm, energyKWh, cost, latestRangeKm float64
-	var sessions int
-	var eff effAccumulator
-	currency := "COP"
-
+func sumVehicleStatsMonths(months []analytics.VehicleMonthlyMetrics) vehicleStatsTotals {
+	t := vehicleStatsTotals{currency: "COP"}
 	for _, m := range months {
-		distanceKm += m.AllDistanceKm
-		eff.add(m.AllKmPerPctCalc, m.AllDistanceKm)
-		energyKWh += m.ExtACEnergyKWh + m.ExtDCEnergyKWh + m.SCEnergyKWh
-		cost += m.ExtACCost + m.ExtDCCost + m.SCCost
-		sessions += m.ExtACEntryCount + m.ExtDCEntryCount + m.SCSessionCount
+		t.distanceKm += m.AllDistanceKm
+		t.eff.add(m.AllKmPerPctCalc, m.AllDistanceKm)
+		t.energyKWh += m.ExtACEnergyKWh + m.ExtDCEnergyKWh + m.SCEnergyKWh
+		t.cost += m.ExtACCost + m.ExtDCCost + m.SCCost
+		t.sessions += m.ExtACEntryCount + m.ExtDCEntryCount + m.SCSessionCount
 
 		// months arrives oldest first (the query's ORDER BY period), so the
 		// last non-zero reading seen is the most recent one.
 		if m.TeslaRange100PctKmCalc > 0 {
-			latestRangeKm = m.TeslaRange100PctKmCalc
+			t.latestRangeKm = m.TeslaRange100PctKmCalc
 		}
 		if m.Currency != "" {
-			currency = m.Currency
+			t.currency = m.Currency
 		}
 	}
+	return t
+}
 
-	t := fragments.VehicleStatsTiles{
-		Distance:   formatKm(distanceKm),
-		Efficiency: eff.label(),
-		Energy:     fmt.Sprintf("%.1f kWh", energyKWh),
-		Sessions:   strconv.Itoa(sessions),
-		Cost:       formatMoney(cost, currency),
+// buildVehicleStatsTiles formats the seven KPI values, and when prev is non-nil
+// also sets each tile's period-over-period trend.
+//
+// # Range at full battery is the LATEST month, and carries NO trend
+//
+// TeslaRange100PctKmCalc is a battery-health reading, not a quantity that
+// accumulates: adding twelve months of it means nothing, and averaging them would
+// be a mean of ratios whose weights (the days behind each figure) this table does
+// not expose. So a multi-month period reports the most recent month that has a
+// reading. A stored 0 means "no day in that month had one" (the port's own
+// contract), so zeros are skipped rather than treated as a measured zero.
+//
+// It gets no arrow for the same reason: one month's reading against another's is
+// mostly weather and driving style, so an arrow would invite a reader to see
+// battery degradation in noise.
+func buildVehicleStatsTiles(t vehicleStatsTotals, prev *vehicleStatsTotals) fragments.VehicleStatsTiles {
+	tiles := fragments.VehicleStatsTiles{
+		Distance:   formatKm(t.distanceKm),
+		Efficiency: t.eff.label(),
+		Energy:     fmt.Sprintf("%.1f kWh", t.energyKWh),
+		Sessions:   strconv.Itoa(t.sessions),
+		Cost:       formatMoney(t.cost, t.currency),
 		CostPerKm:  emDash,
 		RangeFull:  emDash,
 	}
-	if distanceKm > 0 {
-		t.CostPerKm = formatMoney(cost/distanceKm, currency) + "/km"
+	if t.distanceKm > 0 {
+		tiles.CostPerKm = formatMoney(t.cost/t.distanceKm, t.currency) + "/km"
 	}
-	if latestRangeKm > 0 {
-		t.RangeFull = formatKm(latestRangeKm)
+	if t.latestRangeKm > 0 {
+		tiles.RangeFull = formatKm(t.latestRangeKm)
 	}
-	return t
+	if prev == nil {
+		return tiles
+	}
+
+	// Polarity per metric, not one rule for all. Distance, energy and session
+	// count are NEUTRAL: driving more is neither good nor bad, and a reader who
+	// drove more on purpose should not be shown a red arrow for it. Efficiency
+	// is better when it rises. Cost and cost per km are the mirror — worse when
+	// they rise — which is what "up-error"/"down-success" exist for.
+	tiles.DistanceTrend, tiles.DistanceDelta = trendOf(t.distanceKm, prev.distanceKm, trendNeutral)
+	tiles.EfficiencyTrend, tiles.EfficiencyDelta = trendOf(t.eff.value(), prev.eff.value(), trendHigherIsBetter)
+	tiles.EnergyTrend, tiles.EnergyDelta = trendOf(t.energyKWh, prev.energyKWh, trendNeutral)
+	tiles.SessionsTrend, tiles.SessionsDelta = trendOf(float64(t.sessions), float64(prev.sessions), trendNeutral)
+	tiles.CostTrend, tiles.CostDelta = trendOf(t.cost, prev.cost, trendLowerIsBetter)
+	tiles.CostPerKmTrend, tiles.CostPerKmDelta = trendOf(costPerKm(t), costPerKm(*prev), trendLowerIsBetter)
+	return tiles
+}
+
+// costPerKm returns the period's cost per kilometre, or 0 when it has no
+// distance — 0 makes trendOf skip the comparison, which is what "not comparable"
+// should look like.
+func costPerKm(t vehicleStatsTotals) float64 {
+	if t.distanceKm <= 0 {
+		return 0
+	}
+	return t.cost / t.distanceKm
+}
+
+// trend polarity vocabulary — which direction counts as an improvement.
+type trendPolarity int
+
+const (
+	trendNeutral        trendPolarity = iota // a change is neither good nor bad
+	trendHigherIsBetter                      // efficiency
+	trendLowerIsBetter                       // cost
+)
+
+// trendOf compares now against before and returns the ui.StatTile trend value
+// plus a signed percentage label.
+//
+// Returns no trend at all when either side is zero: a period with no previous
+// data, or a previous period of zero, has no meaningful percentage — "+100% from
+// nothing" is not information. It also returns nothing when the change rounds to
+// 0%, so an unchanged figure carries no arrow rather than a misleading flat one.
+func trendOf(now, before float64, polarity trendPolarity) (trend, delta string) {
+	if before <= 0 || now <= 0 {
+		return "", ""
+	}
+	pct := int(math.Round((now - before) / before * 100))
+	if pct == 0 {
+		return "", ""
+	}
+
+	up := pct > 0
+	switch polarity {
+	case trendHigherIsBetter:
+		trend = map[bool]string{true: "up", false: "down"}[up]
+	case trendLowerIsBetter:
+		trend = map[bool]string{true: "up-error", false: "down-success"}[up]
+	default:
+		trend = map[bool]string{true: "up-neutral", false: "down-neutral"}[up]
+	}
+	return trend, fmt.Sprintf("%+d%%", pct)
 }
 
 // buildVehicleStatsWhy computes the page's explanatory half over the SAME

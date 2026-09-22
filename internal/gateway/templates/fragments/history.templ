@@ -50,6 +50,26 @@ templ dashHistoryEmpty() {
 // Bar fills use DaisyUI semantic fill tokens (e.g. "fill-primary",
 // "fill-secondary"); labels use the muted "text-base-content/60" content
 // token — never hardcoded hex, so the chart re-skins from one data-theme (RD7).
+//
+// # Why the grid carries a max-width (MAG-87)
+//
+// The SVG stretches with preserveAspectRatio="none" over a fixed h-24 (96px),
+// and each bar is 0.8 of its column. So the bar's WIDTH is purely a function of
+// how many bars there are: the fewer the bars, the wider each one gets. At three
+// bars in a ~900px card a "bar" came out roughly 240px wide and 96px tall —
+// 2.5x wider than tall, which reads as three slabs rather than a chart. It was
+// visible on /supercharger-stats' 3-month preset from the day it shipped, and
+// /vehicle-stats made it obvious because an account with two stored months draws
+// exactly two bars.
+//
+// Capping the grid at historyBarSlotRem per bar fixes the cause instead of the
+// symptom: every chart in the app now draws bars of the SAME width, and only the
+// chart's overall width varies with how much data there is. A 30-bar window is
+// wider than the cap and is therefore untouched.
+//
+// The chart stays LEFT-aligned when capped, rather than centered — the optional
+// y-axis label gutter is a flex sibling of this grid, so centering the grid
+// would pull the bars away from their own axis labels.
 templ historyBarChart(chart HistoryChart, colorClass string) {
 	if chart.Empty {
 		@dashHistoryEmpty()
@@ -69,7 +89,7 @@ templ historyBarChart(chart HistoryChart, colorClass string) {
 			}
 			<div
 				class="grid gap-y-1 flex-1"
-				style={ fmt.Sprintf("grid-template-columns: repeat(%d, minmax(0, 1fr))", len(chart.Bars)) }
+				style={ fmt.Sprintf("grid-template-columns: repeat(%d, minmax(0, 1fr)); max-width: %drem", len(chart.Bars), len(chart.Bars)*historyBarSlotRem) }
 			>
 				<svg
 					viewBox={ fmt.Sprintf("0 0 %d 100", len(chart.Bars)) }

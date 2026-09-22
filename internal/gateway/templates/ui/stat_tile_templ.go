@@ -27,6 +27,17 @@ type StatTileProps struct {
 	//                  good nor bad)
 	//   "down-neutral" trending_down, text-neutral (a negative change,
 	//                  neither good nor bad)
+	//   "up-error"     trending_up, text-error (a positive change is BAD —
+	//                  a cost that rose)
+	//   "down-success" trending_down, text-success (a negative change is GOOD —
+	//                  a cost that fell)
+	//
+	// The last two complete the direction x meaning grid this prop already
+	// claimed to separate. "up"/"down" are the shorthand for up-success and
+	// down-error, which covers a metric where more is better; a COST is the
+	// mirror of that, and without these two a rising cost could only be drawn
+	// as a green up-arrow (wrong meaning) or a grey one (no meaning). Added by
+	// MAG-87's period-over-period comparison.
 	//
 	// Empty (the zero value) renders no icon — every existing call site is
 	// unaffected.
@@ -146,7 +157,7 @@ func StatTile(p StatTileProps) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 97, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 108, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -181,7 +192,7 @@ func StatTile(p StatTileProps) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.Value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 99, Col: 129}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 110, Col: 129}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -207,7 +218,7 @@ func StatTile(p StatTileProps) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(p.Desc)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 103, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/stat_tile.templ`, Line: 114, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -269,6 +280,16 @@ func statTrendIcon(trend string) templ.Component {
 			}
 		case "down-neutral":
 			templ_7745c5c3_Err = Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-neutral shrink-0"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		case "up-error":
+			templ_7745c5c3_Err = Icon(IconProps{Name: "trending_up", Class: "h-5 w-5 text-error shrink-0"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		case "down-success":
+			templ_7745c5c3_Err = Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-success shrink-0"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
