@@ -1,6 +1,7 @@
 package fragments
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -21,7 +22,8 @@ import (
 // directly under the header buys the same reading with none of that staleness.
 templ VehicleStatsContent(v VehicleStatsView) {
 	if v.Periods != nil {
-		<div class="flex justify-end -mt-2">
+		<div class="flex items-center justify-end gap-2 -mt-2">
+			<span class="text-sm text-base-content/60">{ i18n.T(ctx, i18n.KeyVehicleStatsPeriodLabel) }</span>
 			@ui.Dropdown(ui.DropdownProps{
 				ID:        "vehicle-stats-period",
 				Label:     v.PeriodLabel,
@@ -41,8 +43,16 @@ templ VehicleStatsContent(v VehicleStatsView) {
 			<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyVehicleStatsEmpty) }</p>
 		}
 	} else {
-		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsSummaryTitle), ID: "vehicle-stats-summary"}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsSummaryTitle), Desc: vehicleStatsSummaryDesc(ctx, v.HasPrev), ID: "vehicle-stats-summary"}) {
 			@vehicleStatsTiles(v.Tiles)
+		}
+		if v.MonthChart.Show {
+			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsMonthChartTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsMonthChartDesc), ID: "vehicle-stats-month-chart"}) {
+				@historyBarChart(v.MonthChart.Chart, "fill-primary")
+			}
+		}
+		if len(v.Gaps) > 0 {
+			@vehicleStatsGaps(v.Gaps, v.GapsMore)
 		}
 		@vehicleStatsWhy(v.Why)
 	}
@@ -87,20 +97,69 @@ func vehicleStatsPeriodItems(periods []VehicleStatsPeriod) []ui.DropdownItem {
 // smallest, where it cannot be mistaken for a total.
 templ vehicleStatsTiles(t VehicleStatsTiles) {
 	<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsDistance), Value: t.Distance, Size: "lg"})
-		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsEfficiency), Value: t.Efficiency, Size: "lg"})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsDistance), Value: t.Distance, Size: "lg", Trend: t.DistanceTrend, Desc: t.DistanceDelta})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsEfficiency), Value: t.Efficiency, Size: "lg", Trend: t.EfficiencyTrend, Desc: t.EfficiencyDelta})
 	</div>
 	<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
-		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsEnergy), Value: t.Energy})
-		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsSessions), Value: t.Sessions})
-		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsCost), Value: t.Cost})
-		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsCostPerKm), Value: t.CostPerKm})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsEnergy), Value: t.Energy, Trend: t.EnergyTrend, Desc: t.EnergyDelta})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsSessions), Value: t.Sessions, Trend: t.SessionsTrend, Desc: t.SessionsDelta})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsCost), Value: t.Cost, Trend: t.CostTrend, Desc: t.CostDelta})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsCostPerKm), Value: t.CostPerKm, Trend: t.CostPerKmTrend, Desc: t.CostPerKmDelta})
 	</div>
 	<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-4 pt-3 border-t border-base-300 text-sm">
 		<span class="text-base-content/70">{ i18n.T(ctx, i18n.KeyVehicleStatsRangeFull) }</span>
 		<span class="font-mono font-semibold">{ t.RangeFull }</span>
 		<span class="text-base-content/50">{ i18n.T(ctx, i18n.KeyVehicleStatsRangeFullDesc) }</span>
 	</div>
+}
+
+// vehicleStatsGaps renders the missing-charge-records warning as a grid of one
+// cell per day that needs a record.
+//
+// It sits ABOVE the "why" section and directly below the figures, because it is
+// not an explanation — it is a caveat ON those figures. A missing charge
+// under-counts consumption, which pushes energy and cost down and efficiency up,
+// so a reader who has seen the numbers must see this before they trust them.
+//
+// # Why a grid of day cells and not a list of rows
+//
+// The first version was a list, each row carrying a date, a full sentence and a
+// button on one line. Three competing elements per row wrapped badly on a phone,
+// and the sentence was IDENTICAL in every row — four repetitions of "a charge
+// record is missing" is noise, not information.
+//
+// What actually varies per day is the DATE and the KIND, so the date is the
+// cell's anchor (a reader scans these to find which days they owe a record for),
+// the kind is a badge, and the explanation is said ONCE in the section's
+// description. The whole cell is the link, so nothing competes with it — and
+// there is no "→" appended to the label, which is the generic tell this avoids.
+//
+// The warning tone is carried per cell by a left border rather than by wrapping
+// the section in one big alert: that keeps the block visually consistent with
+// every other card on the page while still reading as a warning.
+templ vehicleStatsGaps(gaps []VehicleStatsGap, more int) {
+	@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsGapsTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsGapsDesc), ID: "vehicle-stats-gaps"}) {
+		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+			for _, g := range gaps {
+				<a
+					href={ templ.SafeURL(g.ActionHref) }
+					class="group flex flex-col gap-3 rounded-lg border border-base-300 border-l-4 border-l-warning bg-base-200/40 p-3 transition-colors hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning"
+				>
+					<div class="flex items-start justify-between gap-2">
+						<div class="flex flex-col leading-tight">
+							<span class="font-mono text-2xl font-semibold">{ g.DayLabel }</span>
+							<span class="text-xs text-base-content/60">{ g.MonthLabel }</span>
+						</div>
+						@ui.Badge(ui.BadgeProps{Kind: "warning", Text: g.KindLabel})
+					</div>
+					<span class="text-sm font-medium text-base-content/70 group-hover:text-base-content">{ g.ActionLabel }</span>
+				</a>
+			}
+		</div>
+		if more > 0 {
+			<p class="mt-3 text-sm text-base-content/60">{ fmt.Sprintf(i18n.T(ctx, i18n.KeyVehicleStatsGapsMore), more) }</p>
+		}
+	}
 }
 
 // vehicleStatsWhy renders the page's explanatory half — the "rest of the page"
@@ -111,32 +170,53 @@ templ vehicleStatsTiles(t VehicleStatsTiles) {
 // comparison, a share and a distribution — the shapes that explain a value.
 // Reusing tiles here would flatten the hierarchy the section above exists to
 // build.
+//
+// # Layout: one full-width block, then two side by side
+//
+// "How you drove" stays full width — it is a two-column comparison already, and
+// halving it would put four numbers in a quarter of the page.
+//
+// The other two pair into one row from `lg` up. Both are lists of short labelled
+// meters, so each only ever needed about half the width; stacked, they made the
+// reader scroll past two tall, mostly-empty blocks. `lg` and not `md` on purpose:
+// the content area sits inside the drawer shell beside the sidebar, so a tablet
+// has less usable width than its viewport suggests, and a meter row squeezed to a
+// quarter of the screen stops being readable.
+//
+// Below `lg` it collapses to one column — the single-column stack is the right
+// shape on a phone and is left exactly as it was.
 templ vehicleStatsWhy(w VehicleStatsWhy) {
-	@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsWhyTitle)})
+	// mt-6 on top of the container's own gap-6 gives the 3rem sectional break
+	// the design system specifies between major functional blocks — applied
+	// here, at the one place the page actually divides, rather than widening
+	// every gap on the page.
+	@ui.SectionHeader(ui.SectionHeaderProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsWhyTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsWhyDesc), Class: "mt-6"})
 	@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsHowDrivenTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsHowDrivenDesc), ID: "vehicle-stats-how-driven"}) {
 		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 			@vehicleStatsSplit(w.Weekday)
 			@vehicleStatsSplit(w.Weekend)
 		</div>
 	}
-	@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsEnergyMixTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsEnergyMixDesc), ID: "vehicle-stats-energy-mix"}) {
-		<div class="flex flex-col gap-4">
-			for _, src := range w.Sources {
-				@vehicleStatsSource(src)
-			}
-		</div>
-	}
-	@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsEndBattTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsEndBattDesc), ID: "vehicle-stats-end-battery"}) {
-		if w.BucketsEmpty {
-			<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyVehicleStatsEndBattEmpty) }</p>
-		} else {
-			<div class="flex flex-col gap-3">
-				for _, b := range w.Buckets {
-					@vehicleStatsBucket(b)
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsEnergyMixTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsEnergyMixDesc), ID: "vehicle-stats-energy-mix"}) {
+			<div class="flex flex-col gap-4">
+				for _, src := range w.Sources {
+					@vehicleStatsSource(src)
 				}
 			</div>
 		}
-	}
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyVehicleStatsEndBattTitle), Desc: i18n.T(ctx, i18n.KeyVehicleStatsEndBattDesc), ID: "vehicle-stats-end-battery"}) {
+			if w.BucketsEmpty {
+				<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyVehicleStatsEndBattEmpty) }</p>
+			} else {
+				<div class="flex flex-col gap-3">
+					for _, b := range w.Buckets {
+						@vehicleStatsBucket(b)
+					}
+				</div>
+			}
+		}
+	</div>
 }
 
 // vehicleStatsSplit renders one side of the weekday/weekend comparison. The day
@@ -188,4 +268,19 @@ templ vehicleStatsBucket(b VehicleStatsBucket) {
 // catalogue key; the surrounding sentence does.
 func pctLabel(pct int) string {
 	return strconv.Itoa(pct) + "%"
+}
+
+// vehicleStatsSummaryDesc says what the tiles' arrows are measured against, and
+// says so ONCE on the card rather than repeating "vs. the previous period" in
+// six tile sub-labels — each tile's own Desc carries its signed percentage
+// instead.
+//
+// When no previous period has data it says that plainly. Staying silent would
+// leave a reader wondering why the arrows vanished, and every tile carrying no
+// arrow looks identical to a period that simply did not change.
+func vehicleStatsSummaryDesc(ctx context.Context, hasPrev bool) string {
+	if hasPrev {
+		return i18n.T(ctx, i18n.KeyVehicleStatsSummaryDescPrev)
+	}
+	return i18n.T(ctx, i18n.KeyVehicleStatsSummaryDescNoPrev)
 }

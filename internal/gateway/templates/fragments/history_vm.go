@@ -166,3 +166,15 @@ type HistoryView struct {
 	// its real value. A bar can carry BOTH markers (D21, design.md D-G4).
 	Consumed HistoryChart
 }
+
+// historyBarSlotRem is the width, in rem, historyBarChart allots per bar when it
+// caps its own width. 4rem (64px) leaves each bar about 51px wide — 0.8 of its
+// slot — against the chart's fixed 96px height, so a bar is always taller than
+// it is wide.
+//
+// It lives here, as one named constant, because the whole point is that every
+// chart in the app shares it: bars look identical on /dashboard,
+// /supercharger-stats and /vehicle-stats, and only the chart's overall width
+// says how much data there is. See historyBarChart's doc comment for the failure
+// this fixed.
+const historyBarSlotRem = 4

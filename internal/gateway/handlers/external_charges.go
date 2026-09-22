@@ -40,10 +40,20 @@ const csrfVehicleSelectKey = "csrf_vehicle_select"
 // ExternalChargesPage renders the full External charges page. It auth-guards, generates a CSRF
 // token, builds page data, and renders the full page (initial load path).
 //
-// ExternalChargesPage does NOT parse ?start=&end= itself (design.md §D-Range/§Test
-// Contract) — the date-filter contract is scoped to GET /ui/external-charges/list; a
-// full page reload has no reason to remember a prior filter click. It always
-// uses the default externalChargesRangeDefaultDays window (defaultExternalChargesWindow).
+// ExternalChargesPage DOES parse ?start=&end= (MAG-87). It deliberately did not
+// before (design.md §D-Range/§Test Contract), on the reasoning that "a full page
+// reload has no reason to remember a prior filter click" — and that reasoning
+// still holds for a reload. What it does not cover is a DEEP LINK: the Vehicle
+// Stats page links each missing-charge day straight here with that day as the
+// window, which is not a remembered click but an explicit request to see one day.
+// Ignoring the params landed the reader on the default 7-day window, which for an
+// older gap does not even contain the day they were sent to fix.
+//
+// Behaviour with NO params is unchanged: parseExternalChargesRange's both-absent
+// branch is byte-identical to defaultExternalChargesWindow, which the seven other
+// callers still use. A malformed window now renders the same no-chrome empty state
+// at HTTP 400 that the list fragment already renders, per the platform's
+// date-filter convention.
 func (h *Handler) ExternalChargesPage(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -70,7 +80,16 @@ func (h *Handler) ExternalChargesPage(c *gin.Context) {
 		filterTeslaID = sel.TeslaID
 	}
 	today := browserToday(c)
-	start, end := defaultExternalChargesWindow(today)
+	start, end, okRange := parseExternalChargesRange(c, today)
+	if !okRange {
+		d := fragments.ExternalChargesPageData{
+			CSRFToken:      csrfToken,
+			EmptyState:     true,
+			NoFilterChrome: true,
+		}
+		renderError(c, http.StatusBadRequest, pages.ExternalChargesPage(d))
+		return
+	}
 	d := h.buildExternalChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	render(c, http.StatusOK, pages.ExternalChargesPage(d))
 }

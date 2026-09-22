@@ -177,6 +177,15 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   bug. If a repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme
   tokens (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable
   layers. Pages/fragments pass VM-ready strings in.
+- **`ui.StatTileProps.Trend` gained `"up-error"` and `"down-success"`** (`templates/ui/stat_tile.templ`)
+  — trending_up in `text-error`, and trending_down in `text-success`. They complete the
+  direction × meaning grid the prop's doc comment already claimed to separate: `"up"`/`"down"` are
+  shorthand for up-is-good and down-is-bad, which fits a metric where more is better, and a COST
+  is the mirror of that. Without them a rising cost could only be drawn as a green up-arrow (wrong
+  meaning) or a grey one (no meaning). Added by `/vehicle-stats`'s period-over-period comparison
+  (MAG-87). Pick polarity PER METRIC: a figure that is neither good nor bad rising (distance
+  driven) stays `*-neutral` — a red arrow for driving more is a judgement the page has no business
+  making.
 - **`ui.StatTileProps.Size`** (`templates/ui/stat_tile.templ`) — closed vocabulary of two:
   `""` (every existing call site) and `"lg"`, the headline treatment for the one or two
   numbers a page exists to answer. It exists because §Mobile R5 says a page needing a one-off
@@ -931,6 +940,17 @@ approach has no JS runtime, no resize listener, and no CDN/vendored asset — it
 is "free" in terms of complexity. Revisit ONLY if a future chart genuinely needs
 axes, zoom, or interactivity beyond hover — and record that reversal here (see
 convention below).
+
+**Bar WIDTH is a function of bar COUNT, and that is capped (MAG-87).** With
+`preserveAspectRatio="none"` over a fixed `h-24`, each bar is 0.8 of its column, so
+fewer bars means wider bars — at three bars in a ~900px card a bar came out ~240px
+wide against 96px tall, which reads as slabs, not a chart. `historyBarChart` now caps
+its grid at `historyBarSlotRem` (4rem) **per bar**, so every chart in the module draws
+bars of the same ~51px width and only the chart's overall width says how much data
+there is. The cap binds only while `N x 64px` is narrower than the container (about
+N <= 14); a 30-bar window exceeds it and is unaffected. A new chart inherits this for
+free — do not re-solve it per page, and do not "fix" a narrow low-N chart by widening
+it back.
 
 **Key invariants (mirror these on every chart you add):**
 - Handler pre-computes ALL heights (as int %) and tooltip strings; the template

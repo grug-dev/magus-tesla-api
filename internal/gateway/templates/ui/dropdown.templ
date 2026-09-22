@@ -33,6 +33,14 @@ type DropdownProps struct {
 // the same one LangSwitcher uses — already on this module's sanctioned zero-JS
 // list, so composing it introduces no new client behaviour.
 //
+// The trigger is PRIMARY-outlined, not neutral-outlined. Every theme in this app
+// is dark-mode-first, and a neutral hairline border on a dark surface is easy to
+// miss entirely — the first reader of the Vehicle Stats page could not find the
+// period control at all. A primary-tinted border and label reads as interactive
+// without the loudness of a filled button. Pair it with a visible text label at
+// the call site: the colour says "interactive", the word says what it does, and
+// neither alone was enough.
+//
 // Why this exists as a kit component rather than markup in a fragment: the
 // DaisyUI class names (`dropdown`, `dropdown-content`, `menu`, `btn`, `active`)
 // are exactly what the ui/ kit is the anti-corruption adapter for, so a version
@@ -41,7 +49,7 @@ type DropdownProps struct {
 // carries a single value, so two coupled query params would need a script.
 templ Dropdown(p DropdownProps) {
 	<div class={ "dropdown", templ.KV("dropdown-end", p.End) } id={ p.ID }>
-		<div tabindex="0" role="button" class="btn btn-sm btn-outline" aria-label={ p.AriaLabel }>
+		<div tabindex="0" role="button" class="btn btn-sm btn-primary btn-outline" aria-label={ p.AriaLabel }>
 			<span>{ p.Label }</span>
 			@Icon(IconProps{Name: "chevron_down", Class: "h-4 w-4"})
 		</div>

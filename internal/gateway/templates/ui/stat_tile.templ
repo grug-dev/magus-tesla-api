@@ -19,6 +19,17 @@ type StatTileProps struct {
 	//                  good nor bad)
 	//   "down-neutral" trending_down, text-neutral (a negative change,
 	//                  neither good nor bad)
+	//   "up-error"     trending_up, text-error (a positive change is BAD —
+	//                  a cost that rose)
+	//   "down-success" trending_down, text-success (a negative change is GOOD —
+	//                  a cost that fell)
+	//
+	// The last two complete the direction x meaning grid this prop already
+	// claimed to separate. "up"/"down" are the shorthand for up-success and
+	// down-error, which covers a metric where more is better; a COST is the
+	// mirror of that, and without these two a rising cost could only be drawn
+	// as a green up-arrow (wrong meaning) or a grey one (no meaning). Added by
+	// MAG-87's period-over-period comparison.
 	//
 	// Empty (the zero value) renders no icon — every existing call site is
 	// unaffected.
@@ -119,6 +130,10 @@ templ statTrendIcon(trend string) {
 		@Icon(IconProps{Name: "trending_up", Class: "h-5 w-5 text-neutral shrink-0"})
 	case "down-neutral":
 		@Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-neutral shrink-0"})
+	case "up-error":
+		@Icon(IconProps{Name: "trending_up", Class: "h-5 w-5 text-error shrink-0"})
+	case "down-success":
+		@Icon(IconProps{Name: "trending_down", Class: "h-5 w-5 text-success shrink-0"})
 	default:
 	}
 }

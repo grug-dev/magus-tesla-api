@@ -120,7 +120,41 @@ func (h *Handler) vehicleStatsViewFor(c *gin.Context, uid uuid.UUID) (fragments.
 	}
 
 	v.Empty = false
-	v.Tiles = buildVehicleStatsTiles(months)
+	totals := sumVehicleStatsMonths(months)
+
+	// The trend comparison is a SECOND read of the same port, for the period
+	// immediately before this one. It is skipped entirely when that period
+	// would start before the account's analysis_start_date (no comparable
+	// data), or when it has no stored month — a first-ever period shows its
+	// figures with no arrows rather than a fabricated comparison.
+	var prev *vehicleStatsTotals
+	if ps, pe, ok := vehicleStatsPrevWindow(start, end, minDate); ok {
+		prevMonths, err := h.analyticsMonthly.MonthlyMetricsBetween(ctx, teslaID, ps, pe)
+		if err != nil {
+			logging.Note("Handler", "vehicleStatsViewFor", "previous-period read failed for account %s, vehicle %d: %v", uid, teslaID, err)
+		} else if len(prevMonths) > 0 {
+			p := sumVehicleStatsMonths(prevMonths)
+			prev = &p
+		}
+	}
+	v.HasPrev = prev != nil
+
+	v.Tiles = buildVehicleStatsTiles(totals, prev)
+	v.MonthChart = buildVehicleStatsMonthChart(ctx, months, start, end)
 	v.Why = buildVehicleStatsWhy(ctx, months)
+
+	// The missing-records warning needs day grain, so it is a SECOND read —
+	// the monthly rollup stores no per-day flag. The window is the period's
+	// own, with no lookback: a flagged day is a fact about that day, not a
+	// delta needing a predecessor. ConsumedByDay is sparse and bounded by the
+	// window (at most ~366 rows for a whole year), and a failure here degrades
+	// the warning only: the figures above are already built, so the page still
+	// renders without it rather than erroring.
+	if flagDays, err := h.analyticsReader.ConsumedByDay(ctx, teslaID, start, end); err != nil {
+		logging.Note("Handler", "vehicleStatsViewFor", "ConsumedByDay error for account %s, vehicle %d: %v", uid, teslaID, err)
+	} else {
+		v.Gaps, v.GapsMore = buildVehicleStatsGaps(ctx, flagDays)
+	}
+
 	return v, http.StatusOK
 }

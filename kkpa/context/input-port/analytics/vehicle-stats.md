@@ -14,8 +14,9 @@
 
 - **Route / URI:** `/vehicle-stats`
 - **Description:** How the selected vehicle performed over one whole calendar month or one
-  whole calendar year, over `analytics.vehicle_monthly_metrics`. Two halves: seven KPIs that
-  state the answer, then three blocks that explain it. **Read-only:** no create, no edit, no
+  whole calendar year, over `analytics.vehicle_monthly_metrics`. Seven KPIs with
+  period-over-period arrows, a month-by-month chart, a warning for days whose charge records are
+  missing, then three blocks explaining the figures. **Read-only:** no create, no edit, no
   delete, no CSRF token.
 - **Module:** `analytics`
 - **Nav label:** `Estadísticas` / `Vehicle Stats`, in the *Insights* section
@@ -30,9 +31,11 @@
 | `internal/gateway/templates/fragments/vehicle_stats_vm.go` | `VehicleStatsView` / `VehicleStatsPeriod` / `VehicleStatsTiles` / `VehicleStatsWhy` + its three row types |
 | `internal/gateway/handlers/vehicle_stats.go` | Both handlers and the shared `vehicleStatsViewFor` |
 | `internal/gateway/handlers/vehicle_stats_period.go` | `parseVehicleStatsRange` + `buildVehicleStatsPeriods` — the window rules |
-| `internal/gateway/handlers/vehicle_stats_tiles.go` | `buildVehicleStatsTiles` and `buildVehicleStatsWhy` — all roll-up maths, over the SAME months slice |
+| `internal/gateway/handlers/vehicle_stats_tiles.go` | `sumVehicleStatsMonths` (raw totals), `buildVehicleStatsTiles` (formats + trends), `buildVehicleStatsWhy` — all roll-up maths, over the SAME months slice |
+| `internal/gateway/handlers/vehicle_stats_chart.go` | `buildVehicleStatsMonthChart` (the month-by-month bars) and `vehicleStatsPrevWindow` (the period the trends compare against) |
+| `internal/gateway/handlers/vehicle_stats_gaps.go` | `buildVehicleStatsGaps` + `gapCopyFor` — the missing-charge-records warning and its per-kind routing |
 | `internal/gateway/templates/ui/dropdown.templ` | `ui.Dropdown`, the kit component the period control composes |
-| `internal/gateway/templates/ui/stat_tile.templ` | `StatTileProps.Size` — the `"lg"` headline variant this page added to the kit |
+| `internal/gateway/templates/ui/stat_tile.templ` | `StatTileProps.Size` — the `"lg"` headline variant this page added to the kit — and the `"up-error"` / `"down-success"` Trend values it added for cost |
 | `internal/gateway/i18n/catalog.go` | Every string on this page, ES + EN, including the 12 `month.NN` names |
 
 ## Endpoints
@@ -88,6 +91,13 @@ one grid of equal cards; that is the thing the ticket explicitly asked against.
 | Ledger | Energy, Sessions, Cost, Cost per km | standard tiles, four across |
 | Footnote | Range at full battery | a quiet line under a rule — it is a battery-health reading from the latest month, NOT a period total, and must not sit among things that are |
 
+**Between the two halves** sit two blocks that are neither a figure nor an explanation:
+
+| Block | When it renders | Why there |
+|---|---|---|
+| `Distancia por mes` — one bar per calendar month | only when the period spans **more than one month** | It is the SHAPE of the headline distance. A year otherwise collapses twelve months into one number and loses everything about how they differed. One bar is not a chart, so a single-month period skips it. |
+| `Registros de carga faltantes` | only when the period has flagged days | It is a **caveat on the figures**, not an explanation of them — a missing charge under-counts consumption, pushing energy and cost down and efficiency up. A reader who has seen the numbers must see this before trusting them. |
+
 **The why** — three blocks, each answering one headline number, in that order:
 
 | Block | Answers | Shape |
@@ -128,6 +138,103 @@ Two rules that make a count smaller or larger than a person expects — both dec
 - **`IN_PROGRESS` entries ARE counted.** There is no status filter. In that same August, 2 of
   the 7 AC entries are `IN_PROGRESS`, so "10" includes two unfinished charges and their partial
   energy and cost. The count does **not** mean "completed charges".
+
+## The missing-charge-records warning
+
+Lists the days in the period whose battery use the stored charge records cannot account for, each
+linking to the page that fixes that specific day with the day already applied as the filter.
+
+**It reads `analytics.Reader.ConsumedByDay`, NOT `analytics.charge_gaps`. Do not "improve" this
+by switching to the gaps table.**
+
+`charge_gaps` is the module's WORKLIST, not live truth. A row is deleted only by
+`GapWriter.ReconcileWindow`, and only inside its 30-day window; the manual-charge write path
+calls `Recalculate` (which clears `vehicle_metrics.flagged`) but never `ReconcileWindow`. So a
+gap fixed more than 30 days ago keeps its `charge_gaps` row forever. Measured on this repo's data
+for vehicle `3744327027802250`: `charge_gaps` held six days, of which **2026-07-19 and 2026-08-03
+were already resolved** — 08-03 has two AC entries and a normal 4.0% / 11.2 km day, and its gap
+row was last touched 2026-09-02 before falling out of the window. Warning about those two would
+send the reader to redo work they had already done.
+
+`ConsumedByDay` carries the live `Flagged` and `MissingChargingType` per day, and the gateway
+already holds that port — so this costs no new dependency. It is a **second read**, day-grain,
+because the monthly rollup stores no per-day flag; a failure degrades the warning only and the
+figures still render.
+
+**The kind decides the destination**, and the two need different words because they need
+different work:
+
+| `MissingChargingType` | Means | Badge | Action | Links to |
+|---|---|---|---|---|
+| `MANUAL` | Charged where the Fleet API does not report it — home, work, third-party AC | `Carga manual` | `Agregar registro` | `/external-charges?start=D&end=D` |
+| `SUPERCHARGER` | The session IS stored; only its two battery percentages are NULL | `Supercharger` | `Completar batería` | `/supercharger-stats?start=D&end=D` |
+
+A flagged day whose type is neither value is **skipped**: the row's whole value is the link, and
+without the type there is no page to send the reader to.
+
+Capped at `vehicleStatsGapsMax` (10) rows, with the remainder counted rather than dropped.
+
+**Layout:** a grid of day cells, not a list of rows. The first version was a list carrying a
+date, a full sentence and a button per line — three competing elements that wrapped badly, and
+the sentence was identical in every row. What varies is the date and the kind, so the date is the
+cell's anchor, the kind is a badge, the explanation is said once in the card description, and the
+whole cell is the link.
+
+## Period-over-period trends
+
+Each of the six comparable tiles carries an arrow and a signed percentage against the
+**immediately preceding period of the same length in whole months** — September compares with
+August, a three-month window with the three months before it. `vehicleStatsPrevWindow`
+(`vehicle_stats_chart.go`) resolves it; it is a **second call** to `MonthlyMetricsBetween`.
+
+**Polarity is per metric, not one rule for all:**
+
+| Tiles | Polarity | Rising renders as |
+|---|---|---|
+| Distance, Energy, Sessions | neutral | grey ↑ (`up-neutral`) — driving more is neither good nor bad, and a reader who drove more on purpose must not be shown a red arrow |
+| Efficiency | higher is better | green ↑ (`up`) |
+| Cost, Cost per km | lower is better | **red ↑ (`up-error`)** |
+| Range at full battery | **no trend at all** | — |
+
+`up-error` and `down-success` did not exist in `ui.StatTileProps.Trend` before this page; it had
+only up-is-good and down-is-bad. Without them a rising cost could only be drawn as a green
+up-arrow (wrong meaning) or a grey one (no meaning). They complete the direction × meaning grid
+the prop's own doc comment already claimed to separate.
+
+**Range at full battery deliberately carries no arrow.** One month's reading against another's is
+mostly weather and driving style, and an arrow there would invite a reader to see battery
+degradation in noise.
+
+**No trend is shown at all** when the previous period would start before the account's
+`analysis_start_date`, when it has no stored month, when either value is zero, or when the change
+rounds to 0%. The summary card then says so in words — silence would look identical to a period
+that simply did not change.
+
+## The month chart's axis is calendar-driven, not data-driven
+
+Every month in the window gets one slot, in order, whether or not a row exists. A month with no
+stored row renders at zero height with its label kept and `Present=false`.
+
+**That matters more here than on the other charts.** This table is sparse by month, so a
+data-driven axis would quietly relabel the gaps away and draw a tidy chart of a year that was
+never recorded. **The empty slots ARE the information.** Worked example from this repo:
+`analysis_start_date` is 2026-07-09 and only 2026-08 and 2026-09 are stored, so the whole-year
+period renders three bars — `2026-07` empty, then the two real months.
+
+It reuses `historyBarChart` (`fragments/history.templ`), like the Supercharger month chart does.
+Do not write a second chart renderer.
+
+**The bars are vertical on purpose — do not switch them to horizontal to match the two blocks
+below.** Those two are categorical distributions (three charge sources, five battery bands),
+where order is arbitrary or ordinal and you read them by comparing lengths. This is a TIME
+series: months advance, time reads left-to-right, and the point is the shape of a rise or fall
+rather than a ranking. Vertical is also already the module's language for time — `/dashboard`'s
+history charts and the Supercharger month chart are both vertical.
+
+**Two or three months look narrow, and that is the fix, not the bug.** `historyBarChart` caps its
+width at 4rem per bar (`historyBarSlotRem`), so bars are ~51px wide everywhere in the app and
+only the chart's total width reflects how much data exists. Before that cap, three bars stretched
+to ~240px wide against a 96px height. Do not widen it back.
 
 ## Gotchas
 

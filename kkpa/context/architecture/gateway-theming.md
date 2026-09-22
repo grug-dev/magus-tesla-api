@@ -70,6 +70,11 @@ The mono font reaches the page through Tailwind's `font-mono` utility, which res
   `ui.StatTile`'s `stat-value` — the roles `design.md` calls "technical labels / values /
   status labels"
 - inline in `fragments/nav_header.templ`, on the battery readout
+- inline in `fragments/vehicle_stats.templ` (MAG-87) — the gap cell's day number, the
+  weekday/weekend efficiency and distance, each charging source's kWh/cost row, the
+  ending-battery band labels and counts, and the range-at-full-battery value. All are the
+  same "technical values" role, reached inline because they are bare `<span>`s in a
+  layout rather than a kit component with a slot
 
 Note the second bullet: `font-mono` is **not** confined to `ui/`. `make ui-guard` blocks
 raw DaisyUI *component* classes in pages and fragments and explicitly allows Tailwind
