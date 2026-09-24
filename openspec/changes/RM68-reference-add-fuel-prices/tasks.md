@@ -20,7 +20,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
 
 ## Wave 1 — schema + shared-file grants
 
-- [ ] **1.1** **[module: reference worker]**
+- [x] **1.1** **[module: reference worker]**
   `internal/reference/db/migrations/20260922000001_baseline.sql` — the schema-only baseline
   from `design.md` "Database Changes" §Full schema: `CREATE SCHEMA IF NOT EXISTS reference;`
   then `CREATE TABLE reference.fuel_prices` with all six columns and both constraints, plus
@@ -32,7 +32,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
   mark the baseline un-applied while the schema still exists.
   `depends_on`: — · `parallel_ok`: with 1.3, 1.4
 
-- [ ] **1.2** **[module: reference worker]**
+- [x] **1.2** **[module: reference worker]**
   `internal/reference/db/migrations/20260922000002_seed_2026_08_price.sql` — one ordinary
   migration, `-- +goose Up` inserting exactly one row: `period = '2026-08-01', currency =
   'COP', price = 16000.00`. `-- +goose Down` deletes that one row by its `period` — this is
@@ -43,7 +43,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
   `depends_on`: 1.1 · `parallel_ok`: no (same migrations directory, must not collide on
   filename ordering with 1.1)
 
-- [ ] **1.5** **[module: reference worker]**
+- [x] **1.5** **[module: reference worker]**
   `internal/reference/db/migrations/20260922000003_seed_2026_09_price.sql` — one ordinary
   migration, same shape as 1.2: `-- +goose Up` inserts exactly one row, `period =
   '2026-09-01', currency = 'COP', price = 16331.00`. `-- +goose Down` deletes that one row
@@ -51,7 +51,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
   `depends_on`: 1.2 · `parallel_ok`: no (same migrations directory, filename order after
   1.2)
 
-- [ ] **1.3** **[leader-owned]** `sqlc.yaml` — append a new `sql:` entry for `reference`,
+- [x] **1.3** **[leader-owned]** `sqlc.yaml` — append a new `sql:` entry for `reference`,
   mirroring the existing four entries exactly: `schema:
   internal/reference/db/migrations`, `queries: internal/reference/db/query.sql`,
   `gen.go.package: referencedb`, `out: internal/reference/db`, `sql_package: pgx/v5`,
@@ -62,7 +62,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
   Files: `sqlc.yaml`.
   `depends_on`: — · `parallel_ok`: with 1.1, 1.4
 
-- [ ] **1.4** **[leader-owned]** `Makefile` — append `reference` to `MIGRATION_MODULES`:
+- [x] **1.4** **[leader-owned]** `Makefile` — append `reference` to `MIGRATION_MODULES`:
   `account telemetry charging analytics reference` (design.md "Makefile / codegen check" —
   appended at the end, position has no correctness effect, kept for a stable log order and a
   minimal diff).
@@ -73,7 +73,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
 
 ## Wave 2 — the query and the Go port
 
-- [ ] **2.1** **[module: reference worker]** `internal/reference/db/query.sql` (new file) —
+- [x] **2.1** **[module: reference worker]** `internal/reference/db/query.sql` (new file) —
   the `PricesForMonths` query exactly as specified in `design.md` §"The SQL", with its full
   doc comment. Then run `make sqlc` and report the result: it must generate
   `internal/reference/db/{models.go,query.sql.go,db.go}`, including a `FuelPrice` struct (via
@@ -83,7 +83,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
   what 2.3/2.4 must call).
   `depends_on`: 1.1, 1.3 · `parallel_ok`: no (blocks 2.2–2.4)
 
-- [ ] **2.2** **[module: reference worker]** `internal/reference/reference.go` (new file) —
+- [x] **2.2** **[module: reference worker]** `internal/reference/reference.go` (new file) —
   the package doc comment (this module's responsibility, one paragraph, no decision IDs), the
   `Reader` interface and `MonthPrice` struct exactly as specified in `design.md` §"The Go
   Port" (the sparse-result contract belongs in `PricesForMonths`'s own doc comment, not only
@@ -93,7 +93,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
   `charging.go`/`monthly_capacity_reader.go`).
   `depends_on`: 2.1 · `parallel_ok`: with 2.3 (authoring only — they land together)
 
-- [ ] **2.3** **[module: reference worker]** `internal/reference/price_reader.go` (new
+- [x] **2.3** **[module: reference worker]** `internal/reference/price_reader.go` (new
   file) — implement the port exactly as specified in `design.md` §"The Go Port": a narrow
   store interface over the one generated `PricesForMonths` method (mirroring
   `internal/analytics/monthly_reader.go`'s `monthlyMetricsStore` seam), an unexported
@@ -112,7 +112,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
 
 ## Wave 3 — module docs
 
-- [ ] **3.1** **[module: reference worker]** `internal/reference/AGENTS.md` (new file) — an
+- [x] **3.1** **[module: reference worker]** `internal/reference/AGENTS.md` (new file) — an
   `Agent-Name: reference` header, a `## Doc-Pack (module)` section stating this module needs
   nothing beyond the base pack (mirroring `internal/clock/AGENTS.md`'s identical empty
   section, since this module has no htmx/UI concern of its own), `## Responsibility` (what
@@ -126,7 +126,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
   every module).
   `depends_on`: 2.3 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: reference worker]** `internal/reference/README.md` (new file) — a
+- [x] **3.2** **[module: reference worker]** `internal/reference/README.md` (new file) — a
   short human-facing summary: what this module does, why it exists (one paragraph, mirroring
   `internal/tesla/README.md`'s "What this module does" opening), and a pointer to
   `AGENTS.md` for the full brief. Do not duplicate `AGENTS.md`'s content — this file is the
@@ -137,7 +137,7 @@ other task is `[module: reference worker]`. No unit tests in this change (roadma
 
 ## Wave 4 — root README
 
-- [ ] **4.1** **[leader-owned]** Root `README.md` — three edits, per `CLAUDE.md`'s
+- [x] **4.1** **[leader-owned]** Root `README.md` — three edits, per `CLAUDE.md`'s
   "docs track structural change" rule:
   - "Project Structure" tree: add a `reference/` line under `internal/`, one sentence,
     matching the existing entries' style (e.g. `internal/reference/  # External reference

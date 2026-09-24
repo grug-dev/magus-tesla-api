@@ -81,7 +81,7 @@ regeneration is only needed after you edit a `query.sql` or a migration.
 # 1. Dependencies + regenerated DB code
 #    (after changing go.mod, any query.sql, or a migration)
 make tidy      # go mod tidy
-make sqlc      # sqlc generate → internal/{account,telemetry,charging,analytics}/db/{db,models,query.sql}.go
+make sqlc      # sqlc generate → internal/{account,telemetry,charging,analytics,reference}/db/{db,models,query.sql}.go
 
 # 2. Compile the whole monolith
 make build     # go build ./...   — all internal/ packages + every cmd/
@@ -159,6 +159,7 @@ magus-tesla-api/
 │   ├── telemetry/      # Nightly vehicle snapshot collection + storage (poller)
 │   ├── charging/       # User-asserted charge entries (home/work/3rd-party sessions)
 │   ├── analytics/      # Derived vehicle metrics (consumed %/day, distance/day)
+│   ├── reference/      # External reference values (gasoline price by month) — owned by no vehicle, no user
 │   │   └── db/             #   analyticsdb: vehicle_metrics read model + recompute watermarks
 │   ├── app/            # Application layer: ProcessVehicleData (one cycle = sync → charging → analytics) + the daily scheduler. Owns no data.
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
@@ -258,6 +259,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
 | `internal/charging` | User-asserted charge entries (home/work/3rd-party), plus **`charging.supercharger_sessions`** — a mirror of each Supercharger session's window, site, energy and cost, and the home of the human-verified battery percentages. Owns all charge data the app treats as a charge, whoever reported it. Since RM52 tier 1 (MAG-32) it also **measures** each vehicle's effective pack capacity every month into **`charging.monthly_effective_capacity`**, which `packCapacityKWh` reads instead of a hardcoded constant. |
 | `internal/analytics` | Derived vehicle metrics computed over stored telemetry: the per-day **battery consumed %** (raw SoC delta corrected by both charge sources) and per-day **distance**, plus the gap detection it stores through its own `GapWriter`. Owns **`vehicle_metrics`**, a precomputed read model written by `Recalculator` and read by `Reader` — the derivation is no longer recomputed per request. Since RM38 that table also mirrors the eight vehicle-status fields, which `Reader.LatestMetricsForVehicles` serves as the latest-row-per-vehicle status port. See [docs/battery-consumed-graph.md](docs/battery-consumed-graph.md). Also owns **`vehicle_monthly_metrics`**, the per-vehicle per-month rollup, written through its `MonthlySyncer` port and read back through its `MonthlyReader` port. |
+| `internal/reference` | External reference values that belong to no vehicle and no user. Owns **`reference.fuel_prices`**, the gasoline price per calendar month, loaded by one migration per month. Read through one port, `Reader.PricesForMonths`: for each month in a window it returns that month's price, or the newest earlier one. |
 | `internal/app` | **Application layer.** Exposes one port, `Processor.ProcessVehicleData`, running one full cycle as five named steps — sync fleet data (`telemetry`) → process charging data (the Supercharger mirror into `charging`) → recalculate analytics → measure monthly vehicle capacity → sync monthly vehicle metrics — and hosts the daily `Scheduler` that drives it. Step 4 (RM52 tier 2, MAG-32) runs only on the first day of the month, in the platform zone, and measures the previous month through `charging.MonthlyCapacityCalculator`. Step 5 (RM67, MAG-73) runs every night and calls `analytics.MonthlySyncer` twice per vehicle, for the current month and the previous one. Owns **no data**: no table, no migration, no pool. Called by `cmd/poller`'s scheduler and its manual-rerun HTTP listener. |
 | `internal/gateway` | Gin + Templ + htmx web layer, styled with Node-less Tailwind + DaisyUI (drawer nav, typed `ui/` component kit). The only package allowed to produce HTML. |
 | `internal/googleauth` | Google OAuth for user login |
@@ -297,6 +299,7 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 ├─ LAYER 1 ── domain modules & config ─────────────────────────────────────┤
 │  telemetry ──────────► account, tesla, clock, telemetry/db               │
 │  charging ───────────► charging/db                                       │
+│  reference ──────────► reference/db                                      │
 │  account ────────────► auth, account/db                                  │
 │  config ─────────────► clock                                             │
 ├─ LAYER 0 ── adapters & leaves (no internal dependencies) ────────────────┤
@@ -357,6 +360,7 @@ its own module's schema; `make migration-boundary-guard` enforces it.
 | | | `analytics` | `vehicle_metric_watermarks` | One recompute cursor per (account, vehicle, source), three sources. Drives `Reconcile`'s incremental pass; **no row means epoch** — backfill the vehicle's full history. |
 | | | `analytics` | `charge_gaps` | Vehicle-days whose battery math doesn't add up because a charge record is missing or incomplete — **one row per (account, vehicle, day)**, with the suspected missing source (`MANUAL` / `SUPERCHARGER`). A live worklist, not an audit trail: no `resolved_at`, a day that stops flagging is deleted by the next nightly reconciliation. Written by `internal/analytics` through its own `GapWriter` port. |
 | | | `analytics` | `vehicle_monthly_metrics` | One row per vehicle per calendar month — **keyed on `tesla_id`, with no `account_id`**, like `charging.monthly_effective_capacity`: it describes a car, not user data. Holds distance, battery consumed and efficiency, each split three ways (**all days / weekdays / weekends**) with a `day_count` per split, plus a **copy** of the pack capacity `charging` measured that month and the `capacity_measured` flag that says whether the copy is real. The `ext_ac_*` / `ext_dc_*` / `sc_*` columns and their three ending-battery JSONB distributions hold the month's external-charge and Supercharger energy, cost and counts, derived through `charging`'s range reads. External charges split by charging type AC/DC; one with no type is skipped whole. Every column is `NOT NULL DEFAULT 0`, so a count column — not a NULL — is what says "no data". Written by `MonthlySyncer.SyncMonth`, which rewrites one month for one vehicle and may be re-run at any time. **No reader yet.** |
+| `internal/reference` | `referencedb` | `reference` | `fuel_prices` | The price of one gallon of regular gasoline, **one row per calendar month** (`period` is the first day, `UNIQUE`), with `price numeric(14,2)` paired with `currency`. No writer port: each month's price is its own migration. A month with no row uses the newest earlier row. |
 | `internal/gateway` | — | — | *(none)* | Renders HTML; calls module interfaces, never a database. |
 | *(tooling)* | — | `<module>` | `goose_db_version` | **One per module**, inside that module's own schema — `account.goose_db_version`, `telemetry.…`, and so on. Every goose call passes `-table <module>.goose_db_version`. Because each module has its own ledger, two modules may use the same version number (all four baselines are `20260917000001`) and the order the directories are applied in does not matter. `public.goose_db_version` still exists, holding the 54 versions applied before the squash; nothing reads it, and it is kept as that history. On a database built *before* the squash the migration runner writes the baseline into each ledger itself, without running it (`config.MigrationDir.StampBaselineSQL`) — otherwise the baseline would try to create tables that are already there. That is one-time code; see `ai/go-conventions.md` §migrations. |
 

@@ -62,7 +62,7 @@ endif
 # MIGRATION_MODULES is the single source of both the directory and the ledger name, which
 # is why the loops below iterate modules rather than directories. Overriding
 # MIGRATIONS_DIRS alone no longer changes the goose CLI loops — override MIGRATION_MODULES.
-MIGRATION_MODULES ?= account telemetry charging analytics
+MIGRATION_MODULES ?= account telemetry charging analytics reference
 
 # MIGRATIONS_DIRS is derived, and still exported to cmd/migrate by migrate-run.
 MIGRATIONS_DIRS ?= $(foreach m,$(MIGRATION_MODULES),internal/$(m)/db/migrations)
