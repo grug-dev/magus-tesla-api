@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM68-reference-add-fuel-prices",
+  "module": "reference",
+  "roadmap": "openspec/roadmaps/RM68-gasoline-equivalent.md",
+  "request": "MAG-96 tier 1 \u2014 new internal/reference module holding the monthly gasoline price, read through PricesForMonths(ctx, start, end).",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.5",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "4.1"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-24T20:31:34Z",
+  "updated_at": "2026-09-24T20:31:34Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM68-MAG-96-gasoline-equivalent",
+    "base": "main",
+    "ticket": "MAG-96",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-96/show-gasoline-equivalent-km-per-gallon-on-the-vehicle-stats-page",
+    "created_at": "2026-09-22T18:20:06Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Baseline migration: reference schema + fuel_prices table",
+      "module": "reference",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "Seed migration: 2026-08 = 16000 COP",
+      "module": "reference",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.5",
+      "title": "Seed migration: 2026-09 = 16331 COP",
+      "module": "reference",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "sqlc.yaml entry for reference",
+      "module": "reference",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "Makefile: append reference to MIGRATION_MODULES",
+      "module": "reference",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "query.sql PricesForMonths + make sqlc",
+      "module": "reference",
+      "depends_on": [
+        "1.1",
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "reference.go: Reader, MonthPrice, NewReader",
+      "module": "reference",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "price_reader.go: port implementation",
+      "module": "reference",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "internal/reference/AGENTS.md",
+      "module": "reference",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "internal/reference/README.md",
+      "module": "reference",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "Root README.md: tree, architecture table, dependency graph",
+      "module": "reference",
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-24T20:31:34Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database gate confirmed: reference.fuel_prices schema, UNIQUE (period) as the only index, 3 migrations (baseline, 2026-08 = 16000, 2026-09 = 16331).",
+      "why": "User confirmed the design after the Spanish briefing.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-24T20:31:34Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "One serial Sonnet worker for all module tasks of waves 1\u20133; leader does 1.3, 1.4, 4.1.",
+      "why": "Small new module, strict chain 1.1\u21922.1\u21922.3\u21923.x. One dispatch reads the doc pack once instead of three times.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-24T20:31:34Z",
+      "agent": "leader",
+      "event": "progress.json created; design gate confirmed by user"
+    }
+  ]
+}

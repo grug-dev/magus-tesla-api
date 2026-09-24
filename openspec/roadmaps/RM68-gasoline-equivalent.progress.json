@@ -5,7 +5,7 @@
   "request": "MAG-96 — Show gasoline equivalent (km per gallon) on the vehicle stats page. A new internal/reference module holds the monthly gasoline price; the gateway turns each month's charging cost into gallons of money at that month's price and prints SUM(distance) / SUM(gallons) as an eighth tile.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-22T18:20:06Z",
+  "updated_at": "2026-09-24T20:31:34Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM68-MAG-96-gasoline-equivalent",
@@ -19,8 +19,12 @@
     "model": "claude-opus-5"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2],
+    "current": [
+      1
+    ],
+    "pending": [
+      2
+    ],
     "blocked": [],
     "done": []
   },
@@ -66,6 +70,13 @@
       "decision": "No default gasoline price; reuse only the newest-row-at-or-before lookup.",
       "why": "The ticket's packCapacityKWh reference is loose — that function falls back to a hardcoded 62.0. The ticket's own Catches section says hide the tile instead. Roadmap Decision D8.",
       "made_by": "leader"
+    },
+    {
+      "at": "2026-09-24T20:29:05Z",
+      "scope": "tier:1",
+      "decision": "Seed two rows: 2026-08 = 16000 COP, 2026-09 = 16331 COP, each its own migration (task 1.5 added).",
+      "why": "User set August to 16000. UNIQUE (period) allows one row per month, so 16331 moves to September.",
+      "made_by": "user"
     }
   ],
   "tiers": [
@@ -75,21 +86,23 @@
       "module": "reference",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-24T20:31:34Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "New module. reference.fuel_prices table + month-start CHECK, seed 2026-08 = 16331 COP, PricesForMonths window read port, sqlc, MIGRATION_MODULES, module and root docs."
+      "notes": "New module. reference.fuel_prices table + month-start CHECK, seeds 2026-08 = 16000 COP and 2026-09 = 16331 COP, PricesForMonths window read port, sqlc, MIGRATION_MODULES, module and root docs."
     },
     {
       "id": 2,
       "change": "RM68-gateway-add-km-per-gallon-tile",
       "module": "gateway",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "assistant": null,
       "model": null,
@@ -115,6 +128,11 @@
       "at": "2026-09-22T18:20:06Z",
       "agent": "leader",
       "event": "run scope: kkpa-pickup-linear-ticket requested HALT AFTER STEP 4 — artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-24T20:29:05Z",
+      "agent": "leader",
+      "event": "resume: Spanish briefing for tier 1 posted; design.md fixed (Risks section, SQL comment decision ID); seed changed per user, task 1.5 added"
     }
   ]
 }
