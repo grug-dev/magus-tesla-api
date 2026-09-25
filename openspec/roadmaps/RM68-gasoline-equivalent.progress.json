@@ -2,10 +2,10 @@
   "kind": "roadmap",
   "roadmap": "RM68-gasoline-equivalent",
   "intention": "The /vehicle-stats page shows km per gallon, so the car's cost can be compared with a gasoline car in the unit Colombians actually use.",
-  "request": "MAG-96 — Show gasoline equivalent (km per gallon) on the vehicle stats page. A new internal/reference module holds the monthly gasoline price; the gateway turns each month's charging cost into gallons of money at that month's price and prints SUM(distance) / SUM(gallons) as an eighth tile.",
+  "request": "MAG-96 \u2014 Show gasoline equivalent (km per gallon) on the vehicle stats page. A new internal/reference module holds the monthly gasoline price; the gateway turns each month's charging cost into gallons of money at that month's price and prints SUM(distance) / SUM(gallons) as an eighth tile.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-25T02:19:29Z",
+  "updated_at": "2026-09-25T02:57:32Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM68-MAG-96-gasoline-equivalent",
@@ -19,10 +19,10 @@
     "model": "claude-opus-5"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       2
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1
@@ -68,7 +68,7 @@
       "at": "2026-09-22T18:20:06Z",
       "scope": "roadmap",
       "decision": "No default gasoline price; reuse only the newest-row-at-or-before lookup.",
-      "why": "The ticket's packCapacityKWh reference is loose — that function falls back to a hardcoded 62.0. The ticket's own Catches section says hide the tile instead. Roadmap Decision D8.",
+      "why": "The ticket's packCapacityKWh reference is loose \u2014 that function falls back to a hardcoded 62.0. The ticket's own Catches section says hide the tile instead. Roadmap Decision D8.",
       "made_by": "leader"
     },
     {
@@ -110,10 +110,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-25T02:57:32Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -134,7 +134,7 @@
     {
       "at": "2026-09-22T18:20:06Z",
       "agent": "leader",
-      "event": "run scope: kkpa-pickup-linear-ticket requested HALT AFTER STEP 4 — artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+      "event": "run scope: kkpa-pickup-linear-ticket requested HALT AFTER STEP 4 \u2014 artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
     },
     {
       "at": "2026-09-24T20:29:05Z",
@@ -145,6 +145,11 @@
       "at": "2026-09-25T02:19:29Z",
       "agent": "leader",
       "event": "tier 1 archived"
+    },
+    {
+      "at": "2026-09-25T02:57:32Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created and briefing approved"
     }
   ]
 }

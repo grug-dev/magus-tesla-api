@@ -1,0 +1,261 @@
+{
+  "kind": "change",
+  "change": "RM68-gateway-add-km-per-gallon-tile",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM68-gasoline-equivalent.md",
+  "request": "Eighth tile on /vehicle-stats: km per gallon as ratio of sums of distance over charging cost divided by the month's gasoline price, from analytics.MonthlyReader plus reference.Reader.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10",
+      "T11"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-25T02:57:32Z",
+  "updated_at": "2026-09-25T02:57:32Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM68-MAG-96-gasoline-equivalent",
+    "base": "main",
+    "ticket": "MAG-96",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-96/show-gasoline-equivalent-km-per-gallon-on-the-vehicle-stats-page",
+    "created_at": "2026-09-22T18:20:06Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "i18n key KeyVehicleStatsKmPerGallon (ES+EN)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "formatKmPerGallon in handlers/format.go",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "Deps.ReferenceReader plumbing (gateway.go + handlers.go)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "KmPerGallon field on VehicleStatsTiles",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "monthKey + gasolineAccumulator roll-up in vehicle_stats_tiles.go",
+      "module": "gateway",
+      "depends_on": [
+        "T2",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "PricesForMonths read in vehicleStatsViewFor",
+      "module": "gateway",
+      "depends_on": [
+        "T3",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "Conditional eighth StatTile in vehicle_stats.templ + make templ",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "cmd/web wiring reference.NewReader (leader-owned)",
+      "module": "cmd/web",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T9",
+      "title": "gateway AGENTS.md Public interface bullet",
+      "module": "gateway",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T10",
+      "title": "KB guides vehicle-stats + fuel-price",
+      "module": "gateway",
+      "depends_on": [
+        "T6",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T11",
+      "title": "Root README dependency graph (leader-owned)",
+      "module": "platform",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-25T02:57:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design approved after the Spanish briefing; no database gate (no DB object touched).",
+      "why": "User chose 'Aprobar + commit KB tier 1'."
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-25T02:57:32Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Worker must not copy decision IDs from design.md code snippets into Go comments.",
+      "why": "B2 comment rule forbids pointers to frozen docs; design.md snippets carry 'roadmap D9' style comments."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-25T02:57:32Z",
+      "agent": "leader",
+      "event": "artifacts created by gateway worker (sonnet); openspec validate --strict passed; Spanish briefing approved by user"
+    },
+    {
+      "at": "2026-09-25T02:57:32Z",
+      "agent": "leader",
+      "event": "committed tier 1 KB sync (f214b20) at user request so T10 edits a clean file"
+    }
+  ]
+}
