@@ -88,6 +88,16 @@ It renders what other modules expose; it owns no business data.
   poller writes only the current and previous month and nothing backfilled the rest,
   so a whole-year window legitimately returns fewer than twelve rows. Roll up whatever
   comes back; never index by month number or assume a count. Added by MAG-87.
+- `Deps.ReferenceReader reference.Reader` — the reference module's read
+  port, wired from `cmd/web` via `reference.NewReader(pool)`. One method,
+  `PricesForMonths`, called once per `/vehicle-stats` (or `/ui/vehicle-stats`)
+  render, over the same `[start, end]` window the page's other reads already
+  use. Read ONLY by the Vehicle Stats page's gasoline cost-parity tile
+  (`KmPerGallon`) — a month counts toward that figure only when a price
+  resolves for it AND its charging cost is positive. A failed read degrades
+  only that one tile; the page's other seven figures render unaffected.
+  NEVER import `internal/reference/db` — all access through this interface
+  only.
 
 - `Deps.AnalyticsReader analytics.Reader` — the analytics module's read
   port; injected at construction via `gateway.Deps`/`handlers.Deps` (wired

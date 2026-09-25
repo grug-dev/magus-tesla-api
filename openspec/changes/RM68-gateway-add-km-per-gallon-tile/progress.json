@@ -4,10 +4,13 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM68-gasoline-equivalent.md",
   "request": "Eighth tile on /vehicle-stats: km per gallon as ratio of sums of distance over charging cost divided by the month's gasoline price, from analytics.MonthlyReader plus reference.Reader.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [],
+    "done": [],
+    "awaiting-user-verification": [
       "T1",
       "T2",
       "T3",
@@ -15,16 +18,14 @@
       "T5",
       "T6",
       "T7",
-      "T8",
       "T9",
       "T10",
+      "T8",
       "T11"
-    ],
-    "blocked": [],
-    "done": []
+    ]
   },
   "created_at": "2026-09-25T02:57:32Z",
-  "updated_at": "2026-09-25T02:57:32Z",
+  "updated_at": "2026-09-25T03:04:27Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5-5"
@@ -44,14 +45,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "i18n key + ES/EN catalog entry.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T2",
@@ -59,14 +69,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "formatKmPerGallon next to formatKmPerPct, one decimal + ' km/gal'.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T3",
@@ -74,14 +93,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "Deps.ReferenceReader in gateway.go and handlers.go, plus Handler.referenceReader.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T4",
@@ -89,14 +117,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "KmPerGallon string on VehicleStatsTiles; empty means hide.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T5",
@@ -107,14 +144,23 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "monthKey, gasolineAccumulator, sumVehicleStatsMonths takes priceByMonth. Worker checked worked example by hand: 181.8 km/gal; all-excluded gives empty.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T6",
@@ -125,14 +171,23 @@
         "T5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "PricesForMonths after the non-empty months check; failure logs and hides only this tile; previous period passes nil.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T7",
@@ -143,14 +198,23 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "Conditional fifth StatTile in the ledger row; make templ regenerated.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T8",
@@ -160,14 +224,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-25T03:04:27Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 0,
+      "notes": "Leader: import + ReferenceReader: reference.NewReader(pool) in cmd/web/main.go.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T9",
@@ -177,14 +250,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "AGENTS.md public-interface bullet for Deps.ReferenceReader.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T10",
@@ -195,14 +277,23 @@
         "T7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "vehicle-stats and fuel-price KB guides updated.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     },
     {
       "id": "T11",
@@ -212,14 +303,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-25T03:04:27Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 0,
+      "notes": "Leader: reference edges on cmd/web, gateway, handlers lines of README dependency graph.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
     }
   ],
   "review": {
@@ -256,6 +356,16 @@
       "at": "2026-09-25T02:57:32Z",
       "agent": "leader",
       "event": "committed tier 1 KB sync (f214b20) at user request so T10 edits a clean file"
+    },
+    {
+      "at": "2026-09-25T02:57:40Z",
+      "agent": "leader",
+      "event": "wave 1 dispatched: T1-T7,T9,T10 to one serial gateway worker (sonnet); T8,T11 leader-owned after the wave"
+    },
+    {
+      "at": "2026-09-25T03:04:27Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled. Worker timestamps were placeholders (00:00Z), so the leader used real dispatch/return times. Assistant-run: go build, go vet, gofmt, make lint (0 issues), ui/i18n/money/tz/boundary/theme guards all pass. Suite not run (owner)."
     }
   ]
 }

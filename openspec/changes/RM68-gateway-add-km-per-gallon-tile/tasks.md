@@ -42,10 +42,10 @@
 
 Decisions: design.md "New i18n key"
 
-- [ ] T1.1 Add `KeyVehicleStatsKmPerGallon Key = "vehicle_stats.km_per_gallon"`
+- [x] T1.1 Add `KeyVehicleStatsKmPerGallon Key = "vehicle_stats.km_per_gallon"`
       to the `Key` constant block, next to `KeyVehicleStatsCostPerKm` /
       `KeyVehicleStatsRangeFull`.
-- [ ] T1.2 Add its one `catalog` map entry on the same line pattern as its
+- [x] T1.2 Add its one `catalog` map entry on the same line pattern as its
       neighbours: `KeyVehicleStatsKmPerGallon: {ES: "Km por galón
       (equivalente en gasolina)", EN: "Km per gallon (gasoline
       equivalent)"},`.
@@ -57,7 +57,7 @@ Decisions: design.md "New i18n key"
 
 Decisions: design.md "New formatter"
 
-- [ ] T2.1 Add `formatKmPerGallon(kmPerGallon float64) string`, next to
+- [x] T2.1 Add `formatKmPerGallon(kmPerGallon float64) string`, next to
       `formatKmPerPct`, exactly as specified in design.md (one decimal,
       `" km/gal"` suffix, via `strconv.FormatFloat`).
       Acceptance: `go build ./internal/gateway/...` and
@@ -68,7 +68,7 @@ Decisions: design.md "New formatter"
 
 Decisions: design.md "Verified against the code" #7
 
-- [ ] T3.1 In `internal/gateway/gateway.go`, add `import
+- [x] T3.1 In `internal/gateway/gateway.go`, add `import
       "github.com/cristianpena/magus-tesla-api/internal/reference"` and a
       new `Deps.ReferenceReader reference.Reader` field, with a doc comment
       mirroring `AnalyticsMonthlyReader`'s (injected from `cmd/web` via
@@ -76,7 +76,7 @@ Decisions: design.md "Verified against the code" #7
       gasoline cost-parity tile only; NEVER import `internal/reference/db`).
       Pass it through in the `handlers.New(handlers.Deps{...})` literal
       inside `NewEngine`.
-- [ ] T3.2 In `internal/gateway/handlers/handlers.go`, add the same import,
+- [x] T3.2 In `internal/gateway/handlers/handlers.go`, add the same import,
       the same `Deps.ReferenceReader reference.Reader` field (mirrored doc
       comment), a `referenceReader reference.Reader` field on `Handler`, and
       the one assignment line in `New()` (`referenceReader:
@@ -90,7 +90,7 @@ Decisions: design.md "Verified against the code" #7
 
 Decisions: design.md D5
 
-- [ ] T4.1 Add `KmPerGallon string` to `VehicleStatsTiles`, with a doc
+- [x] T4.1 Add `KmPerGallon string` to `VehicleStatsTiles`, with a doc
       comment stating: empty string (never an em dash) when no month in the
       period was eligible, per D3/D8/D9; carries no trend pair (D5); the
       gasoline price itself is never rendered (roadmap D5).
@@ -101,14 +101,14 @@ Decisions: design.md D5
 
 Decisions: design.md D2, D3, D4
 
-- [ ] T5.1 Add the `monthKey` type and `monthKeyOf(t time.Time) monthKey`
+- [x] T5.1 Add the `monthKey` type and `monthKeyOf(t time.Time) monthKey`
       helper exactly as specified in design.md D2 (add `"time"` to the
       file's imports if not already present — it is not, today).
-- [ ] T5.2 Add the `gasolineAccumulator` type (`distanceKm`, `gallons`
+- [x] T5.2 Add the `gasolineAccumulator` type (`distanceKm`, `gallons`
       fields) with its `add` and `value` methods, exactly as specified in
       design.md D3.
-- [ ] T5.3 Add `gasoline gasolineAccumulator` to `vehicleStatsTotals`.
-- [ ] T5.4 Change `sumVehicleStatsMonths`'s signature to
+- [x] T5.3 Add `gasoline gasolineAccumulator` to `vehicleStatsTotals`.
+- [x] T5.4 Change `sumVehicleStatsMonths`'s signature to
       `sumVehicleStatsMonths(months []analytics.VehicleMonthlyMetrics,
       priceByMonth map[monthKey]float64) vehicleStatsTotals`. Inside its
       existing loop, assign the per-month cost to a local `cost` variable
@@ -116,7 +116,7 @@ Decisions: design.md D2, D3, D4
       `if price, ok := priceByMonth[monthKeyOf(m.Period)]; ok {
       t.gasoline.add(m.AllDistanceKm, cost, price) }` — exactly the diff in
       design.md D3.
-- [ ] T5.5 In `buildVehicleStatsTiles`, set `tiles.KmPerGallon = ""` and then
+- [x] T5.5 In `buildVehicleStatsTiles`, set `tiles.KmPerGallon = ""` and then
       `if v := t.gasoline.value(); v > 0 { tiles.KmPerGallon =
       formatKmPerGallon(v) }`, placed next to the existing `RangeFull`
       assignment (same "compute once, no trend" shape).
@@ -126,21 +126,23 @@ Decisions: design.md D2, D3, D4
       lines in the report — they are T6's targets. `go vet
       ./internal/gateway/handlers/...` and `gofmt -l
       internal/gateway/handlers/vehicle_stats_tiles.go` are otherwise clean.
+      CONFIRMED: fails exactly at vehicle_stats.go:123 and :136, no other
+      site.
 
 ## T6. Handler wiring — `internal/gateway/handlers/vehicle_stats.go` — depends on T3, T5
 
 Decisions: design.md D1, D6
 
-- [ ] T6.1 Right after the existing `if len(months) == 0 { return v,
+- [x] T6.1 Right after the existing `if len(months) == 0 { return v,
       http.StatusOK }` check and before the current
       `totals := sumVehicleStatsMonths(months)` line, insert the
       `priceByMonth` build block from design.md D6 — call
       `h.referenceReader.PricesForMonths(ctx, start, end)`, log via
       `logging.Note("Handler", "vehicleStatsViewFor", ...)` on error and
       leave the map empty, else populate it keyed by `monthKeyOf(p.Period)`.
-- [ ] T6.2 Update the current-period call to
+- [x] T6.2 Update the current-period call to
       `totals := sumVehicleStatsMonths(months, priceByMonth)`.
-- [ ] T6.3 Update the previous-period call (inside the `if ps, pe, ok :=
+- [x] T6.3 Update the previous-period call (inside the `if ps, pe, ok :=
       vehicleStatsPrevWindow(...)` block) to
       `p := sumVehicleStatsMonths(prevMonths, nil)` — no new price read for
       the previous period (design.md D5).
@@ -152,11 +154,11 @@ Decisions: design.md D1, D6
 
 Decisions: design.md "Template — the eighth tile's placement"
 
-- [ ] T7.1 In `vehicleStatsTiles`, add the conditional fifth `ui.StatTile`
+- [x] T7.1 In `vehicleStatsTiles`, add the conditional fifth `ui.StatTile`
       call to the existing `grid-cols-2 md:grid-cols-4` ledger row, exactly
       as specified in design.md's template snippet — `if t.KmPerGallon !=
       "" { @ui.StatTile(...) }`, no `Trend`/`Desc`.
-- [ ] T7.2 Run `make templ` (regenerates `vehicle_stats_templ.go`).
+- [x] T7.2 Run `make templ` (regenerates `vehicle_stats_templ.go`).
       Acceptance: `go build ./internal/gateway/...` compiles clean.
       `make ui-guard` and `make i18n-guard` both pass (the new tile composes
       `ui.StatTile`, no raw DaisyUI class; its label goes through `i18n.T`).
@@ -165,9 +167,9 @@ Decisions: design.md "Template — the eighth tile's placement"
 
 Decisions: design.md "Verified against the code" #7
 
-- [ ] T8.1 Add `"github.com/cristianpena/magus-tesla-api/internal/reference"`
+- [x] T8.1 Add `"github.com/cristianpena/magus-tesla-api/internal/reference"`
       to the import block.
-- [ ] T8.2 Add `ReferenceReader: reference.NewReader(pool),` to the
+- [x] T8.2 Add `ReferenceReader: reference.NewReader(pool),` to the
       `gateway.Deps{...}` literal, with a one-line comment mirroring
       `AnalyticsMonthlyReader`'s ("The Vehicle Stats page's gasoline
       cost-parity tile reads through this port. Like `AnalyticsMonthlyReader`
@@ -178,7 +180,7 @@ Decisions: design.md "Verified against the code" #7
 
 Decisions: none (docs-track-structural-change rule, `CLAUDE.md`)
 
-- [ ] T9.1 Under "Public interface", add a `Deps.ReferenceReader
+- [x] T9.1 Under "Public interface", add a `Deps.ReferenceReader
       reference.Reader` bullet immediately after the `AnalyticsMonthlyReader`
       bullet, same shape: what it is, that it is wired from `cmd/web` via
       `reference.NewReader(pool)`, that it is read only by the Vehicle Stats
@@ -190,14 +192,14 @@ Decisions: none (docs-track-structural-change rule, `CLAUDE.md`)
 
 Decisions: design.md "Docs to update"
 
-- [ ] T10.1 In `kkpa/context/input-port/analytics/vehicle-stats.md`, add
+- [x] T10.1 In `kkpa/context/input-port/analytics/vehicle-stats.md`, add
       `vehicle_stats_tiles.go`'s new `monthKey`/`gasolineAccumulator`
       symbols and `internal/reference` to the "Front-end component map"
       table; add `KmPerGallon` to the ledger-tier row of the "Page
       structure" table; add a "Gotchas" bullet recording the D3 eligibility
       rule (a month with a resolved price and real distance still does not
       count if its charging cost is zero).
-- [ ] T10.2 In `kkpa/context/entities/fuel-price/guide.md`, add
+- [x] T10.2 In `kkpa/context/entities/fuel-price/guide.md`, add
       `internal/gateway`'s `/vehicle-stats` page as this port's first
       consumer under "Related KB" (link to the file T10.1 just updated).
       Acceptance: `grep -rn "km per gallon\|KmPerGallon" kkpa/context/`
@@ -207,7 +209,7 @@ Decisions: design.md "Docs to update"
 
 Decisions: `CLAUDE.md` "Docs track structural change"
 
-- [ ] T11.1 In the "Dependency graph" ASCII diagram, add `reference` to the
+- [x] T11.1 In the "Dependency graph" ASCII diagram, add `reference` to the
       `gateway ────────────►`, `├─ handlers ──────►`, and
       `cmd/web ────────────►` lines, in the same position `analytics`
       already occupies on each (alphabetical-ish, matches existing

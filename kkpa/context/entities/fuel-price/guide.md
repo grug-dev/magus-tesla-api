@@ -67,3 +67,9 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 - Module brief: `internal/reference/AGENTS.md`
 - Spec: `openspec/specs/reference/spec.md`
+- First consumer: `internal/gateway`'s `/vehicle-stats` page —
+  `input-port/analytics/vehicle-stats.md`. Reads `PricesForMonths` once per
+  render, over the page's own `[start, end]` window, to compute the gasoline
+  cost-parity tile (km per gallon). A month counts toward that tile only when
+  a price resolves for it AND the month's charging cost is positive — see
+  that guide's Gotchas.

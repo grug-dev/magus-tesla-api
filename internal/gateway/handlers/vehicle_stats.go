@@ -120,7 +120,21 @@ func (h *Handler) vehicleStatsViewFor(c *gin.Context, uid uuid.UUID) (fragments.
 	}
 
 	v.Empty = false
-	totals := sumVehicleStatsMonths(months)
+
+	// The gasoline cost-parity tile's price lookup is a SECOND read, over the
+	// same [start, end] window, right after the primary months read is
+	// confirmed non-empty. A failure here degrades only that one tile: the
+	// map stays empty, every price lookup below misses, and the other seven
+	// figures still render from the months already fetched.
+	priceByMonth := map[monthKey]float64{}
+	if prices, err := h.referenceReader.PricesForMonths(ctx, start, end); err != nil {
+		logging.Note("Handler", "vehicleStatsViewFor", "reference price read failed for account %s, vehicle %d: %v", uid, teslaID, err)
+	} else {
+		for _, p := range prices {
+			priceByMonth[monthKeyOf(p.Period)] = p.Price
+		}
+	}
+	totals := sumVehicleStatsMonths(months, priceByMonth)
 
 	// The trend comparison is a SECOND read of the same port, for the period
 	// immediately before this one. It is skipped entirely when that period
@@ -133,7 +147,9 @@ func (h *Handler) vehicleStatsViewFor(c *gin.Context, uid uuid.UUID) (fragments.
 		if err != nil {
 			logging.Note("Handler", "vehicleStatsViewFor", "previous-period read failed for account %s, vehicle %d: %v", uid, teslaID, err)
 		} else if len(prevMonths) > 0 {
-			p := sumVehicleStatsMonths(prevMonths)
+			// No price read for the previous period — the tile carries no
+			// trend, so nothing here needs one; nil makes every lookup miss.
+			p := sumVehicleStatsMonths(prevMonths, nil)
 			prev = &p
 		}
 	}

@@ -239,6 +239,7 @@ const (
 	KeyVehicleStatsSessions          Key = "vehicle_stats.sessions"
 	KeyVehicleStatsCost              Key = "vehicle_stats.cost"
 	KeyVehicleStatsCostPerKm         Key = "vehicle_stats.cost_per_km"
+	KeyVehicleStatsKmPerGallon       Key = "vehicle_stats.km_per_gallon"
 	KeyVehicleStatsRangeFull         Key = "vehicle_stats.range_full"
 	KeyVehicleStatsRangeFullDesc     Key = "vehicle_stats.range_full_desc"
 	KeyVehicleStatsErrorCouldNotLoad Key = "vehicle_stats.error.could_not_load"
@@ -715,6 +716,7 @@ var catalog = map[Key]entry{
 	KeyVehicleStatsSessions:          {ES: "Cargas", EN: "Charging sessions"},
 	KeyVehicleStatsCost:              {ES: "Costo de carga", EN: "Charging cost"},
 	KeyVehicleStatsCostPerKm:         {ES: "Costo por km", EN: "Cost per km"},
+	KeyVehicleStatsKmPerGallon:       {ES: "Km por galón (equivalente en gasolina)", EN: "Km per gallon (gasoline equivalent)"},
 	KeyVehicleStatsRangeFull:         {ES: "Autonomía al 100%", EN: "Range at full battery"},
 	KeyVehicleStatsRangeFullDesc:     {ES: "mes más reciente", EN: "most recent month"},
 	KeyVehicleStatsErrorCouldNotLoad: {ES: "No se pudieron cargar las estadísticas. Inténtalo de nuevo.", EN: "Could not load the stats. Please try again."},

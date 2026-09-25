@@ -277,7 +277,7 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 ```text
 ┌─ COMPOSITION ROOT ── cmd/ wires concrete types together at startup ──────┐
 │  cmd/web ────────────► gateway, account, telemetry, charging,            │
-│                        analytics, tesla, googleauth, config              │
+│                        analytics, reference, tesla, googleauth, config   │
 │  cmd/poller ─────────► app, telemetry, account, analytics, charging,     │
 │                        tesla, config      (wiring only — no logic)       │
 │  cmd/setup ──────────► auth, config                                      │
@@ -285,9 +285,9 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │  cmd/monthly-capacity ─► charging, config                                │
 │  cmd/migrate ────────► config          (the "migrate" Docker service)    │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
-│  gateway ────────────► account, charging, analytics,                     │
+│  gateway ────────────► account, charging, analytics, reference,          │
 │    │                   tesla, googleauth, clock                          │
-│    ├─ handlers ──────► account, auth, charging,                          │
+│    ├─ handlers ──────► account, auth, charging, reference,               │
 │    │                   analytics, tesla, googleauth, i18n, clock,        │
 │    │                   templates/*                                       │
 │    ├─ templates/* ───► i18n, templates/ui                                │

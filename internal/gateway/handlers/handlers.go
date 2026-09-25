@@ -32,6 +32,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
 	"github.com/cristianpena/magus-tesla-api/internal/logging"
+	"github.com/cristianpena/magus-tesla-api/internal/reference"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
@@ -91,9 +92,14 @@ type Deps struct {
 	// Separate from AnalyticsReader because the two read different tables at
 	// different grains, so a handler takes the one it needs.
 	AnalyticsMonthlyReader analytics.MonthlyReader
-	TeslaClientID          string
-	TeslaClientSecret      string
-	TeslaRedirectURL       string
+	// ReferenceReader is the reference module's read port, over
+	// fuel_prices. Read only by the Vehicle Stats page's gasoline
+	// cost-parity tile. NEVER import internal/reference/db — all access
+	// through this interface only.
+	ReferenceReader   reference.Reader
+	TeslaClientID     string
+	TeslaClientSecret string
+	TeslaRedirectURL  string
 	// VehicleImageResolver maps a vehicle's (CarType, ExteriorColor) to a
 	// /static/img/<carType><ExteriorColor>.png URL, falling back to
 	// defaultCar.png when either field is unset or the composed file is not in
@@ -115,6 +121,7 @@ type Handler struct {
 	analyticsReader       analytics.Reader
 	analyticsRecalculator analytics.Recalculator
 	analyticsMonthly      analytics.MonthlyReader
+	referenceReader       reference.Reader
 	teslaClientID         string
 	teslaClientSecret     string
 	teslaRedirectURL      string
@@ -153,6 +160,7 @@ func New(d Deps) *Handler {
 		analyticsReader:       d.AnalyticsReader,
 		analyticsRecalculator: d.AnalyticsRecalculator,
 		analyticsMonthly:      d.AnalyticsMonthlyReader,
+		referenceReader:       d.ReferenceReader,
 		teslaClientID:         d.TeslaClientID,
 		teslaClientSecret:     d.TeslaClientSecret,
 		teslaRedirectURL:      d.TeslaRedirectURL,
