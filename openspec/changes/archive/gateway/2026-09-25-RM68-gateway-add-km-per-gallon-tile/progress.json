@@ -4,13 +4,12 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM68-gasoline-equivalent.md",
   "request": "Eighth tile on /vehicle-stats: km per gallon as ratio of sums of distance over charging cost divided by the month's gasoline price, from analytics.MonthlyReader plus reference.Reader.",
-  "status": "in-progress",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
     "blocked": [],
-    "done": [],
-    "awaiting-user-verification": [
+    "done": [
       "T1",
       "T2",
       "T3",
@@ -18,14 +17,14 @@
       "T5",
       "T6",
       "T7",
+      "T8",
       "T9",
       "T10",
-      "T8",
       "T11"
     ]
   },
   "created_at": "2026-09-25T02:57:32Z",
-  "updated_at": "2026-09-25T03:04:27Z",
+  "updated_at": "2026-09-25T03:10:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5-5"
@@ -45,7 +44,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -69,7 +68,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -93,7 +92,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -117,7 +116,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -144,7 +143,7 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -171,7 +170,7 @@
         "T5"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -198,7 +197,7 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -224,7 +223,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5-5",
       "started_at": "2026-09-25T03:04:27Z",
@@ -250,7 +249,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -277,7 +276,7 @@
         "T7"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-25T02:57:40Z",
@@ -303,7 +302,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5-5",
       "started_at": "2026-09-25T03:04:27Z",
@@ -323,10 +322,24 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM68-gateway-add-km-per-gallon-tile (module gateway, plus leader-owned cmd/web/main.go and root README.md). Read the diff of commit 1919824 (git show 1919824) - not the whole module.\nValidate:\n1. Module boundaries: gateway reads internal/reference ONLY through reference.Reader; no import of internal/reference/db; no HTML outside internal/gateway.\n2. design.md D1-D6 and roadmap D5, D6, D8-D13: price read in the handler (D1); join by monthKey (D2); a month counts only with a resolved price AND cost > 0, its distance excluded too (D3); plain ratio of sums (D4); no trend pair, previous period passes nil (D5); price read failure logs and hides only this tile (D6); price never rendered; nothing stored; no currency check.\n3. Worked-example contract in design.md: Aug 900 km/80000 at 16000 + Oct 1100 km/97986 at 16331 -> \"181.8 km/gal\"; all-excluded -> KmPerGallon == \"\" and tile not rendered. Check by reading the code.\n4. Conventions: i18n key with ES and EN; ui.StatTile reuse, no new pattern; semantic classes only; code comments carry no decision/roadmap/ticket IDs and no design.md pointers.\n5. Docs: gateway AGENTS.md, both KB guides (kkpa/context/input-port/analytics/vehicle-stats.md, kkpa/context/entities/fuel-price/guide.md), README dependency graph, all accurate against the code.\n6. Performance-Profile: one extra PricesForMonths query per render, none for the previous period.\n7. Anti-gaming: tasks.md tasks unchanged except checkboxes; no weakened criteria; no self-approved status.\nNo database objects in this change (no DB gate). Unit tests are excluded by decision (roadmap D13) - absence of new tests is NOT a finding.\nSignals: assistant-run = go build, go vet, gofmt -l, make lint (0 issues), make ui-guard, i18n-guard, money-guard, tz-guard, boundary-guard, theme-guard (all pass). User-reported = make test passed. make test-with-db not reported (leader decision D3).\nTest-Execution-Policy and the B2 writing rule apply verbatim (see dispatch).",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "at": "2026-09-25T03:08:59Z",
+        "verdict": "approved",
+        "findings": [],
+        "budget": {
+          "five_hour_pct_delta": 5,
+          "cost_usd_delta": 1.74,
+          "source": "statusline-cache",
+          "approx": true
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -344,6 +357,14 @@
       "made_by": "autopilot",
       "decision": "Worker must not copy decision IDs from design.md code snippets into Go comments.",
       "why": "B2 comment rule forbids pointers to frozen docs; design.md snippets carry 'roadmap D9' style comments."
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-25T03:07:01Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Advance to review on the owner's `make test` pass without `make test-with-db`.",
+      "why": "Tier changes no DB code, and no DB-backed test reaches the vehicle-stats handler."
     }
   ],
   "events": [
@@ -366,6 +387,26 @@
       "at": "2026-09-25T03:04:27Z",
       "agent": "leader",
       "event": "wave 1 reconciled. Worker timestamps were placeholders (00:00Z), so the leader used real dispatch/return times. Assistant-run: go build, go vet, gofmt, make lint (0 issues), ui/i18n/money/tz/boundary/theme guards all pass. Suite not run (owner)."
+    },
+    {
+      "at": "2026-09-25T03:07:01Z",
+      "agent": "leader",
+      "event": "wave 1 commit 1919824"
+    },
+    {
+      "at": "2026-09-25T03:07:01Z",
+      "agent": "user",
+      "event": "user verification: owner ran `make test` and reported it passed. `make test-with-db` not reported."
+    },
+    {
+      "at": "2026-09-25T03:08:28Z",
+      "agent": "user",
+      "event": "user checked /vehicle-stats in the running app and reported the tile works."
+    },
+    {
+      "at": "2026-09-25T03:10:11Z",
+      "agent": "leader",
+      "event": "archived to openspec/changes/archive/gateway/; gateway spec +1 requirement"
     }
   ]
 }
