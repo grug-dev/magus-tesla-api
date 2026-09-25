@@ -281,6 +281,16 @@ to ~240px wide against a 96px height. Do not widen it back.
   (AC + DC + Supercharger) is greater than zero. A month with a price but zero charging cost is
   excluded — its distance too, not only its cost. When no month in the period is eligible, the
   tile does not render at all: no em dash, no placeholder.
+- **The gasoline price is never shown.** Only the km-per-gallon figure appears on the page, in
+  either language. Do not add the price as a tile description or tooltip.
+  _Source: spec gateway — Requirement: Vehicle Stats Page Shows A Gasoline Cost-Parity Tile._
+- **The Km-per-gallon tile has no trend.** It carries no arrow and no period-over-period
+  comparison, and the previous-period roll-up reads no prices. Adding a trend means a second
+  `PricesForMonths` read per render.
+  _Source: spec gateway — Requirement: Vehicle Stats Page Shows A Gasoline Cost-Parity Tile._
+- **A failed price read hides only this tile.** The handler logs the error and continues. The
+  other seven figures still render from their own reads; the page does not show its error state.
+  _Source: spec gateway — Requirement: Vehicle Stats Page Shows A Gasoline Cost-Parity Tile._
 
 ## Related KB
 

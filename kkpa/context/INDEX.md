@@ -119,6 +119,8 @@
 | `Progreso de viaje` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
 | `Tire pressure panel` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
 | `Presión de llantas` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Km per gallon tile` / `gasoline equivalent` | the gasoline cost-parity tile on `/vehicle-stats` | `analytics` | `input-port/analytics/vehicle-stats.md` |
+| `Km por galón` (tile label, ES) | the gasoline cost-parity tile on `/vehicle-stats` | `analytics` | `input-port/analytics/vehicle-stats.md` |
 
 ## Use cases
 
