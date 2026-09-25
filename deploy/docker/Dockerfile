@@ -55,5 +55,6 @@ COPY internal/account/db/migrations   /migrations/account
 COPY internal/telemetry/db/migrations /migrations/telemetry
 COPY internal/charging/db/migrations  /migrations/charging
 COPY internal/analytics/db/migrations /migrations/analytics
+COPY internal/reference/db/migrations /migrations/reference
 USER app
 ENTRYPOINT ["/usr/local/bin/migrate"]

@@ -10,13 +10,13 @@
 //
 // Two ways to run it (T8):
 //   - Image default: no MIGRATIONS_DIRS set. It applies MigrationsRoot (default
-//     "/migrations", overridable via MIGRATIONS_ROOT) + each of the four module
+//     "/migrations", overridable via MIGRATIONS_ROOT) + each of the module
 //     names, in order. This is the path compose.yaml and the Dockerfile use —
 //     unchanged.
 //   - Local run: set MIGRATIONS_DIRS to a space-separated, ordered list of
 //     migration directories, e.g. "internal/account/db/migrations
 //     internal/telemetry/db/migrations internal/charging/db/migrations
-//     internal/analytics/db/migrations" — the exact layout of a repo checkout,
+//     internal/analytics/db/migrations internal/reference/db/migrations" — the exact layout of a repo checkout,
 //     which the image-default layout does not exist in. `make migrate-run`
 //     sets this from the Makefile's own MIGRATIONS_DIRS, so there is one
 //     source of truth for the order.

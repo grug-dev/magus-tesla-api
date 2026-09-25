@@ -25,7 +25,7 @@
     "done": []
   },
   "created_at": "2026-09-24T20:31:34Z",
-  "updated_at": "2026-09-24T20:35:27Z",
+  "updated_at": "2026-09-25T02:11:17Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5-5"
@@ -319,6 +319,15 @@
       "decision": "One serial Sonnet worker for all module tasks of waves 1\u20133; leader does 1.3, 1.4, 4.1.",
       "why": "Small new module, strict chain 1.1\u21922.1\u21922.3\u21923.x. One dispatch reads the doc pack once instead of three times.",
       "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-25T02:11:17Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader edited internal/config, deploy/docker/Dockerfile and .air.toml outside the reference module.",
+      "why": "Cross-module integration is leader-owned. design.md's Makefile check missed the second module list in config.go.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -336,6 +345,11 @@
       "at": "2026-09-24T20:35:27Z",
       "agent": "leader",
       "event": "wave reconciled: worker done 1.1-3.2, leader did 4.1. build, vet, gofmt, lint and guards pass. All tasks awaiting user verification."
+    },
+    {
+      "at": "2026-09-25T02:11:17Z",
+      "agent": "leader",
+      "event": "wave-1 commit 55be265. User: make migrate-up failed \u2014 config.defaultMigrationModules did not list reference. Leader fixed config.go, Dockerfile COPY, .air.toml, cmd/migrate comment; documented the four lists in ai/go-conventions.md + README."
     }
   ]
 }
