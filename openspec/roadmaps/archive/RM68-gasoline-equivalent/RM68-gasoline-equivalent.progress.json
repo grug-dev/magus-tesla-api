@@ -5,7 +5,7 @@
   "request": "MAG-96 \u2014 Show gasoline equivalent (km per gallon) on the vehicle stats page. A new internal/reference module holds the monthly gasoline price; the gateway turns each month's charging cost into gallons of money at that month's price and prints SUM(distance) / SUM(gallons) as an eighth tile.",
   "status": "complete",
   "autopilot": false,
-  "updated_at": "2026-09-25T03:10:11Z",
+  "updated_at": "2026-09-25T03:11:13Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM68-MAG-96-gasoline-equivalent",
@@ -161,6 +161,11 @@
       "at": "2026-09-25T03:10:11Z",
       "agent": "leader",
       "event": "tier 2 archived; roadmap complete"
+    },
+    {
+      "at": "2026-09-25T03:11:13Z",
+      "agent": "leader",
+      "event": "gateway KB sync applied (kkpa/context/pending-spec-to-sync/applied/2026-09-25-gateway.md), left uncommitted for owner review; roadmap archived"
     }
   ]
 }
