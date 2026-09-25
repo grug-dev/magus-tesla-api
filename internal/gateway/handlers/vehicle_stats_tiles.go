@@ -13,11 +13,53 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 )
+
+// monthKey identifies a calendar month independent of day-of-month, time
+// zone, or which module's DB mapping produced the time.Time — two different
+// modules' "first day of the month" values are not guaranteed to compare
+// equal with time.Time.Equal, even when they name the same month.
+type monthKey int
+
+func monthKeyOf(t time.Time) monthKey {
+	return monthKey(t.Year()*100 + int(t.Month()))
+}
+
+// gasolineAccumulator sums an eligible month's distance and its
+// gasoline-equivalent gallons, so the period total is SUM(distance) /
+// SUM(gallons) — a plain ratio of sums, never an average of monthly ratios.
+// Unlike effAccumulator, every input it needs (distance, cost, price)
+// already lines up per month, so no distance-weighting step is needed.
+type gasolineAccumulator struct {
+	distanceKm float64
+	gallons    float64
+}
+
+// add folds one month in, ONLY when it is eligible: cost > 0 (a month with
+// no charging cost recorded would add free distance and inflate the figure)
+// AND a price was resolved for it (no default price is ever assumed). An
+// ineligible month's distance is also excluded, not only its cost.
+func (g *gasolineAccumulator) add(distanceKm, cost, price float64) {
+	if cost <= 0 || price <= 0 {
+		return
+	}
+	g.distanceKm += distanceKm
+	g.gallons += cost / price
+}
+
+// value returns the period's km-per-gallon, or 0 when no month was
+// eligible — the caller's signal to hide the tile.
+func (g gasolineAccumulator) value() float64 {
+	if g.gallons <= 0 {
+		return 0
+	}
+	return g.distanceKm / g.gallons
+}
 
 // emDash is what a tile shows when its value cannot be computed — no rows, or
 // a divisor of zero. Never a "0", which would read as a measured zero.
@@ -100,6 +142,7 @@ type vehicleStatsTotals struct {
 	sessions      int
 	latestRangeKm float64
 	currency      string
+	gasoline      gasolineAccumulator
 }
 
 // sumVehicleStatsMonths rolls months up into the raw totals.
@@ -112,14 +155,24 @@ type vehicleStatsTotals struct {
 // Cost per km IS a plain ratio of sums, and correctly so: all_distance_km over
 // every computable day is exactly the distance the period's money bought. Its
 // denominator has no positive-only restriction to respect.
-func sumVehicleStatsMonths(months []analytics.VehicleMonthlyMetrics) vehicleStatsTotals {
+//
+// priceByMonth resolves the gasoline cost-parity tile's per-month price,
+// keyed by monthKeyOf. A nil map (the previous-period call site, which needs
+// no price read) makes every lookup miss, so the tile's accumulator simply
+// stays empty — Go's map read on nil is a safe zero-value/false, no extra
+// guard needed.
+func sumVehicleStatsMonths(months []analytics.VehicleMonthlyMetrics, priceByMonth map[monthKey]float64) vehicleStatsTotals {
 	t := vehicleStatsTotals{currency: "COP"}
 	for _, m := range months {
 		t.distanceKm += m.AllDistanceKm
 		t.eff.add(m.AllKmPerPctCalc, m.AllDistanceKm)
 		t.energyKWh += m.ExtACEnergyKWh + m.ExtDCEnergyKWh + m.SCEnergyKWh
-		t.cost += m.ExtACCost + m.ExtDCCost + m.SCCost
+		cost := m.ExtACCost + m.ExtDCCost + m.SCCost
+		t.cost += cost
 		t.sessions += m.ExtACEntryCount + m.ExtDCEntryCount + m.SCSessionCount
+		if price, ok := priceByMonth[monthKeyOf(m.Period)]; ok {
+			t.gasoline.add(m.AllDistanceKm, cost, price)
+		}
 
 		// months arrives oldest first (the query's ORDER BY period), so the
 		// last non-zero reading seen is the most recent one.
@@ -163,6 +216,9 @@ func buildVehicleStatsTiles(t vehicleStatsTotals, prev *vehicleStatsTotals) frag
 	}
 	if t.latestRangeKm > 0 {
 		tiles.RangeFull = formatKm(t.latestRangeKm)
+	}
+	if v := t.gasoline.value(); v > 0 {
+		tiles.KmPerGallon = formatKmPerGallon(v)
 	}
 	if prev == nil {
 		return tiles

@@ -31,7 +31,8 @@
 | `internal/gateway/templates/fragments/vehicle_stats_vm.go` | `VehicleStatsView` / `VehicleStatsPeriod` / `VehicleStatsTiles` / `VehicleStatsWhy` + its three row types |
 | `internal/gateway/handlers/vehicle_stats.go` | Both handlers and the shared `vehicleStatsViewFor` |
 | `internal/gateway/handlers/vehicle_stats_period.go` | `parseVehicleStatsRange` + `buildVehicleStatsPeriods` — the window rules |
-| `internal/gateway/handlers/vehicle_stats_tiles.go` | `sumVehicleStatsMonths` (raw totals), `buildVehicleStatsTiles` (formats + trends), `buildVehicleStatsWhy` — all roll-up maths, over the SAME months slice |
+| `internal/gateway/handlers/vehicle_stats_tiles.go` | `sumVehicleStatsMonths` (raw totals), `buildVehicleStatsTiles` (formats + trends), `buildVehicleStatsWhy` — all roll-up maths, over the SAME months slice. Also `monthKey`/`monthKeyOf` and `gasolineAccumulator` — the gasoline cost-parity tile's month-keyed price join and roll-up |
+| `internal/reference` | `Reader.PricesForMonths` — the per-month gasoline price the gasoline cost-parity tile joins against; see `entities/fuel-price/guide.md` |
 | `internal/gateway/handlers/vehicle_stats_chart.go` | `buildVehicleStatsMonthChart` (the month-by-month bars) and `vehicleStatsPrevWindow` (the period the trends compare against) |
 | `internal/gateway/handlers/vehicle_stats_gaps.go` | `buildVehicleStatsGaps` + `gapCopyFor` — the missing-charge-records warning and its per-kind routing |
 | `internal/gateway/templates/ui/dropdown.templ` | `ui.Dropdown`, the kit component the period control composes |
@@ -88,7 +89,7 @@ one grid of equal cards; that is the thing the ticket explicitly asked against.
 | Tier | Tiles | Treatment |
 |---|---|---|
 | Headline | Distance, Efficiency | `ui.StatTile` with `Size: "lg"` |
-| Ledger | Energy, Sessions, Cost, Cost per km | standard tiles, four across |
+| Ledger | Energy, Sessions, Cost, Cost per km, Km per gallon (gasoline) | standard tiles, four across, plus a fifth shown only when at least one month is eligible (see Gotchas) |
 | Footnote | Range at full battery | a quiet line under a rule — it is a battery-health reading from the latest month, NOT a period total, and must not sit among things that are |
 
 **Between the two halves** sit two blocks that are neither a figure nor an explanation:
@@ -275,6 +276,11 @@ to ~240px wide against a 96px height. Do not widen it back.
   shrink all five bars against a total they do not belong to.
 - **The three sources always render, even at zero energy.** Hiding an empty row would hide the
   very fact that explains a cheap period — that nothing went through the Supercharger.
+- **A month can have a resolved gasoline price and real distance and still not count.** The
+  Km-per-gallon tile only counts a month when BOTH a price resolves for it AND its charging cost
+  (AC + DC + Supercharger) is greater than zero. A month with a price but zero charging cost is
+  excluded — its distance too, not only its cost. When no month in the period is eligible, the
+  tile does not render at all: no em dash, no placeholder.
 
 ## Related KB
 

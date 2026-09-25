@@ -1,0 +1,372 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM68-reference-add-fuel-prices",
+  "module": "reference",
+  "roadmap": "openspec/roadmaps/RM68-gasoline-equivalent.md",
+  "request": "MAG-96 tier 1 \u2014 new internal/reference module holding the monthly gasoline price, read through PricesForMonths(ctx, start, end).",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.5",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "4.1"
+    ]
+  },
+  "created_at": "2026-09-24T20:31:34Z",
+  "updated_at": "2026-09-25T02:19:29Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM68-MAG-96-gasoline-equivalent",
+    "base": "main",
+    "ticket": "MAG-96",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-96/show-gasoline-equivalent-km-per-gallon-on-the-vehicle-stats-page",
+    "created_at": "2026-09-22T18:20:06Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Baseline migration: reference schema + fuel_prices table",
+      "module": "reference",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "reference",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-24T20:32:51Z",
+      "completed_at": "2026-09-24T20:33:30Z",
+      "duration_seconds": 39,
+      "notes": "Schema-only baseline, mirrors charging baseline; Down raises instead of dropping.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.5,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial dispatch covering 1.1-3.2 jointly"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Seed migration: 2026-08 = 16000 COP",
+      "module": "reference",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "reference",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-24T20:33:30Z",
+      "completed_at": "2026-09-24T20:33:45Z",
+      "duration_seconds": 15,
+      "notes": "Seed 2026-08-01 COP 16000.00, reversible Down.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.5,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial dispatch covering 1.1-3.2 jointly"
+      }
+    },
+    {
+      "id": "1.5",
+      "title": "Seed migration: 2026-09 = 16331 COP",
+      "module": "reference",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "reference",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-24T20:33:30Z",
+      "completed_at": "2026-09-24T20:33:45Z",
+      "duration_seconds": 15,
+      "notes": "Seed 2026-09-01 COP 16331.00, reversible Down.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.5,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial dispatch covering 1.1-3.2 jointly"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "sqlc.yaml entry for reference",
+      "module": "reference",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-24T20:31:54Z",
+      "completed_at": "2026-09-24T20:31:54Z",
+      "duration_seconds": 0,
+      "notes": "Leader-owned shared file edited as specified.",
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "Makefile: append reference to MIGRATION_MODULES",
+      "module": "reference",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-24T20:31:54Z",
+      "completed_at": "2026-09-24T20:31:54Z",
+      "duration_seconds": 0,
+      "notes": "Leader-owned shared file edited as specified.",
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "query.sql PricesForMonths + make sqlc",
+      "module": "reference",
+      "depends_on": [
+        "1.1",
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "reference",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-24T20:33:50Z",
+      "completed_at": "2026-09-24T20:34:00Z",
+      "duration_seconds": 10,
+      "notes": "PricesForMonths query per design; sqlc generate clean. Params StartPeriod/EndPeriod pgtype.Date.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.5,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial dispatch covering 1.1-3.2 jointly"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "reference.go: Reader, MonthPrice, NewReader",
+      "module": "reference",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "reference",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-24T20:34:00Z",
+      "completed_at": "2026-09-24T20:34:10Z",
+      "duration_seconds": 10,
+      "notes": "reference.go: Reader, MonthPrice, NewReader, package doc.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.5,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial dispatch covering 1.1-3.2 jointly"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "price_reader.go: port implementation",
+      "module": "reference",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "reference",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-24T20:34:00Z",
+      "completed_at": "2026-09-24T20:34:10Z",
+      "duration_seconds": 10,
+      "notes": "price_reader.go: priceStore seam, priceReader, numericToFloat64; no logging decorator.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.5,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial dispatch covering 1.1-3.2 jointly"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "internal/reference/AGENTS.md",
+      "module": "reference",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "reference",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-24T20:34:10Z",
+      "completed_at": "2026-09-24T20:34:20Z",
+      "duration_seconds": 10,
+      "notes": "AGENTS.md created. Leader removed a D13 reference from Testing Notes.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.5,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial dispatch covering 1.1-3.2 jointly"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "internal/reference/README.md",
+      "module": "reference",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "reference",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-24T20:34:10Z",
+      "completed_at": "2026-09-24T20:34:20Z",
+      "duration_seconds": 10,
+      "notes": "README.md created, short, points to AGENTS.md.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 18,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.5,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial dispatch covering 1.1-3.2 jointly"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "Root README.md: tree, architecture table, dependency graph",
+      "module": "reference",
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-24T20:35:27Z",
+      "completed_at": "2026-09-24T20:35:27Z",
+      "duration_seconds": 0,
+      "notes": "Root README: tree, architecture table, dependency graph, DB table row, make sqlc line.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "reference-reviewer",
+    "brief": "Review RM68-reference-add-fuel-prices (new module internal/reference). Diff: git diff 0e8ef86..HEAD -- internal/reference sqlc.yaml Makefile README.md ai/go-conventions.md internal/config cmd/migrate deploy/docker/Dockerfile .air.toml. Validate: (1) module boundaries \u2014 reference imports no other internal module; nothing else imports it yet. (2) Doc-pack conventions (CLAUDE.md, ai/architecture.md, ai/go-conventions.md). (3) DB objects match the USER-CONFIRMED design exactly: reference.fuel_prices(id uuid, period date, currency text, price numeric(14,2), created_at, updated_at), UNIQUE(period), CHECK day=1, no extra index; baseline schema-only with raising Down; seeds 2026-08=16000.00 and 2026-09=16331.00 COP each in its own reversible migration. A mismatch is a blocker. (4) query.sql matches design.md TD3 (generate_series + CROSS JOIN LATERAL, month-truncated bounds in SQL). (5) Port matches TD4/TD5: sparse []MonthPrice, no logging decorator, pgtype confined to price_reader.go. (6) Performance-Profile read-heavy: one query per window, UNIQUE btree serves the lookup. (7) Tests: none by design (roadmap D13) except config_test.go expected-list update; judge by reading. (8) Docs: module AGENTS.md/README.md, root README tree/architecture/dependency graph/table rows, ai/go-conventions.md four-lists note. (9) B2 comment rule: no design.md, decision, roadmap, tier or ticket IDs in code, SQL or module docs. (10) Anti-gaming: tasks.md tasks not weakened; no self-approved statuses. Signals: leader ran go build, go vet, gofmt -l, make lint, all guards (pass). USER reported `make check` passed. Leader-owned out-of-module edits (config.go, Dockerfile, .air.toml, cmd/migrate comment) came from a migrate-up failure \u2014 see decision D3. Test-Execution-Policy: reviewer never runs go test / make test / make check. B2 writing rule applies to findings.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-25T02:30:00Z",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-24T20:31:34Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database gate confirmed: reference.fuel_prices schema, UNIQUE (period) as the only index, 3 migrations (baseline, 2026-08 = 16000, 2026-09 = 16331).",
+      "why": "User confirmed the design after the Spanish briefing.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-24T20:31:34Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "One serial Sonnet worker for all module tasks of waves 1\u20133; leader does 1.3, 1.4, 4.1.",
+      "why": "Small new module, strict chain 1.1\u21922.1\u21922.3\u21923.x. One dispatch reads the doc pack once instead of three times.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-25T02:11:17Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader edited internal/config, deploy/docker/Dockerfile and .air.toml outside the reference module.",
+      "why": "Cross-module integration is leader-owned. design.md's Makefile check missed the second module list in config.go.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-24T20:31:34Z",
+      "agent": "leader",
+      "event": "progress.json created; design gate confirmed by user"
+    },
+    {
+      "at": "2026-09-24T20:31:54Z",
+      "agent": "leader",
+      "event": "leader did 1.3 (sqlc.yaml) + 1.4 (Makefile); dispatched reference worker (sonnet) for 1.1,1.2,1.5,2.1,2.2,2.3,3.1,3.2; budget start 5h=11% cost=1.77"
+    },
+    {
+      "at": "2026-09-24T20:35:27Z",
+      "agent": "leader",
+      "event": "wave reconciled: worker done 1.1-3.2, leader did 4.1. build, vet, gofmt, lint and guards pass. All tasks awaiting user verification."
+    },
+    {
+      "at": "2026-09-25T02:11:17Z",
+      "agent": "leader",
+      "event": "wave-1 commit 55be265. User: make migrate-up failed \u2014 config.defaultMigrationModules did not list reference. Leader fixed config.go, Dockerfile COPY, .air.toml, cmd/migrate comment; documented the four lists in ai/go-conventions.md + README."
+    },
+    {
+      "at": "2026-09-25T02:16:41Z",
+      "agent": "leader",
+      "event": "USER verification: user reported `make check` passed (after config_test fix f8fb854). Leader ran build, vet, gofmt, lint, guards. migrate-up re-run and the fuel_prices row check not explicitly reported."
+    },
+    {
+      "at": "2026-09-25T02:19:29Z",
+      "agent": "leader",
+      "event": "reviewer approved round 1 (0 findings); archived to openspec/changes/archive/reference/; reference added to config.yaml archive domains"
+    }
+  ]
+}

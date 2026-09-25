@@ -20,6 +20,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/handlers"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/reference"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
@@ -87,7 +88,13 @@ type Deps struct {
 	// only that one. Same rule as every sibling port: the interface, never
 	// the database.
 	AnalyticsMonthlyReader analytics.MonthlyReader
-	SessionSecret          string
+	// ReferenceReader is the reference module's read port, injected from
+	// cmd/web via reference.NewReader(pool). Read by the Vehicle Stats
+	// page's gasoline cost-parity tile only — it resolves the period's
+	// per-month gasoline price. NEVER import internal/reference/db; all
+	// access through this interface only.
+	ReferenceReader reference.Reader
+	SessionSecret   string
 	// BaseURL is the app's public base URL (config.Config.BaseURL — e.g.
 	// https://usemagus.cloud in production, http://localhost:8080 in dev). The
 	// SAME value that already builds the OAuth redirect URIs; the gateway needs
@@ -187,6 +194,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 		AnalyticsReader:        d.AnalyticsReader,
 		AnalyticsRecalculator:  d.AnalyticsRecalculator,
 		AnalyticsMonthlyReader: d.AnalyticsMonthlyReader,
+		ReferenceReader:        d.ReferenceReader,
 		TeslaClientID:          d.TeslaClientID,
 		TeslaClientSecret:      d.TeslaClientSecret,
 		TeslaRedirectURL:       d.TeslaRedirectURL,

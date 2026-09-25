@@ -310,6 +310,7 @@ func TestLoadMigration_MigrationsDirsUnsetUsesDefault(t *testing.T) {
 			{Module: "telemetry", Dir: "/migrations/telemetry"},
 			{Module: "charging", Dir: "/migrations/charging"},
 			{Module: "analytics", Dir: "/migrations/analytics"},
+			{Module: "reference", Dir: "/migrations/reference"},
 		}
 		if len(cfg.MigrationsDirs) != len(want) {
 			t.Fatalf("cfg.MigrationsDirs = %v, want %v", cfg.MigrationsDirs, want)

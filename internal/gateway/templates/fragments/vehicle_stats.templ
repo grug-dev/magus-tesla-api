@@ -105,6 +105,9 @@ templ vehicleStatsTiles(t VehicleStatsTiles) {
 		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsSessions), Value: t.Sessions, Trend: t.SessionsTrend, Desc: t.SessionsDelta})
 		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsCost), Value: t.Cost, Trend: t.CostTrend, Desc: t.CostDelta})
 		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsCostPerKm), Value: t.CostPerKm, Trend: t.CostPerKmTrend, Desc: t.CostPerKmDelta})
+		if t.KmPerGallon != "" {
+			@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyVehicleStatsKmPerGallon), Value: t.KmPerGallon})
+		}
 	</div>
 	<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-4 pt-3 border-t border-base-300 text-sm">
 		<span class="text-base-content/70">{ i18n.T(ctx, i18n.KeyVehicleStatsRangeFull) }</span>

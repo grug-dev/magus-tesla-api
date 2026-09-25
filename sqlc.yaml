@@ -120,3 +120,25 @@ sql:
             go_type:
               import: "github.com/google/uuid"
               type: "UUID"
+
+  # reference module — fuel_prices, the monthly gasoline price. Its own package
+  # (referencedb), imported by no other module. The table belongs to no vehicle and
+  # no user: it holds one external fact per month. Same uuid override + emit flags as
+  # the entries above; price stays pgtype.Numeric and the module maps it to float64.
+  - engine: "postgresql"
+    schema: "internal/reference/db/migrations"
+    queries: "internal/reference/db/query.sql"
+    gen:
+      go:
+        package: "referencedb"
+        out: "internal/reference/db"
+        sql_package: "pgx/v5"
+        emit_json_tags: false
+        emit_interface: false
+        rename:
+          reference_fuel_price: "FuelPrice"
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"

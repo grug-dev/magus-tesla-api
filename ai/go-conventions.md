@@ -272,12 +272,17 @@ module's whole schema and reads nothing. Each module records its applied version
 **`<module>.goose_db_version`**, inside the Postgres schema it already owns. Everything below
 follows from those two facts.
 
-- **Two modules MAY use the same version number.** All four baselines are `20260917000001`.
+- **Two modules MAY use the same version number.** The first four baselines are `20260917000001`.
   There is no cross-module uniqueness rule any more, and no guard for one. Number a new
   migration however you like within your own module; only your module's numbers must increase.
 - **The order the directories are applied in does not matter.** Nothing can need another module
   to have run first. `MIGRATION_MODULES` in the `Makefile` keeps a stable order only so two
   runs produce comparable logs.
+- **A new module with migrations must be listed in four places.** Miss one and
+  `make migrate-up` or the deploy image fails. The four places:
+  `MIGRATION_MODULES` in the `Makefile`, `defaultMigrationModules` in
+  `internal/config/config.go`, a `COPY` line in `deploy/docker/Dockerfile`, and a `sqlc.yaml`
+  entry. Also add the folder to `exclude_dir` in `.air.toml`.
 - **A migration may name only its own module's schema.** This is the same boundary rule that
   binds runtime code: a module that may not read another module's tables through Go must not
   read them in SQL either. `make migration-boundary-guard` fails any migration that does, and

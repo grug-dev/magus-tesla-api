@@ -89,6 +89,13 @@ func formatKmPerPct(kmPerPct float64) string {
 	return strconv.FormatFloat(kmPerPct, 'f', 1, 64) + " km/%"
 }
 
+// formatKmPerGallon renders the Colombian gasoline cost-parity figure: how
+// many kilometres the period's charging cost would have bought at gasoline
+// prices, one decimal place — mirrors formatKmPerPct's shape.
+func formatKmPerGallon(kmPerGallon float64) string {
+	return strconv.FormatFloat(kmPerGallon, 'f', 1, 64) + " km/gal"
+}
+
 func formatPSI(psi float64) string {
 	return strconv.FormatFloat(psi, 'f', 1, 64) + " PSI"
 }

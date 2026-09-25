@@ -20,6 +20,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/reference"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -82,7 +83,11 @@ func main() {
 		// Like AnalyticsReader it reads one table and needs only the pool —
 		// the months were derived ahead of time by the nightly poller.
 		AnalyticsMonthlyReader: analytics.NewMonthlyReader(pool),
-		SessionSecret:          cfg.SessionSecret,
+		// The Vehicle Stats page reads the monthly gasoline price through this
+		// port to show km per gallon. It reads one small table and needs only
+		// the pool.
+		ReferenceReader: reference.NewReader(pool),
+		SessionSecret:   cfg.SessionSecret,
 		// Public base URL — the same value that builds the OAuth redirect URIs
 		// above. The gateway uses it to make the SEO/social tags absolute
 		// (layouts.seoHead via handlers.SiteMiddleware); set BASE_URL to the

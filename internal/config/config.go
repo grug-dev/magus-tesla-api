@@ -135,7 +135,7 @@ func Load() (*Config, error) {
 // D11). Overridable via MIGRATIONS_ROOT.
 const defaultMigrationsRoot = "/migrations"
 
-// defaultMigrationModules are the four migration directory names, used under
+// defaultMigrationModules are the migration directory names, used under
 // MigrationsRoot when MIGRATIONS_DIRS is unset. This mirrors the Makefile's
 // MIGRATION_MODULES variable and the image layout the Dockerfile COPYs
 // (ai/go-conventions.md §Persistence).
@@ -150,7 +150,7 @@ const defaultMigrationsRoot = "/migrations"
 // own <module>.goose_db_version, and each module's migrations create only that
 // module's objects and read nothing, so no module can depend on another having
 // run first. The order is kept stable only to make logs comparable between runs.
-var defaultMigrationModules = []string{"account", "telemetry", "charging", "analytics"}
+var defaultMigrationModules = []string{"account", "telemetry", "charging", "analytics", "reference"}
 
 // MigrationDir is one module's migration directory, paired with the module that
 // owns it. The two always travel together because goose needs both: the
@@ -204,8 +204,9 @@ func (m MigrationDir) EnsureSchemaSQL() string {
 // its baseline, the squashed file that creates the module's whole schema.
 //
 // It is read from the directory rather than hardcoded so that StampBaselineSQL
-// cannot drift from the files it claims to record. All four modules happen to
-// share the number 20260917000001 today; nothing may depend on that.
+// cannot drift from the files it claims to record. The first four modules happen
+// to share the number 20260917000001, and reference does not; nothing may depend
+// on a shared number.
 //
 // Files that do not start with "<digits>_" are skipped, which is what goose does
 // with them too.

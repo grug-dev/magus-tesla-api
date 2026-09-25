@@ -79,6 +79,10 @@
 | `charge authorship` | `charging.Entry.CreatedByAccountID` / `manual_charge_entries.created_by_account_id` — stored and returned, never a read filter | entity | `workflows/manual-charge-crud.md` |
 | `entry author` | synonym of `charge authorship` | entity | `workflows/manual-charge-crud.md` |
 | `efficiency tile` | UI name for `vehicle_metrics.km_per_pct_calc`, exposed on `analytics.VehicleStatus.KmPerPctCalc` | entity | `use-case/gateway/read-dashboard-bento.md` |
+| `fuel price` | `reference.Reader.PricesForMonths` / `reference.fuel_prices` | entity | `entities/fuel-price/guide.md` |
+| `gasoline price` | synonym of `fuel price` | entity | `entities/fuel-price/guide.md` |
+| `precio de la gasolina` | synonym of `fuel price` (ES) | entity | `entities/fuel-price/guide.md` |
+| `reference values` | module `internal/reference` — external values owned by no vehicle and no user; today only `fuel_prices` | entity | `entities/fuel-price/guide.md` |
 
 ## Input ports — pages & endpoints
 

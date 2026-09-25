@@ -1,0 +1,171 @@
+{
+  "kind": "roadmap",
+  "roadmap": "RM68-gasoline-equivalent",
+  "intention": "The /vehicle-stats page shows km per gallon, so the car's cost can be compared with a gasoline car in the unit Colombians actually use.",
+  "request": "MAG-96 \u2014 Show gasoline equivalent (km per gallon) on the vehicle stats page. A new internal/reference module holds the monthly gasoline price; the gateway turns each month's charging cost into gallons of money at that month's price and prints SUM(distance) / SUM(gallons) as an eighth tile.",
+  "status": "complete",
+  "autopilot": false,
+  "updated_at": "2026-09-25T03:11:13Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM68-MAG-96-gasoline-equivalent",
+    "base": "main",
+    "ticket": "MAG-96",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-96/show-gasoline-equivalent-km-per-gallon-on-the-vehicle-stats-page",
+    "created_at": "2026-09-22T18:20:06Z"
+  },
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2
+    ]
+  },
+  "decisions": [
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "scope": "roadmap",
+      "decision": "Run MAG-96 as a 2-tier RM roadmap, not one CH change.",
+      "why": "Spans internal/reference and internal/gateway. config.yaml mandates a roadmap for multi-module work, and a worker may only write inside one module.",
+      "made_by": "user"
+    },
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "scope": "roadmap",
+      "decision": "Read port takes a window (PricesForMonths), not one month.",
+      "why": "The page asks for up to 12 months. A per-month signature means 12 round trips per render, against a read-heavy profile. Roadmap Decision D7.",
+      "made_by": "user"
+    },
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "scope": "roadmap",
+      "decision": "A month with zero charging cost is excluded from both sums.",
+      "why": "The three cost columns default to 0, so an unsynced month would add real km against zero gallons and report too good a figure. Roadmap Decision D9.",
+      "made_by": "user"
+    },
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "scope": "roadmap",
+      "decision": "No currency check between the month row and the price row.",
+      "why": "Both are COP today and the month column is NOT NULL DEFAULT 'COP'. User accepted that a second currency would give a wrong figure silently. Roadmap Decision D10.",
+      "made_by": "user"
+    },
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "scope": "roadmap",
+      "decision": "Tile is the eighth entry in the existing summary card, not a new card.",
+      "why": "VehicleStatsTiles already holds seven formatted KPI values; reusing ui.StatTile gives the worker seven examples to mirror. Roadmap Decision D12.",
+      "made_by": "user"
+    },
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "scope": "roadmap",
+      "decision": "No default gasoline price; reuse only the newest-row-at-or-before lookup.",
+      "why": "The ticket's packCapacityKWh reference is loose \u2014 that function falls back to a hardcoded 62.0. The ticket's own Catches section says hide the tile instead. Roadmap Decision D8.",
+      "made_by": "leader"
+    },
+    {
+      "at": "2026-09-24T20:29:05Z",
+      "scope": "tier:1",
+      "decision": "Seed two rows: 2026-08 = 16000 COP, 2026-09 = 16331 COP, each its own migration (task 1.5 added).",
+      "why": "User set August to 16000. UNIQUE (period) allows one row per month, so 16331 moves to September.",
+      "made_by": "user"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM68-reference-add-fuel-prices",
+      "module": "reference",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-24T20:31:34Z",
+      "completed_at": "2026-09-25T02:19:29Z",
+      "duration_seconds": 20875,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.41,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "session cost from resume to archive; spanned a 5-hour bucket reset"
+      },
+      "notes": "Shipped internal/reference: fuel_prices, seeds 2026-08=16000 and 2026-09=16331 COP, PricesForMonths. Fix: config.defaultMigrationModules, Dockerfile, .air.toml. Review round 1 approved."
+    },
+    {
+      "id": 2,
+      "change": "RM68-gateway-add-km-per-gallon-tile",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-25T02:57:32Z",
+      "completed_at": "2026-09-25T03:10:11Z",
+      "duration_seconds": 759,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.8,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 shared delta plus review round 1; artifacts dispatch not bracketed"
+      },
+      "notes": "Shipped the km per gallon tile on /vehicle-stats: ratio of sums over eligible months (price resolved and cost > 0), hidden when none. cmd/web wires reference.NewReader. Review round 1 approved, no findings."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "agent": "leader",
+      "event": "roadmap RM68 created from MAG-96; work counter 68 taken, bumped to 69; branch ft/RM68-MAG-96-gasoline-equivalent off main (0e8ef86)"
+    },
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "agent": "leader",
+      "event": "comprehension grill completed with user: 5 decisions settled (roadmap shape, port shape, zero-cost months, no currency check, tile placement); ticket's 9 settled bullets not reopened"
+    },
+    {
+      "at": "2026-09-22T18:20:06Z",
+      "agent": "leader",
+      "event": "run scope: kkpa-pickup-linear-ticket requested HALT AFTER STEP 4 \u2014 artifacts for tier 1 only, no implementation workers, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-24T20:29:05Z",
+      "agent": "leader",
+      "event": "resume: Spanish briefing for tier 1 posted; design.md fixed (Risks section, SQL comment decision ID); seed changed per user, task 1.5 added"
+    },
+    {
+      "at": "2026-09-25T02:19:29Z",
+      "agent": "leader",
+      "event": "tier 1 archived"
+    },
+    {
+      "at": "2026-09-25T02:57:32Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created and briefing approved"
+    },
+    {
+      "at": "2026-09-25T03:10:11Z",
+      "agent": "leader",
+      "event": "tier 2 archived; roadmap complete"
+    },
+    {
+      "at": "2026-09-25T03:11:13Z",
+      "agent": "leader",
+      "event": "gateway KB sync applied (kkpa/context/pending-spec-to-sync/applied/2026-09-25-gateway.md), left uncommitted for owner review; roadmap archived"
+    }
+  ]
+}

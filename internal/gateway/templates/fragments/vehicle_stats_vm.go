@@ -114,6 +114,21 @@ type VehicleStatsTiles struct {
 	Cost       string // e.g. "512,300.00 COP" — the three costs added
 	CostPerKm  string // e.g. "399.00 COP/km" — total cost over total km
 
+	// KmPerGallon is the Colombian gasoline cost-parity figure — how many
+	// kilometres the period's charging cost would have bought at gasoline
+	// prices. Empty string (never an em dash) when no month in the period
+	// was ELIGIBLE: a price must resolve for that month AND its charging
+	// cost must be positive, or neither its distance nor its cost counts.
+	// Empty means the template renders no tile at all, not a placeholder.
+	//
+	// Carries no trend pair: it is out of scope for this figure, and a
+	// trend would need a second price read for the previous period on
+	// every render, for a comparison nobody asked for.
+	//
+	// The gasoline price itself is never rendered anywhere on this page —
+	// only this already-computed figure is user-visible.
+	KmPerGallon string
+
 	// RangeFull is the range at a full battery, from Tesla's own reported
 	// figure — e.g. "412 km". Over a multi-month period it is the most recent
 	// month that has a reading, NOT a sum or an average: it is a battery-health

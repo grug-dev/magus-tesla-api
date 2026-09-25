@@ -1,0 +1,412 @@
+{
+  "kind": "change",
+  "change": "RM68-gateway-add-km-per-gallon-tile",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM68-gasoline-equivalent.md",
+  "request": "Eighth tile on /vehicle-stats: km per gallon as ratio of sums of distance over charging cost divided by the month's gasoline price, from analytics.MonthlyReader plus reference.Reader.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10",
+      "T11"
+    ]
+  },
+  "created_at": "2026-09-25T02:57:32Z",
+  "updated_at": "2026-09-25T03:10:11Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM68-MAG-96-gasoline-equivalent",
+    "base": "main",
+    "ticket": "MAG-96",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-96/show-gasoline-equivalent-km-per-gallon-on-the-vehicle-stats-page",
+    "created_at": "2026-09-22T18:20:06Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "i18n key KeyVehicleStatsKmPerGallon (ES+EN)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "i18n key + ES/EN catalog entry.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "formatKmPerGallon in handlers/format.go",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "formatKmPerGallon next to formatKmPerPct, one decimal + ' km/gal'.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Deps.ReferenceReader plumbing (gateway.go + handlers.go)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "Deps.ReferenceReader in gateway.go and handlers.go, plus Handler.referenceReader.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "KmPerGallon field on VehicleStatsTiles",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "KmPerGallon string on VehicleStatsTiles; empty means hide.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "monthKey + gasolineAccumulator roll-up in vehicle_stats_tiles.go",
+      "module": "gateway",
+      "depends_on": [
+        "T2",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "monthKey, gasolineAccumulator, sumVehicleStatsMonths takes priceByMonth. Worker checked worked example by hand: 181.8 km/gal; all-excluded gives empty.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "PricesForMonths read in vehicleStatsViewFor",
+      "module": "gateway",
+      "depends_on": [
+        "T3",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "PricesForMonths after the non-empty months check; failure logs and hides only this tile; previous period passes nil.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T7",
+      "title": "Conditional eighth StatTile in vehicle_stats.templ + make templ",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "Conditional fifth StatTile in the ledger row; make templ regenerated.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T8",
+      "title": "cmd/web wiring reference.NewReader (leader-owned)",
+      "module": "cmd/web",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-25T03:04:27Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 0,
+      "notes": "Leader: import + ReferenceReader: reference.NewReader(pool) in cmd/web/main.go.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T9",
+      "title": "gateway AGENTS.md Public interface bullet",
+      "module": "gateway",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "AGENTS.md public-interface bullet for Deps.ReferenceReader.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T10",
+      "title": "KB guides vehicle-stats + fuel-price",
+      "module": "gateway",
+      "depends_on": [
+        "T6",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-25T02:57:40Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 407,
+      "notes": "vehicle-stats and fuel-price KB guides updated.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    },
+    {
+      "id": "T11",
+      "title": "Root README dependency graph (leader-owned)",
+      "module": "platform",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5-5",
+      "started_at": "2026-09-25T03:04:27Z",
+      "completed_at": "2026-09-25T03:04:27Z",
+      "duration_seconds": 0,
+      "notes": "Leader: reference edges on cmd/web, gateway, handlers lines of README dependency graph.",
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.06,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker plus leader T8/T11; shared wave delta"
+      }
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM68-gateway-add-km-per-gallon-tile (module gateway, plus leader-owned cmd/web/main.go and root README.md). Read the diff of commit 1919824 (git show 1919824) - not the whole module.\nValidate:\n1. Module boundaries: gateway reads internal/reference ONLY through reference.Reader; no import of internal/reference/db; no HTML outside internal/gateway.\n2. design.md D1-D6 and roadmap D5, D6, D8-D13: price read in the handler (D1); join by monthKey (D2); a month counts only with a resolved price AND cost > 0, its distance excluded too (D3); plain ratio of sums (D4); no trend pair, previous period passes nil (D5); price read failure logs and hides only this tile (D6); price never rendered; nothing stored; no currency check.\n3. Worked-example contract in design.md: Aug 900 km/80000 at 16000 + Oct 1100 km/97986 at 16331 -> \"181.8 km/gal\"; all-excluded -> KmPerGallon == \"\" and tile not rendered. Check by reading the code.\n4. Conventions: i18n key with ES and EN; ui.StatTile reuse, no new pattern; semantic classes only; code comments carry no decision/roadmap/ticket IDs and no design.md pointers.\n5. Docs: gateway AGENTS.md, both KB guides (kkpa/context/input-port/analytics/vehicle-stats.md, kkpa/context/entities/fuel-price/guide.md), README dependency graph, all accurate against the code.\n6. Performance-Profile: one extra PricesForMonths query per render, none for the previous period.\n7. Anti-gaming: tasks.md tasks unchanged except checkboxes; no weakened criteria; no self-approved status.\nNo database objects in this change (no DB gate). Unit tests are excluded by decision (roadmap D13) - absence of new tests is NOT a finding.\nSignals: assistant-run = go build, go vet, gofmt -l, make lint (0 issues), make ui-guard, i18n-guard, money-guard, tz-guard, boundary-guard, theme-guard (all pass). User-reported = make test passed. make test-with-db not reported (leader decision D3).\nTest-Execution-Policy and the B2 writing rule apply verbatim (see dispatch).",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "at": "2026-09-25T03:08:59Z",
+        "verdict": "approved",
+        "findings": [],
+        "budget": {
+          "five_hour_pct_delta": 5,
+          "cost_usd_delta": 1.74,
+          "source": "statusline-cache",
+          "approx": true
+        }
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-25T02:57:32Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design approved after the Spanish briefing; no database gate (no DB object touched).",
+      "why": "User chose 'Aprobar + commit KB tier 1'."
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-25T02:57:32Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Worker must not copy decision IDs from design.md code snippets into Go comments.",
+      "why": "B2 comment rule forbids pointers to frozen docs; design.md snippets carry 'roadmap D9' style comments."
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-25T03:07:01Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Advance to review on the owner's `make test` pass without `make test-with-db`.",
+      "why": "Tier changes no DB code, and no DB-backed test reaches the vehicle-stats handler."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-25T02:57:32Z",
+      "agent": "leader",
+      "event": "artifacts created by gateway worker (sonnet); openspec validate --strict passed; Spanish briefing approved by user"
+    },
+    {
+      "at": "2026-09-25T02:57:32Z",
+      "agent": "leader",
+      "event": "committed tier 1 KB sync (f214b20) at user request so T10 edits a clean file"
+    },
+    {
+      "at": "2026-09-25T02:57:40Z",
+      "agent": "leader",
+      "event": "wave 1 dispatched: T1-T7,T9,T10 to one serial gateway worker (sonnet); T8,T11 leader-owned after the wave"
+    },
+    {
+      "at": "2026-09-25T03:04:27Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled. Worker timestamps were placeholders (00:00Z), so the leader used real dispatch/return times. Assistant-run: go build, go vet, gofmt, make lint (0 issues), ui/i18n/money/tz/boundary/theme guards all pass. Suite not run (owner)."
+    },
+    {
+      "at": "2026-09-25T03:07:01Z",
+      "agent": "leader",
+      "event": "wave 1 commit 1919824"
+    },
+    {
+      "at": "2026-09-25T03:07:01Z",
+      "agent": "user",
+      "event": "user verification: owner ran `make test` and reported it passed. `make test-with-db` not reported."
+    },
+    {
+      "at": "2026-09-25T03:08:28Z",
+      "agent": "user",
+      "event": "user checked /vehicle-stats in the running app and reported the tile works."
+    },
+    {
+      "at": "2026-09-25T03:10:11Z",
+      "agent": "leader",
+      "event": "archived to openspec/changes/archive/gateway/; gateway spec +1 requirement"
+    }
+  ]
+}
