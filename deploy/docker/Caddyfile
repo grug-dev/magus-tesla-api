@@ -32,3 +32,10 @@
 		reverse_proxy web:8080
 	}
 }
+
+# Other sites that share this Caddy (today: jbh at jbh.usemagus.cloud, from the jbh-deploy repo).
+# Each one drops a <name>.caddy file into the host folder CADDY_SITES_DIR, mounted read-only at
+# /etc/caddy/sites. A glob, not a file path: a missing file would stop Caddy, an empty glob should
+# only warn. Change those sites with `caddy validate` + `caddy reload`, never a restart — a bad
+# file on restart stops Caddy, and Magus with it. See kkpa/docs/1-deploy/docker.md §13.
+import /etc/caddy/sites/*.caddy

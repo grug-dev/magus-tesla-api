@@ -230,6 +230,13 @@ services:
       # caddy runs as a different user than web/poller, so the host folder must
       # be group-writable for it. See kkpa/docs/1-deploy/docker.md for the setup.
       - ${MAGUS_LOGS_DIR:-/home/magus/magus-logs}:/var/log/magus
+      # Site files of other projects on this VPS (jbh.caddy). Imported by the Caddyfile glob.
+      - ${CADDY_SITES_DIR:-/home/magus/caddy-sites}:/etc/caddy/sites:ro
+    # default: Magus's own network, needed to reach web:8080 and poller:8081 — never drop it.
+    # edge: shared with other projects' public containers (jbh-gateway, jbh-web).
+    networks:
+      - default
+      - edge
     depends_on:
       - web
     restart: unless-stopped
@@ -250,6 +257,13 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+
+# Created once on the VPS, outside this file, BEFORE `up` — Compose fails to start if it is missing:
+#   docker network create --subnet 10.231.0.0/24 edge
+# The fixed subnet matters: jbh-gateway trusts X-Forwarded-For only from it (per-IP rate limit).
+networks:
+  edge:
+    external: true
 
 volumes:
   pgdata:

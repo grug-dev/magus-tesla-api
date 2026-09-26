@@ -497,3 +497,54 @@ SQL, Supabase, or similar) at any time, with no code change:
 
 `DATABASE_URL` is already the one thing every service reads to find the
 database. Nothing else in the code needs to change.
+
+---
+
+## 13. Other sites on this Caddy (jbh)
+
+Magus's Caddy also serves other projects on this VPS. Today that is JBH at
+`jbh.usemagus.cloud` (repo `kkpa-jbh/jbh-deploy`). Magus owns ports 80/443, so
+the other project adds a site file instead of its own proxy.
+
+How it is wired:
+
+- `deploy/docker/Caddyfile` ends with `import /etc/caddy/sites/*.caddy`.
+- `compose.yaml` mounts `CADDY_SITES_DIR` (default `/home/magus/caddy-sites`)
+  read-only at `/etc/caddy/sites`.
+- The `caddy` service joins two networks: `default` (Magus's own — needed for
+  `web:8080` and `poller:8081`) and the external network `edge` (shared with
+  `jbh-gateway` and `jbh-web`).
+
+One-time setup on the VPS, **before** the next Magus `up`:
+
+```bash
+# Compose refuses to start caddy if "edge" does not exist.
+# The fixed subnet is required: jbh-gateway trusts X-Forwarded-For only from it.
+docker network create --subnet 10.231.0.0/24 edge
+mkdir -p /home/magus/caddy-sites
+
+# Recreate caddy so it gets the new mount and network.
+docker compose --project-directory . -f deploy/docker/compose.yaml up -d caddy
+
+# Check the config with the sites folder still empty. The glob should only warn.
+docker compose --project-directory . -f deploy/docker/compose.yaml exec caddy \
+  caddy validate --config /etc/caddy/Caddyfile
+```
+
+Adding or changing a site file (jbh does this with `make caddy-install`):
+
+```bash
+docker compose --project-directory . -f deploy/docker/compose.yaml exec caddy \
+  caddy validate --config /etc/caddy/Caddyfile
+docker compose --project-directory . -f deploy/docker/compose.yaml exec caddy \
+  caddy reload --config /etc/caddy/Caddyfile
+```
+
+**Never restart Caddy for a site change.** `reload` rejects a bad file and keeps
+the old config. A restart with a bad file stops Caddy, and Magus goes down too.
+
+A down jbh container does not affect Magus: Caddy answers `502` only for
+`jbh.usemagus.cloud`.
+
+To undo: remove the `import` line, the sites mount and the `networks:` block
+from `caddy`, then `up -d caddy`.

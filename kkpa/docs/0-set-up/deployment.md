@@ -417,6 +417,12 @@ still need for local development:
 ### 8.8 First deploy
 
 ```bash
+# One time: the shared network Caddy joins (other sites on this VPS use it) and the
+# folder for their site files. Compose fails to start caddy without the network.
+# See kkpa/docs/1-deploy/docker.md §13.
+docker network create --subnet 10.231.0.0/24 edge
+mkdir -p /home/magus/caddy-sites
+
 # Build the images and start every service in the background.
 # Run this from the repo root. The Docker files live under deploy/docker/,
 # so every compose command needs the two flags below.
