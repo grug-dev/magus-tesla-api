@@ -27,6 +27,7 @@
 | `vehicle metrics` | `analytics.Recalculator` / `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calc fields` | the `_calc` columns of `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calculated fields` | synonym of `calc fields` | entity | `entities/vehicle-metrics/guide.md` |
+| `unfinished vehicles` | `analytics.UnfinishedReader.UnfinishedForDate` — cars with no `vehicle_metrics` row for a date (the nightly retry's done check) | entity | `entities/vehicle-metrics/guide.md` |
 | `metrics reconciliation` | `Recalculator.Reconcile` / `vehicle_metric_watermarks` | entity | `entities/vehicle-metrics/guide.md` |
 | `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `supercharger_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
 | `vehicle status` | the eight raw status observations on `vehicle_metrics`, read via `analytics.Reader.LatestMetricsForVehicles` → `analytics.VehicleStatus` (RM38) | entity | `entities/vehicle-metrics/guide.md` |
@@ -196,10 +197,15 @@
 | `vehicle snapshots` | `telemetry.Snapshot` / `vehicle_snapshots` → `architecture/telemetry-ingest-only.md` |
 | `supercharger history estimate columns` | **dropped** — RM41 tier 3 removed `start_battery_pct_est` / `end_battery_pct_est`; reverses RM27 D6 → `architecture/telemetry-ingest-only.md` |
 | `verification-time snapshot pair` | synonym of `supercharger history estimate columns` → `architecture/telemetry-ingest-only.md` |
+| `collect vehicles` (retry a car subset: `telemetry.Collector.CollectVehicles`) | `architecture/telemetry-ingest-only.md` |
+| `TriggeredByRetry` | synonym of `collect vehicles` — the `retry` trigger value → `architecture/telemetry-ingest-only.md` |
 | `nightly cycle` (the 5-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics → measure monthly capacity (only on the 1st of the month) → sync monthly metrics (every night, current + previous month)) | `architecture/nightly-cycle.md` |
 | `nightly collection` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly poll` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly batch` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
+| `nightly retry` (`app.RetryScheduler`: every 30 min 04:00–end of day, re-runs the cycle for vehicles with no `vehicle_metrics` row for yesterday) | `architecture/nightly-cycle.md` |
+| `retry unfinished vehicles` | synonym of `nightly retry` → `architecture/nightly-cycle.md` |
+| `RetryScheduler` | synonym of `nightly retry` → `architecture/nightly-cycle.md` |
 | `monthly capacity step` | synonym of the nightly cycle's step 4 → `architecture/nightly-cycle.md` |
 | `step 4` | the nightly cycle's monthly-capacity step → `architecture/nightly-cycle.md` |
 | `monthly metrics step` | synonym of the nightly cycle's step 5 → `architecture/nightly-cycle.md` |

@@ -20,16 +20,19 @@ import (
 // fakeMonthlyCapacityCalculator satisfies charging.MonthlyCapacityCalculator.
 // It records the (ctx, period, teslaID) it was called with, counts calls, and
 // returns a configurable (charging.MonthlyCapacityReport, error) — same shape
-// as fakeCollector/fakeRunWriter in processor_test.go (design.md Test
-// Contract "Conventions").
+// as fakeCollector/fakeRunWriter in processor_test.go. gotCtx/gotPeriod/
+// gotTeslaID hold the LAST call's arguments (enough for the single-call
+// tests below); gotTeslaIDs holds every call's teslaID, in order, for a test
+// that calls it more than once.
 type fakeMonthlyCapacityCalculator struct {
 	report charging.MonthlyCapacityReport
 	err    error
 
-	calls      int
-	gotCtx     context.Context
-	gotPeriod  time.Time
-	gotTeslaID *int64
+	calls       int
+	gotCtx      context.Context
+	gotPeriod   time.Time
+	gotTeslaID  *int64
+	gotTeslaIDs []*int64
 }
 
 func (f *fakeMonthlyCapacityCalculator) Calculate(ctx context.Context, period time.Time, teslaID *int64) (charging.MonthlyCapacityReport, error) {
@@ -37,6 +40,7 @@ func (f *fakeMonthlyCapacityCalculator) Calculate(ctx context.Context, period ti
 	f.gotCtx = ctx
 	f.gotPeriod = period
 	f.gotTeslaID = teslaID
+	f.gotTeslaIDs = append(f.gotTeslaIDs, teslaID)
 	return f.report, f.err
 }
 
@@ -138,7 +142,7 @@ func TestCallMonthlyCapacityCalculator_Success(t *testing.T) {
 	p := &processor{monthlyCapacityCalculator: calc}
 	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 
-	p.callMonthlyCapacityCalculator(context.Background(), period)
+	p.callMonthlyCapacityCalculator(context.Background(), period, nil)
 
 	if calc.calls != 1 {
 		t.Fatalf("calls = %d, want 1", calc.calls)
@@ -161,12 +165,59 @@ func TestCallMonthlyCapacityCalculator_ErrorIsLoggedNotPropagated(t *testing.T) 
 	p := &processor{monthlyCapacityCalculator: calc}
 	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 
-	p.callMonthlyCapacityCalculator(context.Background(), period)
+	p.callMonthlyCapacityCalculator(context.Background(), period, nil)
 
 	if calc.calls != 1 {
 		t.Fatalf("calls = %d, want 1", calc.calls)
 	}
 	if !calc.gotPeriod.Equal(period) {
 		t.Errorf("period seen by the fake = %v, want %v", calc.gotPeriod, period)
+	}
+}
+
+// --- callMonthlyCapacityCalculatorForVehicles (fake port, no clock) ---
+//
+// runMonthlyCapacityStepForVehicles itself reads the real clock with no
+// injectable seam, the same accepted gap as runMonthlyCapacityStep — so
+// these tests pin period and the gate's outcome directly, the same way the
+// two tests above bypass runMonthlyCapacityStep's own clock read.
+
+// TestCallMonthlyCapacityCalculatorForVehicles_EmptyIDsCallsNothing proves an
+// empty teslaIDs makes zero calls, regardless of period — the loop body
+// simply has nothing to iterate.
+func TestCallMonthlyCapacityCalculatorForVehicles_EmptyIDsCallsNothing(t *testing.T) {
+	calc := &fakeMonthlyCapacityCalculator{}
+	p := &processor{monthlyCapacityCalculator: calc}
+	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+
+	p.callMonthlyCapacityCalculatorForVehicles(context.Background(), period, nil)
+
+	if calc.calls != 0 {
+		t.Fatalf("calls = %d, want 0 for an empty teslaIDs", calc.calls)
+	}
+}
+
+// TestCallMonthlyCapacityCalculatorForVehicles_OnePerVehicle proves a
+// two-vehicle teslaIDs calls the port exactly twice, once per id, both for
+// the same period — the case a scoped retry on the 1st of the month
+// produces.
+func TestCallMonthlyCapacityCalculatorForVehicles_OnePerVehicle(t *testing.T) {
+	calc := &fakeMonthlyCapacityCalculator{}
+	p := &processor{monthlyCapacityCalculator: calc}
+	period := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+
+	p.callMonthlyCapacityCalculatorForVehicles(context.Background(), period, []int64{5, 7})
+
+	if calc.calls != 2 {
+		t.Fatalf("calls = %d, want 2 (one per vehicle)", calc.calls)
+	}
+	if len(calc.gotTeslaIDs) != 2 || calc.gotTeslaIDs[0] == nil || *calc.gotTeslaIDs[0] != 5 {
+		t.Errorf("first call's teslaID = %v, want a pointer to 5", calc.gotTeslaIDs[0])
+	}
+	if len(calc.gotTeslaIDs) != 2 || calc.gotTeslaIDs[1] == nil || *calc.gotTeslaIDs[1] != 7 {
+		t.Errorf("second call's teslaID = %v, want a pointer to 7", calc.gotTeslaIDs[1])
+	}
+	if !calc.gotPeriod.Equal(period) {
+		t.Errorf("period seen by the fake = %v, want %v (same period for every vehicle)", calc.gotPeriod, period)
 	}
 }

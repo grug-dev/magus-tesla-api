@@ -144,30 +144,94 @@ func (s *service) CollectAll(ctx context.Context, run RunContext) (CycleReport, 
 	// per-call-not-per-field pattern RunContext already established.
 	counted := newCallCounter(s.tsla)
 
-	vehicles, err := s.acct.AllRegisteredVehicles(ctx)
+	byAccount, err := s.enumerateElected(ctx)
 	if err != nil {
 		// Whole-cycle failure: we could not even list what to collect. This is the
 		// ONLY error CollectAll returns (D9); everything else is contained per vehicle.
 		return report, fmt.Errorf("telemetry: enumerating registered vehicles: %w", err)
 	}
-
-	// Elect one account to poll each distinct vehicle, so a car registered to more
-	// than one account is fetched once a night, not once per registering account.
-	elected := electPollingVehicles(vehicles)
-
-	// Group by owning account so we resolve each account's access token exactly once
-	// and make a single ListVehicles call per account (per-account batching, D3).
-	byAccount := groupByAccount(elected)
 	report.AccountsAttempted = len(byAccount)
 
 	for accountID, owned := range byAccount {
-		s.collectAccount(ctx, run, counted, accountID, owned, &report)
+		s.collectAccount(ctx, run, counted, accountID, owned, owned, &report)
 	}
 
 	report.AccountsSucceeded = report.AccountsAttempted - report.AccountsFailed
 	report.TeslaAPICalls = counted.calls
 
 	return report, nil
+}
+
+// CollectVehicles runs the same collection flow as CollectAll — the same
+// election, the same per-account grouping, the same wake-and-fetch loop, and
+// the same Supercharger history fetch — but narrows the snapshot/poll_attempts
+// work to exactly the given tesla_id set (the Collector port). A teslaID that
+// is not currently registered to any account, or that the shared election
+// step did not assign to any account, is filtered out of every account's
+// subset before collectAccount ever runs for it: no Tesla call is made and no
+// poll_attempts row is written for it — there is no separate "skip" branch,
+// its absence from the filtered subset IS the skip.
+//
+// Every account touched by this call still has its Supercharger history
+// fetched against its FULL elected vehicle list (owned), not just the
+// filtered retry subset (toCollect) — see collectAccount's own doc comment
+// for why a session belonging to one of that account's other, not-retried
+// vehicles must still resolve correctly.
+//
+// An empty teslaIDs returns a zero CycleReport and makes zero Tesla API
+// calls, without even reading the registered-vehicle list — the caller is
+// expected to already know there is nothing to retry, but this method's own
+// contract does not rely on that.
+func (s *service) CollectVehicles(ctx context.Context, run RunContext, teslaIDs []int64) (CycleReport, error) {
+	report := CycleReport{FailuresByReason: map[Reason]int{}}
+	if len(teslaIDs) == 0 {
+		return report, nil
+	}
+
+	counted := newCallCounter(s.tsla)
+
+	byAccount, err := s.enumerateElected(ctx)
+	if err != nil {
+		return report, fmt.Errorf("telemetry: enumerating registered vehicles for retry: %w", err)
+	}
+
+	want := make(map[int64]bool, len(teslaIDs))
+	for _, id := range teslaIDs {
+		want[id] = true
+	}
+
+	for accountID, owned := range byAccount {
+		var toCollect []account.OwnedVehicle
+		for _, v := range owned {
+			if want[v.TeslaID] {
+				toCollect = append(toCollect, v)
+			}
+		}
+		if len(toCollect) == 0 {
+			continue
+		}
+		report.AccountsAttempted++
+		s.collectAccount(ctx, run, counted, accountID, toCollect, owned, &report)
+	}
+
+	report.AccountsSucceeded = report.AccountsAttempted - report.AccountsFailed
+	report.TeslaAPICalls = counted.calls
+
+	return report, nil
+}
+
+// enumerateElected fetches every registered vehicle, elects one polling
+// account per tesla_id (electPollingVehicles), and groups the elected
+// vehicles by account (groupByAccount). CollectAll and CollectVehicles both
+// call this and nothing else to answer "which vehicle, polled by which
+// account" — so a future change to election or grouping can never apply to
+// one method and not the other.
+func (s *service) enumerateElected(ctx context.Context) (map[uuid.UUID][]account.OwnedVehicle, error) {
+	vehicles, err := s.acct.AllRegisteredVehicles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return groupByAccount(electPollingVehicles(vehicles)), nil
 }
 
 // groupByAccount buckets the already-elected vehicle list by owning account id so
@@ -254,10 +318,22 @@ func isOwner(v account.OwnedVehicle) bool {
 // collection. No poll_attempts row is written for charging (poll_attempts is
 // per-vehicle; charging is per-account — outcomes live in CycleReport).
 //
+// toCollect is the vehicle list the snapshot loop wakes, fetches and records
+// poll_attempts for. chargingScope is a SEPARATE vehicle list, used only to
+// build the Supercharger VIN map — it may differ from toCollect. CollectAll
+// always passes the same slice for both (its scope is the account's whole
+// elected vehicle list). A retry call passes only the retried vehicles as
+// toCollect, but still passes the account's full elected list as
+// chargingScope: a Supercharger session's VIN is resolved against
+// chargingScope, so a session belonging to one of the account's OTHER,
+// not-retried vehicles still resolves and upserts normally, instead of being
+// wrongly counted as unregistered just because that vehicle was outside this
+// call's retry set.
+//
 // tsla is the tesla.VehicleService to use for this cycle's calls — CollectAll
 // passes its freshly-constructed callCounter (design D10), never s.tsla directly,
 // so every Tesla request this account's collection makes is counted.
-func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla.VehicleService, accountID uuid.UUID, owned []account.OwnedVehicle, report *CycleReport) {
+func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla.VehicleService, accountID uuid.UUID, toCollect []account.OwnedVehicle, chargingScope []account.OwnedVehicle, report *CycleReport) {
 	token, err := s.acct.AccessTokenFor(ctx, accountID)
 	if err != nil {
 		// No connection (or a refresh failure) applies to the WHOLE account: record
@@ -268,7 +344,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla
 		// for any vehicle in this branch, so a config write-back would always be a
 		// guaranteed no-op — this omission is deliberate, not a gap.
 		report.AccountsFailed++
-		for _, v := range owned {
+		for _, v := range toCollect {
 			s.record(ctx, run, accountID, v.TeslaID, ReasonUnauthorized, report)
 		}
 		return
@@ -286,7 +362,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla
 			// fetched for any vehicle in this branch, so a config write-back would
 			// always be a guaranteed no-op — this omission is deliberate, not a gap.
 			report.AccountsFailed++
-			for _, v := range owned {
+			for _, v := range toCollect {
 				s.record(ctx, run, accountID, v.TeslaID, ReasonUnauthorized, report)
 			}
 			return
@@ -300,13 +376,13 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla
 		// no VehicleData was fetched for any vehicle in this branch. This branch does
 		// NOT increment AccountsFailed (roadmap D4: only the two auth-shaped
 		// short-circuits count as a whole-account failure).
-		for _, v := range owned {
+		for _, v := range toCollect {
 			s.record(ctx, run, accountID, v.TeslaID, ReasonAPIError, report)
 		}
 		return
 	}
 
-	for _, v := range owned {
+	for _, v := range toCollect {
 		reason, cfg := s.collectVehicle(ctx, tsla, creds, v, states[v.TeslaID])
 		s.record(ctx, run, v.AccountID, v.TeslaID, reason, report)
 		s.captureVehicleConfig(ctx, v, cfg, report)
@@ -315,7 +391,8 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla
 	// Source B: fetch Supercharger session history for this account (design DBS7).
 	// Zero params = full fetch, no vehicle wake. This call is per-account (not per
 	// vehicle): one HTTP call returns all sessions for all vehicles in the account.
-	s.collectChargingHistory(ctx, tsla, owned, creds, report)
+	// Uses chargingScope, NOT toCollect — see this function's own doc comment.
+	s.collectChargingHistory(ctx, tsla, chargingScope, creds, report)
 }
 
 // collectChargingHistory fetches the account's Supercharger session history and

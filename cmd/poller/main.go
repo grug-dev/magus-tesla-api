@@ -177,7 +177,18 @@ func main() {
 			log.Printf("manual-rerun listener on %s (POLLER_RERUN_TOKEN set)", rerunAddr)
 		}
 
-		log.Printf("poller started: nightly collection at %02d:%02d %s (wake timeout %s)",
+		// The retry schedule re-runs the cycle, every 30 minutes until the end
+		// of the local day, for vehicles with no metrics row for yesterday. It
+		// shares guarded's lock, so it never overlaps the nightly run.
+		retryScheduler := app.NewRetryScheduler(guarded, notDoneFromAnalytics{reader: analytics.NewUnfinishedReader(pool)}, acct, loc, tcfg)
+		go func() {
+			if err := retryScheduler.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				// Logged, never fatal: a stopped retry must not stop the nightly run.
+				log.Printf("retry scheduler stopped: %v", err)
+			}
+		}()
+
+		log.Printf("poller started: nightly collection at %02d:%02d %s (wake timeout %s), retry of unfinished vehicles every 30 min until end of day",
 			cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, cfg.PollerWakeTimeout)
 
 		// Run blocks until ctx is cancelled, then returns ctx.Err() — the expected

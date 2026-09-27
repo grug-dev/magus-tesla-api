@@ -80,6 +80,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Record a new run-level fact:** add the field to `telemetry.CycleReport` (populated inside `CollectAll`), add the column to `poll_runs` via a migration, extend `telemetry.PollRun` + the `InsertPollRun` query, and map it in `RunWriter.RecordRun`. The caller in `internal/app` passes the whole `CycleReport` — it gains no pool and no table.
 - **Read `poll_runs`:** there is **no read port yet**. Direct SQL is the only way to see a row today; adding a `Reader`-style method is deferred backlog work, not an existing surface.
 
+- **Collect only some cars (the retry path):** `telemetry.Collector.CollectVehicles(ctx, run, teslaIDs)` runs the same step 1 as `CollectAll` — same poll election, same per-account grouping, same wake-and-fetch, same `poll_attempts` rows — but only for the given `tesla_id`s. Both methods share one enumeration step, so election and grouping cannot drift. Retry runs are stamped `telemetry.TriggeredByRetry` (`"retry"`).
+
 ## Conventions & gotchas
 
 - **One writer, many readers.** Only `telemetry.Collector` (via `NewService`) writes; every other module reads through `Reader`/`SuperchargerHistoryReader`. No user-facing request ever writes telemetry. _Source: `internal/telemetry/telemetry.go` package doc; `internal/telemetry/AGENTS.md`._
@@ -281,6 +283,17 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
   This is the ledger's own rule, not a side effect of a read port. It is why an unregistered VIN
   is skipped at write time rather than stored and filtered later.
   _Source: spec telemetry — Requirement: Supercharger Session Ledger._
+
+- **An unregistered `tesla_id` passed to `CollectVehicles` leaves no trace.** No Fleet API call, no `poll_attempts` row, no error. It is filtered out before any account is touched.
+  _Source: spec telemetry — Requirement: Retry Collection For A Specified Vehicle Subset._
+- **An empty car list makes zero Fleet API calls** and returns an all-zero `CycleReport`. The caller does not need to guard it.
+  _Source: spec telemetry — Requirement: Retry Collection For A Specified Vehicle Subset._
+- **The Supercharger fetch in `CollectVehicles` still sees the account's FULL car list**, not only the retried cars. If it saw only the retried cars, a session of the account's other car would be dropped and counted as "unregistered". That is why `collectAccount` takes two vehicle lists — never merge them into one.
+  _Source: spec telemetry — Requirement: Retry Collection For A Specified Vehicle Subset._
+- **A car registered to several accounts is retried through the same elected account as the nightly run** — never through another account.
+  _Source: spec telemetry — Requirement: Retry Collection For A Specified Vehicle Subset._
+- **`triggered_by` is plain `text` with no `CHECK`.** A new trigger value (`retry`) needs only a Go constant on `telemetry.TriggeredBy`, no migration.
+  _Source: spec telemetry — Requirement: Retry Trigger Attribution._
 
 ## Related KB
 

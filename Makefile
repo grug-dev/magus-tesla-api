@@ -110,7 +110,7 @@ TEST_ADMIN_ON_DB := $(shell echo "$(TEST_DATABASE_URL)" | sed -E 's|^(postgres(q
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status migrate-run \
         db-setup db-reset db-setup-test env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard logging-guard migration-boundary-guard boundary-guard theme-guard vehicleref-guard tenancy-guard naming-guard archive-guard logdir-guard delta-guard tidy build vet lint check-golangci test check bins \
-        up cmd-setup cmd-explore-tesla cmd-poller-once cmd-monthly-capacity \
+        up cmd-setup cmd-explore-tesla cmd-poller cmd-poller-once cmd-monthly-capacity \
         docker-up docker-down docker-logs vps-logs docker-migrate backup-db
 
 # --- Help -------------------------------------------------------------------
@@ -1137,6 +1137,11 @@ cmd-explore-tesla: ## Build cmd/explore-tesla-api into ./bin and run it (COSTS a
 	@mkdir -p bin
 	go build -o bin/explore-tesla-api ./cmd/explore-tesla-api
 	./bin/explore-tesla-api
+
+cmd-poller: ## Build cmd/poller into ./bin and run it in scheduled mode (blocks; Ctrl-C stops it): nightly cycle at 03:30 + retry of unfinished vehicles every 30 min until end of day. Needs DATABASE_URL + a connected Tesla account; the retry MAY WAKE cars within 30 min (real API calls)
+	@mkdir -p bin
+	go build -o bin/poller ./cmd/poller
+	./bin/poller
 
 cmd-poller-once: ## Build cmd/poller into ./bin and run ONE collection cycle now, then exit (--once). Needs DATABASE_URL + a connected Tesla account; MAY WAKE sleeping cars (real API calls)
 	@mkdir -p bin

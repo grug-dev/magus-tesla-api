@@ -33,6 +33,13 @@ type fakeAccount struct {
 	configCaptures []configCapture
 	// configCaptureErr, when set, is returned by every SetVehicleConfigIfEmpty call.
 	configCaptureErr error
+	// accessTokenCalls counts AccessTokenFor invocations per account id — used by
+	// CollectVehicles tests to prove an unelected account is never asked for a
+	// token.
+	accessTokenCalls map[uuid.UUID]int
+	// allRegisteredVehiclesCallCount counts AllRegisteredVehicles invocations —
+	// used to prove an empty CollectVehicles input makes zero database reads.
+	allRegisteredVehiclesCallCount int
 }
 
 // configCapture records one SetVehicleConfigIfEmpty call observed by fakeAccount
@@ -45,6 +52,7 @@ type configCapture struct {
 }
 
 func (f *fakeAccount) AllRegisteredVehicles(_ context.Context) ([]account.OwnedVehicle, error) {
+	f.allRegisteredVehiclesCallCount++
 	if f.allErr != nil {
 		return nil, f.allErr
 	}
@@ -52,6 +60,10 @@ func (f *fakeAccount) AllRegisteredVehicles(_ context.Context) ([]account.OwnedV
 }
 
 func (f *fakeAccount) AccessTokenFor(_ context.Context, accountID uuid.UUID) (string, error) {
+	if f.accessTokenCalls == nil {
+		f.accessTokenCalls = map[uuid.UUID]int{}
+	}
+	f.accessTokenCalls[accountID]++
 	if tok, ok := f.tokens[accountID]; ok {
 		return tok, nil
 	}
@@ -1589,5 +1601,225 @@ func TestCollectAll_Fixture4_WholeCycleFailure_ReportAllZero(t *testing.T) {
 	}
 	if report.FailuresByReason == nil || len(report.FailuresByReason) != 0 {
 		t.Fatalf("want a non-nil, empty FailuresByReason map, got %#v", report.FailuresByReason)
+	}
+}
+
+// --- CollectVehicles offline tests. Their expected values were fixed before
+// CollectVehicles was written, so they check the intended behaviour.
+// Reuses the fakeAccount/fakeTesla/fakeStore doubles above. ---
+
+// explodingTesla is a tesla.VehicleService double that fails the test the
+// moment ANY of its methods is called. It proves an empty
+// teslaIDs input must make zero Fleet API requests of any kind.
+type explodingTesla struct{ t *testing.T }
+
+func (e *explodingTesla) ListVehicles(context.Context, tesla.Credentials) ([]tesla.VehicleTesla, error) {
+	e.t.Fatal("ListVehicles must not be called for an empty teslaIDs input")
+	return nil, nil
+}
+
+func (e *explodingTesla) WakeUp(context.Context, tesla.Credentials, int64) (*tesla.VehicleTesla, error) {
+	e.t.Fatal("WakeUp must not be called for an empty teslaIDs input")
+	return nil, nil
+}
+
+func (e *explodingTesla) VehicleData(context.Context, tesla.Credentials, int64) (*tesla.VehicleDataTesla, json.RawMessage, error) {
+	e.t.Fatal("VehicleData must not be called for an empty teslaIDs input")
+	return nil, nil, nil
+}
+
+func (e *explodingTesla) ChargingHistory(context.Context, tesla.Credentials, tesla.ChargingHistoryParams) (*tesla.ChargingHistoryTesla, error) {
+	e.t.Fatal("ChargingHistory must not be called for an empty teslaIDs input")
+	return nil, nil
+}
+
+// TestCollectVehicles_MultiRegisteredVehicle_RetriedThroughElectedAccount
+// checks: a vehicle registered to two accounts (one OWNER, one
+// DRIVER) is retried through the OWNER account only — the same account
+// electPollingVehicles would pick for CollectAll. The DRIVER account's
+// AccessTokenFor is never called, proving the retry set is filtered AFTER
+// election, not before.
+func TestCollectVehicles_MultiRegisteredVehicle_RetriedThroughElectedAccount(t *testing.T) {
+	acctA, acctB := uuid.New(), uuid.New() // A = DRIVER, B = OWNER
+	ft := newFakeTesla()
+	ft.set(500, &vehicleScript{state: "online", data: onlineData(500, nil)})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{
+			{AccountID: acctA, TeslaID: 500, AccessType: ptr("DRIVER")},
+			{AccountID: acctB, TeslaID: 500, AccessType: ptr("OWNER")},
+		},
+		tokens: map[uuid.UUID]string{acctA: "tokA", acctB: "tokB"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectVehicles(context.Background(), testRun(), []int64{500})
+	if err != nil {
+		t.Fatalf("CollectVehicles returned an error: %v", err)
+	}
+	assertOneAttempt(t, fs, 500, ReasonOK, OutcomeSuccess)
+	if report.Attempted != 1 {
+		t.Fatalf("want report.Attempted=1, got %d", report.Attempted)
+	}
+	if len(fs.attempts) != 1 {
+		t.Fatalf("want exactly 1 poll_attempts row, got %d", len(fs.attempts))
+	}
+	if fa.accessTokenCalls[acctB] == 0 {
+		t.Error("want the OWNER account's AccessTokenFor to be called at least once")
+	}
+	if fa.accessTokenCalls[acctA] != 0 {
+		t.Errorf("want the DRIVER account's AccessTokenFor NEVER called, got %d calls", fa.accessTokenCalls[acctA])
+	}
+	if ft.listCalls != 1 {
+		t.Errorf("want exactly 1 ListVehicles call (the elected account only), got %d", ft.listCalls)
+	}
+}
+
+// TestCollectVehicles_UnregisteredID_SkippedNoAttemptRow checks: an
+// unregistered tesla_id in the input is silently absent from every result —
+// no error, no poll_attempts row, no Tesla call.
+func TestCollectVehicles_UnregisteredID_SkippedNoAttemptRow(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	ft.set(501, &vehicleScript{state: "online", data: onlineData(501, nil)})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 501}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectVehicles(context.Background(), testRun(), []int64{501, 999})
+	if err != nil {
+		t.Fatalf("CollectVehicles returned an error: %v", err)
+	}
+	if report.Attempted != 1 {
+		t.Fatalf("want report.Attempted=1, got %d", report.Attempted)
+	}
+	if len(fs.attempts) != 1 {
+		t.Fatalf("want exactly 1 poll_attempts row (for 501 only), got %d", len(fs.attempts))
+	}
+	assertOneAttempt(t, fs, 501, ReasonOK, OutcomeSuccess)
+	if attempts := fs.attemptsByVehicle()[999]; len(attempts) != 0 {
+		t.Errorf("want no attempt for the unregistered id 999, got %+v", attempts)
+	}
+}
+
+// TestCollectVehicles_ChargingHistorySeesFullAccountCarList checks:
+// collectChargingHistory must resolve Supercharger sessions against the
+// account's FULL registered vehicle list, not only the retried subset — a
+// session for the account's other, not-retried vehicle still upserts and is
+// never miscounted as unregistered.
+func TestCollectVehicles_ChargingHistorySeesFullAccountCarList(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	ft.set(502, &vehicleScript{state: "online", data: onlineData(502, nil)})
+	ft.set(503, &vehicleScript{state: "online", data: onlineData(503, nil)})
+	ft.chargingHistory = &tesla.ChargingHistoryTesla{
+		Data: []tesla.ChargingSessionTesla{
+			{SessionID: 1, VIN: "AAA", Raw: []byte(`{"sessionId":1}`)},
+			{SessionID: 2, VIN: "BBB", Raw: []byte(`{"sessionId":2}`)},
+		},
+	}
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{
+			{AccountID: acctID, TeslaID: 502, VIN: "AAA"},
+			{AccountID: acctID, TeslaID: 503, VIN: "BBB"},
+		},
+		tokens: map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectVehicles(context.Background(), testRun(), []int64{502})
+	if err != nil {
+		t.Fatalf("CollectVehicles returned an error: %v", err)
+	}
+	// Only 502 was retried: exactly one poll_attempts row, and 503's snapshot
+	// was NOT re-fetched (no WakeUp/VehicleData call for it).
+	if len(fs.attempts) != 1 {
+		t.Fatalf("want exactly 1 poll_attempts row (502 only), got %d: %+v", len(fs.attempts), fs.attempts)
+	}
+	assertOneAttempt(t, fs, 502, ReasonOK, OutcomeSuccess)
+	if ft.wakeCalls[503] != 0 || ft.dataCalls[503] != 0 {
+		t.Errorf("vehicle 503 must not be re-collected; want 0 wake/data calls, got wakes=%d data=%d", ft.wakeCalls[503], ft.dataCalls[503])
+	}
+	// BOTH Supercharger sessions upserted — if chargingScope were narrowed to
+	// the retry set, VIN "BBB" would wrongly count as skipped-unregistered.
+	if report.ChargingSessionsUpserted != 2 {
+		t.Errorf("want ChargingSessionsUpserted=2, got %d", report.ChargingSessionsUpserted)
+	}
+	if report.ChargingSessionsSkippedUnregistered != 0 {
+		t.Errorf("want ChargingSessionsSkippedUnregistered=0, got %d", report.ChargingSessionsSkippedUnregistered)
+	}
+}
+
+// TestCollectVehicles_EmptyInput_MakesZeroTeslaCalls checks: an
+// empty (nil, then explicit []int64{}) teslaIDs input returns a zero
+// CycleReport and nil error, making zero Tesla calls and never even reading
+// the registered-vehicle list.
+func TestCollectVehicles_EmptyInput_MakesZeroTeslaCalls(t *testing.T) {
+	acctID := uuid.New()
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 900}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	svc := newFakeService(fa, &explodingTesla{t: t}, &fakeStore{})
+
+	for _, in := range [][]int64{nil, {}} {
+		report, err := svc.CollectVehicles(context.Background(), testRun(), in)
+		if err != nil {
+			t.Fatalf("CollectVehicles(%v) returned an error: %v", in, err)
+		}
+		want := CycleReport{FailuresByReason: map[Reason]int{}}
+		if report.Attempted != want.Attempted || report.Succeeded != want.Succeeded ||
+			len(report.FailuresByReason) != 0 || report.TeslaAPICalls != 0 ||
+			report.AccountsAttempted != 0 {
+			t.Errorf("CollectVehicles(%v): want a zero CycleReport, got %+v", in, report)
+		}
+	}
+	if fa.allRegisteredVehiclesCallCount != 0 {
+		t.Errorf("want AllRegisteredVehicles never called for an empty input, got %d calls", fa.allRegisteredVehiclesCallCount)
+	}
+}
+
+// TestCollectVehicles_AccountsAttemptedCountsOnlyTouchedAccounts implements
+// report.AccountsAttempted counts only the DISTINCT accounts that own
+// at least one vehicle in the requested set — not every account in the
+// system.
+func TestCollectVehicles_AccountsAttemptedCountsOnlyTouchedAccounts(t *testing.T) {
+	acct601, acct602, acct603 := uuid.New(), uuid.New(), uuid.New()
+	ft := newFakeTesla()
+	ft.set(601, &vehicleScript{state: "online", data: onlineData(601, nil)})
+	ft.set(602, &vehicleScript{state: "online", data: onlineData(602, nil)})
+	ft.set(603, &vehicleScript{state: "online", data: onlineData(603, nil)})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{
+			{AccountID: acct601, TeslaID: 601},
+			{AccountID: acct602, TeslaID: 602},
+			{AccountID: acct603, TeslaID: 603},
+		},
+		tokens: map[uuid.UUID]string{
+			acct601: "tok601",
+			acct602: "tok602",
+			acct603: "tok603",
+		},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectVehicles(context.Background(), testRun(), []int64{601, 603})
+	if err != nil {
+		t.Fatalf("CollectVehicles returned an error: %v", err)
+	}
+	if report.AccountsAttempted != 2 {
+		t.Errorf("want AccountsAttempted=2 (accounts owning 601 and 603 only), got %d", report.AccountsAttempted)
+	}
+	if fa.accessTokenCalls[acct602] != 0 {
+		t.Errorf("want the untouched account 602 never asked for a token, got %d calls", fa.accessTokenCalls[acct602])
 	}
 }

@@ -31,6 +31,18 @@ The fifth step, unlike the fourth, runs on **every invocation**, not only on the
 month. It calls `analytics.MonthlySyncer.SyncMonth` twice per vehicle, every night — once for
 the current calendar month, once for the previous one.
 
+**A second, independent schedule can re-run this same cycle for a chosen subset of vehicles.**
+`RetryScheduler` (`retry_scheduler.go`) ticks every 30 minutes from 04:00 until the end of the
+local day, asks `NotDoneVehicles` which registered vehicles still have no `vehicle_metrics` row
+for yesterday, and — only when that set is non-empty — calls
+`Processor.ProcessVehicleDataForVehicles` with exactly those `tesla_id`s. This runs the same five
+steps as the diagram above, scoped to the given vehicles: step 1 through
+`telemetry.Collector.CollectVehicles` instead of `CollectAll`, steps 2/3/5 filtered to that set,
+and step 4 (when its own monthly gate fires) measured once per vehicle in the set instead of once
+for the whole fleet. `ProcessVehicleData` and `ProcessVehicleDataForVehicles` share one vehicle-
+listing helper, `vehiclesToProcess`, so a future change to the fetch or the dedup rule can never
+apply to one cycle and not the other.
+
 **Cross-module map of one cycle:** `kkpa/context/architecture/nightly-cycle.md` — every port
 call, every table effect per step, and the failure blast-radius table. Read it before changing
 the steps or their order. It is where the facts spanning `telemetry` / `charging` /
@@ -73,10 +85,16 @@ all four `analytics` ports stay contiguous, `loc` stays last.
 - `Processor.ProcessVehicleData(ctx, triggeredBy)` generates a fresh `RunID` once per
   invocation, builds the `telemetry.RunContext`, and returns `telemetry.CycleReport`
   **unchanged**. This module introduces no report type of its own — reuse over a wrapper.
+- `Processor.ProcessVehicleDataForVehicles(ctx, triggeredBy, teslaIDs)` runs the identical
+  five steps, scoped to `teslaIDs`. It takes `triggeredBy` generically, the same as
+  `ProcessVehicleData` — it does not itself require or inspect `telemetry.TriggeredByRetry`;
+  the caller decides what value to pass. `recordRun` still runs on every exit path.
 - **Every constructor argument is another module's public port. There is no `*pgxpool.Pool`
   parameter and there must never be one** — see Data ownership below.
 - **The monthly capacity step is called once a month, on the first calendar day, for the
-  previous month, always with `teslaID = nil`.** Never per vehicle, never on another day.
+  previous month, always with `teslaID = nil`** for the nightly cycle. The subset cycle's own
+  `runMonthlyCapacityStepForVehicles` uses the same gate but calls with one non-nil `teslaID`
+  per vehicle in the retried set — never with `nil`.
 - `Scheduler.Run` blocks, firing one cycle per day at `hour:minute` in `loc`, and returns
   `ctx.Err()` on cancellation without starting a new cycle. A nil `loc` falls back to
   `clock.Zone()`. **A per-cycle error is logged, never fatal** — one bad night must not stop
@@ -86,6 +104,19 @@ all four `analytics` ports stay contiguous, `loc` stays last.
   separate change.
 - **`nextRun` stays unexported and pure** — no clock, no sleeping — so the schedule-time math
   stays unit-testable in isolation. Keep it that way.
+- `RetryScheduler.Run` (`retry_scheduler.go`) mirrors `Scheduler.Run` exactly: it blocks,
+  ticks on `nextRetryTick`'s schedule, and returns `ctx.Err()` on cancellation without starting
+  a new tick. `NewRetryScheduler` takes the same `loc`/`cfg telemetry.Config` shape as
+  `NewScheduler`, plus a `NotDoneVehicles` and an `account.Service` it uses directly — it does
+  not ask `Processor` for the registered vehicle list, since `Processor` exposes no such
+  method.
+- **`nextRetryTick` stays unexported and pure**, same contract as `nextRun`: a tick every 30
+  minutes, anchored to 04:00, computed in `loc`. Once the last tick that fits before local
+  midnight has passed, the next tick is tomorrow's 04:00 — never a tick between midnight and
+  04:00.
+- **A `NotDone` result deciding "nothing to retry" is the only place the "writes nothing"
+  guarantee is enforced.** `ProcessVehicleDataForVehicles` does not special-case an empty
+  `teslaIDs`; `RetryScheduler.tick` simply never calls it when `NotDone` returns empty.
 
 No HTTP/JSON surface in this module (`ai/architecture.md` §3).
 ## Allowed / forbidden imports
@@ -175,8 +206,14 @@ violation look identical in a coverage delta.**
 | `runMonthlyCapacityStep` | **accepted gap** | three lines of wiring around a direct `clock.Now()` read, no injectable seam |
 | `monthlyMetricsPeriods` | covered | pure — this is where the "which two months" logic lives, including the zone-crossing case |
 | `callMonthlySyncer` | covered | a fake port and a fixed `(teslaID, period)` make it deterministic |
-| `runMonthlyMetricsStep` | **partial** | the vehicle loop, the dedup, and the per-vehicle/per-period failure isolation are covered through a fake roster; the `clock.Now()`/`clock.Zone()` read itself has no injectable seam and is an accepted gap, same category as `runMonthlyCapacityStep`'s |
-| `processChargingData`, `recalculateAnalytics` internals | **accepted gap** | pure relocations of `cmd/poller` code that was never tested there; there is no prior output to characterize |
+| `runMonthlyMetricsStep` | **partial** | the vehicle loop and the per-vehicle/per-period failure isolation are covered through a fake roster; the `clock.Now()`/`clock.Zone()` read itself has no injectable seam and is an accepted gap, same category as `runMonthlyCapacityStep`'s |
+| `processChargingData`, `recalculateAnalytics` internals | **accepted gap** | pure relocations of `cmd/poller` code that was never tested there; there is no prior output to characterize. Both now take an already-resolved vehicle list instead of enumerating it themselves — see `vehiclesToProcess` below for that half's own coverage |
+| `vehiclesToProcess` | covered | pure fetch-and-filter over a fake `account.Service`; no clock, no I/O beyond the fake |
+| `ProcessVehicleDataForVehicles` | covered | a fake roster proves the step-1 short-circuit, the filtered vehicle list reaching steps 2/3/5, and `recordRun`'s generic `TriggeredBy` — mirrors `ProcessVehicleData`'s own fixtures |
+| `callMonthlyCapacityCalculatorForVehicles` | covered | a fake port and a fixed period/id list make it deterministic — the testable half of `runMonthlyCapacityStepForVehicles`, split out the same way `callMonthlyCapacityCalculator` is split from `runMonthlyCapacityStep` |
+| `runMonthlyCapacityStepForVehicles` | **accepted gap** | same reason as `runMonthlyCapacityStep`: a direct `clock.Now()`/`clock.Zone()` read with no injectable seam |
+| `nextRetryTick` | covered | pure — mirrors `nextRun`'s own coverage exactly |
+| `RetryScheduler.tick` (via `RetryScheduler.Run`'s fixtures) | covered | a fake `Processor`, a fake `NotDoneVehicles`, and a fake clock prove the empty-result no-op, the exact scoped call, and that one bad tick never blocks the next |
 
 Rules for the tests that exist:
 
@@ -190,8 +227,9 @@ Rules for the tests that exist:
   loops execute zero iterations, on purpose, so those tests are not on the hook for internals
   they do not cover.
 
-The verification signal for the two uncovered steps is the owner's own
-`go run ./cmd/poller --once`. `go build ./...` and `go vet ./...` are the only automated
+The verification signal for the uncovered clock-reading step wrappers (`runMonthlyCapacityStep`,
+`runMonthlyCapacityStepForVehicles`, and `runMonthlyMetricsStep`'s own clock read) is the owner's
+own `go run ./cmd/poller --once`. `go build ./...` and `go vet ./...` are the only automated
 signals that logic gets today. **Running that command wakes the real car and makes paid
 Fleet API calls**, so it is never a way to explore the code — it is the owner's call, not
 yours. A VS Code launch entry runs the same cycle under a debugger at the same cost; the

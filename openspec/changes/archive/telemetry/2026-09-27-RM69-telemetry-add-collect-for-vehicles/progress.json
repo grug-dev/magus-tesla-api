@@ -1,0 +1,325 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM69-telemetry-add-collect-for-vehicles",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/RM69-nightly-retry-unfinished-vehicles.md",
+  "request": "MAG-98 — Nightly Job: retry every 30 min the vehicles the nightly job could not fully process, only for those tesla_ids. Tier 1: telemetry collects a given car list.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5"
+    ]
+  },
+  "created_at": "2026-09-27T14:25:00Z",
+  "updated_at": "2026-09-27T14:43:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM69-MAG-98-nightly-retry-unfinished-vehicles",
+    "base": "main",
+    "ticket": "MAG-98",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-98/nightly-job",
+    "created_at": "2026-09-27T14:11:06Z"
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Offline tests for CollectVehicles (write first, from design.md)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
+      "notes": "TR-1,2,3,4,6 offline tests + explodingTesla double and fakeAccount call counters.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 31,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.65,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T0-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T1",
+      "title": "Port method, constant, collectAccount signature",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
+      "notes": "CollectVehicles on Collector, TriggeredByRetry, collectAccount(toCollect, chargingScope).",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 31,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.65,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T0-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "CollectVehicles implementation",
+      "module": "telemetry",
+      "depends_on": [
+        "T0",
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
+      "notes": "enumerateElected shared by CollectAll and CollectVehicles; CollectAll passes owned twice.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 31,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.65,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T0-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Database-backed integration tests",
+      "module": "telemetry",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
+      "notes": "TR-7, TR-8 DB tests. Accounts via fakeAccount, not SQL seeding (cross-module seeding not allowed); assertions via direct SQL.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 31,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.65,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T0-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Docs",
+      "module": "telemetry",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
+      "notes": "AGENTS.md port table + collectAccount two-param note. nightly-cycle.md left for tier 2.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 31,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.65,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T0-T5 wave jointly"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Final verification",
+      "module": "telemetry",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
+      "notes": "All checks green after leader added CollectVehicles stub to app fakeCollector.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 31,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 4.65,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "delta covers the whole T0-T5 wave jointly"
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review the tier-1 diff (git diff 5046011..HEAD) against design.md D1-D9 and specs. Check: module boundary (only internal/telemetry, plus leader stub in internal/app/processor_test.go); CollectAll behaviour unchanged; collectAccount args not swapped; tests assert design.md TR-1..TR-8 values, not the implementation; TR-8 fakeAccount deviation acceptable; no DB object changed; B2 rule and no D-/RM-/ticket IDs in code comments. Signals: build/vet/gofmt/lint/guards and make test (PASS, no SKIP) were run by the assistant under the owner's session-only delegation. Performance-Profile and Test-Execution-Policy apply verbatim.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-27T15:05:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/telemetry/AGENTS.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/proposal.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/design.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/tasks.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/specs/telemetry/spec.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/progress.json",
+          "openspec/roadmaps/RM69-nightly-retry-unfinished-vehicles.md"
+        ],
+        "checks": {
+          "boundary": "only internal/telemetry changed, plus the leader-added no-op stub in internal/app/processor_test.go — confirmed by diff",
+          "build_vet_gofmt_lint_guards": "re-ran go build ./..., go vet ./..., gofmt -l, make lint, boundary-guard, tenancy-guard, naming-guard, migration-boundary-guard, archive-guard myself — all clean",
+          "collect_all_unchanged": "CollectAll now calls enumerateElected and passes owned,owned to collectAccount — same two calls, same order, same result; no existing CollectAll test edited",
+          "collect_account_args": "toCollect/chargingScope not swapped in either call site (service.go:156, 214)",
+          "collect_vehicles_contract": "empty input returns zero report with no enumerateElected/DB call; unregistered id filtered out before collectAccount runs; same elected account via shared enumerateElected",
+          "tests_authored_up_front": "TR-1,2,3,4,6,7,8 expected values in service_test.go and db_collect_vehicles_integration_test.go match design.md's test contract numbers exactly (e.g. AccountsAttempted==2, ChargingSessionsUpserted==2/SkippedUnregistered==0)",
+          "tr8_fakeaccount_deviation": "acceptable — telemetry's TestMain (testdb_test.go) provisions only telemetry's own schema via testdb.Provision, not ProvisionDirs, so account tables do not exist in this test DB; SQL-seeding them was never possible without a bigger, out-of-scope infra change. fakeAccount is the same double used by every other test in this file; the real dbStore still receives and is asserted against for the actual poll_attempts/vehicle_snapshots writes, so TR-8's core intent (CollectVehicles against a real Postgres store) is fully covered. tasks.md 3.3 text was correctly left unedited (append-only); the deviation is honestly recorded in decision D4.",
+          "no_db_object_changed": "confirmed — only telemetry.go gains a Go constant; migration baseline comments already document triggered_by as a plain text column with no CHECK, verified directly in the SQL file",
+          "anti_gaming": "tasks.md diff is checkbox-only (no wording edited); specs/telemetry/spec.md untouched during implementation"
+        },
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/telemetry/db_collect_vehicles_integration_test.go:14-18 and internal/telemetry/service_test.go:1607-1610 both name 'design.md' by name in a file-header comment ('...this change's design.md test contract', 'written from design.md's test contract'). This change's design.md will be archived and frozen; the pointer dies. Reword to describe the test grouping itself without naming the doc (e.g. 'implement the CollectVehicles test contract' with no file reference).",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ],
+        "summary": "Boundary, CollectAll-unchanged, collectAccount arg order, CollectVehicles skip/empty/election behavior, and the TR-1..TR-8 test values all match design.md and the spec. One minor finding: two test-file header comments name design.md directly. Not a blocker — approved."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-27T14:25:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design approved after the Spanish briefing; autopilot ON for the whole roadmap.",
+      "why": "User answered 'yes and work on autopilot mode ON'. Overrides the pickup payload's halt-after-Step-4.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-27T14:21:39Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Owner allowed the assistant to run the test suite (make test etc.) and to decide alone, for this session only.",
+      "why": "Owner left mid-session: 'take your own decisions. run make test or whatever command you need. only for this session'.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-27T14:21:39Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "All six tasks in one serial wave, one Sonnet worker.",
+      "why": "Tasks are small, strictly chained, and share service.go/service_test.go; parallel workers would collide on the same files.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-27T14:31:13Z",
+      "scope": "task:T3",
+      "made_by": "autopilot",
+      "decision": "Accepted worker's TR-8 deviation: accounts from fakeAccount instead of direct SQL seeding.",
+      "why": "Seeding account rows needs accountdb or cross-module provisioning, both forbidden; real store assertions still cover the contract.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-27T14:31:13Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader added a no-op CollectVehicles to internal/app fakeCollector.",
+      "why": "Widening Collector broke app's test double (vet red); cross-module integration is leader-owned.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-27T14:25:00Z",
+      "agent": "leader",
+      "event": "artifacts validated (openspec --strict); no gated design area touched; user approved briefing"
+    },
+    {
+      "at": "2026-09-27T14:21:39Z",
+      "agent": "leader",
+      "event": "Linear MAG-98 Backlog -> In Progress; dispatched telemetry worker (sonnet) for wave 1 (T0-T5)"
+    },
+    {
+      "at": "2026-09-27T14:31:13Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: go build/vet, gofmt, make lint, 7 guards green"
+    },
+    {
+      "at": "2026-09-27T14:31:13Z",
+      "agent": "leader",
+      "event": "make test (disposable container) PASS, run by the assistant under the owner's session-only delegation; new TR tests ran -v with no SKIP"
+    },
+    {
+      "at": "2026-09-27T14:32:00Z",
+      "agent": "leader",
+      "event": "task timestamps corrected to real wave bracket (worker reported invented times); status verified -> in-review; dispatched telemetry-reviewer"
+    },
+    {
+      "at": "2026-09-27T14:40:00Z",
+      "agent": "leader",
+      "event": "F1 accepted and fixed by leader: removed design.md and TR-N pointers from new test comments; vet + telemetry tests re-run PASS"
+    },
+    {
+      "at": "2026-09-27T14:43:00Z",
+      "agent": "leader",
+      "event": "archived to openspec/changes/archive/telemetry/; telemetry spec +2 requirements"
+    }
+  ]
+}

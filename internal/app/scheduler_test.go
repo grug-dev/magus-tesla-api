@@ -82,6 +82,13 @@ func (s *stubCollector) ProcessVehicleData(context.Context, telemetry.TriggeredB
 	return telemetry.CycleReport{}, nil
 }
 
+// ProcessVehicleDataForVehicles exists only so stubCollector satisfies the
+// widened Processor port. Scheduler.Run never calls it — only the nightly
+// ProcessVehicleData.
+func (s *stubCollector) ProcessVehicleDataForVehicles(context.Context, telemetry.TriggeredBy, []int64) (telemetry.CycleReport, error) {
+	return telemetry.CycleReport{}, nil
+}
+
 func TestScheduler_ShutsDownWithoutRunningWhenCancelled(t *testing.T) {
 	sc := &stubCollector{}
 	// Next run is far away (default 03:30); we cancel immediately, so Run must return
@@ -128,6 +135,13 @@ func (c *reportCollector) ProcessVehicleData(context.Context, telemetry.Triggere
 	return c.report, c.err
 }
 
+// ProcessVehicleDataForVehicles exists only so reportCollector satisfies the
+// widened Processor port. Scheduler.Run never calls it — only the nightly
+// ProcessVehicleData.
+func (c *reportCollector) ProcessVehicleDataForVehicles(context.Context, telemetry.TriggeredBy, []int64) (telemetry.CycleReport, error) {
+	return c.report, c.err
+}
+
 // TestScheduler_RunsAndLogsOneCycle proves Run fires exactly one cycle (via a
 // near-immediate scheduled time from a fake clock) and returns via the logging path
 // without panicking (R1-02). We do not assert on log output, only on the cycle count and
@@ -160,5 +174,72 @@ func TestScheduler_RunsAndLogsOneCycle(t *testing.T) {
 	}
 	if rc.calls < 1 {
 		t.Errorf("want at least one collection cycle to have run and been logged, got %d", rc.calls)
+	}
+}
+
+// --- pure nextRetryTick schedule-time math (no clock, no sleeping) ---
+
+func TestNextRetryTick(t *testing.T) {
+	utc := time.UTC
+
+	cases := []struct {
+		name string
+		now  time.Time
+		loc  *time.Location
+		want time.Time
+	}{
+		{
+			name: "before the window rolls forward to today's window start",
+			now:  time.Date(2026, 7, 10, 3, 10, 0, 0, utc),
+			loc:  utc,
+			want: time.Date(2026, 7, 10, 4, 0, 0, 0, utc),
+		},
+		{
+			name: "exactly at the window start rolls to the next half hour (strictly after)",
+			now:  time.Date(2026, 7, 10, 4, 0, 0, 0, utc),
+			loc:  utc,
+			want: time.Date(2026, 7, 10, 4, 30, 0, 0, utc),
+		},
+		{
+			name: "late evening with no tick left today rolls to tomorrow's window start",
+			now:  time.Date(2026, 7, 10, 23, 40, 0, 0, utc),
+			loc:  utc,
+			want: time.Date(2026, 7, 11, 4, 0, 0, 0, utc),
+		},
+		{
+			name: "the last in-window tick itself rolls to tomorrow, never to a tick after midnight",
+			now:  time.Date(2026, 7, 10, 23, 30, 0, 0, utc),
+			loc:  utc,
+			want: time.Date(2026, 7, 11, 4, 0, 0, 0, utc),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := nextRetryTick(tc.now, tc.loc)
+			if !got.Equal(tc.want) {
+				t.Errorf("nextRetryTick(%v) = %v, want %v", tc.now, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestNextRetryTick_OffsetDifferenceCarriesToUTC pins the SAME wall-clock
+// digits (year/month/day/hour/minute), attached to two locations with
+// different UTC offsets — so the two calls describe two different absolute
+// instants, five hours apart. The two results must also differ by exactly
+// five hours once compared as absolute time — proof the window math runs on
+// wall-clock digits in loc, not on the underlying UTC instant (mirrors
+// nextRun's own zone test).
+func TestNextRetryTick_OffsetDifferenceCarriesToUTC(t *testing.T) {
+	utc := time.UTC
+	plus5 := time.FixedZone("PLUS5", 5*3600)
+
+	gotUTC := nextRetryTick(time.Date(2026, 7, 10, 10, 0, 0, 0, utc), utc)
+	gotPlus5 := nextRetryTick(time.Date(2026, 7, 10, 10, 0, 0, 0, plus5), plus5)
+
+	wantDiff := 5 * time.Hour
+	if diff := gotUTC.Sub(gotPlus5); diff != wantDiff {
+		t.Errorf("nextRetryTick difference between UTC and PLUS5 = %v, want %v", diff, wantDiff)
 	}
 }

@@ -82,10 +82,18 @@ func (p *processor) ProcessVehicleData(ctx context.Context, triggeredBy telemetr
 
 	report, err := p.collector.CollectAll(ctx, run) // step 1 — sync fleet data
 	if err == nil {
-		p.processChargingData(ctx)    // step 2 — was newSessionMirrorer
-		p.recalculateAnalytics(ctx)   // step 3 — was newNightlyReconciler
-		p.runMonthlyCapacityStep(ctx) // step 4 — measure monthly vehicle capacity
-		p.runMonthlyMetricsStep(ctx)  // step 5 — sync monthly vehicle metrics
+		// One fetch, shared by steps 2, 3 and 5, instead of each step listing
+		// registered vehicles on its own. A listing failure here logs once and
+		// leaves vehicles nil, so steps 2/3/5 below simply have nothing to
+		// iterate — step 4 is independent of this list and still runs.
+		vehicles, verr := p.vehiclesToProcess(ctx, nil)
+		if verr != nil {
+			logging.Note("Processor", "ProcessVehicleData", "listing vehicles: %v", verr)
+		}
+		p.processChargingData(ctx, vehicles)   // step 2 — was newSessionMirrorer
+		p.recalculateAnalytics(ctx, vehicles)  // step 3 — was newNightlyReconciler
+		p.runMonthlyCapacityStep(ctx)          // step 4 — measure monthly vehicle capacity
+		p.runMonthlyMetricsStep(ctx, vehicles) // step 5 — sync monthly vehicle metrics
 	}
 
 	finish := clock.Now()
@@ -93,6 +101,84 @@ func (p *processor) ProcessVehicleData(ctx context.Context, triggeredBy telemetr
 	p.recordRun(ctx, run, report, start, finish)
 
 	return report, err
+}
+
+// ProcessVehicleDataForVehicles runs the identical five steps as
+// ProcessVehicleData, scoped to teslaIDs: step 1 goes through
+// CollectVehicles instead of CollectAll, steps 2/3/5 process only teslaIDs
+// (via vehiclesToProcess(ctx, teslaIDs), the same helper ProcessVehicleData
+// uses with a nil filter), and step 4 runs once per id in teslaIDs instead
+// of once for the whole fleet. Sharing vehiclesToProcess and every step
+// function with ProcessVehicleData is deliberate: a future change to a
+// step's own behavior can never apply to one of the two cycles and not the
+// other. triggeredBy is passed straight through with no assumption about its
+// value — this method neither requires nor inspects
+// telemetry.TriggeredByRetry.
+func (p *processor) ProcessVehicleDataForVehicles(ctx context.Context, triggeredBy telemetry.TriggeredBy, teslaIDs []int64) (telemetry.CycleReport, error) {
+	run := telemetry.RunContext{RunID: uuid.New(), TriggeredBy: triggeredBy}
+	start := clock.Now()
+
+	report, err := p.collector.CollectVehicles(ctx, run, teslaIDs) // step 1 — sync fleet data, scoped
+	if err == nil {
+		vehicles, verr := p.vehiclesToProcess(ctx, teslaIDs)
+		if verr != nil {
+			logging.Note("Processor", "ProcessVehicleDataForVehicles", "listing vehicles: %v", verr)
+		}
+		p.processChargingData(ctx, vehicles)               // step 2, scoped
+		p.recalculateAnalytics(ctx, vehicles)              // step 3, scoped
+		p.runMonthlyCapacityStepForVehicles(ctx, teslaIDs) // step 4, scoped
+		p.runMonthlyMetricsStep(ctx, vehicles)             // step 5, scoped
+	}
+
+	finish := clock.Now()
+	report.Duration = finish.Sub(start)
+	p.recordRun(ctx, run, report, start, finish)
+
+	return report, err
+}
+
+// vehiclesToProcess returns the distinct-by-TeslaID list of vehicles this
+// invocation processes, in the order AllRegisteredVehicles returns them.
+// filter is nil for a full nightly cycle (every registered vehicle); for a
+// subset cycle it is the caller-supplied tesla_id set, and a registered
+// vehicle whose TeslaID is not in filter is excluded. One shared helper,
+// called once per invocation by both ProcessVehicleData and
+// ProcessVehicleDataForVehicles, so a future change to the fetch or the
+// dedup rule can never apply to one cycle and not the other.
+func (p *processor) vehiclesToProcess(ctx context.Context, filter []int64) ([]account.OwnedVehicle, error) {
+	return distinctRegisteredVehicles(ctx, p.acct, filter)
+}
+
+// distinctRegisteredVehicles is vehiclesToProcess's underlying logic, kept
+// as a package-level function (rather than only a processor method) so
+// RetryScheduler — which holds its own account.Service instead of a
+// Processor — can reuse the exact same fetch-and-filter behavior instead of
+// a second implementation that could silently drift from this one.
+func distinctRegisteredVehicles(ctx context.Context, acct account.Service, filter []int64) ([]account.OwnedVehicle, error) {
+	vehicles, err := acct.AllRegisteredVehicles(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var want map[int64]bool
+	if filter != nil {
+		want = make(map[int64]bool, len(filter))
+		for _, id := range filter {
+			want[id] = true
+		}
+	}
+
+	distinct := make([]account.OwnedVehicle, 0, len(vehicles))
+	for _, v := range vehicles {
+		if want != nil && !want[v.TeslaID] {
+			continue
+		}
+		if slices.ContainsFunc(distinct, func(d account.OwnedVehicle) bool { return d.TeslaID == v.TeslaID }) {
+			continue
+		}
+		distinct = append(distinct, v)
+	}
+	return distinct, nil
 }
 
 // buildPollRun maps one measured ProcessVehicleData invocation onto the
@@ -149,11 +235,14 @@ func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, rep
 // from cmd/poller/main.go's newSessionMirrorer, which ran BEFORE reconciliation
 // inside the same post-cycle work.
 //
-// What it does: for each registered vehicle, read that vehicle's Supercharger
+// What it does: for each vehicle in vehicles, read that vehicle's Supercharger
 // sessions from internal/telemetry and mirror them into internal/charging's
 // supercharger_sessions, so charging owns a queryable record of how a vehicle was
 // charged — the window, the site, the energy, the cost — without any caller having
-// to compose two modules' ports.
+// to compose two modules' ports. vehicles is already the distinct-by-TeslaID list
+// the caller resolved via vehiclesToProcess — the full registered fleet for a
+// nightly cycle, or a caller-chosen subset for a scoped retry — so this function
+// itself never lists vehicles or dedupes them.
 //
 // The read is BOUNDED by a watermark, not a full sweep. charging owns a
 // mirror_watermarks row per vehicle holding the highest telemetry updated_at it has
@@ -190,27 +279,9 @@ func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, rep
 // run reads the same window. Log lines go through logging.Note and keep a
 // "session mirror" message topic so they stay greppable alongside the
 // reconciliation halves.
-func (p *processor) processChargingData(ctx context.Context) {
-	vehicles, err := p.acct.AllRegisteredVehicles(ctx)
-	if err != nil {
-		// Whole-cycle failure, mirroring the reconciler's enumeration-failure shape.
-		logging.Note("Processor", "processChargingData", "listing vehicles: %v", err)
-		return
-	}
-
-	// One pass per distinct tesla_id. The same car registered to two accounts
-	// appears twice in vehicles, and mirroring it twice would do the same upsert
-	// work for the same rows. Vehicle order is not significant: vehicles are
-	// independent and each pass is idempotent.
-	teslaIDs := make([]int64, 0, len(vehicles))
+func (p *processor) processChargingData(ctx context.Context, vehicles []account.OwnedVehicle) {
 	for _, v := range vehicles {
-		if slices.Contains(teslaIDs, v.TeslaID) {
-			continue
-		}
-		teslaIDs = append(teslaIDs, v.TeslaID)
-	}
-
-	for _, teslaID := range teslaIDs {
+		teslaID := v.TeslaID
 		// The watermark is the highest telemetry updated_at this vehicle's mirror
 		// has already copied. A zero time means "never mirrored", so the read
 		// below starts at the epoch and copies the whole history once.
@@ -310,48 +381,21 @@ func (p *processor) processChargingData(ctx context.Context) {
 // process, once per vehicle, right before doing the work — so a query line
 // that follows in the log can be traced back to the vehicle and half that
 // caused it, not just to the step as a whole.
-func (p *processor) recalculateAnalytics(ctx context.Context) {
-	// "Yesterday" is resolved in the POLLER'S OWN ZONE, not UTC (roadmap D6/D18,
-	// tier-3 design D-B12): this composition owns the zone that answers "which days
-	// am I asking about", while internal/analytics needs no *time.Location of its
-	// own because each row's bucket day travels with it. time.Now().UTC() here
-	// would ask for the wrong day for 5 hours out of every 24. The window ends
+func (p *processor) recalculateAnalytics(ctx context.Context, vehicles []account.OwnedVehicle) {
+	// "Yesterday" is resolved in the POLLER'S OWN ZONE, not UTC: this
+	// composition owns the zone that answers "which day am I asking about",
+	// while internal/analytics needs no *time.Location of its own because
+	// each row's bucket day travels with it. A UTC truncation here would ask
+	// for the wrong day for 5 hours out of every 24. The window ends
 	// yesterday because today's data is not captured until tomorrow's poll.
-	//
-	// clock.CalendarDay(clock.Now(), p.loc) replaces the hand-rolled
-	// "y, m, d := time.Now().In(p.loc).Date(); time.Date(y, m, d, 0, 0, 0, 0,
-	// time.UTC)" truncation — algebraically identical (RM35-app-adopt-clock design.md
-	// D-app-1) — while p.loc, the poller's own configured zone, is preserved
-	// unchanged: it is still what decides which calendar day "yesterday" is, exactly
-	// as roadmap D6/D18 and tier-3 design D-B12 require. clock.Now() is used for the
-	// instant rather than a bare time.Now() per ai/go-conventions.md's "never call
-	// raw time.Now() outside internal/clock"; the two are the same instant, so this
-	// is not a behavior change (design.md D-app-2).
 	end := clock.CalendarDay(clock.Now(), p.loc).AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -int(analytics.GapReconciliationWindow.Hours()/24)+1)
 
-	vehicles, err := p.acct.AllRegisteredVehicles(ctx)
-	if err != nil {
-		// Whole-cycle failure, mirroring ProcessVehicleData's own enumeration-failure
-		// shape.
-		logging.Note("Processor", "recalculateAnalytics", "gap reconciliation: listing vehicles: %v", err)
-		return
-	}
-
-	// One pass per distinct tesla_id. The same car registered to two accounts
-	// appears twice in vehicles, and both halves below are now keyed on the car
-	// alone, so a second pass would redo identical work on the same rows. The
-	// first entry for each car is kept as its representative: VIN is a property
-	// of the car, so it does not vary across the accounts that registered it.
-	distinct := make([]account.OwnedVehicle, 0, len(vehicles))
+	// vehicles is already the distinct-by-TeslaID list the caller resolved
+	// via vehiclesToProcess — both halves below are keyed on the car, not on
+	// the account that registered it, so this function itself never lists
+	// vehicles or dedupes them.
 	for _, v := range vehicles {
-		if slices.ContainsFunc(distinct, func(d account.OwnedVehicle) bool { return d.TeslaID == v.TeslaID }) {
-			continue
-		}
-		distinct = append(distinct, v)
-	}
-
-	for _, v := range distinct {
 		// Step 1 — advance vehicle_metrics before anything reads it. Reconcile
 		// derives its own affected window from its watermarks, so it takes no
 		// start/end from here: the [start, end] below is the gap step's trailing
@@ -411,23 +455,22 @@ func monthlyCapacityPeriod(now time.Time, loc *time.Location) (period time.Time,
 	return today.AddDate(0, -1, 0), true
 }
 
-// runMonthlyCapacityStep is the "monthly capacity" step (design.md D2, RM52 tier
-// 2). Reads the real clock (D1) and delegates the actual gate decision to
+// runMonthlyCapacityStep is the nightly, whole-fleet "monthly capacity" step.
+// Reads the real clock and delegates the gate decision to
 // monthlyCapacityPeriod, which is pure and fully unit-tested. This function's
-// own body -- the clock.Now()/clock.Zone() read plus the branch on run -- is
+// own body — the clock.Now()/clock.Zone() read plus the branch on run — is
 // deliberately NOT unit-tested, for the same accepted reason
 // recalculateAnalytics's own "yesterday" line is not: it reads the real wall
-// clock directly, with no injectable seam, exactly like every other line in
-// this file that calls clock.Now() (Context fact 11).
+// clock directly, with no injectable seam.
 //
 // It also compares p.loc (the poller's own configurable POLLER_TIMEZONE) with
 // clock.Zone() (the platform's fixed default) and logs one warning when they
-// name different zones (task 2.4). This is a diagnostic only: the gate always
-// follows clock.Zone(), per RD7 and D1 -- this check never changes that, never
-// fails the step, and never skips it. It exists so a silent divergence (the
-// cycle firing on a moment that is the 1st in p.loc but a different day in
-// clock.Zone(), or the reverse) becomes a visible log line instead of an
-// unnoticed skipped month.
+// name different zones. This is a diagnostic only: the gate always follows
+// clock.Zone() — this check never changes that, never fails the step, and
+// never skips it. It exists so a silent divergence (the cycle firing on a
+// moment that is the 1st in p.loc but a different day in clock.Zone(), or
+// the reverse) becomes a visible log line instead of an unnoticed skipped
+// month.
 func (p *processor) runMonthlyCapacityStep(ctx context.Context) {
 	zone := clock.Zone()
 	if p.loc.String() != zone.String() {
@@ -438,24 +481,51 @@ func (p *processor) runMonthlyCapacityStep(ctx context.Context) {
 	if !run {
 		return
 	}
-	p.callMonthlyCapacityCalculator(ctx, period)
+	p.callMonthlyCapacityCalculator(ctx, period, nil)
 }
 
-// callMonthlyCapacityCalculator calls the tier-1 port for one period and logs
-// the outcome. Split out from runMonthlyCapacityStep so this half -- the part
-// that actually calls the calculator and decides what to log -- is testable
-// with a fake and a fixed period, with no clock involved (design.md D2).
-// Errors are logged, never fatal: the same "errors are logged, isolated"
-// pattern processChargingData and recalculateAnalytics already use -- a missed
-// month self-heals next month, and RD9's manual tool covers backfill.
-func (p *processor) callMonthlyCapacityCalculator(ctx context.Context, period time.Time) {
-	report, err := p.monthlyCapacityCalculator.Calculate(ctx, period, nil)
+// runMonthlyCapacityStepForVehicles is the subset-scoped sibling of
+// runMonthlyCapacityStep, for a retry cycle: same clock read, same
+// monthlyCapacityPeriod gate, but when it fires it measures once per id in
+// teslaIDs instead of once for the whole fleet. Reads the real clock with no
+// injectable seam, so it is deliberately NOT unit-tested directly, for the
+// same accepted reason as runMonthlyCapacityStep — see
+// callMonthlyCapacityCalculatorForVehicles for the testable half.
+func (p *processor) runMonthlyCapacityStepForVehicles(ctx context.Context, teslaIDs []int64) {
+	period, run := monthlyCapacityPeriod(clock.Now(), clock.Zone())
+	if !run {
+		return
+	}
+	p.callMonthlyCapacityCalculatorForVehicles(ctx, period, teslaIDs)
+}
+
+// callMonthlyCapacityCalculator calls the port for one period and one
+// vehicle (or, when teslaID is nil, the whole fleet) and logs the outcome.
+// Split out from runMonthlyCapacityStep so this half — the part that
+// actually calls the calculator and decides what to log — is testable with a
+// fake and a fixed period, with no clock involved. Errors are logged, never
+// fatal: the same "errors are logged, isolated" pattern processChargingData
+// and recalculateAnalytics already use — a missed month self-heals next
+// month.
+func (p *processor) callMonthlyCapacityCalculator(ctx context.Context, period time.Time, teslaID *int64) {
+	report, err := p.monthlyCapacityCalculator.Calculate(ctx, period, teslaID)
 	if err != nil {
 		logging.Note("Processor", "callMonthlyCapacityCalculator", "monthly capacity: period %s: %v", period.Format("2006-01"), err)
 		return
 	}
 	logging.Note("Processor", "callMonthlyCapacityCalculator", "monthly capacity: period %s: %d vehicle(s) found, %d measured, %d thin",
 		period.Format("2006-01"), report.VehiclesFound, report.Measured, report.Thin)
+}
+
+// callMonthlyCapacityCalculatorForVehicles calls callMonthlyCapacityCalculator
+// once per id in teslaIDs, all for the same period. Split out from
+// runMonthlyCapacityStepForVehicles so this half is testable with a fake and
+// a fixed period, with no clock read involved — mirrors
+// callMonthlyCapacityCalculator's own split from runMonthlyCapacityStep.
+func (p *processor) callMonthlyCapacityCalculatorForVehicles(ctx context.Context, period time.Time, teslaIDs []int64) {
+	for _, id := range teslaIDs {
+		p.callMonthlyCapacityCalculator(ctx, period, &id)
+	}
 }
 
 // monthlyMetricsPeriods returns the first instant of the current calendar
@@ -472,31 +542,18 @@ func monthlyMetricsPeriods(now time.Time, loc *time.Location) (current, previous
 
 // runMonthlyMetricsStep is the "sync monthly metrics" step. It reads the
 // real clock, delegates the two-period decision to monthlyMetricsPeriods
-// (pure, fully unit-tested), then enumerates registered vehicles the same
-// way processChargingData and recalculateAnalytics already do —
-// deduplicated by TeslaID, since the use case is keyed on the car, not the
-// account. For each vehicle it calls the use case twice: current month,
-// then previous month.
-func (p *processor) runMonthlyMetricsStep(ctx context.Context) {
+// (pure, fully unit-tested), then calls the use case twice — current month,
+// then previous month — for each vehicle in vehicles, the distinct-by-
+// TeslaID list the caller resolved via vehiclesToProcess. Unlike
+// monthlyCapacityPeriod, this has no "should I run" gate: this step runs
+// every invocation, so the only question is which two months, never whether
+// to sync at all.
+func (p *processor) runMonthlyMetricsStep(ctx context.Context, vehicles []account.OwnedVehicle) {
 	current, previous := monthlyMetricsPeriods(clock.Now(), clock.Zone())
 
-	vehicles, err := p.acct.AllRegisteredVehicles(ctx)
-	if err != nil {
-		logging.Note("Processor", "runMonthlyMetricsStep", "listing vehicles: %v", err)
-		return
-	}
-
-	teslaIDs := make([]int64, 0, len(vehicles))
 	for _, v := range vehicles {
-		if slices.Contains(teslaIDs, v.TeslaID) {
-			continue
-		}
-		teslaIDs = append(teslaIDs, v.TeslaID)
-	}
-
-	for _, teslaID := range teslaIDs {
-		p.callMonthlySyncer(ctx, teslaID, current)
-		p.callMonthlySyncer(ctx, teslaID, previous)
+		p.callMonthlySyncer(ctx, v.TeslaID, current)
+		p.callMonthlySyncer(ctx, v.TeslaID, previous)
 	}
 }
 

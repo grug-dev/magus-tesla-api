@@ -267,6 +267,63 @@ func (q *Queries) LatestVehicleMetricsByVehicles(ctx context.Context, teslaIds [
 	return items, nil
 }
 
+const unfinishedVehicleIDsForDate = `-- name: UnfinishedVehicleIDsForDate :many
+SELECT DISTINCT t.tesla_id::bigint
+FROM unnest($1::bigint[]) AS t(tesla_id)
+WHERE NOT EXISTS (
+    SELECT 1 FROM analytics.vehicle_metrics vm
+    WHERE vm.tesla_id = t.tesla_id AND vm.metric_date = $2
+)
+ORDER BY t.tesla_id
+`
+
+type UnfinishedVehicleIDsForDateParams struct {
+	TeslaIds   []int64
+	MetricDate pgtype.Date
+}
+
+// Backs UnfinishedReader.UnfinishedForDate -- the nightly poller's periodic
+// retry check, not a page load. unnest turns the caller-supplied id array
+// into a row set Postgres can drive a NOT EXISTS probe from directly, one
+// existence check per candidate id, in a single round trip regardless of how
+// many ids the caller passes -- never a per-vehicle loop calling this query
+// once per id (ai/go-conventions.md's read-optimization rule: batch reads at
+// the module interface level).
+// DISTINCT on the outer query dedups a repeated input id: unnest preserves
+// every element of the input array, including a repeat, so without DISTINCT
+// a duplicated unfinished id would appear twice in the result.
+// ORDER BY gives a stable, deterministic result: it feeds a second poller
+// call and test assertions, so a fixed order removes a class of flaky-test
+// and non-reproducible-log risk for the cost of one ORDER BY on an
+// already-small result set (bounded by the platform's total registered-
+// vehicle count).
+// Served by vehicle_metrics_tesla_date_unique (tesla_id, metric_date): an
+// equality lookup on both columns of a two-column unique index is the
+// cheapest probe that index supports, one B-tree descent per candidate id --
+// no separate CREATE INDEX.
+// The ::bigint cast on the projected column is for sqlc, not Postgres: a
+// column coming from unnest() has no catalog type sqlc can read, so without
+// the cast it generates []interface{} instead of []int64.
+func (q *Queries) UnfinishedVehicleIDsForDate(ctx context.Context, arg UnfinishedVehicleIDsForDateParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, unfinishedVehicleIDsForDate, arg.TeslaIds, arg.MetricDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var t_tesla_id int64
+		if err := rows.Scan(&t_tesla_id); err != nil {
+			return nil, err
+		}
+		items = append(items, t_tesla_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertChargeGap = `-- name: UpsertChargeGap :exec
 INSERT INTO analytics.charge_gaps (
     tesla_id, vin, gap_date, missing_charging_type

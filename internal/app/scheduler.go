@@ -91,3 +91,51 @@ func nextRun(now time.Time, hour, minute int, loc *time.Location) time.Time {
 	}
 	return candidate
 }
+
+// retryInterval and retryWindowStartHour define RetryScheduler's own daily
+// window (retry_scheduler.go): a tick every retryInterval, starting at
+// retryWindowStartHour:00 and stopping at the last tick before midnight.
+// nextRetryTick's own test picks this file so it sits next to nextRun's,
+// which it mirrors closely.
+const (
+	retryInterval        = 30 * time.Minute
+	retryWindowStartHour = 4 // 04:00 — 30 minutes after the default nightly
+	// hour, so the nightly run has room to start before the first retry tick
+	// could ever fire.
+)
+
+// nextRetryTick returns the next retry tick strictly after now, on a
+// retryInterval cadence anchored to retryWindowStartHour:00, computed in loc.
+// Pure (no clock, no sleeping), the same contract as nextRun. A now before
+// the window start rolls forward to today's window start. Once today's last
+// in-window tick (the one at or after which no further tick fits before
+// midnight) is reached or passed, the next tick is tomorrow's window
+// start — the window never produces a tick between midnight and
+// retryWindowStartHour:00.
+func nextRetryTick(now time.Time, loc *time.Location) time.Time {
+	now = now.In(loc)
+	windowStart := time.Date(now.Year(), now.Month(), now.Day(), retryWindowStartHour, 0, 0, 0, loc)
+	tomorrowWindowStart := time.Date(now.Year(), now.Month(), now.Day()+1, retryWindowStartHour, 0, 0, 0, loc)
+
+	if now.Before(windowStart) {
+		return windowStart
+	}
+
+	// midnight is the boundary after which no more ticks fire until
+	// tomorrow's window start, even though windowStart+N*retryInterval would
+	// otherwise keep producing them straight through the night. Derived from
+	// tomorrowWindowStart by subtracting the window's own start hour, rather
+	// than a second time.Date call, so there is only one "construct a moment
+	// in loc" site in this function.
+	midnight := tomorrowWindowStart.Add(-time.Duration(retryWindowStartHour) * time.Hour)
+	// ticksPassed is a plain count, not a Duration — dividing two Durations
+	// already cancels their unit, so multiplying the result back by
+	// retryInterval below is ordinary "N intervals", not a Duration-times-
+	// Duration mistake.
+	ticksPassed := int64(now.Sub(windowStart) / retryInterval)
+	candidate := windowStart.Add(time.Duration(ticksPassed+1) * retryInterval)
+	if !candidate.Before(midnight) {
+		return tomorrowWindowStart
+	}
+	return candidate
+}

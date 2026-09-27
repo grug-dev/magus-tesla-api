@@ -72,7 +72,7 @@ them there.** They are deliberately not copied here.
 
 | Port | What it is for | Constructor |
 |---|---|---|
-| `Collector` | `CollectAll` — run one collection cycle over every registered vehicle, all accounts | — |
+| `Collector` | `CollectAll` — run one collection cycle over every registered vehicle, all accounts. `CollectVehicles` — run the same cycle scoped to a caller-supplied set of `tesla_id`s (a not-registered id is silently skipped; an empty set is a no-op) | — |
 | `Reader` | Four snapshot reads: latest-per-vehicle, since, between, and the single preceding day | `NewReader(pool)` |
 | `SuperchargerHistoryReader` | Three reads over `supercharger_history`, all per-vehicle | `NewSuperchargerHistoryReader(pool)` |
 | `RunWriter` | `RecordRun` — one `poll_runs` row per cycle | — |
@@ -93,6 +93,14 @@ What the source does not tell you:
   `internal/app`, with their four tests. `LogCycle` / `formatFailures` stayed (`report.go`),
   and `LogCycle` remains exported because its caller is now `internal/app`'s `Scheduler.Run`.
 - **Every caller depends on the interface, never on `telemetrydb`.**
+- **`collectAccount` takes two vehicle-list parameters, `toCollect` and
+  `chargingScope`, and they can differ.** `toCollect` is who gets a snapshot
+  fetched this call; `chargingScope` is who the Supercharger VIN map is built
+  from. `CollectAll` passes the same slice for both. `CollectVehicles` passes
+  the narrower retry set as `toCollect` but the account's FULL vehicle list as
+  `chargingScope` — do not "simplify" this back into one parameter, or a
+  Supercharger session for the account's other, not-retried car would wrongly
+  count as unregistered.
 
 No HTTP/JSON surface in this module (`ai/architecture.md` §3).
 ## Allowed / forbidden imports

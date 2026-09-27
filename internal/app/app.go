@@ -60,6 +60,19 @@ type Processor interface {
 	// unchanged: this module owns no report type, so a caller reads one shape
 	// whichever adapter triggered the cycle.
 	ProcessVehicleData(ctx context.Context, triggeredBy telemetry.TriggeredBy) (telemetry.CycleReport, error)
+
+	// ProcessVehicleDataForVehicles runs the same five-step cycle as
+	// ProcessVehicleData, scoped to teslaIDs instead of every registered
+	// vehicle: step 1 goes through telemetry.Collector.CollectVehicles, steps
+	// 2/3/5 process only the vehicles in teslaIDs, and step 4 (when its own
+	// monthly gate fires) runs once per vehicle in teslaIDs instead of once
+	// for the whole fleet. It takes triggeredBy generically, the same as
+	// ProcessVehicleData — it does not require or inspect
+	// telemetry.TriggeredByRetry itself; a caller such as the retry schedule
+	// is expected to pass that value, but any TriggeredBy works. recordRun
+	// still runs on every exit path, with run.TriggeredBy set to whatever the
+	// caller passed in.
+	ProcessVehicleDataForVehicles(ctx context.Context, triggeredBy telemetry.TriggeredBy, teslaIDs []int64) (telemetry.CycleReport, error)
 }
 
 // NewProcessor builds a Processor from its collaborators' PUBLIC PORTS only — every

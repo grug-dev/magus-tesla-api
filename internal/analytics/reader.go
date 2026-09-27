@@ -27,6 +27,10 @@ type vehicleMetricsStore interface {
 	// Queries satisfies it automatically, no adapter needed, mirroring this
 	// interface's other methods.
 	VehicleMetricsBatteryByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsBatteryByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsBatteryByVehicleBetweenRow, error)
+	// UnfinishedVehicleIDsForDate backs UnfinishedReader.UnfinishedForDate.
+	// *analyticsdb.Queries satisfies it automatically, no adapter needed,
+	// mirroring this interface's other methods.
+	UnfinishedVehicleIDsForDate(ctx context.Context, arg analyticsdb.UnfinishedVehicleIDsForDateParams) ([]int64, error)
 }
 
 type reader struct {
@@ -35,6 +39,10 @@ type reader struct {
 
 // Compile-time assertion: *reader must satisfy the public Reader interface.
 var _ Reader = (*reader)(nil)
+
+// Compile-time assertion: *reader must also satisfy UnfinishedReader -- the
+// same underlying type backs both ports (analytics.go).
+var _ UnfinishedReader = (*reader)(nil)
 
 // NewReader constructs a Reader over the module's own database pool. Every
 // method on the returned Reader reads exclusively from vehicle_metrics,
@@ -182,4 +190,25 @@ func (r *reader) LatestMetricsForVehicles(ctx context.Context, refs []vehicleref
 		})
 	}
 	return out, nil
+}
+
+// UnfinishedForDate implements UnfinishedReader. See the interface doc
+// comment (analytics.go) for the full contract. An empty teslaIDs
+// short-circuits before ever calling the store, so the empty-input case is
+// provable offline against a fake that fails if it is ever called.
+func (r *reader) UnfinishedForDate(ctx context.Context, teslaIDs []int64, date time.Time) ([]int64, error) {
+	if len(teslaIDs) == 0 {
+		return []int64{}, nil
+	}
+	ids, err := r.metrics.UnfinishedVehicleIDsForDate(ctx, analyticsdb.UnfinishedVehicleIDsForDateParams{
+		TeslaIds:   teslaIDs,
+		MetricDate: dateFrom(date),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if ids == nil {
+		ids = []int64{}
+	}
+	return ids, nil
 }

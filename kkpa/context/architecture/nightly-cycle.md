@@ -15,10 +15,11 @@
 
 | File | Role |
 |---|---|
-| `internal/app/app.go` | `Processor` port + `NewProcessor` — eleven **public ports** plus a `*time.Location`. There is no `*pgxpool.Pool` parameter and there must never be one. |
-| `internal/app/processor.go` | The five steps: `ProcessVehicleData` (step 1 + the short-circuit), `processChargingData` (step 2), `recalculateAnalytics` (step 3), `runMonthlyCapacityStep` / `callMonthlyCapacityCalculator` / `monthlyCapacityPeriod` (step 4), `runMonthlyMetricsStep` / `callMonthlySyncer` / `monthlyMetricsPeriods` (step 5). **Change the cycle here.** |
-| `internal/app/scheduler.go` | `Scheduler`/`NewScheduler`/`Run` + pure `nextRun` — the daily driving adapter that CALLS `Processor` from the outside; it is NOT inside it. |
-| `cmd/poller/main.go` | Composition root: constructs every port and injects it. Thin — zero business logic. |
+| `internal/app/app.go` | `Processor` port + `NewProcessor` — eleven **public ports** plus a `*time.Location`. There is no `*pgxpool.Pool` parameter and there must never be one. `Processor` also declares `ProcessVehicleDataForVehicles`, the vehicle-scoped sibling of `ProcessVehicleData`. |
+| `internal/app/processor.go` | The five steps: `ProcessVehicleData` (step 1 + the short-circuit), `processChargingData` (step 2), `recalculateAnalytics` (step 3), `runMonthlyCapacityStep` / `callMonthlyCapacityCalculator` / `monthlyCapacityPeriod` (step 4), `runMonthlyMetricsStep` / `callMonthlySyncer` / `monthlyMetricsPeriods` (step 5). **Change the cycle here.** Also `ProcessVehicleDataForVehicles`, the scoped sibling, and `vehiclesToProcess`, the fetch-and-dedup helper both cycles share. |
+| `internal/app/scheduler.go` | `Scheduler`/`NewScheduler`/`Run` + pure `nextRun` — the daily driving adapter that CALLS `Processor` from the outside; it is NOT inside it. Also `nextRetryTick`, the pure tick-math `RetryScheduler` uses. |
+| `internal/app/retry_scheduler.go` | `NotDoneVehicles` (the consumer-side interface `app` declares for "which vehicles still lack yesterday's metrics"), `RetryScheduler`/`NewRetryScheduler`/`Run` — a second, independent driving adapter, ticking every 30 minutes from 04:00, that calls `ProcessVehicleDataForVehicles` only when `NotDoneVehicles.NotDone` returns a non-empty set. |
+| `cmd/poller/main.go` | Composition root: constructs every port and injects it, including `RetryScheduler` and its `NotDoneVehicles` adapter. Thin — zero business logic. |
 
 ### Step 1 — sync fleet data (`internal/telemetry`, the only writer of fleet data)
 
@@ -94,7 +95,7 @@ night self-heals the next night. Built by `RM67-charging-add-monthly-capacity-re
 | `app` | `analytics.GapWriter` | `analytics` | `ReconcileWindow` |
 | `app` | `charging.MonthlyCapacityCalculator` | `charging` | `Calculate` — step 4 only, once a month. Also called directly by `cmd/monthly-capacity`, on demand, bypassing `internal/app` entirely. |
 | `app` | `analytics.MonthlySyncer` | `analytics` | `SyncMonth` — step 5, every night, called twice per distinct vehicle (current month, then previous month) |
-| `app` | `account.Service` | `account` | `AllRegisteredVehicles` (×3 — steps 2, 3 and 5; step 4 passes `teslaID = nil` instead) |
+| `app` | `account.Service` | `account` | `AllRegisteredVehicles` (×1 per invocation, through `vehiclesToProcess`; steps 2, 3 and 5 all read that one result — step 4 passes `teslaID = nil` instead and never calls this port) |
 | `telemetry` | `account.Service` | `account` | `AllRegisteredVehicles`, `AccessTokenFor`, `SetVehicleConfigIfEmpty` |
 | `telemetry` | `tesla.VehicleService` | `tesla` | `ListVehicles`, `WakeUp`, `VehicleData`, `ChargingHistory` |
 | `analytics` | `telemetry.Reader` | `telemetry` | `SnapshotsByVehicleUpdatedSince`, `SnapshotsByVehicleBetween`, `SnapshotPrecedingDay` — **unchanged by RM31** |
@@ -132,6 +133,8 @@ night self-heals the next night. Built by `RM67-charging-add-monthly-capacity-re
 - **Change what the cycle measures:** `start`/`finish` are read in `ProcessVehicleData` via `internal/clock`, bracketing all five steps. Anything that needs its own timing is a separate measurement, not a widening of these two.
 - **Step 4 is the first step that does not run every night.** It gates on `monthlyCapacityPeriod`, which returns `run = false` on every day but the first of the month. Change the gate itself in `internal/app/processor.go`'s `monthlyCapacityPeriod` — it is pure and fully unit-tested (`monthly_capacity_step_test.go`).
 - **Step 5 runs every night, with no gate at all — unlike step 4.** Change which two months it syncs in `internal/app/processor.go`'s `monthlyMetricsPeriods` — it is pure and fully unit-tested (`monthly_metrics_step_test.go`). It has no `run bool` return, because there is nothing to gate: the only question is which two months, never whether to sync.
+- **`vehiclesToProcess` is the one place both cycles fetch and dedup vehicles.** `ProcessVehicleData` calls it once with a nil filter (every registered vehicle); `ProcessVehicleDataForVehicles` calls it once with the caller's `tesla_id` set. Steps 2, 3 and 5 receive the already-resolved list as a parameter — they no longer call `account.Service` themselves. Change the fetch or the dedup rule here, once, and both cycles pick it up.
+- **A second, independent schedule can re-run the cycle for a vehicle subset.** `RetryScheduler` (`retry_scheduler.go`) ticks every 30 minutes from 04:00 to the end of the local day, asks `NotDoneVehicles.NotDone` which registered vehicles still have no `vehicle_metrics` row for yesterday, and calls `ProcessVehicleDataForVehicles` only when that set is non-empty — the same steps as the nightly cycle, scoped to those vehicles. `NotDoneVehicles` is declared in `internal/app` (a consumer-side interface, `ai/architecture.md`'s own pattern for a need that does not fit the provider's existing port); `cmd/poller`'s composition root wires in whatever `internal/analytics` type satisfies it.
 
 ## Conventions & gotchas
 
@@ -285,6 +288,17 @@ night self-heals the next night. Built by `RM67-charging-add-monthly-capacity-re
   never returns a line the wrong module emitted.
   _Source: spec analytics — Requirement: The Nightly Manual-Entry Read Is Logged By Its
   Caller._
+
+- **The retry window is fixed: every 30 minutes from 04:00 until the end of the local day, in the poller's time zone.** The last tick is 23:30. After midnight the next nightly run takes over. Interval and start hour are constants, not env vars.
+  _Source: spec app — Requirement: A Periodic Retry Schedule Runs Every 30 Minutes From 04:00 Until The End Of The Local Day._
+- **"Done" means a `vehicle_metrics` row exists for yesterday.** Every registered vehicle without one is retried, whatever the reason it failed (offline car, Tesla error, bad token, DB error in a later step). A bad-token car is retried all day at no Tesla cost.
+  _Source: spec app — Requirement: A Retry Tick Processes Only Vehicles Not Yet Done For The Previous Day._
+- **A tick that finds no unfinished vehicle calls nothing and writes nothing** — no `poll_runs` row. A normal day adds no rows and makes no Fleet API calls from the retry.
+  _Source: spec app — Requirement: A Retry Tick Processes Only Vehicles Not Yet Done For The Previous Day._
+- **A retry never overlaps another cycle.** It takes the same `guardedProcessor` lock as the nightly run and the manual rerun. A busy lock skips that tick; the next one follows 30 minutes later.
+  _Source: spec app — Requirement: A Retry Tick Never Overlaps Another Vehicle-Data Cycle._
+- **The subset cycle runs all five steps, each limited to the given vehicles, and records one `poll_runs` row with `triggered_by = retry`.** Each retried offline car pays a WakeUp every tick: at most about 40 per car per day.
+  _Source: spec process-vehicle-data — Requirements: Processing A Vehicle-Data Cycle For A Specified Vehicle Subset; A Vehicle-Data Cycle May Be Triggered By A Periodic Retry._
 
 ## Rendered view (visual map)
 

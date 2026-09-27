@@ -1,0 +1,320 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM69-analytics-add-unfinished-for-date",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM69-nightly-retry-unfinished-vehicles.md",
+  "request": "MAG-98 — tier 3: analytics read method UnfinishedForDate(teslaIDs []int64, date) for the retry done check.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4a",
+      "T4b",
+      "T5",
+      "T6",
+      "T7"
+    ]
+  },
+  "created_at": "2026-09-27T15:00:12Z",
+  "updated_at": "2026-09-27T15:15:44Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM69-MAG-98-nightly-retry-unfinished-vehicles",
+    "base": "main",
+    "ticket": "MAG-98",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-98/nightly-job",
+    "created_at": "2026-09-27T14:11:06Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "New query",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T15:00:12Z",
+      "completed_at": "2026-09-27T15:10:49Z",
+      "duration_seconds": null,
+      "notes": "UnfinishedVehicleIDsForDate query; ::bigint cast so sqlc emits []int64.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "co-ran with app wave 1; cost measured jointly at tier level"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Codegen",
+      "module": "analytics",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T15:00:12Z",
+      "completed_at": "2026-09-27T15:10:49Z",
+      "duration_seconds": null,
+      "notes": "make sqlc regenerated; shapes match design.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "co-ran with app wave 1; cost measured jointly at tier level"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Port, store seam, implementation, logging",
+      "module": "analytics",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T15:00:12Z",
+      "completed_at": "2026-09-27T15:10:49Z",
+      "duration_seconds": null,
+      "notes": "New UnfinishedReader port + NewUnfinishedReader(pool); logging decorator.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "co-ran with app wave 1; cost measured jointly at tier level"
+      }
+    },
+    {
+      "id": "T4a",
+      "title": "Offline test",
+      "module": "analytics",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T15:00:12Z",
+      "completed_at": "2026-09-27T15:10:49Z",
+      "duration_seconds": null,
+      "notes": "Empty-input test: fake store panics if called.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "co-ran with app wave 1; cost measured jointly at tier level"
+      }
+    },
+    {
+      "id": "T4b",
+      "title": "DB integration tests",
+      "module": "analytics",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T15:00:12Z",
+      "completed_at": "2026-09-27T15:10:49Z",
+      "duration_seconds": null,
+      "notes": "DB integration test for the 4 fixture cases; ran, no SKIP.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "co-ran with app wave 1; cost measured jointly at tier level"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "Cross-module fake stubs (leader-owned)",
+      "module": "analytics",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T15:00:12Z",
+      "completed_at": "2026-09-27T15:10:49Z",
+      "duration_seconds": null,
+      "notes": "Not needed after the D1 amendment (Reader not widened).",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "co-ran with app wave 1; cost measured jointly at tier level"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Documentation",
+      "module": "analytics",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T15:00:12Z",
+      "completed_at": "2026-09-27T15:10:49Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md port table + vehicle-metrics KB guide.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "co-ran with app wave 1; cost measured jointly at tier level"
+      }
+    },
+    {
+      "id": "T7",
+      "title": "Verification",
+      "module": "analytics",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4a",
+        "T4b",
+        "T5",
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-27T15:00:12Z",
+      "completed_at": "2026-09-27T15:10:49Z",
+      "duration_seconds": null,
+      "notes": "analytics build/vet/lint/guards green; repo-wide red only from in-flight app wave.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "co-ran with app wave 1; cost measured jointly at tier level"
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "analytics-reviewer",
+    "brief": "Boundary (analytics + KB guide only); D1 amendment (UnfinishedReader, not Reader); SQL shape (unnest+NOT EXISTS, DISTINCT, ascending, pgtype.Date, existing unique index, no migration); empty-input no-query contract; test values authored up front in design.md; comments carry no design.md/decision/ticket IDs; docs (AGENTS.md, KB guide) updated; anti-gaming on tasks.md T5.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-27T16:00:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/analytics/db_unfinished_integration_test.go:91,100,109,118 -- t.Run names \"TR-2 ...\"/\"TR-3 ...\"/\"TR-4 ...\"/\"TR-5 ...\" bake in design.md's own test-reference labels. The leader's cleanup event removed design.md/TR-N pointers from comments but missed these because they are t.Run() string literals, not // comments. Once design.md is read-only, \"TR-2\" means nothing to someone reading go test -v output. Not blocking -- rename to a descriptive subtest name (e.g. \"some done some not\", already present as suffix text) with no code-behavior change.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-27T15:00:12Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Override design D1: UnfinishedForDate goes on a new narrow interface (UnfinishedReader), not on Reader. T5 (4 cross-module fake stubs) becomes unnecessary.",
+      "why": "Widening Reader breaks 3 gateway fakes for a method only the poller calls; narrow ports (Recalculator, MonthlySyncer) are the module's pattern.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-27T15:00:12Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "One serial Sonnet worker for all tasks, parallel to the app wave-1 worker.",
+      "why": "Disjoint files: internal/analytics vs internal/app.",
+      "covered_by": "roadmap D12"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-27T15:00:12Z",
+      "agent": "leader",
+      "event": "artifacts validated --strict; design D1 amended by leader; dispatched analytics worker (sonnet) for T1-T7"
+    },
+    {
+      "at": "2026-09-27T15:10:49Z",
+      "agent": "leader",
+      "event": "leader removed design.md/TR-N pointers from new test comments"
+    },
+    {
+      "at": "2026-09-27T15:10:49Z",
+      "agent": "leader",
+      "event": "go test ./internal/analytics/... PASS (assistant-run, owner session delegation); new tests ran -v, no SKIP"
+    },
+    {
+      "at": "2026-09-27T15:20:00Z",
+      "agent": "leader",
+      "event": "F1 fixed: TR-N removed from t.Run subtest names; analytics Unfinished tests re-run PASS"
+    },
+    {
+      "at": "2026-09-27T15:15:44Z",
+      "agent": "leader",
+      "event": "archived to openspec/changes/archive/analytics/"
+    }
+  ]
+}
