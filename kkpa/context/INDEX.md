@@ -203,6 +203,9 @@
 | `nightly collection` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly poll` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly batch` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
+| `nightly retry` (`app.RetryScheduler`: every 30 min 04:00–end of day, re-runs the cycle for vehicles with no `vehicle_metrics` row for yesterday) | `architecture/nightly-cycle.md` |
+| `retry unfinished vehicles` | synonym of `nightly retry` → `architecture/nightly-cycle.md` |
+| `RetryScheduler` | synonym of `nightly retry` → `architecture/nightly-cycle.md` |
 | `monthly capacity step` | synonym of the nightly cycle's step 4 → `architecture/nightly-cycle.md` |
 | `step 4` | the nightly cycle's monthly-capacity step → `architecture/nightly-cycle.md` |
 | `monthly metrics step` | synonym of the nightly cycle's step 5 → `architecture/nightly-cycle.md` |

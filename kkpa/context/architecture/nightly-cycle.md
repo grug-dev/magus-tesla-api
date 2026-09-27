@@ -289,6 +289,17 @@ night self-heals the next night. Built by `RM67-charging-add-monthly-capacity-re
   _Source: spec analytics — Requirement: The Nightly Manual-Entry Read Is Logged By Its
   Caller._
 
+- **The retry window is fixed: every 30 minutes from 04:00 until the end of the local day, in the poller's time zone.** The last tick is 23:30. After midnight the next nightly run takes over. Interval and start hour are constants, not env vars.
+  _Source: spec app — Requirement: A Periodic Retry Schedule Runs Every 30 Minutes From 04:00 Until The End Of The Local Day._
+- **"Done" means a `vehicle_metrics` row exists for yesterday.** Every registered vehicle without one is retried, whatever the reason it failed (offline car, Tesla error, bad token, DB error in a later step). A bad-token car is retried all day at no Tesla cost.
+  _Source: spec app — Requirement: A Retry Tick Processes Only Vehicles Not Yet Done For The Previous Day._
+- **A tick that finds no unfinished vehicle calls nothing and writes nothing** — no `poll_runs` row. A normal day adds no rows and makes no Fleet API calls from the retry.
+  _Source: spec app — Requirement: A Retry Tick Processes Only Vehicles Not Yet Done For The Previous Day._
+- **A retry never overlaps another cycle.** It takes the same `guardedProcessor` lock as the nightly run and the manual rerun. A busy lock skips that tick; the next one follows 30 minutes later.
+  _Source: spec app — Requirement: A Retry Tick Never Overlaps Another Vehicle-Data Cycle._
+- **The subset cycle runs all five steps, each limited to the given vehicles, and records one `poll_runs` row with `triggered_by = retry`.** Each retried offline car pays a WakeUp every tick: at most about 40 per car per day.
+  _Source: spec process-vehicle-data — Requirements: Processing A Vehicle-Data Cycle For A Specified Vehicle Subset; A Vehicle-Data Cycle May Be Triggered By A Periodic Retry._
+
 ## Rendered view (visual map)
 
 Three local diagrams live under `kkpa/docs/diagrams/nightly-job/`, each an interactive HTML file:
