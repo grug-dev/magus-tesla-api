@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM69-telemetry-add-collect-for-vehicles",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/RM69-nightly-retry-unfinished-vehicles.md",
+  "request": "MAG-98 — Nightly Job: retry every 30 min the vehicles the nightly job could not fully process, only for those tesla_ids. Tier 1: telemetry collects a given car list.",
+  "status": "proposed",
+  "rollup": { "current": [], "pending": ["T0", "T1", "T2", "T3", "T4", "T5"], "blocked": [], "done": [] },
+  "created_at": "2026-09-27T14:25:00Z",
+  "updated_at": "2026-09-27T14:25:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM69-MAG-98-nightly-retry-unfinished-vehicles",
+    "base": "main",
+    "ticket": "MAG-98",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-98/nightly-job",
+    "created_at": "2026-09-27T14:11:06Z"
+  },
+  "tasks": [
+    { "id": "T0", "title": "Offline tests for CollectVehicles (write first, from design.md)", "module": "telemetry", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T1", "title": "Port method, constant, collectAccount signature", "module": "telemetry", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T2", "title": "CollectVehicles implementation", "module": "telemetry", "depends_on": ["T0", "T1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T3", "title": "Database-backed integration tests", "module": "telemetry", "depends_on": ["T2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4", "title": "Docs", "module": "telemetry", "depends_on": ["T1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T5", "title": "Final verification", "module": "telemetry", "depends_on": ["T0", "T1", "T2", "T3", "T4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    { "id": "D1", "at": "2026-09-27T14:25:00Z", "scope": "change", "made_by": "user", "decision": "Design approved after the Spanish briefing; autopilot ON for the whole roadmap.", "why": "User answered 'yes and work on autopilot mode ON'. Overrides the pickup payload's halt-after-Step-4.", "covered_by": null }
+  ],
+  "events": [
+    { "at": "2026-09-27T14:25:00Z", "agent": "leader", "event": "artifacts validated (openspec --strict); no gated design area touched; user approved briefing" }
+  ]
+}
