@@ -105,5 +105,6 @@ Helpers: `make db-url` prints the derived DSN / DB name (sanity check, no change
 |---|---|
 | `make up` | **The web server** — generate + migrate + build + run (`cmd/web`). |
 | `make cmd-setup` | One-shot Tesla OAuth token capture (`cmd/setup`). |
+| `make cmd-poller` | **The poller, scheduled mode** — runs until Ctrl-C (`cmd/poller`). Nightly cycle at 03:30, plus a retry every 30 min until end of day for vehicles with no `vehicle_metrics` row for yesterday. The first retry can wake cars within 30 min — real API calls. |
 | `make cmd-poller-once` | Run one telemetry collection cycle and exit (`cmd/poller --once`). May wake cars — real API calls. |
 | `make cmd-explore-tesla` | Explore raw Fleet API JSON (`cmd/explore-tesla-api`). Costs a real API call; wakes the car. |

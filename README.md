@@ -32,7 +32,7 @@ go run ./cmd/setup
 go run ./cmd/web
 
 # Run the nightly telemetry poller (needs DATABASE_URL in .env)
-go run ./cmd/poller          # nightly scheduled collection (blocks)
+go run ./cmd/poller          # nightly collection + 30-min retry of unfinished vehicles (blocks; same as make cmd-poller)
 go run ./cmd/poller --once   # one immediate collection cycle, then exit
 ```
 
