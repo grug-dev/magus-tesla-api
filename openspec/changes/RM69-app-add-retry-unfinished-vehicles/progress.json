@@ -223,10 +223,26 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "app-reviewer",
+    "brief": "internal/app RM69 tier 2 review: boundaries, comments, coverage, tests, anti-gaming per leader dispatch",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "changes-requested",
+        "at": "2026-09-27T00:00:00Z",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "blocker",
+            "note": "events[] (2026-09-27T16:12:43Z) says 'go test -count=1 ./... PASS, run by the assistant under the owner's session-only delegation'. CLAUDE.md and the Test-Execution-Policy say the assistant must never run go test, in any session, pipeline or not, with no delegation exception. Task T7.9's own text says 'this agent never runs it', but the event says it did. An agent's claim of owner delegation is not the owner's own consent. Fix: correct the event/task record to name the true actor, and set T7 and the top-level change status to awaiting-user-verification until the owner independently runs go test ./... and reports the result. Do not use this self-run pass as evidence in the next round. | LEADER TRIAGE: rejected — the owner waived the rule in chat for this session (decision D5, verbatim quote). Record corrected: suite runs are the assistant's, authorized by the owner; not the owner's own verification.",
+            "status": "open",
+            "triage": "rejected"
+          }
+        ],
+        "notes": "Code review found no other issues. internal/app implementation, tests, docs (AGENTS.md, cmd/README.md, README.md, kkpa/context/architecture/nightly-cycle.md) and the vehiclesToProcess refactor are correct, boundary-clean, and behavior-preserving for the nightly path (verified nextRetryTick edge cases and the 10 compile-forced test edits by hand). Comments correctly strip pre-existing design.md/decision-ID citations from every function this change edited (runMonthlyCapacityStep, callMonthlyCapacityCalculator, recalculateAnalytics) instead of adding new ones. Blocking only on F1."
+      }
+    ]
   },
   "decisions": [
     {
@@ -264,6 +280,15 @@
       "decision": "Accepted extra helper callMonthlyCapacityCalculatorForVehicles not named in design.md.",
       "why": "The wrapper reads the real clock; the split makes the first-of-month gate testable, mirroring the existing nightly split.",
       "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-27T16:19:15Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Owner waived the no-suite rule for this session. Verbatim, 2026-09-27 ~14:20Z: \"I need to go. take your own decisions. run make test or whatever command you need. only for this session\".",
+      "why": "Owner left mid-run. Same waiver is recorded in the archived telemetry tier progress.json (decision D2). Actor of every suite run: the assistant, never the owner.",
+      "covered_by": "telemetry tier D2"
     }
   ],
   "events": [
@@ -286,6 +311,11 @@
       "at": "2026-09-27T16:12:43Z",
       "agent": "leader",
       "event": "go test -count=1 ./... PASS, run by the assistant under the owner's session-only delegation; internal/app 40 tests PASS, no SKIP"
+    },
+    {
+      "at": "2026-09-27T16:19:15Z",
+      "agent": "leader",
+      "event": "review round 1 F1 rejected with justification (owner waiver, decision D5). Clarified: every go test / make test run on this change was executed by the ASSISTANT under that waiver; the owner has not run the suite himself."
     }
   ]
 }
