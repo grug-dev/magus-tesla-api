@@ -14,10 +14,9 @@ import (
 // These tests exercise the new "retry" TriggeredBy value and CollectVehicles
 // against a real Postgres provisioned by TestMain (see testdb_test.go),
 // mirroring the shape of this package's other db_*_integration_test.go
-// files (testdb.Provision, real telemetrydb.Queries). They implement TR-7
-// and TR-8 of this change's design.md test contract.
+// files (testdb.Provision, real telemetrydb.Queries).
 
-// TestTriggeredByRetry_RoundTripsWithNoCheckViolation implements TR-7: the
+// TestTriggeredByRetry_RoundTripsWithNoCheckViolation checks: the
 // plain-text triggered_by column on both poll_attempts and poll_runs accepts
 // the new "retry" value with no migration and no CHECK violation.
 func TestTriggeredByRetry_RoundTripsWithNoCheckViolation(t *testing.T) {
@@ -78,7 +77,7 @@ func TestTriggeredByRetry_RoundTripsWithNoCheckViolation(t *testing.T) {
 	}
 }
 
-// TestCollectVehicles_EndToEnd_RealStore implements TR-8: CollectVehicles
+// TestCollectVehicles_EndToEnd_RealStore checks: CollectVehicles
 // against the real dbStore (not the offline fake), with a fake account.Service
 // and a fake tesla.VehicleService (never a live Fleet API call, per this
 // module's standing "never wake a car in a test" rule). It proves the

@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM69-nightly-retry-unfinished-vehicles.md",
   "request": "MAG-98 — Nightly Job: retry every 30 min the vehicles the nightly job could not fully process, only for those tesla_ids. Tier 1: telemetry collects a given car list.",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -20,7 +20,7 @@
     ]
   },
   "created_at": "2026-09-27T14:25:00Z",
-  "updated_at": "2026-09-27T14:31:13Z",
+  "updated_at": "2026-09-27T14:32:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5-5"
@@ -43,9 +43,9 @@
       "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
-      "started_at": "2026-09-27T14:23:00Z",
-      "completed_at": "2026-09-27T14:40:00Z",
-      "duration_seconds": 1020,
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
       "notes": "TR-1,2,3,4,6 offline tests + explodingTesla double and fakeAccount call counters.",
       "budget": {
         "five_hour_pct_start": 20,
@@ -67,9 +67,9 @@
       "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
-      "started_at": "2026-09-27T14:23:00Z",
-      "completed_at": "2026-09-27T14:35:00Z",
-      "duration_seconds": 720,
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
       "notes": "CollectVehicles on Collector, TriggeredByRetry, collectAccount(toCollect, chargingScope).",
       "budget": {
         "five_hour_pct_start": 20,
@@ -94,9 +94,9 @@
       "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
-      "started_at": "2026-09-27T14:35:00Z",
-      "completed_at": "2026-09-27T14:45:00Z",
-      "duration_seconds": 600,
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
       "notes": "enumerateElected shared by CollectAll and CollectVehicles; CollectAll passes owned twice.",
       "budget": {
         "five_hour_pct_start": 20,
@@ -120,9 +120,9 @@
       "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
-      "started_at": "2026-09-27T14:45:00Z",
-      "completed_at": "2026-09-27T15:05:00Z",
-      "duration_seconds": 1200,
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
       "notes": "TR-7, TR-8 DB tests. Accounts via fakeAccount, not SQL seeding (cross-module seeding not allowed); assertions via direct SQL.",
       "budget": {
         "five_hour_pct_start": 20,
@@ -146,9 +146,9 @@
       "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
-      "started_at": "2026-09-27T15:05:00Z",
-      "completed_at": "2026-09-27T15:08:00Z",
-      "duration_seconds": 180,
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
       "notes": "AGENTS.md port table + collectAccount two-param note. nightly-cycle.md left for tier 2.",
       "budget": {
         "five_hour_pct_start": 20,
@@ -176,9 +176,9 @@
       "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
-      "started_at": "2026-09-27T15:08:00Z",
-      "completed_at": "2026-09-27T15:15:00Z",
-      "duration_seconds": 420,
+      "started_at": "2026-09-27T14:21:39Z",
+      "completed_at": "2026-09-27T14:31:13Z",
+      "duration_seconds": 574,
       "notes": "All checks green after leader added CollectVehicles stub to app fakeCollector.",
       "budget": {
         "five_hour_pct_start": 20,
@@ -193,10 +193,50 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review the tier-1 diff (git diff 5046011..HEAD) against design.md D1-D9 and specs. Check: module boundary (only internal/telemetry, plus leader stub in internal/app/processor_test.go); CollectAll behaviour unchanged; collectAccount args not swapped; tests assert design.md TR-1..TR-8 values, not the implementation; TR-8 fakeAccount deviation acceptable; no DB object changed; B2 rule and no D-/RM-/ticket IDs in code comments. Signals: build/vet/gofmt/lint/guards and make test (PASS, no SKIP) were run by the assistant under the owner's session-only delegation. Performance-Profile and Test-Execution-Policy apply verbatim.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-27T15:05:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/telemetry/AGENTS.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/proposal.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/design.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/tasks.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/specs/telemetry/spec.md",
+          "openspec/changes/RM69-telemetry-add-collect-for-vehicles/progress.json",
+          "openspec/roadmaps/RM69-nightly-retry-unfinished-vehicles.md"
+        ],
+        "checks": {
+          "boundary": "only internal/telemetry changed, plus the leader-added no-op stub in internal/app/processor_test.go — confirmed by diff",
+          "build_vet_gofmt_lint_guards": "re-ran go build ./..., go vet ./..., gofmt -l, make lint, boundary-guard, tenancy-guard, naming-guard, migration-boundary-guard, archive-guard myself — all clean",
+          "collect_all_unchanged": "CollectAll now calls enumerateElected and passes owned,owned to collectAccount — same two calls, same order, same result; no existing CollectAll test edited",
+          "collect_account_args": "toCollect/chargingScope not swapped in either call site (service.go:156, 214)",
+          "collect_vehicles_contract": "empty input returns zero report with no enumerateElected/DB call; unregistered id filtered out before collectAccount runs; same elected account via shared enumerateElected",
+          "tests_authored_up_front": "TR-1,2,3,4,6,7,8 expected values in service_test.go and db_collect_vehicles_integration_test.go match design.md's test contract numbers exactly (e.g. AccountsAttempted==2, ChargingSessionsUpserted==2/SkippedUnregistered==0)",
+          "tr8_fakeaccount_deviation": "acceptable — telemetry's TestMain (testdb_test.go) provisions only telemetry's own schema via testdb.Provision, not ProvisionDirs, so account tables do not exist in this test DB; SQL-seeding them was never possible without a bigger, out-of-scope infra change. fakeAccount is the same double used by every other test in this file; the real dbStore still receives and is asserted against for the actual poll_attempts/vehicle_snapshots writes, so TR-8's core intent (CollectVehicles against a real Postgres store) is fully covered. tasks.md 3.3 text was correctly left unedited (append-only); the deviation is honestly recorded in decision D4.",
+          "no_db_object_changed": "confirmed — only telemetry.go gains a Go constant; migration baseline comments already document triggered_by as a plain text column with no CHECK, verified directly in the SQL file",
+          "anti_gaming": "tasks.md diff is checkbox-only (no wording edited); specs/telemetry/spec.md untouched during implementation"
+        },
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/telemetry/db_collect_vehicles_integration_test.go:14-18 and internal/telemetry/service_test.go:1607-1610 both name 'design.md' by name in a file-header comment ('...this change's design.md test contract', 'written from design.md's test contract'). This change's design.md will be archived and frozen; the pointer dies. Reword to describe the test grouping itself without naming the doc (e.g. 'implement the CollectVehicles test contract' with no file reference).",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ],
+        "summary": "Boundary, CollectAll-unchanged, collectAccount arg order, CollectVehicles skip/empty/election behavior, and the TR-1..TR-8 test values all match design.md and the spec. One minor finding: two test-file header comments name design.md directly. Not a blocker — approved."
+      }
+    ]
   },
   "decisions": [
     {
@@ -265,6 +305,16 @@
       "at": "2026-09-27T14:31:13Z",
       "agent": "leader",
       "event": "make test (disposable container) PASS, run by the assistant under the owner's session-only delegation; new TR tests ran -v with no SKIP"
+    },
+    {
+      "at": "2026-09-27T14:32:00Z",
+      "agent": "leader",
+      "event": "task timestamps corrected to real wave bracket (worker reported invented times); status verified -> in-review; dispatched telemetry-reviewer"
+    },
+    {
+      "at": "2026-09-27T14:40:00Z",
+      "agent": "leader",
+      "event": "F1 accepted and fixed by leader: removed design.md and TR-N pointers from new test comments; vet + telemetry tests re-run PASS"
     }
   ]
 }

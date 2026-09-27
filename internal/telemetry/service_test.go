@@ -35,10 +35,10 @@ type fakeAccount struct {
 	configCaptureErr error
 	// accessTokenCalls counts AccessTokenFor invocations per account id — used by
 	// CollectVehicles tests to prove an unelected account is never asked for a
-	// token (TR-1).
+	// token.
 	accessTokenCalls map[uuid.UUID]int
 	// allRegisteredVehiclesCallCount counts AllRegisteredVehicles invocations —
-	// used to prove an empty CollectVehicles input makes zero database reads (TR-4).
+	// used to prove an empty CollectVehicles input makes zero database reads.
 	allRegisteredVehiclesCallCount int
 }
 
@@ -1604,13 +1604,12 @@ func TestCollectAll_Fixture4_WholeCycleFailure_ReportAllZero(t *testing.T) {
 	}
 }
 
-// --- CollectVehicles offline tests (written from design.md's test contract,
-// before CollectVehicles exists — go vet fails to compile this file until
-// the Collector interface, the collectAccount signature, and CollectVehicles
-// itself all land). Reuses the fakeAccount/fakeTesla/fakeStore doubles above. ---
+// --- CollectVehicles offline tests. Their expected values were fixed before
+// CollectVehicles was written, so they check the intended behaviour.
+// Reuses the fakeAccount/fakeTesla/fakeStore doubles above. ---
 
 // explodingTesla is a tesla.VehicleService double that fails the test the
-// moment ANY of its methods is called. It exists for TR-4: an empty
+// moment ANY of its methods is called. It proves an empty
 // teslaIDs input must make zero Fleet API requests of any kind.
 type explodingTesla struct{ t *testing.T }
 
@@ -1635,7 +1634,7 @@ func (e *explodingTesla) ChargingHistory(context.Context, tesla.Credentials, tes
 }
 
 // TestCollectVehicles_MultiRegisteredVehicle_RetriedThroughElectedAccount
-// implements TR-1: a vehicle registered to two accounts (one OWNER, one
+// checks: a vehicle registered to two accounts (one OWNER, one
 // DRIVER) is retried through the OWNER account only — the same account
 // electPollingVehicles would pick for CollectAll. The DRIVER account's
 // AccessTokenFor is never called, proving the retry set is filtered AFTER
@@ -1677,7 +1676,7 @@ func TestCollectVehicles_MultiRegisteredVehicle_RetriedThroughElectedAccount(t *
 	}
 }
 
-// TestCollectVehicles_UnregisteredID_SkippedNoAttemptRow implements TR-2: an
+// TestCollectVehicles_UnregisteredID_SkippedNoAttemptRow checks: an
 // unregistered tesla_id in the input is silently absent from every result —
 // no error, no poll_attempts row, no Tesla call.
 func TestCollectVehicles_UnregisteredID_SkippedNoAttemptRow(t *testing.T) {
@@ -1708,7 +1707,7 @@ func TestCollectVehicles_UnregisteredID_SkippedNoAttemptRow(t *testing.T) {
 	}
 }
 
-// TestCollectVehicles_ChargingHistorySeesFullAccountCarList implements TR-3:
+// TestCollectVehicles_ChargingHistorySeesFullAccountCarList checks:
 // collectChargingHistory must resolve Supercharger sessions against the
 // account's FULL registered vehicle list, not only the retried subset — a
 // session for the account's other, not-retried vehicle still upserts and is
@@ -1758,7 +1757,7 @@ func TestCollectVehicles_ChargingHistorySeesFullAccountCarList(t *testing.T) {
 	}
 }
 
-// TestCollectVehicles_EmptyInput_MakesZeroTeslaCalls implements TR-4: an
+// TestCollectVehicles_EmptyInput_MakesZeroTeslaCalls checks: an
 // empty (nil, then explicit []int64{}) teslaIDs input returns a zero
 // CycleReport and nil error, making zero Tesla calls and never even reading
 // the registered-vehicle list.
@@ -1788,7 +1787,7 @@ func TestCollectVehicles_EmptyInput_MakesZeroTeslaCalls(t *testing.T) {
 }
 
 // TestCollectVehicles_AccountsAttemptedCountsOnlyTouchedAccounts implements
-// TR-6: report.AccountsAttempted counts only the DISTINCT accounts that own
+// report.AccountsAttempted counts only the DISTINCT accounts that own
 // at least one vehicle in the requested set — not every account in the
 // system.
 func TestCollectVehicles_AccountsAttemptedCountsOnlyTouchedAccounts(t *testing.T) {
