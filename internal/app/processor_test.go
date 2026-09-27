@@ -100,22 +100,31 @@ func TestBuildPollRun_WholeCycleFailureShape(t *testing.T) {
 // other fake below only needs to compile and stay out of the way. ---
 
 // fakeCollector satisfies telemetry.Collector. Records the RunContext it was
-// called with and returns a configurable (CycleReport, error).
+// called with and returns a configurable (CycleReport, error). gotTeslaIDs
+// records CollectVehicles's own teslaIDs argument, separate from gotRun, so
+// a test can tell CollectAll and CollectVehicles apart and check exactly
+// which ids a scoped cycle passed down.
 type fakeCollector struct {
-	report telemetry.CycleReport
-	err    error
-	gotRun telemetry.RunContext
+	report           telemetry.CycleReport
+	err              error
+	gotRun           telemetry.RunContext
+	collectAllCalled bool
+	gotTeslaIDs      []int64
 }
 
 func (f *fakeCollector) CollectAll(_ context.Context, run telemetry.RunContext) (telemetry.CycleReport, error) {
 	f.gotRun = run
+	f.collectAllCalled = true
 	return f.report, f.err
 }
 
-// CollectVehicles exists only so fakeCollector satisfies telemetry.Collector.
-// The full-cycle tests here never call it.
-func (f *fakeCollector) CollectVehicles(_ context.Context, run telemetry.RunContext, _ []int64) (telemetry.CycleReport, error) {
+// CollectVehicles satisfies telemetry.Collector's other method. The
+// full-cycle ProcessVehicleData tests never call it; the
+// ProcessVehicleDataForVehicles tests call it and nothing else, and assert
+// on gotTeslaIDs to prove the exact scoped set was passed through.
+func (f *fakeCollector) CollectVehicles(_ context.Context, run telemetry.RunContext, teslaIDs []int64) (telemetry.CycleReport, error) {
 	f.gotRun = run
+	f.gotTeslaIDs = teslaIDs
 	return f.report, f.err
 }
 
@@ -436,6 +445,278 @@ func TestProcessVehicleData_RecordRunFailureDoesNotMaskCycleOutcome(t *testing.T
 	}
 }
 
+// --- vehiclesToProcess: the shared fetch-and-filter helper ---
+
+// TestVehiclesToProcess_NilFilterReproducesDistinctByTeslaID is the
+// regression check for the shared-helper refactor: with a nil filter,
+// vehiclesToProcess returns the distinct-by-TeslaID list in
+// AllRegisteredVehicles's own order, with a repeated TeslaID collapsed to
+// its first entry — the same rule the three step functions used to apply
+// inline, each on its own copy of this logic.
+func TestVehiclesToProcess_NilFilterReproducesDistinctByTeslaID(t *testing.T) {
+	v5, v7a, v7b, v9 := ownedVehicle(5), ownedVehicle(7), ownedVehicle(7), ownedVehicle(9)
+	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{v5, v7a, v7b, v9}}
+	p := &processor{acct: acct}
+
+	got, err := p.vehiclesToProcess(context.Background(), nil)
+
+	if err != nil {
+		t.Fatalf("vehiclesToProcess() error = %v, want nil", err)
+	}
+	want := []account.OwnedVehicle{v5, v7a, v9} // vehicle 7's second entry is dropped
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("vehiclesToProcess(nil) = %+v, want %+v", got, want)
+	}
+}
+
+// TestVehiclesToProcess_FilterNarrowsToNamedVehicle proves a real filter
+// excludes every registered vehicle not named in it.
+func TestVehiclesToProcess_FilterNarrowsToNamedVehicle(t *testing.T) {
+	v5, v7, v9 := ownedVehicle(5), ownedVehicle(7), ownedVehicle(9)
+	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{v5, v7, v9}}
+	p := &processor{acct: acct}
+
+	got, err := p.vehiclesToProcess(context.Background(), []int64{7})
+
+	if err != nil {
+		t.Fatalf("vehiclesToProcess() error = %v, want nil", err)
+	}
+	want := []account.OwnedVehicle{v7}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("vehiclesToProcess([7]) = %+v, want %+v", got, want)
+	}
+}
+
+// TestVehiclesToProcess_FilterIDAbsentFromRegisteredIsSilentlyExcluded
+// proves a filter id that names no registered vehicle produces no entry and
+// no error.
+func TestVehiclesToProcess_FilterIDAbsentFromRegisteredIsSilentlyExcluded(t *testing.T) {
+	v5 := ownedVehicle(5)
+	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{v5}}
+	p := &processor{acct: acct}
+
+	got, err := p.vehiclesToProcess(context.Background(), []int64{999})
+
+	if err != nil {
+		t.Fatalf("vehiclesToProcess() error = %v, want nil", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("vehiclesToProcess([999]) = %+v, want an empty result (999 is not registered)", got)
+	}
+}
+
+// --- Fake roster for ProcessVehicleDataForVehicles's own fixtures ---
+
+// recordingRecalculator satisfies analytics.Recalculator. It records every
+// teslaID Reconcile was called with, in order, so a test can check exactly
+// which vehicles a step touched. Recalculate is unreachable from
+// recalculateAnalytics and stubs to nil.
+type recordingRecalculator struct {
+	reconciled []int64
+}
+
+func (r *recordingRecalculator) Recalculate(context.Context, int64, time.Time, time.Time) error {
+	return nil
+}
+
+func (r *recordingRecalculator) Reconcile(_ context.Context, teslaID int64) error {
+	r.reconciled = append(r.reconciled, teslaID)
+	return nil
+}
+
+var _ analytics.Recalculator = (*recordingRecalculator)(nil)
+
+// explodingSessionWriter satisfies charging.SessionWriter and fails the test
+// the moment it is called — proves a scoped cycle's step 2 never runs after
+// a step-1 failure.
+type explodingSessionWriter struct{ t *testing.T }
+
+func (e *explodingSessionWriter) MirrorSessions(context.Context, []charging.SessionMirror) error {
+	e.t.Fatal("MirrorSessions must not be called when step 1 fails")
+	return nil
+}
+
+var _ charging.SessionWriter = (*explodingSessionWriter)(nil)
+
+// explodingRecalculator satisfies analytics.Recalculator and fails the test
+// the moment either method is called.
+type explodingRecalculator struct{ t *testing.T }
+
+func (e *explodingRecalculator) Recalculate(context.Context, int64, time.Time, time.Time) error {
+	e.t.Fatal("Recalculate must not be called when step 1 fails")
+	return nil
+}
+
+func (e *explodingRecalculator) Reconcile(context.Context, int64) error {
+	e.t.Fatal("Reconcile must not be called when step 1 fails")
+	return nil
+}
+
+var _ analytics.Recalculator = (*explodingRecalculator)(nil)
+
+// explodingMonthlyCapacityCalculator satisfies
+// charging.MonthlyCapacityCalculator and fails the test the moment it is
+// called.
+type explodingMonthlyCapacityCalculator struct{ t *testing.T }
+
+func (e *explodingMonthlyCapacityCalculator) Calculate(context.Context, time.Time, *int64) (charging.MonthlyCapacityReport, error) {
+	e.t.Fatal("Calculate must not be called when step 1 fails")
+	return charging.MonthlyCapacityReport{}, nil
+}
+
+var _ charging.MonthlyCapacityCalculator = (*explodingMonthlyCapacityCalculator)(nil)
+
+// explodingMonthlySyncer satisfies analytics.MonthlySyncer and fails the
+// test the moment it is called.
+type explodingMonthlySyncer struct{ t *testing.T }
+
+func (e *explodingMonthlySyncer) SyncMonth(context.Context, int64, time.Time) (analytics.VehicleMonthlyMetrics, error) {
+	e.t.Fatal("SyncMonth must not be called when step 1 fails")
+	return analytics.VehicleMonthlyMetrics{}, nil
+}
+
+var _ analytics.MonthlySyncer = (*explodingMonthlySyncer)(nil)
+
+// newForVehiclesTestProcessor wires the fake roster for
+// ProcessVehicleDataForVehicles's own tests, mirroring newTestProcessor's
+// shape but exposing every collaborator ProcessVehicleDataForVehicles's
+// tests need to swap.
+func newForVehiclesTestProcessor(
+	collector telemetry.Collector,
+	runWriter telemetry.RunWriter,
+	superchargerHistoryReader telemetry.SuperchargerHistoryReader,
+	sessionWriter charging.SessionWriter,
+	recalculator analytics.Recalculator,
+	monthlyCapacityCalculator charging.MonthlyCapacityCalculator,
+	monthlySyncer analytics.MonthlySyncer,
+	acct account.Service,
+) Processor {
+	return NewProcessor(
+		collector,
+		superchargerHistoryReader,
+		runWriter,
+		sessionWriter,
+		&fakeMirrorWatermarkStore{},
+		monthlyCapacityCalculator,
+		acct,
+		recalculator,
+		fakeAnalyticsReader{},
+		fakeGapWriter{},
+		monthlySyncer,
+		time.UTC,
+	)
+}
+
+// TestProcessVehicleDataForVehicles_CallsCollectVehiclesNotCollectAll proves
+// step 1 goes through CollectVehicles with the exact teslaIDs given, never
+// CollectAll.
+func TestProcessVehicleDataForVehicles_CallsCollectVehiclesNotCollectAll(t *testing.T) {
+	collector := &fakeCollector{report: telemetry.CycleReport{FailuresByReason: map[telemetry.Reason]int{}}}
+	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(5), ownedVehicle(7), ownedVehicle(9)}}
+	runWriter := &fakeRunWriter{}
+	p := newForVehiclesTestProcessor(collector, runWriter, fakeSuperchargerHistoryReader{}, fakeSessionWriter{}, fakeRecalculator{}, &fakeMonthlyCapacityCalculator{}, &fakeMonthlySyncer{}, acct)
+
+	_, err := p.ProcessVehicleDataForVehicles(context.Background(), telemetry.TriggeredByRetry, []int64{7, 9})
+
+	if err != nil {
+		t.Fatalf("ProcessVehicleDataForVehicles() error = %v, want nil", err)
+	}
+	if collector.collectAllCalled {
+		t.Error("CollectAll was called; want only CollectVehicles for a scoped cycle")
+	}
+	if !slices.Equal(collector.gotTeslaIDs, []int64{7, 9}) {
+		t.Errorf("CollectVehicles's teslaIDs = %v, want [7 9]", collector.gotTeslaIDs)
+	}
+}
+
+// TestProcessVehicleDataForVehicles_Step1FailureSkipsStep2Through5 proves a
+// step-1 error short-circuits exactly like ProcessVehicleData's own: steps
+// 2-5 never run, and vehiclesToProcess itself is never called.
+func TestProcessVehicleDataForVehicles_Step1FailureSkipsStep2Through5(t *testing.T) {
+	errBoom := errors.New("boom")
+	collector := &fakeCollector{err: errBoom}
+	acct := &fakeAccountEmpty{}
+	runWriter := &fakeRunWriter{}
+	p := newForVehiclesTestProcessor(
+		collector, runWriter, fakeSuperchargerHistoryReader{},
+		&explodingSessionWriter{t: t}, &explodingRecalculator{t: t},
+		&explodingMonthlyCapacityCalculator{t: t}, &explodingMonthlySyncer{t: t}, acct,
+	)
+
+	report, err := p.ProcessVehicleDataForVehicles(context.Background(), telemetry.TriggeredByRetry, []int64{7})
+
+	if !errors.Is(err, errBoom) {
+		t.Errorf("ProcessVehicleDataForVehicles() error = %v, want errBoom", err)
+	}
+	if report.Attempted != 0 || report.Succeeded != 0 {
+		t.Errorf("report = %+v, want the zero-value report", report)
+	}
+	if runWriter.calls != 1 {
+		t.Errorf("runWriter.calls = %d, want 1 (the row is still recorded despite the failure)", runWriter.calls)
+	}
+	if acct.allRegisteredVehiclesCalled {
+		t.Error("AllRegisteredVehicles was called; want vehiclesToProcess skipped by the same short-circuit as steps 2-5")
+	}
+}
+
+// TestProcessVehicleDataForVehicles_Steps2And3And5ReceiveOnlyTheFilteredSet
+// proves steps 2, 3, and 5 each see exactly the filtered vehicle list — not
+// the full registered set.
+func TestProcessVehicleDataForVehicles_Steps2And3And5ReceiveOnlyTheFilteredSet(t *testing.T) {
+	collector := &fakeCollector{report: telemetry.CycleReport{FailuresByReason: map[telemetry.Reason]int{}}}
+	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(5), ownedVehicle(7), ownedVehicle(9)}}
+	runWriter := &fakeRunWriter{}
+	reader := &stubSuperchargerHistoryReader{}
+	recalc := &recordingRecalculator{}
+	syncer := &fakeMonthlySyncer{}
+	p := newForVehiclesTestProcessor(collector, runWriter, reader, fakeSessionWriter{}, recalc, &fakeMonthlyCapacityCalculator{}, syncer, acct)
+
+	_, err := p.ProcessVehicleDataForVehicles(context.Background(), telemetry.TriggeredByRetry, []int64{7, 9})
+
+	if err != nil {
+		t.Fatalf("ProcessVehicleDataForVehicles() error = %v, want nil", err)
+	}
+	if !slices.Equal(reader.vehiclesSeen, []int64{7, 9}) {
+		t.Errorf("step 2 saw vehicles %v, want [7 9] only (not the registered 5)", reader.vehiclesSeen)
+	}
+	if !slices.Equal(recalc.reconciled, []int64{7, 9}) {
+		t.Errorf("step 3 reconciled vehicles %v, want [7 9] only (not the registered 5)", recalc.reconciled)
+	}
+	for _, c := range syncer.calls {
+		if c.teslaID == 5 {
+			t.Errorf("step 5 called the syncer for vehicle 5, want it excluded from the filtered set")
+		}
+	}
+	if len(syncer.calls) != 4 { // 2 vehicles x (current + previous)
+		t.Errorf("step 5 made %d call(s), want 4 (2 vehicles x 2 periods)", len(syncer.calls))
+	}
+}
+
+// TestProcessVehicleDataForVehicles_RecordsExactlyOneRowWithGivenTriggeredBy
+// proves recordRun runs exactly once regardless of outcome, with
+// run.TriggeredBy equal to whatever the caller passed in — not a hardcoded
+// telemetry.TriggeredByRetry.
+func TestProcessVehicleDataForVehicles_RecordsExactlyOneRowWithGivenTriggeredBy(t *testing.T) {
+	collector := &fakeCollector{report: telemetry.CycleReport{FailuresByReason: map[telemetry.Reason]int{}}}
+	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(7)}}
+	runWriter := &fakeRunWriter{}
+	p := newForVehiclesTestProcessor(collector, runWriter, fakeSuperchargerHistoryReader{}, fakeSessionWriter{}, fakeRecalculator{}, &fakeMonthlyCapacityCalculator{}, &fakeMonthlySyncer{}, acct)
+
+	// Deliberately NOT TriggeredByRetry — proves the method does not itself
+	// assume or hardcode that value.
+	_, err := p.ProcessVehicleDataForVehicles(context.Background(), telemetry.TriggeredByScheduler, []int64{7})
+
+	if err != nil {
+		t.Fatalf("ProcessVehicleDataForVehicles() error = %v, want nil", err)
+	}
+	if runWriter.calls != 1 {
+		t.Fatalf("runWriter.calls = %d, want 1", runWriter.calls)
+	}
+	if runWriter.got.TriggeredBy != telemetry.TriggeredByScheduler {
+		t.Errorf("recorded TriggeredBy = %v, want %v (the caller's own choice)", runWriter.got.TriggeredBy, telemetry.TriggeredByScheduler)
+	}
+}
+
 // --- Fixtures T-app-1..T-app-3: the watermark-bounded Supercharger mirror
 // (RM44-platform-add-mirror-watermark) ---
 
@@ -592,7 +873,11 @@ func TestProcessChargingData_EmptyReadLeavesWatermarkUntouched(t *testing.T) {
 	p := newMirrorTestProcessor(reader, fakeSessionWriter{}, watermarks,
 		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID, teslaIDs: []int64{11, 22}})
 
-	p.processChargingData(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup processChargingData
+	// used to do inline, so feeding its result through keeps every assertion
+	// below unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.processChargingData(context.Background(), vehicles)
 
 	if watermarks.advanceCalls != 0 {
 		t.Errorf("AdvanceMirrorWatermark called %d time(s), want 0", watermarks.advanceCalls)
@@ -640,7 +925,11 @@ func TestProcessChargingData_AdvancesWatermarkToMaxObserved(t *testing.T) {
 	p := newMirrorTestProcessor(reader, fakeSessionWriter{}, watermarks,
 		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID, teslaIDs: []int64{11, 22}})
 
-	p.processChargingData(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup processChargingData
+	// used to do inline, so feeding its result through keeps every assertion
+	// below unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.processChargingData(context.Background(), vehicles)
 
 	if watermarks.advanceCalls != 2 {
 		t.Fatalf("AdvanceMirrorWatermark called %d time(s), want 2 (one per car)", watermarks.advanceCalls)
@@ -668,7 +957,11 @@ func TestProcessChargingData_FailedMirrorDoesNotAdvanceWatermark(t *testing.T) {
 	p := newMirrorTestProcessor(reader, failingSessionWriter{}, watermarks,
 		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID})
 
-	p.processChargingData(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup processChargingData
+	// used to do inline, so feeding its result through keeps every assertion
+	// below unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.processChargingData(context.Background(), vehicles)
 
 	if watermarks.advanceCalls != 0 {
 		t.Errorf("AdvanceMirrorWatermark called %d time(s), want 0 after a failed mirror", watermarks.advanceCalls)
@@ -697,7 +990,11 @@ func TestProcessChargingData_OneVehicleReadFailureSkipsOnlyThatVehicle(t *testin
 	p := newMirrorTestProcessor(reader, writer, watermarks,
 		&fakeAccountOneAccount{fakeAccountEmpty: &fakeAccountEmpty{}, accountID: accountID, teslaIDs: []int64{11, 22}})
 
-	p.processChargingData(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup processChargingData
+	// used to do inline, so feeding its result through keeps every assertion
+	// below unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.processChargingData(context.Background(), vehicles)
 
 	if writer.calls != 1 {
 		t.Errorf("MirrorSessions called %d time(s), want 1 — the healthy car still mirrors", writer.calls)
@@ -732,7 +1029,11 @@ func TestProcessChargingData_SharedVehicleIsMirroredOnce(t *testing.T) {
 	p := newMirrorTestProcessor(reader, writer, watermarks,
 		&fakeAccountSharedVehicle{fakeAccountEmpty: &fakeAccountEmpty{}, teslaID: 7})
 
-	p.processChargingData(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup processChargingData
+	// used to do inline, so feeding its result through keeps every assertion
+	// below unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.processChargingData(context.Background(), vehicles)
 
 	if got := reader.vehiclesSeen; !slices.Equal(got, []int64{7}) {
 		t.Errorf("vehicles read = %v, want [7] once, not once per account", got)

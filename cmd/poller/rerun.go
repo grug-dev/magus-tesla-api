@@ -42,6 +42,17 @@ func (g *guardedProcessor) ProcessVehicleData(ctx context.Context, triggeredBy t
 	return g.inner.ProcessVehicleData(ctx, triggeredBy)
 }
 
+// ProcessVehicleDataForVehicles implements app.Processor for the retry
+// schedule. It takes the same lock, so a retry never overlaps the nightly
+// run or a manual rerun. A busy lock skips this retry; the next one follows.
+func (g *guardedProcessor) ProcessVehicleDataForVehicles(ctx context.Context, triggeredBy telemetry.TriggeredBy, teslaIDs []int64) (telemetry.CycleReport, error) {
+	if !g.mu.TryLock() {
+		return telemetry.CycleReport{}, errCycleBusy
+	}
+	defer g.mu.Unlock()
+	return g.inner.ProcessVehicleDataForVehicles(ctx, triggeredBy, teslaIDs)
+}
+
 // TryStartAPIRun attempts the SAME lock for a background, API-triggered run. On
 // success it returns a start func the caller must run exactly once, in a new
 // goroutine — it releases the lock when the cycle finishes. On failure (a cycle

@@ -210,7 +210,11 @@ func TestRunMonthlyMetricsStep_TwoVehiclesEachGetTwoCalls(t *testing.T) {
 	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(1), ownedVehicle(2)}}
 	p := &processor{acct: acct, monthlySyncer: syncer}
 
-	p.runMonthlyMetricsStep(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup runMonthlyMetricsStep
+	// used to do inline — a listing failure yields a nil vehicles list here too,
+	// so every assertion below stays unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.runMonthlyMetricsStep(context.Background(), vehicles)
 
 	current, previous := monthlyMetricsPeriods(clock.Now(), clock.Zone())
 	want := []syncCall{
@@ -234,7 +238,11 @@ func TestRunMonthlyMetricsStep_CurrentMonthFailureDoesNotBlockPreviousMonth(t *t
 	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(1), ownedVehicle(2)}}
 	p := &processor{acct: acct, monthlySyncer: syncer}
 
-	p.runMonthlyMetricsStep(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup runMonthlyMetricsStep
+	// used to do inline — a listing failure yields a nil vehicles list here too,
+	// so every assertion below stays unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.runMonthlyMetricsStep(context.Background(), vehicles)
 
 	want := []syncCall{
 		{teslaID: 1, period: current},
@@ -257,7 +265,11 @@ func TestRunMonthlyMetricsStep_OneVehicleTotalFailureDoesNotBlockAnother(t *test
 	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(1), ownedVehicle(2)}}
 	p := &processor{acct: acct, monthlySyncer: syncer}
 
-	p.runMonthlyMetricsStep(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup runMonthlyMetricsStep
+	// used to do inline — a listing failure yields a nil vehicles list here too,
+	// so every assertion below stays unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.runMonthlyMetricsStep(context.Background(), vehicles)
 
 	want := []syncCall{
 		{teslaID: 2, period: current},
@@ -283,7 +295,11 @@ func TestRunMonthlyMetricsStep_EnumerationFailureSkipsEveryCall(t *testing.T) {
 	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, err: errors.New("listing boom")}
 	p := &processor{acct: acct, monthlySyncer: syncer}
 
-	p.runMonthlyMetricsStep(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup runMonthlyMetricsStep
+	// used to do inline — a listing failure yields a nil vehicles list here too,
+	// so every assertion below stays unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.runMonthlyMetricsStep(context.Background(), vehicles)
 
 	if len(syncer.calls) != 0 {
 		t.Errorf("calls = %d, want 0", len(syncer.calls))
@@ -299,7 +315,11 @@ func TestRunMonthlyMetricsStep_SharedVehicleGetsTwoCallsNotFour(t *testing.T) {
 	acct := &fakeAccountVehicles{fakeAccountEmpty: &fakeAccountEmpty{}, vehicles: []account.OwnedVehicle{ownedVehicle(7), ownedVehicle(7)}}
 	p := &processor{acct: acct, monthlySyncer: syncer}
 
-	p.runMonthlyMetricsStep(context.Background())
+	// vehiclesToProcess reproduces the exact fetch-and-dedup runMonthlyMetricsStep
+	// used to do inline — a listing failure yields a nil vehicles list here too,
+	// so every assertion below stays unchanged.
+	vehicles, _ := p.vehiclesToProcess(context.Background(), nil)
+	p.runMonthlyMetricsStep(context.Background(), vehicles)
 
 	current, previous := monthlyMetricsPeriods(clock.Now(), clock.Zone())
 	want := []syncCall{
