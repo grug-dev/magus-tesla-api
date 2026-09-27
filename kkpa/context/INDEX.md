@@ -196,6 +196,8 @@
 | `vehicle snapshots` | `telemetry.Snapshot` / `vehicle_snapshots` → `architecture/telemetry-ingest-only.md` |
 | `supercharger history estimate columns` | **dropped** — RM41 tier 3 removed `start_battery_pct_est` / `end_battery_pct_est`; reverses RM27 D6 → `architecture/telemetry-ingest-only.md` |
 | `verification-time snapshot pair` | synonym of `supercharger history estimate columns` → `architecture/telemetry-ingest-only.md` |
+| `collect vehicles` (retry a car subset: `telemetry.Collector.CollectVehicles`) | `architecture/telemetry-ingest-only.md` |
+| `TriggeredByRetry` | synonym of `collect vehicles` — the `retry` trigger value → `architecture/telemetry-ingest-only.md` |
 | `nightly cycle` (the 5-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics → measure monthly capacity (only on the 1st of the month) → sync monthly metrics (every night, current + previous month)) | `architecture/nightly-cycle.md` |
 | `nightly collection` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly poll` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
