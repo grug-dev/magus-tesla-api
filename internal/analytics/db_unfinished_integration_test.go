@@ -88,7 +88,7 @@ func TestUnfinishedForDate_DBIntegration(t *testing.T) {
 
 	r := NewUnfinishedReader(pool)
 
-	t.Run("TR-2 some done some not", func(t *testing.T) {
+	t.Run("some done some not", func(t *testing.T) {
 		got, err := r.UnfinishedForDate(ctx, []int64{vehicleDone, vehicleStale, vehicleUntracked}, d)
 		if err != nil {
 			t.Fatalf("UnfinishedForDate: %v", err)
@@ -97,7 +97,7 @@ func TestUnfinishedForDate_DBIntegration(t *testing.T) {
 		assertInt64Slice(t, got, want)
 	})
 
-	t.Run("TR-3 duplicate input ids are deduplicated", func(t *testing.T) {
+	t.Run("duplicate input ids are deduplicated", func(t *testing.T) {
 		got, err := r.UnfinishedForDate(ctx, []int64{vehicleStale, vehicleStale, vehicleUntracked}, d)
 		if err != nil {
 			t.Fatalf("UnfinishedForDate: %v", err)
@@ -106,7 +106,7 @@ func TestUnfinishedForDate_DBIntegration(t *testing.T) {
 		assertInt64Slice(t, got, want)
 	})
 
-	t.Run("TR-4 unregistered unknown id is reported unfinished", func(t *testing.T) {
+	t.Run("unregistered unknown id is reported unfinished", func(t *testing.T) {
 		got, err := r.UnfinishedForDate(ctx, []int64{vehicleDone, vehicleUnknown}, d)
 		if err != nil {
 			t.Fatalf("UnfinishedForDate: %v", err)
@@ -115,7 +115,7 @@ func TestUnfinishedForDate_DBIntegration(t *testing.T) {
 		assertInt64Slice(t, got, want)
 	})
 
-	t.Run("TR-5 every requested vehicle already done", func(t *testing.T) {
+	t.Run("every requested vehicle already done", func(t *testing.T) {
 		got, err := r.UnfinishedForDate(ctx, []int64{vehicleDone}, d)
 		if err != nil {
 			t.Fatalf("UnfinishedForDate: %v", err)

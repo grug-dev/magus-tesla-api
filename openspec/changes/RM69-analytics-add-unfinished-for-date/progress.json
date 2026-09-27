@@ -5,7 +5,7 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM69-nightly-retry-unfinished-vehicles.md",
   "request": "MAG-98 — tier 3: analytics read method UnfinishedForDate(teslaIDs []int64, date) for the retry done check.",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -250,10 +250,25 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "analytics-reviewer",
+    "brief": "Boundary (analytics + KB guide only); D1 amendment (UnfinishedReader, not Reader); SQL shape (unnest+NOT EXISTS, DISTINCT, ascending, pgtype.Date, existing unique index, no migration); empty-input no-query contract; test values authored up front in design.md; comments carry no design.md/decision/ticket IDs; docs (AGENTS.md, KB guide) updated; anti-gaming on tasks.md T5.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-27T16:00:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/analytics/db_unfinished_integration_test.go:91,100,109,118 -- t.Run names \"TR-2 ...\"/\"TR-3 ...\"/\"TR-4 ...\"/\"TR-5 ...\" bake in design.md's own test-reference labels. The leader's cleanup event removed design.md/TR-N pointers from comments but missed these because they are t.Run() string literals, not // comments. Once design.md is read-only, \"TR-2\" means nothing to someone reading go test -v output. Not blocking -- rename to a descriptive subtest name (e.g. \"some done some not\", already present as suffix text) with no code-behavior change.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -290,6 +305,11 @@
       "at": "2026-09-27T15:10:49Z",
       "agent": "leader",
       "event": "go test ./internal/analytics/... PASS (assistant-run, owner session delegation); new tests ran -v, no SKIP"
+    },
+    {
+      "at": "2026-09-27T15:20:00Z",
+      "agent": "leader",
+      "event": "F1 fixed: TR-N removed from t.Run subtest names; analytics Unfinished tests re-run PASS"
     }
   ]
 }
