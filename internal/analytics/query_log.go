@@ -8,12 +8,12 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 )
 
-// This file holds the three logging decorators instrumenting this module's
+// This file holds the four logging decorators instrumenting this module's
 // nightly-cycle seams: Reader (one of its 4 methods), Recalculator (both of
-// its methods), and GapWriter (its single method). Grouped in one file
-// because they instrument one feature — the nightly poller's read/write
-// path through this module — the same reason internal/telemetry/query_log.go
-// groups its own decorators together.
+// its methods), GapWriter (its single method), and UnfinishedReader (its
+// single method). Grouped in one file because they instrument one feature —
+// the nightly poller's read/write path through this module — the same
+// reason internal/telemetry/query_log.go groups its own decorators together.
 //
 // Every decorator here implements its wrapped interface EXPLICITLY, never by
 // embedding. Embedding (struct{ Reader }, overriding only today's methods)
@@ -182,5 +182,34 @@ func (l *loggingMonthlySyncer) SyncMonth(ctx context.Context, teslaID int64, per
 	logging.Note("MonthlySyncer", "SyncMonth",
 		"analytics query: tesla_id=%d period=%s all_day_count=%d capacity_measured=%t",
 		teslaID, period.Format("2006-01"), result.AllDayCount, result.CapacityMeasured)
+	return result, err
+}
+
+// --- loggingUnfinishedReader ---
+
+// loggingUnfinishedReader wraps the public UnfinishedReader port and logs
+// its single method -- the nightly poller's periodic retry check, not a page
+// load, so it follows Reader.ConsumedByDay's logged side, not Reader's three
+// dashboard-only silent methods above.
+type loggingUnfinishedReader struct {
+	inner UnfinishedReader
+}
+
+// newLoggingUnfinishedReader constructs a loggingUnfinishedReader wrapping inner.
+func newLoggingUnfinishedReader(inner UnfinishedReader) *loggingUnfinishedReader {
+	return &loggingUnfinishedReader{inner: inner}
+}
+
+// Compile-time assertion: *loggingUnfinishedReader must satisfy the full
+// UnfinishedReader interface. A future method added to it without a matching
+// explicit override here fails to compile.
+var _ UnfinishedReader = (*loggingUnfinishedReader)(nil)
+
+// UnfinishedForDate implements UnfinishedReader, logging AFTER delegating so
+// the logged counts reflect the real result.
+func (l *loggingUnfinishedReader) UnfinishedForDate(ctx context.Context, teslaIDs []int64, date time.Time) ([]int64, error) {
+	result, err := l.inner.UnfinishedForDate(ctx, teslaIDs, date)
+	logging.Note("UnfinishedReader", "UnfinishedForDate", "analytics query: date=%s requested=%d unfinished=%d",
+		date.UTC().Format("2006-01-02"), len(teslaIDs), len(result))
 	return result, err
 }

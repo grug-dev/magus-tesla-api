@@ -40,8 +40,8 @@ The module's contract is a Go interface (`ai/go-conventions.md` — interface-fi
 **Signatures and the per-method doc comments live in `internal/analytics/analytics.go` — read
 them there.** They are deliberately not copied here.
 
-Five ports. `Reader` and `MonthlyReader` are the read side; `Recalculator`,
-`GapWriter`, and `MonthlySyncer` are the write side:
+Six ports. `Reader`, `MonthlyReader`, and `UnfinishedReader` are the read
+side; `Recalculator`, `GapWriter`, and `MonthlySyncer` are the write side:
 
 | Port | Method | Returns |
 |---|---|---|
@@ -50,6 +50,7 @@ Five ports. `Reader` and `MonthlyReader` are the read side; `Recalculator`,
 | | `BatteryLevelByDay` | `[]DayBattery` — per-day battery level + estimated range |
 | | `LatestMetricsForVehicles` | `[]VehicleStatus` — latest row per vehicle in a given vehicle set |
 | `MonthlyReader` | `MonthlyMetricsBetween` | `[]VehicleMonthlyMetrics` — the stored months in `[start, end]`, oldest first; only each bound's year+month matters. Reads what `MonthlySyncer` wrote |
+| `UnfinishedReader` | `UnfinishedForDate` | `[]int64` — the given `tesla_id`s with no `vehicle_metrics` row for a given date. A narrow port of its own, not a `Reader` method: only `cmd/poller`'s retry job calls it, with no signed-in user and no single account (`RM69-analytics-add-unfinished-for-date`) |
 | `Recalculator` | `Recalculate`, `Reconcile` | rebuild `vehicle_metrics`; `Reconcile` is the incremental watermark pass |
 | `GapWriter` | `ReconcileWindow` | upsert the days that flag, DELETE the days that stopped |
 | `MonthlySyncer` | `SyncMonth` | `VehicleMonthlyMetrics` — derives and upserts one `vehicle_monthly_metrics` row for one vehicle and one calendar month, including the real `ext_*`/`sc_*` charging figures |

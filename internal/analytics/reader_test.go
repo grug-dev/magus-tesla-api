@@ -280,6 +280,17 @@ func (f *fakeVehicleMetricsStore) VehicleMetricsBatteryByVehicleBetween(_ contex
 	return f.batteryRows, nil
 }
 
+// UnfinishedVehicleIDsForDate completes vehicleMetricsStore. It panics --
+// mirroring this file's existing "must not be called on this path" fakes
+// (e.g. fakeTelemetryReader.SnapshotsByVehicleUpdatedSince above) -- because
+// the only offline test that exercises UnfinishedForDate always passes an
+// empty teslaIDs, which must short-circuit before ever reaching the store.
+// A real, non-empty-input call is exercised only against a
+// live database (db_unfinished_integration_test.go).
+func (f *fakeVehicleMetricsStore) UnfinishedVehicleIDsForDate(_ context.Context, _ analyticsdb.UnfinishedVehicleIDsForDateParams) ([]int64, error) {
+	panic("fakeVehicleMetricsStore: UnfinishedVehicleIDsForDate must not be called on an empty-input UnfinishedForDate call")
+}
+
 // TestReader_ConsumedByDay_ReadsPrecomputedRows covers design.md D13/D-precompute: a
 // canned analyticsdb row (Fixture A's own expected values, consumed_test.go's
 // TestDeriveVehicleMetrics_FixtureA) maps to the identical DayConsumption the
@@ -442,5 +453,33 @@ func TestReader_VehicleMetricsStoreError_Propagates(t *testing.T) {
 	}
 	if _, err := r.OdometerDeltaByDay(context.Background(), 1, day(2026, 8, 10), day(2026, 8, 20)); !errors.Is(err, wantErr) {
 		t.Fatalf("OdometerDeltaByDay: want error %v propagated unwrapped, got %v", wantErr, err)
+	}
+}
+
+// TestReader_UnfinishedForDate_EmptyInput_NoQueryIssued checks that an empty teslaIDs (nil, and separately an empty
+// non-nil slice) returns a non-nil empty slice and a nil error WITHOUT ever
+// calling the store -- the fake panics if it is called at all, so any
+// regression that removes the short-circuit fails this test loudly instead
+// of silently passing with a coincidentally-empty result.
+func TestReader_UnfinishedForDate_EmptyInput_NoQueryIssued(t *testing.T) {
+	r := &reader{metrics: &fakeVehicleMetricsStore{}}
+	anyDate := day(2026, 9, 20)
+
+	for name, teslaIDs := range map[string][]int64{
+		"nil slice":   nil,
+		"empty slice": {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := r.UnfinishedForDate(context.Background(), teslaIDs, anyDate)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got == nil {
+				t.Error("want a non-nil empty slice, got nil")
+			}
+			if len(got) != 0 {
+				t.Errorf("want an empty result, got %d entries: %+v", len(got), got)
+			}
+		})
 	}
 }

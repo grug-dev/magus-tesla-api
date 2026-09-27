@@ -23,17 +23,23 @@ still mean one query per vehicle every 30 minutes, against this project's
 own "batch reads at the port level, never a per-entity loop" rule.
 
 Roadmap decision D12 (added mid-roadmap, tier 3) settles this: a new,
-narrow, batch-shaped read on `analytics.Reader` — plain `[]int64` in, plain
-`[]int64` out, one query for the whole set.
+narrow, batch-shaped read — plain `[]int64` in, plain `[]int64` out, one
+query for the whole set.
+
+**Amended by the leader:** this read lives on a new, narrow port,
+`analytics.UnfinishedReader`, not on the existing `analytics.Reader`.
+Reason: only `cmd/poller` ever calls it, and widening `Reader` would break
+three gateway test doubles for a method the gateway never uses. See
+`design.md` D1's "Amended by the leader" note for the full reasoning.
 
 ## What changes
 
-- **New `Reader` method — `UnfinishedForDate`.** Given a set of `tesla_id`s
-  and a calendar day, returns exactly the ids from that set with no
-  `vehicle_metrics` row for that day. Added directly to the existing
-  `Reader` port, mirroring how tier 1 added `CollectVehicles` directly to
-  the existing `Collector` port rather than inventing a new interface for
-  one method.
+- **New port, `UnfinishedReader`, with one method —
+  `UnfinishedForDate`.** Given a set of `tesla_id`s and a calendar day,
+  returns exactly the ids from that set with no `vehicle_metrics` row for
+  that day. Declared as its own interface in `analytics.go`, with its own
+  `NewUnfinishedReader` constructor — not added to the existing `Reader`
+  port (leader amendment above).
 - **New query, `UnfinishedVehicleIDsForDate`**, in
   `internal/analytics/db/query.sql` — one `unnest(...)` + `NOT EXISTS`
   statement for the whole input set, never a per-vehicle loop. Served by the
@@ -58,25 +64,22 @@ and that this tier's method now makes real.
 
 ## Breaking?
 
-**No — additively.** `Reader` gains one new method; every existing method's
-signature is unchanged. Widening `Reader`, however, is not purely
-module-local: two other modules' test files declare a fake that implements
-the full `Reader` interface (`internal/app/processor_test.go`,
+**No — additively.** `Reader` is unchanged: every existing method's
+signature stays the same, and `Reader` gains no new method. The new method
+lives on the new `UnfinishedReader` port instead (leader amendment above),
+so none of `Reader`'s four out-of-module test fakes
+(`internal/app/processor_test.go`,
 `internal/gateway/handlers/handlers_test.go`,
 `internal/gateway/handlers/history_test.go`,
-`internal/gateway/handlers/external_charges_test.go`) and each needs a stub
-added for the new method before `go vet ./...` compiles repo-wide — the same
+`internal/gateway/handlers/external_charges_test.go`) need a stub — the
 cross-module fallout `RM40-analytics-add-battery-level-read` hit the last
-time `Reader` grew a method. Fixing those four files is outside this
-module's sandbox; see `tasks.md`.
+time `Reader` grew a method does not repeat here.
 
 ## Modules affected
 
 - `internal/analytics/` — the only module whose production code changes.
-- `internal/app/`, `internal/gateway/handlers/` — read-only in this tier
-  except for the one-line fake stub each of their four `Reader`-implementing
-  test fakes needs (leader-owned, see "Breaking?" above and `tasks.md`).
-  Tier 2 (`internal/app`) is the only place a real caller is wired in.
+- `internal/app/` — tier 2 is the only place a real caller of
+  `UnfinishedReader.UnfinishedForDate` is wired in; untouched by this tier.
 
 ## Read paths affected
 

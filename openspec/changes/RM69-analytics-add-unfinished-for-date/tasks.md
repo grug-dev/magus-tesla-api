@@ -34,7 +34,7 @@ T5 (leader, cross-module) — independent, may run any time before T7's repo-wid
 
 Depends on: nothing.
 
-- [ ] 1.1 Add `UnfinishedVehicleIDsForDate` (a `:many` query) per `design.md`
+- [x] 1.1 Add `UnfinishedVehicleIDsForDate` (a `:many` query) per `design.md`
       D3: `SELECT DISTINCT t.tesla_id FROM unnest(@tesla_ids::bigint[]) AS
       t(tesla_id) WHERE NOT EXISTS (SELECT 1 FROM analytics.vehicle_metrics
       vm WHERE vm.tesla_id = t.tesla_id AND vm.metric_date = @metric_date)
@@ -48,7 +48,7 @@ Depends on: nothing.
 
 Depends on: 1.1.
 
-- [ ] 2.1 Run `make sqlc` (or `sqlc generate` — allowed codegen command,
+- [x] 2.1 Run `make sqlc` (or `sqlc generate` — allowed codegen command,
       `CLAUDE.md` "Builds & local checks") to regenerate
       `internal/analytics/db/*.go`. Confirm the generated method's shape:
       `UnfinishedVehicleIDsForDate(ctx context.Context, arg
@@ -62,7 +62,7 @@ Depends on: 1.1.
 
 Depends on: 1.1, 2.1.
 
-- [ ] 3.1 `internal/analytics/analytics.go` — add `UnfinishedForDate(ctx
+- [x] 3.1 `internal/analytics/analytics.go` — add `UnfinishedForDate(ctx
       context.Context, teslaIDs []int64, date time.Time) ([]int64, error)`
       to the `Reader` interface, immediately after `LatestMetricsForVehicles`,
       with the full doc comment from `design.md` "Signatures" (the
@@ -71,7 +71,7 @@ Depends on: 1.1, 2.1.
       contract).
       `depends_on`: 1.1, 2.1 · `parallel_ok`: no
 
-- [ ] 3.2 `internal/analytics/reader.go` — `vehicleMetricsStore` gains
+- [x] 3.2 `internal/analytics/reader.go` — `vehicleMetricsStore` gains
       `UnfinishedVehicleIDsForDate(ctx context.Context, arg
       analyticsdb.UnfinishedVehicleIDsForDateParams) ([]int64, error)`.
       Implement `UnfinishedForDate` on the concrete `reader` exactly as
@@ -81,7 +81,7 @@ Depends on: 1.1, 2.1.
       before returning (the "every vehicle is done" case).
       `depends_on`: 3.1 · `parallel_ok`: no
 
-- [ ] 3.3 `internal/analytics/query_log.go` — add
+- [x] 3.3 `internal/analytics/query_log.go` — add
       `UnfinishedForDate` to `loggingReader`, logging AFTER delegating
       (design.md D7): `logging.Note("Reader", "UnfinishedForDate",
       "analytics query: date=%s requested=%d unfinished=%d", ...)`. Update
@@ -97,7 +97,7 @@ Depends on: 1.1, 2.1.
 
 Depends on: 3.1, 3.2 (needs the real method signature to compile against).
 
-- [ ] 4a.1 `internal/analytics/reader_test.go` — TR-1: a fake
+- [x] 4a.1 `internal/analytics/reader_test.go` — TR-1: a fake
       `vehicleMetricsStore` whose `UnfinishedVehicleIDsForDate` calls
       `t.Fatal` if invoked. Call `UnfinishedForDate(ctx, nil, anyDate)` and
       `UnfinishedForDate(ctx, []int64{}, anyDate)`; assert both return
@@ -110,7 +110,7 @@ Depends on: 3.1, 3.2 (needs the real method signature to compile against).
 
 Depends on: 3.1, 3.2.
 
-- [ ] 4b.1 New file `internal/analytics/db_unfinished_integration_test.go`.
+- [x] 4b.1 New file `internal/analytics/db_unfinished_integration_test.go`.
       Add a `seedUnfinishedVehicleMetric(t, pool, teslaID, metricDate)`
       helper mirroring `db_monthly_sync_integration_test.go`'s
       `seedMonthlyVehicleMetric` (direct `INSERT` with placeholder `NOT
@@ -124,6 +124,11 @@ Depends on: 3.1, 3.2.
       `depends_on`: 3.1, 3.2 · `parallel_ok`: with 4a.1
 
 ## T5 — Cross-module fake stubs (LEADER-OWNED, outside this module's sandbox)
+
+Not needed after the D1 amendment: `UnfinishedForDate` was moved off
+`Reader` onto a new `UnfinishedReader` interface (see `design.md` D1's
+"Amended by the leader" note and D8), so `Reader` never widens and none
+of the four fakes below need a stub.
 
 Depends on: 3.1 (the interface must exist to know the new method's exact
 signature). Independent of T4a/T4b/T6.
@@ -147,13 +152,13 @@ signature). Independent of T4a/T4b/T6.
 
 Depends on: 3.1.
 
-- [ ] 6.1 `internal/analytics/AGENTS.md` — "Public interface (the port)"
+- [x] 6.1 `internal/analytics/AGENTS.md` — "Public interface (the port)"
       table: add the `UnfinishedForDate` row to `Reader`
       (`"[]int64 — the tesla_ids with no vehicle_metrics row for a given date"`
       or similar, matching the table's existing terseness).
       `depends_on`: 3.1 · `parallel_ok`: with 4a.1, 4b.1
 
-- [ ] 6.2 `kkpa/context/entities/vehicle-metrics/guide.md` — update the
+- [x] 6.2 `kkpa/context/entities/vehicle-metrics/guide.md` — update the
       `Reader` port method list (the "Read the metrics:" bullet and the
       `internal/analytics/analytics.go` file-map row) to include
       `UnfinishedForDate` alongside the four existing methods.
@@ -163,10 +168,10 @@ Depends on: 3.1.
 
 Depends on: everything above (1.1 through 6.2), including T5.
 
-- [ ] 7.1 Run and report, inside `internal/analytics/`: `go build ./...`,
+- [x] 7.1 Run and report, inside `internal/analytics/`: `go build ./...`,
       `go vet ./...`, `gofmt -l`. Per the Test-Execution-Policy, never run
       `go test ./...`, `make test`, `make test-with-db`, or `make check`.
-- [ ] 7.2 Run and report repo-wide: `go build ./...`, `go vet ./...`,
+- [x] 7.2 Run and report repo-wide: `go build ./...`, `go vet ./...`,
       `gofmt -l`, `make build`, `make vet`, `make bins`, `make lint`. This
       is where T5's fix is actually verified — repo-wide `go vet` fails
       until all four fakes are stubbed. `make ui-guard` /
@@ -177,7 +182,7 @@ Depends on: everything above (1.1 through 6.2), including T5.
       user-facing string, no monetary or raw-time-zone code, no migration
       file, no log-dir change, no naming-guard-triggering type) — running
       them is optional but harmless.
-- [ ] 7.3 Hand off to the owner the exact command to run and report: `go
+- [x] 7.3 Hand off to the owner the exact command to run and report: `go
       test ./internal/analytics/...` (covers the new offline test T4a and
       the new DB-integration file T4b, plus every pre-existing test in the
       package). Until the owner reports a pass, this tier's implementation

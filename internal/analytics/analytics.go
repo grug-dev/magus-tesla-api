@@ -16,6 +16,7 @@ import (
 	"context"
 	"time"
 
+	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/vehicleref"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -636,4 +637,50 @@ type MonthlyReader interface {
 // gateway-serving methods as silent pass-throughs (query_log.go).
 func NewMonthlyReader(pool *pgxpool.Pool) MonthlyReader {
 	return newMonthlyReader(pool)
+}
+
+// --- UnfinishedReader (nightly poller's periodic retry check) ---
+
+// UnfinishedReader is a narrow read port of its own, not a method on Reader
+// above: its only caller is cmd/poller's periodic retry job, which has no
+// signed-in user and no single account, unlike every Reader method. Widening
+// Reader instead would force three gateway test doubles
+// (internal/app/processor_test.go and two internal/gateway/handlers test
+// files) to implement a method the gateway never calls.
+type UnfinishedReader interface {
+	// UnfinishedForDate returns, from teslaIDs, exactly the ids that have NO
+	// vehicle_metrics row for date -- "not yet done" for that calendar day.
+	// A returned id is a vehicle this platform has not finished processing
+	// for date; an id absent from the result already has a row and needs no
+	// retry.
+	//
+	// Takes teslaIDs as a plain []int64, not []vehicleref.Ref, unlike
+	// Reader.LatestMetricsForVehicles: the caller walks every registered
+	// vehicle across every account on a timer, with no signed-in user and no
+	// single account to prove ownership against. This method performs no
+	// ownership or registration check of its own -- an id with no
+	// vehicle_metrics row counts as unfinished even if it is not currently
+	// registered to any account.
+	//
+	// date is compared against vehicle_metrics.metric_date, this platform's
+	// bare-calendar-date representation (UTC midnight) -- pass the same
+	// representation Reader.ConsumedByDay/OdometerDeltaByDay's start/end
+	// already use.
+	//
+	// A tesla_id repeated in teslaIDs appears at most once in the result. If
+	// teslaIDs is empty, this returns an empty (non-nil) slice and a nil
+	// error WITHOUT querying the database. Otherwise it still never returns
+	// a bare nil on the happy path, matching every other read method this
+	// module exposes. Order of the returned slice is ascending by tesla_id.
+	UnfinishedForDate(ctx context.Context, teslaIDs []int64, date time.Time) ([]int64, error)
+}
+
+// NewUnfinishedReader constructs an UnfinishedReader over the module's own
+// database pool. The concrete type is the same reader that backs Reader
+// (reader.go) -- both ports read the same vehicle_metrics table through the
+// same store seam, so no second struct is needed. The returned value is
+// wrapped so the nightly poller's periodic retry read is logged, the same
+// side of the split ConsumedByDay is on (query_log.go).
+func NewUnfinishedReader(pool *pgxpool.Pool) UnfinishedReader {
+	return newLoggingUnfinishedReader(&reader{metrics: analyticsdb.New(pool)})
 }

@@ -33,6 +33,22 @@ values instead of one for no benefit — nothing about `UnfinishedForDate`
 needs its own constructor, its own pool wiring, or its own decorator file;
 it reuses every one of those `Reader` already has.
 
+**Amended by the leader:** `UnfinishedForDate` does NOT go on `Reader`.
+It goes on a new, narrow interface, `UnfinishedReader`, declared in
+`internal/analytics/analytics.go` with its own constructor,
+`NewUnfinishedReader`. The reason is `Reader`'s blast radius: widening
+`Reader` breaks four `Reader`-implementing test fakes outside this
+module the moment it gains a method (D8 below), and three of those four
+live in the gateway, which never calls `UnfinishedForDate` at all — only
+`cmd/poller` does. A second interface costs `cmd/poller` one more
+constructor call; it costs nothing in gateway test fakes, which stay
+untouched. The concrete implementation still lives on the same `reader`
+struct `Reader` already uses (`reader.go`), since both ports read the
+same `vehicle_metrics` table through the same store seam — only the
+public interface split, not the underlying type. Every other design
+decision below (D2 through D7) is unaffected: they describe
+`UnfinishedForDate`'s own behaviour, not which interface it sits on.
+
 ### D2 — The vehicle set is a plain `[]int64`, not `vehicleref.Ref`
 
 Restates roadmap D12 for this module's own artifact. `vehicleref.Ref` proves
@@ -151,6 +167,12 @@ stays silent (dashboard-only, no poller caller).
 
 ### D8 — Widening `Reader` is a cross-module compile risk, not only an analytics change
 
+**Not needed after the D1 amendment.** The leader's amendment to D1 puts
+`UnfinishedForDate` on a new `UnfinishedReader` interface instead of on
+`Reader`, so `Reader`'s shape never changes and the four fakes described
+below need no stub. Left in place below for the record of the risk this
+tier would otherwise have carried.
+
 `RM40-analytics-add-battery-level-read` already hit this once: adding a
 method to `Reader` broke two other modules' test doubles that implement the
 full interface, because `go vet ./...` compiles every package's `_test.go`
@@ -195,6 +217,12 @@ b)` ... a separate index next to it repeats work the constraint already
 does"), taxing every `Recalculate`/`Reconcile` UPSERT for zero read benefit.
 
 ## Signatures
+
+**Amended by the leader (see D1):** the method below is NOT added to
+`Reader`. It is declared on a new `UnfinishedReader` interface in the
+same file, with its own `NewUnfinishedReader` constructor. The method
+body, its doc comment content, and its behaviour are unchanged from what
+follows -- only which interface declares it changed.
 
 `internal/analytics/analytics.go` — `Reader` gains one method, placed
 immediately after `LatestMetricsForVehicles`:
@@ -348,15 +376,19 @@ retry" path (design.md "Signatures", the `ids == nil` guard).
 ## Risks
 
 - **Widening `Reader` breaks four out-of-module test fakes until they are
-  patched (D8).** This tier's own `go vet ./...` inside
-  `internal/analytics/` stays green, but a repo-wide `go vet ./...` will not
-  until `internal/app/processor_test.go`,
+  patched (D8). NOT NEEDED after the D1 amendment** — `UnfinishedForDate`
+  sits on the new `UnfinishedReader` interface, not on `Reader`, so `Reader`
+  never widens and none of the four fakes below need a stub. Left here for
+  the record of the risk this tier would otherwise have carried: this
+  tier's own `go vet ./...` inside `internal/analytics/` stays green, and a
+  repo-wide `go vet ./...` would have needed
+  `internal/app/processor_test.go`,
   `internal/gateway/handlers/handlers_test.go`,
   `internal/gateway/handlers/history_test.go`, and
-  `internal/gateway/handlers/external_charges_test.go` each gain a stub for
-  the new method. `tasks.md` records this as a leader-owned task, mirroring
-  how `RM40-analytics-add-battery-level-read` handled the identical fallout
-  the last time this port grew.
+  `internal/gateway/handlers/external_charges_test.go` each to gain a stub
+  for the new method, mirroring how
+  `RM40-analytics-add-battery-level-read` handled the identical fallout the
+  last time this port grew.
 - **`UnfinishedForDate` has no caller until tier 2 lands.** Tier order is
   forced by the roadmap (tier 2 depends on this tier); this is a
   temporarily uncalled port method, not a design flaw — `go build ./...`
