@@ -188,6 +188,9 @@ const (
 	// TriggeredByAPI — a manual re-run via cmd/poller's HTTP listener
 	// (platform-add-manual-rerun-api).
 	TriggeredByAPI TriggeredBy = "api"
+	// TriggeredByRetry — a periodic retry of vehicles that did not finish a
+	// prior nightly (or prior retry) collection cycle.
+	TriggeredByRetry TriggeredBy = "retry"
 )
 
 // RunContext identifies one invocation ("run") of CollectAll so every poll_attempts
@@ -297,6 +300,27 @@ type Collector interface {
 	// whole-cycle failure (e.g. the account enumeration itself failing) — never for
 	// an individual vehicle.
 	CollectAll(ctx context.Context, run RunContext) (CycleReport, error)
+
+	// CollectVehicles runs the same collection flow as CollectAll — election,
+	// per-account grouping, wake-and-fetch, snapshot storage, and the
+	// account's Supercharger history — but scopes the snapshot and
+	// poll_attempts work to exactly the given tesla_id set. A tesla_id in
+	// teslaIDs that is not currently registered to any account is silently
+	// absent from every result: no Fleet API request is made for it, and no
+	// poll_attempts row is written for it. An empty teslaIDs makes zero
+	// Fleet API requests and returns a zero CycleReport.
+	//
+	// The Supercharger history fetch for an account touched by this call
+	// still covers that account's full registered vehicle list, not only
+	// the requested subset — a session belonging to one of that account's
+	// other cars is upserted normally rather than being wrongly counted as
+	// unregistered.
+	//
+	// run identifies this invocation exactly as it does for CollectAll —
+	// the caller is expected to pass RunContext{TriggeredBy: TriggeredByRetry}
+	// for a retry cycle, but this method does not itself inspect or require
+	// any particular TriggeredBy value.
+	CollectVehicles(ctx context.Context, run RunContext, teslaIDs []int64) (CycleReport, error)
 }
 
 // Reader exposes the telemetry module's stored snapshots for read-only

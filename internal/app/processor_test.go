@@ -112,6 +112,13 @@ func (f *fakeCollector) CollectAll(_ context.Context, run telemetry.RunContext) 
 	return f.report, f.err
 }
 
+// CollectVehicles exists only so fakeCollector satisfies telemetry.Collector.
+// The full-cycle tests here never call it.
+func (f *fakeCollector) CollectVehicles(_ context.Context, run telemetry.RunContext, _ []int64) (telemetry.CycleReport, error) {
+	f.gotRun = run
+	return f.report, f.err
+}
+
 var _ telemetry.Collector = (*fakeCollector)(nil)
 
 // fakeRunWriter satisfies telemetry.RunWriter. Records the PollRun it was
