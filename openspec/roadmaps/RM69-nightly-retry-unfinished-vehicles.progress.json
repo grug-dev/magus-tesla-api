@@ -4,9 +4,9 @@
   "roadmap": "RM69-nightly-retry-unfinished-vehicles",
   "intention": "A car the 03:30 run did not finish is retried every 30 min until end of day, so its daily vehicle_metrics row is not lost.",
   "request": "MAG-98 — Nightly Job: retry every 30 min the vehicles the nightly job could not fully process (snapshot + supercharger + charging + analytics), only for those tesla_ids, for that date.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": true,
-  "updated_at": "2026-09-27T15:15:44Z",
+  "updated_at": "2026-09-27T16:22:04Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM69-MAG-98-nightly-retry-unfinished-vehicles",
@@ -16,13 +16,12 @@
     "created_at": "2026-09-27T14:11:06Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       1,
+      2,
       3
     ]
   },
@@ -78,14 +77,21 @@
         1,
         3
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5-5",
       "started_at": "2026-09-27T14:45:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-27T16:22:04Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 33.67,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "joint with tier 3 (co-ran); leader bracket 14:37-16:25 incl. a 5-hour bucket reset"
+      },
+      "notes": "Retry schedule + car-subset cycle + cmd/poller wiring shipped. Review: round 1 F1 (assistant-run suite) rejected with owner waiver; round 2 approved. go test ./... PASS (assistant-run, owner waiver)."
     },
     {
       "id": 3,
@@ -107,7 +113,7 @@
         "spanned_sessions": 1,
         "source": "statusline-cache",
         "approx": true,
-        "note": "co-ran with tier 2; see tier 2 budget for the joint figure"
+        "note": "included in tier 2 cost_usd_delta (co-ran)"
       },
       "notes": "analytics.UnfinishedReader.UnfinishedForDate shipped; review approved round 1 (1 minor fixed). go test analytics PASS (assistant-run, owner delegation)."
     }
