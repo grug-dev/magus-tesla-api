@@ -212,6 +212,13 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **A latest row whose day predates delta tracking reports the three travel-progress deltas as absent, never as `0`.** This is the same rule the eight status observations and the four tyre-pressure columns already follow. The row keeps its own battery, range, odometer, status, tyre-pressure and travel-progress figures; only the deltas are absent. A fabricated `0` would be read as "no change", which is a different fact. _Source: spec analytics — Requirement: Latest Vehicle Status Per Account._
 
 
+- **`UnfinishedForDate` means "no `vehicle_metrics` row for that `metric_date`".** An id that was never registered, or never had a snapshot, is returned as unfinished — the read does not check registration.
+  _Source: spec analytics — Requirement: Unfinished Vehicle Detection For A Date._
+- **It takes plain `[]int64`, not `vehicleref.Ref`, and checks no ownership.** Only server-side jobs that span every account may call it; never call it from the gateway.
+  _Source: spec analytics — Requirement: Unfinished Vehicle Detection For A Date._
+- **One query for the whole list; empty input returns an empty slice with no query.** Duplicate ids come back once, in ascending `tesla_id` order.
+  _Source: spec analytics — Requirement: Unfinished Vehicle Detection For A Date._
+
 ## Column detail — the three analytics tables
 
 Moved here from `internal/analytics/AGENTS.md`, which every worker dispatched to that module

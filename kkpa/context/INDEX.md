@@ -27,6 +27,7 @@
 | `vehicle metrics` | `analytics.Recalculator` / `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calc fields` | the `_calc` columns of `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calculated fields` | synonym of `calc fields` | entity | `entities/vehicle-metrics/guide.md` |
+| `unfinished vehicles` | `analytics.UnfinishedReader.UnfinishedForDate` — cars with no `vehicle_metrics` row for a date (the nightly retry's done check) | entity | `entities/vehicle-metrics/guide.md` |
 | `metrics reconciliation` | `Recalculator.Reconcile` / `vehicle_metric_watermarks` | entity | `entities/vehicle-metrics/guide.md` |
 | `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `supercharger_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
 | `vehicle status` | the eight raw status observations on `vehicle_metrics`, read via `analytics.Reader.LatestMetricsForVehicles` → `analytics.VehicleStatus` (RM38) | entity | `entities/vehicle-metrics/guide.md` |
