@@ -12,7 +12,7 @@
 # Three final stages exist: web, poller, migrate. compose.yaml picks one with
 # `target: <name>`. Each stage is small (Alpine base) and runs as a non-root
 # user.
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /src
 RUN apk add --no-cache git
 COPY go.mod go.sum ./

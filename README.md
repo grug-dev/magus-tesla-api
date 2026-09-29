@@ -18,7 +18,7 @@ Build a personal, multitenant, self-hosted tool that:
 
 ## Quick Start
 
-> **Prerequisites:** Go 1.25+ (see `go.mod`), a registered Tesla Fleet API app, and a completed setup (see [docs/post-registration-setup.md](docs/post-registration-setup.md)).
+> **Prerequisites:** Go 1.26+ (see `go.mod`), a registered Tesla Fleet API app, and a completed setup (see [docs/post-registration-setup.md](docs/post-registration-setup.md)).
 
 ```bash
 # Install dependencies
@@ -67,7 +67,7 @@ The cycle itself is drawn in `kkpa/docs/diagrams/nightly-job/`.
 
 ## Building the modular monolith
 
-> **Prerequisites:** Go 1.25+ (see `go.mod`). The DB-backed modules use **generated** code, but
+> **Prerequisites:** Go 1.26+ (see `go.mod`). The DB-backed modules use **generated** code, but
 > that output is **committed**, so a fresh checkout compiles as-is. Install `sqlc`
 > (`brew install sqlc`) and, for migrations, `goose` before you *change* schema or queries —
 > full tooling list in [docs/0-set-up/deployment.md](kkpa/docs/0-set-up/deployment.md).
@@ -596,3 +596,14 @@ design.md — in the OpenSpec flow, proposal.md carries the what/why, specs/ car
 ## Update GO
 
 `mise use go@latest` to update to the latest Go version. If you don't have `mise` installed
+yet, install it first.
+
+Changing the Go version of the project touches three places. Change them in the same PR:
+
+1. `go.mod` — the `go` line, e.g. `go mod edit -go=1.26.8`, then `go mod tidy`.
+2. `deploy/docker/Dockerfile` — the builder image, e.g. `FROM golang:1.26-alpine`. The image
+   sets `GOTOOLCHAIN=local`, so an older image cannot build a newer `go` line.
+3. `.github/workflows/ci.yml` — CI reads the Go version from `go.mod`. Only check the
+   pinned `govulncheck` version: some releases need a newer Go.
+
+To undo, revert that PR.
