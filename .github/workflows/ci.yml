@@ -4,6 +4,7 @@
 #   checks  - build, vet, lint, every *-guard target, codegen drift (sqlc + templ)
 #   test    - the full test suite on a disposable testcontainers Postgres
 #   vuln    - govulncheck (informational: do NOT make it a required check)
+#   docker  - builds the web, poller and migrate images from deploy/docker/Dockerfile
 #
 # Security: this repo is public. No job here reads a secret, and none may.
 # Never switch the trigger to pull_request_target - it gives fork PRs the secrets.
@@ -106,3 +107,45 @@ jobs:
       # job runs the go.mod version. Bump it together with the go line in go.mod.
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+  # Builds the three production images, with no push. It catches a Dockerfile that no
+  # longer matches the code: a go.mod `go` line newer than the builder image, a file
+  # excluded by Dockerfile.dockerignore that the build needs, or a COPY of a folder that
+  # no longer exists. It does NOT catch a new migration folder missing from the COPY
+  # lines - the build still passes without it.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Same context and file as the `build:` blocks in deploy/docker/compose.yaml.
+      # All three share the builder stage, so web fills the cache the other two reuse.
+      - name: Build web image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: web
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build poller image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: poller
+          push: false
+          cache-from: type=gha
+
+      - name: Build migrate image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: migrate
+          push: false
+          cache-from: type=gha
