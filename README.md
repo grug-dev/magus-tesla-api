@@ -437,7 +437,8 @@ Rules to keep it working:
 
 - **Pinned versions live in two places.** golangci-lint is pinned in `mise.toml` and in
   `ci.yml`; sqlc is pinned in `ci.yml` and shows in the `sqlc vX` header of the generated
-  files. Bump both places together.
+  files. Bump both places together. govulncheck is pinned in `ci.yml` too, because newer
+  releases need a newer Go than `go.mod` — bump it when you bump the `go` line.
 - **The codegen drift check skips `make css`.** That target downloads the latest Tailwind
   binary, so its output can change with no change in the repo.
 - **`archive-guard` needs a local `main`.** A PR checkout has none, so the workflow creates it

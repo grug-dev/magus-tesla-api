@@ -102,5 +102,7 @@ jobs:
 
       # Informational. A new Go or dependency CVE turns this red with no change in the
       # repo, so it must not block merges. Fix it with a Go or module bump.
+      # Pinned, not @latest: govulncheck v1.8.0+ needs Go 1.26, and this job runs the
+      # go.mod version. Bump it together with the go line in go.mod.
       - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
