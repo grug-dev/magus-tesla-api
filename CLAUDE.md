@@ -97,9 +97,9 @@ These are always in effect. Do not violate them even if you haven't opened the c
 
 - **Workflow & architectural decisions are documented with their steps** — when a change introduces or alters *how to build, run, generate, deploy, upgrade, or create something* in this project (a new toolchain or dependency, a new required command or `make` target, a new codegen step, a changed setup/upgrade/deploy procedure, or any architectural decision that affects the developer/agent workflow), the **same change** MUST document it where a human or an agent will look: the root `README.md` (its "Making a change" / run instructions), the relevant `docs/` file (e.g. `docs/0-set-up/deployment.md`), the affected `ai/*.md` convention doc, and the touched module's `AGENTS.md` / `README.md`. State **what changed, why, and the exact steps/commands** to do it — and to upgrade or reverse it where relevant. **The reverse direction counts too:** when a change alters the database schema, the module layout, or a codegen input, **verify the existing `make` targets and guards still hold** — `db-setup`/`db-reset` role-and-ownership assumptions, `MIGRATIONS_DIRS` order, every guard, and `sqlc`. Record in the change that you checked and what you found; "I did not think about the Makefile" is not the same as "the Makefile is unaffected", and only the second one is a finding. A decision that lives only in chat, code, or a commit message — with no doc a future contributor can follow — is **incomplete**.
 
-## Pipeline config (kkpa-dev-harness-pipeline)
+## Pipeline config (kkpa-orchestrate-change)
 
-Declarative config read by the dev-harness-pipeline at dispatch time (contract of record:
+Declarative config read by the kkpa-orchestrate-change skill at dispatch time (contract of record:
 [`ai/agentic-workflow.md`](ai/agentic-workflow.md) §pipeline). These files are
 **module-agnostic** — general instructions that apply to every module; the per-module
 layer is each module's own `AGENTS.md`, added to the pack by the leader per dispatch.

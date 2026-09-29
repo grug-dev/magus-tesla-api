@@ -25,7 +25,7 @@ Architecture is a valid MODULE-NAME when it is cross-cutting (e.g., `security`, 
 
 ```
 
-- When you pick an item up, run the skill `/kkpa-dev-harness-pipeline:propose` to generate a new OpenSpec change (proposal.md, design.md, specs/<domain>/spec.md, tasks.md) and move the item into that change's design.md.
+- When you pick an item up, run the skill `/kkpa-orchestrate-change` to generate a new OpenSpec change (proposal.md, design.md, specs/<domain>/spec.md, tasks.md) and move the item into that change's design.md.
 
 
 

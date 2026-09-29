@@ -62,11 +62,11 @@ reviewable module-by-module.*
 
 ## The pipeline — roles, state files, and the review gate {#pipeline}
 
-The lead-orchestrator protocol above is executed as a **dev harness pipeline** with three
+The lead-orchestrator protocol above is executed as a **multi-agent pipeline** with three
 roles and durable state, so a change survives session interruptions (rate limits,
 crashes, context resets). Assistants with subagent support dispatch real subagents;
 others switch "hats" — the roles and state contract are identical either way. (For
-Claude Code, the automation lives in the user-global `kkpa-dev-harness-pipeline` skill;
+Claude Code, the automation lives in the user-global `kkpa-orchestrate-change` skill;
 this section is the assistant-neutral contract of record.)
 
 ### Roles
@@ -94,7 +94,7 @@ this section is the assistant-neutral contract of record.)
 
 ### Pipeline config & the doc-pack guarantee
 
-The project declares its pipeline config in a `## Pipeline config (kkpa-dev-harness-pipeline)`
+The project declares its pipeline config in a `## Pipeline config (kkpa-orchestrate-change)`
 block in the repo-root instruction file (here: `CLAUDE.md`): **`Modules-Root`** — the
 folder whose direct children are the modules (`internal/`; workers are sandboxed to one
 child each) — and **`Doc-Pack`** — the module-agnostic **base** docs every worker and
@@ -115,8 +115,8 @@ validates convention compliance, catching any worker that skipped it.
 
 ### State files (the progress.json contract)
 
-**The contract is owned by the `kkpa-dev-harness-pipeline` skill, not by this file.** It
-lives in `~/.claude/skills/kkpa-dev-harness-pipeline/references/progress-schema.md`: the
+**The contract is owned by the `kkpa-orchestrate-change` skill, not by this file.** It
+lives in `~/.claude/skills/kkpa-orchestrate-change/references/progress-schema.md`: the
 schema for both file kinds, write ownership, the status lifecycles, and the anti-gaming
 rails. The leader repeats the write-ownership rules verbatim in every dispatch prompt, so
 workers and the reviewer receive them per dispatch and need not look them up.

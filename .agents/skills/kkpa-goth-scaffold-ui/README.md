@@ -5,7 +5,7 @@ A **local** (repo-checked-in) skill that scaffolds **AI-efficient UI** for the
 a **Node-less** standalone Tailwind CLI + **DaisyUI**, and a responsive **drawer**
 navigation. It exists so that every UI page is born compliant with the gateway boundary rules
 in `ai/architecture.md` / `ai/htmx-conventions.md`, and so that different sessions (and
-different `kkpa-dev-harness-pipeline` WORKER agents) produce **consistent** UI instead of
+different `kkpa-orchestrate-change` WORKER agents) produce **consistent** UI instead of
 each inventing its own markup, spacing, and colors.
 
 ## How it works
