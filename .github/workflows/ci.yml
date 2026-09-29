@@ -1,0 +1,106 @@
+# CI for magus-tesla-api. Runs on every pull request to main and on every push to main.
+#
+# It runs the same checks as `make check`, split into jobs that run in parallel:
+#   checks  - build, vet, lint, every *-guard target, codegen drift (sqlc + templ)
+#   test    - the full test suite on a disposable testcontainers Postgres
+#   vuln    - govulncheck (informational: do NOT make it a required check)
+#
+# Security: this repo is public. No job here reads a secret, and none may.
+# Never switch the trigger to pull_request_target - it gives fork PRs the secrets.
+# Tesla / VPS secrets belong only to a future deploy workflow (MAG-52).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A new push to the same PR cancels the older, now useless run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # archive-guard diffs against the merge-base with main, so it needs full history.
+          fetch-depth: 0
+
+      # A PR checkout is a detached merge commit with no local `main` branch.
+      # Without one, archive-guard falls back to HEAD and silently checks nothing.
+      - name: Create local main for archive-guard
+        if: github.event_name == 'pull_request'
+        run: git branch --force main origin/main
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: make build
+
+      - name: Vet
+        run: make vet
+
+      # Keep this version equal to golangci-lint in mise.toml.
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+
+      - name: Project guards
+        run: |
+          make ui-guard i18n-guard money-guard tz-guard logging-guard \
+            migration-boundary-guard boundary-guard theme-guard vehicleref-guard \
+            tenancy-guard naming-guard archive-guard logdir-guard delta-guard
+
+      # Keep this version equal to the "sqlc vX" header in internal/*/db/*.go.
+      - uses: sqlc-dev/setup-sqlc@v5
+        with:
+          sqlc-version: "1.31.1"
+
+      # Fails when a .sql query or a .templ file changed but the generated Go code was
+      # not regenerated and committed. `make css` is left out on purpose: it downloads
+      # the latest Tailwind binary, so its output can change with no change in the repo.
+      - name: Codegen drift (sqlc + templ)
+        run: |
+          make sqlc templ
+          if ! git diff --exit-code; then
+            echo "::error::Generated code is out of date. Run 'make sqlc templ' and commit the result."
+            exit 1
+          fi
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      # testcontainers starts Postgres through the Docker daemon on the runner.
+      # TEST_DATABASE_URL is not set, so no test can reach a real database.
+      - name: Test
+        run: make test
+
+  vuln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      # Informational. A new Go or dependency CVE turns this red with no change in the
+      # repo, so it must not block merges. Fix it with a Go or module bump.
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

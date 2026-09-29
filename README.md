@@ -140,6 +140,10 @@ make bins        # → bin/setup, bin/web, …  (go build -o bin/ ./cmd/...)
 ```
 magus-tesla-api/
 │
+├── .github/
+│   ├── workflows/ci.yml # CI on every PR and push to main (see "CI — GitHub Actions")
+│   └── dependabot.yml   # Weekly update PRs for Go modules and Actions
+│
 ├── deploy/
 │   └── docker/          # Dockerfile, Dockerfile.dockerignore, compose.yaml, Caddyfile,
 │                        # backup-db.sh — all Docker deploy files in one folder
@@ -399,6 +403,7 @@ hatch — only for something that is *not* a rewrite of the record, e.g. purging
 
 Before committing any change, run **`make generate`** (sqlc + templ + css) then **`make check`**
 (build + vet + lint + guards + test). `make up` does generate + migrate + run.
+CI runs the same checks on every PR — see [CI — GitHub Actions](#ci--github-actions).
 
 ### Linting — `make lint`
 
@@ -416,6 +421,40 @@ The tool is pinned in `mise.toml`. Install it with **`mise install`**, or
 on `PATH`, through `mise which`, or in `$(go env GOPATH)/bin`, and tells you how to install it
 if it is missing. Bump the pinned version on purpose — never `latest`, or a linter upgrade turns
 a green `make check` red for something nobody changed.
+
+### CI — GitHub Actions
+
+`.github/workflows/ci.yml` runs on every pull request to `main` and on every push to `main`.
+It runs the same checks as `make check`, in three parallel jobs:
+
+| Job | What it runs | Required to merge? |
+|---|---|---|
+| `checks` | `make build`, `make vet`, golangci-lint, every `*-guard` target, and a codegen drift check (`make sqlc templ`, then `git diff --exit-code`) | Yes |
+| `test` | `make test` — the full suite on a disposable testcontainers Postgres | Yes |
+| `vuln` | `govulncheck` | No — a new CVE turns it red with no repo change |
+
+Rules to keep it working:
+
+- **Pinned versions live in two places.** golangci-lint is pinned in `mise.toml` and in
+  `ci.yml`; sqlc is pinned in `ci.yml` and shows in the `sqlc vX` header of the generated
+  files. Bump both places together.
+- **The codegen drift check skips `make css`.** That target downloads the latest Tailwind
+  binary, so its output can change with no change in the repo.
+- **`archive-guard` needs a local `main`.** A PR checkout has none, so the workflow creates it
+  from `origin/main`. Without that step the guard checks nothing and still passes.
+- **No secrets in CI.** The repo is public. The workflow reads no secret, and it must never use
+  `pull_request_target`, which gives fork PRs the secrets. Deploy secrets belong only to the
+  future deploy workflow (Linear MAG-52).
+- **Adding a new guard?** Add it to `make check` **and** to the "Project guards" step in
+  `ci.yml`.
+
+Dependabot (`.github/dependabot.yml`) opens one grouped PR per week for Go modules and one for
+Actions versions. CI runs on each of them.
+
+**GitHub settings (set once in the web UI, not in the repo):** a ruleset on `main` that requires
+a pull request and the `checks` and `test` status checks, and blocks force-push and deletion.
+No approval is required — a solo owner cannot approve their own PR. Also turn on secret
+scanning with push protection (Settings → Code security).
 
 ---
 
