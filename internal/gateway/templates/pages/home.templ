@@ -3,34 +3,102 @@ package pages
 import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// HomeView is the landing page's presentation model.
-type HomeView struct {
-	SignedIn bool
-	Email    string
-}
-
-// Home is the landing page. It reflects auth state: a sign-in link when anonymous,
-// the account email plus dashboard/connect/log-out links when signed in.
-templ Home(vm HomeView) {
-	// The <title> is the SEO title, not the bare brand: it is BOTH the browser
-	// tab and the headline Google shows for the site's root URL (layouts.seoHead
-	// reuses it as og:title/twitter:title), and "Magus" alone tells a search
-	// result nothing about what the product does.
+// Home is the public landing page at /, shown to anonymous visitors only (a signed-in
+// user is redirected to /dashboard by Handler.Home). It is static: no view model, no
+// module call. Every string comes from the catalogue (home.* keys), and every
+// screenshot is picked in the visitor's language by landingShot (home.go).
+//
+// It uses layouts.Base, so it is indexable and carries the share metadata, and the
+// visitor's theme (theme cookie, else the platform default) applies like on /login.
+// Base also draws the language switcher, fixed in the top-right corner; the header's
+// right padding leaves room for it.
+templ Home() {
+	// The <title> is the SEO title, not the bare brand: it is BOTH the browser tab and
+	// the headline Google shows for the site's root URL (layouts.seoHead reuses it as
+	// og:title/twitter:title).
 	@layouts.Base(i18n.T(ctx, i18n.KeySEOHomeTitle)) {
+		<header id="landing-header" class="border-b border-base-300">
+			<div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 pr-28 sm:h-20 sm:px-8 sm:pr-32">
+				<a href="#landing-hero" class="text-base font-extrabold uppercase tracking-[0.2em] text-base-content">{ i18n.T(ctx, i18n.KeyBrandMagusMonitor) }</a>
+				<nav aria-label={ i18n.T(ctx, i18n.KeyHomeNavLabel) } class="hidden flex-1 justify-center gap-8 text-sm font-medium text-base-content/70 lg:flex">
+					<a href="#landing-how" class="hover:text-base-content">{ i18n.T(ctx, i18n.KeyHomeNavHow) }</a>
+					<a href="#landing-app" class="hover:text-base-content">{ i18n.T(ctx, i18n.KeyHomeNavApp) }</a>
+					<a href="#landing-features" class="hover:text-base-content">{ i18n.T(ctx, i18n.KeyHomeNavSee) }</a>
+					<a href="#landing-data" class="hover:text-base-content">{ i18n.T(ctx, i18n.KeyHomeNavData) }</a>
+				</nav>
+				<div class="ml-auto lg:ml-0">
+					@ui.Button(ui.ButtonProps{Variant: "ghost", Outline: true, Size: "sm", Href: "/login"}) {
+						{ i18n.T(ctx, i18n.KeyLoginSignIn) }
+					}
+				</div>
+			</div>
+		</header>
 		<main>
-			<h1>{ i18n.T(ctx, i18n.KeyBrandMagus) }</h1>
-			if vm.SignedIn {
-				<p>{ i18n.T(ctx, i18n.KeyHomeSignedInAs) } <strong>{ vm.Email }</strong>.</p>
-				<p><a href="/dashboard">{ i18n.T(ctx, i18n.KeyHomeViewVehicles) }</a></p>
-				<p><a href="/connect/tesla">{ i18n.T(ctx, i18n.KeyNavHeaderConnectLink) }</a></p>
-				<form method="post" action="/logout">
-					<button type="submit">{ i18n.T(ctx, i18n.KeyNavLogout) }</button>
-				</form>
-			} else {
-				<p><a href="/login">{ i18n.T(ctx, i18n.KeyHomeSignInGoogle) }</a></p>
-			}
+			<section id="landing-hero" class="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-4 py-12 sm:px-8 sm:py-20 lg:grid-cols-2">
+				@ui.Hero(ui.HeroProps{
+					Eyebrow: i18n.T(ctx, i18n.KeyHomeEyebrow),
+					Title:   i18n.T(ctx, i18n.KeyHomeTitle),
+					Lead:    i18n.T(ctx, i18n.KeyHomeLead),
+					Note:    i18n.T(ctx, i18n.KeyHomeNeeds),
+				}) {
+					@ui.GoogleSignInButton(ui.GoogleSignInButtonProps{Label: i18n.T(ctx, i18n.KeyLoginContinueGoogle), Size: "lg"})
+				}
+				@ui.Card(ui.CardProps{ID: "landing-sample", Title: i18n.T(ctx, i18n.KeyHomeSampleTitle), Desc: i18n.T(ctx, i18n.KeyHomeSampleDesc), Class: "shadow-xl"}) {
+					<div class="-mt-2 mb-2">
+						@ui.Badge(ui.BadgeProps{Kind: "neutral", Text: i18n.T(ctx, i18n.KeyHomeSampleBadge)})
+					</div>
+					<div class="grid grid-cols-2 gap-2">
+						for _, tile := range landingSampleTiles(ctx) {
+							@ui.StatTile(tile)
+						}
+					</div>
+				}
+			</section>
+			<section id="landing-how" class="border-y border-base-300 bg-base-200">
+				<div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-16 sm:px-8 sm:py-24">
+					@ui.SectionHeader(ui.SectionHeaderProps{Size: "lg", Eyebrow: i18n.T(ctx, i18n.KeyHomeHowEyebrow), Title: i18n.T(ctx, i18n.KeyHomeHowTitle), Desc: i18n.T(ctx, i18n.KeyHomeHowDesc), Class: "max-w-3xl"})
+					<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+						for _, step := range landingSteps(ctx) {
+							@ui.FeatureCard(step)
+						}
+					</div>
+				</div>
+			</section>
+			<section id="landing-app" class="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-16 sm:px-8 sm:py-24">
+				@ui.SectionHeader(ui.SectionHeaderProps{Size: "lg", Eyebrow: i18n.T(ctx, i18n.KeyHomeAppEyebrow), Title: i18n.T(ctx, i18n.KeyHomeAppTitle), Desc: i18n.T(ctx, i18n.KeyHomeAppDesc), Class: "max-w-3xl"})
+				@ui.Screenshot(ui.ScreenshotProps{ID: "landing-shot-dashboard", Src: landingShot(ctx, "dashboard"), Alt: i18n.T(ctx, i18n.KeyHomeDashboardAlt), Caption: i18n.T(ctx, i18n.KeyHomeDashboardCaption)})
+				@ui.Gallery(ui.GalleryProps{ID: "landing-stats-gallery", Name: "landing-stats", AriaLabel: i18n.T(ctx, i18n.KeyHomeGalleryLabel), Slides: landingStatsSlides(ctx)})
+				@ui.Screenshot(ui.ScreenshotProps{ID: "landing-shot-supercharger", Shape: "banner", Src: landingShot(ctx, "supercharger"), Alt: i18n.T(ctx, i18n.KeyHomeSuperchargerAlt), Caption: i18n.T(ctx, i18n.KeyHomeSuperchargerCaption)})
+			</section>
+			<section id="landing-features" class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-16 sm:px-8 sm:py-24">
+				@ui.SectionHeader(ui.SectionHeaderProps{Size: "lg", Eyebrow: i18n.T(ctx, i18n.KeyHomeSeeEyebrow), Title: i18n.T(ctx, i18n.KeyHomeSeeTitle), Desc: i18n.T(ctx, i18n.KeyHomeSeeDesc), Class: "max-w-3xl"})
+				<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+					for _, feature := range landingFeatures(ctx) {
+						@ui.FeatureCard(feature)
+					}
+				</div>
+			</section>
+			<section id="landing-data" class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-16 sm:px-8 sm:py-24">
+				@ui.SectionHeader(ui.SectionHeaderProps{Size: "lg", Eyebrow: i18n.T(ctx, i18n.KeyHomeDataEyebrow), Title: i18n.T(ctx, i18n.KeyHomeDataTitle), Desc: i18n.T(ctx, i18n.KeyHomeDataDesc), Class: "max-w-3xl"})
+				<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+					for _, point := range landingDataPoints(ctx) {
+						@ui.FeatureCard(point)
+					}
+				</div>
+			</section>
+			<section id="landing-cta" class="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-16 text-center sm:px-8 sm:py-24">
+				@ui.SectionHeader(ui.SectionHeaderProps{Size: "lg", Title: i18n.T(ctx, i18n.KeyHomeEndTitle), Desc: i18n.T(ctx, i18n.KeyHomeEndDesc), Class: "items-center"})
+				@ui.GoogleSignInButton(ui.GoogleSignInButtonProps{Label: i18n.T(ctx, i18n.KeyLoginContinueGoogle), Size: "lg"})
+			</section>
 		</main>
+		<footer id="landing-footer" class="border-t border-base-300">
+			<div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-base-content/60 sm:flex-row sm:items-center sm:px-8">
+				<span class="flex-1">{ i18n.T(ctx, i18n.KeyHomeRights) }</span>
+				@ui.LegalLinks(ui.LegalLinksProps{})
+			</div>
+		</footer>
 	}
 }

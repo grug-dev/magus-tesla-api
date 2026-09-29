@@ -9,14 +9,43 @@ module interfaces in-process and renders their clean structs into Templ HTML; it
 state and hosts all `/ui` routes.
 ## Requirements
 ### Requirement: Web Landing Page
-The gateway SHALL serve an HTML landing page at the web root, rendered from a shared base layout
-that loads the gateway's pinned htmx asset.
+The gateway SHALL serve a public HTML landing page at the web root to an anonymous visitor,
+rendered from the shared, indexable base layout that loads the gateway's pinned htmx asset. A
+signed-in visitor SHALL be redirected to `/dashboard` instead. The page SHALL be static — no
+module call — with every string in the visitor's language (ES/EN) and every screenshot served
+from `/static/img/landing/<name>_<lang>.png` in that same language. `/` SHALL be listed in
+`sitemap.xml`. `/login` SHALL keep its full share metadata but render robots `noindex, follow`
+and SHALL NOT be listed in `sitemap.xml`, so search engines show `/` for the site.
 
-#### Scenario: Visitor opens the site root
-- **GIVEN** the web gateway is running
+#### Scenario: Anonymous visitor opens the site root
+- **GIVEN** the web gateway is running and the visitor has no session
 - **WHEN** a browser requests `GET /`
-- **THEN** the gateway responds with an HTML page built from the base layout
+- **THEN** the gateway responds 200 with the landing page built from the base layout
 - **AND** the page references the gateway's pinned htmx asset under `/static`
+- **AND** the page offers a "Continue with Google" sign-in and a link to `/login`
+
+#### Scenario: Signed-in visitor opens the site root
+- **GIVEN** the visitor has a session
+- **WHEN** a browser requests `GET /`
+- **THEN** the gateway redirects to `/dashboard`
+
+#### Scenario: Screenshots follow the visitor's language
+- **GIVEN** an anonymous visitor whose language resolves to `en`
+- **WHEN** the landing page is rendered
+- **THEN** every screenshot it shows is an `_en.png` file under `/static/img/landing/`
+
+### Requirement: Public Legal Pages
+The gateway SHALL serve a short privacy notice at `/privacy` and short terms of use at `/terms`,
+both public, indexable and listed in `sitemap.xml`, with every string in ES and EN. Every public
+page footer (`/`, `/login`, `/privacy`, `/terms`) SHALL link to both, and SHALL NOT show a
+"Support" link. The privacy notice SHALL name a contact channel for data requests (Colombian
+Ley 1581 de 2012).
+
+#### Scenario: Anonymous visitor opens a legal page
+- **GIVEN** an anonymous visitor
+- **WHEN** a browser requests `GET /privacy` or `GET /terms`
+- **THEN** the gateway responds 200 with the page in the visitor's language
+- **AND** the page footer links to `/privacy` and `/terms`
 
 ### Requirement: Health Check Endpoint
 The gateway SHALL expose a health endpoint that reports whether the service and its database are
@@ -1328,9 +1357,9 @@ placeholder.
 
 The gateway SHALL remove the debug artifacts from the landing page: the
 "Visits this session" counter and the "Check database" htmx health
-fragment demo. The authenticated/anonymous states (signed-in email,
-"View your vehicles", "Connect your Tesla", "Log out", sign-in link) SHALL
-remain. The dead `/ui/health` route, its handler, the `fragments.Health`
+fragment demo. The landing page is anonymous-only (see "Web Landing Page"):
+a signed-in visitor is redirected to `/dashboard`, so the page carries no
+signed-in state. The dead `/ui/health` route, its handler, the `fragments.Health`
 template, and tests covering them SHALL be removed (they exist only to
 serve the now-removed demo).
 
@@ -1358,13 +1387,8 @@ serve the now-removed demo).
   handlers package
 - **AND** no `fragments.Health` / `fragments.HealthCard` template exists
 
-#### Scenario: Landing page keeps authenticated/anonymous state
+#### Scenario: Landing page offers sign-in to an anonymous visitor
 
-- **GIVEN** a signed-in visitor loading `GET /`
-- **WHEN** the landing page is rendered
-- **THEN** the page shows their email and a "Log out" control and a
-  "View your vehicles" link
-- **AND** a "Connect your Tesla" link is shown
 - **GIVEN** an anonymous visitor loading `GET /`
 - **WHEN** the landing page is rendered
 - **THEN** the page offers a way to sign in with Google

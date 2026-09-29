@@ -21,12 +21,17 @@ const seoImagePath = "/static/img/magus-logo.png"
 // It is called by baseShell, so EVERY page gets exactly one copy and no page
 // author has to remember the tag list.
 //
-// indexable splits the two audiences this app has:
+// robots is a closed vocabulary of three, one per audience:
 //
-//   - true (layouts.Base — the landing page, /login, the blocked-account page):
-//     public pages a crawler and a share card should see, so they get the full
-//     description + Open Graph + Twitter Card set.
-//   - false (layouts.BaseAuth — dashboard, charges, Supercharger stats,
+//   - robotsIndex (layouts.Base — the landing page, /privacy, /terms, the
+//     blocked-account page): public pages a crawler and a share card should see,
+//     so they get the full description + Open Graph + Twitter Card set.
+//   - robotsNoIndex (layouts.BaseNoIndex — /login): a public page that should
+//     NOT rank. It gets the same full set, so a shared /login link still shows a
+//     card, but robots "noindex, follow": search engines show / for the site, and
+//     still follow the page's links. A sign-in page has no content to rank, and
+//     two pages with the same description would compete with each other.
+//   - robotsPrivate (layouts.BaseAuth — dashboard, charges, Supercharger stats,
 //     settings): per-user pages behind a session. They get robots noindex,nofollow
 //     and NOTHING else. Emitting a description or an og:image for a private page
 //     buys no SEO (a crawler never reaches it) and only risks leaking a page name
@@ -41,12 +46,16 @@ const seoImagePath = "/static/img/magus-logo.png"
 // ui.SiteFromContext(ctx) (see ui/site.go). When no base URL is configured the
 // Site helpers return "", and each such tag is skipped rather than emitted
 // broken — a missing canonical costs a little SEO, a malformed one costs more.
-templ seoHead(title string, indexable bool) {
-	if !indexable {
+templ seoHead(title string, robots robotsMode) {
+	if robots == robotsPrivate {
 		<meta name="robots" content="noindex, nofollow"/>
 	} else {
 		<meta name="description" content={ i18n.T(ctx, i18n.KeySEODescription) }/>
-		<meta name="robots" content="index, follow"/>
+		if robots == robotsNoIndex {
+			<meta name="robots" content="noindex, follow"/>
+		} else {
+			<meta name="robots" content="index, follow"/>
+		}
 		<meta property="og:type" content="website"/>
 		<meta property="og:site_name" content={ i18n.T(ctx, i18n.KeyBrandMagusMonitor) }/>
 		<meta property="og:locale" content={ i18n.OGLocale(ctx) }/>
@@ -135,7 +144,7 @@ templ faviconLinks() {
 // Now each request supplies its own value from context, exactly like
 // i18n.FromContext(ctx) above it — the two attributes are populated the same
 // way, from the same middleware, on the same line pattern.
-templ baseShell(title string, indexable bool) {
+templ baseShell(title string, robots robotsMode) {
 	<!DOCTYPE html>
 	<html lang={ i18n.FromContext(ctx) } data-theme={ ui.ThemeFromContext(ctx) }>
 		<head>
@@ -143,7 +152,7 @@ templ baseShell(title string, indexable bool) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ title }</title>
 			@faviconLinks()
-			@seoHead(title, indexable)
+			@seoHead(title, robots)
 			<link rel="stylesheet" href="/static/app.css"/>
 			<script src="/static/htmx.min.js" defer></script>
 			<script src="/static/app.js" defer></script>
@@ -186,7 +195,23 @@ templ baseShell(title string, indexable bool) {
 // top-right, since these pages have no navbar to host one. Callers must NOT
 // mount their own ui.LangSwitcher — Base already provides it.
 templ Base(title string) {
-	@baseShell(title, true) {
+	@basePublic(title, robotsIndex) {
+		{ children... }
+	}
+}
+
+// BaseNoIndex is Base for a public page that must not rank in search: /login. It
+// keeps the full share metadata and robots "noindex, follow" (see seoHead).
+templ BaseNoIndex(title string) {
+	@basePublic(title, robotsNoIndex) {
+		{ children... }
+	}
+}
+
+// basePublic is the shared body of Base and BaseNoIndex: baseShell plus the
+// anonymous-page chrome.
+templ basePublic(title string, robots robotsMode) {
+	@baseShell(title, robots) {
 		<div class="fixed top-3 right-3 z-40">
 			@ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)})
 		</div>
@@ -208,7 +233,7 @@ templ Base(title string) {
 // GET /ui/nav-header — the shell paints identity-only immediately and the header
 // swaps in after, keeping the telemetry+account reads off the critical render path.
 templ BaseAuth(title, path string) {
-	@baseShell(title, false) {
+	@baseShell(title, robotsPrivate) {
 		<script>
 			try {
 				const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

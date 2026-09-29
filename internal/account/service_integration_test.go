@@ -53,13 +53,13 @@ func deleteAccount(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) {
 
 // activateAccount flips a test account to StatusActive via direct SQL — a
 // test-only concession (ai/go-conventions.md §Persistence "Seeding another
-// module's tables"). Every UpsertFromOAuth-provisioned account defaults to
-// StatusInactive (RM34 D2), and design.md D14/D15 (RM34-account-add-record-status)
-// gate ListVehiclesByAccount, ListAllVehicles, GetLatestTeslaTokenByAccount, and
-// GetLatestTeslaTokenByAccountForUpdate on the owning account's status via an
-// EXISTS check — so any test that seeds a vehicle or token and reads it back
-// through one of those paths must activate its account first, or the read
-// returns nothing despite the row existing.
+// module's tables"). An UpsertFromOAuth-provisioned account now defaults to
+// StatusActive (migration 20260928000001), but tests still activate it
+// explicitly so they do not depend on the column default. design.md D14/D15
+// (RM34-account-add-record-status) gate ListVehiclesByAccount, ListAllVehicles,
+// GetLatestTeslaTokenByAccount, and GetLatestTeslaTokenByAccountForUpdate on the
+// owning account's status via an EXISTS check — an Inactive account's vehicle or
+// token reads return nothing despite the row existing.
 func activateAccount(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(),
@@ -85,8 +85,8 @@ func TestUpsertFromOAuth_Idempotent(t *testing.T) {
 		t.Fatalf("first upsert: %v", err)
 	}
 	deleteAccount(t, pool, first.ID)
-	if first.Status != StatusInactive {
-		t.Errorf("expected first upsert Status == StatusInactive (RM34 D2 default), got %q", first.Status)
+	if first.Status != StatusActive {
+		t.Errorf("expected first upsert Status == StatusActive (migration 20260928000001 default), got %q", first.Status)
 	}
 
 	// Same identity, changed profile fields → same account, updated fields.
@@ -102,8 +102,8 @@ func TestUpsertFromOAuth_Idempotent(t *testing.T) {
 	if second.Email != "changed@example.com" {
 		t.Errorf("expected email updated to changed@example.com, got %q", second.Email)
 	}
-	if second.Status != StatusInactive {
-		t.Errorf("expected second upsert Status == StatusInactive (RM34 D2 default, unaffected by re-upsert), got %q", second.Status)
+	if second.Status != StatusActive {
+		t.Errorf("expected second upsert Status == StatusActive (default, unaffected by re-upsert), got %q", second.Status)
 	}
 }
 
@@ -717,9 +717,9 @@ func TestLanguagePreference_RoundTrip(t *testing.T) {
 	}
 	deleteAccount(t, pool, acct.ID)
 
-	// RM34: a freshly-provisioned account defaults to StatusInactive, and every
-	// language read/write below is now filtered by status = 'Active' (design.md
-	// D4). Activate it before exercising any language read/write.
+	// Every language read/write below is filtered by status = 'Active'
+	// (design.md D4, RM34). Activate explicitly so the test does not depend on
+	// the column default.
 	activateAccount(t, pool, acct.ID)
 
 	// --- Default on a fresh account: no explicit SetLanguage call yet ---
@@ -806,8 +806,9 @@ func TestAccountSettings_RoundTrip(t *testing.T) {
 	}
 	deleteAccount(t, pool, acct.ID)
 
-	// RM34: a freshly-provisioned account defaults to StatusInactive, and every
-	// settings read/write below is filtered by status = 'Active' (design.md D10).
+	// Every settings read/write below is filtered by status = 'Active'
+	// (design.md D10, RM34). Activate explicitly so the test does not depend on
+	// the column default.
 	activateAccount(t, pool, acct.ID)
 
 	// --- Fresh-signup defaults (Test Contract item 2): no explicit write yet,

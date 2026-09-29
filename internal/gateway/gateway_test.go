@@ -168,18 +168,15 @@ func TestHealthRoute_Removed(t *testing.T) {
 	}
 }
 
-// TestHome redirects anonymous users to the sign-in page and authenticated users
-// to the dashboard — the landing page no longer renders its own body; /dashboard
-// IS the default authenticated experience (the old pages.Home view is retired).
-func TestHome_AnonymousRedirectsToLogin(t *testing.T) {
+// TestHome_AnonymousSeesLandingPage: an anonymous visitor at "/" gets the public
+// landing page (200), not a redirect. A signed-in user is still redirected to
+// /dashboard — see TestHome_SignedInRedirectsToDashboard in handlers_test.go.
+func TestHome_AnonymousSeesLandingPage(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()
 	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
-	if w.Code != http.StatusFound {
-		t.Fatalf("status = %d, want 302 (redirect to /login)", w.Code)
-	}
-	if loc := w.Header().Get("Location"); loc != "/login" {
-		t.Fatalf("Location = %q, want /login", loc)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (the landing page)", w.Code)
 	}
 }
 

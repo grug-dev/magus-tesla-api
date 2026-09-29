@@ -1,0 +1,50 @@
+package ui
+
+// FeatureCardProps configures a FeatureCard. Title and Desc are user-facing and
+// resolve through i18n.T at the call site; Badge too, when set.
+//
+// Icon is a ui.Icon name. Kicker is a short mono label shown instead of, or next
+// to, the icon (a step number such as "01"). Badge marks a feature that is not
+// built yet ("Coming soon"); a card with a Badge also gets a dashed border, so the
+// difference does not rely on reading the badge.
+type FeatureCardProps struct {
+	ID     string
+	Icon   string
+	Kicker string
+	Title  string
+	Desc   string
+	Badge  string
+	Class  string
+}
+
+// FeatureCard renders one short point of a public page: an icon or step number, a
+// title and one sentence. It is not a ui.Card: a Card is a titled container for app
+// content, while this is a self-contained statement. Both read the same section
+// title and description constants, so their text looks the same.
+templ FeatureCard(p FeatureCardProps) {
+	<div
+		class={ "flex flex-col gap-3 rounded-box border bg-[var(--color-surface-card)] p-6",
+			templ.KV("border-[var(--color-line-card)]", p.Badge == ""),
+			templ.KV("border-dashed border-base-content/30", p.Badge != ""),
+			p.Class }
+		if p.ID != "" {
+			id={ p.ID }
+		}
+	>
+		if p.Icon != "" || p.Kicker != "" || p.Badge != "" {
+			<div class="flex items-center gap-3">
+				if p.Icon != "" {
+					@Icon(IconProps{Name: p.Icon, Class: "h-7 w-7 text-accent"})
+				}
+				if p.Kicker != "" {
+					<span class="font-mono text-sm text-accent">{ p.Kicker }</span>
+				}
+				if p.Badge != "" {
+					@Badge(BadgeProps{Kind: "primary", Text: p.Badge})
+				}
+			</div>
+		}
+		<h3 class={ sectionTitleClass }>{ p.Title }</h3>
+		<p class={ sectionDescClass }>{ p.Desc }</p>
+	</div>
+}

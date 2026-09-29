@@ -60,7 +60,8 @@ Consumers (e.g. the gateway) call these — never this module's tables
 `Account` also carries a `Status` field (`StatusActive`/`StatusInactive` — roadmap RM34).
 `UpsertFromOAuth` is the one operation NOT filtered by it; every other read in this
 module's `Service` treats an `Inactive` account or vehicle as though it does not exist.
-A new account defaults `Inactive` (invite-gated); a new vehicle defaults `Active`. No
+A new account defaults `Active` (it was `Inactive`, invite-gated, until migration
+`20260928000001_accounts_default_active`); a new vehicle defaults `Active`. No
 port method flips a status — that is a manual, out-of-band DB update (see design.md of
 `RM34-account-add-record-status`). An `Inactive` account also suppresses its own vehicles
 and Tesla token reads (`RegisteredVehicles`, `AllRegisteredVehicles`, `AccessTokenFor`) via

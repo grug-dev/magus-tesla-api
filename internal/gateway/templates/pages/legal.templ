@@ -1,0 +1,42 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// Privacy is the short privacy notice at /privacy. Public and indexable
+// (layouts.Base). The content is data in legal.go.
+templ Privacy() {
+	@legalPage("legal-privacy", i18n.T(ctx, i18n.KeyPrivacyTitle), legalPrivacySections(ctx))
+}
+
+// Terms is the short terms of use at /terms. Public and indexable (layouts.Base).
+// The content is data in legal.go.
+templ Terms() {
+	@legalPage("legal-terms", i18n.T(ctx, i18n.KeyTermsTitle), legalTermsSections(ctx))
+}
+
+// legalPage is the shared shape of both legal pages: a link home, the page title
+// with its last-updated date, one titled and described section per point, and the
+// legal links in the footer.
+templ legalPage(id, title string, sections []ui.SectionHeaderProps) {
+	@layouts.Base(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), title)) {
+		<main id={ id } class="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-16 sm:px-8">
+			<a href="/" class="text-sm font-extrabold uppercase tracking-[0.2em] text-base-content">{ i18n.T(ctx, i18n.KeyBrandMagusMonitor) }</a>
+			@ui.PageHeader(ui.PageHeaderProps{Title: title, Subtitle: i18n.T(ctx, i18n.KeyLegalUpdated)})
+			for _, section := range sections {
+				<section>
+					@ui.SectionHeader(section)
+				</section>
+			}
+			<footer class="flex flex-col gap-4 border-t border-base-300 pt-6 text-sm text-base-content/60 sm:flex-row sm:items-center">
+				<a href="/" class="flex-1 hover:text-base-content">{ i18n.T(ctx, i18n.KeyLegalBackHome) }</a>
+				@ui.LegalLinks(ui.LegalLinksProps{})
+			</footer>
+		</main>
+	}
+}

@@ -1,0 +1,57 @@
+package ui
+
+// GallerySlide is one screenshot in a Gallery. Label, Alt and Caption are
+// user-facing and resolve through i18n.T at the call site. Src is a /static path.
+//
+// CropOnMobile is for a WIDE image: below sm it fills the stage from the top-left
+// corner instead of being fitted whole, which would make it too small to read.
+type GallerySlide struct {
+	Label        string
+	Src          string
+	Alt          string
+	Caption      string
+	CropOnMobile bool
+}
+
+// GalleryProps configures a Gallery. Name groups the slides' radio inputs, so it
+// must be unique on the page. AriaLabel names the tab list for screen readers.
+type GalleryProps struct {
+	Name      string
+	AriaLabel string
+	Slides    []GallerySlide
+	ID        string
+	Class     string
+}
+
+// Gallery shows several screenshots in one place, one at a time, with a tab per
+// slide. It is CSS only (DaisyUI radio tabs): each tab is a radio input and the
+// browser shows the panel after the checked one. So it needs no JavaScript and no
+// new RD entry, and it works with JS turned off. The first slide starts checked.
+//
+// Each slide sits in the same fixed-shape stage (4:5 on a phone, 16:9 from sm:
+// upward). A tall and a wide screenshot can share a gallery: each image is fitted
+// inside the stage with object-contain, never cut or stretched.
+templ Gallery(p GalleryProps) {
+	<div role="tablist" aria-label={ p.AriaLabel } class={ "tabs tabs-box", p.Class } if p.ID != "" { id={ p.ID } }>
+		for i, s := range p.Slides {
+			<input type="radio" name={ p.Name } class="tab" aria-label={ s.Label } checked?={ i == 0 }/>
+			<div class="tab-content pt-4">
+				<figure class="flex flex-col gap-3">
+					<div class="aspect-[4/5] overflow-hidden rounded-box border border-[var(--color-line-card)] bg-base-200 p-3 shadow-xl sm:aspect-video sm:p-10">
+						<img
+							src={ s.Src }
+							alt={ s.Alt }
+							loading="lazy"
+							class={ "block h-full w-full",
+								templ.KV("object-cover object-left-top sm:object-contain sm:object-center", s.CropOnMobile),
+								templ.KV("object-contain", !s.CropOnMobile) }
+						/>
+					</div>
+					if s.Caption != "" {
+						<figcaption class={ sectionDescClass }>{ s.Caption }</figcaption>
+					}
+				</figure>
+			</div>
+		}
+	</div>
+}

@@ -1,0 +1,36 @@
+package ui
+
+// HeroProps configures a Hero: the opening block of a public page. Eyebrow, Title,
+// Lead and Note are user-facing and resolve through i18n.T at the call site. Note is
+// an optional small line under the actions. The actions (buttons) are the children.
+type HeroProps struct {
+	Eyebrow string
+	Title   string
+	Lead    string
+	Note    string
+	ID      string
+	Class   string
+}
+
+// Hero renders the page's one h1, larger than ui.PageHeader's. It exists for the
+// public landing page at /: an app page's text-2xl title is right for a tool and too
+// quiet for a first visit. Like SectionHeader's "lg" size it is a kit component, so
+// the page carries no one-off font sizes (AGENTS.md §Mobile R5). The title reaches
+// its full size only from sm: upward, so a phone keeps a readable line length.
+templ Hero(p HeroProps) {
+	<div class={ "flex flex-col gap-6", p.Class } if p.ID != "" { id={ p.ID } }>
+		if p.Eyebrow != "" {
+			<p class={ sectionEyebrowClass }>{ p.Eyebrow }</p>
+		}
+		<h1 class="text-4xl font-extrabold leading-tight tracking-tight text-base-content sm:text-6xl">{ p.Title }</h1>
+		if p.Lead != "" {
+			<p class="text-lg text-base-content/70 sm:text-xl">{ p.Lead }</p>
+		}
+		<div class="mt-2 flex flex-wrap items-center gap-3">
+			{ children... }
+		</div>
+		if p.Note != "" {
+			<p class={ sectionDescClass }>{ p.Note }</p>
+		}
+	</div>
+}

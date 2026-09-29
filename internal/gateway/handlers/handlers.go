@@ -1195,15 +1195,15 @@ func (h *Handler) TeslaCallback(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/dashboard")
 }
 
-// Home is the entry route. Authenticated users go straight to the dashboard;
-// anonymous users are sent to sign in. The old landing page (pages.Home) is no
-// longer surfaced — the dashboard is the default authenticated experience.
+// Home is the entry route. Authenticated users go straight to the dashboard (the
+// default authenticated experience); anonymous visitors see the public landing
+// page, pages.Home. The landing page is static, so it needs no module call.
 func (h *Handler) Home(c *gin.Context) {
 	if _, ok := currentUID(c); ok {
 		c.Redirect(http.StatusFound, "/dashboard")
 		return
 	}
-	c.Redirect(http.StatusFound, "/login")
+	render(c, http.StatusOK, pages.Home())
 }
 
 // LoginPage renders the sign-in page. An already-authenticated user is bounced

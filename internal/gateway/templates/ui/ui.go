@@ -38,6 +38,34 @@ const (
 	sectionTitleSuffixClass = "ml-2 text-sm font-normal text-base-content/60"
 )
 
+// The "lg" section treatment, for a public marketing page (the landing page at /)
+// where a text-lg heading reads as a footnote. It is a SIZE VARIANT of the same
+// section heading, per the module's R5 rule: a page that needs a bigger heading gets
+// a kit variant, never an inline class. sectionEyebrowClass is the small uppercase
+// line above an "lg" title (ui.SectionHeader's Eyebrow, ui.Hero's Eyebrow). Both
+// sizes stay readable on a phone: the title only reaches 4xl from sm: upward.
+const (
+	sectionEyebrowClass = "text-xs font-bold uppercase tracking-[0.12em] text-accent sm:text-sm"
+	sectionTitleLgClass = "text-3xl font-extrabold tracking-tight text-base-content sm:text-4xl"
+	sectionDescLgClass  = "text-base text-base-content/70 sm:text-lg"
+)
+
+// sectionTitleCls and sectionDescCls pick the section heading size. Unknown/empty → the
+// standard size every app page uses.
+func sectionTitleCls(size string) string {
+	if size == "lg" {
+		return sectionTitleLgClass
+	}
+	return sectionTitleClass
+}
+
+func sectionDescCls(size string) string {
+	if size == "lg" {
+		return sectionDescLgClass
+	}
+	return sectionDescClass
+}
+
 // btnClass maps a Button variant to its DaisyUI class. Unknown/empty → primary.
 func btnClass(variant string) string {
 	switch variant {

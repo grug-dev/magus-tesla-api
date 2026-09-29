@@ -9,11 +9,17 @@ package ui
 // INSIDE a `section` element the page already emits, so the page normally puts the
 // id on that element and leaves this empty. Pass ID here only when the heading itself
 // needs to be addressable (an htmx swap target, an aria-labelledby reference).
+//
+// Size is a closed vocabulary of two: "" (every app page) and "lg" (the public
+// landing page, where a text-lg heading is too small). Eyebrow is an optional short
+// line shown above the title; pages only set it together with Size "lg".
 type SectionHeaderProps struct {
-	Title string
-	Desc  string
-	ID    string
-	Class string
+	Title   string
+	Desc    string
+	Eyebrow string
+	Size    string
+	ID      string
+	Class   string
 }
 
 // SectionHeader renders a section's title + short description for a region that is
@@ -26,12 +32,15 @@ type SectionHeaderProps struct {
 // wherever the author last saw one — which is how the module ended up with three
 // different title styles.
 templ SectionHeader(p SectionHeaderProps) {
-	<div class={ "mb-3", p.Class } if p.ID != "" { id={ p.ID } }>
+	<div class={ "mb-3", templ.KV("flex flex-col gap-3", p.Size == "lg"), p.Class } if p.ID != "" { id={ p.ID } }>
+		if p.Eyebrow != "" {
+			<p class={ sectionEyebrowClass }>{ p.Eyebrow }</p>
+		}
 		if p.Title != "" {
-			<h2 class={ sectionTitleClass }>{ p.Title }</h2>
+			<h2 class={ sectionTitleCls(p.Size) }>{ p.Title }</h2>
 		}
 		if p.Desc != "" {
-			<p class={ sectionDescClass }>{ p.Desc }</p>
+			<p class={ sectionDescCls(p.Size) }>{ p.Desc }</p>
 		}
 	</div>
 }

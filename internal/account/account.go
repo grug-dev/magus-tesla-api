@@ -68,9 +68,10 @@ type Account struct {
 	ProviderID  string // the provider's subject id
 	DisplayName string
 	// Status is the account's activation status: always exactly StatusActive or
-	// StatusInactive. A newly provisioned account defaults to StatusInactive
-	// (roadmap RM34 decision D2) and stays that way until changed by hand — there
-	// is no automatic activation path. UpsertFromOAuth is the one account
+	// StatusInactive. A newly provisioned account defaults to StatusActive
+	// (migration 20260928000001; it was StatusInactive under RM34 decision D2).
+	// Only a manual DB update sets an account Inactive — no code path changes
+	// Status. UpsertFromOAuth is the one account
 	// operation NOT filtered by Status; every other account read in this module's
 	// Service treats an Inactive account as though it does not exist.
 	Status    string

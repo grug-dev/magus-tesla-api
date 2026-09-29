@@ -1,0 +1,49 @@
+package ui
+
+// ScreenshotProps configures a Screenshot. Alt and Caption are user-facing and
+// resolve through i18n.T at the call site. Src is a /static path.
+//
+// Shape is a closed vocabulary of two, and it sets the FRAME, never the image:
+//
+//	"" / "wide"  16:10, for a full-page capture (the dashboard)
+//	"banner"     4:1 from sm: upward, for a wide strip (a table, a row of tiles)
+//
+// The frame keeps its shape whatever size the file is, so a new screenshot can be
+// dropped in without touching markup. The image is fitted inside with object-contain:
+// it is never cut or stretched, and any spare room shows the frame's background.
+// One exception: below sm a "banner" frame is 2:1 and the image fills it from the
+// top-left corner, because a 4:1 strip fitted into a phone width is too small to read.
+type ScreenshotProps struct {
+	Src     string
+	Alt     string
+	Caption string
+	Shape   string
+	ID      string
+	Class   string
+}
+
+// Screenshot renders one app screenshot in a fixed-shape frame, with a caption.
+templ Screenshot(p ScreenshotProps) {
+	<figure class={ "flex flex-col gap-3", p.Class } if p.ID != "" { id={ p.ID } }>
+		<div class={ "overflow-hidden rounded-box border border-[var(--color-line-card)] bg-base-200 shadow-xl", screenshotFrameClass(p.Shape) }>
+			<img src={ p.Src } alt={ p.Alt } loading="lazy" class={ "block h-full w-full", screenshotImgClass(p.Shape) }/>
+		</div>
+		if p.Caption != "" {
+			<figcaption class={ sectionDescClass }>{ p.Caption }</figcaption>
+		}
+	</figure>
+}
+
+func screenshotFrameClass(shape string) string {
+	if shape == "banner" {
+		return "aspect-[2/1] sm:aspect-[4/1]"
+	}
+	return "aspect-[16/10]"
+}
+
+func screenshotImgClass(shape string) string {
+	if shape == "banner" {
+		return "object-cover object-left-top sm:object-contain sm:object-center"
+	}
+	return "object-contain"
+}

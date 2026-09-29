@@ -9,23 +9,30 @@ import (
 	"testing"
 )
 
-// TestSEO_BaseURLRedirectsToLogin pins the fact the rest of this file depends
-// on: "/" renders NOTHING for an anonymous visitor — Handler.Home 302-redirects
-// it to /login (handlers.go). So the base URL's own share card and search
-// snippet are /login's, because every scraper and crawler follows the redirect.
-// If "/" ever grows a real landing page, this test breaks and the metadata
-// assertions below have to gain a "/" case.
-func TestSEO_BaseURLRedirectsToLogin(t *testing.T) {
+// TestSEO_BaseURLServesLandingPage pins that "/" is the public landing page for an
+// anonymous visitor (pages.Home), not a redirect. A crawler is anonymous, so the
+// domain's own share card and search snippet are the landing page's: it must be
+// indexable and carry its own absolute canonical URL.
+func TestSEO_BaseURLServesLandingPage(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()
 	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
-	if w.Code != http.StatusFound || w.Header().Get("Location") != "/login" {
-		t.Fatalf("GET / = %d -> %q, want 302 -> /login", w.Code, w.Header().Get("Location"))
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET / status = %d, want 200 (the landing page)", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{
+		`<meta name="robots" content="index, follow">`,
+		`<link rel="canonical" href="https://seo.test/">`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("landing page missing %q", want)
+		}
 	}
 }
 
-// TestSEO_LoginPageCarriesShareMetadata asserts the page an anonymous visitor
-// actually lands on carries the search-engine and social-card metadata
+// TestSEO_LoginPageCarriesShareMetadata asserts /login keeps the full social-card
+// metadata even though it is noindex (a shared /login link still shows a card)
 // layouts.seoHead renders — in Spanish (the catalogue default a cookie-less
 // request resolves to, which is exactly what a crawler is) and with ABSOLUTE
 // URLs built from Deps.BaseURL.
@@ -45,7 +52,7 @@ func TestSEO_LoginPageCarriesShareMetadata(t *testing.T) {
 	for _, want := range []string{
 		`<title>` + title + `</title>`,
 		`<meta name="description" content="Magus Monitor conecta tu cuenta Tesla`,
-		`<meta name="robots" content="index, follow">`,
+		`<meta name="robots" content="noindex, follow">`,
 		`<meta property="og:type" content="website">`,
 		`<meta property="og:site_name" content="Magus Monitor">`,
 		`<meta property="og:locale" content="es_CO">`,
@@ -61,9 +68,10 @@ func TestSEO_LoginPageCarriesShareMetadata(t *testing.T) {
 			t.Errorf("login body missing %q", want)
 		}
 	}
-	// A public page must NEVER carry noindex — that one word de-lists the site.
-	if strings.Contains(body, "noindex") {
-		t.Error("login page emits a noindex robots tag")
+	// /login is noindex (layouts.BaseNoIndex) so search engines show / instead,
+	// but it must still FOLLOW its links — nofollow would cut the crawl there.
+	if strings.Contains(body, "nofollow") {
+		t.Error("login page emits nofollow; it should be noindex, follow")
 	}
 }
 
@@ -150,8 +158,9 @@ func TestSEO_RobotsTxt(t *testing.T) {
 // TestSEO_SitemapXML asserts the sitemap is valid 0.9 XML with ABSOLUTE <loc>
 // values — a relative loc makes the whole document invalid, not just one entry.
 //
-// It also pins the deliberate ABSENCE of "/": Handler.Home 302-redirects, and a
-// redirecting sitemap entry is dropped by Search Console as "Page with redirect".
+// It also pins that "/" is listed (the landing page, a 200 for a crawler) and that
+// /login is NOT: /login is noindex, and Search Console flags a sitemap entry that
+// asks not to be indexed.
 func TestSEO_SitemapXML(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()
@@ -166,15 +175,17 @@ func TestSEO_SitemapXML(t *testing.T) {
 	for _, want := range []string{
 		`<?xml version="1.0" encoding="UTF-8"?>`,
 		`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
-		`<loc>https://seo.test/login</loc>`,
+		`<loc>https://seo.test/</loc>`,
+		`<loc>https://seo.test/privacy</loc>`,
+		`<loc>https://seo.test/terms</loc>`,
 		`</urlset>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("sitemap missing %q\n%s", want, body)
 		}
 	}
-	if strings.Contains(body, "<loc>https://seo.test/</loc>") {
-		t.Error(`sitemap lists "/", which 302-redirects to /login and is dropped by Search Console`)
+	if strings.Contains(body, "<loc>https://seo.test/login</loc>") {
+		t.Error("sitemap lists /login, which is noindex")
 	}
 }
 
@@ -328,7 +339,7 @@ func TestSEO_WebManifest(t *testing.T) {
 	for k, want := range map[string]string{
 		"name":       "Magus Monitor",
 		"short_name": "Magus",
-		"start_url":  "/",
+		"start_url":  "/login",
 		"scope":      "/",
 		"display":    "standalone",
 		"lang":       "es-CO",

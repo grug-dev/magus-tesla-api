@@ -81,13 +81,15 @@ var robotsDisallow = []string{
 
 // sitemapPaths is every URL this site wants indexed.
 //
-// "/" is deliberately ABSENT even though it is the domain a person shares.
-// Handler.Home 302-redirects an anonymous visitor to /login, and a sitemap entry
-// that redirects is reported by Google Search Console as "Page with redirect" and
-// dropped. /login IS the site's one indexable page today. If "/" ever renders its
-// own landing page, add it here and the redirect test in seo_test.go will already
-// have failed to remind you.
-var sitemapPaths = []string{"/login"}
+// "/" is the public landing page (pages.Home): an anonymous request, which is what a
+// crawler is, gets a 200, so it is listed. Only a signed-in request is redirected,
+// to /dashboard. Never list a path that redirects an anonymous visitor: Google
+// Search Console reports it as "Page with redirect" and drops it.
+//
+// /login is deliberately ABSENT: it renders robots "noindex, follow"
+// (layouts.BaseNoIndex), and a sitemap must not list a page that asks not to be
+// indexed — Search Console reports that as a conflict.
+var sitemapPaths = []string{"/", "/privacy", "/terms"}
 
 // RobotsTxt serves /robots.txt. It must live at the domain root — a crawler
 // fetches exactly that path and nowhere else — which is why it is a route and not
@@ -202,10 +204,12 @@ type webManifest struct {
 // read by a human on an install prompt, so they must follow the request language
 // through the i18n catalogue. A static JSON file could only ever be one language.
 //
-// start_url is "/" on purpose even though that path redirects. For an installed
-// app that is the CORRECT behaviour: opening the icon lands the user wherever
-// they belong — /dashboard with a session, /login without one — instead of
-// pinning the launcher to whichever page happened to be right at install time.
+// start_url is "/login" on purpose. For an installed app that lands the user
+// wherever they belong — /login redirects a signed-in user to /dashboard, and shows
+// the sign-in page without a session — instead of pinning the launcher to whichever
+// page happened to be right at install time. It is not "/": since "/" became the
+// public landing page, an installed app with no session would open on marketing
+// copy instead of the sign-in button.
 //
 // The media type must be application/manifest+json. Serving it as
 // application/json makes some browsers ignore the document silently.
@@ -216,7 +220,7 @@ func WebManifest(c *gin.Context) {
 		Name:        i18n.T(ctx, i18n.KeyBrandMagusMonitor),
 		ShortName:   i18n.T(ctx, i18n.KeyBrandMagus),
 		Description: i18n.T(ctx, i18n.KeySEODescription),
-		StartURL:    "/",
+		StartURL:    "/login",
 		Scope:       "/",
 		// "standalone" drops the browser address bar, which is what makes an
 		// installed PWA feel like an app rather than a bookmark.

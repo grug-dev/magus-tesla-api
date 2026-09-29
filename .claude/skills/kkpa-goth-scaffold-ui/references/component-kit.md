@@ -284,6 +284,22 @@ templ NavShell(items []NavItem) {
 
 ---
 
+### Public-page set: `Hero`, `FeatureCard`, `Screenshot`, `Gallery`, `GoogleSignInButton`, `LegalLinks`
+
+Built for the landing page at `/` (`templates/pages/home.templ`). Use them for any public,
+non-app page; an app page keeps `PageHeader` + `Card`.
+
+| Component | Props | Notes |
+|---|---|---|
+| `Hero` | `Eyebrow, Title, Lead, Note, ID, Class` + children (the CTAs) | The page's one `h1`, larger than `PageHeader`. |
+| `FeatureCard` | `ID, Icon, Kicker, Title, Desc, Badge, Class` | Icon or step number + title + one sentence. `Badge` ("Coming soon") also dashes the border. |
+| `Screenshot` | `Src, Alt, Caption, Shape ("" \| "banner"), ID, Class` | Fixed-shape frame; the image is fitted with `object-contain`, never cut. `banner` crops top-left below `sm`. |
+| `Gallery` | `Name, AriaLabel, Slides []GallerySlide, ID, Class` | CSS-only DaisyUI radio tabs — zero JS. `GallerySlide{Label, Src, Alt, Caption, CropOnMobile}`. |
+| `GoogleSignInButton` | `Label, Size, Class` | The only place the Google "G" brand hex colours live. Used by `/login` and `/`. |
+| `LegalLinks` | `Class` | The Privacy + Terms footer links (`/privacy`, `/terms`), labels from the catalogue. Every public footer uses it. |
+
+`SectionHeader` also takes `Size: "lg"` and `Eyebrow` for a public page's section headings.
+
 ## Composition example (a read-only panel)
 
 ```templ

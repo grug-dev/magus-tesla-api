@@ -182,7 +182,9 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   ships breaking changes across majors. Routing every DaisyUI **component class** through a
   `ui.*` wrapper makes a version bump a one-file edit per component, not an app-wide sweep.
 - **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Dot, Dropdown, Progress, Table,
-  PageHeader, NavShell, ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline
+  PageHeader, NavShell, ConfirmDialog, the form set **Field / Input / Select / Textarea**, and the
+  public-page set **Hero / FeatureCard / Screenshot / Gallery / GoogleSignInButton / LegalLinks** plus
+  `SectionHeader`'s `Size: "lg"` + `Eyebrow`) — **never inline
   a DaisyUI component class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a
   bug. If a repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme
   tokens (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable
@@ -1030,6 +1032,21 @@ rejected, and how each degrades without JS — lives in the KB:
 **Read `kkpa/context/architecture/gateway-client-side-js.md` before changing any of them.**
 RD12/13/14 page detail is in `kkpa/context/input-port/charging/external-charges.md`.
 
+## Landing page (`/`) — screenshots are files, one per language
+
+`pages.Home` is the public page an anonymous visitor sees at `/` (a session is redirected to
+`/dashboard`). It is static: no module call. Detail lives in
+`kkpa/context/architecture/seo-metadata.md`.
+
+- **Every screenshot exists twice: `static/img/landing/<name>_es.png` and `<name>_en.png`.**
+  `pages.landingShot` builds the path from the visitor's language, so a missing file is a
+  broken image in ONE language only — no build, guard or test catches it. Adding a
+  screenshot means adding both files. The names in use: `dashboard`, `stats_1`, `stats_2`,
+  `supercharger`.
+- **To replace a screenshot, overwrite the file with the same name.** No code change. The
+  frame (`ui.Screenshot`, `ui.Gallery`) keeps its shape for any image size. The files are
+  `//go:embed`-ed, so the new image goes live only after a rebuild and redeploy.
+
 ## SEO & social-share metadata (MAG-seo, 2026-09-07)
 
 Two rules bind every page author, so they stay here:
@@ -1038,7 +1055,9 @@ Two rules bind every page author, so they stay here:
   from one component — `layouts.seoHead` in `templates/layouts/base.templ`, called by
   `baseShell`. A page that needs different metadata gets a new catalog key, never a tag.
 - **The shell you pick decides indexing.** `layouts.Base` is public and indexable.
-  `layouts.BaseAuth` is per-user and emits `robots: noindex, nofollow` and nothing else.
+  `layouts.BaseNoIndex` is public, keeps the share card, and emits `noindex, follow` (only
+  `/login`; never list such a page in `sitemapPaths`). `layouts.BaseAuth` is per-user and
+  emits `robots: noindex, nofollow` and nothing else.
 
 Everything else lives in the KB, with its rationale and its rejected options: the
 absolute-URL rule and why `Host` is never used, `BASE_URL`, the bilingual strings, the

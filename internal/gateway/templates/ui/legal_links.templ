@@ -1,0 +1,19 @@
+package ui
+
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+
+// LegalLinksProps configures LegalLinks. Class sets the layout of the link row.
+type LegalLinksProps struct {
+	Class string
+}
+
+// LegalLinks is the Privacy + Terms link pair every public page shows in its
+// footer (/login, the landing page, /privacy, /terms). It lives in the kit so the
+// two routes and their labels are written once: adding or renaming a legal page
+// is one edit here, not one per footer.
+templ LegalLinks(p LegalLinksProps) {
+	<nav aria-label={ i18n.T(ctx, i18n.KeyLegalLinksLabel) } class={ "flex gap-6", p.Class }>
+		<a href="/privacy" class="hover:text-base-content">{ i18n.T(ctx, i18n.KeyLoginPrivacy) }</a>
+		<a href="/terms" class="hover:text-base-content">{ i18n.T(ctx, i18n.KeyLoginTerms) }</a>
+	</nav>
+}

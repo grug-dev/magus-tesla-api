@@ -89,17 +89,112 @@ const (
 	// treatment lives in the markup and the string stays reusable.
 	KeyBrandMagusMonitor Key = "brand.magus_monitor"
 
-	// --- home page (templates/pages/home.templ) ---
-	KeyHomeSignedInAs   Key = "home.signed_in_as"
-	KeyHomeViewVehicles Key = "home.view_vehicles"
-	KeyHomeSignInGoogle Key = "home.sign_in_google"
+	// --- landing page (templates/pages/home.templ, home.go) ---
+	KeyHomeNavLabel            Key = "home.nav_label"
+	KeyHomeNavHow              Key = "home.nav_how"
+	KeyHomeNavApp              Key = "home.nav_app"
+	KeyHomeNavSee              Key = "home.nav_see"
+	KeyHomeNavData             Key = "home.nav_data"
+	KeyHomeEyebrow             Key = "home.eyebrow"
+	KeyHomeTitle               Key = "home.title"
+	KeyHomeLead                Key = "home.lead"
+	KeyHomeNeeds               Key = "home.needs"
+	KeyHomeSampleTitle         Key = "home.sample_title"
+	KeyHomeSampleDesc          Key = "home.sample_desc"
+	KeyHomeSampleBadge         Key = "home.sample_badge"
+	KeyHomeTileBattery         Key = "home.tile_battery"
+	KeyHomeTileRange           Key = "home.tile_range"
+	KeyHomeTileLimit           Key = "home.tile_limit"
+	KeyHomeTileDistance        Key = "home.tile_distance"
+	KeyHomeTileDistanceDelta   Key = "home.tile_distance_delta"
+	KeyHomeTileEfficiency      Key = "home.tile_efficiency"
+	KeyHomeTileEfficiencyDelta Key = "home.tile_efficiency_delta"
+	KeyHomeHowEyebrow          Key = "home.how_eyebrow"
+	KeyHomeHowTitle            Key = "home.how_title"
+	KeyHomeHowDesc             Key = "home.how_desc"
+	KeyHomeStep1Title          Key = "home.step1_title"
+	KeyHomeStep1Desc           Key = "home.step1_desc"
+	KeyHomeStep2Title          Key = "home.step2_title"
+	KeyHomeStep2Desc           Key = "home.step2_desc"
+	KeyHomeStep3Title          Key = "home.step3_title"
+	KeyHomeStep3Desc           Key = "home.step3_desc"
+	KeyHomeAppEyebrow          Key = "home.app_eyebrow"
+	KeyHomeAppTitle            Key = "home.app_title"
+	KeyHomeAppDesc             Key = "home.app_desc"
+	KeyHomeDashboardAlt        Key = "home.dashboard_alt"
+	KeyHomeDashboardCaption    Key = "home.dashboard_caption"
+	KeyHomeGalleryLabel        Key = "home.gallery_label"
+	KeyHomeStats1Title         Key = "home.stats1_title"
+	KeyHomeStats1Alt           Key = "home.stats1_alt"
+	KeyHomeStats1Caption       Key = "home.stats1_caption"
+	KeyHomeStats2Title         Key = "home.stats2_title"
+	KeyHomeStats2Alt           Key = "home.stats2_alt"
+	KeyHomeStats2Caption       Key = "home.stats2_caption"
+	KeyHomeSuperchargerAlt     Key = "home.supercharger_alt"
+	KeyHomeSuperchargerCaption Key = "home.supercharger_caption"
+	KeyHomeSeeEyebrow          Key = "home.see_eyebrow"
+	KeyHomeSeeTitle            Key = "home.see_title"
+	KeyHomeSeeDesc             Key = "home.see_desc"
+	KeyHomeFeature1Title       Key = "home.feature1_title"
+	KeyHomeFeature1Desc        Key = "home.feature1_desc"
+	KeyHomeFeature2Title       Key = "home.feature2_title"
+	KeyHomeFeature2Desc        Key = "home.feature2_desc"
+	KeyHomeFeature3Title       Key = "home.feature3_title"
+	KeyHomeFeature3Desc        Key = "home.feature3_desc"
+	KeyHomeFeature4Title       Key = "home.feature4_title"
+	KeyHomeFeature4Desc        Key = "home.feature4_desc"
+	KeyHomeFeature5Title       Key = "home.feature5_title"
+	KeyHomeFeature5Desc        Key = "home.feature5_desc"
+	KeyHomeFeature6Title       Key = "home.feature6_title"
+	KeyHomeFeature6Desc        Key = "home.feature6_desc"
+	KeyHomeFeature7Title       Key = "home.feature7_title"
+	KeyHomeFeature7Desc        Key = "home.feature7_desc"
+	KeyHomeFeature8Title       Key = "home.feature8_title"
+	KeyHomeFeature8Desc        Key = "home.feature8_desc"
+	KeyHomeComingSoon          Key = "home.coming_soon"
+	KeyHomeDataEyebrow         Key = "home.data_eyebrow"
+	KeyHomeDataTitle           Key = "home.data_title"
+	KeyHomeDataDesc            Key = "home.data_desc"
+	KeyHomeData1Title          Key = "home.data1_title"
+	KeyHomeData1Desc           Key = "home.data1_desc"
+	KeyHomeData2Title          Key = "home.data2_title"
+	KeyHomeData2Desc           Key = "home.data2_desc"
+	KeyHomeData3Title          Key = "home.data3_title"
+	KeyHomeData3Desc           Key = "home.data3_desc"
+	KeyHomeEndTitle            Key = "home.end_title"
+	KeyHomeEndDesc             Key = "home.end_desc"
+	KeyHomeRights              Key = "home.rights"
 
 	// --- login page (templates/pages/login.templ) ---
 	KeyLoginTagline        Key = "login.tagline"
 	KeyLoginContinueGoogle Key = "login.continue_google"
 	KeyLoginPrivacy        Key = "login.privacy"
 	KeyLoginTerms          Key = "login.terms"
-	KeyLoginSupport        Key = "login.support"
+
+	// --- legal pages (templates/pages/legal.templ, legal.go) and ui.LegalLinks ---
+	KeyLegalLinksLabel    Key = "legal.links_label"
+	KeyLegalUpdated       Key = "legal.updated"
+	KeyLegalBackHome      Key = "legal.back_home"
+	KeyPrivacyTitle       Key = "privacy.title"
+	KeyPrivacyDataTitle   Key = "privacy.data_title"
+	KeyPrivacyDataDesc    Key = "privacy.data_desc"
+	KeyPrivacyUseTitle    Key = "privacy.use_title"
+	KeyPrivacyUseDesc     Key = "privacy.use_desc"
+	KeyPrivacyShareTitle  Key = "privacy.share_title"
+	KeyPrivacyShareDesc   Key = "privacy.share_desc"
+	KeyPrivacyRightsTitle Key = "privacy.rights_title"
+	KeyPrivacyRightsDesc  Key = "privacy.rights_desc"
+	KeyTermsTitle         Key = "terms.title"
+	KeyTermsServiceTitle  Key = "terms.service_title"
+	KeyTermsServiceDesc   Key = "terms.service_desc"
+	KeyTermsAccountTitle  Key = "terms.account_title"
+	KeyTermsAccountDesc   Key = "terms.account_desc"
+	KeyTermsNumbersTitle  Key = "terms.numbers_title"
+	KeyTermsNumbersDesc   Key = "terms.numbers_desc"
+	KeyTermsEndTitle      Key = "terms.end_title"
+	KeyTermsEndDesc       Key = "terms.end_desc"
+	KeyTermsContactTitle  Key = "terms.contact_title"
+	KeyTermsContactDesc   Key = "terms.contact_desc"
 
 	// --- dashboard page (templates/pages/dashboard.templ, dashboard.go) ---
 	KeyDashboardStaleBadge         Key = "dashboard.stale_badge"
@@ -589,15 +684,109 @@ var catalog = map[Key]entry{
 	KeyBrandMagus:        {ES: "Magus", EN: "Magus"},
 	KeyBrandMagusMonitor: {ES: "Magus Monitor", EN: "Magus Monitor"},
 
-	KeyHomeSignedInAs:   {ES: "Sesión iniciada como", EN: "Signed in as"},
-	KeyHomeViewVehicles: {ES: "Ver tus vehículos", EN: "View your vehicles"},
-	KeyHomeSignInGoogle: {ES: "Iniciar sesión con Google", EN: "Sign in with Google"},
+	KeyHomeNavLabel:            {ES: "Secciones de la página", EN: "Page sections"},
+	KeyHomeNavHow:              {ES: "Cómo funciona", EN: "How it works"},
+	KeyHomeNavApp:              {ES: "La aplicación", EN: "The app"},
+	KeyHomeNavSee:              {ES: "Qué ves", EN: "What you see"},
+	KeyHomeNavData:             {ES: "Tus datos", EN: "Your data"},
+	KeyHomeEyebrow:             {ES: "Hecho para Colombia · Fase de pruebas", EN: "Made for Colombia · Testing phase"},
+	KeyHomeTitle:               {ES: "Tu Tesla, en un panel que habla tu idioma.", EN: "Your Tesla, in a dashboard that speaks your language."},
+	KeyHomeLead:                {ES: "Magus Monitor conecta tu cuenta Tesla y convierte los datos de tu vehículo en un panel diario: batería, autonomía, odómetro, cargas y eficiencia.", EN: "Magus Monitor connects your Tesla account and turns your vehicle data into a daily dashboard: battery, range, odometer, charges and efficiency."},
+	KeyHomeNeeds:               {ES: "Solo necesitas una cuenta de Google y tu cuenta Tesla.", EN: "All you need is a Google account and your Tesla account."},
+	KeyHomeSampleTitle:         {ES: "Magus · Model Y", EN: "Magus · Model Y"},
+	KeyHomeSampleDesc:          {ES: "Actualizado hoy, 6:00 a. m.", EN: "Updated today, 6:00 a.m."},
+	KeyHomeSampleBadge:         {ES: "Datos de ejemplo", EN: "Sample data"},
+	KeyHomeTileBattery:         {ES: "Carga de batería", EN: "Battery charge"},
+	KeyHomeTileRange:           {ES: "Autonomía", EN: "Range"},
+	KeyHomeTileLimit:           {ES: "Límite 100%", EN: "Limit 100%"},
+	KeyHomeTileDistance:        {ES: "Distancia recorrida", EN: "Distance driven"},
+	KeyHomeTileDistanceDelta:   {ES: "+1 vs. día anterior", EN: "+1 vs. previous day"},
+	KeyHomeTileEfficiency:      {ES: "Eficiencia", EN: "Efficiency"},
+	KeyHomeTileEfficiencyDelta: {ES: "+1.6 vs. día anterior", EN: "+1.6 vs. previous day"},
+	KeyHomeHowEyebrow:          {ES: "Cómo funciona", EN: "How it works"},
+	KeyHomeHowTitle:            {ES: "Tres pasos. Después, el panel se llena solo.", EN: "Three steps. Then the dashboard fills itself."},
+	KeyHomeHowDesc:             {ES: "Conectar tu Tesla toma unos minutos.", EN: "Connecting your Tesla takes a few minutes."},
+	KeyHomeStep1Title:          {ES: "Entra con Google", EN: "Sign in with Google"},
+	KeyHomeStep1Desc:           {ES: "No creas otra contraseña. Tu cuenta de Google es tu acceso.", EN: "No new password. Your Google account is your key."},
+	KeyHomeStep2Title:          {ES: "Conecta tu cuenta Tesla", EN: "Connect your Tesla account"},
+	KeyHomeStep2Desc:           {ES: "Autorizas el acceso en la página oficial de Tesla. Magus detecta tus vehículos.", EN: "You approve access on Tesla's official page. Magus finds your vehicles."},
+	KeyHomeStep3Title:          {ES: "Revisa tu panel cada mañana", EN: "Check your dashboard every morning"},
+	KeyHomeStep3Desc:           {ES: "Cada noche recogemos los datos del día. En la mañana ves el resumen y la historia.", EN: "Every night we collect the day's data. In the morning you see the summary and the history."},
+	KeyHomeAppEyebrow:          {ES: "La aplicación", EN: "The app"},
+	KeyHomeAppTitle:            {ES: "Cada mañana, tu día en una pantalla.", EN: "Every morning, your day on one screen."},
+	KeyHomeAppDesc:             {ES: "Distancia, batería usada, eficiencia y presión de llantas. Cada dato se compara con el día anterior.", EN: "Distance, battery used, efficiency and tyre pressure. Each number is compared with the day before."},
+	KeyHomeDashboardAlt:        {ES: "Panel Estado del vehículo de Magus Monitor", EN: "Magus Monitor vehicle status dashboard"},
+	KeyHomeDashboardCaption:    {ES: "Estado del vehículo: el resumen del último día, con gráficas de 6, 14 o 30 días.", EN: "Vehicle status: the last day's summary, with 6, 14 or 30-day charts."},
+	KeyHomeGalleryLabel:        {ES: "Capturas de estadísticas", EN: "Stats screenshots"},
+	KeyHomeStats1Title:         {ES: "Resumen del mes", EN: "Month summary"},
+	KeyHomeStats1Alt:           {ES: "Resumen del mes en Magus Monitor", EN: "Month summary in Magus Monitor"},
+	KeyHomeStats1Caption:       {ES: "Resumen del mes: distancia, eficiencia, energía cargada, costo por km y su equivalente en gasolina.", EN: "Month summary: distance, efficiency, energy charged, cost per km and the gasoline equivalent."},
+	KeyHomeStats2Title:         {ES: "Energía y cargas", EN: "Energy and charging"},
+	KeyHomeStats2Alt:           {ES: "Origen de la energía y nivel de carga en Magus Monitor", EN: "Energy sources and charge levels in Magus Monitor"},
+	KeyHomeStats2Caption:       {ES: "De dónde vino la energía, cuánto costó cada kWh y en qué nivel dejas la batería al cargar.", EN: "Where your energy came from, what each kWh cost, and how full you leave the battery when charging."},
+	KeyHomeSuperchargerAlt:     {ES: "Tabla de sesiones de Supercharger en Magus Monitor", EN: "Supercharger sessions table in Magus Monitor"},
+	KeyHomeSuperchargerCaption: {ES: "Sesiones de Supercharger: fecha, sitio, energía, costo y batería al inicio y al final.", EN: "Supercharger sessions: date, site, energy, cost, and battery at start and end."},
+	KeyHomeSeeEyebrow:          {ES: "Qué ves", EN: "What you see"},
+	KeyHomeSeeTitle:            {ES: "Todo lo que tu auto sabe, ordenado por día.", EN: "Everything your car knows, sorted by day."},
+	KeyHomeSeeDesc:             {ES: "Los datos que tu Tesla ya reporta, en un solo lugar.", EN: "The data your Tesla already reports, in one place."},
+	KeyHomeFeature1Title:       {ES: "Batería y autonomía", EN: "Battery and range"},
+	KeyHomeFeature1Desc:        {ES: "Nivel de carga, autonomía estimada y cuánta batería usaste cada día.", EN: "Charge level, estimated range, and how much battery you used each day."},
+	KeyHomeFeature2Title:       {ES: "Odómetro y recorridos", EN: "Odometer and trips"},
+	KeyHomeFeature2Desc:        {ES: "Kilómetros por día, por semana y por mes, sin hacer cuentas.", EN: "Kilometres per day, week and month, with no maths."},
+	KeyHomeFeature3Title:       {ES: "Historial de cargas", EN: "Charge history"},
+	KeyHomeFeature3Desc:        {ES: "Tus sesiones en Supercharger llegan solas. Las cargas en casa o en otras redes las registras tú.", EN: "Your Supercharger sessions arrive on their own. You add home and other-network charges yourself."},
+	KeyHomeFeature4Title:       {ES: "Eficiencia", EN: "Efficiency"},
+	KeyHomeFeature4Desc:        {ES: "Kilómetros por cada 1% de batería, y cómo cambia con el tiempo.", EN: "Kilometres per 1% of battery, and how it changes over time."},
+	KeyHomeFeature5Title:       {ES: "Comparado con gasolina", EN: "Compared with gasoline"},
+	KeyHomeFeature5Desc:        {ES: "Cuántos kilómetros por galón equivale tu gasto en energía, con el precio de la gasolina en Colombia.", EN: "What your energy cost equals in kilometres per gallon, at Colombian gasoline prices."},
+	KeyHomeFeature6Title:       {ES: "Salud de la batería", EN: "Battery health"},
+	KeyHomeFeature6Desc:        {ES: "Sigue la capacidad de tu batería mes a mes y nota a tiempo si se está degradando.", EN: "Track your battery's capacity month by month and notice early if it is degrading."},
+	KeyHomeFeature7Title:       {ES: "Llantas", EN: "Tyres"},
+	KeyHomeFeature7Desc:        {ES: "Presión de cada llanta en PSI, comparada con el día anterior.", EN: "Pressure of each tyre in PSI, compared with the day before."},
+	KeyHomeFeature8Title:       {ES: "Comunidad", EN: "Community"},
+	KeyHomeFeature8Desc:        {ES: "Compara las cifras de tu auto con las de otros conductores de Tesla en Colombia.", EN: "Compare your car's numbers with other Tesla drivers in Colombia."},
+	KeyHomeComingSoon:          {ES: "Próximamente", EN: "Coming soon"},
+	KeyHomeDataEyebrow:         {ES: "Tus datos", EN: "Your data"},
+	KeyHomeDataTitle:           {ES: "Tu información es tuya.", EN: "Your information is yours."},
+	KeyHomeDataDesc:            {ES: "Así cuidamos el acceso a tu cuenta y a tu auto.", EN: "How we protect access to your account and your car."},
+	KeyHomeData1Title:          {ES: "Solo tú ves tus vehículos", EN: "Only you see your vehicles"},
+	KeyHomeData1Desc:           {ES: "Cada cuenta ve únicamente los autos conectados a ella.", EN: "Each account sees only the cars connected to it."},
+	KeyHomeData2Title:          {ES: "Sin contraseñas nuevas", EN: "No new passwords"},
+	KeyHomeData2Desc:           {ES: "Entras con Google. Magus no guarda ninguna contraseña.", EN: "You sign in with Google. Magus stores no passwords."},
+	KeyHomeData3Title:          {ES: "Autorización oficial de Tesla", EN: "Official Tesla authorization"},
+	KeyHomeData3Desc:           {ES: "El acceso a tu auto se da en la página de Tesla, no en Magus.", EN: "You grant access to your car on Tesla's page, not on Magus."},
+	KeyHomeEndTitle:            {ES: "Mañana, tu primer resumen.", EN: "Tomorrow, your first summary."},
+	KeyHomeEndDesc:             {ES: "Conecta hoy y ve los datos de tu Tesla desde mañana en la mañana.", EN: "Connect today and see your Tesla's data tomorrow morning."},
+	KeyHomeRights:              {ES: "© 2026 Magus Monitor", EN: "© 2026 Magus Monitor"},
 
 	KeyLoginTagline:        {ES: "Inteligencia de flota Tesla para Colombia", EN: "Tesla Fleet Intelligence for Colombia"},
 	KeyLoginContinueGoogle: {ES: "Continuar con Google", EN: "Continue with Google"},
 	KeyLoginPrivacy:        {ES: "Privacidad", EN: "Privacy"},
 	KeyLoginTerms:          {ES: "Términos", EN: "Terms"},
-	KeyLoginSupport:        {ES: "Soporte", EN: "Support"},
+
+	KeyLegalLinksLabel:    {ES: "Enlaces legales", EN: "Legal links"},
+	KeyLegalUpdated:       {ES: "Última actualización: 28 de septiembre de 2026", EN: "Last updated: September 28, 2026"},
+	KeyLegalBackHome:      {ES: "Volver al inicio", EN: "Back to home"},
+	KeyPrivacyTitle:       {ES: "Política de privacidad", EN: "Privacy policy"},
+	KeyPrivacyDataTitle:   {ES: "Qué datos guardamos", EN: "What data we keep"},
+	KeyPrivacyDataDesc:    {ES: "Tu nombre y correo de Google. El acceso que Tesla nos da a tu cuenta. El VIN y el nombre de tus autos. Los datos que Tesla entrega en cada lectura nocturna, como batería, autonomía, odómetro y presión de llantas. Tus sesiones de Supercharger y las cargas que registras a mano.", EN: "Your Google name and email. The access Tesla gives us to your account. The VIN and name of your cars. The data Tesla sends in each nightly reading, such as battery, range, odometer and tyre pressure. Your Supercharger sessions and the charges you add by hand."},
+	KeyPrivacyUseTitle:    {ES: "Para qué los usamos", EN: "Why we use it"},
+	KeyPrivacyUseDesc:     {ES: "Solo para mostrarte tu panel y tus estadísticas. No vendemos tus datos ni los usamos para publicidad.", EN: "Only to show you your dashboard and your stats. We do not sell your data or use it for advertising."},
+	KeyPrivacyShareTitle:  {ES: "Con quién los compartimos", EN: "Who we share it with"},
+	KeyPrivacyShareDesc:   {ES: "Con nadie. Cada cuenta ve solo sus vehículos. Google y Tesla manejan tu inicio de sesión y tu autorización según sus propias políticas.", EN: "With no one. Each account sees only its own vehicles. Google and Tesla handle your sign-in and your authorization under their own policies."},
+	KeyPrivacyRightsTitle: {ES: "Tus derechos", EN: "Your rights"},
+	KeyPrivacyRightsDesc:  {ES: "Según la Ley 1581 de 2012, puedes conocer, actualizar, corregir o pedir que borremos tus datos. Escríbenos a %s.", EN: "Under Colombian Law 1581 of 2012, you can see, update, correct or ask us to delete your data. Write to us at %s."},
+	KeyTermsTitle:         {ES: "Términos de uso", EN: "Terms of use"},
+	KeyTermsServiceTitle:  {ES: "El servicio", EN: "The service"},
+	KeyTermsServiceDesc:   {ES: "Magus Monitor muestra los datos de tu Tesla en un panel. Está en fase de pruebas, así que puede cambiar o fallar. No está afiliado a Tesla, Inc.", EN: "Magus Monitor shows your Tesla's data in a dashboard. It is in a testing phase, so it may change or fail. It is not affiliated with Tesla, Inc."},
+	KeyTermsAccountTitle:  {ES: "Tu cuenta", EN: "Your account"},
+	KeyTermsAccountDesc:   {ES: "Entras con Google y conectas tu cuenta Tesla. Cuida el acceso a tu cuenta. Eres responsable de las cargas que registras.", EN: "You sign in with Google and connect your Tesla account. Keep access to your account safe. You are responsible for the charges you add."},
+	KeyTermsNumbersTitle:  {ES: "Las cifras", EN: "The numbers"},
+	KeyTermsNumbersDesc:   {ES: "Las cifras vienen de Tesla y de nuestros cálculos. Son una guía: no garantizamos que sean exactas.", EN: "The numbers come from Tesla and from our own calculations. They are a guide: we do not guarantee they are exact."},
+	KeyTermsEndTitle:      {ES: "Suspender o borrar", EN: "Suspending or deleting"},
+	KeyTermsEndDesc:       {ES: "Puedes dejar de usar Magus Monitor y pedir que borremos tu cuenta cuando quieras. Podemos suspender una cuenta que abuse del servicio.", EN: "You can stop using Magus Monitor and ask us to delete your account at any time. We may suspend an account that abuses the service."},
+	KeyTermsContactTitle:  {ES: "Contacto", EN: "Contact"},
+	KeyTermsContactDesc:   {ES: "¿Preguntas sobre estos términos? Escríbenos a %s.", EN: "Questions about these terms? Write to us at %s."},
 
 	KeySEOHomeTitle:   {ES: "Magus Monitor — Inteligencia de flota Tesla para Colombia", EN: "Magus Monitor — Tesla Fleet Intelligence for Colombia"},
 	KeySEODescription: {ES: "Magus Monitor conecta tu cuenta Tesla y convierte los datos de tu vehículo en un panel diario: batería, autonomía, odómetro, cargas y eficiencia. Hecho para Colombia, en kilómetros y grados Celsius.", EN: "Magus Monitor connects your Tesla account and turns your vehicle data into a daily dashboard: battery, range, odometer, charges and efficiency. Built for Colombia, in kilometres and degrees Celsius."},

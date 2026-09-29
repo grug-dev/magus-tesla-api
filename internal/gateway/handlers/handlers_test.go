@@ -1777,7 +1777,7 @@ func homeEngine(h *Handler, uid uuid.UUID, email string) *gin.Engine {
 
 // TestHome_SignedInRedirectsToDashboard verifies the signed-in home state: a
 // logged-in user hitting "/" is redirected straight to /dashboard (the default
-// authenticated experience). The old pages.Home content view is retired.
+// authenticated experience). Anonymous visitors get the landing page instead.
 func TestHome_SignedInRedirectsToDashboard(t *testing.T) {
 	uid := uuid.New()
 	const email = "driver@example.com"

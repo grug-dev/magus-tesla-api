@@ -203,6 +203,8 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 
 	r.GET("/", h.Home)
 	r.GET("/login", h.LoginPage)
+	r.GET("/privacy", h.Privacy)
+	r.GET("/terms", h.Terms)
 
 	// Crawler-facing routes. Both must sit at the domain ROOT — a search engine
 	// fetches these two exact paths and looks nowhere else — so neither can be a
