@@ -425,13 +425,14 @@ a green `make check` red for something nobody changed.
 ### CI — GitHub Actions
 
 `.github/workflows/ci.yml` runs on every pull request to `main` and on every push to `main`.
-It runs the same checks as `make check`, in three parallel jobs:
+It runs the same checks as `make check`, plus a Docker image build, in four parallel jobs:
 
 | Job | What it runs | Required to merge? |
 |---|---|---|
 | `checks` | `make build`, `make vet`, golangci-lint, every `*-guard` target, and a codegen drift check (`make sqlc templ`, then `git diff --exit-code`) | Yes |
 | `test` | `make test` — the full suite on a disposable testcontainers Postgres | Yes |
 | `vuln` | `govulncheck` | No — a new CVE turns it red with no repo change |
+| `docker` | Builds the `web`, `poller` and `migrate` images from `deploy/docker/Dockerfile` (no push) | Yes |
 
 Rules to keep it working:
 
@@ -453,7 +454,7 @@ Dependabot (`.github/dependabot.yml`) opens one grouped PR per week for Go modul
 Actions versions. CI runs on each of them.
 
 **GitHub settings (set once in the web UI, not in the repo):** a ruleset on `main` that requires
-a pull request and the `checks` and `test` status checks, and blocks force-push and deletion.
+a pull request and the `checks`, `test` and `docker` status checks, and blocks force-push and deletion.
 No approval is required — a solo owner cannot approve their own PR. Also turn on secret
 scanning with push protection (Settings → Code security).
 
